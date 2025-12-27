@@ -201,15 +201,15 @@ agents:
 - [x] Server with --port option
 - [x] Profile system (claude, codex, gemini)
 - [x] A2A tool for sending messages
-- [ ] `synapse start` command (daemonize)
+- [x] `synapse start` command (daemonize)
 
 ### Phase 2: Interactive Shell
-- [ ] `synapse-shell` with @Agent detection
-- [ ] Basic response collection (idle-based)
-- [ ] `--return` flag support
+- [x] `synapse-shell` with @Agent detection
+- [x] Basic response collection (idle-based)
+- [x] `--return` flag support
 
 ### Phase 3: Shell Integration
-- [ ] bash/zsh hook (`synapse shell-hook`)
+- [x] bash/zsh hook (`synapse shell-hook`)
 - [ ] Response streaming
 - [ ] Broadcast mode
 
