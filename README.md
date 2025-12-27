@@ -95,10 +95,10 @@ flowchart TB
 ### 1. インストール
 
 ```bash
-# 依存関係のインストール
-pip install -r requirements.txt
+# uv でインストール
+uv sync
 
-# CLI として使う場合
+# または pip の場合
 pip install -e .
 ```
 

@@ -12,9 +12,8 @@
 ## Build, Test, and Development Commands
 
 - Install dependencies:
-  - `pip install -r requirements.txt`
-- Install CLI locally:
-  - `pip install -e .`
+  - `uv sync` (recommended)
+  - or `pip install -e .`
 - Run an agent in interactive mode:
   - `synapse claude --port 8100`
 - Run in background server mode:

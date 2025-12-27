@@ -43,14 +43,16 @@ Synapse のエージェント間通信は **Google A2A プロトコル**に準�
 ## 2. インストール
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
-CLI を使う場合は editable install を推奨します。
+pip の場合は editable install を使用します。
 
 ```bash
 pip install -e .
 ```
+
+> `uv sync` を使用した場合は自動的に editable install されます。
 
 ---
 
