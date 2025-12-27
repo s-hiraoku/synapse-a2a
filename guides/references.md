@@ -25,10 +25,20 @@ flowchart TB
         list["list"]
         send["send"]
         logs["logs"]
+        external["external"]
+    end
+
+    subgraph External["external サブコマンド"]
+        ext_add["add"]
+        ext_list["list"]
+        ext_remove["remove"]
+        ext_send["send"]
+        ext_info["info"]
     end
 
     synapse --> Shortcuts
     synapse --> Commands
+    external --> External
 ```
 
 ---
@@ -185,6 +195,115 @@ synapse logs gemini -n 100
 
 ---
 
+### 1.8 synapse external
+
+外部 Google A2A エージェントを管理します。
+
+```bash
+synapse external <command> [options]
+```
+
+#### 1.8.1 synapse external add
+
+外部エージェントを発見して登録します。
+
+```bash
+synapse external add <url> [--alias ALIAS]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `url` | Yes | エージェントの URL |
+| `--alias`, `-a` | No | ショートネーム（省略時は自動生成） |
+
+**例**:
+
+```bash
+synapse external add https://agent.example.com
+synapse external add http://localhost:9000 --alias myagent
+```
+
+#### 1.8.2 synapse external list
+
+登録済み外部エージェントの一覧を表示します。
+
+```bash
+synapse external list
+```
+
+**出力形式**:
+
+```
+ALIAS           NAME                 URL                                      LAST SEEN
+------------------------------------------------------------------------------------------
+myagent         My Agent             http://localhost:9000                    2024-01-15T10:30:00
+example         Example Agent        https://agent.example.com                Never
+```
+
+#### 1.8.3 synapse external remove
+
+外部エージェントを登録解除します。
+
+```bash
+synapse external remove <alias>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `alias` | Yes | 削除するエージェントの alias |
+
+#### 1.8.4 synapse external send
+
+外部エージェントにメッセージを送信します。
+
+```bash
+synapse external send <alias> <message> [--wait]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `alias` | Yes | 送信先エージェントの alias |
+| `message` | Yes | メッセージ内容 |
+| `--wait`, `-w` | No | 完了を待つ |
+
+**例**:
+
+```bash
+synapse external send myagent "Hello!"
+synapse external send myagent "Process this" --wait
+```
+
+#### 1.8.5 synapse external info
+
+外部エージェントの詳細情報を表示します。
+
+```bash
+synapse external info <alias>
+```
+
+**出力例**:
+
+```
+Name: My Agent
+Alias: myagent
+URL: http://localhost:9000
+Description: An example agent
+Added: 2024-01-15T10:00:00Z
+Last Seen: 2024-01-15T10:30:00Z
+
+Capabilities:
+  streaming: False
+  multiTurn: True
+
+Skills:
+  - chat
+    Send messages to the agent
+  - analyze
+    Analyze provided content
+```
+
+---
+
 ## 2. HTTP API リファレンス
 
 ### 2.1 エンドポイント一覧
@@ -194,59 +313,79 @@ flowchart LR
     Client["クライアント"]
     Server["FastAPI Server"]
 
-    Client -->|"POST /message"| Server
+    Client -->|"POST /tasks/send"| Server
     Client -->|"GET /status"| Server
+    Client -->|"GET /.well-known/agent.json"| Server
+    Client -->|"POST /tasks/send-priority"| Server
+    Client -->|"/external/*"| Server
 ```
+
+#### Google A2A 互換 API
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| POST | `/message` | メッセージ送信 |
-| GET | `/status` | ステータス取得 |
+| GET | `/.well-known/agent.json` | Agent Card（エージェント情報） |
+| POST | `/tasks/send` | Task ベースでメッセージ送信 |
+| GET | `/tasks/{id}` | Task 状態取得 |
+| GET | `/tasks` | Task 一覧 |
+| POST | `/tasks/{id}/cancel` | Task キャンセル |
+| POST | `/tasks/send-priority` | Priority 付きメッセージ送信（Synapse 拡張） |
+
+#### 外部エージェント管理 API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/external/discover` | 外部エージェントを発見・登録 |
+| GET | `/external/agents` | 登録済み外部エージェント一覧 |
+| GET | `/external/agents/{alias}` | 外部エージェント詳細 |
+| DELETE | `/external/agents/{alias}` | 外部エージェント削除 |
+| POST | `/external/agents/{alias}/send` | 外部エージェントにメッセージ送信 |
 
 ---
 
-### 2.2 POST /message
+### 2.2 POST /tasks/send
 
-エージェントにメッセージを送信します。
+Task ベースでエージェントにメッセージを送信します。
 
 **リクエスト**:
 
 ```http
-POST /message HTTP/1.1
+POST /tasks/send HTTP/1.1
 Host: localhost:8100
 Content-Type: application/json
 
 {
-  "content": "メッセージ内容",
-  "priority": 1
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
 }
 ```
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `content` | string | Yes | 送信するメッセージ |
-| `priority` | int | Yes | 優先度（1-5） |
-
-**Priority の動作**:
-
-| 値 | 動作 |
-|----|------|
-| 1-4 | 直接 stdin に書き込み |
-| 5 | SIGINT 送信後に書き込み |
+| `message` | object | Yes | 送信するメッセージ |
+| `message.role` | string | Yes | "user" |
+| `message.parts` | array | Yes | メッセージパーツ |
 
 **レスポンス**:
 
 ```json
 {
-  "status": "sent",
-  "priority": 1
+  "task": {
+    "id": "uuid-task-id",
+    "status": "working",
+    "artifacts": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
 }
 ```
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `status` | string | 送信結果（"sent"） |
-| `priority` | int | 使用した優先度 |
+| `task.id` | string | タスク ID |
+| `task.status` | string | タスク状態 |
 
 **エラーレスポンス**:
 
@@ -265,9 +404,53 @@ Content-Type: application/json
 **curl 例**:
 
 ```bash
-curl -X POST http://localhost:8100/message \
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
+```
+
+### 2.2.1 POST /tasks/send-priority
+
+Priority 付きでメッセージを送信します（Synapse 拡張）。
+
+**リクエスト**:
+
+```http
+POST /tasks/send-priority?priority=1 HTTP/1.1
+Host: localhost:8100
+Content-Type: application/json
+
+{
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `priority` | int | No | 優先度（1-5、デフォルト: 1） |
+
+**Priority の動作**:
+
+| 値 | 動作 |
+|----|------|
+| 1-4 | 直接 stdin に書き込み |
+| 5 | SIGINT 送信後に書き込み |
+
+**curl 例**:
+
+```bash
+# 通常メッセージ
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=1" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
+
+# 緊急停止
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "処理を止めて"}]}}'
 ```
 
 ---
@@ -314,6 +497,174 @@ curl http://localhost:8100/status
 
 ---
 
+### 2.4 Google A2A 互換エンドポイント
+
+#### GET /.well-known/agent.json
+
+エージェントの Agent Card を取得します。
+
+**レスポンス**:
+
+```json
+{
+  "name": "Synapse Claude",
+  "description": "PTY-wrapped claude CLI agent with A2A communication",
+  "url": "http://localhost:8100",
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "multiTurn": true
+  },
+  "skills": [
+    {
+      "id": "chat",
+      "name": "Chat",
+      "description": "Send messages to the CLI agent"
+    }
+  ],
+  "extensions": {
+    "synapse": {
+      "pty_wrapped": true,
+      "priority_interrupt": true
+    }
+  }
+}
+```
+
+#### POST /tasks/send
+
+Task ベースでメッセージを送信します。
+
+**リクエスト**:
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "Hello!"}
+    ]
+  },
+  "context_id": "optional-context-id"
+}
+```
+
+**レスポンス**:
+
+```json
+{
+  "task": {
+    "id": "task-uuid",
+    "status": "working",
+    "message": {...},
+    "artifacts": [],
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  }
+}
+```
+
+---
+
+### 2.5 外部エージェント管理 API
+
+#### POST /external/discover
+
+外部 Google A2A エージェントを発見して登録します。
+
+**リクエスト**:
+
+```json
+{
+  "url": "http://external-agent:9000",
+  "alias": "myagent"
+}
+```
+
+**レスポンス**:
+
+```json
+{
+  "name": "External Agent",
+  "alias": "myagent",
+  "url": "http://external-agent:9000",
+  "description": "An external A2A agent",
+  "capabilities": {"streaming": false, "multiTurn": true},
+  "skills": [{"id": "chat", "name": "Chat", "description": "..."}],
+  "added_at": "2024-01-15T10:00:00Z",
+  "last_seen": null
+}
+```
+
+**curl 例**:
+
+```bash
+curl -X POST http://localhost:8100/external/discover \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://other-agent:9000", "alias": "other"}'
+```
+
+#### GET /external/agents
+
+登録済み外部エージェント一覧を取得します。
+
+**レスポンス**:
+
+```json
+[
+  {
+    "name": "External Agent",
+    "alias": "myagent",
+    "url": "http://external-agent:9000",
+    "description": "...",
+    "last_seen": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+#### GET /external/agents/{alias}
+
+特定の外部エージェント情報を取得します。
+
+#### DELETE /external/agents/{alias}
+
+外部エージェントを削除します。
+
+**レスポンス**:
+
+```json
+{"status": "removed", "alias": "myagent"}
+```
+
+#### POST /external/agents/{alias}/send
+
+外部エージェントにメッセージを送信します。
+
+**リクエスト**:
+
+```json
+{
+  "message": "Hello external agent!",
+  "wait_for_completion": true,
+  "timeout": 60
+}
+```
+
+**レスポンス**:
+
+```json
+{
+  "id": "task-uuid",
+  "status": "completed",
+  "artifacts": [
+    {"type": "text", "data": "Response from external agent"}
+  ]
+}
+```
+
+---
+
 ## 3. @Agent 記法リファレンス
 
 ### 3.1 構文
@@ -355,9 +706,24 @@ curl http://localhost:8100/status
 
 | 表示 | 意味 |
 |------|------|
-| `[→ agent]` | 送信成功（緑） |
+| `[→ agent (local)]` | ローカルエージェントへ送信成功（緑） |
+| `[→ agent (ext)]` | 外部エージェントへ送信成功（マゼンタ） |
 | `[← agent]` | レスポンス受信（シアン） |
 | `[✗ agent not found]` | エージェント未検出（赤） |
+
+### 3.5 外部エージェントへの送信
+
+`@Agent` 記法は外部 Google A2A エージェントにも対応しています。
+
+```text
+# ローカルエージェント（~/.a2a/registry/ で管理）
+@codex コードをレビューして
+
+# 外部エージェント（~/.a2a/external/ で管理）
+@myagent タスクを処理して
+```
+
+外部エージェントは事前に `synapse external add` で登録しておく必要があります。
 
 ---
 
@@ -367,10 +733,13 @@ curl http://localhost:8100/status
 
 ```
 ~/.a2a/
-└── registry/
-    ├── <agent_id_1>.json
-    ├── <agent_id_2>.json
-    └── <agent_id_3>.json
+├── registry/           # ローカルエージェント（実行中）
+│   ├── <agent_id_1>.json
+│   ├── <agent_id_2>.json
+│   └── <agent_id_3>.json
+└── external/           # 外部エージェント（永続的）
+    ├── <alias_1>.json
+    └── <alias_2>.json
 ```
 
 ### 4.2 Registry ファイル形式
@@ -397,7 +766,38 @@ curl http://localhost:8100/status
 | `working_dir` | string | 作業ディレクトリ |
 | `endpoint` | string | HTTP エンドポイント URL |
 
-### 4.3 Agent ID の生成
+### 4.3 外部エージェント Registry ファイル形式
+
+```json
+{
+  "name": "External Agent",
+  "url": "http://external-agent:9000",
+  "description": "An external A2A agent",
+  "capabilities": {
+    "streaming": false,
+    "multiTurn": true
+  },
+  "skills": [
+    {"id": "chat", "name": "Chat", "description": "..."}
+  ],
+  "added_at": "2024-01-15T10:00:00Z",
+  "last_seen": "2024-01-15T10:30:00Z",
+  "alias": "myagent"
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `name` | string | エージェント名（Agent Card から取得） |
+| `url` | string | エージェントの URL |
+| `description` | string | 説明 |
+| `capabilities` | object | エージェントの機能 |
+| `skills` | array | 利用可能なスキル |
+| `added_at` | string | 登録日時（ISO 8601） |
+| `last_seen` | string | 最終通信日時 |
+| `alias` | string | ショートネーム（@alias で使用） |
+
+### 4.4 Agent ID の生成
 
 ```python
 raw_key = f"{hostname}|{working_dir}|{agent_type}"
@@ -467,7 +867,8 @@ env:
 
 | パス | 説明 |
 |------|------|
-| `~/.a2a/registry/` | エージェント Registry |
+| `~/.a2a/registry/` | ローカルエージェント Registry |
+| `~/.a2a/external/` | 外部エージェント Registry |
 | `~/.synapse/logs/` | ログディレクトリ |
 | `~/.synapse/logs/<profile>.log` | エージェントログ |
 | `~/.synapse/logs/input_router.log` | InputRouter ログ |
@@ -501,12 +902,14 @@ env:
 
 | ファイル | 行数 | 説明 |
 |---------|------|------|
-| `synapse/cli.py` | ~320 | CLI エントリポイント |
+| `synapse/cli.py` | ~460 | CLI エントリポイント |
 | `synapse/controller.py` | ~245 | TerminalController |
-| `synapse/input_router.py` | ~220 | InputRouter |
+| `synapse/input_router.py` | ~270 | InputRouter（外部エージェント対応） |
 | `synapse/server.py` | ~150 | FastAPI サーバー |
 | `synapse/registry.py` | ~55 | AgentRegistry |
 | `synapse/shell.py` | ~190 | インタラクティブシェル |
+| `synapse/a2a_compat.py` | ~570 | Google A2A 互換レイヤー |
+| `synapse/a2a_client.py` | ~330 | 外部 A2A エージェントクライアント |
 | `synapse/tools/a2a.py` | ~75 | A2A CLI ツール |
 
 ### 8.2 クラス図
@@ -529,9 +932,11 @@ classDiagram
 
     class InputRouter {
         -registry: AgentRegistry
+        -a2a_client: A2AClient
         -line_buffer: str
         +process_char(char)
         +send_to_agent(name, message)
+        +_send_to_external_agent(agent, message)
         +get_feedback_message(agent, success)
     }
 
@@ -543,16 +948,38 @@ classDiagram
         +list_agents()
     }
 
+    class ExternalAgentRegistry {
+        -registry_dir: Path
+        -_cache: Dict
+        +add(agent)
+        +remove(alias)
+        +get(alias)
+        +list_agents()
+    }
+
+    class A2AClient {
+        -registry: ExternalAgentRegistry
+        +discover(url, alias)
+        +send_message(alias, message)
+        +get_task(alias, task_id)
+        +list_agents()
+    }
+
     class FastAPIServer {
         -controller: TerminalController
         -registry: AgentRegistry
-        +POST /message
+        +POST /tasks/send
+        +POST /tasks/send-priority
         +GET /status
+        +POST /external/discover
     }
 
     FastAPIServer --> TerminalController
     FastAPIServer --> AgentRegistry
+    FastAPIServer --> A2AClient
     InputRouter --> AgentRegistry
+    InputRouter --> A2AClient
+    A2AClient --> ExternalAgentRegistry
 ```
 
 ---

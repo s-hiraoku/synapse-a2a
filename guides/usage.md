@@ -110,10 +110,20 @@ flowchart TB
         list["list"]
         send["send"]
         logs["logs"]
+        external["external"]
+    end
+
+    subgraph External["external サブコマンド"]
+        ext_add["add"]
+        ext_list["list"]
+        ext_remove["remove"]
+        ext_send["send"]
+        ext_info["info"]
     end
 
     synapse --> Shortcuts
     synapse --> Commands
+    external --> External
 ```
 
 | コマンド | 説明 |
@@ -124,6 +134,7 @@ flowchart TB
 | `synapse list` | 実行中エージェント一覧 |
 | `synapse send` | メッセージ送信 |
 | `synapse logs <profile>` | ログ表示 |
+| `synapse external` | 外部エージェント管理 |
 
 ---
 
@@ -204,6 +215,69 @@ synapse logs claude --follow
 
 ---
 
+### 2.6 外部エージェント管理
+
+外部の Google A2A 互換エージェントを管理するコマンドです。
+
+#### 外部エージェントの発見・登録
+
+```bash
+synapse external add <url> [--alias ALIAS]
+```
+
+**例**:
+
+```bash
+synapse external add http://other-agent:9000
+synapse external add https://ai.example.com --alias myai
+```
+
+Agent Card (`/.well-known/agent.json`) を取得してエージェント情報を登録します。
+
+#### 登録済みエージェント一覧
+
+```bash
+synapse external list
+```
+
+**出力例**:
+
+```
+ALIAS           NAME                 URL                                      LAST SEEN
+------------------------------------------------------------------------------------------
+myai            Example AI           https://ai.example.com                   2025-01-15T10:30:00
+other           Other Agent          http://other-agent:9000                  Never
+```
+
+#### 外部エージェントにメッセージ送信
+
+```bash
+synapse external send <alias> <message> [--wait]
+```
+
+**例**:
+
+```bash
+synapse external send myai "Hello!"
+synapse external send myai "Process this task" --wait
+```
+
+`--wait` オプションで完了まで待機します。
+
+#### 外部エージェント情報表示
+
+```bash
+synapse external info <alias>
+```
+
+#### 外部エージェント削除
+
+```bash
+synapse external remove <alias>
+```
+
+---
+
 ## 3. @Agent 記法
 
 インタラクティブモードで他のエージェントにメッセージを送信する記法です。
@@ -230,18 +304,23 @@ flowchart LR
 ### 3.2 通常送信
 
 ```text
+# ローカルエージェント
 @codex 設計をレビューして
 @gemini このコードを最適化して
 @claude バグを修正して
+
+# 外部エージェント（事前に synapse external add で登録）
+@myai タスクを処理して
 ```
 
 **フィードバック**:
 
 ```
-[→ codex]
+[→ codex (local)]     # ローカルエージェント（緑色）
+[→ myai (ext)]        # 外部エージェント（マゼンタ色）
 ```
 
-送信に成功すると緑色のフィードバックが表示されます。
+送信に成功するとフィードバックが表示されます。
 
 ---
 
@@ -295,20 +374,24 @@ flowchart LR
 
 ## 4. HTTP API
 
-### 4.1 メッセージ送信
+### 4.1 メッセージ送信（A2A プロトコル）
+
+#### Task ベースでメッセージ送信
 
 ```bash
-curl -X POST http://localhost:8100/message \
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
 ```
 
 **リクエスト**:
 
 ```json
 {
-  "content": "メッセージ内容",
-  "priority": 1
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
 }
 ```
 
@@ -316,14 +399,19 @@ curl -X POST http://localhost:8100/message \
 
 ```json
 {
-  "status": "sent",
-  "priority": 1
+  "task": {
+    "id": "uuid-task-id",
+    "status": "working",
+    "artifacts": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
 }
 ```
 
----
+`task.id` で状態を追跡可能です。
 
-### 4.2 ステータス確認
+#### ステータス確認
 
 ```bash
 curl http://localhost:8100/status
@@ -346,6 +434,79 @@ curl http://localhost:8100/status
 | `BUSY` | 処理中 |
 | `IDLE` | 待機中（プロンプト表示中） |
 | `NOT_STARTED` | 未起動 |
+
+---
+
+### 4.2 Google A2A 互換 API（推奨）
+
+Google A2A プロトコルに準拠した API です。エージェント間通信の標準的な方法として、こちらの使用を推奨します。
+
+#### Agent Card 取得
+
+```bash
+curl http://localhost:8100/.well-known/agent.json
+```
+
+エージェントの能力やスキルを公開します。
+
+#### Task ベースでメッセージ送信
+
+```bash
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Hello!"}]
+    }
+  }'
+```
+
+**レスポンス**:
+
+```json
+{
+  "task": {
+    "id": "uuid-...",
+    "status": "working",
+    "artifacts": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
+}
+```
+
+#### Task 状態取得
+
+```bash
+curl http://localhost:8100/tasks/{task_id}
+```
+
+---
+
+### 4.3 外部エージェント管理 API
+
+#### 外部エージェントを発見・登録
+
+```bash
+curl -X POST http://localhost:8100/external/discover \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://other-agent:9000", "alias": "other"}'
+```
+
+#### 外部エージェント一覧
+
+```bash
+curl http://localhost:8100/external/agents
+```
+
+#### 外部エージェントにメッセージ送信
+
+```bash
+curl -X POST http://localhost:8100/external/agents/other/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello!", "wait_for_completion": true}'
+```
 
 ---
 
@@ -384,9 +545,10 @@ synapse send --target claude --priority 5 "処理を止めて"
 **HTTP API から**:
 
 ```bash
-curl -X POST http://localhost:8100/message \
+# 推奨: A2A プロトコル
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
-  -d '{"content": "止まれ", "priority": 5}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "止まれ"}]}}'
 ```
 
 **@Agent から**:
@@ -431,17 +593,20 @@ flowchart LR
 ```bash
 #!/bin/bash
 
-# テスト実行を Claude に依頼
-curl -X POST http://localhost:8100/message \
+# テスト実行を Claude に依頼（A2A プロトコル）
+RESULT=$(curl -s -X POST "http://localhost:8100/tasks/send" \
   -H "Content-Type: application/json" \
-  -d '{"content": "テストを実行して", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "テストを実行して"}]}}')
 
-# ポーリングして結果を待つ
+TASK_ID=$(echo $RESULT | jq -r '.task.id')
+
+# タスクの完了をポーリング
 while true; do
-  STATUS=$(curl -s http://localhost:8100/status | jq -r '.status')
-  if [ "$STATUS" = "IDLE" ]; then
+  TASK=$(curl -s "http://localhost:8100/tasks/$TASK_ID")
+  STATUS=$(echo $TASK | jq -r '.status')
+  if [ "$STATUS" = "completed" ]; then
     echo "Done!"
-    curl -s http://localhost:8100/status | jq -r '.context'
+    echo $TASK | jq -r '.artifacts[0].data'
     break
   fi
   sleep 5

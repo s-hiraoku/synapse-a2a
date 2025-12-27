@@ -6,6 +6,7 @@ import requests
 from datetime import datetime
 from typing import Optional, Tuple
 from synapse.registry import AgentRegistry
+from synapse.a2a_client import get_client, A2AClient
 
 # Simple file-based logging
 LOG_DIR = os.path.expanduser("~/.synapse/logs")
@@ -40,12 +41,14 @@ class InputRouter:
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
 
-    def __init__(self, registry: Optional[AgentRegistry] = None):
+    def __init__(self, registry: Optional[AgentRegistry] = None, a2a_client: Optional[A2AClient] = None):
         self.registry = registry or AgentRegistry()
+        self.a2a_client = a2a_client or get_client()
         self.line_buffer = ""
         self.in_escape_sequence = False
         self.pending_command: Optional[Tuple[str, str, bool]] = None
         self.pending_agent: Optional[str] = None  # Track last agent for feedback
+        self.is_external_agent: bool = False  # Track if last agent was external
 
     def process_char(self, char: str) -> Tuple[str, Optional[callable]]:
         """
@@ -120,18 +123,28 @@ class InputRouter:
     def send_to_agent(self, agent_name: str, message: str, want_response: bool = False) -> bool:
         """Send a message to another agent via A2A."""
         log("INFO", f"Sending to {agent_name}: {message}")
-        agents = self.registry.list_agents()
-        log("DEBUG", f"Available agents: {[info.get('agent_type') for info in agents.values()]}")
+        self.is_external_agent = False
 
-        # Find agent by name/type
+        # First, try local agents
+        agents = self.registry.list_agents()
+        log("DEBUG", f"Available local agents: {[info.get('agent_type') for info in agents.values()]}")
+
+        # Find agent by name/type in local registry
         target = None
         for agent_id, info in agents.items():
             if info.get("agent_type", "").lower() == agent_name:
                 target = info
                 break
 
+        # If not found locally, check external A2A agents
         if not target:
-            log("ERROR", f"Agent '{agent_name}' not found")
+            external_agent = self.a2a_client.registry.get(agent_name)
+            if external_agent:
+                log("INFO", f"Found external agent: {agent_name} at {external_agent.url}")
+                return self._send_to_external_agent(external_agent, message, want_response)
+
+        if not target:
+            log("ERROR", f"Agent '{agent_name}' not found (local or external)")
             self.last_response = None
             return False
 
@@ -142,25 +155,62 @@ class InputRouter:
             return False
 
         try:
-            log("INFO", f"POST {endpoint}/message")
-            # Send the message
-            response = requests.post(
-                f"{endpoint}/message",
-                json={"content": message, "priority": 1},
-                timeout=10
+            log("INFO", f"POST {endpoint}/tasks/send-priority (A2A)")
+            # Send using A2A protocol
+            task = self.a2a_client.send_to_local(
+                endpoint=endpoint,
+                message=message,
+                priority=1,
+                wait_for_completion=want_response,
+                timeout=60
             )
-            response.raise_for_status()
-            log("INFO", f"Response: {response.status_code}")
 
-            if want_response:
-                # Wait for response by polling status
-                self.last_response = self._wait_for_response(endpoint, agent_name)
+            if task:
+                log("INFO", f"Task created: {task.id}, status: {task.status}")
+                if want_response and task.artifacts:
+                    self.last_response = self._extract_text_from_artifacts(task.artifacts)
+                else:
+                    self.last_response = None
+                return True
+            else:
+                log("ERROR", f"Failed to create task")
+                self.last_response = None
+                return False
+
+        except Exception as e:
+            log("ERROR", f"Request failed: {e}")
+            self.last_response = None
+            return False
+
+    def _send_to_external_agent(self, agent, message: str, want_response: bool = False) -> bool:
+        """Send a message to an external Google A2A agent."""
+        self.is_external_agent = True
+
+        try:
+            task = self.a2a_client.send_message(
+                agent.alias,
+                message,
+                wait_for_completion=want_response,
+                timeout=60
+            )
+
+            if task:
+                if want_response and task.artifacts:
+                    # Extract text from artifacts
+                    responses = []
+                    for artifact in task.artifacts:
+                        if artifact.get("type") == "text":
+                            responses.append(str(artifact.get("data", "")))
+                    self.last_response = "\n".join(responses) if responses else None
+                else:
+                    self.last_response = None
+                return True
             else:
                 self.last_response = None
+                return False
 
-            return True
-        except requests.exceptions.RequestException as e:
-            log("ERROR", f"Request failed: {e}")
+        except Exception as e:
+            log("ERROR", f"External agent request failed: {e}")
             self.last_response = None
             return False
 
@@ -199,16 +249,29 @@ class InputRouter:
 
         return None
 
+    def _extract_text_from_artifacts(self, artifacts: list) -> Optional[str]:
+        """Extract text content from A2A artifacts."""
+        responses = []
+        for artifact in artifacts:
+            if isinstance(artifact, dict):
+                if artifact.get("type") == "text":
+                    responses.append(str(artifact.get("data", "")))
+        return "\n".join(responses) if responses else None
+
     def get_feedback_message(self, agent: str, success: bool) -> str:
         """Generate feedback message for the user."""
+        # Use different indicator for external agents
+        agent_type = "ext" if self.is_external_agent else "local"
+        color = "\x1b[35m" if self.is_external_agent else "\x1b[32m"  # Magenta for external, Green for local
+
         if success:
             if hasattr(self, 'last_response') and self.last_response:
                 # Include response from agent
-                return (f"\x1b[32m[→ {agent}]\x1b[0m\n"
+                return (f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
                         f"\x1b[36m[← {agent}]\x1b[0m\n"
                         f"{self.last_response}\n")
             else:
-                return f"\x1b[32m[→ {agent}]\x1b[0m\n"  # Green
+                return f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
         else:
             return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"  # Red
 
@@ -217,3 +280,4 @@ class InputRouter:
         self.line_buffer = ""
         self.in_escape_sequence = False
         self.pending_command = None
+        self.is_external_agent = False

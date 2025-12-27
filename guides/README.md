@@ -4,6 +4,22 @@
 
 ---
 
+## Synapse A2A とは
+
+**Synapse A2A** は、複数の AI エージェント（Claude、Gemini、Codex など）を統合的に管理・連携させるためのプロトコル実装です。Google A2A プロトコルに完全準拠し、エージェント間の通信を標準化された方式で行います。
+
+### 主な機能
+
+- **Google A2A プロトコル完全準拠**: Message/Part + Task 形式による標準化された通信
+- **@Agent 記法**: 直感的なエージェント間メッセージング（例: `@gemini タスクを実行して`）
+- **統合 CLI**: `synapse` コマンドによるエージェントの起動・管理・監視
+- **HTTP API**: RESTful な `/tasks/send` エンドポイントによるプログラマティックな制御
+- **Agent Card 対応**: `/.well-known/agent.json` による標準的なサービスディスカバリ
+- **外部エージェント連携**: 外部で動作する A2A 互換エージェントとの接続
+- **84 件のテストによる品質保証**: A2A 準拠性を継続的に検証
+
+---
+
 ## ドキュメント構成
 
 ```mermaid
@@ -24,8 +40,8 @@ flowchart TD
         Refs["references.md<br/>API/CLI リファレンス"]
     end
 
-    subgraph External["外部参照"]
-        Google["google-a2a-spec.md<br/>Google A2A 比較"]
+    subgraph External["外部連携"]
+        Google["google-a2a-spec.md<br/>Google A2A 互換性"]
     end
 
     subgraph Support["サポート"]
@@ -106,15 +122,16 @@ flowchart TD
 
 ---
 
-## 4. 外部参照
+## 4. 外部連携
 
 ### [google-a2a-spec.md](google-a2a-spec.md)
-**Google A2A プロトコルとの比較**
+**Google A2A プロトコル互換性**
 
 - Google A2A プロトコル概要
 - Agent Card / Task の概念
-- Synapse A2A との違い
-- 将来の統合可能性
+- Synapse A2A の互換機能
+- 外部エージェントへの接続方法
+- API エンドポイント一覧
 
 ---
 
@@ -162,11 +179,33 @@ synapse send --target codex --priority 1 "メッセージ"
 synapse stop claude
 ```
 
+### 外部エージェント管理
+
+```bash
+# 外部エージェントを発見・登録
+synapse external add http://other-agent:9000 --alias other
+
+# 登録済み外部エージェント一覧
+synapse external list
+
+# 外部エージェントにメッセージ送信
+synapse external send other "Hello!"
+
+# 外部エージェント詳細表示
+synapse external info other
+
+# 外部エージェント削除
+synapse external remove other
+```
+
 ### @Agent 記法
 
 ```text
-# 通常送信
+# ローカルエージェント
 @agent_name メッセージ
+
+# 外部エージェント（事前に登録が必要）
+@external_alias メッセージ
 
 # レスポンスを受け取る
 @agent_name --response "メッセージ"
@@ -175,13 +214,16 @@ synapse stop claude
 ### HTTP API
 
 ```bash
-# メッセージ送信
-curl -X POST http://localhost:8100/message \
+# メッセージ送信（A2A 準拠）
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
 
 # ステータス確認
 curl http://localhost:8100/status
+
+# Agent Card 取得
+curl http://localhost:8100/.well-known/agent.json
 ```
 
 ---
@@ -197,5 +239,5 @@ guides/
 ├── architecture.md        # アーキテクチャ
 ├── references.md          # API/CLI リファレンス
 ├── troubleshooting.md     # トラブルシューティング
-└── google-a2a-spec.md     # Google A2A 比較
+└── google-a2a-spec.md     # Google A2A 互換性
 ```
