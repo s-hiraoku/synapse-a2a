@@ -1,0 +1,5 @@
+command: "claude"
+args: []
+idle_regex: "> $"
+env:
+  TERM: "xterm-256color"

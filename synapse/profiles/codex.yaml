@@ -1,0 +1,5 @@
+command: "codex"
+args: []
+idle_regex: "> $" # 実際の Codex CLI のプロンプトに合わせて調整してください
+env:
+  TERM: "xterm-256color"

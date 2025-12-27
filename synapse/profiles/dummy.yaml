@@ -1,0 +1,4 @@
+command: "python3 -u dummy_agent.py"
+idle_regex: "> $"
+env:
+  PYTHONUNBUFFERED: "1"
