@@ -10,6 +10,7 @@
 - Synapse は各 CLI を **PTY でラップ**して起動します。
 - 起動したエージェントは `~/.a2a/registry/` に登録されます。
 - 端末内の `@Agent` 入力や HTTP API を介して相互にメッセージ送信できます。
+- 外部の Google A2A 互換エージェントとも連携可能です。
 
 ---
 
@@ -127,10 +128,51 @@ curl http://localhost:8100/status
 
 ---
 
-## 8. よくある問題
+## 8. 外部エージェントとの連携
+
+### 外部エージェントの登録
+
+他のマシンや別サービスで動作している Google A2A 互換エージェントと連携できます。
+
+```bash
+# 外部エージェントを発見・登録
+synapse external add http://other-server:9000 --alias other
+
+# 登録済みエージェント確認
+synapse external list
+```
+
+### 外部エージェントへのメッセージ送信
+
+```text
+# @Agent 記法（登録した alias を使用）
+@other タスクを処理して
+
+# CLI から
+synapse external send other "Hello!"
+```
+
+### HTTP API
+
+```bash
+# 外部エージェントを発見・登録
+curl -X POST http://localhost:8100/external/discover \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://other-server:9000", "alias": "other"}'
+
+# 外部エージェントにメッセージ送信
+curl -X POST http://localhost:8100/external/agents/other/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello!", "wait_for_completion": true}'
+```
+
+---
+
+## 9. よくある問題
 
 - 端末描画が崩れる / 入力欄が乱れる
 - ポートが使われている
 - エージェントが見つからない
+- 外部エージェントに接続できない
 
 詳しくは `guides/troubleshooting.md` を参照してください。

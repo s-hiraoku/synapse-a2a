@@ -92,34 +92,41 @@ env:
 ```mermaid
 flowchart TB
     Error["[✗ agent not found]"]
-    Check1{"エージェント起動済み?"}
-    Check2{"Registry ファイルあり?"}
+    Check1{"ローカルエージェント<br/>起動済み?"}
+    Check2{"外部エージェント<br/>登録済み?"}
     Check3{"エージェント名正しい?"}
 
     Error --> Check1
-    Check1 -->|"No"| Fix1["別ターミナルで起動"]
-    Check1 -->|"Yes"| Check2
-    Check2 -->|"No"| Fix2["synapse list で確認"]
+    Check1 -->|"No"| Check2
+    Check1 -->|"Yes"| Check3
+    Check2 -->|"No"| Fix2["synapse external add で登録"]
     Check2 -->|"Yes"| Check3
-    Check3 -->|"No"| Fix3["正しいエージェント名を使用"]
+    Check3 -->|"No"| Fix3["正しいエージェント名/alias を使用"]
 ```
 
 **確認コマンド**:
 
 ```bash
-# エージェント一覧を確認
+# ローカルエージェント一覧を確認
 synapse list
 
-# Registry ファイルを確認
+# 外部エージェント一覧を確認
+synapse external list
+
+# ローカル Registry ファイルを確認
 ls -la ~/.a2a/registry/
 cat ~/.a2a/registry/*.json | jq .
+
+# 外部 Registry ファイルを確認
+ls -la ~/.a2a/external/
+cat ~/.a2a/external/*.json | jq .
 ```
 
 **対処法**:
 
-1. 対象エージェントが起動しているか確認
-2. `synapse list` で登録されているか確認
-3. エージェント名（タイプ）が正しいか確認
+1. ローカルエージェントの場合: `synapse list` で起動確認
+2. 外部エージェントの場合: `synapse external list` で登録確認
+3. エージェント名（タイプ/alias）が正しいか確認
 
 ---
 
@@ -408,7 +415,80 @@ synapse start claude --port 8100
 
 ---
 
-## 8. 問題報告
+## 8. 外部エージェントの問題
+
+### 8.1 外部エージェントの発見に失敗する
+
+**症状**:
+
+```
+Failed to discover agent at http://example.com
+```
+
+**原因候補**:
+
+- URL が間違っている
+- エージェントが起動していない
+- ネットワーク接続の問題
+- Agent Card (`/.well-known/agent.json`) が提供されていない
+
+**確認コマンド**:
+
+```bash
+# Agent Card が取得できるか確認
+curl http://example.com/.well-known/agent.json
+```
+
+**対処法**:
+
+1. URL が正しいか確認（末尾のスラッシュに注意）
+2. 対象サーバーが起動しているか確認
+3. ファイアウォール/ネットワーク設定を確認
+
+---
+
+### 8.2 外部エージェントへのメッセージ送信に失敗する
+
+**症状**:
+
+- `@external_alias` でエラーになる
+- `synapse external send` がタイムアウトする
+
+**確認コマンド**:
+
+```bash
+# 外部エージェントの情報を確認
+synapse external info <alias>
+
+# 直接 API を叩いて確認
+curl -X POST http://<agent_url>/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "test"}]}}'
+```
+
+**対処法**:
+
+1. エージェントが応答しているか確認
+2. エージェントの URL が変更されていないか確認
+3. 必要に応じて再登録: `synapse external remove <alias>` → `synapse external add ...`
+
+---
+
+### 8.3 外部エージェントの登録情報をクリアしたい
+
+**対処法**:
+
+```bash
+# 個別削除
+synapse external remove <alias>
+
+# 全てクリア
+rm -rf ~/.a2a/external/*
+```
+
+---
+
+## 9. 問題報告
 
 問題が解決しない場合は、以下の情報を添えて報告してください：
 
@@ -418,6 +498,7 @@ synapse start claude --port 8100
 4. 使用している CLI ツール
 5. エラーメッセージ
 6. `~/.synapse/logs/input_router.log` の内容
+7. 外部エージェントの問題の場合: 対象 URL と Agent Card
 
 ---
 

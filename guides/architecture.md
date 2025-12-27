@@ -23,6 +23,7 @@ flowchart TB
         subgraph Network["ネットワーク"]
             Server["FastAPI Server"]
             Registry["AgentRegistry"]
+            A2AClient["A2AClient"]
         end
     end
 
@@ -30,18 +31,26 @@ flowchart TB
         Agent["claude / codex / gemini"]
     end
 
+    subgraph External["外部エージェント"]
+        ExtAgent["Google A2A Agent"]
+    end
+
     subgraph Storage["ストレージ"]
         RegistryDir["~/.a2a/registry/"]
+        ExternalDir["~/.a2a/external/"]
         LogDir["~/.synapse/logs/"]
     end
 
     Keyboard --> IR
     IR -->|"通常入力"| TC
     IR -->|"@Agent 検出"| Server
+    IR -->|"@External 検出"| A2AClient
     TC <-->|"PTY"| Agent
     Agent --> Display
     Server <--> Registry
+    A2AClient <-->|"HTTP"| ExtAgent
     Registry <--> RegistryDir
+    A2AClient <--> ExternalDir
     Server --> LogDir
 ```
 
@@ -105,22 +114,31 @@ stateDiagram-v2
 **ファイル**: `synapse/input_router.py`
 
 ユーザー入力を 1 文字ずつ解析し、`@Agent` パターンを検出してルーティングします。
+ローカルエージェントと外部エージェントの両方に対応しています。
 
 ```mermaid
 classDiagram
     class InputRouter {
         -registry: AgentRegistry
+        -a2a_client: A2AClient
         -line_buffer: str
         -in_escape_sequence: bool
         -pending_agent: str
+        -is_external_agent: bool
         +process_char(char): Tuple
         +process_input(data): List
         +send_to_agent(name, message, want_response): bool
+        +_send_to_external_agent(agent, message, want_response): bool
         +get_feedback_message(agent, success): str
         +reset()
         -_wait_for_response(endpoint, agent_name, timeout)
     }
 ```
+
+**エージェント検索順序**:
+
+1. ローカル Registry (`~/.a2a/registry/`) を検索
+2. 見つからない場合、外部 Registry (`~/.a2a/external/`) を検索
 
 **パターン検出**:
 
@@ -236,8 +254,71 @@ classDiagram
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| POST | `/message` | メッセージ送信 |
+| POST | `/message` | メッセージ送信（従来 API） |
 | GET | `/status` | ステータスとコンテキスト取得 |
+| GET | `/.well-known/agent.json` | Agent Card（Google A2A） |
+| POST | `/tasks/send` | Task 作成（Google A2A） |
+| GET | `/tasks/{id}` | Task 状態取得 |
+| POST | `/external/discover` | 外部エージェント発見 |
+| GET | `/external/agents` | 外部エージェント一覧 |
+| POST | `/external/agents/{alias}/send` | 外部エージェントへ送信 |
+
+---
+
+### 2.5 A2AClient
+
+**ファイル**: `synapse/a2a_client.py`
+
+外部の Google A2A 互換エージェントと通信するクライアントです。
+
+```mermaid
+classDiagram
+    class A2AClient {
+        -registry: ExternalAgentRegistry
+        -timeout: int
+        +discover(url, alias): ExternalAgent
+        +send_message(alias, message, wait): A2ATask
+        +get_task(alias, task_id): A2ATask
+        +cancel_task(alias, task_id): bool
+        +list_agents(): List
+        +remove_agent(alias): bool
+    }
+
+    class ExternalAgentRegistry {
+        -registry_dir: Path
+        -_cache: Dict
+        +add(agent): bool
+        +remove(alias): bool
+        +get(alias): ExternalAgent
+        +list_agents(): List
+        +update_last_seen(alias)
+    }
+
+    class ExternalAgent {
+        +name: str
+        +url: str
+        +description: str
+        +capabilities: Dict
+        +skills: List
+        +alias: str
+        +added_at: str
+        +last_seen: str
+    }
+
+    A2AClient --> ExternalAgentRegistry
+    ExternalAgentRegistry --> ExternalAgent
+```
+
+**主な機能**:
+
+| メソッド | 説明 |
+|---------|------|
+| `discover(url)` | Agent Card を取得して外部エージェントを登録 |
+| `send_message(alias, message)` | 外部エージェントにメッセージ送信 |
+| `get_task(alias, task_id)` | Task 状態を取得 |
+| `list_agents()` | 登録済み外部エージェント一覧 |
+
+**Registry ファイル**: `~/.a2a/external/<alias>.json`
 
 ---
 
@@ -464,22 +545,39 @@ flowchart LR
 ```
 synapse-a2a/
 ├── synapse/
-│   ├── cli.py              # CLI エントリポイント (320行)
-│   ├── controller.py       # TerminalController (245行)
-│   ├── registry.py         # AgentRegistry (55行)
-│   ├── input_router.py     # InputRouter (220行)
-│   ├── server.py           # FastAPI サーバー (150行)
-│   ├── shell.py            # インタラクティブシェル (190行)
+│   ├── cli.py              # CLI エントリポイント (~460行)
+│   ├── controller.py       # TerminalController (~245行)
+│   ├── registry.py         # AgentRegistry (~55行)
+│   ├── input_router.py     # InputRouter (~270行)
+│   ├── server.py           # FastAPI サーバー (~150行)
+│   ├── shell.py            # インタラクティブシェル (~190行)
+│   ├── a2a_compat.py       # Google A2A 互換レイヤー (~570行)
+│   ├── a2a_client.py       # 外部エージェントクライアント (~330行)
 │   ├── profiles/           # エージェントプロファイル
 │   │   ├── claude.yaml
 │   │   ├── codex.yaml
 │   │   ├── gemini.yaml
 │   │   └── dummy.yaml
 │   └── tools/
-│       └── a2a.py          # A2A CLI ツール (75行)
+│       └── a2a.py          # A2A CLI ツール (~75行)
 ├── dummy_agent.py          # テスト用エージェント
 ├── guides/                 # ドキュメント
 └── README.md
+```
+
+### ストレージ構造
+
+```
+~/.a2a/
+├── registry/               # ローカルエージェント（実行中のみ）
+│   └── <agent_id>.json
+└── external/               # 外部エージェント（永続的）
+    └── <alias>.json
+
+~/.synapse/
+└── logs/
+    ├── <profile>.log
+    └── input_router.log
 ```
 
 ---
@@ -493,11 +591,23 @@ synapse-a2a/
 
 ### 9.2 API の拡張
 
-`synapse/server.py` に新しいエンドポイントを追加可能。
+`synapse/server.py` または `synapse/a2a_compat.py` に新しいエンドポイントを追加可能。
 
-### 9.3 プロトコルの拡張
+### 9.3 Google A2A 互換機能（実装済み）
 
-将来的に Google A2A プロトコルとの互換レイヤーを追加する余地あり。
+`synapse/a2a_compat.py` で以下を実装済み：
+
+- Agent Card (`/.well-known/agent.json`)
+- Task API (`/tasks/send`, `/tasks/{id}`)
+- 外部エージェント管理 (`/external/*`)
+
+### 9.4 将来の拡張予定
+
+| 機能 | 優先度 | 説明 |
+|------|--------|------|
+| SSE ストリーミング | 中 | リアルタイム出力 |
+| Push 通知 | 低 | Webhook コールバック |
+| 認証 | 低 | OAuth2 / API Key |
 
 ---
 

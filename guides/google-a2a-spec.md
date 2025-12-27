@@ -406,7 +406,84 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
 
 ---
 
-## 8. 将来の拡張予定
+## 8. 外部エージェントへの接続
+
+Synapse A2A は Google A2A 互換エージェントに**クライアントとして接続**することもできます。
+
+### 8.1 アーキテクチャ
+
+```mermaid
+flowchart LR
+    subgraph Synapse["Synapse A2A"]
+        Client["A2AClient"]
+        Registry["ExternalAgentRegistry"]
+    end
+
+    subgraph External["外部エージェント"]
+        ExtAgent1["Agent A"]
+        ExtAgent2["Agent B"]
+    end
+
+    Client -->|"1. Discover"| ExtAgent1
+    ExtAgent1 -->|"2. Agent Card"| Client
+    Client -->|"3. /tasks/send"| ExtAgent1
+    ExtAgent1 -->|"4. Task Response"| Client
+    Client --> Registry
+    Client --> ExtAgent2
+```
+
+### 8.2 外部エージェントの登録
+
+```bash
+# CLI で登録
+synapse external add http://external-agent:9000 --alias myagent
+
+# HTTP API で登録
+curl -X POST http://localhost:8100/external/discover \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://external-agent:9000", "alias": "myagent"}'
+```
+
+### 8.3 @Agent 記法での利用
+
+```text
+# 外部エージェントにメッセージ送信
+@myagent タスクを処理して
+
+# レスポンスを待つ
+@myagent --response "結果を教えて"
+```
+
+### 8.4 外部エージェント管理 API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/external/discover` | エージェントを発見・登録 |
+| GET | `/external/agents` | 登録済みエージェント一覧 |
+| GET | `/external/agents/{alias}` | エージェント詳細 |
+| DELETE | `/external/agents/{alias}` | エージェント削除 |
+| POST | `/external/agents/{alias}/send` | メッセージ送信 |
+
+### 8.5 Registry の保存先
+
+外部エージェント情報は `~/.a2a/external/<alias>.json` に永続化されます。
+
+```json
+{
+  "name": "External Agent",
+  "url": "http://external-agent:9000",
+  "description": "An external A2A agent",
+  "capabilities": {"streaming": false, "multiTurn": true},
+  "skills": [{"id": "chat", "name": "Chat"}],
+  "added_at": "2025-01-15T10:00:00Z",
+  "last_seen": "2025-01-15T10:30:00Z",
+  "alias": "myagent"
+}
+```
+
+---
+
+## 9. 将来の拡張予定
 
 ```mermaid
 flowchart TB
@@ -414,6 +491,7 @@ flowchart TB
         AgentCard["Agent Card"]
         TaskAPI["Task API"]
         MessagePart["Message/Part"]
+        ExtClient["外部エージェント接続"]
     end
 
     subgraph Future["将来予定"]
@@ -426,7 +504,7 @@ flowchart TB
     Current --> Future
 ```
 
-### 8.1 検討事項
+### 9.1 検討事項
 
 | 項目 | 優先度 | 説明 |
 |------|--------|------|
@@ -437,7 +515,7 @@ flowchart TB
 
 ---
 
-## 9. MCP との関係
+## 10. MCP との関係
 
 Google は A2A プロトコルと **MCP (Model Context Protocol)** は補完関係にあると説明しています。
 
@@ -467,9 +545,9 @@ flowchart TB
 
 ---
 
-## 10. まとめ
+## 11. まとめ
 
-### 10.1 選択の指針
+### 11.1 選択の指針
 
 | 要件 | 推奨 |
 |------|------|
@@ -480,7 +558,7 @@ flowchart TB
 | ローカル開発で協調させたい | **Synapse A2A** |
 | エンタープライズ規模の展開 | **Google A2A** |
 
-### 10.2 共存の可能性
+### 11.2 共存の可能性
 
 Synapse A2A と Google A2A は異なるユースケースを対象としているため、共存が可能です。
 
