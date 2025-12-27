@@ -7,14 +7,47 @@ import yaml
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 
+# Global app instance for standalone mode
 app = FastAPI(title="Synapse A2A Server")
 
-# Global controller and registry instances
+# Global controller and registry instances (for standalone mode)
 controller: TerminalController = None
 registry: AgentRegistry = None
 current_agent_id: str = None
 agent_port: int = 8100
 agent_profile: str = 'claude'
+
+
+def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int) -> FastAPI:
+    """Create a FastAPI app with external controller and registry."""
+    new_app = FastAPI(title="Synapse A2A Server")
+
+    class MessageRequest(BaseModel):
+        priority: int
+        content: str
+
+    @new_app.post("/message")
+    async def send_message(msg: MessageRequest):
+        if not ctrl:
+            raise HTTPException(status_code=503, detail="Agent not running")
+
+        if msg.priority >= 5:
+            ctrl.interrupt()
+
+        ctrl.write(msg.content + "\n")
+        return {"status": "sent", "priority": msg.priority}
+
+    @new_app.get("/status")
+    async def get_status():
+        if not ctrl:
+            return {"status": "NOT_STARTED", "context": ""}
+
+        return {
+            "status": ctrl.status,
+            "context": ctrl.get_context()[-2000:]
+        }
+
+    return new_app
 
 def load_profile(profile_name: str):
     profile_path = os.path.join(os.path.dirname(__file__), 'profiles', f"{profile_name}.yaml")

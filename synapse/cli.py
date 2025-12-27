@@ -7,7 +7,20 @@ import sys
 import signal
 import subprocess
 import time
+import yaml
 from synapse.registry import AgentRegistry
+from synapse.controller import TerminalController
+
+# Default ports for each profile
+DEFAULT_PORTS = {
+    "claude": 8100,
+    "codex": 8101,
+    "gemini": 8102,
+    "dummy": 8199,
+}
+
+# Known profiles (for shortcut detection)
+KNOWN_PROFILES = {"claude", "codex", "gemini", "dummy"}
 
 
 def cmd_start(args):
@@ -154,17 +167,99 @@ def cmd_send(args):
         print("(--return not yet implemented)")
 
 
+def cmd_run_interactive(profile: str, port: int):
+    """Run an agent in interactive mode with input routing."""
+    # Load profile
+    profile_path = os.path.join(
+        os.path.dirname(__file__), 'profiles', f"{profile}.yaml"
+    )
+    if not os.path.exists(profile_path):
+        print(f"Profile '{profile}' not found")
+        sys.exit(1)
+
+    with open(profile_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # Merge environment
+    env = os.environ.copy()
+    if 'env' in config:
+        env.update(config['env'])
+
+    # Create registry and register this agent
+    registry = AgentRegistry()
+    agent_id = registry.get_agent_id(profile, os.getcwd())
+
+    # Create controller
+    controller = TerminalController(
+        command=config['command'],
+        idle_regex=config['idle_regex'],
+        env=env,
+        registry=registry
+    )
+
+    # Register agent
+    registry.register(agent_id, profile, port, status="BUSY")
+
+    print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
+    print()
+
+    try:
+        # Start the API server in background
+        import threading
+        from synapse.server import create_app
+        import uvicorn
+
+        app = create_app(controller, registry, agent_id, port)
+
+        def run_server():
+            uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+
+        # Give server time to start
+        time.sleep(1)
+
+        # Run interactive mode
+        controller.run_interactive()
+
+    except KeyboardInterrupt:
+        print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
+    finally:
+        registry.unregister(agent_id)
+        controller.stop()
+
+
 def main():
+    # Check for shortcut: synapse claude [--port PORT]
+    if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
+        profile = sys.argv[1]
+        port = DEFAULT_PORTS.get(profile, 8100)
+
+        # Check for --port option
+        if len(sys.argv) >= 4 and sys.argv[2] == "--port":
+            try:
+                port = int(sys.argv[3])
+            except ValueError:
+                print(f"Invalid port: {sys.argv[3]}")
+                sys.exit(1)
+
+        cmd_run_interactive(profile, port)
+        return
+
     parser = argparse.ArgumentParser(
         description="Synapse A2A - Agent-to-Agent Communication",
-        prog="synapse"
+        prog="synapse",
+        epilog="Shortcuts: synapse claude, synapse gemini --port 8102"
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
-    # start
-    p_start = subparsers.add_parser("start", help="Start an agent")
+    # start (background)
+    p_start = subparsers.add_parser("start", help="Start an agent in background")
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
-    p_start.add_argument("--port", type=int, default=8100, help="Server port")
+    p_start.add_argument("--port", type=int, help="Server port (default: auto)")
     p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
     p_start.set_defaults(func=cmd_start)
 
@@ -197,6 +292,10 @@ def main():
     if args.command is None:
         parser.print_help()
         sys.exit(1)
+
+    # Set default port based on profile for start command
+    if args.command == "start" and args.port is None:
+        args.port = DEFAULT_PORTS.get(args.profile, 8100)
 
     args.func(args)
 

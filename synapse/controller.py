@@ -2,14 +2,22 @@ import os
 import pty
 import select
 import subprocess
+import sys
+import termios
 import threading
+import tty
 import re
 import signal
 import time
 from typing import Optional, Callable
 
+from synapse.input_router import InputRouter
+from synapse.registry import AgentRegistry
+
+
 class TerminalController:
-    def __init__(self, command: str, idle_regex: str, env: Optional[dict] = None):
+    def __init__(self, command: str, idle_regex: str, env: Optional[dict] = None,
+                 registry: Optional[AgentRegistry] = None):
         self.command = command
         self.idle_regex = re.compile(idle_regex.encode('utf-8'))
         self.env = env or os.environ.copy()
@@ -21,6 +29,9 @@ class TerminalController:
         self.lock = threading.Lock()
         self.running = False
         self.thread = None
+        self.registry = registry or AgentRegistry()
+        self.input_router = InputRouter(self.registry)
+        self.interactive = False
 
     def start(self):
         self.master_fd, self.slave_fd = pty.openpty()
@@ -108,4 +119,76 @@ class TerminalController:
             self.process.terminate()
         if self.master_fd:
             os.close(self.master_fd)
+
+    def run_interactive(self):
+        """
+        Run in interactive mode with input routing.
+        Human's input is monitored for @Agent patterns.
+        """
+        self.interactive = True
+        self.start()
+
+        # Save terminal settings and switch to raw mode
+        stdin_fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(stdin_fd)
+
+        try:
+            tty.setraw(stdin_fd)
+
+            while self.running and self.process.poll() is None:
+                # Monitor both stdin (human input) and PTY output
+                r, _, _ = select.select([sys.stdin, self.master_fd], [], [], 0.1)
+
+                # Handle human input
+                if sys.stdin in r:
+                    data = os.read(stdin_fd, 1024)
+                    if not data:
+                        break
+                    self._handle_interactive_input(data)
+
+                # Handle PTY output (display to human)
+                if self.master_fd in r:
+                    try:
+                        data = os.read(self.master_fd, 1024)
+                        if not data:
+                            break
+
+                        # Update output buffer
+                        with self.lock:
+                            self.output_buffer += data
+                            if len(self.output_buffer) > 10000:
+                                self.output_buffer = self.output_buffer[-10000:]
+
+                        self._check_idle_state(data)
+
+                        # Display to human
+                        os.write(sys.stdout.fileno(), data)
+
+                    except OSError:
+                        break
+
+        except KeyboardInterrupt:
+            pass
+        finally:
+            # Restore terminal settings
+            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
+            self.stop()
+
+    def _handle_interactive_input(self, data: bytes):
+        """Process human input through the input router."""
+        text = data.decode('utf-8', errors='replace')
+
+        for char in text:
+            output, action = self.input_router.process_char(char)
+
+            if action:
+                # Execute A2A action
+                success = action()
+                # Show feedback
+                agent = self.input_router.pending_agent or "agent"
+                feedback = self.input_router.get_feedback_message(agent, success)
+                os.write(sys.stdout.fileno(), feedback.encode())
+            elif output:
+                # Pass through to PTY
+                os.write(self.master_fd, output.encode())
 
