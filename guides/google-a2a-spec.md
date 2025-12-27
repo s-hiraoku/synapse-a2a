@@ -1,13 +1,13 @@
 # Google A2A プロトコル互換性ガイド
 
 このドキュメントでは、Google が 2025 年 4 月に発表した **Agent2Agent (A2A) プロトコル**の概要と、
-Synapse A2A の互換性実装について解説します。
+Synapse A2A の互換性について解説します。
 
-> **v0.1.0 で Google A2A 互換レイヤーを実装しました。**
-> Agent Card、Task ベース API、Message/Part 構造に対応しています。
-> 内部処理も A2A 完全準拠です。
+> **Synapse A2A は Google A2A プロトコルに完全準拠しています。**
+> Agent Card、Task ベース API、Message/Part 構造をサポートし、
 > `@Agent` 記法、CLI ツール、エージェント間通信すべてが Message/Part + Task 形式を使用します。
-> 従来の `/message` エンドポイントは非推奨となり、内部で A2A Task を作成するラッパーに変更されました。
+> 従来の `/message` エンドポイントは互換性維持のために提供されていますが、
+> 内部で A2A Task を作成するラッパーとして動作します。
 
 ---
 

@@ -359,7 +359,7 @@ watch -n 1 'curl -s http://localhost:8100/status | jq .'
 
 内部通信のデバッグには、Google A2A 準拠の `/tasks/send` エンドポイントを使用してください。
 
-> **重要**: `/message` エンドポイントは非推奨です。新規開発では `/tasks/send` を使用してください。
+> **重要**: `/tasks/send` エンドポイントを使用してください。`/message` は後方互換性のためのみ提供されています。
 
 ```bash
 # フォアグラウンドで起動（ログが見える）
@@ -394,7 +394,7 @@ curl -s http://localhost:8100/tasks | jq .
 # Agent Card を確認
 curl -s http://localhost:8100/.well-known/agent.json | jq .
 
-# 非推奨: 旧 /message エンドポイント（後方互換性のため残存）
+# 後方互換: /message エンドポイント（/tasks/send を推奨）
 # curl -v http://localhost:8100/message \
 #   -H "Content-Type: application/json" \
 #   -d '{"content": "test", "priority": 1}'
@@ -641,14 +641,13 @@ curl -s http://localhost:8100/tasks/<task_id> | jq '{status, artifacts}'
 
 ---
 
-### 9.4 旧 /message エンドポイントからの移行
+### 9.4 API エンドポイントの比較
 
-**状況**:
-`/message` エンドポイントは非推奨となりました。新しい `/tasks/send` への移行を推奨します。
+**推奨 API と後方互換 API**:
 
-**変更点**:
+メッセージ送信には `/tasks/send` エンドポイントを使用してください。`/message` は後方互換性のために提供されています。
 
-| 項目 | 旧 API (`/message`) | 新 API (`/tasks/send`) |
+| 項目 | `/message` (後方互換) | `/tasks/send` (推奨) |
 |------|---------------------|------------------------|
 | エンドポイント | `POST /message` | `POST /tasks/send` |
 | 優先度指定 | `{"priority": 5}` | `POST /tasks/send-priority?priority=5` |
@@ -656,15 +655,10 @@ curl -s http://localhost:8100/tasks/<task_id> | jq '{status, artifacts}'
 | 状態追跡 | なし | `GET /tasks/{id}` |
 | 結果取得 | なし | `artifacts` フィールド |
 
-**移行例**:
+**使用例**:
 
 ```bash
-# 旧 API（非推奨）
-curl -X POST http://localhost:8100/message \
-  -H "Content-Type: application/json" \
-  -d '{"content": "hello", "priority": 1}'
-
-# 新 API（推奨）
+# 推奨: /tasks/send エンドポイント
 curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
   -d '{
@@ -673,10 +667,15 @@ curl -X POST http://localhost:8100/tasks/send \
       "parts": [{"type": "text", "text": "hello"}]
     }
   }'
+
+# 後方互換: /message エンドポイント
+curl -X POST http://localhost:8100/message \
+  -H "Content-Type: application/json" \
+  -d '{"content": "hello", "priority": 1}'
 ```
 
 **注意**:
-- 旧 `/message` エンドポイントは後方互換性のため残されていますが、内部的に A2A タスクを作成します
+- `/message` エンドポイントは内部的に A2A タスクを作成します
 - レスポンスに `task_id` が含まれるため、それを使って状態を追跡できます
 
 ---

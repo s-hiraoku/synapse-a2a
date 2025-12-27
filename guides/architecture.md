@@ -264,7 +264,7 @@ classDiagram
         -agent_id: str
         -port: int
         -submit_sequence: str
-        +POST /message [deprecated]
+        +POST /message
         +GET /status
         +POST /tasks/send
         +POST /tasks/send-priority
@@ -298,7 +298,7 @@ classDiagram
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| POST | `/message` | メッセージ送信（**DEPRECATED**: 内部で A2A Task を作成） |
+| POST | `/message` | シンプルなメッセージ送信（内部で A2A Task を作成） |
 | GET | `/status` | ステータスとコンテキスト取得 |
 | GET | `/.well-known/agent.json` | Agent Card（Google A2A） |
 | POST | `/tasks/send` | Task 作成（Google A2A 標準） |
@@ -540,11 +540,11 @@ sequenceDiagram
 
 ### 4.4 /message エンドポイントの内部変換
 
-従来の `/message` エンドポイントは後方互換性のために維持されていますが、内部的には A2A Task を作成します。
+`/message` エンドポイントはシンプルなインターフェースを提供し、内部的には A2A Task を作成します。
 
 ```mermaid
 sequenceDiagram
-    participant Client as 旧クライアント
+    participant Client as クライアント
     participant Server as FastAPI Server
     participant TaskStore as TaskStore
     participant TC as TerminalController
@@ -565,7 +565,7 @@ sequenceDiagram
 - 内部で A2A Message 形式に変換
 - TaskStore で Task を作成・管理
 - 返り値に `task_id` を含める（A2A 互換）
-- `/message` は DEPRECATED、`/tasks/send-priority` の使用を推奨
+- 完全な A2A 互換機能が必要な場合は `/tasks/send-priority` を使用
 
 ---
 
@@ -668,7 +668,7 @@ flowchart LR
 |---------|--------------|---------|
 | InputRouter | A2AClient.send_to_local() | `/tasks/send-priority` |
 | InputRouter | A2AClient.send_message() | `/tasks/send` |
-| 従来 API | `/message` (deprecated) | 内部で Task 作成 |
+| シンプル API | `/message` | 内部で Task 作成 |
 
 **メッセージ構造**: Message/Part 形式で統一
 
@@ -742,9 +742,9 @@ synapse-a2a/
 
 `synapse/server.py` または `synapse/a2a_compat.py` に新しいエンドポイントを追加可能。
 
-### 9.3 Google A2A 互換機能（実装済み）
+### 9.3 Google A2A 互換機能
 
-`synapse/a2a_compat.py` で以下を実装済み：
+`synapse/a2a_compat.py` で以下を提供：
 
 - Agent Card (`/.well-known/agent.json`)
 - Task API (`/tasks/send`, `/tasks/{id}`)

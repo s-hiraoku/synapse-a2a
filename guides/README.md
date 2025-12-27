@@ -4,13 +4,19 @@
 
 ---
 
-## v0.1.0 の特徴
+## Synapse A2A とは
 
-**Google A2A プロトコル完全準拠**
+**Synapse A2A** は、複数の AI エージェント（Claude、Gemini、Codex など）を統合的に管理・連携させるためのプロトコル実装です。Google A2A プロトコルに完全準拠し、エージェント間の通信を標準化された方式で行います。
 
-- @Agent 記法および CLI ツールが **Message/Part + Task** 形式を使用
-- `/message` エンドポイントは非推奨、`/tasks/send` を推奨
-- 84 件のテストで A2A 準拠性を検証
+### 主な機能
+
+- **Google A2A プロトコル完全準拠**: Message/Part + Task 形式による標準化された通信
+- **@Agent 記法**: 直感的なエージェント間メッセージング（例: `@gemini タスクを実行して`）
+- **統合 CLI**: `synapse` コマンドによるエージェントの起動・管理・監視
+- **HTTP API**: RESTful な `/tasks/send` エンドポイントによるプログラマティックな制御
+- **Agent Card 対応**: `/.well-known/agent.json` による標準的なサービスディスカバリ
+- **外部エージェント連携**: 外部で動作する A2A 互換エージェントとの接続
+- **84 件のテストによる品質保証**: A2A 準拠性を継続的に検証
 
 ---
 
@@ -208,7 +214,7 @@ synapse external remove other
 ### HTTP API
 
 ```bash
-# メッセージ送信（A2A 準拠 - 推奨）
+# メッセージ送信（A2A 準拠）
 curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
@@ -218,11 +224,6 @@ curl http://localhost:8100/status
 
 # Agent Card 取得
 curl http://localhost:8100/.well-known/agent.json
-
-# 従来 API（非推奨）
-curl -X POST http://localhost:8100/message \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Hello", "priority": 1}'
 ```
 
 ---
@@ -238,5 +239,5 @@ guides/
 ├── architecture.md        # アーキテクチャ
 ├── references.md          # API/CLI リファレンス
 ├── troubleshooting.md     # トラブルシューティング
-└── google-a2a-spec.md     # Google A2A 比較
+└── google-a2a-spec.md     # Google A2A 互換性
 ```

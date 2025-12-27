@@ -374,24 +374,24 @@ flowchart LR
 
 ## 4. HTTP API
 
-### 4.1 従来 API（⚠️ 非推奨）
+### 4.1 メッセージ送信（A2A プロトコル）
 
-> **注意**: `/message` エンドポイントは非推奨です。新しいコードでは `/tasks/send` または `/tasks/send-priority` を使用してください。
-
-#### メッセージ送信（非推奨）
+#### Task ベースでメッセージ送信
 
 ```bash
-curl -X POST http://localhost:8100/message \
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
 ```
 
 **リクエスト**:
 
 ```json
 {
-  "content": "メッセージ内容",
-  "priority": 1
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
 }
 ```
 
@@ -399,13 +399,17 @@ curl -X POST http://localhost:8100/message \
 
 ```json
 {
-  "status": "sent",
-  "priority": 1,
-  "task_id": "uuid-task-id"
+  "task": {
+    "id": "uuid-task-id",
+    "status": "working",
+    "artifacts": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
 }
 ```
 
-> 内部的に A2A Task が作成されるようになりました。`task_id` で追跡可能です。
+`task.id` で状態を追跡可能です。
 
 #### ステータス確認
 
@@ -433,7 +437,9 @@ curl http://localhost:8100/status
 
 ---
 
-### 4.2 Google A2A 互換 API
+### 4.2 Google A2A 互換 API（推奨）
+
+Google A2A プロトコルに準拠した API です。エージェント間通信の標準的な方法として、こちらの使用を推奨します。
 
 #### Agent Card 取得
 

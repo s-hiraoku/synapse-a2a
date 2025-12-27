@@ -313,19 +313,12 @@ flowchart LR
     Client["クライアント"]
     Server["FastAPI Server"]
 
-    Client -->|"POST /message"| Server
+    Client -->|"POST /tasks/send"| Server
     Client -->|"GET /status"| Server
     Client -->|"GET /.well-known/agent.json"| Server
-    Client -->|"POST /tasks/send"| Server
+    Client -->|"POST /tasks/send-priority"| Server
     Client -->|"/external/*"| Server
 ```
-
-#### Synapse API
-
-| メソッド | パス | 説明 |
-|---------|------|------|
-| POST | `/message` | メッセージ送信 |
-| GET | `/status` | ステータス取得 |
 
 #### Google A2A 互換 API
 
@@ -350,48 +343,49 @@ flowchart LR
 
 ---
 
-### 2.2 POST /message
+### 2.2 POST /tasks/send
 
-エージェントにメッセージを送信します。
+Task ベースでエージェントにメッセージを送信します。
 
 **リクエスト**:
 
 ```http
-POST /message HTTP/1.1
+POST /tasks/send HTTP/1.1
 Host: localhost:8100
 Content-Type: application/json
 
 {
-  "content": "メッセージ内容",
-  "priority": 1
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
 }
 ```
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `content` | string | Yes | 送信するメッセージ |
-| `priority` | int | Yes | 優先度（1-5） |
-
-**Priority の動作**:
-
-| 値 | 動作 |
-|----|------|
-| 1-4 | 直接 stdin に書き込み |
-| 5 | SIGINT 送信後に書き込み |
+| `message` | object | Yes | 送信するメッセージ |
+| `message.role` | string | Yes | "user" |
+| `message.parts` | array | Yes | メッセージパーツ |
 
 **レスポンス**:
 
 ```json
 {
-  "status": "sent",
-  "priority": 1
+  "task": {
+    "id": "uuid-task-id",
+    "status": "working",
+    "artifacts": [],
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
+  }
 }
 ```
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `status` | string | 送信結果（"sent"） |
-| `priority` | int | 使用した優先度 |
+| `task.id` | string | タスク ID |
+| `task.status` | string | タスク状態 |
 
 **エラーレスポンス**:
 
@@ -410,9 +404,53 @@ Content-Type: application/json
 **curl 例**:
 
 ```bash
-curl -X POST http://localhost:8100/message \
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
+```
+
+### 2.2.1 POST /tasks/send-priority
+
+Priority 付きでメッセージを送信します（Synapse 拡張）。
+
+**リクエスト**:
+
+```http
+POST /tasks/send-priority?priority=1 HTTP/1.1
+Host: localhost:8100
+Content-Type: application/json
+
+{
+  "message": {
+    "role": "user",
+    "parts": [{"type": "text", "text": "メッセージ内容"}]
+  }
+}
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `priority` | int | No | 優先度（1-5、デフォルト: 1） |
+
+**Priority の動作**:
+
+| 値 | 動作 |
+|----|------|
+| 1-4 | 直接 stdin に書き込み |
+| 5 | SIGINT 送信後に書き込み |
+
+**curl 例**:
+
+```bash
+# 通常メッセージ
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=1" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
+
+# 緊急停止
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "処理を止めて"}]}}'
 ```
 
 ---
@@ -930,9 +968,9 @@ classDiagram
     class FastAPIServer {
         -controller: TerminalController
         -registry: AgentRegistry
-        +POST /message
-        +GET /status
         +POST /tasks/send
+        +POST /tasks/send-priority
+        +GET /status
         +POST /external/discover
     }
 
