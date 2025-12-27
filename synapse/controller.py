@@ -9,6 +9,9 @@ import tty
 import re
 import signal
 import time
+import fcntl
+import struct
+import shutil
 from typing import Optional, Callable
 
 from synapse.input_router import InputRouter
@@ -147,11 +150,30 @@ class TerminalController:
         self.interactive = True
         self.running = True
 
+        def sync_pty_window_size():
+            """Sync current terminal size to the PTY master for TUI apps."""
+            if self.master_fd is None:
+                return
+
+            try:
+                size = shutil.get_terminal_size(fallback=(80, 24))
+                rows = size.lines
+                cols = size.columns
+                winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                fcntl.ioctl(self.master_fd, termios.TIOCSWINSZ, winsize)
+            except Exception:
+                # Best-effort; ignore failures to avoid breaking interaction
+                pass
+
+        def handle_winch(signum, frame):
+            sync_pty_window_size()
+
         def read_callback(fd):
             """Called when there's data to read from the PTY."""
             # Capture master_fd for API server to use
             if self.master_fd is None:
                 self.master_fd = fd
+                sync_pty_window_size()
 
             data = os.read(fd, 1024)
             if data:
@@ -196,6 +218,7 @@ class TerminalController:
             return output_bytes
 
         # Use pty.spawn for robust handling
+        signal.signal(signal.SIGWINCH, handle_winch)
         pty.spawn(
             self.command.split(),
             read_callback,
@@ -219,4 +242,3 @@ class TerminalController:
             elif output:
                 # Pass through to PTY
                 os.write(self.master_fd, output.encode())
-
