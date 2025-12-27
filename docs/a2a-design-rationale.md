@@ -263,7 +263,78 @@ pie title Synapse A2A の A2A 準拠度
 
 ---
 
-## 8. 参考資料
+## 8. CLI ツールのネイティブ A2A 対応状況（2025年12月時点）
+
+Synapse A2A が「過渡期のソリューション」であるかどうかを判断するため、主要 CLI ツールの A2A ネイティブ対応状況を調査しました。
+
+### 8.1 Gemini CLI
+
+```mermaid
+flowchart LR
+    subgraph GeminiCLI["Gemini CLI A2A 対応状況"]
+        Server["@google/gemini-cli-a2a-server<br/>✅ パッケージ存在"]
+        Client["A2A Client 機能<br/>❌ PR クローズ"]
+        Integration["CLI 統合<br/>⏳ P3 バックログ"]
+    end
+```
+
+| コンポーネント | 状態 | 詳細 |
+|---------------|------|------|
+| **A2A Server パッケージ** | ✅ 存在 | [`@google/gemini-cli-a2a-server`](https://www.npmjs.com/package/@google/gemini-cli-a2a-server) として npm に公開 |
+| **A2A Client 機能** | ❌ 未実装 | [PR #3079](https://github.com/google-gemini/gemini-cli/pull/3079) は「優先度低」でクローズ |
+| **CLI への統合** | ⏳ 検討中 | [Issue #10482](https://github.com/google-gemini/gemini-cli/issues/10482) は P3（バックログ） |
+
+**PR #3079 クローズの理由**:
+> "work to make gemini-cli an a2a client...is currently not prioritized"
+> （gemini-cli を A2A クライアントにする作業は現在優先されていない）
+
+**Issue #10482 の状況**:
+- A2A サーバーを CLI に統合する機能リクエスト
+- Draft PR (#10483) は存在するが「リファクタリング必要」
+- セキュリティ懸念：「巨大な攻撃対象になる」という指摘あり
+- **優先度 P3（バックログ）** のまま
+
+### 8.2 Claude Code
+
+| 項目 | 状態 |
+|------|------|
+| **A2A 対応** | ❌ 未対応 |
+| **公式計画** | 不明（公開情報なし） |
+
+Claude Code は現時点で A2A プロトコルをネイティブサポートしていません。
+
+### 8.3 その他の CLI ツール
+
+| ツール | A2A 対応 | 備考 |
+|--------|---------|------|
+| Codex CLI | ❌ | 未対応 |
+| GitHub Copilot CLI | ❌ | 未対応 |
+| AWS Q CLI | ❌ | 未対応 |
+
+### 8.4 Synapse A2A の位置づけ
+
+```mermaid
+flowchart TB
+    subgraph Now["現在（2025年12月）"]
+        CLI1["CLI ツール<br/>A2A 未統合"]
+        Synapse1["Synapse A2A<br/>✅ 必要"]
+    end
+
+    subgraph Future["将来（時期未定）"]
+        CLI2["CLI ツール<br/>A2A ネイティブ対応"]
+        Synapse2["Synapse A2A<br/>⚠️ 不要になる可能性"]
+    end
+
+    Now -->|"CLI が A2A 統合後"| Future
+```
+
+**結論**: 2025年12月時点では、主要な CLI ツールはいずれも A2A をネイティブサポートしていません。したがって、Synapse A2A の PTY ラッピングアプローチは**依然として有効かつ必要**です。
+
+ただし、Gemini CLI では A2A 統合が検討されており（優先度は低いものの）、将来的には CLI ツールが A2A をネイティブサポートする可能性があります。その場合、Synapse A2A は不要になります。
+
+---
+
+## 9. 参考資料
 
 ### 公式ドキュメント
 
@@ -277,6 +348,13 @@ pie title Synapse A2A の A2A 準拠度
 - [Agent2Agent protocol (A2A) is getting an upgrade | Google Cloud Blog](https://cloud.google.com/blog/products/ai-machine-learning/agent2agent-protocol-is-getting-an-upgrade)
 - [How to Build Two Python Agents with Google's A2A Protocol](https://docs.kanaries.net/articles/build-agent-with-a2a)
 
+### Gemini CLI A2A 関連
+
+- [feat: Adding A2A Support - PR #3079](https://github.com/google-gemini/gemini-cli/pull/3079) - クローズ済み
+- [Integrate A2A Server into Gemini CLI - Issue #10482](https://github.com/google-gemini/gemini-cli/issues/10482) - P3 バックログ
+- [RFC: Gemini CLI A2A Development-Tool Extension](https://github.com/google-gemini/gemini-cli/discussions/7822)
+- [@google/gemini-cli-a2a-server - npm](https://www.npmjs.com/package/@google/gemini-cli-a2a-server)
+
 ### 関連ドキュメント
 
 - [google-a2a-spec.md](../guides/google-a2a-spec.md) - Google A2A プロトコル互換性ガイド
@@ -288,4 +366,5 @@ pie title Synapse A2A の A2A 準拠度
 
 | 日付 | 内容 |
 |------|------|
+| 2025-12-28 | CLI ツールのネイティブ A2A 対応状況（セクション8）を追加 |
 | 2025-12-28 | 初版作成。Web 調査に基づく設計思想分析 |
