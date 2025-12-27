@@ -122,20 +122,24 @@ async def startup_event():
     if 'env' in profile:
         env.update(profile['env'])
 
+    # Registry Registration (before controller to pass agent_id)
+    registry = AgentRegistry()
+    current_agent_id = registry.get_agent_id(profile_name, agent_port)
+
     controller = TerminalController(
         command=profile['command'],
         idle_regex=profile['idle_regex'],
-        env=env
+        env=env,
+        agent_id=current_agent_id,
+        agent_type=profile_name,
+        submit_seq=submit_sequence
     )
     controller.start()
 
-    # Registry Registration
-    registry = AgentRegistry()
-    current_agent_id = registry.get_agent_id(profile_name, os.getcwd())
     registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
 
     # Add Google A2A compatible routes
-    a2a_router = create_a2a_router(controller, profile_name, agent_port, submit_sequence)
+    a2a_router = create_a2a_router(controller, profile_name, agent_port, submit_sequence, current_agent_id)
     app.include_router(a2a_router)
 
     print(f"Started agent: {profile['command']}")

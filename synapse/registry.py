@@ -11,12 +11,9 @@ class AgentRegistry:
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.hostname = socket.gethostname()
 
-    def get_agent_id(self, agent_type: str, working_dir: str) -> str:
-        """Generates a consistent unique ID based on environment."""
-        # Normalize path
-        abs_work_dir = os.path.abspath(working_dir)
-        raw_key = f"{self.hostname}|{abs_work_dir}|{agent_type}"
-        return hashlib.sha256(raw_key.encode('utf-8')).hexdigest()
+    def get_agent_id(self, agent_type: str, port: int) -> str:
+        """Generates a unique agent ID in format: synapse-{agent_type}-{port}."""
+        return f"synapse-{agent_type}-{port}"
 
     def register(self, agent_id: str, agent_type: str, port: int, status: str = "STARTING"):
         """Writes connection info to registry file."""

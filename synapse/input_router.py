@@ -36,7 +36,8 @@ class InputRouter:
 
     # Pattern: @AgentName [--response] message
     # --response: return response to sender's terminal
-    A2A_PATTERN = re.compile(r'^@(\w+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
+    # Agent name can include hyphens and numbers (e.g., synapse-claude-8100)
+    A2A_PATTERN = re.compile(r'^@([\w-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
@@ -127,14 +128,29 @@ class InputRouter:
 
         # First, try local agents
         agents = self.registry.list_agents()
-        log("DEBUG", f"Available local agents: {[info.get('agent_type') for info in agents.values()]}")
+        log("DEBUG", f"Available local agents: {list(agents.keys())}")
 
-        # Find agent by name/type in local registry
+        # Find agent by agent_id or agent_type in local registry
+        # Matching priority:
+        # 1. Exact match on agent_id (e.g., synapse-claude-8100)
+        # 2. Match on agent_type (e.g., claude)
         target = None
+        agent_name_lower = agent_name.lower()
+
+        # First, try exact match on agent_id
         for agent_id, info in agents.items():
-            if info.get("agent_type", "").lower() == agent_name:
+            if agent_id.lower() == agent_name_lower:
                 target = info
+                log("DEBUG", f"Matched by agent_id: {agent_id}")
                 break
+
+        # If not found, try match on agent_type
+        if not target:
+            for agent_id, info in agents.items():
+                if info.get("agent_type", "").lower() == agent_name_lower:
+                    target = info
+                    log("DEBUG", f"Matched by agent_type: {info.get('agent_type')}")
+                    break
 
         # If not found locally, check external A2A agents
         if not target:

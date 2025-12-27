@@ -236,7 +236,8 @@ def create_a2a_router(
     controller,
     agent_type: str,
     port: int,
-    submit_seq: str = "\n"
+    submit_seq: str = "\n",
+    agent_id: str = None
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -246,10 +247,14 @@ def create_a2a_router(
         agent_type: Agent type (claude, codex, gemini, etc.)
         port: Server port
         submit_seq: Submit sequence for the CLI
+        agent_id: Unique agent ID (e.g., synapse-claude-8100)
 
     Returns:
         FastAPI APIRouter with A2A endpoints
     """
+    # Generate agent_id if not provided
+    if agent_id is None:
+        agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
 
     # --------------------------------------------------------
@@ -299,6 +304,11 @@ def create_a2a_router(
                     "priority_interrupt": True,
                     "at_agent_syntax": True,
                     "submit_sequence": repr(submit_seq),
+                    "agent_id": agent_id,
+                    "addressable_as": [
+                        f"@{agent_id}",
+                        f"@{agent_type}",
+                    ],
                 }
             }
         )

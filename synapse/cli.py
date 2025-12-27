@@ -283,6 +283,7 @@ def cmd_run_interactive(profile: str, port: int):
 
     # Load submit sequence from profile (decode escape sequences)
     submit_seq = config.get('submit_sequence', '\n').encode().decode('unicode_escape')
+    startup_delay = config.get('startup_delay', 3)
 
     # Merge environment
     env = os.environ.copy()
@@ -291,14 +292,18 @@ def cmd_run_interactive(profile: str, port: int):
 
     # Create registry and register this agent
     registry = AgentRegistry()
-    agent_id = registry.get_agent_id(profile, os.getcwd())
+    agent_id = registry.get_agent_id(profile, port)
 
     # Create controller
     controller = TerminalController(
         command=config['command'],
         idle_regex=config['idle_regex'],
         env=env,
-        registry=registry
+        registry=registry,
+        agent_id=agent_id,
+        agent_type=profile,
+        submit_seq=submit_seq,
+        startup_delay=startup_delay
     )
 
     # Register agent
