@@ -77,6 +77,10 @@ flowchart TB
         Input["キーボード入力"]
     end
 
+    subgraph External["外部 A2A エージェント"]
+        ExtAgent["Google A2A Agent"]
+    end
+
     subgraph Synapse["Synapse A2A"]
         IR["InputRouter<br/>@Agent 検出"]
         A2AClient["A2AClient<br/>A2A プロトコル通信"]
@@ -89,19 +93,16 @@ flowchart TB
         Agent["claude / codex / gemini"]
     end
 
-    subgraph External["外部 A2A エージェント"]
-        ExtAgent["Google A2A Agent"]
-    end
-
     Input --> IR
     IR -->|"通常入力"| TC
     IR -->|"@Agent"| A2AClient
-    A2AClient -->|"A2A Task"| Server
-    A2AClient -->|"A2A Task"| ExtAgent
+    A2AClient -->|"POST /tasks/send"| Server
+    A2AClient -->|"POST /tasks/send"| ExtAgent
+    ExtAgent -->|"POST /tasks/send"| Server
+    Server -->|"write()"| TC
     TC <-->|"PTY"| Agent
     Server --> Registry
     Registry -->|"エージェント検索"| A2AClient
-    Server -->|"/tasks/send-priority"| OtherAgent["他の Synapse Agent"]
 ```
 
 ### 主要コンポーネント
@@ -338,7 +339,7 @@ curl http://localhost:8100/.well-known/agent.json
   "name": "Synapse Claude",
   "description": "PTY-wrapped claude CLI agent with A2A communication",
   "url": "http://localhost:8100",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,
