@@ -1,0 +1,412 @@
+"""
+Google A2A Protocol Compatibility Layer
+
+This module provides Google A2A protocol compatible endpoints while
+maintaining Synapse A2A's unique PTY-wrapping capabilities.
+
+Google A2A Spec: https://a2a-protocol.org/latest/specification/
+"""
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Literal
+from datetime import datetime
+from uuid import uuid4
+import threading
+
+# Task state mapping from Google A2A spec
+TaskState = Literal[
+    "submitted",      # Task received
+    "working",        # Task in progress
+    "input_required", # Waiting for additional input
+    "completed",      # Task finished successfully
+    "failed",         # Task failed
+    "canceled",       # Task was canceled
+]
+
+
+# ============================================================
+# Pydantic Models (Google A2A Compatible)
+# ============================================================
+
+class TextPart(BaseModel):
+    """Text content part"""
+    type: Literal["text"] = "text"
+    text: str
+
+
+class FilePart(BaseModel):
+    """File reference part"""
+    type: Literal["file"] = "file"
+    file: Dict[str, Any]
+
+
+class DataPart(BaseModel):
+    """Structured data part"""
+    type: Literal["data"] = "data"
+    data: Dict[str, Any]
+
+
+# Union type for parts
+Part = TextPart | FilePart | DataPart
+
+
+class Message(BaseModel):
+    """A2A Message with role and parts"""
+    role: Literal["user", "agent"] = "user"
+    parts: List[TextPart | FilePart | DataPart]
+
+
+class Artifact(BaseModel):
+    """Task output artifact"""
+    type: str = "text"
+    data: Any
+
+
+class Task(BaseModel):
+    """A2A Task with lifecycle"""
+    id: str
+    status: TaskState
+    message: Optional[Message] = None
+    artifacts: List[Artifact] = []
+    created_at: str
+    updated_at: str
+    context_id: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class SendMessageRequest(BaseModel):
+    """Request to send a message"""
+    message: Message
+    context_id: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class SendMessageResponse(BaseModel):
+    """Response after sending a message"""
+    task: Task
+
+
+class AgentSkill(BaseModel):
+    """Agent capability/skill definition"""
+    id: str
+    name: str
+    description: str
+    parameters: Optional[Dict[str, Any]] = None
+
+
+class AgentCapabilities(BaseModel):
+    """Agent capabilities declaration"""
+    streaming: bool = False
+    pushNotifications: bool = False
+    multiTurn: bool = True
+
+
+class AgentCard(BaseModel):
+    """Google A2A Agent Card for discovery"""
+    name: str
+    description: str
+    url: str
+    version: str = "1.0.0"
+    capabilities: AgentCapabilities
+    skills: List[AgentSkill] = []
+    securitySchemes: Dict[str, Any] = {}
+    # Synapse A2A extensions
+    extensions: Dict[str, Any] = {}
+
+
+# ============================================================
+# Task Store (In-Memory)
+# ============================================================
+
+class TaskStore:
+    """Thread-safe in-memory task storage"""
+
+    def __init__(self):
+        self._tasks: Dict[str, Task] = {}
+        self._lock = threading.Lock()
+
+    def create(self, message: Message, context_id: Optional[str] = None) -> Task:
+        """Create a new task"""
+        now = datetime.utcnow().isoformat() + "Z"
+        task = Task(
+            id=str(uuid4()),
+            status="submitted",
+            message=message,
+            artifacts=[],
+            created_at=now,
+            updated_at=now,
+            context_id=context_id,
+        )
+        with self._lock:
+            self._tasks[task.id] = task
+        return task
+
+    def get(self, task_id: str) -> Optional[Task]:
+        """Get a task by ID"""
+        with self._lock:
+            return self._tasks.get(task_id)
+
+    def update_status(self, task_id: str, status: TaskState) -> Optional[Task]:
+        """Update task status"""
+        with self._lock:
+            if task_id in self._tasks:
+                task = self._tasks[task_id]
+                task.status = status
+                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                return task
+        return None
+
+    def add_artifact(self, task_id: str, artifact: Artifact) -> Optional[Task]:
+        """Add artifact to task"""
+        with self._lock:
+            if task_id in self._tasks:
+                task = self._tasks[task_id]
+                task.artifacts.append(artifact)
+                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                return task
+        return None
+
+    def list_tasks(self, context_id: Optional[str] = None) -> List[Task]:
+        """List all tasks, optionally filtered by context"""
+        with self._lock:
+            if context_id:
+                return [t for t in self._tasks.values() if t.context_id == context_id]
+            return list(self._tasks.values())
+
+
+# Global task store
+task_store = TaskStore()
+
+
+# ============================================================
+# A2A Router Factory
+# ============================================================
+
+def create_a2a_router(
+    controller,
+    agent_type: str,
+    port: int,
+    submit_seq: str = "\n"
+) -> APIRouter:
+    """
+    Create Google A2A compatible router.
+
+    Args:
+        controller: TerminalController instance
+        agent_type: Agent type (claude, codex, gemini, etc.)
+        port: Server port
+        submit_seq: Submit sequence for the CLI
+
+    Returns:
+        FastAPI APIRouter with A2A endpoints
+    """
+    router = APIRouter(tags=["Google A2A Compatible"])
+
+    # --------------------------------------------------------
+    # Agent Card (Discovery)
+    # --------------------------------------------------------
+
+    @router.get("/.well-known/agent.json", response_model=AgentCard)
+    async def get_agent_card():
+        """
+        Return Agent Card for discovery.
+
+        This endpoint follows the Google A2A specification for agent discovery.
+        """
+        return AgentCard(
+            name=f"Synapse {agent_type.capitalize()}",
+            description=f"PTY-wrapped {agent_type} CLI agent with A2A communication",
+            url=f"http://localhost:{port}",
+            version="1.0.0",
+            capabilities=AgentCapabilities(
+                streaming=False,  # Not yet supported
+                pushNotifications=False,  # Not yet supported
+                multiTurn=True,
+            ),
+            skills=[
+                AgentSkill(
+                    id="chat",
+                    name="Chat",
+                    description="Send messages to the CLI agent",
+                ),
+                AgentSkill(
+                    id="interrupt",
+                    name="Interrupt",
+                    description="Interrupt current processing (Synapse extension)",
+                    parameters={
+                        "priority": {
+                            "type": "integer",
+                            "description": "Priority level (5 for interrupt)",
+                            "default": 1
+                        }
+                    }
+                ),
+            ],
+            securitySchemes={},  # No auth for local use
+            extensions={
+                "synapse": {
+                    "pty_wrapped": True,
+                    "priority_interrupt": True,
+                    "at_agent_syntax": True,
+                    "submit_sequence": repr(submit_seq),
+                }
+            }
+        )
+
+    # --------------------------------------------------------
+    # Task Management
+    # --------------------------------------------------------
+
+    def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
+        """Map Synapse status to Google A2A task state"""
+        mapping = {
+            "STARTING": "submitted",
+            "BUSY": "working",
+            "IDLE": "completed",
+            "NOT_STARTED": "submitted",
+        }
+        return mapping.get(synapse_status, "working")
+
+    @router.post("/tasks/send", response_model=SendMessageResponse)
+    async def send_message(request: SendMessageRequest):
+        """
+        Send a message to the agent (Google A2A compatible).
+
+        Creates a task and sends the message content to the CLI via PTY.
+        """
+        if not controller:
+            raise HTTPException(status_code=503, detail="Agent not running")
+
+        # Extract text from message parts
+        text_content = ""
+        for part in request.message.parts:
+            if isinstance(part, TextPart) or (hasattr(part, 'type') and part.type == "text"):
+                text_content += part.text + "\n"
+
+        text_content = text_content.strip()
+        if not text_content:
+            raise HTTPException(status_code=400, detail="No text content in message")
+
+        # Create task
+        task = task_store.create(request.message, request.context_id)
+
+        # Update to working
+        task_store.update_status(task.id, "working")
+
+        # Send to PTY
+        try:
+            controller.write(text_content, submit_seq=submit_seq)
+        except Exception as e:
+            task_store.update_status(task.id, "failed")
+            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
+
+        # Get updated task
+        task = task_store.get(task.id)
+        return SendMessageResponse(task=task)
+
+    @router.get("/tasks/{task_id}", response_model=Task)
+    async def get_task(task_id: str):
+        """
+        Get task status and results.
+
+        Maps Synapse IDLE/BUSY status to A2A task states.
+        """
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Update status based on controller state
+        if controller and task.status == "working":
+            synapse_status = controller.status
+            a2a_status = map_synapse_status_to_a2a(synapse_status)
+
+            if a2a_status == "completed":
+                task_store.update_status(task_id, "completed")
+                # Add output as artifact
+                context = controller.get_context()[-2000:]
+                if context:
+                    task_store.add_artifact(task_id, Artifact(
+                        type="text",
+                        data=context
+                    ))
+
+            task = task_store.get(task_id)
+
+        return task
+
+    @router.get("/tasks", response_model=List[Task])
+    async def list_tasks(context_id: Optional[str] = None):
+        """List all tasks, optionally filtered by context."""
+        return task_store.list_tasks(context_id)
+
+    @router.post("/tasks/{task_id}/cancel")
+    async def cancel_task(task_id: str):
+        """
+        Cancel a running task.
+
+        Sends SIGINT to the CLI process (Synapse extension).
+        """
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        if task.status not in ["submitted", "working"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel task in {task.status} state"
+            )
+
+        # Interrupt the CLI
+        if controller:
+            controller.interrupt()
+
+        task_store.update_status(task_id, "canceled")
+        return {"status": "canceled", "task_id": task_id}
+
+    # --------------------------------------------------------
+    # Synapse Extensions (Priority Interrupt)
+    # --------------------------------------------------------
+
+    @router.post("/tasks/send-priority", response_model=SendMessageResponse)
+    async def send_priority_message(
+        request: SendMessageRequest,
+        priority: int = 1
+    ):
+        """
+        Send a message with priority (Synapse extension).
+
+        Priority 5 sends SIGINT before the message for interrupt.
+        """
+        if not controller:
+            raise HTTPException(status_code=503, detail="Agent not running")
+
+        # Extract text
+        text_content = ""
+        for part in request.message.parts:
+            if isinstance(part, TextPart) or (hasattr(part, 'type') and part.type == "text"):
+                text_content += part.text + "\n"
+
+        text_content = text_content.strip()
+        if not text_content:
+            raise HTTPException(status_code=400, detail="No text content in message")
+
+        # Create task
+        task = task_store.create(request.message, request.context_id)
+        task_store.update_status(task.id, "working")
+
+        # Priority 5 = interrupt first
+        if priority >= 5:
+            controller.interrupt()
+
+        # Send to PTY
+        try:
+            controller.write(text_content, submit_seq=submit_seq)
+        except Exception as e:
+            task_store.update_status(task.id, "failed")
+            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
+
+        task = task_store.get(task.id)
+        return SendMessageResponse(task=task)
+
+    return router

@@ -219,6 +219,10 @@ def cmd_run_interactive(profile: str, port: int):
     print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
     print(f"\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
     print()
+    print(f"\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
+    print(f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json")
+    print(f"\x1b[32m[Synapse]\x1b[0m   Tasks API:  http://localhost:{port}/tasks/send")
+    print()
 
     try:
         # Start the API server in background
@@ -226,7 +230,7 @@ def cmd_run_interactive(profile: str, port: int):
         from synapse.server import create_app
         import uvicorn
 
-        app = create_app(controller, registry, agent_id, port, submit_seq)
+        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile)
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

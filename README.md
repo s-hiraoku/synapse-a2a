@@ -193,11 +193,31 @@ synapse send --target claude --priority 5 "処理を止めて"
 
 ---
 
-## Google A2A プロトコルについて
+## Google A2A プロトコル互換性
 
-> **注意**: このプロジェクトは Google が 2025 年 4 月に発表した A2A プロトコルとは**異なる実装**です。
+Synapse A2A は Google A2A プロトコルとの**部分的な互換性**を提供します。
 
-Synapse A2A は PTY ラッピングによる CLI 統合に特化していますが、Google A2A は JSON-RPC 2.0 ベースの標準プロトコルです。詳細な比較は [guides/google-a2a-spec.md](guides/google-a2a-spec.md) を参照してください。
+### 対応済み機能
+
+| 機能 | 説明 |
+|------|------|
+| Agent Card | `/.well-known/agent.json` でエージェント能力を公開 |
+| Task API | `/tasks/send`, `/tasks/{id}` で Task ベースの通信 |
+| Message/Part | 標準的な Message 構造をサポート |
+
+### 使用例
+
+```bash
+# Agent Card を取得
+curl http://localhost:8100/.well-known/agent.json
+
+# Task ベースでメッセージ送信
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
+```
+
+詳細は [guides/google-a2a-spec.md](guides/google-a2a-spec.md) を参照してください。
 
 ---
 

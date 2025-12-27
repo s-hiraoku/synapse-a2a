@@ -1,7 +1,10 @@
-# Google A2A プロトコルとの比較
+# Google A2A プロトコル互換性ガイド
 
 このドキュメントでは、Google が 2025 年 4 月に発表した **Agent2Agent (A2A) プロトコル**の概要と、
-Synapse A2A との違いを解説します。
+Synapse A2A の互換性実装について解説します。
+
+> **v1.0.0 で Google A2A 互換レイヤーを実装しました。**
+> Agent Card、Task ベース API、Message/Part 構造に対応しています。
 
 ---
 
@@ -194,18 +197,19 @@ flowchart TB
 
 ### 4.2 機能比較表
 
-| 機能 | Google A2A | Synapse A2A |
-|------|-----------|-------------|
-| **主な目的** | エンタープライズ相互運用 | CLI エージェント統合 |
-| **通信方式** | JSON-RPC / gRPC / REST | HTTP REST (最小 API) |
-| **Agent 検出** | Agent Card (JSON) | Registry ファイル (JSON) |
-| **状態管理** | Task ライフサイクル | IDLE/BUSY 状態 |
-| **認証** | OAuth2, API Key 等 | なし（ローカル前提） |
-| **ストリーミング** | SSE, WebSocket | ポーリング |
-| **Push 通知** | Webhook | なし |
-| **CLI 統合** | なし | @Agent 記法 |
-| **PTY サポート** | なし | あり（コア機能） |
-| **TUI 対応** | なし | あり |
+| 機能 | Google A2A | Synapse A2A | 互換性 |
+|------|-----------|-------------|--------|
+| **主な目的** | エンタープライズ相互運用 | CLI エージェント統合 | - |
+| **通信方式** | JSON-RPC / gRPC / REST | HTTP REST | ✅ REST 対応 |
+| **Agent 検出** | Agent Card (JSON) | Registry + Agent Card | ✅ 対応 |
+| **状態管理** | Task ライフサイクル | Task + IDLE/BUSY マッピング | ✅ 対応 |
+| **Message/Part** | 標準構造 | 標準構造 | ✅ 対応 |
+| **認証** | OAuth2, API Key 等 | なし（ローカル前提） | ❌ 未対応 |
+| **ストリーミング** | SSE, WebSocket | ポーリング | ❌ 未対応 |
+| **Push 通知** | Webhook | なし | ❌ 未対応 |
+| **CLI 統合** | なし | @Agent 記法 | 独自拡張 |
+| **PTY サポート** | なし | あり（コア機能） | 独自拡張 |
+| **TUI 対応** | なし | あり | 独自拡張 |
 
 ### 4.3 アーキテクチャ比較
 
@@ -287,36 +291,153 @@ synapse send --target claude --priority 5 "今すぐ止まれ"
 
 ---
 
-## 6. 将来の統合可能性
+## 6. 実装済み互換機能
 
-### 6.1 Google A2A との互換レイヤー
+### 6.1 Agent Card
 
-将来的に、Synapse A2A が Google A2A プロトコルのクライアント/サーバーとして動作する互換レイヤーを追加する可能性があります。
+エージェント起動時に `/.well-known/agent.json` で Agent Card を公開します。
 
-```mermaid
-flowchart TB
-    subgraph Future["将来の構成"]
-        Synapse["Synapse A2A"]
-        Adapter["A2A Adapter"]
-        GoogleAgent["Google A2A Agent"]
-
-        Synapse -->|"既存 API"| Adapter
-        Adapter -->|"JSON-RPC 2.0"| GoogleAgent
-    end
+```bash
+curl http://localhost:8100/.well-known/agent.json
 ```
 
-### 6.2 検討事項
+```json
+{
+  "name": "Synapse Claude",
+  "description": "PTY-wrapped claude CLI agent with A2A communication",
+  "url": "http://localhost:8100",
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "multiTurn": true
+  },
+  "skills": [
+    {"id": "chat", "name": "Chat", "description": "Send messages to the CLI agent"},
+    {"id": "interrupt", "name": "Interrupt", "description": "Interrupt current processing"}
+  ],
+  "extensions": {
+    "synapse": {
+      "pty_wrapped": true,
+      "priority_interrupt": true,
+      "at_agent_syntax": true
+    }
+  }
+}
+```
 
-| 項目 | 対応方針 |
-|------|---------|
-| Agent Card 生成 | プロファイルから自動生成 |
-| Task 状態マッピング | IDLE/BUSY → Task 状態変換 |
-| 認証 | OAuth2 / API Key 追加 |
-| ストリーミング | SSE 対応追加 |
+### 6.2 Task ベース API
+
+Google A2A 互換の Task API を提供します。
+
+```bash
+# メッセージ送信（Task 作成）
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Hello!"}]
+    }
+  }'
+
+# レスポンス
+{
+  "task": {
+    "id": "uuid-...",
+    "status": "working",
+    "message": {...},
+    "artifacts": [],
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+### 6.3 Task 状態の取得
+
+```bash
+curl http://localhost:8100/tasks/{task_id}
+```
+
+**状態マッピング:**
+
+| Synapse 状態 | Google A2A 状態 |
+|-------------|----------------|
+| STARTING | submitted |
+| BUSY | working |
+| IDLE | completed |
+
+### 6.4 Synapse 拡張: Priority 付き送信
+
+```bash
+# Priority 5 で緊急割り込み
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Stop!"}]
+    }
+  }'
+```
 
 ---
 
-## 7. MCP との関係
+## 7. API エンドポイント一覧
+
+### 7.1 Google A2A 互換
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| GET | `/.well-known/agent.json` | Agent Card |
+| POST | `/tasks/send` | メッセージ送信（Task 作成） |
+| GET | `/tasks/{id}` | Task 状態取得 |
+| GET | `/tasks` | Task 一覧 |
+| POST | `/tasks/{id}/cancel` | Task キャンセル |
+
+### 7.2 Synapse 拡張
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/tasks/send-priority` | Priority 付き送信 |
+| POST | `/message` | 従来 API（互換性維持） |
+| GET | `/status` | 従来 API（互換性維持） |
+
+---
+
+## 8. 将来の拡張予定
+
+```mermaid
+flowchart TB
+    subgraph Current["実装済み"]
+        AgentCard["Agent Card"]
+        TaskAPI["Task API"]
+        MessagePart["Message/Part"]
+    end
+
+    subgraph Future["将来予定"]
+        Streaming["SSE ストリーミング"]
+        Push["Push 通知"]
+        Auth["認証 (OAuth2)"]
+        GRPC["gRPC 対応"]
+    end
+
+    Current --> Future
+```
+
+### 8.1 検討事項
+
+| 項目 | 優先度 | 説明 |
+|------|--------|------|
+| SSE ストリーミング | 中 | リアルタイム出力 |
+| Push 通知 | 低 | Webhook コールバック |
+| 認証 | 低 | OAuth2 / API Key |
+| gRPC | 低 | 高性能通信 |
+
+---
+
+## 9. MCP との関係
 
 Google は A2A プロトコルと **MCP (Model Context Protocol)** は補完関係にあると説明しています。
 
@@ -346,9 +467,9 @@ flowchart TB
 
 ---
 
-## 8. まとめ
+## 10. まとめ
 
-### 8.1 選択の指針
+### 10.1 選択の指針
 
 | 要件 | 推奨 |
 |------|------|
@@ -359,7 +480,7 @@ flowchart TB
 | ローカル開発で協調させたい | **Synapse A2A** |
 | エンタープライズ規模の展開 | **Google A2A** |
 
-### 8.2 共存の可能性
+### 10.2 共存の可能性
 
 Synapse A2A と Google A2A は異なるユースケースを対象としているため、共存が可能です。
 

@@ -6,9 +6,14 @@ import os
 import yaml
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
+from synapse.a2a_compat import create_a2a_router
 
 # Global app instance for standalone mode
-app = FastAPI(title="Synapse A2A Server")
+app = FastAPI(
+    title="Synapse A2A Server",
+    description="CLI agent wrapper with Google A2A protocol compatibility",
+    version="1.0.0"
+)
 
 # Global controller and registry instances (for standalone mode)
 controller: TerminalController = None
@@ -20,16 +25,25 @@ submit_sequence: str = '\n'  # Default submit sequence
 
 
 def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int,
-               submit_seq: str = '\n') -> FastAPI:
+               submit_seq: str = '\n', agent_type: str = 'claude') -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
-    new_app = FastAPI(title="Synapse A2A Server")
+    new_app = FastAPI(
+        title="Synapse A2A Server",
+        description="CLI agent wrapper with Google A2A protocol compatibility",
+        version="1.0.0"
+    )
 
     class MessageRequest(BaseModel):
         priority: int
         content: str
 
-    @new_app.post("/message")
+    # --------------------------------------------------------
+    # Original Synapse API (maintained for backward compatibility)
+    # --------------------------------------------------------
+
+    @new_app.post("/message", tags=["Synapse Original"])
     async def send_message(msg: MessageRequest):
+        """Send message to agent (Synapse original API)"""
         if not ctrl:
             raise HTTPException(status_code=503, detail="Agent not running")
 
@@ -41,8 +55,9 @@ def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port
         ctrl.write(msg.content, submit_seq=submit_seq)
         return {"status": "sent", "priority": msg.priority}
 
-    @new_app.get("/status")
+    @new_app.get("/status", tags=["Synapse Original"])
     async def get_status():
+        """Get agent status (Synapse original API)"""
         if not ctrl:
             return {"status": "NOT_STARTED", "context": ""}
 
@@ -50,6 +65,12 @@ def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port
             "status": ctrl.status,
             "context": ctrl.get_context()[-2000:]
         }
+
+    # --------------------------------------------------------
+    # Google A2A Compatible API
+    # --------------------------------------------------------
+    a2a_router = create_a2a_router(ctrl, agent_type, port, submit_seq)
+    new_app.include_router(a2a_router)
 
     return new_app
 
@@ -68,6 +89,7 @@ async def startup_event():
     # Get profile and port from environment variables (set by CLI args)
     profile_name = os.environ.get("SYNAPSE_PROFILE", agent_profile)
     agent_port = int(os.environ.get("SYNAPSE_PORT", agent_port))
+    agent_profile = profile_name
 
     profile = load_profile(profile_name)
 
@@ -91,9 +113,14 @@ async def startup_event():
     current_agent_id = registry.get_agent_id(profile_name, os.getcwd())
     registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
 
+    # Add Google A2A compatible routes
+    a2a_router = create_a2a_router(controller, profile_name, agent_port, submit_sequence)
+    app.include_router(a2a_router)
+
     print(f"Started agent: {profile['command']}")
     print(f"Registered Agent ID: {current_agent_id}")
     print(f"Submit sequence: {repr(submit_sequence)}")
+    print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
 
 @app.on_event("shutdown")
 async def shutdown_event():
