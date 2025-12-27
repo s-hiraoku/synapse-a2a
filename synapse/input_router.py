@@ -155,24 +155,29 @@ class InputRouter:
             return False
 
         try:
-            log("INFO", f"POST {endpoint}/message")
-            # Send the message
-            response = requests.post(
-                f"{endpoint}/message",
-                json={"content": message, "priority": 1},
-                timeout=10
+            log("INFO", f"POST {endpoint}/tasks/send-priority (A2A)")
+            # Send using A2A protocol
+            task = self.a2a_client.send_to_local(
+                endpoint=endpoint,
+                message=message,
+                priority=1,
+                wait_for_completion=want_response,
+                timeout=60
             )
-            response.raise_for_status()
-            log("INFO", f"Response: {response.status_code}")
 
-            if want_response:
-                # Wait for response by polling status
-                self.last_response = self._wait_for_response(endpoint, agent_name)
+            if task:
+                log("INFO", f"Task created: {task.id}, status: {task.status}")
+                if want_response and task.artifacts:
+                    self.last_response = self._extract_text_from_artifacts(task.artifacts)
+                else:
+                    self.last_response = None
+                return True
             else:
+                log("ERROR", f"Failed to create task")
                 self.last_response = None
+                return False
 
-            return True
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             log("ERROR", f"Request failed: {e}")
             self.last_response = None
             return False
@@ -243,6 +248,15 @@ class InputRouter:
                 time.sleep(1)
 
         return None
+
+    def _extract_text_from_artifacts(self, artifacts: list) -> Optional[str]:
+        """Extract text content from A2A artifacts."""
+        responses = []
+        for artifact in artifacts:
+            if isinstance(artifact, dict):
+                if artifact.get("type") == "text":
+                    responses.append(str(artifact.get("data", "")))
+        return "\n".join(responses) if responses else None
 
     def get_feedback_message(self, agent: str, success: bool) -> str:
         """Generate feedback message for the user."""

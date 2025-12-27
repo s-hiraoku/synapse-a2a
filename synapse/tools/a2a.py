@@ -11,13 +11,13 @@ def cmd_list(args):
     print(json.dumps(agents, indent=2))
 
 def cmd_send(args):
-    """Send a message to a target agent."""
+    """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
     agents = reg.list_agents()
-    
+
     # 1. Resolve Target
     target_agent = None
-    
+
     # Check if exact match by ID
     if args.target in agents:
         target_agent = agents[args.target]
@@ -33,19 +33,24 @@ def cmd_send(args):
              print(f"Error: No agent found matching '{args.target}'", file=sys.stderr)
              sys.exit(1)
 
-    # 2. Send Request
-    url = f"{target_agent['endpoint']}/message"
+    # 2. Send Request using Google A2A protocol
+    url = f"{target_agent['endpoint']}/tasks/send-priority?priority={args.priority}"
     payload = {
-        "priority": args.priority,
-        "content": args.message
+        "message": {
+            "role": "user",
+            "parts": [{"type": "text", "text": args.message}]
+        }
     }
-    
+
     try:
-        resp = requests.post(url, json=payload, timeout=5)
+        resp = requests.post(url, json=payload, timeout=30)
         resp.raise_for_status()
-        print(f"Success: Message sent to {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)")
-        print(json.dumps(resp.json(), indent=2))
-        
+        result = resp.json()
+        task = result.get("task", result)
+        print(f"Success: Task created for {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)")
+        print(f"  Task ID: {task.get('id', 'N/A')}")
+        print(f"  Status: {task.get('status', 'N/A')}")
+
     except requests.RequestException as e:
         print(f"Error sending message: {e}", file=sys.stderr)
         sys.exit(1)

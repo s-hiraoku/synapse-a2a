@@ -374,9 +374,11 @@ flowchart LR
 
 ## 4. HTTP API
 
-### 4.1 従来 API（Synapse オリジナル）
+### 4.1 従来 API（⚠️ 非推奨）
 
-#### メッセージ送信
+> **注意**: `/message` エンドポイントは非推奨です。新しいコードでは `/tasks/send` または `/tasks/send-priority` を使用してください。
+
+#### メッセージ送信（非推奨）
 
 ```bash
 curl -X POST http://localhost:8100/message \
@@ -398,9 +400,12 @@ curl -X POST http://localhost:8100/message \
 ```json
 {
   "status": "sent",
-  "priority": 1
+  "priority": 1,
+  "task_id": "uuid-task-id"
 }
 ```
+
+> 内部的に A2A Task が作成されるようになりました。`task_id` で追跡可能です。
 
 #### ステータス確認
 
@@ -534,9 +539,10 @@ synapse send --target claude --priority 5 "処理を止めて"
 **HTTP API から**:
 
 ```bash
-curl -X POST http://localhost:8100/message \
+# 推奨: A2A プロトコル
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
-  -d '{"content": "止まれ", "priority": 5}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "止まれ"}]}}'
 ```
 
 **@Agent から**:
@@ -581,17 +587,20 @@ flowchart LR
 ```bash
 #!/bin/bash
 
-# テスト実行を Claude に依頼
-curl -X POST http://localhost:8100/message \
+# テスト実行を Claude に依頼（A2A プロトコル）
+RESULT=$(curl -s -X POST "http://localhost:8100/tasks/send" \
   -H "Content-Type: application/json" \
-  -d '{"content": "テストを実行して", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "テストを実行して"}]}}')
 
-# ポーリングして結果を待つ
+TASK_ID=$(echo $RESULT | jq -r '.task.id')
+
+# タスクの完了をポーリング
 while true; do
-  STATUS=$(curl -s http://localhost:8100/status | jq -r '.status')
-  if [ "$STATUS" = "IDLE" ]; then
+  TASK=$(curl -s "http://localhost:8100/tasks/$TASK_ID")
+  STATUS=$(echo $TASK | jq -r '.status')
+  if [ "$STATUS" = "completed" ]; then
     echo "Done!"
-    curl -s http://localhost:8100/status | jq -r '.context'
+    echo $TASK | jq -r '.artifacts[0].data'
     break
   fi
   sleep 5

@@ -188,6 +188,103 @@ class A2AClient:
             print(f"Failed to discover agent at {url}: {e}")
             return None
 
+    def send_to_local(
+        self,
+        endpoint: str,
+        message: str,
+        priority: int = 1,
+        wait_for_completion: bool = False,
+        timeout: int = 60
+    ) -> Optional[A2ATask]:
+        """
+        Send a message to a local Synapse agent using A2A protocol.
+
+        This is the unified method for local agent communication.
+        Uses /tasks/send-priority for priority support (Synapse extension).
+
+        Args:
+            endpoint: Agent endpoint URL (e.g., http://localhost:8001)
+            message: Message text to send
+            priority: Priority level (1-5, 5=interrupt)
+            wait_for_completion: Whether to wait for task completion
+            timeout: Timeout in seconds for waiting
+
+        Returns:
+            A2ATask if successful, None otherwise
+        """
+        try:
+            # Create A2A message
+            a2a_message = A2AMessage.from_text(message)
+
+            # Use /tasks/send-priority for priority support
+            url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
+            response = requests.post(
+                url,
+                json={"message": asdict(a2a_message)},
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            task_data = result.get("task", result)
+
+            task = A2ATask(
+                id=task_data.get("id", ""),
+                status=task_data.get("status", "unknown"),
+                message=task_data.get("message"),
+                artifacts=task_data.get("artifacts", []),
+                created_at=task_data.get("created_at", ""),
+                updated_at=task_data.get("updated_at", ""),
+            )
+
+            if wait_for_completion:
+                task = self._wait_for_local_completion(endpoint, task.id, timeout)
+
+            return task
+
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to send message to local agent: {e}")
+            return None
+
+    def _wait_for_local_completion(
+        self,
+        endpoint: str,
+        task_id: str,
+        timeout: int
+    ) -> Optional[A2ATask]:
+        """Wait for a local task to complete"""
+        import time
+
+        start_time = time.time()
+        completed_states = {"completed", "failed", "canceled"}
+
+        while time.time() - start_time < timeout:
+            try:
+                url = f"{endpoint.rstrip('/')}/tasks/{task_id}"
+                response = requests.get(url, timeout=self.timeout)
+                response.raise_for_status()
+
+                data = response.json()
+                task = A2ATask(
+                    id=data.get("id", task_id),
+                    status=data.get("status", "unknown"),
+                    message=data.get("message"),
+                    artifacts=data.get("artifacts", []),
+                    created_at=data.get("created_at", ""),
+                    updated_at=data.get("updated_at", ""),
+                )
+
+                if task.status in completed_states:
+                    return task
+
+            except requests.exceptions.RequestException:
+                pass
+
+            time.sleep(1)
+
+        # Return last known state
+        return None
+
     def send_message(
         self,
         alias: str,

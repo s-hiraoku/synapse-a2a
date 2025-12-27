@@ -5,6 +5,10 @@ Synapse A2A の互換性実装について解説します。
 
 > **v1.0.0 で Google A2A 互換レイヤーを実装しました。**
 > Agent Card、Task ベース API、Message/Part 構造に対応しています。
+>
+> **v1.1.0 で内部処理も A2A 完全準拠になりました。**
+> `@Agent` 記法、CLI ツール、エージェント間通信すべてが Message/Part + Task 形式を使用します。
+> 従来の `/message` エンドポイントは非推奨となり、内部で A2A Task を作成するラッパーに変更されました。
 
 ---
 

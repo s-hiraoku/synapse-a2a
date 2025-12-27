@@ -27,6 +27,17 @@ TaskState = Literal[
 ]
 
 
+def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
+    """Map Synapse status to Google A2A task state"""
+    mapping = {
+        "STARTING": "submitted",
+        "BUSY": "working",
+        "IDLE": "completed",
+        "NOT_STARTED": "submitted",
+    }
+    return mapping.get(synapse_status, "working")
+
+
 # ============================================================
 # Pydantic Models (Google A2A Compatible)
 # ============================================================
@@ -295,16 +306,6 @@ def create_a2a_router(
     # --------------------------------------------------------
     # Task Management
     # --------------------------------------------------------
-
-    def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
-        """Map Synapse status to Google A2A task state"""
-        mapping = {
-            "STARTING": "submitted",
-            "BUSY": "working",
-            "IDLE": "completed",
-            "NOT_STARTED": "submitted",
-        }
-        return mapping.get(synapse_status, "working")
 
     @router.post("/tasks/send", response_model=SendMessageResponse)
     async def send_message(request: SendMessageRequest):
