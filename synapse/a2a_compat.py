@@ -14,6 +14,8 @@ from datetime import datetime
 from uuid import uuid4
 import threading
 
+from synapse.a2a_client import get_client, ExternalAgent, A2ATask
+
 # Task state mapping from Google A2A spec
 TaskState = Literal[
     "submitted",      # Task received
@@ -177,6 +179,42 @@ class TaskStore:
 
 # Global task store
 task_store = TaskStore()
+
+
+# ============================================================
+# External Agent Models
+# ============================================================
+
+class DiscoverAgentRequest(BaseModel):
+    """Request to discover an external agent"""
+    url: str
+    alias: Optional[str] = None
+
+
+class ExternalAgentInfo(BaseModel):
+    """External agent information"""
+    name: str
+    alias: str
+    url: str
+    description: str = ""
+    capabilities: Dict[str, Any] = {}
+    skills: List[Dict[str, Any]] = []
+    added_at: str = ""
+    last_seen: Optional[str] = None
+
+
+class SendExternalMessageRequest(BaseModel):
+    """Request to send message to external agent"""
+    message: str
+    wait_for_completion: bool = False
+    timeout: int = 60
+
+
+class ExternalTaskResponse(BaseModel):
+    """Response from external agent task"""
+    id: str
+    status: str
+    artifacts: List[Dict[str, Any]] = []
 
 
 # ============================================================
@@ -408,5 +446,124 @@ def create_a2a_router(
 
         task = task_store.get(task.id)
         return SendMessageResponse(task=task)
+
+    # --------------------------------------------------------
+    # External Agent Management (Google A2A Client)
+    # --------------------------------------------------------
+
+    @router.post("/external/discover", response_model=ExternalAgentInfo)
+    async def discover_external_agent(request: DiscoverAgentRequest):
+        """
+        Discover and register an external Google A2A agent.
+
+        Fetches the Agent Card from the given URL and registers the agent.
+        """
+        client = get_client()
+        agent = client.discover(request.url, alias=request.alias)
+
+        if not agent:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to discover agent at {request.url}"
+            )
+
+        return ExternalAgentInfo(
+            name=agent.name,
+            alias=agent.alias,
+            url=agent.url,
+            description=agent.description,
+            capabilities=agent.capabilities,
+            skills=agent.skills,
+            added_at=agent.added_at,
+            last_seen=agent.last_seen,
+        )
+
+    @router.get("/external/agents", response_model=List[ExternalAgentInfo])
+    async def list_external_agents():
+        """
+        List all registered external agents.
+        """
+        client = get_client()
+        agents = client.list_agents()
+
+        return [
+            ExternalAgentInfo(
+                name=agent.name,
+                alias=agent.alias,
+                url=agent.url,
+                description=agent.description,
+                capabilities=agent.capabilities,
+                skills=agent.skills,
+                added_at=agent.added_at,
+                last_seen=agent.last_seen,
+            )
+            for agent in agents
+        ]
+
+    @router.get("/external/agents/{alias}", response_model=ExternalAgentInfo)
+    async def get_external_agent(alias: str):
+        """
+        Get details of a specific external agent.
+        """
+        client = get_client()
+        agent = client.registry.get(alias)
+
+        if not agent:
+            raise HTTPException(status_code=404, detail=f"Agent '{alias}' not found")
+
+        return ExternalAgentInfo(
+            name=agent.name,
+            alias=agent.alias,
+            url=agent.url,
+            description=agent.description,
+            capabilities=agent.capabilities,
+            skills=agent.skills,
+            added_at=agent.added_at,
+            last_seen=agent.last_seen,
+        )
+
+    @router.delete("/external/agents/{alias}")
+    async def remove_external_agent(alias: str):
+        """
+        Remove an external agent from the registry.
+        """
+        client = get_client()
+
+        if not client.remove_agent(alias):
+            raise HTTPException(status_code=404, detail=f"Agent '{alias}' not found")
+
+        return {"status": "removed", "alias": alias}
+
+    @router.post("/external/agents/{alias}/send", response_model=ExternalTaskResponse)
+    async def send_to_external_agent(alias: str, request: SendExternalMessageRequest):
+        """
+        Send a message to an external Google A2A agent.
+
+        Uses the Google A2A protocol to communicate with the external agent.
+        """
+        client = get_client()
+        agent = client.registry.get(alias)
+
+        if not agent:
+            raise HTTPException(status_code=404, detail=f"Agent '{alias}' not found")
+
+        task = client.send_message(
+            alias,
+            request.message,
+            wait_for_completion=request.wait_for_completion,
+            timeout=request.timeout
+        )
+
+        if not task:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to send message to {alias}"
+            )
+
+        return ExternalTaskResponse(
+            id=task.id,
+            status=task.status,
+            artifacts=task.artifacts,
+        )
 
     return router

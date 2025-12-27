@@ -33,6 +33,8 @@ flowchart LR
 - **HTTP API** - REST API 経由でプログラムから制御可能
 - **ファイルベース Registry** - `~/.a2a/registry/` で自動的にサービス検出
 - **IDLE/BUSY 状態管理** - 正規表現でエージェントの待機状態を検出
+- **Google A2A 互換** - Agent Card / Task API をサポート
+- **外部エージェント連携** - 他の Google A2A エージェントと通信可能
 
 ---
 
@@ -204,6 +206,7 @@ Synapse A2A は Google A2A プロトコルとの**部分的な互換性**を提�
 | Agent Card | `/.well-known/agent.json` でエージェント能力を公開 |
 | Task API | `/tasks/send`, `/tasks/{id}` で Task ベースの通信 |
 | Message/Part | 標準的な Message 構造をサポート |
+| 外部エージェント接続 | 他の Google A2A エージェントと通信 |
 
 ### 使用例
 
@@ -218,6 +221,49 @@ curl -X POST http://localhost:8100/tasks/send \
 ```
 
 詳細は [guides/google-a2a-spec.md](guides/google-a2a-spec.md) を参照してください。
+
+---
+
+## 外部エージェント連携
+
+Synapse A2A は他の Google A2A 互換エージェントと連携できます。
+
+### 外部エージェントの登録
+
+```bash
+# 外部エージェントを発見して登録
+synapse external add http://other-agent:9000 --alias other
+
+# 登録済みエージェント一覧
+synapse external list
+
+# 詳細情報の確認
+synapse external info other
+```
+
+### @Agent で外部エージェントにメッセージ送信
+
+```text
+# ローカルエージェント
+@codex コードをレビューして
+
+# 外部エージェント（事前に登録が必要）
+@other タスクを処理して
+```
+
+### HTTP API での外部エージェント管理
+
+```bash
+# 外部エージェントを発見・登録
+curl -X POST http://localhost:8100/external/discover \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://other-agent:9000", "alias": "other"}'
+
+# 外部エージェントにメッセージ送信
+curl -X POST http://localhost:8100/external/agents/other/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello!", "wait_for_completion": true}'
+```
 
 ---
 

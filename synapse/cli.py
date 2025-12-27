@@ -10,6 +10,7 @@ import time
 import yaml
 from synapse.registry import AgentRegistry
 from synapse.controller import TerminalController
+from synapse.a2a_client import get_client
 
 # Default ports for each profile
 DEFAULT_PORTS = {
@@ -167,6 +168,106 @@ def cmd_send(args):
         print("(--return not yet implemented)")
 
 
+# ============================================================
+# External Agent Management Commands
+# ============================================================
+
+def cmd_external_add(args):
+    """Add an external A2A agent."""
+    client = get_client()
+    agent = client.discover(args.url, alias=args.alias)
+
+    if agent:
+        print(f"Added external agent: {agent.name}")
+        print(f"  Alias: {agent.alias}")
+        print(f"  URL: {agent.url}")
+        print(f"  Description: {agent.description}")
+        if agent.skills:
+            print(f"  Skills: {', '.join(s.get('name', s.get('id', '')) for s in agent.skills)}")
+    else:
+        print(f"Failed to add agent from {args.url}")
+        sys.exit(1)
+
+
+def cmd_external_list(args):
+    """List external A2A agents."""
+    client = get_client()
+    agents = client.list_agents()
+
+    if not agents:
+        print("No external agents registered.")
+        print("Use 'synapse external add <url>' to add one.")
+        return
+
+    print(f"{'ALIAS':<15} {'NAME':<20} {'URL':<40} {'LAST SEEN'}")
+    print("-" * 90)
+    for agent in agents:
+        last_seen = agent.last_seen[:19] if agent.last_seen else "Never"
+        print(f"{agent.alias:<15} {agent.name:<20} {agent.url:<40} {last_seen}")
+
+
+def cmd_external_remove(args):
+    """Remove an external A2A agent."""
+    client = get_client()
+
+    if client.remove_agent(args.alias):
+        print(f"Removed external agent: {args.alias}")
+    else:
+        print(f"Agent '{args.alias}' not found")
+        sys.exit(1)
+
+
+def cmd_external_send(args):
+    """Send a message to an external A2A agent."""
+    client = get_client()
+
+    task = client.send_message(
+        args.alias,
+        args.message,
+        wait_for_completion=args.wait
+    )
+
+    if task:
+        print(f"Task ID: {task.id}")
+        print(f"Status: {task.status}")
+        if task.artifacts:
+            print("Artifacts:")
+            for artifact in task.artifacts:
+                print(f"  - {artifact}")
+    else:
+        print(f"Failed to send message to {args.alias}")
+        sys.exit(1)
+
+
+def cmd_external_info(args):
+    """Show detailed info about an external agent."""
+    client = get_client()
+    agent = client.registry.get(args.alias)
+
+    if not agent:
+        print(f"Agent '{args.alias}' not found")
+        sys.exit(1)
+
+    print(f"Name: {agent.name}")
+    print(f"Alias: {agent.alias}")
+    print(f"URL: {agent.url}")
+    print(f"Description: {agent.description}")
+    print(f"Added: {agent.added_at}")
+    print(f"Last Seen: {agent.last_seen or 'Never'}")
+
+    if agent.capabilities:
+        print("\nCapabilities:")
+        for key, value in agent.capabilities.items():
+            print(f"  {key}: {value}")
+
+    if agent.skills:
+        print("\nSkills:")
+        for skill in agent.skills:
+            print(f"  - {skill.get('name', skill.get('id', 'Unknown'))}")
+            if skill.get('description'):
+                print(f"    {skill['description']}")
+
+
 def cmd_run_interactive(profile: str, port: int):
     """Run an agent in interactive mode with input routing."""
     # Load profile
@@ -307,10 +408,46 @@ def main():
     p_send.add_argument("--return", "-r", dest="wait", action="store_true", help="Wait for response")
     p_send.set_defaults(func=cmd_send)
 
+    # external - External A2A agent management
+    p_external = subparsers.add_parser("external", help="Manage external A2A agents")
+    external_subparsers = p_external.add_subparsers(dest="external_command", help="External agent commands")
+
+    # external add
+    p_ext_add = external_subparsers.add_parser("add", help="Add an external A2A agent")
+    p_ext_add.add_argument("url", help="Agent URL (e.g., https://agent.example.com)")
+    p_ext_add.add_argument("--alias", "-a", help="Short alias for the agent")
+    p_ext_add.set_defaults(func=cmd_external_add)
+
+    # external list
+    p_ext_list = external_subparsers.add_parser("list", help="List external agents")
+    p_ext_list.set_defaults(func=cmd_external_list)
+
+    # external remove
+    p_ext_rm = external_subparsers.add_parser("remove", help="Remove an external agent")
+    p_ext_rm.add_argument("alias", help="Agent alias to remove")
+    p_ext_rm.set_defaults(func=cmd_external_remove)
+
+    # external send
+    p_ext_send = external_subparsers.add_parser("send", help="Send message to external agent")
+    p_ext_send.add_argument("alias", help="Agent alias")
+    p_ext_send.add_argument("message", help="Message to send")
+    p_ext_send.add_argument("--wait", "-w", action="store_true", help="Wait for completion")
+    p_ext_send.set_defaults(func=cmd_external_send)
+
+    # external info
+    p_ext_info = external_subparsers.add_parser("info", help="Show agent details")
+    p_ext_info.add_argument("alias", help="Agent alias")
+    p_ext_info.set_defaults(func=cmd_external_info)
+
     args = parser.parse_args()
 
     if args.command is None:
         parser.print_help()
+        sys.exit(1)
+
+    # Handle external subcommand without action
+    if args.command == "external" and (not hasattr(args, 'external_command') or args.external_command is None):
+        p_external.print_help()
         sys.exit(1)
 
     # Set default port based on profile for start command
