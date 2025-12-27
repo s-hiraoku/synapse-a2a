@@ -89,15 +89,31 @@ class TerminalController:
             else:
                 self.status = "BUSY"
 
-    def write(self, data: str):
+    def write(self, data: str, submit_seq: str = None):
         if not self.running:
+            print(f"[Controller] write() called but not running")
             return
-        
+
+        if self.master_fd is None:
+            raise ValueError(f"master_fd is None (interactive={self.interactive})")
+
         with self.lock:
             self.status = "BUSY"
-            
-        bs = data.encode('utf-8')
-        os.write(self.master_fd, bs)
+
+        try:
+            if submit_seq and self.interactive:
+                # For TUI apps (Ink-based), send message and submit sequence separately
+                # with a small delay to allow the app to process input
+                os.write(self.master_fd, data.encode('utf-8'))
+                time.sleep(0.1)
+                os.write(self.master_fd, submit_seq.encode('utf-8'))
+            else:
+                # Standard write: content + submit sequence together
+                full_data = data + (submit_seq or '')
+                os.write(self.master_fd, full_data.encode('utf-8'))
+        except OSError as e:
+            print(f"[Controller] os.write failed: {e}, master_fd={self.master_fd}")
+            raise
         # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
     def interrupt(self):
@@ -117,62 +133,74 @@ class TerminalController:
         self.running = False
         if self.process:
             self.process.terminate()
-        if self.master_fd:
+        # Only close master_fd if we opened it (non-interactive mode)
+        # In interactive mode, pty.spawn() manages the fd
+        if self.master_fd and not self.interactive:
             os.close(self.master_fd)
 
     def run_interactive(self):
         """
         Run in interactive mode with input routing.
         Human's input is monitored for @Agent patterns.
+        Uses pty.spawn() for robust terminal handling.
         """
         self.interactive = True
-        self.start()
+        self.running = True
 
-        # Save terminal settings and switch to raw mode
-        stdin_fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(stdin_fd)
+        def read_callback(fd):
+            """Called when there's data to read from the PTY."""
+            # Capture master_fd for API server to use
+            if self.master_fd is None:
+                self.master_fd = fd
 
-        try:
-            tty.setraw(stdin_fd)
+            data = os.read(fd, 1024)
+            if data:
+                # Update output buffer
+                with self.lock:
+                    self.output_buffer += data
+                    if len(self.output_buffer) > 10000:
+                        self.output_buffer = self.output_buffer[-10000:]
+                self._check_idle_state(data)
+            return data
 
-            while self.running and self.process.poll() is None:
-                # Monitor both stdin (human input) and PTY output
-                r, _, _ = select.select([sys.stdin, self.master_fd], [], [], 0.1)
+        def input_callback(fd):
+            """Called when there's data from stdin."""
+            data = os.read(fd, 1024)
+            if not data:
+                return data
 
-                # Handle human input
-                if sys.stdin in r:
-                    data = os.read(stdin_fd, 1024)
-                    if not data:
-                        break
-                    self._handle_interactive_input(data)
+            # Process through input router
+            text = data.decode('utf-8', errors='replace')
+            output_bytes = b""
 
-                # Handle PTY output (display to human)
-                if self.master_fd in r:
-                    try:
-                        data = os.read(self.master_fd, 1024)
-                        if not data:
-                            break
+            for char in text:
+                output, action = self.input_router.process_char(char)
 
-                        # Update output buffer
-                        with self.lock:
-                            self.output_buffer += data
-                            if len(self.output_buffer) > 10000:
-                                self.output_buffer = self.output_buffer[-10000:]
+                if action:
+                    # Clear the child's input line (Ctrl+U) since we intercepted the command
+                    # The text was already sent character-by-character, so we need to clear it
+                    # Return Ctrl+U + newline to be written to the child process
+                    output_bytes += b"\x15\n"  # Ctrl+U clears input line, \n completes readline
 
-                        self._check_idle_state(data)
+                    # Clear the displayed text (move to line start, clear to end)
+                    os.write(sys.stdout.fileno(), b"\r\x1b[K")
 
-                        # Display to human
-                        os.write(sys.stdout.fileno(), data)
+                    # Execute A2A action
+                    success = action()
+                    agent = self.input_router.pending_agent or "agent"
+                    feedback = self.input_router.get_feedback_message(agent, success)
+                    os.write(sys.stdout.fileno(), feedback.encode())
+                elif output:
+                    output_bytes += output.encode()
 
-                    except OSError:
-                        break
+            return output_bytes
 
-        except KeyboardInterrupt:
-            pass
-        finally:
-            # Restore terminal settings
-            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
-            self.stop()
+        # Use pty.spawn for robust handling
+        pty.spawn(
+            self.command.split(),
+            read_callback,
+            input_callback
+        )
 
     def _handle_interactive_input(self, data: bytes):
         """Process human input through the input router."""

@@ -1,4 +1,7 @@
 command: "python3 -u dummy_agent.py"
 idle_regex: "> $"
+# Sequence to submit input (simulates Enter key)
+# \n = newline (works for simple readline-based programs)
+submit_sequence: "\n"
 env:
   PYTHONUNBUFFERED: "1"

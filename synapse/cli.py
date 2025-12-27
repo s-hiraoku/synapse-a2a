@@ -180,6 +180,9 @@ def cmd_run_interactive(profile: str, port: int):
     with open(profile_path, 'r') as f:
         config = yaml.safe_load(f)
 
+    # Load submit sequence from profile (decode escape sequences)
+    submit_seq = config.get('submit_sequence', '\n').encode().decode('unicode_escape')
+
     # Merge environment
     env = os.environ.copy()
     if 'env' in config:
@@ -200,9 +203,21 @@ def cmd_run_interactive(profile: str, port: int):
     # Register agent
     registry.register(agent_id, profile, port, status="BUSY")
 
+    # Handle Ctrl+C gracefully
+    def cleanup(signum, frame):
+        print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
+        registry.unregister(agent_id)
+        controller.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, cleanup)
+
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
+    print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
     print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
     print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
+    print(f"\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
     print()
 
     try:
@@ -211,7 +226,7 @@ def cmd_run_interactive(profile: str, port: int):
         from synapse.server import create_app
         import uvicorn
 
-        app = create_app(controller, registry, agent_id, port)
+        app = create_app(controller, registry, agent_id, port, submit_seq)
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
@@ -226,8 +241,9 @@ def cmd_run_interactive(profile: str, port: int):
         controller.run_interactive()
 
     except KeyboardInterrupt:
-        print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
+        pass
     finally:
+        print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
         registry.unregister(agent_id)
         controller.stop()
 

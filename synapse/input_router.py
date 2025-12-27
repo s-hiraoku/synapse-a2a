@@ -1,9 +1,22 @@
 """Input Router - Detects @Agent patterns and routes to other agents."""
 
+import os
 import re
 import requests
+from datetime import datetime
 from typing import Optional, Tuple
 from synapse.registry import AgentRegistry
+
+# Simple file-based logging
+LOG_DIR = os.path.expanduser("~/.synapse/logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "input_router.log")
+
+def log(level: str, msg: str):
+    """Write log message to file."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{timestamp} - {level} - {msg}\n")
 
 
 class InputRouter:
@@ -86,10 +99,9 @@ class InputRouter:
                 def send_action():
                     return self.send_to_agent(agent, message, want_response)
 
-                # Clear the line visually and show feedback
-                # \r moves to start, \x1b[K clears to end of line
-                clear_line = '\r\x1b[K'
-                return (clear_line, send_action)
+                # Return empty string - don't send anything to PTY
+                # The feedback will be shown separately
+                return ("", send_action)
             else:
                 # Normal input - pass through with newline
                 return (char, None)
@@ -107,7 +119,9 @@ class InputRouter:
 
     def send_to_agent(self, agent_name: str, message: str, want_response: bool = False) -> bool:
         """Send a message to another agent via A2A."""
+        log("INFO", f"Sending to {agent_name}: {message}")
         agents = self.registry.list_agents()
+        log("DEBUG", f"Available agents: {[info.get('agent_type') for info in agents.values()]}")
 
         # Find agent by name/type
         target = None
@@ -117,15 +131,18 @@ class InputRouter:
                 break
 
         if not target:
+            log("ERROR", f"Agent '{agent_name}' not found")
             self.last_response = None
             return False
 
         endpoint = target.get("endpoint")
         if not endpoint:
+            log("ERROR", f"No endpoint for agent '{agent_name}'")
             self.last_response = None
             return False
 
         try:
+            log("INFO", f"POST {endpoint}/message")
             # Send the message
             response = requests.post(
                 f"{endpoint}/message",
@@ -133,6 +150,7 @@ class InputRouter:
                 timeout=10
             )
             response.raise_for_status()
+            log("INFO", f"Response: {response.status_code}")
 
             if want_response:
                 # Wait for response by polling status
@@ -141,7 +159,8 @@ class InputRouter:
                 self.last_response = None
 
             return True
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            log("ERROR", f"Request failed: {e}")
             self.last_response = None
             return False
 

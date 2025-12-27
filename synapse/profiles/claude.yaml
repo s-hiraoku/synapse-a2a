@@ -1,5 +1,6 @@
 command: "claude"
 args: []
 idle_regex: "> $"
+submit_sequence: "\r"
 env:
   TERM: "xterm-256color"

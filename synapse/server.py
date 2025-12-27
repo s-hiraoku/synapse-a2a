@@ -16,9 +16,11 @@ registry: AgentRegistry = None
 current_agent_id: str = None
 agent_port: int = 8100
 agent_profile: str = 'claude'
+submit_sequence: str = '\n'  # Default submit sequence
 
 
-def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int) -> FastAPI:
+def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int,
+               submit_seq: str = '\n') -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(title="Synapse A2A Server")
 
@@ -34,7 +36,9 @@ def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port
         if msg.priority >= 5:
             ctrl.interrupt()
 
-        ctrl.write(msg.content + "\n")
+        # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
+        # Pass content only, submit_seq is handled separately in write()
+        ctrl.write(msg.content, submit_seq=submit_seq)
         return {"status": "sent", "priority": msg.priority}
 
     @new_app.get("/status")
@@ -59,33 +63,37 @@ def load_profile(profile_name: str):
 
 @app.on_event("startup")
 async def startup_event():
-    global controller, registry, current_agent_id, agent_port, agent_profile
+    global controller, registry, current_agent_id, agent_port, agent_profile, submit_sequence
 
     # Get profile and port from environment variables (set by CLI args)
     profile_name = os.environ.get("SYNAPSE_PROFILE", agent_profile)
     agent_port = int(os.environ.get("SYNAPSE_PORT", agent_port))
 
     profile = load_profile(profile_name)
-    
+
+    # Load submit sequence from profile (decode escape sequences)
+    submit_sequence = profile.get('submit_sequence', '\n').encode().decode('unicode_escape')
+
     # Merge profile env with system env
     env = os.environ.copy()
     if 'env' in profile:
         env.update(profile['env'])
-        
+
     controller = TerminalController(
         command=profile['command'],
         idle_regex=profile['idle_regex'],
         env=env
     )
     controller.start()
-    
+
     # Registry Registration
     registry = AgentRegistry()
     current_agent_id = registry.get_agent_id(profile_name, os.getcwd())
     registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
-    
+
     print(f"Started agent: {profile['command']}")
     print(f"Registered Agent ID: {current_agent_id}")
+    print(f"Submit sequence: {repr(submit_sequence)}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -106,15 +114,15 @@ async def send_message(msg: MessageRequest):
     if msg.priority >= 5:
         # Emergency: Interrupt first
         controller.interrupt()
-        # Give a short pause for the interrupt to take effect if needed, 
-        # though controller.interrupt() handles the invalidation essentially.
-        # But writing immediately after might be too fast for some shells?
-        # Let's trust the PTY for now.
-    
+
     # For Priority < 5, we just write.
-    # Real logic would check if IDLE, etc.
-    # Add newline to simulate pressing Enter
-    controller.write(msg.content + "\n")
+    # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
+    # Pass content only, submit_seq is handled separately in write()
+    try:
+        controller.write(msg.content, submit_seq=submit_sequence)
+    except Exception as e:
+        print(f"Error writing to controller: {e}")
+        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}")
 
     return {"status": "sent", "priority": msg.priority}
 
