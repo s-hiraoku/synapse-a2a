@@ -4,6 +4,16 @@
 
 ---
 
+## v0.1.0 の特徴
+
+**Google A2A プロトコル完全準拠**
+
+- @Agent 記法および CLI ツールが **Message/Part + Task** 形式を使用
+- `/message` エンドポイントは非推奨、`/tasks/send` を推奨
+- 84 件のテストで A2A 準拠性を検証
+
+---
+
 ## ドキュメント構成
 
 ```mermaid
@@ -198,19 +208,21 @@ synapse external remove other
 ### HTTP API
 
 ```bash
-# メッセージ送信（従来 API）
-curl -X POST http://localhost:8100/message \
+# メッセージ送信（A2A 準拠 - 推奨）
+curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "Hello", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
 
 # ステータス確認
 curl http://localhost:8100/status
 
-# Google A2A 互換 API
+# Agent Card 取得
 curl http://localhost:8100/.well-known/agent.json
-curl -X POST http://localhost:8100/tasks/send \
+
+# 従来 API（非推奨）
+curl -X POST http://localhost:8100/message \
   -H "Content-Type: application/json" \
-  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}'
+  -d '{"content": "Hello", "priority": 1}'
 ```
 
 ---

@@ -12,6 +12,15 @@
 - 端末内の `@Agent` 入力や HTTP API を介して相互にメッセージ送信できます。
 - 外部の Google A2A 互換エージェントとも連携可能です。
 
+### A2A プロトコル準拠
+
+Synapse のエージェント間通信は **Google A2A プロトコル**に準拠しています:
+
+- `@Agent` 記法は内部で `/tasks/send-priority` エンドポイントを使用
+- CLI ツール（`synapse send`）は A2A 形式でメッセージを送信
+- Task ベースの非同期通信をサポート
+- Agent Card（`/.well-known/agent.json`）による能力公開
+
 ---
 
 ## 1. 前提条件
@@ -81,6 +90,11 @@ synapse gemini --port 8102
 @claude --response "PTY 関連の修正案を出して"
 ```
 
+**内部動作:**
+- `@Agent` 記法は内部で `/tasks/send-priority` エンドポイントを呼び出します
+- メッセージは A2A Task として作成され、対象エージェントに配信されます
+- Priority パラメータにより、通常メッセージ（1-4）と強制介入（5）を区別します
+
 補足:
 - `--response` は「相手の返信をこの端末に返す」オプションです
 - 返信は相手が `IDLE` になるのをポーリングして取得します
@@ -97,13 +111,23 @@ synapse list
 synapse send --target codex --priority 1 "設計を書いて"
 ```
 
-### HTTP で送信
+CLI は内部で A2A 形式のメッセージを送信します（`/tasks/send-priority` エンドポイント）。
+
+### HTTP で送信（A2A 形式）
 
 ```bash
-curl -X POST http://localhost:8101/message \
+# Task ベースでメッセージ送信（推奨）
+curl -X POST http://localhost:8101/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "設計を書いて", "priority": 1}'
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "設計を書いて"}]}}'
+
+# Priority 付きで送信（Synapse 拡張）
+curl -X POST "http://localhost:8101/tasks/send-priority?priority=1" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "設計を書いて"}]}}'
 ```
+
+> **注意**: `/message` エンドポイントは非推奨です。新しいコードでは `/tasks/send` または `/tasks/send-priority` を使用してください。
 
 ---
 
@@ -121,10 +145,26 @@ curl http://localhost:8100/status
 
 ## 7. 優先度（Priority）
 
+`/tasks/send-priority` エンドポイントで使用する Priority 値:
+
 | Priority | 動作 | 用途 |
 |----------|------|------|
 | 1-4 | stdin に書き込み | 通常の通信 |
 | 5 | SIGINT を送ってから書き込み | 強制介入 / 停止 |
+
+使用例:
+
+```bash
+# 通常のメッセージ（priority=1）
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=1" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "レビューして"}]}}'
+
+# 強制介入（priority=5）- エージェントの処理を中断
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "処理を止めて"}]}}'
+```
 
 ---
 
@@ -133,6 +173,7 @@ curl http://localhost:8100/status
 ### 外部エージェントの登録
 
 他のマシンや別サービスで動作している Google A2A 互換エージェントと連携できます。
+外部エージェントは `/.well-known/agent.json`（Agent Card）を公開している必要があります。
 
 ```bash
 # 外部エージェントを発見・登録
@@ -176,3 +217,19 @@ curl -X POST http://localhost:8100/external/agents/other/send \
 - 外部エージェントに接続できない
 
 詳しくは `guides/troubleshooting.md` を参照してください。
+
+---
+
+## 10. A2A API エンドポイント一覧
+
+Synapse が提供する主な A2A 互換エンドポイント:
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| GET | `/.well-known/agent.json` | Agent Card（能力情報） |
+| POST | `/tasks/send` | Task 作成・メッセージ送信 |
+| POST | `/tasks/send-priority` | Priority 付きメッセージ送信（Synapse 拡張） |
+| GET | `/tasks/{task_id}` | Task 状態取得 |
+| GET | `/status` | エージェント状態（IDLE/BUSY） |
+
+詳細は [guides/google-a2a-spec.md](google-a2a-spec.md) を参照してください。

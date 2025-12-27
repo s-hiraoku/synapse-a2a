@@ -21,9 +21,9 @@ flowchart TB
         end
 
         subgraph Network["ネットワーク"]
-            Server["FastAPI Server"]
+            Server["FastAPI Server<br/>(A2A 互換)"]
             Registry["AgentRegistry"]
-            A2AClient["A2AClient"]
+            A2AClient["A2AClient<br/>(統合クライアント)"]
         end
     end
 
@@ -35,6 +35,10 @@ flowchart TB
         ExtAgent["Google A2A Agent"]
     end
 
+    subgraph OtherLocal["他のローカルエージェント"]
+        LocalAgent["Synapse Agent<br/>(別プロセス)"]
+    end
+
     subgraph Storage["ストレージ"]
         RegistryDir["~/.a2a/registry/"]
         ExternalDir["~/.a2a/external/"]
@@ -43,16 +47,22 @@ flowchart TB
 
     Keyboard --> IR
     IR -->|"通常入力"| TC
-    IR -->|"@Agent 検出"| Server
-    IR -->|"@External 検出"| A2AClient
+    IR -->|"@Agent 検出"| A2AClient
+    A2AClient -->|"send_to_local()<br/>/tasks/send-priority"| LocalAgent
+    A2AClient -->|"send_message()<br/>/tasks/send"| ExtAgent
     TC <-->|"PTY"| Agent
     Agent --> Display
     Server <--> Registry
-    A2AClient <-->|"HTTP"| ExtAgent
     Registry <--> RegistryDir
     A2AClient <--> ExternalDir
     Server --> LogDir
 ```
+
+**ポイント**:
+- InputRouter は A2AClient を経由してローカル・外部エージェントと通信
+- ローカル通信: `send_to_local()` → `/tasks/send-priority`
+- 外部通信: `send_message()` → `/tasks/send`
+- すべての通信で Message/Part 構造を使用
 
 ---
 
@@ -114,7 +124,7 @@ stateDiagram-v2
 **ファイル**: `synapse/input_router.py`
 
 ユーザー入力を 1 文字ずつ解析し、`@Agent` パターンを検出してルーティングします。
-ローカルエージェントと外部エージェントの両方に対応しています。
+ローカルエージェントと外部エージェントの両方に対応しており、A2AClient を通じて統一的に通信を行います。
 
 ```mermaid
 classDiagram
@@ -125,15 +135,28 @@ classDiagram
         -in_escape_sequence: bool
         -pending_agent: str
         -is_external_agent: bool
+        -last_response: str
         +process_char(char): Tuple
         +process_input(data): List
         +send_to_agent(name, message, want_response): bool
         +_send_to_external_agent(agent, message, want_response): bool
+        +_extract_text_from_artifacts(artifacts): str
         +get_feedback_message(agent, success): str
         +reset()
-        -_wait_for_response(endpoint, agent_name, timeout)
     }
+
+    class A2AClient {
+        +send_to_local(endpoint, message, priority, wait): A2ATask
+        +send_message(alias, message, wait): A2ATask
+    }
+
+    InputRouter --> A2AClient : uses
 ```
+
+**通信方式の統一**:
+- ローカルエージェント: `A2AClient.send_to_local()` を使用（`/tasks/send-priority` へ送信）
+- 外部エージェント: `A2AClient.send_message()` を使用（`/tasks/send` へ送信）
+- いずれも Message/Part 構造の A2A メッセージ形式を使用
 
 **エージェント検索順序**:
 
@@ -230,38 +253,75 @@ agent_id = sha256(raw_key).hexdigest()
 
 **ファイル**: `synapse/server.py`
 
-HTTP API を提供するサーバーコンポーネントです。
+HTTP API を提供するサーバーコンポーネントです。A2A プロトコルに準拠したエンドポイントを提供します。
 
 ```mermaid
 classDiagram
     class FastAPIServer {
         -controller: TerminalController
         -registry: AgentRegistry
+        -task_store: TaskStore
         -agent_id: str
         -port: int
         -submit_sequence: str
-        +POST /message
+        +POST /message [deprecated]
         +GET /status
+        +POST /tasks/send
+        +POST /tasks/send-priority
+        +GET /tasks/{id}
     }
 
-    class MessageRequest {
-        +priority: int
-        +content: str
+    class TaskStore {
+        -tasks: Dict~str, Task~
+        +create(message): Task
+        +get(task_id): Task
+        +update_status(task_id, status)
+        +add_artifact(task_id, artifact)
     }
+
+    class Message {
+        +role: str
+        +parts: List~Part~
+    }
+
+    class TextPart {
+        +type: str = "text"
+        +text: str
+    }
+
+    FastAPIServer --> TaskStore
+    TaskStore --> Message
+    Message --> TextPart
 ```
 
 **エンドポイント**:
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| POST | `/message` | メッセージ送信（従来 API） |
+| POST | `/message` | メッセージ送信（**DEPRECATED**: 内部で A2A Task を作成） |
 | GET | `/status` | ステータスとコンテキスト取得 |
 | GET | `/.well-known/agent.json` | Agent Card（Google A2A） |
-| POST | `/tasks/send` | Task 作成（Google A2A） |
+| POST | `/tasks/send` | Task 作成（Google A2A 標準） |
+| POST | `/tasks/send-priority` | Task 作成 + Priority 指定（Synapse 拡張） |
 | GET | `/tasks/{id}` | Task 状態取得 |
 | POST | `/external/discover` | 外部エージェント発見 |
 | GET | `/external/agents` | 外部エージェント一覧 |
 | POST | `/external/agents/{alias}/send` | 外部エージェントへ送信 |
+
+**メッセージ形式**:
+
+すべての A2A エンドポイントは Message/Part 構造を使用します：
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "メッセージ内容"}
+    ]
+  }
+}
+```
 
 ---
 
@@ -269,7 +329,7 @@ classDiagram
 
 **ファイル**: `synapse/a2a_client.py`
 
-外部の Google A2A 互換エージェントと通信するクライアントです。
+ローカルおよび外部の Google A2A 互換エージェントと通信する統合クライアントです。
 
 ```mermaid
 classDiagram
@@ -277,11 +337,28 @@ classDiagram
         -registry: ExternalAgentRegistry
         -timeout: int
         +discover(url, alias): ExternalAgent
+        +send_to_local(endpoint, message, priority, wait, timeout): A2ATask
         +send_message(alias, message, wait): A2ATask
         +get_task(alias, task_id): A2ATask
         +cancel_task(alias, task_id): bool
         +list_agents(): List
         +remove_agent(alias): bool
+        -_wait_for_local_completion(endpoint, task_id, timeout): A2ATask
+    }
+
+    class A2AMessage {
+        +role: str
+        +parts: List~Dict~
+        +from_text(text): A2AMessage
+    }
+
+    class A2ATask {
+        +id: str
+        +status: str
+        +message: Dict
+        +artifacts: List~Dict~
+        +created_at: str
+        +updated_at: str
     }
 
     class ExternalAgentRegistry {
@@ -306,6 +383,8 @@ classDiagram
     }
 
     A2AClient --> ExternalAgentRegistry
+    A2AClient --> A2AMessage
+    A2AClient --> A2ATask
     ExternalAgentRegistry --> ExternalAgent
 ```
 
@@ -313,10 +392,14 @@ classDiagram
 
 | メソッド | 説明 |
 |---------|------|
+| `send_to_local(endpoint, message, priority)` | ローカルエージェントに A2A メッセージを送信（`/tasks/send-priority` 使用） |
 | `discover(url)` | Agent Card を取得して外部エージェントを登録 |
 | `send_message(alias, message)` | 外部エージェントにメッセージ送信 |
 | `get_task(alias, task_id)` | Task 状態を取得 |
 | `list_agents()` | 登録済み外部エージェント一覧 |
+
+**ローカル通信**: `send_to_local()` メソッドは、InputRouter からローカルエージェントへの通信に使用されます。
+**外部通信**: `send_message()` メソッドは、外部 A2A エージェントへの通信に使用されます。
 
 **Registry ファイル**: `~/.a2a/external/<alias>.json`
 
@@ -372,6 +455,7 @@ sequenceDiagram
     participant User as ユーザー
     participant Claude as Claude (8100)
     participant IR as InputRouter
+    participant A2AClient as A2AClient
     participant Registry as AgentRegistry
     participant Codex as Codex (8101)
 
@@ -382,11 +466,20 @@ sequenceDiagram
     IR->>IR: @Agent パターンマッチ
     IR->>Registry: list_agents()
     Registry-->>IR: {codex: {endpoint: ...}}
-    IR->>Codex: POST /message<br/>{"content": "設計をレビューして", "priority": 1}
+    IR->>A2AClient: send_to_local(endpoint, message, priority=1)
+    A2AClient->>A2AClient: A2AMessage.from_text(message)
+    A2AClient->>Codex: POST /tasks/send-priority?priority=1<br/>{"message": {"role": "user", "parts": [{"type": "text", "text": "..."}]}}
+    Codex->>Codex: TaskStore.create(message)
     Codex->>Codex: TerminalController.write()
-    Codex-->>IR: {"status": "sent"}
-    IR-->>Claude: [→ codex] フィードバック表示
+    Codex-->>A2AClient: {"task": {"id": "...", "status": "working"}}
+    A2AClient-->>IR: A2ATask
+    IR-->>Claude: [→ codex (local)] フィードバック表示
 ```
+
+**ポイント**:
+- InputRouter は直接 HTTP リクエストを送信せず、A2AClient.send_to_local() を使用
+- メッセージは A2AMessage 形式（Message/Part 構造）に変換される
+- `/tasks/send-priority` エンドポイントを使用（priority サポートのため）
 
 ### 4.2 --response オプション付き通信
 
@@ -395,40 +488,84 @@ sequenceDiagram
     participant User as ユーザー
     participant Claude as Claude (8100)
     participant IR as InputRouter
+    participant A2AClient as A2AClient
     participant Codex as Codex (8101)
 
     User->>Claude: @codex --response "設計を書いて"
     Claude->>IR: パターン検出
-    IR->>Codex: POST /message
-    Codex-->>IR: {"status": "sent"}
+    IR->>A2AClient: send_to_local(endpoint, message, wait=true)
+    A2AClient->>Codex: POST /tasks/send-priority<br/>{"message": {...}}
+    Codex-->>A2AClient: {"task": {"id": "task-123", "status": "working"}}
 
     loop ポーリング (最大60秒)
-        IR->>Codex: GET /status
-        Codex-->>IR: {"status": "BUSY", "context": "..."}
+        A2AClient->>Codex: GET /tasks/task-123
+        Codex-->>A2AClient: {"status": "working", "artifacts": []}
     end
 
-    IR->>Codex: GET /status
-    Codex-->>IR: {"status": "IDLE", "context": "...完成した設計..."}
-    IR->>IR: 差分を抽出
+    A2AClient->>Codex: GET /tasks/task-123
+    Codex-->>A2AClient: {"status": "completed", "artifacts": [{"type": "text", "data": "..."}]}
+    A2AClient-->>IR: A2ATask (with artifacts)
+    IR->>IR: artifacts からテキスト抽出
     IR-->>Claude: [← codex] レスポンス表示
 ```
+
+**ポイント**:
+- `wait_for_completion=true` により A2AClient がポーリングを担当
+- レスポンスは Task の artifacts として返される
+- artifacts 内の text タイプのデータを抽出して表示
 
 ### 4.3 Priority 5 による緊急割り込み
 
 ```mermaid
 sequenceDiagram
     participant Sender as 送信元
+    participant A2AClient as A2AClient
     participant Target as 対象エージェント
     participant TC as TerminalController
     participant Process as CLI プロセス
 
-    Sender->>Target: POST /message<br/>{"content": "止まれ", "priority": 5}
+    Sender->>A2AClient: send_to_local(endpoint, message, priority=5)
+    A2AClient->>Target: POST /tasks/send-priority?priority=5<br/>{"message": {"role": "user", "parts": [...]}}
     Target->>TC: interrupt()
     TC->>Process: SIGINT (Ctrl+C 相当)
     Process-->>TC: 処理中断
-    TC->>TC: write("止まれ")
-    Target-->>Sender: {"status": "sent"}
+    TC->>TC: write(message)
+    Target-->>A2AClient: {"task": {"id": "...", "status": "working"}}
+    A2AClient-->>Sender: A2ATask
 ```
+
+**ポイント**:
+- priority=5 は `/tasks/send-priority` のクエリパラメータで渡される
+- サーバー側で priority >= 5 を検出して interrupt() を呼び出す
+
+### 4.4 /message エンドポイントの内部変換
+
+従来の `/message` エンドポイントは後方互換性のために維持されていますが、内部的には A2A Task を作成します。
+
+```mermaid
+sequenceDiagram
+    participant Client as 旧クライアント
+    participant Server as FastAPI Server
+    participant TaskStore as TaskStore
+    participant TC as TerminalController
+
+    Client->>Server: POST /message<br/>{"content": "...", "priority": 1}
+    Server->>Server: Message(role="user", parts=[TextPart(text="...")])
+    Server->>TaskStore: create(a2a_message)
+    TaskStore-->>Server: Task (id, status="submitted")
+    Server->>TaskStore: update_status(id, "working")
+    alt priority >= 5
+        Server->>TC: interrupt()
+    end
+    Server->>TC: write(content, submit_seq)
+    Server-->>Client: {"status": "sent", "priority": 1, "task_id": "..."}
+```
+
+**ポイント**:
+- 内部で A2A Message 形式に変換
+- TaskStore で Task を作成・管理
+- 返り値に `task_id` を含める（A2A 互換）
+- `/message` は DEPRECATED、`/tasks/send-priority` の使用を推奨
 
 ---
 
@@ -523,14 +660,26 @@ flowchart LR
 - PTY ラッピングにより透過的に機能追加
 - ユーザーの操作感を維持
 
-### 7.2 最小 API 設計
+### 7.2 統一 A2A 通信
 
-| エンドポイント | 目的 |
-|--------------|------|
-| `POST /message` | メッセージ送信 + 割り込み |
-| `GET /status` | 状態確認 + コンテキスト取得 |
+すべてのエージェント間通信は A2A プロトコルに準拠しています。
 
-2 つのエンドポイントのみで必要十分な機能を提供。
+| レイヤー | コンポーネント | 通信方式 |
+|---------|--------------|---------|
+| InputRouter | A2AClient.send_to_local() | `/tasks/send-priority` |
+| InputRouter | A2AClient.send_message() | `/tasks/send` |
+| 従来 API | `/message` (deprecated) | 内部で Task 作成 |
+
+**メッセージ構造**: Message/Part 形式で統一
+
+```
+Message
+├── role: "user" | "agent"
+└── parts: []
+    └── TextPart
+        ├── type: "text"
+        └── text: "メッセージ内容"
+```
 
 ### 7.3 ファイルベース Registry
 

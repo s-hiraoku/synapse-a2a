@@ -355,16 +355,70 @@ cat ~/.a2a/registry/*.json | jq .
 watch -n 1 'curl -s http://localhost:8100/status | jq .'
 ```
 
-### 6.3 詳細デバッグ
+### 6.3 詳細デバッグ（内部 A2A 通信）
+
+内部通信のデバッグには、Google A2A 準拠の `/tasks/send` エンドポイントを使用してください。
+
+> **重要**: `/message` エンドポイントは非推奨です。新規開発では `/tasks/send` を使用してください。
 
 ```bash
 # フォアグラウンドで起動（ログが見える）
 synapse start claude --port 8100 --foreground
 
-# HTTP リクエストの詳細
-curl -v http://localhost:8100/message \
+# 推奨: A2A 準拠の /tasks/send を使用
+curl -v http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
-  -d '{"content": "test", "priority": 1}'
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "test"}]
+    }
+  }'
+
+# 緊急メッセージ（priority 5）を送信
+curl -v "http://localhost:8100/tasks/send-priority?priority=5" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "stop"}]
+    }
+  }'
+
+# タスクの状態を確認
+curl -s http://localhost:8100/tasks/<task_id> | jq .
+
+# 全タスク一覧を取得
+curl -s http://localhost:8100/tasks | jq .
+
+# Agent Card を確認
+curl -s http://localhost:8100/.well-known/agent.json | jq .
+
+# 非推奨: 旧 /message エンドポイント（後方互換性のため残存）
+# curl -v http://localhost:8100/message \
+#   -H "Content-Type: application/json" \
+#   -d '{"content": "test", "priority": 1}'
+```
+
+### 6.4 テストの実行
+
+A2A プロトコル準拠を検証するためのテストスイートが用意されています。
+
+```bash
+# 全テストを実行
+pytest tests/
+
+# 特定のテストファイルを実行
+pytest tests/test_server.py      # サーバーエンドポイントのテスト
+pytest tests/test_a2a_compat.py  # A2A 互換性レイヤーのテスト
+pytest tests/test_a2a_client.py  # A2A クライアントのテスト
+pytest tests/test_registry.py    # エージェント登録のテスト
+
+# 詳細な出力を表示
+pytest tests/ -v
+
+# 特定のテストのみ実行
+pytest tests/test_server.py::TestA2AEndpoints -v
 ```
 
 ---
@@ -488,7 +542,172 @@ rm -rf ~/.a2a/external/*
 
 ---
 
-## 9. 問題報告
+## 9. 内部 A2A 通信の問題
+
+### 9.1 /tasks/send でエラーが発生する
+
+**症状**:
+```
+HTTP 400 Bad Request
+```
+
+**原因候補**:
+- メッセージ形式が不正
+- `parts` 配列が空
+
+**確認コマンド**:
+
+```bash
+# 正しいリクエスト形式
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "メッセージ内容"}]
+    }
+  }'
+```
+
+**対処法**:
+1. `message.parts` 配列に少なくとも 1 つの要素があることを確認
+2. 各 part に `type` と `text` フィールドがあることを確認
+3. `role` は `"user"` または `"agent"` を指定
+
+---
+
+### 9.2 タスクのステータスが取得できない
+
+**症状**:
+```
+HTTP 404 Not Found
+```
+
+**原因候補**:
+- タスク ID が間違っている
+- タスクが作成されていない
+
+**確認コマンド**:
+
+```bash
+# 存在するタスク一覧を確認
+curl -s http://localhost:8100/tasks | jq '.[].id'
+
+# 特定のタスクを確認
+curl -s http://localhost:8100/tasks/<task_id> | jq .
+```
+
+**対処法**:
+1. `/tasks/send` のレスポンスから正しいタスク ID を取得
+2. タスク一覧から存在するタスク ID を確認
+
+---
+
+### 9.3 タスクが completed にならない
+
+**症状**:
+- `GET /tasks/{id}` で常に `working` が返される
+- `completed` にならない
+
+```mermaid
+flowchart TB
+    Problem["タスクが completed にならない"]
+    Check1{"エージェントは IDLE?"}
+    Check2{"idle_regex は正しい?"}
+    Check3{"エージェントは応答した?"}
+
+    Problem --> Check1
+    Check1 -->|"No (BUSY)"| Fix1["エージェントの処理完了を待つ"]
+    Check1 -->|"Yes (IDLE)"| Check2
+    Check2 -->|"不正"| Fix2["プロファイルの idle_regex を修正"]
+    Check2 -->|"正しい"| Check3
+    Check3 -->|"No"| Fix3["エージェントにメッセージが到達しているか確認"]
+```
+
+**確認コマンド**:
+
+```bash
+# エージェントのステータスを確認
+curl -s http://localhost:8100/status | jq .
+
+# タスクのステータスとアーティファクトを確認
+curl -s http://localhost:8100/tasks/<task_id> | jq '{status, artifacts}'
+```
+
+**対処法**:
+1. エージェントが `IDLE` になるまで待機
+2. プロファイルの `idle_regex` がプロンプトと一致しているか確認
+3. エージェントログでエラーがないか確認
+
+---
+
+### 9.4 旧 /message エンドポイントからの移行
+
+**状況**:
+`/message` エンドポイントは非推奨となりました。新しい `/tasks/send` への移行を推奨します。
+
+**変更点**:
+
+| 項目 | 旧 API (`/message`) | 新 API (`/tasks/send`) |
+|------|---------------------|------------------------|
+| エンドポイント | `POST /message` | `POST /tasks/send` |
+| 優先度指定 | `{"priority": 5}` | `POST /tasks/send-priority?priority=5` |
+| メッセージ形式 | `{"content": "..."}` | `{"message": {"parts": [...]}}` |
+| 状態追跡 | なし | `GET /tasks/{id}` |
+| 結果取得 | なし | `artifacts` フィールド |
+
+**移行例**:
+
+```bash
+# 旧 API（非推奨）
+curl -X POST http://localhost:8100/message \
+  -H "Content-Type: application/json" \
+  -d '{"content": "hello", "priority": 1}'
+
+# 新 API（推奨）
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "hello"}]
+    }
+  }'
+```
+
+**注意**:
+- 旧 `/message` エンドポイントは後方互換性のため残されていますが、内部的に A2A タスクを作成します
+- レスポンスに `task_id` が含まれるため、それを使って状態を追跡できます
+
+---
+
+### 9.5 A2A タスクの状態遷移
+
+タスクは以下の状態を遷移します：
+
+```mermaid
+stateDiagram-v2
+    [*] --> submitted: POST /tasks/send
+    submitted --> working: 処理開始
+    working --> completed: エージェントが IDLE に
+    working --> failed: エラー発生
+    working --> canceled: POST /tasks/{id}/cancel
+    completed --> [*]
+    failed --> [*]
+    canceled --> [*]
+```
+
+| ステータス | 説明 |
+|-----------|------|
+| `submitted` | タスクが受付済み |
+| `working` | エージェントが処理中 |
+| `completed` | 処理完了（`artifacts` に結果） |
+| `failed` | 処理失敗 |
+| `canceled` | キャンセル済み |
+
+---
+
+## 10. 問題報告
 
 問題が解決しない場合は、以下の情報を添えて報告してください：
 
@@ -499,6 +718,10 @@ rm -rf ~/.a2a/external/*
 5. エラーメッセージ
 6. `~/.synapse/logs/input_router.log` の内容
 7. 外部エージェントの問題の場合: 対象 URL と Agent Card
+8. A2A 関連の問題の場合:
+   - 使用しているエンドポイント（`/tasks/send` or `/message`）
+   - タスク ID とステータス（`curl http://localhost:PORT/tasks/<id>`）
+   - テスト結果（`pytest tests/ -v` の出力）
 
 ---
 
@@ -507,3 +730,4 @@ rm -rf ~/.a2a/external/*
 - [profiles.md](profiles.md) - プロファイル設定
 - [usage.md](usage.md) - 使い方詳細
 - [architecture.md](architecture.md) - 内部アーキテクチャ
+- [google-a2a-spec.md](google-a2a-spec.md) - Google A2A プロトコル仕様
