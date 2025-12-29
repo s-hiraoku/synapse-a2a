@@ -112,10 +112,18 @@ async def startup_event():
     agent_port = int(os.environ.get("SYNAPSE_PORT", agent_port))
     agent_profile = profile_name
 
+    # Get tool args from environment (null-separated)
+    tool_args_str = os.environ.get("SYNAPSE_TOOL_ARGS", "")
+    tool_args = tool_args_str.split('\x00') if tool_args_str else []
+
     profile = load_profile(profile_name)
 
     # Load submit sequence from profile (decode escape sequences)
     submit_sequence = profile.get('submit_sequence', '\n').encode().decode('unicode_escape')
+
+    # Merge profile args with CLI tool args
+    profile_args = profile.get('args', [])
+    all_args = profile_args + tool_args
 
     # Merge profile env with system env
     env = os.environ.copy()
@@ -128,6 +136,7 @@ async def startup_event():
 
     controller = TerminalController(
         command=profile['command'],
+        args=all_args,
         idle_regex=profile['idle_regex'],
         env=env,
         agent_id=current_agent_id,

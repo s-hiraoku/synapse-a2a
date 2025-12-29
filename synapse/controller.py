@@ -22,8 +22,10 @@ class TerminalController:
     def __init__(self, command: str, idle_regex: str, env: Optional[dict] = None,
                  registry: Optional[AgentRegistry] = None,
                  agent_id: Optional[str] = None, agent_type: Optional[str] = None,
-                 submit_seq: Optional[str] = None, startup_delay: Optional[int] = None):
+                 submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
+                 args: Optional[list] = None):
         self.command = command
+        self.args = args or []
         self.idle_regex = re.compile(idle_regex.encode('utf-8'))
         self.env = env or os.environ.copy()
         self.master_fd = None
@@ -47,9 +49,12 @@ class TerminalController:
 
     def start(self):
         self.master_fd, self.slave_fd = pty.openpty()
-        
+
+        # Build command list: command + args
+        cmd_list = [self.command] + self.args
+
         self.process = subprocess.Popen(
-            self.command.split(),
+            cmd_list,
             stdin=self.slave_fd,
             stdout=self.slave_fd,
             stderr=self.slave_fd,
@@ -282,8 +287,12 @@ class TerminalController:
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
+
+        # Build command list: command + args
+        cmd_list = [self.command] + self.args
+
         pty.spawn(
-            self.command.split(),
+            cmd_list,
             read_callback,
             input_callback
         )
