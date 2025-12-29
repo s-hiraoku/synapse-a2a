@@ -132,14 +132,24 @@ pip install -e .
 ### 2. エージェントを起動（別ターミナルで）
 
 ```bash
-# Terminal 1: Claude (port 8100)
+# Terminal 1: Claude (自動的に port 8100 を使用)
 synapse claude
 
-# Terminal 2: Codex (port 8101)
-synapse codex
+# Terminal 2: 2つ目の Claude (自動的に port 8101 を使用)
+synapse claude
 
-# Terminal 3: Gemini (port 8102)
+# Terminal 3: Gemini (自動的に port 8110 を使用)
 synapse gemini
+```
+
+ポートは各エージェントタイプごとに自動で割り当てられます：
+- Claude: 8100-8109 (最大10インスタンス)
+- Gemini: 8110-8119
+- Codex: 8120-8129
+
+明示的にポートを指定することも可能です：
+```bash
+synapse claude --port 8105
 ```
 
 ### 3. 端末内で @Agent を使う

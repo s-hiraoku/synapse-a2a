@@ -11,17 +11,10 @@ import yaml
 from synapse.registry import AgentRegistry
 from synapse.controller import TerminalController
 from synapse.a2a_client import get_client
-
-# Default ports for each profile
-DEFAULT_PORTS = {
-    "claude": 8100,
-    "codex": 8101,
-    "gemini": 8102,
-    "dummy": 8199,
-}
+from synapse.port_manager import PortManager, PORT_RANGES, is_process_alive
 
 # Known profiles (for shortcut detection)
-KNOWN_PROFILES = {"claude", "codex", "gemini", "dummy"}
+KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 
 def cmd_start(args):
@@ -29,6 +22,16 @@ def cmd_start(args):
     profile = args.profile
     port = args.port
     foreground = args.foreground
+
+    # Auto-select port if not specified
+    if port is None:
+        registry = AgentRegistry()
+        port_manager = PortManager(registry)
+        port = port_manager.get_available_port(profile)
+
+        if port is None:
+            print(port_manager.format_exhaustion_error(profile))
+            sys.exit(1)
 
     # Build command
     cmd = [
@@ -71,36 +74,52 @@ def cmd_start(args):
             sys.exit(1)
 
 
-def cmd_stop(args):
-    """Stop a running agent."""
-    profile = args.profile
-    registry = AgentRegistry()
-    agents = registry.list_agents()
-
-    # Find agent by profile/type
-    found = None
-    for agent_id, info in agents.items():
-        if info.get("agent_type") == profile:
-            found = (agent_id, info)
-            break
-
-    if not found:
-        print(f"No running agent found for profile: {profile}")
-        sys.exit(1)
-
-    agent_id, info = found
+def _stop_agent(registry, info):
+    """Stop a single agent given its info dict."""
+    agent_id = info.get("agent_id")
     pid = info.get("pid")
 
     if pid:
         try:
             os.kill(pid, signal.SIGTERM)
-            print(f"Stopped {profile} (PID: {pid})")
+            print(f"Stopped {agent_id} (PID: {pid})")
             registry.unregister(agent_id)
         except ProcessLookupError:
             print(f"Process {pid} not found. Cleaning up registry...")
             registry.unregister(agent_id)
     else:
-        print(f"No PID found for {profile}")
+        print(f"No PID found for {agent_id}")
+
+
+def cmd_stop(args):
+    """Stop a running agent."""
+    profile = args.profile
+    registry = AgentRegistry()
+    port_manager = PortManager(registry)
+
+    running = port_manager.get_running_instances(profile)
+
+    if not running:
+        print(f"No running agent found for profile: {profile}")
+        sys.exit(1)
+
+    # If --all flag is set, stop all instances
+    if getattr(args, 'all', False):
+        for info in running:
+            _stop_agent(registry, info)
+        return
+
+    # If multiple instances, show list and stop the oldest (first)
+    if len(running) == 1:
+        target = running[0]
+    else:
+        print(f"Multiple {profile} instances running:")
+        for i, info in enumerate(running):
+            print(f"  [{i}] {info['agent_id']} (PID: {info.get('pid', '?')})")
+        target = running[0]
+        print(f"Stopping {target['agent_id']} (use --all to stop all)")
+
+    _stop_agent(registry, target)
 
 
 def cmd_list(args):
@@ -110,15 +129,27 @@ def cmd_list(args):
 
     if not agents:
         print("No agents running.")
+        print("\nPort ranges:")
+        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+            print(f"  {agent_type}: {start}-{end}")
         return
 
     print(f"{'TYPE':<10} {'PORT':<8} {'STATUS':<10} {'PID':<8} {'ENDPOINT'}")
     print("-" * 60)
     for agent_id, info in agents.items():
+        # Verify process is still alive
+        pid = info.get('pid')
+        status = info.get('status', '-')
+        if pid and not is_process_alive(pid):
+            status = "DEAD"
+            # Clean up stale entry
+            registry.unregister(agent_id)
+            continue  # Skip showing dead entries
+
         print(f"{info.get('agent_type', 'unknown'):<10} "
               f"{info.get('port', '-'):<8} "
-              f"{info.get('status', '-'):<10} "
-              f"{info.get('pid', '-'):<8} "
+              f"{status:<10} "
+              f"{pid or '-':<8} "
               f"{info.get('endpoint', '-')}")
 
 
@@ -362,14 +393,22 @@ def main():
     # Check for shortcut: synapse claude [--port PORT]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]
-        port = DEFAULT_PORTS.get(profile, 8100)
 
-        # Check for --port option
+        # Check for --port option (explicit override)
         if len(sys.argv) >= 4 and sys.argv[2] == "--port":
             try:
                 port = int(sys.argv[3])
             except ValueError:
                 print(f"Invalid port: {sys.argv[3]}")
+                sys.exit(1)
+        else:
+            # Auto-select available port
+            registry = AgentRegistry()
+            port_manager = PortManager(registry)
+            port = port_manager.get_available_port(profile)
+
+            if port is None:
+                print(port_manager.format_exhaustion_error(profile))
                 sys.exit(1)
 
         cmd_run_interactive(profile, port)
@@ -392,6 +431,8 @@ def main():
     # stop
     p_stop = subparsers.add_parser("stop", help="Stop an agent")
     p_stop.add_argument("profile", help="Agent profile to stop")
+    p_stop.add_argument("--all", "-a", action="store_true",
+                        help="Stop all instances of this profile")
     p_stop.set_defaults(func=cmd_stop)
 
     # list
@@ -454,10 +495,6 @@ def main():
     if args.command == "external" and (not hasattr(args, 'external_command') or args.external_command is None):
         p_external.print_help()
         sys.exit(1)
-
-    # Set default port based on profile for start command
-    if args.command == "start" and args.port is None:
-        args.port = DEFAULT_PORTS.get(args.profile, 8100)
 
     args.func(args)
 

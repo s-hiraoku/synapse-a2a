@@ -134,3 +134,62 @@ def test_register_overwrites_existing(registry):
     agents = registry.list_agents()
     assert len(agents) == 1
     assert agents[agent_id]["status"] == "IDLE"
+
+
+def test_get_agent_existing(registry):
+    """Should return agent info for existing agent."""
+    agent_id = "test_get_agent"
+    registry.register(agent_id, "claude", 8100)
+
+    info = registry.get_agent(agent_id)
+    assert info is not None
+    assert info["agent_id"] == agent_id
+    assert info["agent_type"] == "claude"
+    assert info["port"] == 8100
+
+
+def test_get_agent_nonexistent(registry):
+    """Should return None for non-existent agent."""
+    info = registry.get_agent("nonexistent")
+    assert info is None
+
+
+def test_get_agent_corrupted_json(registry):
+    """Should return None for corrupted JSON file."""
+    # Create a corrupted JSON file
+    corrupted_file = registry.registry_dir / "corrupted_agent.json"
+    with open(corrupted_file, 'w') as f:
+        f.write("{ invalid json }")
+
+    info = registry.get_agent("corrupted_agent")
+    assert info is None
+
+
+def test_update_status(registry):
+    """Should update agent status."""
+    agent_id = "test_update_status"
+    registry.register(agent_id, "claude", 8100, status="STARTING")
+
+    result = registry.update_status(agent_id, "IDLE")
+    assert result is True
+
+    info = registry.get_agent(agent_id)
+    assert info["status"] == "IDLE"
+
+
+def test_update_status_nonexistent(registry):
+    """Should return False for non-existent agent."""
+    result = registry.update_status("nonexistent", "IDLE")
+    assert result is False
+
+
+def test_update_status_multiple_times(registry):
+    """Should support multiple status updates."""
+    agent_id = "test_multi_status"
+    registry.register(agent_id, "claude", 8100, status="STARTING")
+
+    registry.update_status(agent_id, "BUSY")
+    assert registry.get_agent(agent_id)["status"] == "BUSY"
+
+    registry.update_status(agent_id, "IDLE")
+    assert registry.get_agent(agent_id)["status"] == "IDLE"

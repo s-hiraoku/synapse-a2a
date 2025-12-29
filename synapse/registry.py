@@ -50,3 +50,51 @@ class AgentRegistry:
             except (json.JSONDecodeError, OSError):
                 continue
         return agents
+
+    def get_agent(self, agent_id: str) -> Optional[dict]:
+        """
+        Get info for a specific agent by ID.
+
+        Args:
+            agent_id: The unique agent identifier.
+
+        Returns:
+            Agent info dict, or None if not found.
+        """
+        file_path = self.registry_dir / f"{agent_id}.json"
+        if not file_path.exists():
+            return None
+
+        try:
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def update_status(self, agent_id: str, status: str) -> bool:
+        """
+        Update the status of a registered agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            status: New status value.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        file_path = self.registry_dir / f"{agent_id}.json"
+        if not file_path.exists():
+            return False
+
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            data["status"] = status
+
+            with open(file_path, 'w') as f:
+                json.dump(data, f, indent=2)
+
+            return True
+        except (json.JSONDecodeError, OSError):
+            return False
