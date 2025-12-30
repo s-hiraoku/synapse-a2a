@@ -9,7 +9,6 @@ from synapse.registry import AgentRegistry
 from synapse.a2a_compat import create_a2a_router, TaskStore, Message, TextPart
 from synapse.agent_context import (
     AgentContext,
-    build_initial_instructions,
     get_other_agents_from_registry,
 )
 
@@ -173,72 +172,10 @@ async def startup_event():
     print(f"Submit sequence: {repr(submit_sequence)}")
     print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
 
-    # Schedule initial instructions sending (after CLI is ready)
-    asyncio.create_task(send_initial_instructions(
-        controller, registry, current_agent_id, profile_name, agent_port, submit_sequence
-    ))
+    # Note: Initial instructions are NOT sent via PTY (would clutter terminal)
+    # Instead, agents use CLAUDE.md or profile-specific instruction files
+    # Only minimal bootstrap message is sent by controller._send_identity_instruction()
 
-
-async def send_initial_instructions(
-    ctrl: TerminalController,
-    reg: AgentRegistry,
-    agent_id: str,
-    agent_type: str,
-    port: int,
-    submit_seq: str
-):
-    """
-    Send initial instructions to the AI agent via A2A Task.
-
-    This sends the system instructions as a proper A2A Task with
-    sender='synapse-system', maintaining A2A protocol compliance.
-    """
-    # Wait for CLI to be ready (IDLE state)
-    max_wait = 30  # seconds
-    waited = 0
-    while waited < max_wait:
-        if ctrl.status == "IDLE":
-            break
-        await asyncio.sleep(1)
-        waited += 1
-
-    # Build context with other agents
-    other_agents = get_other_agents_from_registry(reg, agent_id)
-    ctx = AgentContext(
-        agent_id=agent_id,
-        agent_type=agent_type,
-        port=port,
-        other_agents=other_agents,
-    )
-
-    # Build initial instructions
-    instructions = build_initial_instructions(ctx)
-
-    # Create A2A Task for initial instructions
-    task_store = TaskStore()
-    message = Message(
-        role="user",
-        parts=[TextPart(text=instructions)]
-    )
-    task = task_store.create(
-        message,
-        metadata={
-            "sender": {
-                "sender_id": "synapse-system",
-                "sender_type": "system",
-                "sender_endpoint": f"http://localhost:{port}",
-            }
-        }
-    )
-    task_store.update_status(task.id, "working")
-
-    # Send to PTY with A2A format
-    try:
-        prefixed_content = f"[A2A:{task.id[:8]}:synapse-system] {instructions}"
-        ctrl.write(prefixed_content, submit_seq=submit_seq)
-        print(f"Sent initial instructions (Task ID: {task.id[:8]})")
-    except Exception as e:
-        print(f"Warning: Failed to send initial instructions: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

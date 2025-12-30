@@ -5,6 +5,7 @@ import argparse
 import os
 import sys
 import signal
+import asyncio
 import subprocess
 import time
 import yaml
@@ -405,6 +406,10 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
 
         # Give server time to start
         time.sleep(1)
+
+        # Note: Initial instructions are NOT sent via PTY (would clutter terminal)
+        # Agents use CLAUDE.md or profile-specific instruction files instead
+        # Only minimal bootstrap message is sent by controller._send_identity_instruction()
 
         # Run interactive mode
         controller.run_interactive()
