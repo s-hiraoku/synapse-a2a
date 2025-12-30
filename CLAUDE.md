@@ -3,11 +3,12 @@
 You are participating in a multi-agent environment connected via the **Synapse A2A Protocol**.
 Other agents (like Gemini, Claude, etc.) may be running in parallel.
 
-## 1. How to Intervene (@Agent)
+## 1. How to Forward Messages (@Agent)
 
-When you see a user instruction starting with `@AgentName` (e.g., `@Gemini`, `@Claude`), or if you decide you must intervene in another agent's process:
-
-**DO NOT** just output text. You must **EXECUTE** the A2A tool to send the message to them.
+**IMPORTANT**: When you receive a message starting with `@AgentName` (e.g., `@Gemini`, `@Claude`):
+- **FORWARD** the message to that agent immediately
+- **DO NOT** process or execute the task yourself
+- Just deliver the message using the A2A tool
 
 ### Syntax
 
@@ -30,13 +31,18 @@ python3 synapse/tools/a2a.py send --target [AgentType] --priority [1-5] "[Messag
 
 If multiple agents of the same type exist, `@type` will fail with options shown.
 
+### When to Process vs Forward
+
+- Message starts with `@OtherAgent`: **FORWARD** to that agent (do NOT process yourself)
+- Message addressed to you (or no @mention): **PROCESS** it yourself
+
 ### Example
 
-User says: `@Gemini 処理を止めて`
-You run:
+User says: `@Gemini 天気を調べて`
+You run (do NOT check weather yourself):
 
 ```bash
-python3 synapse/tools/a2a.py send --target gemini --priority 5 "処理を止めて"
+python3 synapse/tools/a2a.py send --target gemini --priority 1 "天気を調べて"
 ```
 
 ## 1.1 Sender Identification
