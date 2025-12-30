@@ -46,6 +46,7 @@ flowchart LR
 - [Agent Card](#agent-card)
 - [レジストリとポート管理](#レジストリとポート管理)
 - [テスト](#テスト)
+- [開発・リリース](#開発リリース)
 
 ---
 
@@ -536,6 +537,44 @@ pytest
 # 特定カテゴリ
 pytest tests/test_a2a_compat.py -v
 pytest tests/test_sender_identification.py -v
+```
+
+---
+
+## 開発・リリース
+
+### PyPI への公開
+
+タグをプッシュすると GitHub Actions で自動的に PyPI へ公開されます。
+
+```bash
+# 1. pyproject.toml のバージョンを更新
+# version = "0.2.0"
+
+# 2. タグを作成してプッシュ
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+### 手動公開
+
+```bash
+# uv でビルド・公開
+uv build
+uv publish
+```
+
+### ユーザーのインストール方法
+
+```bash
+# pipx（推奨）
+pipx install synapse-a2a
+
+# または pip
+pip install synapse-a2a
+
+# uvx で直接実行
+uvx synapse-a2a claude
 ```
 
 ---
