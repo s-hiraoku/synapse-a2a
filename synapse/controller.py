@@ -12,10 +12,14 @@ import time
 import fcntl
 import struct
 import shutil
-from typing import Optional, Callable
+import uuid
+from typing import Optional
 
 from synapse.registry import AgentRegistry
-from synapse.agent_context import build_bootstrap_message
+from synapse.agent_context import (
+    AgentContext,
+    build_initial_instructions,
+)
 from synapse.input_router import InputRouter
 
 
@@ -47,7 +51,7 @@ class TerminalController:
         self._startup_delay = startup_delay or 3  # Default 3 seconds
         self._last_output_time = None  # Track last output for idle detection
         self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
-        
+
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(
             registry=self.registry,
@@ -146,16 +150,16 @@ class TerminalController:
         # We match against the end of the buffer to see if we reached a prompt
         with self.lock:
             # Simple check: does the end of buffer match the regex?
-            # We might want to look at the last N bytes.
             search_window = self.output_buffer[-1000:]
             match = self.idle_regex.search(search_window)
+
             if match:
                 was_busy = self.status != "IDLE"
                 self.status = "IDLE"
-                # Send identity instruction on first IDLE
+                # On first IDLE, send initial instructions via A2A Task format
                 if was_busy and not self._identity_sent and self.agent_id:
                     self._identity_sent = True
-                    # Schedule instruction send outside the lock
+                    # Run in thread to avoid blocking
                     threading.Thread(
                         target=self._send_identity_instruction,
                         daemon=True
@@ -165,25 +169,45 @@ class TerminalController:
 
     def _send_identity_instruction(self):
         """
-        Send minimal bootstrap instruction to the agent on first IDLE.
+        Send full initial instructions to the agent on first IDLE.
 
-        Instead of sending full routing instructions via PTY (visible to user),
-        we send a minimal bootstrap message that instructs the AI to query
-        its Agent Card for full system context. This keeps PTY output clean
-        while still providing necessary context via A2A protocol.
+        Per README design: sends A2A Task with complete instructions including
+        identity, @Agent routing, available agents, and reply instructions.
+
+        Format: [A2A:<task_id>:synapse-system] <full_instructions>
         """
         if not self.agent_id:
             return
 
-        # Use minimal bootstrap message - full context is in Agent Card
-        bootstrap = build_bootstrap_message(self.agent_id, self.port)
+        # Wait for master_fd to be available (set by read_callback in interactive mode)
+        max_wait = 10  # seconds
+        waited = 0
+        while self.master_fd is None and waited < max_wait:
+            time.sleep(0.1)
+            waited += 0.1
+
+        if self.master_fd is None:
+            print(f"\x1b[31m[Synapse] Error: master_fd not available after {max_wait}s\x1b[0m")
+            return
+
+        # Build initial instructions (agents use 'list' command to discover others)
+        ctx = AgentContext(
+            agent_id=self.agent_id,
+            agent_type=self.agent_type or "unknown",
+            port=self.port,
+        )
+        instructions = build_initial_instructions(ctx)
+
+        # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
+        task_id = str(uuid.uuid4())[:8]
+        prefixed = f"[A2A:{task_id}:synapse-system] {instructions}"
 
         # Small delay to ensure agent is ready
         time.sleep(0.5)
         try:
-            self.write(bootstrap, self._submit_seq)
-        except Exception:
-            pass  # Silently fail if write fails
+            self.write(prefixed, self._submit_seq)
+        except Exception as e:
+            print(f"\x1b[31m[Synapse] Error sending initial instructions: {e}\x1b[0m")
 
     def write(self, data: str, submit_seq: str = None):
         if not self.running:
@@ -241,24 +265,8 @@ class TerminalController:
         self.interactive = True
         self.running = True
 
-        # Monitor output and send identity instruction when output stops
-        # This is more reliable than a fixed timer for TUI apps with varying startup times
-        if self.agent_id and not self._identity_sent:
-            def monitor_output_idle():
-                # Wait minimum startup delay first
-                time.sleep(self._startup_delay)
-
-                while self.running and not self._identity_sent:
-                    if self._last_output_time is not None:
-                        elapsed = time.time() - self._last_output_time
-                        if elapsed >= self._output_idle_threshold:
-                            # Output has stopped, agent is ready for input
-                            self._identity_sent = True
-                            self._send_identity_instruction()
-                            break
-                    time.sleep(0.2)  # Check every 200ms
-
-            threading.Thread(target=monitor_output_idle, daemon=True).start()
+        # Note: Initial instructions are sent via cli.py -> server.send_initial_instructions()
+        # which uses A2A Task format with [A2A:id:sender] prefix
 
         def sync_pty_window_size():
             """Sync current terminal size to the PTY master for TUI apps."""
@@ -287,6 +295,9 @@ class TerminalController:
 
             data = os.read(fd, 1024)
             if data:
+                # DEBUG: Uncomment to log raw data
+                # import sys; sys.stderr.write(f"[RAW] {repr(data[:80])}\n")
+
                 # Update last output time for idle detection
                 self._last_output_time = time.time()
 
@@ -297,32 +308,8 @@ class TerminalController:
                         self.output_buffer = self.output_buffer[-10000:]
                 self._check_idle_state(data)
 
-                # Process output through InputRouter to detect @Agent commands
-                text = data.decode('utf-8', errors='replace')
-                processed_output = []
-                
-                for char in text:
-                    out_char, action = self.input_router.process_char(char)
-                    processed_output.append(out_char)
-                    
-                    if action:
-                        # Execute action in thread
-                        threading.Thread(
-                            target=self._execute_a2a_action,
-                            args=(action, self.input_router.pending_agent),
-                            daemon=True
-                        ).start()
-                
-                # If InputRouter modifies output (e.g. swallows command line),
-                # we should return the modified version.
-                # However, pty.spawn writes the return value of read_callback to STDOUT.
-                
-                # Note: processed_output contains characters echoed by InputRouter.
-                # If InputRouter.process_char swallows the command line (returns "" for \n),
-                # then the user won't see the command.
-                # But previously, InputRouter returned chars as they were typed (buffered).
-                
-                return "".join(processed_output).encode('utf-8')
+                # Pass output through directly - AI uses a2a.py tool for routing
+                return data
 
             return data
 

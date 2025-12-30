@@ -18,6 +18,15 @@ class TestIdentityInstruction:
         registry.list_agents.return_value = {
             "synapse-gemini-8101": {"agent_type": "gemini", "port": 8101}
         }
+        # get_live_agents is used by get_other_agents_from_registry
+        registry.get_live_agents.return_value = {
+            "synapse-gemini-8101": {
+                "agent_id": "synapse-gemini-8101",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8101",
+                "status": "IDLE"
+            }
+        }
         return registry
 
     @pytest.fixture
@@ -74,43 +83,53 @@ class TestIdentityInstruction:
 
         controller._send_identity_instruction = mock_send
 
+        # Verify flag is not set initially
+        assert controller._identity_sent is False
+
         # Trigger idle detection
         controller._check_idle_state(b"$")
 
-        # Wait for the thread to be spawned
+        # Wait for thread
         time.sleep(0.1)
 
+        # Flag should be set and _send_identity_instruction should be called
         assert controller._identity_sent is True
+        assert controller.status == "IDLE"
         assert send_called.is_set()
 
     def test_identity_sent_only_once(self, controller):
-        """Identity instruction should only be sent once."""
+        """Identity instruction should only be sent once, not on subsequent IDLE transitions."""
         controller.running = True
         controller.master_fd = 1
         controller.output_buffer = b"prompt $"
 
-        call_count = 0
+        # Track call count
+        call_count = [0]
 
         def mock_send():
-            nonlocal call_count
-            call_count += 1
+            call_count[0] += 1
 
         controller._send_identity_instruction = mock_send
 
-        # First IDLE
+        # First IDLE - should call _send_identity_instruction
         controller._check_idle_state(b"$")
         time.sleep(0.1)
+        assert controller._identity_sent is True
+        assert call_count[0] == 1
 
-        # Second IDLE (should not send again)
+        # Manually set back to BUSY to simulate activity
         controller.status = "BUSY"
         controller.output_buffer = b"more output $"
+
+        # Second IDLE - should NOT call again
         controller._check_idle_state(b"$")
         time.sleep(0.1)
-
-        assert call_count == 1
+        assert controller._identity_sent is True
+        assert controller.status == "IDLE"
+        assert call_count[0] == 1  # Still 1, not 2
 
     def test_identity_instruction_content(self, controller, mock_registry):
-        """Identity instruction should contain correct bootstrap content."""
+        """Identity instruction should contain correct full instructions with A2A format."""
         controller.running = True
         controller.master_fd = 1
 
@@ -127,12 +146,19 @@ class TestIdentityInstruction:
         assert len(written_data) == 1
         instruction = written_data[0]
 
-        # Check key content - minimal bootstrap with commands
+        # Check A2A Task format prefix
+        assert instruction.startswith("[A2A:")
+        assert ":synapse-system]" in instruction
+
+        # Check key content - full instructions per README design
         assert "synapse-claude-8100" in instruction
-        assert "SYNAPSE" in instruction
+        assert "Synapse A2A Protocol" in instruction
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
+        # Check for sender identification instructions (per README)
+        assert "A2A:" in instruction
+        assert "sender" in instruction.lower()
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""

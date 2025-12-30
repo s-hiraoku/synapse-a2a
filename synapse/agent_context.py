@@ -41,79 +41,32 @@ def build_initial_instructions(ctx: AgentContext) -> str:
     Returns:
         Instruction text to send via A2A Task.
     """
-    # Build available agents list
-    agents_list = ""
-    if ctx.other_agents:
-        agents_list = "\n".join([
-            f"  - {agent.id} ({agent.type}): {agent.endpoint}"
-            for agent in ctx.other_agents
-        ])
-    else:
-        agents_list = "  (No other agents currently registered)"
-
     return f"""[Synapse A2A Protocol Instructions]
-
-You are participating in a multi-agent environment connected via the Synapse A2A Protocol.
 
 ## Your Identity
 - Agent ID: {ctx.agent_id}
 - Agent Type: {ctx.agent_type}
 - Port: {ctx.port}
 
-## How to Forward Messages (@Agent)
+## Commands
+- Send: `python3 synapse/tools/a2a.py send --target <agent> --priority [1-5] "<message>"`
+- List: `python3 synapse/tools/a2a.py list` (discover available agents)
 
-**IMPORTANT**: When you receive a message starting with `@AgentName` (e.g., `@gemini`, `@claude`),
-you must FORWARD it to that agent **WITHOUT processing it yourself**. Do NOT execute the task - just deliver the message.
+## Routing Rules
+- `@OtherAgent <message>`: FORWARD to that agent (do NOT process yourself)
+- No @mention or addressed to you: PROCESS it yourself
 
-```bash
-python3 synapse/tools/a2a.py send --target <agent_id> --priority [1-5] "<message>"
-```
+## Target Resolution
+- `@type`: Works if only ONE agent of that type exists
+- `@type-port`: Specific instance (required if multiple exist)
 
-Example: If you receive `@gemini 天気を調べて`, run:
-```bash
-python3 synapse/tools/a2a.py send --target gemini --priority 1 "天気を調べて"
-```
+## Priority
+- 1-4: Normal message
+- 5: EMERGENCY INTERRUPT (sends SIGINT first)
 
-- Priority 1: Normal message
-- Priority 5: EMERGENCY INTERRUPT (sends SIGINT first)
-
-### Target Resolution
-- `@type` (e.g., `@codex`): Works if only ONE agent of that type exists
-- `@type-port` (e.g., `@codex-8120`): Specific instance (required if multiple exist)
-- `@agent_id` (e.g., `@synapse-codex-8120`): Full agent ID
-
-### When to Process vs Forward
-- Message starts with `@OtherAgent`: **FORWARD** to that agent (do NOT process)
-- Message addressed to you (or no @mention): **PROCESS** it yourself
-
-## Available Agents
-{agents_list}
-
-## Sender Identification & Replying
-
-When you receive a message from another agent, it includes sender info:
-```
-[A2A:<task_id>:<sender_id>] <message>
-```
-
-### How to Reply
-If the message asks for a response, use the sender_id to reply:
-
-```bash
-python3 synapse/tools/a2a.py send --target <sender_id> --priority 1 "<your response>"
-```
-
-Example: If you receive `[A2A:abc123:synapse-claude-8100] What is 2+2?`
-```bash
-python3 synapse/tools/a2a.py send --target synapse-claude-8100 --priority 1 "The answer is 4"
-```
-
-**IMPORTANT**: When a message explicitly asks you to reply or return results, you MUST use the a2a.py tool to send your response back to the sender.
-
-## List Agents
-```bash
-python3 synapse/tools/a2a.py list
-```
+## Replying
+Messages from other agents include sender info: `[A2A:<task_id>:<sender_id>] <message>`
+Reply using: `python3 synapse/tools/a2a.py send --target <sender_id> "<response>"`
 """
 
 
