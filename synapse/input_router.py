@@ -145,7 +145,8 @@ class InputRouter:
         # Find agent by agent_id or agent_type in local registry
         # Matching priority:
         # 1. Exact match on agent_id (e.g., synapse-claude-8100)
-        # 2. Match on agent_type (e.g., claude)
+        # 2. Match on type-port shorthand (e.g., claude-8100)
+        # 3. Match on agent_type if only one exists (e.g., claude)
         target = None
         agent_name_lower = agent_name.lower()
 
@@ -156,13 +157,36 @@ class InputRouter:
                 log("DEBUG", f"Matched by agent_id: {agent_id}")
                 break
 
-        # If not found, try match on agent_type
+        # If not found, try match on type-port shorthand (e.g., codex-8120)
         if not target:
-            for agent_id, info in agents.items():
-                if info.get("agent_type", "").lower() == agent_name_lower:
-                    target = info
-                    log("DEBUG", f"Matched by agent_type: {info.get('agent_type')}")
-                    break
+            import re
+            type_port_match = re.match(r'^(\w+)-(\d+)$', agent_name_lower)
+            if type_port_match:
+                target_type = type_port_match.group(1)
+                target_port = int(type_port_match.group(2))
+                for agent_id, info in agents.items():
+                    if (info.get("agent_type", "").lower() == target_type and
+                        info.get("port") == target_port):
+                        target = info
+                        log("DEBUG", f"Matched by type-port: {target_type}-{target_port}")
+                        break
+
+        # If not found, try match on agent_type (only if single match)
+        if not target:
+            matching_agents = [
+                (agent_id, info) for agent_id, info in agents.items()
+                if info.get("agent_type", "").lower() == agent_name_lower
+            ]
+            if len(matching_agents) == 1:
+                target = matching_agents[0][1]
+                log("DEBUG", f"Matched by agent_type (single): {matching_agents[0][0]}")
+            elif len(matching_agents) > 1:
+                # Multiple agents of same type - require specific identifier
+                options = [f"@{info.get('agent_type')}-{info.get('port')}" for _, info in matching_agents]
+                log("ERROR", f"Multiple agents of type '{agent_name}': {options}")
+                self.ambiguous_matches = options
+                self.last_response = None
+                return False
 
         # If not found locally, check external A2A agents
         if not target:
@@ -333,6 +357,12 @@ class InputRouter:
             else:
                 return f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
         else:
+            # Check for ambiguous matches
+            if hasattr(self, 'ambiguous_matches') and self.ambiguous_matches:
+                options = ", ".join(self.ambiguous_matches)
+                msg = f"\x1b[33m[⚠ Multiple '{agent}' agents found. Use: {options}]\x1b[0m\n"
+                self.ambiguous_matches = None  # Clear after showing
+                return msg
             return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"  # Red
 
     def reset(self):

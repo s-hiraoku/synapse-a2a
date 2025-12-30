@@ -1,9 +1,9 @@
-"""Tests for Agent Context module - x-synapse-context extension."""
+"""Tests for Agent Context module - initial instructions generation."""
 import pytest
 from synapse.agent_context import (
     AgentContext,
     AgentInfo,
-    build_agent_card_context,
+    build_initial_instructions,
     build_bootstrap_message,
     get_other_agents_from_registry,
 )
@@ -86,138 +86,86 @@ class TestAgentContext:
 
 
 # ============================================================
-# build_agent_card_context Tests
+# build_initial_instructions Tests
 # ============================================================
 
-class TestBuildAgentCardContext:
-    """Test build_agent_card_context function."""
+class TestBuildInitialInstructions:
+    """Test build_initial_instructions function."""
 
-    def test_returns_x_synapse_context(self):
-        """Should return dict with x-synapse-context key."""
+    def test_returns_string(self):
+        """Should return a string."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100
         )
-        result = build_agent_card_context(ctx)
-
-        assert "x-synapse-context" in result
+        result = build_initial_instructions(ctx)
+        assert isinstance(result, str)
 
     def test_contains_identity(self):
-        """Should contain identity field."""
+        """Should contain agent identity information."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100
         )
-        result = build_agent_card_context(ctx)
+        result = build_initial_instructions(ctx)
 
-        assert result["x-synapse-context"]["identity"] == "synapse-claude-8100"
+        assert "synapse-claude-8100" in result
+        assert "claude" in result
+        assert "8100" in result
 
-    def test_contains_agent_type(self):
-        """Should contain agent_type field."""
-        ctx = AgentContext(
-            agent_id="synapse-gemini-8110",
-            agent_type="gemini",
-            port=8110
-        )
-        result = build_agent_card_context(ctx)
-
-        assert result["x-synapse-context"]["agent_type"] == "gemini"
-
-    def test_contains_port(self):
-        """Should contain port field."""
+    def test_contains_a2a_tool_command(self):
+        """Should contain the a2a.py tool command."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100
         )
-        result = build_agent_card_context(ctx)
+        result = build_initial_instructions(ctx)
 
-        assert result["x-synapse-context"]["port"] == 8100
+        assert "synapse/tools/a2a.py" in result
+        assert "--target" in result
+        assert "--priority" in result
 
-    def test_contains_routing_rules(self):
-        """Should contain routing_rules with required fields."""
+    def test_contains_sender_identification(self):
+        """Should contain sender identification instructions."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100
         )
-        result = build_agent_card_context(ctx)
-        rules = result["x-synapse-context"]["routing_rules"]
+        result = build_initial_instructions(ctx)
 
-        assert "self_patterns" in rules
-        assert "forward_command" in rules
-        assert "instructions" in rules
+        assert "A2A:" in result
+        assert "metadata.sender" in result
 
-    def test_self_patterns_include_agent_id_and_type(self):
-        """self_patterns should include both agent_id and agent_type."""
+    def test_contains_target_resolution(self):
+        """Should explain target resolution patterns."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100
         )
-        result = build_agent_card_context(ctx)
-        patterns = result["x-synapse-context"]["routing_rules"]["self_patterns"]
+        result = build_initial_instructions(ctx)
 
-        assert "@synapse-claude-8100" in patterns
-        assert "@claude" in patterns
+        assert "@type" in result
+        assert "@type-port" in result
 
-    def test_forward_command_contains_a2a_tool(self):
-        """forward_command should contain the a2a.py tool path."""
-        ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
-        )
-        result = build_agent_card_context(ctx)
-        cmd = result["x-synapse-context"]["routing_rules"]["forward_command"]
-
-        assert "synapse/tools/a2a.py" in cmd
-        assert "--target" in cmd
-        assert "--priority" in cmd
-
-    def test_contains_priority_levels(self):
-        """Should contain priority_levels with 1 and 5."""
-        ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
-        )
-        result = build_agent_card_context(ctx)
-        levels = result["x-synapse-context"]["priority_levels"]
-
-        assert "1" in levels
-        assert "5" in levels
-
-    def test_contains_examples(self):
-        """Should contain usage examples."""
-        ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
-        )
-        result = build_agent_card_context(ctx)
-        examples = result["x-synapse-context"]["examples"]
-
-        assert "send_message" in examples
-        assert "emergency_interrupt" in examples
-        assert "list_agents" in examples
-
-    def test_available_agents_empty(self):
-        """Should return empty list when no other agents."""
+    def test_no_other_agents(self):
+        """Should show 'no other agents' message when alone."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100,
             other_agents=[]
         )
-        result = build_agent_card_context(ctx)
+        result = build_initial_instructions(ctx)
 
-        assert result["x-synapse-context"]["available_agents"] == []
+        assert "No other agents" in result
 
-    def test_available_agents_populated(self):
-        """Should include other agents in available_agents."""
+    def test_with_other_agents(self):
+        """Should list other agents when available."""
         other = AgentInfo(
             id="synapse-gemini-8110",
             type="gemini",
@@ -230,17 +178,13 @@ class TestBuildAgentCardContext:
             port=8100,
             other_agents=[other]
         )
-        result = build_agent_card_context(ctx)
-        agents = result["x-synapse-context"]["available_agents"]
+        result = build_initial_instructions(ctx)
 
-        assert len(agents) == 1
-        assert agents[0]["id"] == "synapse-gemini-8110"
-        assert agents[0]["type"] == "gemini"
-        assert agents[0]["endpoint"] == "http://localhost:8110"
-        assert agents[0]["status"] == "IDLE"
+        assert "synapse-gemini-8110" in result
+        assert "gemini" in result
 
     def test_multiple_other_agents(self):
-        """Should include multiple other agents."""
+        """Should list all other agents."""
         agents = [
             AgentInfo(id="synapse-gemini-8110", type="gemini", endpoint="http://localhost:8110"),
             AgentInfo(id="synapse-codex-8120", type="codex", endpoint="http://localhost:8120"),
@@ -251,9 +195,10 @@ class TestBuildAgentCardContext:
             port=8100,
             other_agents=agents
         )
-        result = build_agent_card_context(ctx)
+        result = build_initial_instructions(ctx)
 
-        assert len(result["x-synapse-context"]["available_agents"]) == 2
+        assert "synapse-gemini-8110" in result
+        assert "synapse-codex-8120" in result
 
 
 # ============================================================
@@ -270,43 +215,25 @@ class TestBuildBootstrapMessage:
         assert "synapse-claude-8100" in msg
 
     def test_contains_port(self):
-        """Should contain port in URL."""
+        """Should contain port in message."""
         msg = build_bootstrap_message("synapse-claude-8100", 8100)
 
         assert "8100" in msg
 
-    def test_contains_curl_command(self):
-        """Should contain curl command."""
-        msg = build_bootstrap_message("synapse-claude-8100", 8100)
-
-        assert "curl" in msg
-
-    def test_contains_agent_json_url(self):
-        """Should contain .well-known/agent.json URL."""
-        msg = build_bootstrap_message("synapse-claude-8100", 8100)
-
-        assert ".well-known/agent.json" in msg
-
-    def test_contains_x_synapse_context_reference(self):
-        """Should reference x-synapse-context in extraction."""
-        msg = build_bootstrap_message("synapse-claude-8100", 8100)
-
-        assert "x-synapse-context" in msg
-
     def test_message_is_minimal(self):
-        """Bootstrap message should be relatively short."""
+        """Bootstrap message should be short (not used for full instructions)."""
         msg = build_bootstrap_message("synapse-claude-8100", 8100)
 
-        # Should be under 500 characters (much shorter than old full instructions)
-        assert len(msg) < 500
+        # Should be very short now since instructions are sent via Task
+        assert len(msg) < 100
 
     def test_different_ports(self):
-        """Should use different port in URL."""
+        """Should use different port in message."""
         msg1 = build_bootstrap_message("synapse-claude-8100", 8100)
         msg2 = build_bootstrap_message("synapse-gemini-8110", 8110)
 
-        assert "localhost:8100" in msg1
-        assert "localhost:8110" in msg2
+        assert "8100" in msg1
+        assert "8110" in msg2
 
 
 # ============================================================

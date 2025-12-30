@@ -2,33 +2,83 @@ import argparse
 import sys
 import json
 import os
+import subprocess
 import requests
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 
 
+def get_parent_pid(pid: int) -> int:
+    """Get parent PID of a process (cross-platform)."""
+    try:
+        # Try /proc first (Linux)
+        with open(f"/proc/{pid}/stat", "r") as f:
+            stat = f.read().split()
+            return int(stat[3])
+    except (FileNotFoundError, PermissionError, IndexError):
+        pass
+
+    # Fallback: use ps command (macOS/BSD)
+    try:
+        result = subprocess.run(
+            ["ps", "-o", "ppid=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            return int(result.stdout.strip())
+    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
+        pass
+
+    return 0
+
+
+def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> bool:
+    """Check if child_pid is a descendant of ancestor_pid."""
+    current = child_pid
+    for _ in range(max_depth):
+        if current == ancestor_pid:
+            return True
+        if current <= 1:
+            return False
+        parent = get_parent_pid(current)
+        if parent == 0 or parent == current:
+            return False
+        current = parent
+    return False
+
+
 def build_sender_info(explicit_sender: str = None) -> dict:
     """
-    Build sender info from environment variables or explicit argument.
+    Build sender info using Registry PID matching.
+
+    Identifies the sender by checking which registered agent's PID
+    is an ancestor of the current process.
 
     Returns dict with sender_id, sender_type, sender_endpoint if available.
     """
     sender_info = {}
 
-    # Try to auto-detect from environment variables (set by Synapse server)
-    sender_id = os.environ.get("SYNAPSE_AGENT_ID")
-    sender_type = os.environ.get("SYNAPSE_AGENT_TYPE")
-    sender_port = os.environ.get("SYNAPSE_PORT")
-
-    if sender_id:
-        sender_info["sender_id"] = sender_id
-        if sender_type:
-            sender_info["sender_type"] = sender_type
-        if sender_port:
-            sender_info["sender_endpoint"] = f"http://localhost:{sender_port}"
-
-    # Explicit --from flag overrides
+    # Explicit --from flag takes priority
     if explicit_sender:
-        sender_info["sender_id"] = explicit_sender
+        return {"sender_id": explicit_sender}
+
+    # Primary method: Registry PID matching
+    # Find which agent's process is an ancestor of current process
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        current_pid = os.getpid()
+
+        for agent_id, info in agents.items():
+            agent_pid = info.get("pid")
+            if agent_pid and is_descendant_of(current_pid, agent_pid):
+                sender_info["sender_id"] = agent_id
+                sender_info["sender_type"] = info.get("agent_type")
+                sender_info["sender_endpoint"] = info.get("endpoint")
+                return sender_info
+    except Exception:
+        pass
 
     return sender_info
 

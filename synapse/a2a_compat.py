@@ -15,12 +15,6 @@ from uuid import uuid4
 import threading
 
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
-from synapse.agent_context import (
-    AgentContext,
-    AgentInfo,
-    build_agent_card_context,
-    get_other_agents_from_registry,
-)
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -281,37 +275,22 @@ def create_a2a_router(
         Return Agent Card for discovery.
 
         This endpoint follows the Google A2A specification for agent discovery.
-        The x-synapse-context extension provides system context for AI agents,
-        enabling invisible instruction delivery via A2A protocol.
+        Agent Card is a "business card" - it only contains discovery information,
+        not internal instructions (which are sent via A2A Task at startup).
         """
-        # Build dynamic context with other agents from registry
-        other_agents = []
-        if registry:
-            other_agents = get_other_agents_from_registry(registry, agent_id)
-
-        ctx = AgentContext(
-            agent_id=agent_id,
-            agent_type=agent_type,
-            port=port,
-            other_agents=other_agents,
-        )
-        synapse_context = build_agent_card_context(ctx)
-
-        # Build extensions combining synapse info and context
+        # Build extensions (synapse-specific metadata only, no x-synapse-context)
         extensions = {
             "synapse": {
+                "agent_id": agent_id,
                 "pty_wrapped": True,
                 "priority_interrupt": True,
                 "at_agent_syntax": True,
                 "submit_sequence": repr(submit_seq),
-                "agent_id": agent_id,
                 "addressable_as": [
                     f"@{agent_id}",
                     f"@{agent_type}",
                 ],
             },
-            # Add x-synapse-context for invisible instruction delivery
-            **synapse_context,
         }
 
         return AgentCard(
@@ -381,9 +360,13 @@ def create_a2a_router(
         # Update to working
         task_store.update_status(task.id, "working")
 
-        # Send to PTY
+        # Send to PTY with A2A task reference for sender identification
         try:
-            controller.write(text_content, submit_seq=submit_seq)
+            # Extract sender_id if available
+            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            # Format: [A2A:task_id:sender_id] message
+            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
             raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
@@ -490,9 +473,13 @@ def create_a2a_router(
         if priority >= 5:
             controller.interrupt()
 
-        # Send to PTY
+        # Send to PTY with A2A task reference for sender identification
         try:
-            controller.write(text_content, submit_seq=submit_seq)
+            # Extract sender_id if available
+            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            # Format: [A2A:task_id:sender_id] message
+            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
             raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")

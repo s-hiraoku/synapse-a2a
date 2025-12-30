@@ -11,76 +11,95 @@ from unittest.mock import MagicMock, patch
 class TestBuildSenderInfo:
     """Test build_sender_info function in a2a.py CLI tool."""
 
-    def test_auto_detect_from_env_vars(self):
-        """Should auto-detect sender info from environment variables."""
+    def test_auto_detect_from_pid_matching(self):
+        """Should auto-detect sender info via Registry PID matching."""
         from synapse.tools.a2a import build_sender_info
 
-        with patch.dict(os.environ, {
-            "SYNAPSE_AGENT_ID": "synapse-claude-8100",
-            "SYNAPSE_AGENT_TYPE": "claude",
-            "SYNAPSE_PORT": "8100"
-        }):
-            sender = build_sender_info()
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 12345
+            }
+        }
 
-            assert sender["sender_id"] == "synapse-claude-8100"
-            assert sender["sender_type"] == "claude"
-            assert sender["sender_endpoint"] == "http://localhost:8100"
+        # Mock is_descendant_of to return True for the matching agent
+        with patch('synapse.tools.a2a.AgentRegistry', return_value=mock_registry):
+            with patch('synapse.tools.a2a.is_descendant_of', return_value=True):
+                sender = build_sender_info()
 
-    def test_explicit_sender_overrides_env(self):
-        """--from flag should override env-detected sender_id."""
+                assert sender["sender_id"] == "synapse-claude-8100"
+                assert sender["sender_type"] == "claude"
+                assert sender["sender_endpoint"] == "http://localhost:8100"
+
+    def test_explicit_sender_overrides_auto(self):
+        """--from flag should override auto-detection and return only sender_id."""
         from synapse.tools.a2a import build_sender_info
 
-        with patch.dict(os.environ, {
-            "SYNAPSE_AGENT_ID": "synapse-claude-8100",
-            "SYNAPSE_AGENT_TYPE": "claude",
-            "SYNAPSE_PORT": "8100"
-        }):
-            sender = build_sender_info(explicit_sender="external-agent")
+        sender = build_sender_info(explicit_sender="external-agent")
 
-            assert sender["sender_id"] == "external-agent"
-            # Other fields still from env
-            assert sender["sender_type"] == "claude"
-            assert sender["sender_endpoint"] == "http://localhost:8100"
+        # Explicit sender returns only sender_id (no other fields)
+        assert sender == {"sender_id": "external-agent"}
 
-    def test_empty_when_no_env_vars(self):
-        """Should return empty dict when no env vars are set."""
+    def test_empty_when_no_matching_agent(self):
+        """Should return empty dict when no agent matches via PID."""
         from synapse.tools.a2a import build_sender_info
 
-        with patch.dict(os.environ, {}, clear=True):
-            # Remove any existing SYNAPSE_ vars
-            env = {k: v for k, v in os.environ.items() if not k.startswith("SYNAPSE_")}
-            with patch.dict(os.environ, env, clear=True):
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 12345
+            }
+        }
+
+        # Mock is_descendant_of to return False (no match)
+        with patch('synapse.tools.a2a.AgentRegistry', return_value=mock_registry):
+            with patch('synapse.tools.a2a.is_descendant_of', return_value=False):
                 sender = build_sender_info()
                 assert sender == {}
 
-    def test_explicit_sender_without_env(self):
-        """--from flag works even without env vars."""
+    def test_explicit_sender_without_registry(self):
+        """--from flag works even without registry."""
         from synapse.tools.a2a import build_sender_info
 
-        with patch.dict(os.environ, {}, clear=True):
-            env = {k: v for k, v in os.environ.items() if not k.startswith("SYNAPSE_")}
-            with patch.dict(os.environ, env, clear=True):
-                sender = build_sender_info(explicit_sender="manual-sender")
-                assert sender == {"sender_id": "manual-sender"}
+        sender = build_sender_info(explicit_sender="manual-sender")
+        assert sender == {"sender_id": "manual-sender"}
 
-    def test_partial_env_vars(self):
-        """Should handle partial env var availability."""
+    def test_pid_matching_finds_correct_agent(self):
+        """PID matching should find the correct agent among multiple."""
         from synapse.tools.a2a import build_sender_info
 
-        with patch.dict(os.environ, {
-            "SYNAPSE_AGENT_ID": "synapse-gemini-8110",
-            # Missing SYNAPSE_AGENT_TYPE and SYNAPSE_PORT
-        }, clear=False):
-            # First clear any existing SYNAPSE_ vars
-            for key in list(os.environ.keys()):
-                if key.startswith("SYNAPSE_") and key != "SYNAPSE_AGENT_ID":
-                    del os.environ[key]
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 12345
+            },
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8110",
+                "pid": 12346
+            }
+        }
 
-            sender = build_sender_info()
+        # Mock is_descendant_of to return True only for gemini's PID
+        def mock_is_descendant(child, ancestor):
+            return ancestor == 12346  # Only match gemini
 
-            assert sender["sender_id"] == "synapse-gemini-8110"
-            assert "sender_type" not in sender
-            assert "sender_endpoint" not in sender
+        with patch('synapse.tools.a2a.AgentRegistry', return_value=mock_registry):
+            with patch('synapse.tools.a2a.is_descendant_of', side_effect=mock_is_descendant):
+                sender = build_sender_info()
+
+                assert sender["sender_id"] == "synapse-gemini-8110"
+                assert sender["sender_type"] == "gemini"
 
 
 # ============================================================

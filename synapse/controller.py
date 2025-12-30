@@ -262,6 +262,10 @@ class TerminalController:
         # Build command list: command + args
         cmd_list = [self.command] + self.args
 
+        # pty.spawn() inherits current environment, so update os.environ
+        # to pass SYNAPSE_* vars to child process for sender identification
+        os.environ.update(self.env)
+
         pty.spawn(
             cmd_list,
             read_callback,

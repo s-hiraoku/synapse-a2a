@@ -346,6 +346,11 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Set SYNAPSE env vars for sender identification (same as server.py)
+    env["SYNAPSE_AGENT_ID"] = agent_id
+    env["SYNAPSE_AGENT_TYPE"] = profile
+    env["SYNAPSE_PORT"] = str(port)
+
     # Create controller
     controller = TerminalController(
         command=config['command'],
