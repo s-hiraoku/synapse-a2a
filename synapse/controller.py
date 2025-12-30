@@ -15,6 +15,8 @@ import shutil
 from typing import Optional, Callable
 
 from synapse.registry import AgentRegistry
+from synapse.agent_context import build_bootstrap_message
+from synapse.input_router import InputRouter
 
 
 class TerminalController:
@@ -22,7 +24,7 @@ class TerminalController:
                  registry: Optional[AgentRegistry] = None,
                  agent_id: Optional[str] = None, agent_type: Optional[str] = None,
                  submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
-                 args: Optional[list] = None):
+                 args: Optional[list] = None, port: Optional[int] = None):
         self.command = command
         self.args = args or []
         self.idle_regex = re.compile(idle_regex.encode('utf-8'))
@@ -39,11 +41,20 @@ class TerminalController:
         self.interactive = False
         self.agent_id = agent_id
         self.agent_type = agent_type
+        self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
         self._submit_seq = submit_seq or "\n"
         self._startup_delay = startup_delay or 3  # Default 3 seconds
         self._last_output_time = None  # Track last output for idle detection
         self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
+        
+        # InputRouter for parsing agent output and routing @Agent commands
+        self.input_router = InputRouter(
+            registry=self.registry,
+            self_agent_id=agent_id,
+            self_agent_type=agent_type,
+            self_port=port
+        )
 
     def start(self):
         self.master_fd, self.slave_fd = pty.openpty()
@@ -70,6 +81,29 @@ class TerminalController:
         self.thread.start()
         self.status = "BUSY"
 
+    def _execute_a2a_action(self, action_func, agent_name):
+        """Execute A2A action in a thread and write feedback to PTY."""
+        try:
+            success = action_func()
+            feedback = self.input_router.get_feedback_message(agent_name, success)
+            # Write feedback back to the agent's input (if applicable) or log it?
+            # For background mode (_monitor_output), we can't easily inject into the output stream
+            # that is being read by the logger, unless we write to the log explicitly.
+            # But _monitor_output reads from master_fd (output of agent).
+            # The feedback is for the USER (or the log).
+            
+            # Since _monitor_output does not write to stdout/log file itself (subprocess does),
+            # we can only log it or write to master_fd (which would be INPUT to agent).
+            # Writing to master_fd means the agent sees the feedback as user input.
+            # That might be useful: "Message sent".
+            
+            # However, usually feedback is for the human operator.
+            # In background mode, we should probably just log it.
+            pass
+        except Exception as e:
+            # log error
+            pass
+
     def _monitor_output(self):
         while self.running and self.process.poll() is None:
             r, _, _ = select.select([self.master_fd], [], [], 0.1)
@@ -86,6 +120,21 @@ class TerminalController:
                              self.output_buffer = self.output_buffer[-10000:]
                     
                     self._check_idle_state(data)
+
+                    # Process output through InputRouter to detect @Agent commands
+                    # We process decoded text, but we don't modify the data stream here
+                    # because in start() mode, the subprocess stdout is already redirected 
+                    # to the log file by Popen. _monitor_output just "snoops".
+                    text = data.decode('utf-8', errors='replace')
+                    for char in text:
+                        _, action = self.input_router.process_char(char)
+                        if action:
+                            # Execute action in thread
+                            threading.Thread(
+                                target=self._execute_a2a_action,
+                                args=(action, self.input_router.pending_agent),
+                                daemon=True
+                            ).start()
                     
                     # For debugging/logging locally
                     # print(data.decode(errors='replace'), end='', flush=True)
@@ -115,34 +164,24 @@ class TerminalController:
                 self.status = "BUSY"
 
     def _send_identity_instruction(self):
-        """Send identity and routing instructions to the agent on first IDLE."""
-        if not self.agent_id or not self.agent_type:
+        """
+        Send minimal bootstrap instruction to the agent on first IDLE.
+
+        Instead of sending full routing instructions via PTY (visible to user),
+        we send a minimal bootstrap message that instructs the AI to query
+        its Agent Card for full system context. This keeps PTY output clean
+        while still providing necessary context via A2A protocol.
+        """
+        if not self.agent_id:
             return
 
-        # Get list of other registered agents
-        agents = self.registry.list_agents()
-        other_agents = [
-            aid for aid in agents.keys()
-            if aid != self.agent_id
-        ]
-        other_examples = ", ".join(other_agents[:3]) if other_agents else "@synapse-other-agent"
+        # Use minimal bootstrap message - full context is in Agent Card
+        bootstrap = build_bootstrap_message(self.agent_id, self.port)
 
-        instruction = f"""[SYNAPSE A2A] あなたのID: {self.agent_id}
-
-【ルーティングルール】
-1. @{self.agent_id} 宛て → あなた宛て。内容を実行してください。
-2. @other-agent 宛て → 他エージェント宛て。以下のコマンドで転送:
-
-```bash
-python3 synapse/tools/a2a.py send --target <agent_id> --priority 1 "<メッセージ>"
-```
-
-利用可能: {other_examples}
-"""
         # Small delay to ensure agent is ready
         time.sleep(0.5)
         try:
-            self.write(instruction, self._submit_seq)
+            self.write(bootstrap, self._submit_seq)
         except Exception:
             pass  # Silently fail if write fails
 
@@ -257,18 +296,50 @@ python3 synapse/tools/a2a.py send --target <agent_id> --priority 1 "<メッセ�
                     if len(self.output_buffer) > 10000:
                         self.output_buffer = self.output_buffer[-10000:]
                 self._check_idle_state(data)
+
+                # Process output through InputRouter to detect @Agent commands
+                text = data.decode('utf-8', errors='replace')
+                processed_output = []
+                
+                for char in text:
+                    out_char, action = self.input_router.process_char(char)
+                    processed_output.append(out_char)
+                    
+                    if action:
+                        # Execute action in thread
+                        threading.Thread(
+                            target=self._execute_a2a_action,
+                            args=(action, self.input_router.pending_agent),
+                            daemon=True
+                        ).start()
+                
+                # If InputRouter modifies output (e.g. swallows command line),
+                # we should return the modified version.
+                # However, pty.spawn writes the return value of read_callback to STDOUT.
+                
+                # Note: processed_output contains characters echoed by InputRouter.
+                # If InputRouter.process_char swallows the command line (returns "" for \n),
+                # then the user won't see the command.
+                # But previously, InputRouter returned chars as they were typed (buffered).
+                
+                return "".join(processed_output).encode('utf-8')
+
             return data
 
         def input_callback(fd):
-            """Called when there's data from stdin. Pass through directly to PTY."""
+            """Called when there's data from stdin. Pass through to PTY."""
             data = os.read(fd, 1024)
-            return data  # Simply pass through - let AI handle routing decisions
+            return data  # AI handles @agent routing based on initial Task instructions
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
 
         # Build command list: command + args
         cmd_list = [self.command] + self.args
+
+        # pty.spawn() inherits current environment, so update os.environ
+        # to pass SYNAPSE_* vars to child process for sender identification
+        os.environ.update(self.env)
 
         pty.spawn(
             cmd_list,

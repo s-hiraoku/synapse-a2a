@@ -139,8 +139,13 @@ class TaskStore:
         self._tasks: Dict[str, Task] = {}
         self._lock = threading.Lock()
 
-    def create(self, message: Message, context_id: Optional[str] = None) -> Task:
-        """Create a new task"""
+    def create(
+        self,
+        message: Message,
+        context_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Task:
+        """Create a new task with optional metadata (including sender info)"""
         now = datetime.utcnow().isoformat() + "Z"
         task = Task(
             id=str(uuid4()),
@@ -150,6 +155,7 @@ class TaskStore:
             created_at=now,
             updated_at=now,
             context_id=context_id,
+            metadata=metadata or {},
         )
         with self._lock:
             self._tasks[task.id] = task
@@ -237,7 +243,8 @@ def create_a2a_router(
     agent_type: str,
     port: int,
     submit_seq: str = "\n",
-    agent_id: str = None
+    agent_id: str = None,
+    registry = None
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -248,6 +255,7 @@ def create_a2a_router(
         port: Server port
         submit_seq: Submit sequence for the CLI
         agent_id: Unique agent ID (e.g., synapse-claude-8100)
+        registry: AgentRegistry instance for discovering other agents
 
     Returns:
         FastAPI APIRouter with A2A endpoints
@@ -267,7 +275,24 @@ def create_a2a_router(
         Return Agent Card for discovery.
 
         This endpoint follows the Google A2A specification for agent discovery.
+        Agent Card is a "business card" - it only contains discovery information,
+        not internal instructions (which are sent via A2A Task at startup).
         """
+        # Build extensions (synapse-specific metadata only, no x-synapse-context)
+        extensions = {
+            "synapse": {
+                "agent_id": agent_id,
+                "pty_wrapped": True,
+                "priority_interrupt": True,
+                "at_agent_syntax": True,
+                "submit_sequence": repr(submit_seq),
+                "addressable_as": [
+                    f"@{agent_id}",
+                    f"@{agent_type}",
+                ],
+            },
+        }
+
         return AgentCard(
             name=f"Synapse {agent_type.capitalize()}",
             description=f"PTY-wrapped {agent_type} CLI agent with A2A communication",
@@ -298,19 +323,7 @@ def create_a2a_router(
                 ),
             ],
             securitySchemes={},  # No auth for local use
-            extensions={
-                "synapse": {
-                    "pty_wrapped": True,
-                    "priority_interrupt": True,
-                    "at_agent_syntax": True,
-                    "submit_sequence": repr(submit_seq),
-                    "agent_id": agent_id,
-                    "addressable_as": [
-                        f"@{agent_id}",
-                        f"@{agent_type}",
-                    ],
-                }
-            }
+            extensions=extensions,
         )
 
     # --------------------------------------------------------
@@ -337,15 +350,24 @@ def create_a2a_router(
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
-        # Create task
-        task = task_store.create(request.message, request.context_id)
+        # Create task with metadata (may include sender info)
+        task = task_store.create(
+            request.message,
+            request.context_id,
+            metadata=request.metadata
+        )
 
         # Update to working
         task_store.update_status(task.id, "working")
 
-        # Send to PTY
+        # Send to PTY with A2A task reference for sender identification
         try:
-            controller.write(text_content, submit_seq=submit_seq)
+            # Extract sender_id if available
+            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            # Format: [A2A:task_id:sender_id] message
+            # Reply instructions are in initial Task, not per-message
+            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
             raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
@@ -440,17 +462,26 @@ def create_a2a_router(
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
-        # Create task
-        task = task_store.create(request.message, request.context_id)
+        # Create task with metadata (may include sender info)
+        task = task_store.create(
+            request.message,
+            request.context_id,
+            metadata=request.metadata
+        )
         task_store.update_status(task.id, "working")
 
         # Priority 5 = interrupt first
         if priority >= 5:
             controller.interrupt()
 
-        # Send to PTY
+        # Send to PTY with A2A task reference for sender identification
         try:
-            controller.write(text_content, submit_seq=submit_seq)
+            # Extract sender_id if available
+            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            # Format: [A2A:task_id:sender_id] message
+            # Reply instructions are in initial Task, not per-message
+            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
             raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")

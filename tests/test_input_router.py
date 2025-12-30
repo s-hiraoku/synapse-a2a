@@ -454,3 +454,130 @@ class TestInputRouterIntegration:
         output, action = router.process_char('\x7f')
         assert output == '\x7f'  # Passes through to PTY
         assert router.line_buffer == "@he"  # Buffer updated
+
+
+# ============================================================
+# Multiple Agent Resolution Tests
+# ============================================================
+
+class TestMultipleAgentResolution:
+    """Test agent resolution when multiple agents of same type exist."""
+
+    def test_single_agent_by_type(self):
+        """Single agent of type should match with @type."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-codex-8120": {
+                "agent_id": "synapse-codex-8120",
+                "agent_type": "codex",
+                "port": 8120,
+                "endpoint": "http://localhost:8120"
+            }
+        }
+
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+        mock_client.send_to_local.return_value = A2ATask(
+            id="task-1", status="working", artifacts=[]
+        )
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # @codex should work when only one codex exists
+        for char in "@codex hello":
+            router.process_char(char)
+        output, action = router.process_char('\n')
+
+        assert action is not None
+        result = action()
+        assert result is True
+
+    def test_multiple_agents_by_type_fails(self):
+        """Multiple agents of same type should fail with @type."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-codex-8120": {
+                "agent_id": "synapse-codex-8120",
+                "agent_type": "codex",
+                "port": 8120,
+                "endpoint": "http://localhost:8120"
+            },
+            "synapse-codex-8130": {
+                "agent_id": "synapse-codex-8130",
+                "agent_type": "codex",
+                "port": 8130,
+                "endpoint": "http://localhost:8130"
+            }
+        }
+
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # @codex should fail when multiple codex agents exist
+        for char in "@codex hello":
+            router.process_char(char)
+        output, action = router.process_char('\n')
+
+        assert action is not None
+        result = action()
+        assert result is False
+        assert router.ambiguous_matches is not None
+        assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
+
+    def test_type_port_shorthand_resolves(self):
+        """@type-port shorthand should resolve specific agent."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-codex-8120": {
+                "agent_id": "synapse-codex-8120",
+                "agent_type": "codex",
+                "port": 8120,
+                "endpoint": "http://localhost:8120"
+            },
+            "synapse-codex-8130": {
+                "agent_id": "synapse-codex-8130",
+                "agent_type": "codex",
+                "port": 8130,
+                "endpoint": "http://localhost:8130"
+            }
+        }
+
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+        mock_client.send_to_local.return_value = A2ATask(
+            id="task-1", status="working", artifacts=[]
+        )
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # @codex-8120 should work
+        for char in "@codex-8120 hello":
+            router.process_char(char)
+        output, action = router.process_char('\n')
+
+        assert action is not None
+        result = action()
+        assert result is True
+
+        # Verify correct endpoint was called
+        call_args = mock_client.send_to_local.call_args
+        assert call_args.kwargs["endpoint"] == "http://localhost:8120"
+
+    def test_ambiguous_feedback_message(self):
+        """Ambiguous matches should show options in feedback."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {}
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+        router.ambiguous_matches = ["@codex-8120", "@codex-8130"]
+
+        msg = router.get_feedback_message("codex", False)
+
+        assert "Multiple" in msg
+        assert "@codex-8120" in msg
+        assert "@codex-8130" in msg
+        assert "\x1b[33m" in msg  # Yellow/warning color

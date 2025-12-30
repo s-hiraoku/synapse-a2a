@@ -5,6 +5,7 @@ import argparse
 import os
 import sys
 import signal
+import asyncio
 import subprocess
 import time
 import yaml
@@ -346,6 +347,11 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Set SYNAPSE env vars for sender identification (same as server.py)
+    env["SYNAPSE_AGENT_ID"] = agent_id
+    env["SYNAPSE_AGENT_TYPE"] = profile
+    env["SYNAPSE_PORT"] = str(port)
+
     # Create controller
     controller = TerminalController(
         command=config['command'],
@@ -356,7 +362,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         agent_id=agent_id,
         agent_type=profile,
         submit_seq=submit_seq,
-        startup_delay=startup_delay
+        startup_delay=startup_delay,
+        port=port,
     )
 
     # Register agent
@@ -389,7 +396,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         from synapse.server import create_app
         import uvicorn
 
-        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile)
+        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile, registry=registry)
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
@@ -399,6 +406,22 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
 
         # Give server time to start
         time.sleep(1)
+
+        # Send minimal initial A2A instructions
+        from synapse.server import send_initial_instructions
+
+        def send_initial():
+            try:
+                asyncio.run(send_initial_instructions(
+                    controller,
+                    agent_id,
+                    port,
+                    submit_seq
+                ))
+            except Exception:
+                pass  # Best-effort
+
+        threading.Thread(target=send_initial, daemon=True).start()
 
         # Run interactive mode
         controller.run_interactive()

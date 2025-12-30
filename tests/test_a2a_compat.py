@@ -168,6 +168,43 @@ class TestTaskStore:
         ctx1_tasks = task_store.list_tasks(context_id="ctx-1")
         assert len(ctx1_tasks) == 2
 
+    def test_create_task_with_metadata(self, task_store):
+        """Should create task with metadata (including sender info)."""
+        msg = Message(parts=[TextPart(text="Test")])
+        metadata = {
+            "sender": {
+                "sender_id": "synapse-claude-8100",
+                "sender_type": "claude",
+                "sender_endpoint": "http://localhost:8100"
+            }
+        }
+        task = task_store.create(msg, metadata=metadata)
+
+        assert task.metadata == metadata
+        assert task.metadata["sender"]["sender_id"] == "synapse-claude-8100"
+        assert task.metadata["sender"]["sender_type"] == "claude"
+        assert task.metadata["sender"]["sender_endpoint"] == "http://localhost:8100"
+
+    def test_create_task_metadata_defaults_to_empty(self, task_store):
+        """Should default to empty metadata when not provided."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+
+        assert task.metadata == {}
+
+    def test_create_task_with_partial_sender_info(self, task_store):
+        """Should accept partial sender info in metadata."""
+        msg = Message(parts=[TextPart(text="Test")])
+        metadata = {
+            "sender": {
+                "sender_id": "external-agent"
+            }
+        }
+        task = task_store.create(msg, metadata=metadata)
+
+        assert task.metadata["sender"]["sender_id"] == "external-agent"
+        assert "sender_type" not in task.metadata["sender"]
+
 
 # ============================================================
 # Status Mapping Tests
@@ -347,6 +384,100 @@ class TestA2ARouterEndpoints:
 # ============================================================
 # Integration Tests
 # ============================================================
+
+class TestAgentCardSynapseExtension:
+    """Test synapse extension in Agent Card (pure business card format)."""
+
+    @pytest.fixture
+    def mock_controller(self):
+        controller = MagicMock()
+        controller.status = "IDLE"
+        controller.get_context.return_value = ""
+        return controller
+
+    @pytest.fixture
+    def client(self, mock_controller):
+        from fastapi import FastAPI
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller, "claude", 8100, "\n",
+            agent_id="synapse-claude-8100",
+            registry=None
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_agent_card_has_synapse_extension(self, client):
+        """Agent Card should contain synapse extension."""
+        response = client.get("/.well-known/agent.json")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "synapse" in data["extensions"]
+
+    def test_agent_card_no_x_synapse_context(self, client):
+        """Agent Card should NOT contain x-synapse-context (moved to Task/Message)."""
+        response = client.get("/.well-known/agent.json")
+        data = response.json()
+
+        # x-synapse-context should NOT be in Agent Card anymore
+        assert "x-synapse-context" not in data["extensions"]
+
+    def test_synapse_extension_has_agent_id(self, client):
+        """synapse extension should have agent_id field."""
+        response = client.get("/.well-known/agent.json")
+        synapse = response.json()["extensions"]["synapse"]
+
+        assert synapse["agent_id"] == "synapse-claude-8100"
+
+    def test_synapse_extension_has_pty_wrapped(self, client):
+        """synapse extension should have pty_wrapped field."""
+        response = client.get("/.well-known/agent.json")
+        synapse = response.json()["extensions"]["synapse"]
+
+        assert synapse["pty_wrapped"] is True
+
+    def test_synapse_extension_has_priority_interrupt(self, client):
+        """synapse extension should have priority_interrupt field."""
+        response = client.get("/.well-known/agent.json")
+        synapse = response.json()["extensions"]["synapse"]
+
+        assert synapse["priority_interrupt"] is True
+
+    def test_synapse_extension_has_at_agent_syntax(self, client):
+        """synapse extension should have at_agent_syntax field."""
+        response = client.get("/.well-known/agent.json")
+        synapse = response.json()["extensions"]["synapse"]
+
+        assert synapse["at_agent_syntax"] is True
+
+    def test_synapse_extension_has_addressable_as(self, client):
+        """synapse extension should have addressable_as patterns."""
+        response = client.get("/.well-known/agent.json")
+        synapse = response.json()["extensions"]["synapse"]
+
+        assert "addressable_as" in synapse
+        assert "@synapse-claude-8100" in synapse["addressable_as"]
+        assert "@claude" in synapse["addressable_as"]
+
+    def test_agent_card_is_pure_business_card(self, client):
+        """Agent Card should only contain discovery info, no internal instructions."""
+        response = client.get("/.well-known/agent.json")
+        data = response.json()
+
+        # Should have basic discovery fields
+        assert "name" in data
+        assert "description" in data
+        assert "url" in data
+        assert "capabilities" in data
+        assert "skills" in data
+
+        # Should NOT have instruction-related fields in synapse extension
+        synapse = data["extensions"]["synapse"]
+        assert "routing_rules" not in synapse
+        assert "available_agents" not in synapse
+        assert "examples" not in synapse
+
 
 class TestA2ACompliance:
     """Test full Google A2A protocol compliance."""

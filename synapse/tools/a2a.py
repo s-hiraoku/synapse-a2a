@@ -1,8 +1,86 @@
 import argparse
 import sys
 import json
+import os
+import subprocess
 import requests
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
+
+
+def get_parent_pid(pid: int) -> int:
+    """Get parent PID of a process (cross-platform)."""
+    try:
+        # Try /proc first (Linux)
+        with open(f"/proc/{pid}/stat", "r") as f:
+            stat = f.read().split()
+            return int(stat[3])
+    except (FileNotFoundError, PermissionError, IndexError):
+        pass
+
+    # Fallback: use ps command (macOS/BSD)
+    try:
+        result = subprocess.run(
+            ["ps", "-o", "ppid=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            return int(result.stdout.strip())
+    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
+        pass
+
+    return 0
+
+
+def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> bool:
+    """Check if child_pid is a descendant of ancestor_pid."""
+    current = child_pid
+    for _ in range(max_depth):
+        if current == ancestor_pid:
+            return True
+        if current <= 1:
+            return False
+        parent = get_parent_pid(current)
+        if parent == 0 or parent == current:
+            return False
+        current = parent
+    return False
+
+
+def build_sender_info(explicit_sender: str = None) -> dict:
+    """
+    Build sender info using Registry PID matching.
+
+    Identifies the sender by checking which registered agent's PID
+    is an ancestor of the current process.
+
+    Returns dict with sender_id, sender_type, sender_endpoint if available.
+    """
+    sender_info = {}
+
+    # Explicit --from flag takes priority
+    if explicit_sender:
+        return {"sender_id": explicit_sender}
+
+    # Primary method: Registry PID matching
+    # Find which agent's process is an ancestor of current process
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        current_pid = os.getpid()
+
+        for agent_id, info in agents.items():
+            agent_pid = info.get("pid")
+            if agent_pid and is_descendant_of(current_pid, agent_pid):
+                sender_info["sender_id"] = agent_id
+                sender_info["sender_type"] = info.get("agent_type")
+                sender_info["sender_endpoint"] = info.get("endpoint")
+                return sender_info
+    except Exception:
+        pass
+
+    return sender_info
 
 def cmd_list(args):
     """List all available agents."""
@@ -68,7 +146,10 @@ def cmd_send(args):
         print(f"  Hint: Start the server with: synapse start {target_agent['agent_type']} --port {port}", file=sys.stderr)
         sys.exit(1)
 
-    # 3. Send Request using Google A2A protocol
+    # 3. Build sender metadata
+    sender_info = build_sender_info(getattr(args, 'sender', None))
+
+    # 4. Send Request using Google A2A protocol
     url = f"{target_agent['endpoint']}/tasks/send-priority?priority={args.priority}"
     payload = {
         "message": {
@@ -76,6 +157,10 @@ def cmd_send(args):
             "parts": [{"type": "text", "text": args.message}]
         }
     }
+
+    # Add sender info to metadata if available
+    if sender_info:
+        payload["metadata"] = {"sender": sender_info}
 
     try:
         # Use tuple timeout: (connect_timeout, read_timeout)
@@ -106,6 +191,7 @@ def main():
     p_send = subparsers.add_parser("send", help="Send message to an agent")
     p_send.add_argument("--target", required=True, help="Target Agent ID or Type (e.g. 'claude')")
     p_send.add_argument("--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)")
+    p_send.add_argument("--from", dest="sender", help="Sender Agent ID (auto-detected from env if not specified)")
     p_send.add_argument("message", help="Content of the message")
 
     args = parser.parse_args()
