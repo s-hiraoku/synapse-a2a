@@ -348,6 +348,124 @@ class TestA2ARouterEndpoints:
 # Integration Tests
 # ============================================================
 
+class TestAgentCardContext:
+    """Test x-synapse-context extension in Agent Card."""
+
+    @pytest.fixture
+    def mock_controller(self):
+        controller = MagicMock()
+        controller.status = "IDLE"
+        controller.get_context.return_value = ""
+        return controller
+
+    @pytest.fixture
+    def mock_registry(self):
+        registry = MagicMock()
+        registry.get_live_agents.return_value = {
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8110",
+                "status": "IDLE"
+            }
+        }
+        return registry
+
+    @pytest.fixture
+    def client_with_registry(self, mock_controller, mock_registry):
+        from fastapi import FastAPI
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller, "claude", 8100, "\n",
+            agent_id="synapse-claude-8100",
+            registry=mock_registry
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_agent_card_contains_x_synapse_context(self, client_with_registry):
+        """Agent Card should contain x-synapse-context extension."""
+        response = client_with_registry.get("/.well-known/agent.json")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "x-synapse-context" in data["extensions"]
+
+    def test_x_synapse_context_has_identity(self, client_with_registry):
+        """x-synapse-context should have identity field."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        ctx = response.json()["extensions"]["x-synapse-context"]
+
+        assert ctx["identity"] == "synapse-claude-8100"
+
+    def test_x_synapse_context_has_agent_type(self, client_with_registry):
+        """x-synapse-context should have agent_type field."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        ctx = response.json()["extensions"]["x-synapse-context"]
+
+        assert ctx["agent_type"] == "claude"
+
+    def test_x_synapse_context_has_routing_rules(self, client_with_registry):
+        """x-synapse-context should have routing_rules."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        ctx = response.json()["extensions"]["x-synapse-context"]
+
+        assert "routing_rules" in ctx
+        assert "self_patterns" in ctx["routing_rules"]
+        assert "forward_command" in ctx["routing_rules"]
+
+    def test_x_synapse_context_self_patterns(self, client_with_registry):
+        """self_patterns should include agent_id and agent_type."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        patterns = response.json()["extensions"]["x-synapse-context"]["routing_rules"]["self_patterns"]
+
+        assert "@synapse-claude-8100" in patterns
+        assert "@claude" in patterns
+
+    def test_x_synapse_context_has_available_agents(self, client_with_registry):
+        """x-synapse-context should list available agents from registry."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        agents = response.json()["extensions"]["x-synapse-context"]["available_agents"]
+
+        assert len(agents) == 1
+        assert agents[0]["id"] == "synapse-gemini-8110"
+        assert agents[0]["type"] == "gemini"
+
+    def test_x_synapse_context_has_priority_levels(self, client_with_registry):
+        """x-synapse-context should have priority_levels."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        levels = response.json()["extensions"]["x-synapse-context"]["priority_levels"]
+
+        assert "1" in levels
+        assert "5" in levels
+
+    def test_x_synapse_context_has_examples(self, client_with_registry):
+        """x-synapse-context should have usage examples."""
+        response = client_with_registry.get("/.well-known/agent.json")
+        examples = response.json()["extensions"]["x-synapse-context"]["examples"]
+
+        assert "send_message" in examples
+        assert "emergency_interrupt" in examples
+        assert "list_agents" in examples
+
+    def test_agent_card_without_registry(self, mock_controller):
+        """Agent Card should work without registry (empty available_agents)."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller, "claude", 8100, "\n",
+            agent_id="synapse-claude-8100",
+            registry=None
+        )
+        app.include_router(router)
+        client = TestClient(app)
+
+        response = client.get("/.well-known/agent.json")
+        agents = response.json()["extensions"]["x-synapse-context"]["available_agents"]
+
+        assert agents == []
+
+
 class TestA2ACompliance:
     """Test full Google A2A protocol compliance."""
 
