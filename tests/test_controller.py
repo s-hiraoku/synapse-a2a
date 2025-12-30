@@ -110,7 +110,7 @@ class TestIdentityInstruction:
         assert call_count == 1
 
     def test_identity_instruction_content(self, controller, mock_registry):
-        """Identity instruction should contain correct content."""
+        """Identity instruction should contain correct bootstrap content."""
         controller.running = True
         controller.master_fd = 1
 
@@ -127,11 +127,12 @@ class TestIdentityInstruction:
         assert len(written_data) == 1
         instruction = written_data[0]
 
-        # Check key content
+        # Check key content - minimal bootstrap with commands
         assert "synapse-claude-8100" in instruction
-        assert "claude" in instruction
-        assert "[SYNAPSE A2A]" in instruction
-        assert "ルーティングルール" in instruction
+        assert "SYNAPSE" in instruction
+        assert "8100" in instruction
+        assert "a2a.py send" in instruction
+        assert "a2a.py list" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
@@ -525,12 +526,3 @@ class TestControllerInitialization:
         )
         # Should be a compiled regex
         assert hasattr(ctrl.idle_regex, 'search')
-
-    def test_input_router_created(self):
-        """InputRouter should be created."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
-        from synapse.input_router import InputRouter
-        assert isinstance(ctrl.input_router, InputRouter)

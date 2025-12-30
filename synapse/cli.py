@@ -5,6 +5,7 @@ import argparse
 import os
 import sys
 import signal
+import asyncio
 import subprocess
 import time
 import yaml
@@ -23,6 +24,11 @@ def cmd_start(args):
     port = args.port
     foreground = args.foreground
 
+    # Extract tool args (filter out -- if present at start)
+    tool_args = getattr(args, 'tool_args', [])
+    if tool_args and tool_args[0] == '--':
+        tool_args = tool_args[1:]
+
     # Auto-select port if not specified
     if port is None:
         registry = AgentRegistry()
@@ -40,16 +46,25 @@ def cmd_start(args):
         "--port", str(port)
     ]
 
+    # Set up environment with tool args (null-separated for safe parsing)
+    env = os.environ.copy()
+    if tool_args:
+        env["SYNAPSE_TOOL_ARGS"] = '\x00'.join(tool_args)
+
     if foreground:
         # Run in foreground
         print(f"Starting {profile} on port {port} (foreground)...")
+        if tool_args:
+            print(f"Tool args: {' '.join(tool_args)}")
         try:
-            subprocess.run(cmd)
+            subprocess.run(cmd, env=env)
         except KeyboardInterrupt:
             print("\nStopped.")
     else:
         # Run in background
         print(f"Starting {profile} on port {port} (background)...")
+        if tool_args:
+            print(f"Tool args: {' '.join(tool_args)}")
 
         # Create log directory
         log_dir = os.path.expanduser("~/.synapse/logs")
@@ -61,7 +76,8 @@ def cmd_start(args):
                 cmd,
                 stdout=log,
                 stderr=log,
-                start_new_session=True
+                start_new_session=True,
+                env=env
             )
 
         # Wait a bit and check if it started
@@ -299,8 +315,10 @@ def cmd_external_info(args):
                 print(f"    {skill['description']}")
 
 
-def cmd_run_interactive(profile: str, port: int):
+def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     """Run an agent in interactive mode with input routing."""
+    tool_args = tool_args or []
+
     # Load profile
     profile_path = os.path.join(
         os.path.dirname(__file__), 'profiles', f"{profile}.yaml"
@@ -316,6 +334,10 @@ def cmd_run_interactive(profile: str, port: int):
     submit_seq = config.get('submit_sequence', '\n').encode().decode('unicode_escape')
     startup_delay = config.get('startup_delay', 3)
 
+    # Merge profile args with CLI tool args
+    profile_args = config.get('args', [])
+    all_args = profile_args + tool_args
+
     # Merge environment
     env = os.environ.copy()
     if 'env' in config:
@@ -325,16 +347,23 @@ def cmd_run_interactive(profile: str, port: int):
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Set SYNAPSE env vars for sender identification (same as server.py)
+    env["SYNAPSE_AGENT_ID"] = agent_id
+    env["SYNAPSE_AGENT_TYPE"] = profile
+    env["SYNAPSE_PORT"] = str(port)
+
     # Create controller
     controller = TerminalController(
         command=config['command'],
+        args=all_args,
         idle_regex=config['idle_regex'],
         env=env,
         registry=registry,
         agent_id=agent_id,
         agent_type=profile,
         submit_seq=submit_seq,
-        startup_delay=startup_delay
+        startup_delay=startup_delay,
+        port=port,
     )
 
     # Register agent
@@ -367,7 +396,7 @@ def cmd_run_interactive(profile: str, port: int):
         from synapse.server import create_app
         import uvicorn
 
-        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile)
+        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile, registry=registry)
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
@@ -377,6 +406,22 @@ def cmd_run_interactive(profile: str, port: int):
 
         # Give server time to start
         time.sleep(1)
+
+        # Send minimal initial A2A instructions
+        from synapse.server import send_initial_instructions
+
+        def send_initial():
+            try:
+                asyncio.run(send_initial_instructions(
+                    controller,
+                    agent_id,
+                    port,
+                    submit_seq
+                ))
+            except Exception:
+                pass  # Best-effort
+
+        threading.Thread(target=send_initial, daemon=True).start()
 
         # Run interactive mode
         controller.run_interactive()
@@ -390,19 +435,32 @@ def cmd_run_interactive(profile: str, port: int):
 
 
 def main():
-    # Check for shortcut: synapse claude [--port PORT]
+    # Check for shortcut: synapse claude [--port PORT] [-- TOOL_ARGS...]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]
 
-        # Check for --port option (explicit override)
-        if len(sys.argv) >= 4 and sys.argv[2] == "--port":
-            try:
-                port = int(sys.argv[3])
-            except ValueError:
-                print(f"Invalid port: {sys.argv[3]}")
-                sys.exit(1)
-        else:
-            # Auto-select available port
+        # Find -- separator to split synapse args from tool args
+        try:
+            separator_idx = sys.argv.index('--')
+            synapse_args = sys.argv[2:separator_idx]
+            tool_args = sys.argv[separator_idx + 1:]
+        except ValueError:
+            synapse_args = sys.argv[2:]
+            tool_args = []
+
+        # Parse --port from synapse_args
+        port = None
+        if '--port' in synapse_args:
+            idx = synapse_args.index('--port')
+            if idx + 1 < len(synapse_args):
+                try:
+                    port = int(synapse_args[idx + 1])
+                except ValueError:
+                    print(f"Invalid port: {synapse_args[idx + 1]}")
+                    sys.exit(1)
+
+        # Auto-select available port if not specified
+        if port is None:
             registry = AgentRegistry()
             port_manager = PortManager(registry)
             port = port_manager.get_available_port(profile)
@@ -411,7 +469,7 @@ def main():
                 print(port_manager.format_exhaustion_error(profile))
                 sys.exit(1)
 
-        cmd_run_interactive(profile, port)
+        cmd_run_interactive(profile, port, tool_args)
         return
 
     parser = argparse.ArgumentParser(
@@ -426,6 +484,8 @@ def main():
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
     p_start.add_argument("--port", type=int, help="Server port (default: auto)")
     p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
+    p_start.add_argument("tool_args", nargs=argparse.REMAINDER,
+                         help="Arguments after -- are passed to the CLI tool")
     p_start.set_defaults(func=cmd_start)
 
     # stop
