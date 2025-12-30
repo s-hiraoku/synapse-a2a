@@ -2,5 +2,6 @@ command: "gemini"
 args: []
 idle_regex: "> $"
 submit_sequence: "\r"
+startup_delay: 8
 env:
   TERM: "xterm-256color"

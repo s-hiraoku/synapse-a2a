@@ -11,17 +11,10 @@ import yaml
 from synapse.registry import AgentRegistry
 from synapse.controller import TerminalController
 from synapse.a2a_client import get_client
-
-# Default ports for each profile
-DEFAULT_PORTS = {
-    "claude": 8100,
-    "codex": 8101,
-    "gemini": 8102,
-    "dummy": 8199,
-}
+from synapse.port_manager import PortManager, PORT_RANGES, is_process_alive
 
 # Known profiles (for shortcut detection)
-KNOWN_PROFILES = {"claude", "codex", "gemini", "dummy"}
+KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 
 def cmd_start(args):
@@ -30,6 +23,21 @@ def cmd_start(args):
     port = args.port
     foreground = args.foreground
 
+    # Extract tool args (filter out -- if present at start)
+    tool_args = getattr(args, 'tool_args', [])
+    if tool_args and tool_args[0] == '--':
+        tool_args = tool_args[1:]
+
+    # Auto-select port if not specified
+    if port is None:
+        registry = AgentRegistry()
+        port_manager = PortManager(registry)
+        port = port_manager.get_available_port(profile)
+
+        if port is None:
+            print(port_manager.format_exhaustion_error(profile))
+            sys.exit(1)
+
     # Build command
     cmd = [
         sys.executable, "-m", "synapse.server",
@@ -37,16 +45,25 @@ def cmd_start(args):
         "--port", str(port)
     ]
 
+    # Set up environment with tool args (null-separated for safe parsing)
+    env = os.environ.copy()
+    if tool_args:
+        env["SYNAPSE_TOOL_ARGS"] = '\x00'.join(tool_args)
+
     if foreground:
         # Run in foreground
         print(f"Starting {profile} on port {port} (foreground)...")
+        if tool_args:
+            print(f"Tool args: {' '.join(tool_args)}")
         try:
-            subprocess.run(cmd)
+            subprocess.run(cmd, env=env)
         except KeyboardInterrupt:
             print("\nStopped.")
     else:
         # Run in background
         print(f"Starting {profile} on port {port} (background)...")
+        if tool_args:
+            print(f"Tool args: {' '.join(tool_args)}")
 
         # Create log directory
         log_dir = os.path.expanduser("~/.synapse/logs")
@@ -58,7 +75,8 @@ def cmd_start(args):
                 cmd,
                 stdout=log,
                 stderr=log,
-                start_new_session=True
+                start_new_session=True,
+                env=env
             )
 
         # Wait a bit and check if it started
@@ -71,36 +89,52 @@ def cmd_start(args):
             sys.exit(1)
 
 
-def cmd_stop(args):
-    """Stop a running agent."""
-    profile = args.profile
-    registry = AgentRegistry()
-    agents = registry.list_agents()
-
-    # Find agent by profile/type
-    found = None
-    for agent_id, info in agents.items():
-        if info.get("agent_type") == profile:
-            found = (agent_id, info)
-            break
-
-    if not found:
-        print(f"No running agent found for profile: {profile}")
-        sys.exit(1)
-
-    agent_id, info = found
+def _stop_agent(registry, info):
+    """Stop a single agent given its info dict."""
+    agent_id = info.get("agent_id")
     pid = info.get("pid")
 
     if pid:
         try:
             os.kill(pid, signal.SIGTERM)
-            print(f"Stopped {profile} (PID: {pid})")
+            print(f"Stopped {agent_id} (PID: {pid})")
             registry.unregister(agent_id)
         except ProcessLookupError:
             print(f"Process {pid} not found. Cleaning up registry...")
             registry.unregister(agent_id)
     else:
-        print(f"No PID found for {profile}")
+        print(f"No PID found for {agent_id}")
+
+
+def cmd_stop(args):
+    """Stop a running agent."""
+    profile = args.profile
+    registry = AgentRegistry()
+    port_manager = PortManager(registry)
+
+    running = port_manager.get_running_instances(profile)
+
+    if not running:
+        print(f"No running agent found for profile: {profile}")
+        sys.exit(1)
+
+    # If --all flag is set, stop all instances
+    if getattr(args, 'all', False):
+        for info in running:
+            _stop_agent(registry, info)
+        return
+
+    # If multiple instances, show list and stop the oldest (first)
+    if len(running) == 1:
+        target = running[0]
+    else:
+        print(f"Multiple {profile} instances running:")
+        for i, info in enumerate(running):
+            print(f"  [{i}] {info['agent_id']} (PID: {info.get('pid', '?')})")
+        target = running[0]
+        print(f"Stopping {target['agent_id']} (use --all to stop all)")
+
+    _stop_agent(registry, target)
 
 
 def cmd_list(args):
@@ -110,15 +144,27 @@ def cmd_list(args):
 
     if not agents:
         print("No agents running.")
+        print("\nPort ranges:")
+        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+            print(f"  {agent_type}: {start}-{end}")
         return
 
     print(f"{'TYPE':<10} {'PORT':<8} {'STATUS':<10} {'PID':<8} {'ENDPOINT'}")
     print("-" * 60)
     for agent_id, info in agents.items():
+        # Verify process is still alive
+        pid = info.get('pid')
+        status = info.get('status', '-')
+        if pid and not is_process_alive(pid):
+            status = "DEAD"
+            # Clean up stale entry
+            registry.unregister(agent_id)
+            continue  # Skip showing dead entries
+
         print(f"{info.get('agent_type', 'unknown'):<10} "
               f"{info.get('port', '-'):<8} "
-              f"{info.get('status', '-'):<10} "
-              f"{info.get('pid', '-'):<8} "
+              f"{status:<10} "
+              f"{pid or '-':<8} "
               f"{info.get('endpoint', '-')}")
 
 
@@ -268,8 +314,10 @@ def cmd_external_info(args):
                 print(f"    {skill['description']}")
 
 
-def cmd_run_interactive(profile: str, port: int):
+def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     """Run an agent in interactive mode with input routing."""
+    tool_args = tool_args or []
+
     # Load profile
     profile_path = os.path.join(
         os.path.dirname(__file__), 'profiles', f"{profile}.yaml"
@@ -283,6 +331,11 @@ def cmd_run_interactive(profile: str, port: int):
 
     # Load submit sequence from profile (decode escape sequences)
     submit_seq = config.get('submit_sequence', '\n').encode().decode('unicode_escape')
+    startup_delay = config.get('startup_delay', 3)
+
+    # Merge profile args with CLI tool args
+    profile_args = config.get('args', [])
+    all_args = profile_args + tool_args
 
     # Merge environment
     env = os.environ.copy()
@@ -291,14 +344,19 @@ def cmd_run_interactive(profile: str, port: int):
 
     # Create registry and register this agent
     registry = AgentRegistry()
-    agent_id = registry.get_agent_id(profile, os.getcwd())
+    agent_id = registry.get_agent_id(profile, port)
 
     # Create controller
     controller = TerminalController(
         command=config['command'],
+        args=all_args,
         idle_regex=config['idle_regex'],
         env=env,
-        registry=registry
+        registry=registry,
+        agent_id=agent_id,
+        agent_type=profile,
+        submit_seq=submit_seq,
+        startup_delay=startup_delay
     )
 
     # Register agent
@@ -354,20 +412,41 @@ def cmd_run_interactive(profile: str, port: int):
 
 
 def main():
-    # Check for shortcut: synapse claude [--port PORT]
+    # Check for shortcut: synapse claude [--port PORT] [-- TOOL_ARGS...]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]
-        port = DEFAULT_PORTS.get(profile, 8100)
 
-        # Check for --port option
-        if len(sys.argv) >= 4 and sys.argv[2] == "--port":
-            try:
-                port = int(sys.argv[3])
-            except ValueError:
-                print(f"Invalid port: {sys.argv[3]}")
+        # Find -- separator to split synapse args from tool args
+        try:
+            separator_idx = sys.argv.index('--')
+            synapse_args = sys.argv[2:separator_idx]
+            tool_args = sys.argv[separator_idx + 1:]
+        except ValueError:
+            synapse_args = sys.argv[2:]
+            tool_args = []
+
+        # Parse --port from synapse_args
+        port = None
+        if '--port' in synapse_args:
+            idx = synapse_args.index('--port')
+            if idx + 1 < len(synapse_args):
+                try:
+                    port = int(synapse_args[idx + 1])
+                except ValueError:
+                    print(f"Invalid port: {synapse_args[idx + 1]}")
+                    sys.exit(1)
+
+        # Auto-select available port if not specified
+        if port is None:
+            registry = AgentRegistry()
+            port_manager = PortManager(registry)
+            port = port_manager.get_available_port(profile)
+
+            if port is None:
+                print(port_manager.format_exhaustion_error(profile))
                 sys.exit(1)
 
-        cmd_run_interactive(profile, port)
+        cmd_run_interactive(profile, port, tool_args)
         return
 
     parser = argparse.ArgumentParser(
@@ -382,11 +461,15 @@ def main():
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
     p_start.add_argument("--port", type=int, help="Server port (default: auto)")
     p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
+    p_start.add_argument("tool_args", nargs=argparse.REMAINDER,
+                         help="Arguments after -- are passed to the CLI tool")
     p_start.set_defaults(func=cmd_start)
 
     # stop
     p_stop = subparsers.add_parser("stop", help="Stop an agent")
     p_stop.add_argument("profile", help="Agent profile to stop")
+    p_stop.add_argument("--all", "-a", action="store_true",
+                        help="Stop all instances of this profile")
     p_stop.set_defaults(func=cmd_stop)
 
     # list
@@ -449,10 +532,6 @@ def main():
     if args.command == "external" and (not hasattr(args, 'external_command') or args.external_command is None):
         p_external.print_help()
         sys.exit(1)
-
-    # Set default port based on profile for start command
-    if args.command == "start" and args.port is None:
-        args.port = DEFAULT_PORTS.get(args.profile, 8100)
 
     args.func(args)
 

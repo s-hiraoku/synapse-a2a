@@ -316,3 +316,141 @@ class TestInputRouterIntegration:
 
         assert router.line_buffer == ""
         assert router.is_external_agent is False
+
+    def test_synapse_agent_id_format(self):
+        """Test routing with synapse-{type}-{port} agent ID format."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8102": {
+                "agent_id": "synapse-gemini-8102",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8102"
+            }
+        }
+
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+        mock_client.send_to_local.return_value = A2ATask(
+            id="task-456",
+            status="working",
+            artifacts=[]
+        )
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # Simulate typing "@synapse-gemini-8102 test message"
+        for char in "@synapse-gemini-8102 test message":
+            output, action = router.process_char(char)
+
+        # Press Enter
+        output, action = router.process_char('\n')
+
+        # Should have an action
+        assert action is not None
+
+        # Execute the action
+        result = action()
+        assert result is True
+
+        # Verify A2A client was called with correct params
+        mock_client.send_to_local.assert_called_once()
+        call_args = mock_client.send_to_local.call_args
+        assert call_args.kwargs["message"] == "test message"
+        assert call_args.kwargs["endpoint"] == "http://localhost:8102"
+
+    def test_synapse_agent_id_with_short_message(self):
+        """Test routing with synapse ID format and short message like 'test'."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8102": {
+                "agent_id": "synapse-gemini-8102",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8102"
+            }
+        }
+
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+        mock_client.send_to_local.return_value = A2ATask(
+            id="task-789",
+            status="working",
+            artifacts=[]
+        )
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # Simulate typing "@synapse-gemini-8102 test"
+        for char in "@synapse-gemini-8102 test":
+            router.process_char(char)
+
+        # Press Enter
+        output, action = router.process_char('\n')
+
+        assert action is not None
+        result = action()
+        assert result is True
+
+        # Verify the message "test" was extracted correctly
+        call_args = mock_client.send_to_local.call_args
+        assert call_args.kwargs["message"] == "test"
+
+    def test_normal_input_passes_through(self):
+        """Normal input should pass through to PTY."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {}
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # Type "hello" - each character should pass through
+        outputs = []
+        for char in "hello":
+            output, action = router.process_char(char)
+            outputs.append(output)
+            assert action is None
+
+        # All characters should be returned (for sending to PTY)
+        assert outputs == ["h", "e", "l", "l", "o"]
+
+        # Enter should also pass through
+        output, action = router.process_char('\n')
+        assert output == '\n'
+        assert action is None
+
+    def test_at_prefixed_input_also_passes_through(self):
+        """Input starting with @ passes through until Enter detects pattern."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {}
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # Type "@test" - characters pass through (echoed by PTY)
+        outputs = []
+        for char in "@test":
+            output, action = router.process_char(char)
+            outputs.append(output)
+            assert action is None
+
+        # All characters should pass through
+        assert outputs == ["@", "t", "e", "s", "t"]
+
+    def test_backspace_passes_through(self):
+        """Backspace should pass through to PTY."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {}
+        mock_client = MagicMock()
+        mock_client.registry.get.return_value = None
+
+        router = InputRouter(registry=mock_registry, a2a_client=mock_client)
+
+        # Type "@hel"
+        for char in "@hel":
+            router.process_char(char)
+
+        # Press backspace - should pass through
+        output, action = router.process_char('\x7f')
+        assert output == '\x7f'  # Passes through to PTY
+        assert router.line_buffer == "@he"  # Buffer updated

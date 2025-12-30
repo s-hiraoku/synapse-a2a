@@ -149,7 +149,7 @@ class A2AClient:
 
     def __init__(self, registry: Optional[ExternalAgentRegistry] = None):
         self.registry = registry or ExternalAgentRegistry()
-        self.timeout = 30
+        self.timeout = (3, 30)  # (connect_timeout, read_timeout)
 
     def discover(self, url: str, alias: Optional[str] = None) -> Optional[ExternalAgent]:
         """

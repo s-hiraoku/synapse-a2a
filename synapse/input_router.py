@@ -5,7 +5,7 @@ import re
 import requests
 from datetime import datetime
 from typing import Optional, Tuple
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, is_port_open, is_process_running
 from synapse.a2a_client import get_client, A2AClient
 
 # Simple file-based logging
@@ -36,7 +36,8 @@ class InputRouter:
 
     # Pattern: @AgentName [--response] message
     # --response: return response to sender's terminal
-    A2A_PATTERN = re.compile(r'^@(\w+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
+    # Agent name can include hyphens and numbers (e.g., synapse-claude-8100)
+    A2A_PATTERN = re.compile(r'^@([\w-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
@@ -127,14 +128,29 @@ class InputRouter:
 
         # First, try local agents
         agents = self.registry.list_agents()
-        log("DEBUG", f"Available local agents: {[info.get('agent_type') for info in agents.values()]}")
+        log("DEBUG", f"Available local agents: {list(agents.keys())}")
 
-        # Find agent by name/type in local registry
+        # Find agent by agent_id or agent_type in local registry
+        # Matching priority:
+        # 1. Exact match on agent_id (e.g., synapse-claude-8100)
+        # 2. Match on agent_type (e.g., claude)
         target = None
+        agent_name_lower = agent_name.lower()
+
+        # First, try exact match on agent_id
         for agent_id, info in agents.items():
-            if info.get("agent_type", "").lower() == agent_name:
+            if agent_id.lower() == agent_name_lower:
                 target = info
+                log("DEBUG", f"Matched by agent_id: {agent_id}")
                 break
+
+        # If not found, try match on agent_type
+        if not target:
+            for agent_id, info in agents.items():
+                if info.get("agent_type", "").lower() == agent_name_lower:
+                    target = info
+                    log("DEBUG", f"Matched by agent_type: {info.get('agent_type')}")
+                    break
 
         # If not found locally, check external A2A agents
         if not target:
@@ -145,6 +161,25 @@ class InputRouter:
 
         if not target:
             log("ERROR", f"Agent '{agent_name}' not found (local or external)")
+            self.last_response = None
+            return False
+
+        # Pre-connection validation
+        pid = target.get("pid")
+        port = target.get("port")
+        agent_id = target.get("agent_id", agent_name)
+
+        # Check if process is still alive
+        if pid and not is_process_running(pid):
+            log("ERROR", f"Agent '{agent_id}' process (PID {pid}) is no longer running")
+            # Auto-cleanup stale registry entry
+            self.registry.unregister(agent_id)
+            self.last_response = None
+            return False
+
+        # Check if port is reachable (fast 1-second check)
+        if port and not is_port_open("localhost", port, timeout=1.0):
+            log("ERROR", f"Agent '{agent_id}' server on port {port} is not responding")
             self.last_response = None
             return False
 
