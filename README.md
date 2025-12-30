@@ -398,7 +398,7 @@ You are participating in a multi-agent environment connected via the Synapse A2A
 - エージェントの identity（ID, type, port）
 - @Agent でのメッセージ送信方法
 - 利用可能な他のエージェント一覧
-- 送信元識別の確認方法
+- 送信元識別と **返信方法**（`[A2A:task_id:sender_id]` から sender_id を抽出して返信）
 
 ---
 

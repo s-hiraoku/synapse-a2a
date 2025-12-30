@@ -129,7 +129,7 @@ class TestBuildInitialInstructions:
         assert "--priority" in result
 
     def test_contains_sender_identification(self):
-        """Should contain sender identification instructions."""
+        """Should contain sender identification and reply instructions."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
@@ -138,7 +138,9 @@ class TestBuildInitialInstructions:
         result = build_initial_instructions(ctx)
 
         assert "A2A:" in result
-        assert "metadata.sender" in result
+        assert "sender_id" in result
+        assert "How to Reply" in result
+        assert "IMPORTANT" in result
 
     def test_contains_target_resolution(self):
         """Should explain target resolution patterns."""

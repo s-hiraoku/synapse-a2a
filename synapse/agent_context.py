@@ -79,17 +79,26 @@ python3 synapse/tools/a2a.py send --target <agent_id> --priority [1-5] "<message
 ## Available Agents
 {agents_list}
 
-## Sender Identification
+## Sender Identification & Replying
 
-When you receive a message, it includes sender info:
+When you receive a message from another agent, it includes sender info:
 ```
 [A2A:<task_id>:<sender_id>] <message>
 ```
 
-For full sender details:
+### How to Reply
+If the message asks for a response, use the sender_id to reply:
+
 ```bash
-curl -s http://localhost:{ctx.port}/tasks/<task_id> | jq '.metadata.sender'
+python3 synapse/tools/a2a.py send --target <sender_id> --priority 1 "<your response>"
 ```
+
+Example: If you receive `[A2A:abc123:synapse-claude-8100] What is 2+2?`
+```bash
+python3 synapse/tools/a2a.py send --target synapse-claude-8100 --priority 1 "The answer is 4"
+```
+
+**IMPORTANT**: When a message explicitly asks you to reply or return results, you MUST use the a2a.py tool to send your response back to the sender.
 
 ## List Agents
 ```bash
