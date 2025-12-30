@@ -1,8 +1,36 @@
 import argparse
 import sys
 import json
+import os
 import requests
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
+
+
+def build_sender_info(explicit_sender: str = None) -> dict:
+    """
+    Build sender info from environment variables or explicit argument.
+
+    Returns dict with sender_id, sender_type, sender_endpoint if available.
+    """
+    sender_info = {}
+
+    # Try to auto-detect from environment variables (set by Synapse server)
+    sender_id = os.environ.get("SYNAPSE_AGENT_ID")
+    sender_type = os.environ.get("SYNAPSE_AGENT_TYPE")
+    sender_port = os.environ.get("SYNAPSE_PORT")
+
+    if sender_id:
+        sender_info["sender_id"] = sender_id
+        if sender_type:
+            sender_info["sender_type"] = sender_type
+        if sender_port:
+            sender_info["sender_endpoint"] = f"http://localhost:{sender_port}"
+
+    # Explicit --from flag overrides
+    if explicit_sender:
+        sender_info["sender_id"] = explicit_sender
+
+    return sender_info
 
 def cmd_list(args):
     """List all available agents."""
@@ -68,7 +96,10 @@ def cmd_send(args):
         print(f"  Hint: Start the server with: synapse start {target_agent['agent_type']} --port {port}", file=sys.stderr)
         sys.exit(1)
 
-    # 3. Send Request using Google A2A protocol
+    # 3. Build sender metadata
+    sender_info = build_sender_info(getattr(args, 'sender', None))
+
+    # 4. Send Request using Google A2A protocol
     url = f"{target_agent['endpoint']}/tasks/send-priority?priority={args.priority}"
     payload = {
         "message": {
@@ -76,6 +107,10 @@ def cmd_send(args):
             "parts": [{"type": "text", "text": args.message}]
         }
     }
+
+    # Add sender info to metadata if available
+    if sender_info:
+        payload["metadata"] = {"sender": sender_info}
 
     try:
         # Use tuple timeout: (connect_timeout, read_timeout)
@@ -106,6 +141,7 @@ def main():
     p_send = subparsers.add_parser("send", help="Send message to an agent")
     p_send.add_argument("--target", required=True, help="Target Agent ID or Type (e.g. 'claude')")
     p_send.add_argument("--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)")
+    p_send.add_argument("--from", dest="sender", help="Sender Agent ID (auto-detected from env if not specified)")
     p_send.add_argument("message", help="Content of the message")
 
     args = parser.parse_args()

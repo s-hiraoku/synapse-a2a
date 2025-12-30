@@ -194,7 +194,8 @@ class A2AClient:
         message: str,
         priority: int = 1,
         wait_for_completion: bool = False,
-        timeout: int = 60
+        timeout: int = 60,
+        sender_info: Optional[Dict[str, str]] = None
     ) -> Optional[A2ATask]:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -208,6 +209,7 @@ class A2AClient:
             priority: Priority level (1-5, 5=interrupt)
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
+            sender_info: Optional dict with sender_id, sender_type, sender_endpoint
 
         Returns:
             A2ATask if successful, None otherwise
@@ -216,11 +218,18 @@ class A2AClient:
             # Create A2A message
             a2a_message = A2AMessage.from_text(message)
 
+            # Build request payload
+            payload: Dict[str, Any] = {"message": asdict(a2a_message)}
+
+            # Add sender info to metadata if provided
+            if sender_info:
+                payload["metadata"] = {"sender": sender_info}
+
             # Use /tasks/send-priority for priority support
             url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
             response = requests.post(
                 url,
-                json={"message": asdict(a2a_message)},
+                json=payload,
                 timeout=self.timeout
             )
             response.raise_for_status()

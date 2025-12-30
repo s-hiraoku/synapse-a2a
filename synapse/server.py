@@ -136,6 +136,12 @@ async def startup_event():
     registry = AgentRegistry()
     current_agent_id = registry.get_agent_id(profile_name, agent_port)
 
+    # Set sender identification environment variables for child processes
+    # These are used by CLI tools (a2a.py) to auto-detect sender info
+    env["SYNAPSE_AGENT_ID"] = current_agent_id
+    env["SYNAPSE_AGENT_TYPE"] = profile_name
+    env["SYNAPSE_PORT"] = str(agent_port)
+
     controller = TerminalController(
         command=profile['command'],
         args=all_args,

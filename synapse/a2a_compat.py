@@ -145,8 +145,13 @@ class TaskStore:
         self._tasks: Dict[str, Task] = {}
         self._lock = threading.Lock()
 
-    def create(self, message: Message, context_id: Optional[str] = None) -> Task:
-        """Create a new task"""
+    def create(
+        self,
+        message: Message,
+        context_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Task:
+        """Create a new task with optional metadata (including sender info)"""
         now = datetime.utcnow().isoformat() + "Z"
         task = Task(
             id=str(uuid4()),
@@ -156,6 +161,7 @@ class TaskStore:
             created_at=now,
             updated_at=now,
             context_id=context_id,
+            metadata=metadata or {},
         )
         with self._lock:
             self._tasks[task.id] = task
@@ -365,8 +371,12 @@ def create_a2a_router(
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
-        # Create task
-        task = task_store.create(request.message, request.context_id)
+        # Create task with metadata (may include sender info)
+        task = task_store.create(
+            request.message,
+            request.context_id,
+            metadata=request.metadata
+        )
 
         # Update to working
         task_store.update_status(task.id, "working")
@@ -468,8 +478,12 @@ def create_a2a_router(
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
-        # Create task
-        task = task_store.create(request.message, request.context_id)
+        # Create task with metadata (may include sender info)
+        task = task_store.create(
+            request.message,
+            request.context_id,
+            metadata=request.metadata
+        )
         task_store.update_status(task.id, "working")
 
         # Priority 5 = interrupt first

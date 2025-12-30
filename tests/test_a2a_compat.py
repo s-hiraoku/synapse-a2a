@@ -168,6 +168,43 @@ class TestTaskStore:
         ctx1_tasks = task_store.list_tasks(context_id="ctx-1")
         assert len(ctx1_tasks) == 2
 
+    def test_create_task_with_metadata(self, task_store):
+        """Should create task with metadata (including sender info)."""
+        msg = Message(parts=[TextPart(text="Test")])
+        metadata = {
+            "sender": {
+                "sender_id": "synapse-claude-8100",
+                "sender_type": "claude",
+                "sender_endpoint": "http://localhost:8100"
+            }
+        }
+        task = task_store.create(msg, metadata=metadata)
+
+        assert task.metadata == metadata
+        assert task.metadata["sender"]["sender_id"] == "synapse-claude-8100"
+        assert task.metadata["sender"]["sender_type"] == "claude"
+        assert task.metadata["sender"]["sender_endpoint"] == "http://localhost:8100"
+
+    def test_create_task_metadata_defaults_to_empty(self, task_store):
+        """Should default to empty metadata when not provided."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+
+        assert task.metadata == {}
+
+    def test_create_task_with_partial_sender_info(self, task_store):
+        """Should accept partial sender info in metadata."""
+        msg = Message(parts=[TextPart(text="Test")])
+        metadata = {
+            "sender": {
+                "sender_id": "external-agent"
+            }
+        }
+        task = task_store.create(msg, metadata=metadata)
+
+        assert task.metadata["sender"]["sender_id"] == "external-agent"
+        assert "sender_type" not in task.metadata["sender"]
+
 
 # ============================================================
 # Status Mapping Tests

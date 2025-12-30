@@ -42,7 +42,14 @@ class InputRouter:
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
 
-    def __init__(self, registry: Optional[AgentRegistry] = None, a2a_client: Optional[A2AClient] = None):
+    def __init__(
+        self,
+        registry: Optional[AgentRegistry] = None,
+        a2a_client: Optional[A2AClient] = None,
+        self_agent_id: Optional[str] = None,
+        self_agent_type: Optional[str] = None,
+        self_port: Optional[int] = None
+    ):
         self.registry = registry or AgentRegistry()
         self.a2a_client = a2a_client or get_client()
         self.line_buffer = ""
@@ -50,6 +57,11 @@ class InputRouter:
         self.pending_command: Optional[Tuple[str, str, bool]] = None
         self.pending_agent: Optional[str] = None  # Track last agent for feedback
         self.is_external_agent: bool = False  # Track if last agent was external
+
+        # Self-identification for sender info in A2A messages
+        self.self_agent_id = self_agent_id
+        self.self_agent_type = self_agent_type
+        self.self_port = self_port
 
     def process_char(self, char: str) -> Tuple[str, Optional[callable]]:
         """
@@ -191,13 +203,26 @@ class InputRouter:
 
         try:
             log("INFO", f"POST {endpoint}/tasks/send-priority (A2A)")
+
+            # Build sender info if self-identification is available
+            sender_info = None
+            if self.self_agent_id:
+                sender_info = {
+                    "sender_id": self.self_agent_id,
+                }
+                if self.self_agent_type:
+                    sender_info["sender_type"] = self.self_agent_type
+                if self.self_port:
+                    sender_info["sender_endpoint"] = f"http://localhost:{self.self_port}"
+
             # Send using A2A protocol
             task = self.a2a_client.send_to_local(
                 endpoint=endpoint,
                 message=message,
                 priority=1,
                 wait_for_completion=want_response,
-                timeout=60
+                timeout=60,
+                sender_info=sender_info
             )
 
             if task:
