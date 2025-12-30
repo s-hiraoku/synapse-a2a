@@ -16,6 +16,43 @@
 
 詳細: [docs/agent-card-context.md](../../docs/agent-card-context.md)
 
+### Sender Identification (A2A 準拠メッセージ送信元識別)
+
+**目的**: 受信エージェントがメッセージの送信元を識別できるようにする
+
+**実装**:
+- `metadata.sender` フィールドで送信元情報を送信（A2A 準拠）
+- PTY 出力に `[A2A:<task_id>:<sender_id>]` プレフィックスを追加
+- Task API (`/tasks/{id}`) で詳細な送信元情報を取得可能
+- 環境変数 `SYNAPSE_AGENT_ID`, `SYNAPSE_AGENT_TYPE`, `SYNAPSE_PORT` で自動検出
+
+**送信元情報**:
+```json
+{
+  "metadata": {
+    "sender": {
+      "sender_id": "synapse-claude-8100",
+      "sender_type": "claude",
+      "sender_endpoint": "http://localhost:8100"
+    }
+  }
+}
+```
+
+### Multiple Agent Resolution (@type-port 記法)
+
+**目的**: 同じタイプの複数エージェントを明確に指定可能にする
+
+**実装**:
+- `@codex` - 1つだけなら動作、複数あればエラー
+- `@codex-8120` - type-port 記法で特定インスタンスを指定
+- `@synapse-codex-8120` - フル agent_id で指定
+
+**エラー時の出力例**:
+```
+[⚠ Multiple 'codex' agents found. Use: @codex-8120, @codex-8130]
+```
+
 ---
 
 ## ファイル一覧

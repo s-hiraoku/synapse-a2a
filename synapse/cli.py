@@ -352,7 +352,22 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     env["SYNAPSE_AGENT_TYPE"] = profile
     env["SYNAPSE_PORT"] = str(port)
 
-    # Create controller
+    # Define on_first_idle callback for sending initial instructions
+    # This will be called when the agent first reaches IDLE state
+    from synapse.server import send_initial_instructions
+
+    def on_first_idle():
+        try:
+            asyncio.run(send_initial_instructions(
+                controller,
+                agent_id,
+                port,
+                submit_seq
+            ))
+        except Exception:
+            pass  # Best-effort
+
+    # Create controller with on_first_idle callback
     controller = TerminalController(
         command=config['command'],
         args=all_args,
@@ -364,6 +379,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         submit_seq=submit_seq,
         startup_delay=startup_delay,
         port=port,
+        on_first_idle=on_first_idle,
     )
 
     # Register agent
@@ -407,21 +423,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         # Give server time to start
         time.sleep(1)
 
-        # Send minimal initial A2A instructions
-        from synapse.server import send_initial_instructions
-
-        def send_initial():
-            try:
-                asyncio.run(send_initial_instructions(
-                    controller,
-                    agent_id,
-                    port,
-                    submit_seq
-                ))
-            except Exception:
-                pass  # Best-effort
-
-        threading.Thread(target=send_initial, daemon=True).start()
+        # Initial instructions are sent via on_first_idle callback
+        # when the agent reaches IDLE state (detected by idle_regex)
 
         # Run interactive mode
         controller.run_interactive()

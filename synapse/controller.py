@@ -24,7 +24,8 @@ class TerminalController:
                  registry: Optional[AgentRegistry] = None,
                  agent_id: Optional[str] = None, agent_type: Optional[str] = None,
                  submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
-                 args: Optional[list] = None, port: Optional[int] = None):
+                 args: Optional[list] = None, port: Optional[int] = None,
+                 on_first_idle: Optional[Callable] = None):
         self.command = command
         self.args = args or []
         self.idle_regex = re.compile(idle_regex.encode('utf-8'))
@@ -47,7 +48,8 @@ class TerminalController:
         self._startup_delay = startup_delay or 3  # Default 3 seconds
         self._last_output_time = None  # Track last output for idle detection
         self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
-        
+        self._on_first_idle = on_first_idle  # Callback for sending initial instructions
+
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(
             registry=self.registry,
@@ -152,14 +154,16 @@ class TerminalController:
             if match:
                 was_busy = self.status != "IDLE"
                 self.status = "IDLE"
-                # Send identity instruction on first IDLE
+                # On first IDLE, call the callback to send initial instructions
+                # via A2A Task format with [A2A:id:sender] prefix
                 if was_busy and not self._identity_sent and self.agent_id:
                     self._identity_sent = True
-                    # Schedule instruction send outside the lock
-                    threading.Thread(
-                        target=self._send_identity_instruction,
-                        daemon=True
-                    ).start()
+                    if self._on_first_idle:
+                        # Run callback in thread to avoid blocking
+                        threading.Thread(
+                            target=self._on_first_idle,
+                            daemon=True
+                        ).start()
             else:
                 self.status = "BUSY"
 
@@ -241,24 +245,8 @@ class TerminalController:
         self.interactive = True
         self.running = True
 
-        # Monitor output and send identity instruction when output stops
-        # This is more reliable than a fixed timer for TUI apps with varying startup times
-        if self.agent_id and not self._identity_sent:
-            def monitor_output_idle():
-                # Wait minimum startup delay first
-                time.sleep(self._startup_delay)
-
-                while self.running and not self._identity_sent:
-                    if self._last_output_time is not None:
-                        elapsed = time.time() - self._last_output_time
-                        if elapsed >= self._output_idle_threshold:
-                            # Output has stopped, agent is ready for input
-                            self._identity_sent = True
-                            self._send_identity_instruction()
-                            break
-                    time.sleep(0.2)  # Check every 200ms
-
-            threading.Thread(target=monitor_output_idle, daemon=True).start()
+        # Note: Initial instructions are sent via cli.py -> server.send_initial_instructions()
+        # which uses A2A Task format with [A2A:id:sender] prefix
 
         def sync_pty_window_size():
             """Sync current terminal size to the PTY master for TUI apps."""

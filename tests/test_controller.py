@@ -59,55 +59,64 @@ class TestIdentityInstruction:
 
         assert controller.status == "IDLE"
 
-    def test_identity_sent_on_first_idle(self, controller):
-        """Identity instruction should be sent on first IDLE detection."""
+    def test_identity_flag_set_on_first_idle(self, controller):
+        """Identity flag should be set and callback called on first IDLE detection."""
         controller.running = True
         controller.master_fd = 1  # Mock fd
         controller.output_buffer = b"prompt $"
 
-        # Track if _send_identity_instruction was called
-        send_called = threading.Event()
-        original_send = controller._send_identity_instruction
+        # Track if callback was called
+        callback_called = threading.Event()
 
-        def mock_send():
-            send_called.set()
+        def mock_callback():
+            callback_called.set()
 
-        controller._send_identity_instruction = mock_send
+        controller._on_first_idle = mock_callback
+
+        # Verify flag is not set initially
+        assert controller._identity_sent is False
 
         # Trigger idle detection
         controller._check_idle_state(b"$")
 
-        # Wait for the thread to be spawned
+        # Wait for callback thread
         time.sleep(0.1)
 
+        # Flag should be set and callback should be called
         assert controller._identity_sent is True
-        assert send_called.is_set()
+        assert controller.status == "IDLE"
+        assert callback_called.is_set()
 
-    def test_identity_sent_only_once(self, controller):
-        """Identity instruction should only be sent once."""
+    def test_identity_callback_only_called_once(self, controller):
+        """Callback should only be called once, not on subsequent IDLE transitions."""
         controller.running = True
         controller.master_fd = 1
         controller.output_buffer = b"prompt $"
 
-        call_count = 0
+        # Track callback call count
+        call_count = [0]
 
-        def mock_send():
-            nonlocal call_count
-            call_count += 1
+        def mock_callback():
+            call_count[0] += 1
 
-        controller._send_identity_instruction = mock_send
+        controller._on_first_idle = mock_callback
 
-        # First IDLE
+        # First IDLE - flag should be set and callback called
         controller._check_idle_state(b"$")
         time.sleep(0.1)
+        assert controller._identity_sent is True
+        assert call_count[0] == 1
 
-        # Second IDLE (should not send again)
+        # Manually set back to BUSY to simulate activity
         controller.status = "BUSY"
         controller.output_buffer = b"more output $"
+
+        # Second IDLE - flag should remain True, callback NOT called again
         controller._check_idle_state(b"$")
         time.sleep(0.1)
-
-        assert call_count == 1
+        assert controller._identity_sent is True
+        assert controller.status == "IDLE"
+        assert call_count[0] == 1  # Still 1, not 2
 
     def test_identity_instruction_content(self, controller, mock_registry):
         """Identity instruction should contain correct bootstrap content."""
