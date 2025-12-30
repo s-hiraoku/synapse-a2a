@@ -60,12 +60,18 @@ You are participating in a multi-agent environment connected via the Synapse A2A
 - Agent Type: {ctx.agent_type}
 - Port: {ctx.port}
 
-## How to Send Messages (@Agent)
+## How to Forward Messages (@Agent)
 
-When you see `@AgentName` or need to send a message to another agent:
+**IMPORTANT**: When you receive a message starting with `@AgentName` (e.g., `@gemini`, `@claude`),
+you must FORWARD it to that agent **WITHOUT processing it yourself**. Do NOT execute the task - just deliver the message.
 
 ```bash
 python3 synapse/tools/a2a.py send --target <agent_id> --priority [1-5] "<message>"
+```
+
+Example: If you receive `@gemini 天気を調べて`, run:
+```bash
+python3 synapse/tools/a2a.py send --target gemini --priority 1 "天気を調べて"
 ```
 
 - Priority 1: Normal message
@@ -75,6 +81,10 @@ python3 synapse/tools/a2a.py send --target <agent_id> --priority [1-5] "<message
 - `@type` (e.g., `@codex`): Works if only ONE agent of that type exists
 - `@type-port` (e.g., `@codex-8120`): Specific instance (required if multiple exist)
 - `@agent_id` (e.g., `@synapse-codex-8120`): Full agent ID
+
+### When to Process vs Forward
+- Message starts with `@OtherAgent`: **FORWARD** to that agent (do NOT process)
+- Message addressed to you (or no @mention): **PROCESS** it yourself
 
 ## Available Agents
 {agents_list}
