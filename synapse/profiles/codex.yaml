@@ -1,6 +1,6 @@
 command: "codex"
 args: []
-idle_regex: "> $"
+idle_regex: "›"
 submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
