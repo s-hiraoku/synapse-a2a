@@ -14,7 +14,6 @@ import struct
 import shutil
 from typing import Optional, Callable
 
-from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
 
 
@@ -37,7 +36,6 @@ class TerminalController:
         self.running = False
         self.thread = None
         self.registry = registry or AgentRegistry()
-        self.input_router = InputRouter(self.registry)
         self.interactive = False
         self.agent_id = agent_id
         self.agent_type = agent_type
@@ -129,13 +127,17 @@ class TerminalController:
         ]
         other_examples = ", ".join(other_agents[:3]) if other_agents else "@synapse-other-agent"
 
-        instruction = f"""[SYNAPSE A2A] あなたのアイデンティティ:
-- ID: {self.agent_id}
-- タイプ: {self.agent_type}
+        instruction = f"""[SYNAPSE A2A] あなたのID: {self.agent_id}
 
-ルーティングルール:
-- @{self.agent_id} → これはあなた宛て。実行する
-- {other_examples} など → 他のエージェント宛て。A2Aで転送のみ。自分では実行しない
+【ルーティングルール】
+1. @{self.agent_id} 宛て → あなた宛て。内容を実行してください。
+2. @other-agent 宛て → 他エージェント宛て。以下のコマンドで転送:
+
+```bash
+python3 synapse/tools/a2a.py send --target <agent_id> --priority 1 "<メッセージ>"
+```
+
+利用可能: {other_examples}
 """
         # Small delay to ensure agent is ready
         time.sleep(0.5)
@@ -258,32 +260,9 @@ class TerminalController:
             return data
 
         def input_callback(fd):
-            """Called when there's data from stdin."""
+            """Called when there's data from stdin. Pass through directly to PTY."""
             data = os.read(fd, 1024)
-            if not data:
-                return data
-
-            # Process through input router
-            text = data.decode('utf-8', errors='replace')
-            output_bytes = b""
-
-            for char in text:
-                output, action = self.input_router.process_char(char)
-
-                if action:
-                    # @agent command detected
-                    # Clear the displayed text (move to line start, clear to end)
-                    os.write(sys.stdout.fileno(), b"\r\x1b[K")
-
-                    # Execute A2A action
-                    success = action()
-                    agent = self.input_router.pending_agent or "agent"
-                    feedback = self.input_router.get_feedback_message(agent, success)
-                    os.write(sys.stdout.fileno(), feedback.encode())
-                elif output:
-                    output_bytes += output.encode()
-
-            return output_bytes
+            return data  # Simply pass through - let AI handle routing decisions
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
@@ -298,19 +277,6 @@ class TerminalController:
         )
 
     def _handle_interactive_input(self, data: bytes):
-        """Process human input through the input router."""
-        text = data.decode('utf-8', errors='replace')
-
-        for char in text:
-            output, action = self.input_router.process_char(char)
-
-            if action:
-                # Execute A2A action
-                success = action()
-                # Show feedback
-                agent = self.input_router.pending_agent or "agent"
-                feedback = self.input_router.get_feedback_message(agent, success)
-                os.write(sys.stdout.fileno(), feedback.encode())
-            elif output:
-                # Pass through to PTY
-                os.write(self.master_fd, output.encode())
+        """Pass through human input directly to PTY. AI handles routing decisions."""
+        if self.master_fd is not None:
+            os.write(self.master_fd, data)

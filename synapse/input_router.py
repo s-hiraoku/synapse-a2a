@@ -5,7 +5,7 @@ import re
 import requests
 from datetime import datetime
 from typing import Optional, Tuple
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, is_port_open, is_process_running
 from synapse.a2a_client import get_client, A2AClient
 
 # Simple file-based logging
@@ -161,6 +161,25 @@ class InputRouter:
 
         if not target:
             log("ERROR", f"Agent '{agent_name}' not found (local or external)")
+            self.last_response = None
+            return False
+
+        # Pre-connection validation
+        pid = target.get("pid")
+        port = target.get("port")
+        agent_id = target.get("agent_id", agent_name)
+
+        # Check if process is still alive
+        if pid and not is_process_running(pid):
+            log("ERROR", f"Agent '{agent_id}' process (PID {pid}) is no longer running")
+            # Auto-cleanup stale registry entry
+            self.registry.unregister(agent_id)
+            self.last_response = None
+            return False
+
+        # Check if port is reachable (fast 1-second check)
+        if port and not is_port_open("localhost", port, timeout=1.0):
+            log("ERROR", f"Agent '{agent_id}' server on port {port} is not responding")
             self.last_response = None
             return False
 

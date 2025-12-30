@@ -3,7 +3,25 @@ import json
 import hashlib
 import socket
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
+
+
+def is_process_running(pid: int) -> bool:
+    """Check if a process is still running."""
+    try:
+        os.kill(pid, 0)  # Signal 0 only checks existence
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
+    """Check if a port is open (fast check)."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        return False
 
 class AgentRegistry:
     def __init__(self):
@@ -98,3 +116,26 @@ class AgentRegistry:
             return True
         except (json.JSONDecodeError, OSError):
             return False
+
+    def cleanup_stale_entries(self) -> List[str]:
+        """
+        Remove registry entries for agents whose processes are no longer running.
+
+        Returns:
+            List of agent IDs that were removed.
+        """
+        removed = []
+        for agent_id, info in list(self.list_agents().items()):
+            pid = info.get('pid')
+            if pid and not is_process_running(pid):
+                self.unregister(agent_id)
+                removed.append(agent_id)
+        return removed
+
+    def get_live_agents(self) -> Dict[str, dict]:
+        """
+        Returns only agents that are confirmed to be running.
+        Automatically cleans up stale entries.
+        """
+        self.cleanup_stale_entries()
+        return self.list_agents()
