@@ -129,7 +129,7 @@ class TestIdentityInstruction:
 
         # Check key content - minimal bootstrap with commands
         assert "synapse-claude-8100" in instruction
-        assert "[SYNAPSE]" in instruction
+        assert "SYNAPSE" in instruction
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction

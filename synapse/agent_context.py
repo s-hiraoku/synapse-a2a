@@ -131,15 +131,16 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     Returns:
         Minimal bootstrap instruction string.
     """
-    return f"""[SYNAPSE] {agent_id} | Port: {port}
+    return f"""[SYNAPSE INSTRUCTIONS - DO NOT PROCESS AS TASK]
+Agent: {agent_id} | Port: {port}
 
-@agent: If message starts with @claude, @gemini, @codex (or @type-port like @claude-8100), forward WITHOUT processing:
-  python3 synapse/tools/a2a.py send --target <agent> "<message>"
+ROUTING: If user message starts with @<agent-name>, forward it WITHOUT processing yourself.
+  Example: User says "@gemini check weather" -> Run: python3 synapse/tools/a2a.py send --target gemini "check weather"
 
-Reply: Use sender_id from [A2A:task_id:sender_id] prefix:
-  python3 synapse/tools/a2a.py send --target <sender_id> "<response>"
+REPLY: When you receive [A2A:id:sender], reply using:
+  python3 synapse/tools/a2a.py send --target <sender> "<response>"
 
-List: python3 synapse/tools/a2a.py list"""
+LIST: python3 synapse/tools/a2a.py list"""
 
 
 def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:
