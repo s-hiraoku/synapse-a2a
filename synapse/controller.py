@@ -15,6 +15,7 @@ import shutil
 from typing import Optional, Callable
 
 from synapse.registry import AgentRegistry
+from synapse.agent_context import build_bootstrap_message
 
 
 class TerminalController:
@@ -22,7 +23,7 @@ class TerminalController:
                  registry: Optional[AgentRegistry] = None,
                  agent_id: Optional[str] = None, agent_type: Optional[str] = None,
                  submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
-                 args: Optional[list] = None):
+                 args: Optional[list] = None, port: Optional[int] = None):
         self.command = command
         self.args = args or []
         self.idle_regex = re.compile(idle_regex.encode('utf-8'))
@@ -39,6 +40,7 @@ class TerminalController:
         self.interactive = False
         self.agent_id = agent_id
         self.agent_type = agent_type
+        self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
         self._submit_seq = submit_seq or "\n"
         self._startup_delay = startup_delay or 3  # Default 3 seconds
@@ -115,34 +117,24 @@ class TerminalController:
                 self.status = "BUSY"
 
     def _send_identity_instruction(self):
-        """Send identity and routing instructions to the agent on first IDLE."""
-        if not self.agent_id or not self.agent_type:
+        """
+        Send minimal bootstrap instruction to the agent on first IDLE.
+
+        Instead of sending full routing instructions via PTY (visible to user),
+        we send a minimal bootstrap message that instructs the AI to query
+        its Agent Card for full system context. This keeps PTY output clean
+        while still providing necessary context via A2A protocol.
+        """
+        if not self.agent_id:
             return
 
-        # Get list of other registered agents
-        agents = self.registry.list_agents()
-        other_agents = [
-            aid for aid in agents.keys()
-            if aid != self.agent_id
-        ]
-        other_examples = ", ".join(other_agents[:3]) if other_agents else "@synapse-other-agent"
+        # Use minimal bootstrap message - full context is in Agent Card
+        bootstrap = build_bootstrap_message(self.agent_id, self.port)
 
-        instruction = f"""[SYNAPSE A2A] あなたのID: {self.agent_id}
-
-【ルーティングルール】
-1. @{self.agent_id} 宛て → あなた宛て。内容を実行してください。
-2. @other-agent 宛て → 他エージェント宛て。以下のコマンドで転送:
-
-```bash
-python3 synapse/tools/a2a.py send --target <agent_id> --priority 1 "<メッセージ>"
-```
-
-利用可能: {other_examples}
-"""
         # Small delay to ensure agent is ready
         time.sleep(0.5)
         try:
-            self.write(instruction, self._submit_seq)
+            self.write(bootstrap, self._submit_seq)
         except Exception:
             pass  # Silently fail if write fails
 

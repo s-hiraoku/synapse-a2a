@@ -531,7 +531,7 @@ curl http://localhost:8100/.well-known/agent.json
   "name": "Synapse Claude",
   "description": "PTY-wrapped claude CLI agent with A2A communication",
   "url": "http://localhost:8100",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,
@@ -554,10 +554,29 @@ curl http://localhost:8100/.well-known/agent.json
       "pty_wrapped": true,
       "priority_interrupt": true,
       "at_agent_syntax": true
+    },
+    "x-synapse-context": {
+      "identity": "synapse-claude-8100",
+      "agent_type": "claude",
+      "routing_rules": {
+        "self_patterns": ["@synapse-claude-8100", "@claude"],
+        "forward_command": "python3 synapse/tools/a2a.py send --target <agent_id> ..."
+      },
+      "available_agents": [
+        {"id": "synapse-gemini-8110", "type": "gemini", "endpoint": "..."}
+      ],
+      "priority_levels": {"1": "Normal", "5": "EMERGENCY INTERRUPT"}
     }
   }
 }
 ```
+
+### x-synapse-context 拡張
+
+`x-synapse-context` は AI エージェントにシステムコンテキストを提供する A2A 準拠の拡張です。
+起動時に PTY に長いインストラクションを表示する代わりに、エージェントは Agent Card から必要な情報を取得できます。
+
+詳細: [docs/agent-card-context.md](docs/agent-card-context.md)
 
 ---
 
@@ -580,7 +599,9 @@ pytest tests/test_server.py -v
 
 ## ドキュメント
 
-詳細なドキュメントは `guides/` ディレクトリにあります。
+詳細なドキュメントは `guides/` および `docs/` ディレクトリにあります。
+
+### ユーザーガイド（guides/）
 
 | ドキュメント                                               | 内容                                    |
 | ---------------------------------------------------------- | --------------------------------------- |
@@ -592,6 +613,14 @@ pytest tests/test_server.py -v
 | [guides/troubleshooting.md](guides/troubleshooting.md)     | トラブルシューティング                  |
 | [guides/references.md](guides/references.md)               | API・CLI リファレンス                   |
 | [guides/google-a2a-spec.md](guides/google-a2a-spec.md)     | Google A2A プロトコルとの比較           |
+
+### 開発者向けドキュメント（docs/）
+
+| ドキュメント                                               | 内容                                    |
+| ---------------------------------------------------------- | --------------------------------------- |
+| [docs/project-philosophy.md](docs/project-philosophy.md)   | プロジェクト哲学と設計原則              |
+| [docs/agent-card-context.md](docs/agent-card-context.md)   | Agent Card Context 拡張の設計           |
+| [docs/a2a-design-rationale.md](docs/a2a-design-rationale.md) | A2A プロトコル準拠性の分析            |
 
 ---
 

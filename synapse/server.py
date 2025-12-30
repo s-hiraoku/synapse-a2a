@@ -25,7 +25,7 @@ submit_sequence: str = '\n'  # Default submit sequence
 
 
 def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int,
-               submit_seq: str = '\n', agent_type: str = 'claude') -> FastAPI:
+               submit_seq: str = '\n', agent_type: str = 'claude', registry: AgentRegistry = None) -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(
         title="Synapse A2A Server",
@@ -90,7 +90,9 @@ def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port
     # --------------------------------------------------------
     # Google A2A Compatible API
     # --------------------------------------------------------
-    a2a_router = create_a2a_router(ctrl, agent_type, port, submit_seq)
+    a2a_router = create_a2a_router(
+        ctrl, agent_type, port, submit_seq, agent_id, registry or reg
+    )
     new_app.include_router(a2a_router)
 
     return new_app
@@ -141,14 +143,18 @@ async def startup_event():
         env=env,
         agent_id=current_agent_id,
         agent_type=profile_name,
-        submit_seq=submit_sequence
+        submit_seq=submit_sequence,
+        port=agent_port,
+        registry=registry,
     )
     controller.start()
 
     registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
 
-    # Add Google A2A compatible routes
-    a2a_router = create_a2a_router(controller, profile_name, agent_port, submit_sequence, current_agent_id)
+    # Add Google A2A compatible routes (with registry for x-synapse-context)
+    a2a_router = create_a2a_router(
+        controller, profile_name, agent_port, submit_sequence, current_agent_id, registry
+    )
     app.include_router(a2a_router)
 
     print(f"Started agent: {profile['command']}")

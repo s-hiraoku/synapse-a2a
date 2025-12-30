@@ -356,7 +356,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         agent_id=agent_id,
         agent_type=profile,
         submit_seq=submit_seq,
-        startup_delay=startup_delay
+        startup_delay=startup_delay,
+        port=port,
     )
 
     # Register agent
@@ -389,7 +390,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         from synapse.server import create_app
         import uvicorn
 
-        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile)
+        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile, registry=registry)
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

@@ -15,6 +15,12 @@ from uuid import uuid4
 import threading
 
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
+from synapse.agent_context import (
+    AgentContext,
+    AgentInfo,
+    build_agent_card_context,
+    get_other_agents_from_registry,
+)
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -237,7 +243,8 @@ def create_a2a_router(
     agent_type: str,
     port: int,
     submit_seq: str = "\n",
-    agent_id: str = None
+    agent_id: str = None,
+    registry = None
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -248,6 +255,7 @@ def create_a2a_router(
         port: Server port
         submit_seq: Submit sequence for the CLI
         agent_id: Unique agent ID (e.g., synapse-claude-8100)
+        registry: AgentRegistry instance for discovering other agents
 
     Returns:
         FastAPI APIRouter with A2A endpoints
@@ -267,7 +275,39 @@ def create_a2a_router(
         Return Agent Card for discovery.
 
         This endpoint follows the Google A2A specification for agent discovery.
+        The x-synapse-context extension provides system context for AI agents,
+        enabling invisible instruction delivery via A2A protocol.
         """
+        # Build dynamic context with other agents from registry
+        other_agents = []
+        if registry:
+            other_agents = get_other_agents_from_registry(registry, agent_id)
+
+        ctx = AgentContext(
+            agent_id=agent_id,
+            agent_type=agent_type,
+            port=port,
+            other_agents=other_agents,
+        )
+        synapse_context = build_agent_card_context(ctx)
+
+        # Build extensions combining synapse info and context
+        extensions = {
+            "synapse": {
+                "pty_wrapped": True,
+                "priority_interrupt": True,
+                "at_agent_syntax": True,
+                "submit_sequence": repr(submit_seq),
+                "agent_id": agent_id,
+                "addressable_as": [
+                    f"@{agent_id}",
+                    f"@{agent_type}",
+                ],
+            },
+            # Add x-synapse-context for invisible instruction delivery
+            **synapse_context,
+        }
+
         return AgentCard(
             name=f"Synapse {agent_type.capitalize()}",
             description=f"PTY-wrapped {agent_type} CLI agent with A2A communication",
@@ -298,19 +338,7 @@ def create_a2a_router(
                 ),
             ],
             securitySchemes={},  # No auth for local use
-            extensions={
-                "synapse": {
-                    "pty_wrapped": True,
-                    "priority_interrupt": True,
-                    "at_agent_syntax": True,
-                    "submit_sequence": repr(submit_seq),
-                    "agent_id": agent_id,
-                    "addressable_as": [
-                        f"@{agent_id}",
-                        f"@{agent_type}",
-                    ],
-                }
-            }
+            extensions=extensions,
         )
 
     # --------------------------------------------------------
