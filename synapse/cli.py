@@ -352,22 +352,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     env["SYNAPSE_AGENT_TYPE"] = profile
     env["SYNAPSE_PORT"] = str(port)
 
-    # Define on_first_idle callback for sending initial instructions
-    # This will be called when the agent first reaches IDLE state
-    from synapse.server import send_initial_instructions
-
-    def on_first_idle():
-        try:
-            asyncio.run(send_initial_instructions(
-                controller,
-                agent_id,
-                port,
-                submit_seq
-            ))
-        except Exception:
-            pass  # Best-effort
-
-    # Create controller with on_first_idle callback
+    # Create controller - initial instructions sent via _send_identity_instruction on IDLE
     controller = TerminalController(
         command=config['command'],
         args=all_args,
@@ -379,7 +364,6 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         submit_seq=submit_seq,
         startup_delay=startup_delay,
         port=port,
-        on_first_idle=on_first_idle,
     )
 
     # Register agent

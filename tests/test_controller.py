@@ -18,6 +18,15 @@ class TestIdentityInstruction:
         registry.list_agents.return_value = {
             "synapse-gemini-8101": {"agent_type": "gemini", "port": 8101}
         }
+        # get_live_agents is used by get_other_agents_from_registry
+        registry.get_live_agents.return_value = {
+            "synapse-gemini-8101": {
+                "agent_id": "synapse-gemini-8101",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8101",
+                "status": "IDLE"
+            }
+        }
         return registry
 
     @pytest.fixture
@@ -59,19 +68,20 @@ class TestIdentityInstruction:
 
         assert controller.status == "IDLE"
 
-    def test_identity_flag_set_on_first_idle(self, controller):
-        """Identity flag should be set and callback called on first IDLE detection."""
+    def test_identity_sent_on_first_idle(self, controller):
+        """Identity instruction should be sent on first IDLE detection."""
         controller.running = True
         controller.master_fd = 1  # Mock fd
         controller.output_buffer = b"prompt $"
 
-        # Track if callback was called
-        callback_called = threading.Event()
+        # Track if _send_identity_instruction was called
+        send_called = threading.Event()
+        original_send = controller._send_identity_instruction
 
-        def mock_callback():
-            callback_called.set()
+        def mock_send():
+            send_called.set()
 
-        controller._on_first_idle = mock_callback
+        controller._send_identity_instruction = mock_send
 
         # Verify flag is not set initially
         assert controller._identity_sent is False
@@ -79,29 +89,29 @@ class TestIdentityInstruction:
         # Trigger idle detection
         controller._check_idle_state(b"$")
 
-        # Wait for callback thread
+        # Wait for thread
         time.sleep(0.1)
 
-        # Flag should be set and callback should be called
+        # Flag should be set and _send_identity_instruction should be called
         assert controller._identity_sent is True
         assert controller.status == "IDLE"
-        assert callback_called.is_set()
+        assert send_called.is_set()
 
-    def test_identity_callback_only_called_once(self, controller):
-        """Callback should only be called once, not on subsequent IDLE transitions."""
+    def test_identity_sent_only_once(self, controller):
+        """Identity instruction should only be sent once, not on subsequent IDLE transitions."""
         controller.running = True
         controller.master_fd = 1
         controller.output_buffer = b"prompt $"
 
-        # Track callback call count
+        # Track call count
         call_count = [0]
 
-        def mock_callback():
+        def mock_send():
             call_count[0] += 1
 
-        controller._on_first_idle = mock_callback
+        controller._send_identity_instruction = mock_send
 
-        # First IDLE - flag should be set and callback called
+        # First IDLE - should call _send_identity_instruction
         controller._check_idle_state(b"$")
         time.sleep(0.1)
         assert controller._identity_sent is True
@@ -111,7 +121,7 @@ class TestIdentityInstruction:
         controller.status = "BUSY"
         controller.output_buffer = b"more output $"
 
-        # Second IDLE - flag should remain True, callback NOT called again
+        # Second IDLE - should NOT call again
         controller._check_idle_state(b"$")
         time.sleep(0.1)
         assert controller._identity_sent is True
@@ -119,7 +129,7 @@ class TestIdentityInstruction:
         assert call_count[0] == 1  # Still 1, not 2
 
     def test_identity_instruction_content(self, controller, mock_registry):
-        """Identity instruction should contain correct bootstrap content."""
+        """Identity instruction should contain correct full instructions with A2A format."""
         controller.running = True
         controller.master_fd = 1
 
@@ -136,12 +146,19 @@ class TestIdentityInstruction:
         assert len(written_data) == 1
         instruction = written_data[0]
 
-        # Check key content - minimal bootstrap with commands
+        # Check A2A Task format prefix
+        assert instruction.startswith("[A2A:")
+        assert ":synapse-system]" in instruction
+
+        # Check key content - full instructions per README design
         assert "synapse-claude-8100" in instruction
-        assert "SYNAPSE" in instruction
+        assert "Synapse A2A Protocol" in instruction
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
+        # Check for sender identification instructions (per README)
+        assert "A2A:" in instruction
+        assert "sender" in instruction.lower()
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
