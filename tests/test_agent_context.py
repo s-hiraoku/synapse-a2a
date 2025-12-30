@@ -226,13 +226,15 @@ class TestBuildBootstrapMessage:
         """Bootstrap message should be short with essential commands only."""
         msg = build_bootstrap_message("synapse-claude-8100", 8100)
 
-        # Should be minimal (identity + routing + list, ~300 chars)
-        assert len(msg) < 350
+        # Should be minimal (identity + routing + reply + list, ~400 chars)
+        assert len(msg) < 450
         # Should contain essential commands
         assert "a2a.py send" in msg
         assert "a2a.py list" in msg
-        # Should contain @agent routing instruction
-        assert "@agent routing" in msg or "@claude" in msg
+        # Should contain @agent routing and reply instructions
+        assert "@agent" in msg or "@claude" in msg
+        assert "Reply" in msg
+        assert "sender_id" in msg
 
     def test_different_ports(self):
         """Should use different port in message."""

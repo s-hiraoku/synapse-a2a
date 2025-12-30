@@ -365,12 +365,8 @@ def create_a2a_router(
             # Extract sender_id if available
             sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
             # Format: [A2A:task_id:sender_id] message
+            # Reply instructions are in initial Task, not per-message
             prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
-
-            # Add reply instructions if sender is a real agent (not unknown/system)
-            if sender_id not in ("unknown", "synapse-system"):
-                prefixed_content += f"\n\n(To reply, run: python3 synapse/tools/a2a.py send --target {sender_id} --priority 1 \"<your response>\")"
-
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
@@ -483,12 +479,8 @@ def create_a2a_router(
             # Extract sender_id if available
             sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
             # Format: [A2A:task_id:sender_id] message
+            # Reply instructions are in initial Task, not per-message
             prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
-
-            # Add reply instructions if sender is a real agent (not unknown/system)
-            if sender_id not in ("unknown", "synapse-system"):
-                prefixed_content += f"\n\n(To reply, run: python3 synapse/tools/a2a.py send --target {sender_id} --priority 1 \"<your response>\")"
-
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")

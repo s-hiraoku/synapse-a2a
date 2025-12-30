@@ -133,10 +133,13 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     """
     return f"""[SYNAPSE] {agent_id} | Port: {port}
 
-@agent routing: If message starts with @claude, @gemini, @codex (or @type-port like @claude-8100), forward it WITHOUT processing:
+@agent: If message starts with @claude, @gemini, @codex (or @type-port like @claude-8100), forward WITHOUT processing:
   python3 synapse/tools/a2a.py send --target <agent> "<message>"
 
-List agents: python3 synapse/tools/a2a.py list"""
+Reply: Use sender_id from [A2A:task_id:sender_id] prefix:
+  python3 synapse/tools/a2a.py send --target <sender_id> "<response>"
+
+List: python3 synapse/tools/a2a.py list"""
 
 
 def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:
