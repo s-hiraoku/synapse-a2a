@@ -327,30 +327,9 @@ class TerminalController:
             return data
 
         def input_callback(fd):
-            """Called when there's data from stdin. Intercept @agent patterns."""
+            """Called when there's data from stdin. Pass through to PTY."""
             data = os.read(fd, 1024)
-            text = data.decode('utf-8', errors='replace')
-
-            # Process user input through InputRouter to intercept @agent patterns
-            processed_output = []
-            for char in text:
-                out_char, action = self.input_router.process_char(char)
-                processed_output.append(out_char)
-
-                if action:
-                    # Execute A2A action in background thread
-                    agent_name = self.input_router.pending_agent
-                    threading.Thread(
-                        target=self._execute_a2a_action,
-                        args=(action, agent_name),
-                        daemon=True
-                    ).start()
-                    # Show feedback to user
-                    feedback = self.input_router.get_feedback_message(agent_name, True)
-                    sys.stdout.write(feedback)
-                    sys.stdout.flush()
-
-            return "".join(processed_output).encode('utf-8')
+            return data  # AI handles @agent routing based on initial Task instructions
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)

@@ -129,12 +129,14 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
         port: The port the agent's API server is running on.
 
     Returns:
-        Minimal bootstrap instruction string (3 lines).
+        Minimal bootstrap instruction string.
     """
     return f"""[SYNAPSE] {agent_id} | Port: {port}
-Commands:
-  Send: python3 synapse/tools/a2a.py send --target <agent> "<message>"
-  List: python3 synapse/tools/a2a.py list"""
+
+@agent routing: If message starts with @claude, @gemini, @codex (or @type-port like @claude-8100), forward it WITHOUT processing:
+  python3 synapse/tools/a2a.py send --target <agent> "<message>"
+
+List agents: python3 synapse/tools/a2a.py list"""
 
 
 def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:
