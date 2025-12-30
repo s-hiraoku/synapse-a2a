@@ -9,6 +9,7 @@ from synapse.registry import AgentRegistry
 from synapse.a2a_compat import create_a2a_router, TaskStore, Message, TextPart
 from synapse.agent_context import (
     AgentContext,
+    build_bootstrap_message,
     get_other_agents_from_registry,
 )
 
@@ -172,9 +173,60 @@ async def startup_event():
     print(f"Submit sequence: {repr(submit_sequence)}")
     print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
 
-    # Note: Initial instructions are NOT sent via PTY (would clutter terminal)
-    # Instead, agents use CLAUDE.md or profile-specific instruction files
-    # Only minimal bootstrap message is sent by controller._send_identity_instruction()
+    # Schedule minimal initial instructions (after CLI is ready)
+    asyncio.create_task(send_initial_instructions(
+        controller, current_agent_id, agent_port, submit_sequence
+    ))
+
+
+async def send_initial_instructions(
+    ctrl: TerminalController,
+    agent_id: str,
+    port: int,
+    submit_seq: str
+):
+    """
+    Send minimal initial instructions to the AI agent via A2A Task.
+
+    Only sends identity and basic commands (3 lines).
+    Detailed routing is handled by InputRouter and inline message instructions.
+    """
+    # Wait for CLI to be ready (IDLE state)
+    max_wait = 30
+    waited = 0
+    while waited < max_wait:
+        if ctrl.status == "IDLE":
+            break
+        await asyncio.sleep(1)
+        waited += 1
+
+    # Build minimal bootstrap message
+    bootstrap = build_bootstrap_message(agent_id, port)
+
+    # Create A2A Task for tracking
+    task_store = TaskStore()
+    message = Message(
+        role="user",
+        parts=[TextPart(text=bootstrap)]
+    )
+    task = task_store.create(
+        message,
+        metadata={
+            "sender": {
+                "sender_id": "synapse-system",
+                "sender_type": "system",
+            }
+        }
+    )
+    task_store.update_status(task.id, "working")
+
+    # Send to PTY with A2A format
+    try:
+        prefixed_content = f"[A2A:{task.id[:8]}:synapse-system] {bootstrap}"
+        ctrl.write(prefixed_content, submit_seq=submit_seq)
+        print(f"Sent bootstrap instructions (Task ID: {task.id[:8]})")
+    except Exception as e:
+        print(f"Warning: Failed to send bootstrap: {e}")
 
 
 @app.on_event("shutdown")

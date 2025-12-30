@@ -407,9 +407,21 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         # Give server time to start
         time.sleep(1)
 
-        # Note: Initial instructions are NOT sent via PTY (would clutter terminal)
-        # Agents use CLAUDE.md or profile-specific instruction files instead
-        # Only minimal bootstrap message is sent by controller._send_identity_instruction()
+        # Send minimal initial A2A instructions
+        from synapse.server import send_initial_instructions
+
+        def send_initial():
+            try:
+                asyncio.run(send_initial_instructions(
+                    controller,
+                    agent_id,
+                    port,
+                    submit_seq
+                ))
+            except Exception:
+                pass  # Best-effort
+
+        threading.Thread(target=send_initial, daemon=True).start()
 
         # Run interactive mode
         controller.run_interactive()

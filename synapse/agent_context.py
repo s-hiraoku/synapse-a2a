@@ -119,19 +119,22 @@ python3 synapse/tools/a2a.py list
 
 def build_bootstrap_message(agent_id: str, port: int) -> str:
     """
-    Build minimal bootstrap message.
+    Build minimal bootstrap message with essential commands.
 
-    This is no longer used since initial instructions are sent via A2A Task.
-    Kept for backward compatibility.
+    This is sent via A2A Task at startup to provide agents with
+    identity and basic communication commands.
 
     Args:
         agent_id: The agent's unique identifier.
         port: The port the agent's API server is running on.
 
     Returns:
-        Minimal bootstrap instruction string.
+        Minimal bootstrap instruction string (3 lines).
     """
-    return f"[SYNAPSE A2A] Agent ID: {agent_id} | Port: {port}"
+    return f"""[SYNAPSE] {agent_id} | Port: {port}
+Commands:
+  Send: python3 synapse/tools/a2a.py send --target <agent> "<message>"
+  List: python3 synapse/tools/a2a.py list"""
 
 
 def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:

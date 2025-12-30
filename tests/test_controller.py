@@ -127,11 +127,12 @@ class TestIdentityInstruction:
         assert len(written_data) == 1
         instruction = written_data[0]
 
-        # Check key content - now uses minimal bootstrap message
-        # (full instructions are sent via A2A Task at startup, not here)
+        # Check key content - minimal bootstrap with commands
         assert "synapse-claude-8100" in instruction
-        assert "[SYNAPSE A2A]" in instruction
+        assert "[SYNAPSE]" in instruction
         assert "8100" in instruction
+        assert "a2a.py send" in instruction
+        assert "a2a.py list" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""

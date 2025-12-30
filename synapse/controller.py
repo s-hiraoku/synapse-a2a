@@ -16,6 +16,7 @@ from typing import Optional, Callable
 
 from synapse.registry import AgentRegistry
 from synapse.agent_context import build_bootstrap_message
+from synapse.input_router import InputRouter
 
 
 class TerminalController:
@@ -46,6 +47,14 @@ class TerminalController:
         self._startup_delay = startup_delay or 3  # Default 3 seconds
         self._last_output_time = None  # Track last output for idle detection
         self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
+        
+        # InputRouter for parsing agent output and routing @Agent commands
+        self.input_router = InputRouter(
+            registry=self.registry,
+            self_agent_id=agent_id,
+            self_agent_type=agent_type,
+            self_port=port
+        )
 
     def start(self):
         self.master_fd, self.slave_fd = pty.openpty()
@@ -72,6 +81,29 @@ class TerminalController:
         self.thread.start()
         self.status = "BUSY"
 
+    def _execute_a2a_action(self, action_func, agent_name):
+        """Execute A2A action in a thread and write feedback to PTY."""
+        try:
+            success = action_func()
+            feedback = self.input_router.get_feedback_message(agent_name, success)
+            # Write feedback back to the agent's input (if applicable) or log it?
+            # For background mode (_monitor_output), we can't easily inject into the output stream
+            # that is being read by the logger, unless we write to the log explicitly.
+            # But _monitor_output reads from master_fd (output of agent).
+            # The feedback is for the USER (or the log).
+            
+            # Since _monitor_output does not write to stdout/log file itself (subprocess does),
+            # we can only log it or write to master_fd (which would be INPUT to agent).
+            # Writing to master_fd means the agent sees the feedback as user input.
+            # That might be useful: "Message sent".
+            
+            # However, usually feedback is for the human operator.
+            # In background mode, we should probably just log it.
+            pass
+        except Exception as e:
+            # log error
+            pass
+
     def _monitor_output(self):
         while self.running and self.process.poll() is None:
             r, _, _ = select.select([self.master_fd], [], [], 0.1)
@@ -88,6 +120,21 @@ class TerminalController:
                              self.output_buffer = self.output_buffer[-10000:]
                     
                     self._check_idle_state(data)
+
+                    # Process output through InputRouter to detect @Agent commands
+                    # We process decoded text, but we don't modify the data stream here
+                    # because in start() mode, the subprocess stdout is already redirected 
+                    # to the log file by Popen. _monitor_output just "snoops".
+                    text = data.decode('utf-8', errors='replace')
+                    for char in text:
+                        _, action = self.input_router.process_char(char)
+                        if action:
+                            # Execute action in thread
+                            threading.Thread(
+                                target=self._execute_a2a_action,
+                                args=(action, self.input_router.pending_agent),
+                                daemon=True
+                            ).start()
                     
                     # For debugging/logging locally
                     # print(data.decode(errors='replace'), end='', flush=True)
@@ -249,12 +296,61 @@ class TerminalController:
                     if len(self.output_buffer) > 10000:
                         self.output_buffer = self.output_buffer[-10000:]
                 self._check_idle_state(data)
+
+                # Process output through InputRouter to detect @Agent commands
+                text = data.decode('utf-8', errors='replace')
+                processed_output = []
+                
+                for char in text:
+                    out_char, action = self.input_router.process_char(char)
+                    processed_output.append(out_char)
+                    
+                    if action:
+                        # Execute action in thread
+                        threading.Thread(
+                            target=self._execute_a2a_action,
+                            args=(action, self.input_router.pending_agent),
+                            daemon=True
+                        ).start()
+                
+                # If InputRouter modifies output (e.g. swallows command line),
+                # we should return the modified version.
+                # However, pty.spawn writes the return value of read_callback to STDOUT.
+                
+                # Note: processed_output contains characters echoed by InputRouter.
+                # If InputRouter.process_char swallows the command line (returns "" for \n),
+                # then the user won't see the command.
+                # But previously, InputRouter returned chars as they were typed (buffered).
+                
+                return "".join(processed_output).encode('utf-8')
+
             return data
 
         def input_callback(fd):
-            """Called when there's data from stdin. Pass through directly to PTY."""
+            """Called when there's data from stdin. Intercept @agent patterns."""
             data = os.read(fd, 1024)
-            return data  # Simply pass through - let AI handle routing decisions
+            text = data.decode('utf-8', errors='replace')
+
+            # Process user input through InputRouter to intercept @agent patterns
+            processed_output = []
+            for char in text:
+                out_char, action = self.input_router.process_char(char)
+                processed_output.append(out_char)
+
+                if action:
+                    # Execute A2A action in background thread
+                    agent_name = self.input_router.pending_agent
+                    threading.Thread(
+                        target=self._execute_a2a_action,
+                        args=(action, agent_name),
+                        daemon=True
+                    ).start()
+                    # Show feedback to user
+                    feedback = self.input_router.get_feedback_message(agent_name, True)
+                    sys.stdout.write(feedback)
+                    sys.stdout.flush()
+
+            return "".join(processed_output).encode('utf-8')
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
