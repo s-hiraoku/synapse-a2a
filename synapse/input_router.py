@@ -36,8 +36,8 @@ class InputRouter:
 
     # Pattern: @AgentName [--response] message
     # --response: return response to sender's terminal
-    # Agent name can include hyphens and numbers (e.g., synapse-claude-8100)
-    A2A_PATTERN = re.compile(r'^@([\w-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
+    # Agent name can include hyphens, numbers, and colons (e.g., gemini:8110)
+    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
