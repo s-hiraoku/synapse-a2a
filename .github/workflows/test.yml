@@ -16,7 +16,6 @@ jobs:
         include:
           - python-version: "3.14"
             experimental: true
-    continue-on-error: ${{ matrix.experimental || false }}
 
     steps:
       - uses: actions/checkout@v4
@@ -31,4 +30,11 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run tests
+        id: pytest
         run: uv run pytest -v
+        continue-on-error: ${{ matrix.experimental || false }}
+
+      - name: Warn on experimental Python failure
+        if: ${{ matrix.experimental && steps.pytest.outcome == 'failure' }}
+        run: |
+          echo "::warning::Python ${{ matrix.python-version }} tests failed (experimental version - expected)"
