@@ -139,8 +139,7 @@ class TestBuildInitialInstructions:
 
         assert "A2A:" in result
         assert "sender_id" in result
-        assert "How to Reply" in result
-        assert "IMPORTANT" in result
+        assert "Replying" in result
 
     def test_contains_target_resolution(self):
         """Should explain target resolution patterns."""
@@ -154,53 +153,17 @@ class TestBuildInitialInstructions:
         assert "@type" in result
         assert "@type-port" in result
 
-    def test_no_other_agents(self):
-        """Should show 'no other agents' message when alone."""
+    def test_contains_list_command(self):
+        """Should contain list command for dynamic agent discovery."""
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
-            port=8100,
-            other_agents=[]
+            port=8100
         )
         result = build_initial_instructions(ctx)
 
-        assert "No other agents" in result
-
-    def test_with_other_agents(self):
-        """Should list other agents when available."""
-        other = AgentInfo(
-            id="synapse-gemini-8110",
-            type="gemini",
-            endpoint="http://localhost:8110",
-            status="IDLE"
-        )
-        ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100,
-            other_agents=[other]
-        )
-        result = build_initial_instructions(ctx)
-
-        assert "synapse-gemini-8110" in result
-        assert "gemini" in result
-
-    def test_multiple_other_agents(self):
-        """Should list all other agents."""
-        agents = [
-            AgentInfo(id="synapse-gemini-8110", type="gemini", endpoint="http://localhost:8110"),
-            AgentInfo(id="synapse-codex-8120", type="codex", endpoint="http://localhost:8120"),
-        ]
-        ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100,
-            other_agents=agents
-        )
-        result = build_initial_instructions(ctx)
-
-        assert "synapse-gemini-8110" in result
-        assert "synapse-codex-8120" in result
+        assert "a2a.py list" in result
+        assert "discover available agents" in result
 
 
 # ============================================================
