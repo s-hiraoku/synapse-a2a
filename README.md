@@ -4,7 +4,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-218%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-366%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > Claude Code / Codex / Gemini などの CLI エージェントを PTY でラップし、Google A2A プロトコルで相互通信を可能にするフレームワーク
@@ -606,7 +606,63 @@ uvx synapse-a2a claude
 
 - **TUI 描画**: Ink ベースの CLI で描画が乱れる場合あり
 - **PTY 制限**: 一部の特殊入力シーケンスは未対応
-- **Streaming**: 未対応
+
+---
+
+## エンタープライズ機能
+
+本番環境向けのセキュリティ・通知・高性能通信機能を提供します。
+
+### API Key 認証
+
+```bash
+# 認証を有効にして起動
+export SYNAPSE_AUTH_ENABLED=true
+export SYNAPSE_API_KEYS=my-secret-key
+synapse claude
+
+# API Key でリクエスト
+curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+```
+
+### Webhook 通知
+
+タスク完了時に外部 URL へ通知を送信します。
+
+```bash
+# Webhook を登録
+curl -X POST http://localhost:8100/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-server.com/hook", "events": ["task.completed"]}'
+```
+
+| イベント | 説明 |
+|---------|------|
+| `task.completed` | タスク正常完了 |
+| `task.failed` | タスク失敗 |
+| `task.canceled` | タスクキャンセル |
+
+### SSE ストリーミング
+
+リアルタイムでタスク出力を受信できます。
+
+```bash
+curl -N http://localhost:8100/tasks/{task_id}/subscribe
+```
+
+### gRPC サポート
+
+高性能通信が必要な場合は gRPC を使用できます。
+
+```bash
+# gRPC 依存をインストール
+pip install synapse-a2a[grpc]
+
+# gRPC は REST ポート + 1 で起動
+# REST: 8100 → gRPC: 8101
+```
+
+詳細は [guides/enterprise.md](guides/enterprise.md) を参照してください。
 
 ---
 
@@ -616,6 +672,7 @@ uvx synapse-a2a claude
 | -------------------------------------------------------- | ---------------------- |
 | [guides/usage.md](guides/usage.md)                       | 使い方詳細             |
 | [guides/architecture.md](guides/architecture.md)         | アーキテクチャ詳細     |
+| [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
 | [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
 
