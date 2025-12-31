@@ -68,10 +68,11 @@ class TestIsPortAvailable:
 
     def test_unavailable_port(self):
         """Should return False for unavailable port."""
-        # Bind to a port temporarily
+        # Bind and listen to a port temporarily
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind(('localhost', 65433))
+            s.listen(1)  # Need to listen to actually block the port
             assert is_port_available(65433) is False
 
 
