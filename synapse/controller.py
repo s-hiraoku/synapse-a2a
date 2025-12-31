@@ -31,7 +31,12 @@ class TerminalController:
                  args: Optional[list] = None, port: Optional[int] = None):
         self.command = command
         self.args = args or []
-        self.idle_regex = re.compile(idle_regex.encode('utf-8'))
+        # Handle special pattern names for TUI apps
+        # BRACKETED_PASTE_MODE detects when ESC[?2004h is emitted (TUI ready for input)
+        if idle_regex == "BRACKETED_PASTE_MODE":
+            self.idle_regex = re.compile(b'\x1b\\[\\?2004h')
+        else:
+            self.idle_regex = re.compile(idle_regex.encode('utf-8'))
         self.env = env or os.environ.copy()
         self.master_fd = None
         self.slave_fd = None
@@ -143,7 +148,6 @@ class TerminalController:
     def _check_idle_state(self, new_data):
         # We match against the end of the buffer to see if we reached a prompt
         with self.lock:
-            # Simple check: does the end of buffer match the regex?
             search_window = self.output_buffer[-1000:]
             match = self.idle_regex.search(search_window)
 
@@ -153,7 +157,6 @@ class TerminalController:
                 # On first IDLE, send initial instructions via A2A Task format
                 if was_busy and not self._identity_sent and self.agent_id:
                     self._identity_sent = True
-                    # Run in thread to avoid blocking
                     threading.Thread(
                         target=self._send_identity_instruction,
                         daemon=True
@@ -191,12 +194,13 @@ class TerminalController:
         task_id = str(uuid.uuid4())[:8]
         prefixed = f"[A2A:{task_id}:synapse-system] {bootstrap}"
 
-        # Small delay to ensure agent is ready
-        time.sleep(0.5)
+        # Wait for agent to be fully ready
+        time.sleep(2.0)
+
         try:
             self.write(prefixed, self._submit_seq)
         except Exception as e:
-            print(f"\x1b[31m[Synapse] Error sending initial instructions: {e}\x1b[0m")
+            logging.error(f"Failed to send initial instructions: {e}")
 
     def write(self, data: str, submit_seq: str = None):
         if not self.running:
@@ -209,11 +213,17 @@ class TerminalController:
             self.status = "BUSY"
 
         try:
-            # Always write data + submit sequence together for reliability
-            # Split writes can cause issues where submit_seq is not processed
-            full_data = data + (submit_seq or '')
-            os.write(self.master_fd, full_data.encode('utf-8'))
+            # Write data first
+            data_encoded = data.encode('utf-8')
+            os.write(self.master_fd, data_encoded)
+
+            # For TUI apps, wait for input to be processed before sending Enter
+            if submit_seq:
+                time.sleep(0.5)
+                submit_encoded = submit_seq.encode('utf-8')
+                os.write(self.master_fd, submit_encoded)
         except OSError as e:
+            logging.error(f"Write to PTY failed: {e}")
             raise
         # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
@@ -299,7 +309,12 @@ class TerminalController:
         def input_callback(fd):
             """Called when there's data from stdin. Pass through to PTY."""
             data = os.read(fd, 1024)
-            return data  # AI handles @agent routing based on initial Task instructions
+            return data
+
+        use_input_callback = (
+            os.environ.get("SYNAPSE_INTERACTIVE_PASSTHROUGH") != "1"
+            and self.agent_type != "claude"
+        )
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
@@ -311,11 +326,10 @@ class TerminalController:
         # to pass SYNAPSE_* vars to child process for sender identification
         os.environ.update(self.env)
 
-        pty.spawn(
-            cmd_list,
-            read_callback,
-            input_callback
-        )
+        if use_input_callback:
+            pty.spawn(cmd_list, read_callback, input_callback)
+        else:
+            pty.spawn(cmd_list, read_callback)
 
     def _handle_interactive_input(self, data: bytes):
         """Pass through human input directly to PTY. AI handles routing decisions."""

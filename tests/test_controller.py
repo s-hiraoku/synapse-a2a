@@ -268,8 +268,8 @@ class TestSubmitSequence:
 class TestInterAgentMessageWrite:
     """Tests for inter-agent message writing."""
 
-    def test_write_in_interactive_mode_with_submit_seq(self):
-        """Write should combine data and submit_seq in a single write for reliability."""
+    def test_write_sends_data_then_submit_seq(self):
+        """Write should send data first, then submit_seq after delay."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$",
@@ -296,14 +296,49 @@ class TestInterAgentMessageWrite:
         try:
             ctrl.write("test message", submit_seq="\r")
 
-            # Should have one write with combined data + submit_seq
-            assert len(written_data) == 1
-            assert written_data[0] == (1, b"test message\r")
+            # Should have two writes: data, then submit_seq
+            assert len(written_data) == 2
+            assert written_data[0] == (1, b"test message")
+            assert written_data[1] == (1, b"\r")
         finally:
             os.write = original_write
 
-    def test_write_in_non_interactive_mode_combines_data(self):
-        """Write should combine data and submit_seq in non-interactive mode."""
+    def test_write_with_bracketed_paste_mode_idle_regex(self):
+        """Write should send data then submit_seq with BRACKETED_PASTE_MODE idle_regex."""
+        ctrl = TerminalController(
+            command="claude",
+            idle_regex="BRACKETED_PASTE_MODE",  # For IDLE detection only, not for writing
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            submit_seq="\r"
+        )
+        ctrl.running = True
+        ctrl.interactive = True
+        ctrl.master_fd = 1  # Mock fd
+
+        written_data = []
+
+        import os
+        original_write = os.write
+
+        def mock_os_write(fd, data):
+            written_data.append((fd, data))
+            return len(data)
+
+        os.write = mock_os_write
+
+        try:
+            ctrl.write("test message", submit_seq="\r")
+
+            # Should have two writes: data, then submit_seq
+            assert len(written_data) == 2
+            assert written_data[0] == (1, b"test message")
+            assert written_data[1] == (1, b"\r")
+        finally:
+            os.write = original_write
+
+    def test_write_in_non_interactive_mode(self):
+        """Write should send data then submit_seq in non-interactive mode."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
@@ -326,9 +361,10 @@ class TestInterAgentMessageWrite:
         try:
             ctrl.write("test message", submit_seq="\n")
 
-            # Should have one write with combined data
-            assert len(written_data) == 1
-            assert written_data[0] == (1, b"test message\n")
+            # Should have two writes: data, then submit_seq
+            assert len(written_data) == 2
+            assert written_data[0] == (1, b"test message")
+            assert written_data[1] == (1, b"\n")
         finally:
             os.write = original_write
 
