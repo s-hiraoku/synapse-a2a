@@ -26,6 +26,8 @@ dev = [
     "pytest>=7.0.0",
     "httpx>=0.24.0",
     "responses>=0.23.0",
+    "ruff>=0.8.0",
+    "ty>=0.0.1a7",
 ]
 grpc = [
     "grpcio>=1.60.0",
@@ -40,3 +42,14 @@ synapse-hook = "synapse.shell_hook:main"
 
 [tool.setuptools.packages.find]
 include = ["synapse*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.format]
+quote-style = "double"
