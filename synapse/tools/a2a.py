@@ -1,9 +1,11 @@
 import argparse
-import sys
 import json
 import os
 import subprocess
+import sys
+
 import requests
+
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 
 
@@ -11,7 +13,7 @@ def get_parent_pid(pid: int) -> int:
     """Get parent PID of a process (cross-platform)."""
     try:
         # Try /proc first (Linux)
-        with open(f"/proc/{pid}/stat", "r") as f:
+        with open(f"/proc/{pid}/stat") as f:
             stat = f.read().split()
             return int(stat[3])
     except (FileNotFoundError, PermissionError, IndexError):
@@ -48,7 +50,7 @@ def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> 
     return False
 
 
-def build_sender_info(explicit_sender: str = None) -> dict:
+def build_sender_info(explicit_sender: str | None = None) -> dict:
     """
     Build sender info using Registry PID matching.
 
@@ -85,10 +87,7 @@ def build_sender_info(explicit_sender: str = None) -> dict:
 def cmd_list(args):
     """List all available agents."""
     reg = AgentRegistry()
-    if args.live:
-        agents = reg.get_live_agents()
-    else:
-        agents = reg.list_agents()
+    agents = reg.get_live_agents() if args.live else reg.list_agents()
     print(json.dumps(agents, indent=2))
 
 
@@ -136,13 +135,13 @@ def cmd_send(args):
         print(f"Error: Agent '{agent_id}' process (PID {pid}) is no longer running.", file=sys.stderr)
         print(f"  Hint: Remove stale registry with: rm ~/.a2a/registry/{agent_id}.json", file=sys.stderr)
         reg.unregister(agent_id)  # Auto-cleanup
-        print(f"  (Registry entry has been automatically removed)", file=sys.stderr)
+        print("  (Registry entry has been automatically removed)", file=sys.stderr)
         sys.exit(1)
 
     # Check if port is reachable (fast 1-second check)
     if port and not is_port_open("localhost", port, timeout=1.0):
         print(f"Error: Agent '{agent_id}' server on port {port} is not responding.", file=sys.stderr)
-        print(f"  The process may be running but the A2A server is not started.", file=sys.stderr)
+        print("  The process may be running but the A2A server is not started.", file=sys.stderr)
         print(f"  Hint: Start the server with: synapse start {target_agent['agent_type']} --port {port}", file=sys.stderr)
         sys.exit(1)
 

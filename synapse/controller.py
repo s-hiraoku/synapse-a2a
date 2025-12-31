@@ -13,23 +13,22 @@ import sys
 import termios
 import threading
 import time
-import tty
 import uuid
-from typing import Callable, Optional
+from collections.abc import Callable
 
-from synapse.registry import AgentRegistry
 from synapse.agent_context import (
     build_bootstrap_message,
 )
 from synapse.input_router import InputRouter
+from synapse.registry import AgentRegistry
 
 
 class TerminalController:
-    def __init__(self, command: str, idle_regex: str, env: Optional[dict] = None,
-                 registry: Optional[AgentRegistry] = None,
-                 agent_id: Optional[str] = None, agent_type: Optional[str] = None,
-                 submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
-                 args: Optional[list] = None, port: Optional[int] = None):
+    def __init__(self, command: str, idle_regex: str, env: dict | None = None,
+                 registry: AgentRegistry | None = None,
+                 agent_id: str | None = None, agent_type: str | None = None,
+                 submit_seq: str | None = None, startup_delay: int | None = None,
+                 args: list | None = None, port: int | None = None):
         self.command = command
         self.args = args or []
         # Handle special pattern names for TUI apps
@@ -39,9 +38,9 @@ class TerminalController:
         else:
             self.idle_regex = re.compile(idle_regex.encode('utf-8'))
         self.env = env or os.environ.copy()
-        self.master_fd = None
-        self.slave_fd = None
-        self.process = None
+        self.master_fd: int | None = None
+        self.slave_fd: int | None = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.output_buffer = b""
         self._render_buffer = []
         self._render_cursor = 0
@@ -114,6 +113,8 @@ class TerminalController:
             logging.error(f"A2A action failed for {agent_name}: {e}")
 
     def _monitor_output(self):
+        if self.master_fd is None or self.process is None:
+            return
         while self.running and self.process.poll() is None:
             r, _, _ = select.select([self.master_fd], [], [], 0.1)
             if self.master_fd in r:
@@ -204,7 +205,7 @@ class TerminalController:
         except Exception as e:
             logging.error(f"Failed to send initial instructions: {e}")
 
-    def write(self, data: str, submit_seq: str = None):
+    def write(self, data: str, submit_seq: str | None = None):
         if not self.running:
             return
 

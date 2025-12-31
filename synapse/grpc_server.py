@@ -8,15 +8,14 @@ Requires optional 'grpc' dependencies: pip install synapse-a2a[grpc]
 import asyncio
 import logging
 import os
+from collections.abc import Iterator
 from concurrent import futures
-from datetime import datetime
-from typing import Any, Dict, Iterator, Optional
+from datetime import datetime, timezone
+from typing import Any
 from uuid import uuid4
 
 try:
     import grpc
-    from grpc import aio
-    from google.protobuf import struct_pb2, timestamp_pb2
 
     GRPC_AVAILABLE = True
 except ImportError:
@@ -44,7 +43,7 @@ class GrpcServicer:
         agent_type: str,
         port: int,
         submit_seq: str = "\n",
-        agent_id: str = None,
+        agent_id: str | None = None,
     ):
         self.controller = controller
         self.agent_type = agent_type
@@ -53,17 +52,17 @@ class GrpcServicer:
         self.agent_id = agent_id or f"synapse-{agent_type}-{port}"
 
         # In-memory task store (simplified)
-        self._tasks: Dict[str, Dict[str, Any]] = {}
+        self._tasks: dict[str, dict[str, Any]] = {}
 
     def _create_task(
         self,
         message_text: str,
-        context_id: str = None,
-        metadata: Dict[str, Any] = None,
-    ) -> Dict[str, Any]:
+        context_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new task."""
         task_id = str(uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         task = {
             "id": task_id,
@@ -84,14 +83,14 @@ class GrpcServicer:
         """Update task status."""
         if task_id in self._tasks:
             self._tasks[task_id]["status"] = status
-            self._tasks[task_id]["updated_at"] = datetime.utcnow()
+            self._tasks[task_id]["updated_at"] = datetime.now(timezone.utc)
 
-    def get_agent_card(self) -> Dict[str, Any]:
+    def get_agent_card(self) -> dict[str, Any]:
         """Get agent card for discovery."""
         protocol = "https" if os.environ.get("SYNAPSE_USE_HTTPS") else "http"
         return {
             "name": f"Synapse {self.agent_type.title()} Agent",
-            "description": f"CLI agent wrapped with Synapse A2A (via gRPC)",
+            "description": "CLI agent wrapped with Synapse A2A (via gRPC)",
             "url": f"{protocol}://localhost:{self.port}",
             "version": "1.0.0",
             "capabilities": {
@@ -113,9 +112,9 @@ class GrpcServicer:
     def send_message(
         self,
         message_text: str,
-        context_id: str = None,
-        metadata: Dict[str, Any] = None,
-    ) -> Dict[str, Any]:
+        context_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Send a message to the agent."""
         if not self.controller:
             raise RuntimeError("Agent not running")
@@ -134,7 +133,7 @@ class GrpcServicer:
 
         return task
 
-    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
         """Get task by ID."""
         task = self._tasks.get(task_id)
 
@@ -153,14 +152,14 @@ class GrpcServicer:
 
         return task
 
-    def list_tasks(self, context_id: str = None) -> list:
+    def list_tasks(self, context_id: str | None = None) -> list:
         """List all tasks."""
         tasks = list(self._tasks.values())
         if context_id:
             tasks = [t for t in tasks if t.get("context_id") == context_id]
         return tasks
 
-    def cancel_task(self, task_id: str) -> Dict[str, Any]:
+    def cancel_task(self, task_id: str) -> dict[str, Any]:
         """Cancel a task."""
         task = self._tasks.get(task_id)
         if not task:
@@ -175,7 +174,7 @@ class GrpcServicer:
         self._update_task_status(task_id, "canceled")
         return {"status": "canceled", "task_id": task_id}
 
-    def subscribe(self, task_id: str) -> Iterator[Dict[str, Any]]:
+    def subscribe(self, task_id: str) -> Iterator[dict[str, Any]]:
         """
         Subscribe to task output stream.
 
@@ -229,9 +228,9 @@ def create_grpc_server(
     controller,
     agent_type: str,
     port: int,
-    grpc_port: int = None,
+    grpc_port: int | None = None,
     submit_seq: str = "\n",
-    agent_id: str = None,
+    agent_id: str | None = None,
     max_workers: int = 10,
 ):
     """
@@ -280,9 +279,9 @@ async def serve_grpc(
     controller,
     agent_type: str,
     port: int,
-    grpc_port: int = None,
+    grpc_port: int | None = None,
     submit_seq: str = "\n",
-    agent_id: str = None,
+    agent_id: str | None = None,
 ):
     """
     Start the gRPC server.

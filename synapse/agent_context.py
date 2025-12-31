@@ -7,7 +7,6 @@ keeping Agent Card as a pure "business card" for discovery.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
 
 
 @dataclass
@@ -25,7 +24,7 @@ class AgentContext:
     agent_id: str
     agent_type: str
     port: int
-    other_agents: List[AgentInfo] = field(default_factory=list)
+    other_agents: list[AgentInfo] = field(default_factory=list)
 
 
 def build_initial_instructions(ctx: AgentContext) -> str:
@@ -96,7 +95,7 @@ REPLY: When you receive [A2A:id:sender], reply using:
 LIST: python3 synapse/tools/a2a.py list"""
 
 
-def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:
+def get_other_agents_from_registry(registry, exclude_agent_id: str) -> list[AgentInfo]:
     """
     Get list of other registered agents from the registry.
 

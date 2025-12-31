@@ -7,7 +7,6 @@ Segments include: code blocks, file references, errors, and plain text.
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -22,7 +21,7 @@ class ParsedSegment:
 
 
 # Error patterns (subset for output parsing - full detection in error_detector.py)
-ERROR_PATTERNS: List[Tuple[str, str]] = [
+ERROR_PATTERNS: list[tuple[str, str]] = [
     (r'(?:^|\n)\s*error[:\s]', 'error'),
     (r'(?:^|\n)\s*Error[:\s]', 'error'),
     (r'(?:^|\n)\s*ERROR[:\s]', 'error'),
@@ -37,7 +36,7 @@ ERROR_PATTERNS: List[Tuple[str, str]] = [
 ]
 
 # File action patterns - quoted patterns only to avoid double-matching
-FILE_ACTION_PATTERNS: List[Tuple[str, str]] = [
+FILE_ACTION_PATTERNS: list[tuple[str, str]] = [
     # Quoted file paths (most common in CLI output)
     (r'(?:created|wrote|saved|generated|output)\s+(?:file\s+)?[`"\']([^`"\']+)[`"\']', 'created'),
     (r'(?:modified|updated|changed)\s+(?:file\s+)?[`"\']([^`"\']+)[`"\']', 'modified'),
@@ -49,7 +48,7 @@ FILE_ACTION_PATTERNS: List[Tuple[str, str]] = [
 ]
 
 
-def extract_code_blocks(output: str) -> List[ParsedSegment]:
+def extract_code_blocks(output: str) -> list[ParsedSegment]:
     """Extract code blocks from markdown-style fenced code."""
     segments = []
 
@@ -71,7 +70,7 @@ def extract_code_blocks(output: str) -> List[ParsedSegment]:
     return segments
 
 
-def extract_file_references(output: str) -> List[ParsedSegment]:
+def extract_file_references(output: str) -> list[ParsedSegment]:
     """Extract file references from output."""
     segments = []
     seen_entries = set()  # Avoid duplicates (file + action combinations)
@@ -97,7 +96,7 @@ def extract_file_references(output: str) -> List[ParsedSegment]:
     return segments
 
 
-def extract_errors(output: str) -> List[ParsedSegment]:
+def extract_errors(output: str) -> list[ParsedSegment]:
     """Extract error segments from output."""
     segments = []
 
@@ -139,7 +138,7 @@ def extract_errors(output: str) -> List[ParsedSegment]:
     return segments
 
 
-def parse_output(output: str) -> List[ParsedSegment]:
+def parse_output(output: str) -> list[ParsedSegment]:
     """
     Parse CLI output into structured segments.
 
@@ -214,7 +213,7 @@ def parse_output(output: str) -> List[ParsedSegment]:
     return result
 
 
-def segments_to_artifacts(segments: List[ParsedSegment]) -> List[dict]:
+def segments_to_artifacts(segments: list[ParsedSegment]) -> list[dict]:
     """
     Convert ParsedSegments to A2A Artifact format.
 

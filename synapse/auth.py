@@ -9,12 +9,10 @@ import hmac
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Optional, List, Set
+from datetime import datetime, timezone
 
-from fastapi import HTTPException, Security, Request
+from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
-
 
 # Environment variable names
 ENV_API_KEYS = "SYNAPSE_API_KEYS"  # Comma-separated list of valid API keys
@@ -27,9 +25,9 @@ class APIKeyInfo:
     """Information about an API key."""
     key_hash: str  # SHA-256 hash of the key
     name: str = "default"
-    scopes: Set[str] = field(default_factory=lambda: {"read", "write"})
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: Optional[datetime] = None
+    scopes: set[str] = field(default_factory=lambda: {"read", "write"})
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime | None = None
     rate_limit: int = 1000  # Requests per hour
 
 
@@ -37,13 +35,13 @@ class APIKeyInfo:
 class AuthConfig:
     """Authentication configuration."""
     enabled: bool = False
-    api_keys: List[APIKeyInfo] = field(default_factory=list)
+    api_keys: list[APIKeyInfo] = field(default_factory=list)
     allow_localhost: bool = True  # Skip auth for localhost
-    admin_key_hash: Optional[str] = None
+    admin_key_hash: str | None = None
 
 
 # Global auth configuration
-_auth_config: Optional[AuthConfig] = None
+_auth_config: AuthConfig | None = None
 
 
 def hash_key(key: str) -> str:
@@ -97,7 +95,7 @@ def is_localhost(request: Request) -> bool:
     return client_host in ("127.0.0.1", "localhost", "::1", None)
 
 
-def validate_api_key(key: str, required_scope: Optional[str] = None) -> Optional[APIKeyInfo]:
+def validate_api_key(key: str, required_scope: str | None = None) -> APIKeyInfo | None:
     """
     Validate an API key and return its info.
 
@@ -114,7 +112,7 @@ def validate_api_key(key: str, required_scope: Optional[str] = None) -> Optional
     for api_key in config.api_keys:
         if hmac.compare_digest(api_key.key_hash, key_hash):
             # Check expiration
-            if api_key.expires_at and datetime.utcnow() > api_key.expires_at:
+            if api_key.expires_at and datetime.now(timezone.utc) > api_key.expires_at:
                 return None
 
             # Check scope
@@ -141,9 +139,9 @@ api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 async def get_api_key(
     request: Request,
-    api_key_header_value: Optional[str] = Security(api_key_header),
-    api_key_query_value: Optional[str] = Security(api_key_query),
-) -> Optional[str]:
+    api_key_header_value: str | None = Security(api_key_header),
+    api_key_query_value: str | None = Security(api_key_query),
+) -> str | None:
     """
     Extract API key from request (header or query parameter).
 
@@ -156,8 +154,8 @@ async def get_api_key(
 
 async def require_auth(
     request: Request,
-    api_key: Optional[str] = Security(get_api_key),
-) -> Optional[APIKeyInfo]:
+    api_key: str | None = Security(get_api_key),
+) -> APIKeyInfo | None:
     """
     FastAPI dependency that requires authentication.
 
@@ -197,7 +195,7 @@ async def require_auth(
 
 async def require_admin(
     request: Request,
-    api_key: Optional[str] = Security(get_api_key),
+    api_key: str | None = Security(get_api_key),
 ) -> None:
     """
     FastAPI dependency that requires admin authentication.
@@ -241,8 +239,8 @@ def require_scope(scope: str):
     """
     async def check_scope(
         request: Request,
-        api_key: Optional[str] = Security(get_api_key),
-    ) -> Optional[APIKeyInfo]:
+        api_key: str | None = Security(get_api_key),
+    ) -> APIKeyInfo | None:
         config = load_auth_config()
 
         # Skip auth if disabled

@@ -6,7 +6,6 @@ Detects error patterns in CLI output and determines task status.
 
 import re
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
 
 
 @dataclass
@@ -14,12 +13,12 @@ class TaskError:
     """A2A-compatible error structure"""
     code: str
     message: str
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 # Error patterns with their codes
 # Order matters: more specific patterns should come first
-ERROR_PATTERNS: List[Tuple[str, str, str]] = [
+ERROR_PATTERNS: list[tuple[str, str, str]] = [
     # System errors (specific)
     (r'command not found', 'COMMAND_NOT_FOUND', 'Command not found'),
     (r'permission denied', 'PERMISSION_DENIED', 'Permission denied'),
@@ -45,7 +44,7 @@ ERROR_PATTERNS: List[Tuple[str, str, str]] = [
 ]
 
 
-def detect_error(output: str) -> Optional[TaskError]:
+def detect_error(output: str) -> TaskError | None:
     """
     Detect error patterns in CLI output.
 
@@ -81,7 +80,7 @@ def detect_error(output: str) -> Optional[TaskError]:
     return None
 
 
-def detect_task_status(output: str) -> Tuple[str, Optional[TaskError]]:
+def detect_task_status(output: str) -> tuple[str, TaskError | None]:
     """
     Determine task status based on output analysis.
 

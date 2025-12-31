@@ -1,36 +1,125 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 import argparse
 import asyncio
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 import yaml
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
+from synapse.agent_context import (
+    build_bootstrap_message,
+)
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
-from synapse.a2a_compat import create_a2a_router, TaskStore, Message, TextPart
-from synapse.agent_context import (
-    AgentContext,
-    build_bootstrap_message,
-    get_other_agents_from_registry,
-)
-
-# Global app instance for standalone mode
-app = FastAPI(
-    title="Synapse A2A Server",
-    description="CLI agent wrapper with Google A2A protocol compatibility",
-    version="1.0.0"
-)
 
 # Global controller and registry instances (for standalone mode)
-controller: TerminalController = None
-registry: AgentRegistry = None
-current_agent_id: str = None
+controller: TerminalController | None = None
+registry: AgentRegistry | None = None
+current_agent_id: str | None = None
 agent_port: int = 8100
 agent_profile: str = 'claude'
 submit_sequence: str = '\n'  # Default submit sequence
 
 
+def load_profile(profile_name: str):
+    profile_path = os.path.join(os.path.dirname(__file__), 'profiles', f"{profile_name}.yaml")
+    if not os.path.exists(profile_path):
+        raise FileNotFoundError(f"Profile {profile_name} not found")
+
+    with open(profile_path) as f:
+        return yaml.safe_load(f)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Lifespan context manager for startup and shutdown events."""
+    global controller, registry, current_agent_id, agent_port, agent_profile, submit_sequence
+
+    # Get profile and port from environment variables (set by CLI args)
+    profile_name = os.environ.get("SYNAPSE_PROFILE", agent_profile)
+    agent_port = int(os.environ.get("SYNAPSE_PORT", str(agent_port)))
+    agent_profile = profile_name
+
+    # Get tool args from environment (null-separated)
+    tool_args_str = os.environ.get("SYNAPSE_TOOL_ARGS", "")
+    tool_args = tool_args_str.split('\x00') if tool_args_str else []
+
+    profile = load_profile(profile_name)
+
+    # Load submit sequence from profile (decode escape sequences)
+    submit_sequence = profile.get('submit_sequence', '\n').encode().decode('unicode_escape')
+
+    # Merge profile args with CLI tool args
+    profile_args = profile.get('args', [])
+    all_args = profile_args + tool_args
+
+    # Merge profile env with system env
+    env = os.environ.copy()
+    if 'env' in profile:
+        env.update(profile['env'])
+
+    # Registry Registration (before controller to pass agent_id)
+    registry = AgentRegistry()
+    current_agent_id = registry.get_agent_id(profile_name, agent_port)
+
+    # Set sender identification environment variables for child processes
+    # These are used by CLI tools (a2a.py) to auto-detect sender info
+    env["SYNAPSE_AGENT_ID"] = current_agent_id
+    env["SYNAPSE_AGENT_TYPE"] = profile_name
+    env["SYNAPSE_PORT"] = str(agent_port)
+
+    controller = TerminalController(
+        command=profile['command'],
+        args=all_args,
+        idle_regex=profile['idle_regex'],
+        env=env,
+        agent_id=current_agent_id,
+        agent_type=profile_name,
+        submit_seq=submit_sequence,
+        port=agent_port,
+        registry=registry,
+    )
+    controller.start()
+
+    registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
+
+    # Add Google A2A compatible routes
+    a2a_router = create_a2a_router(
+        controller, profile_name, agent_port, submit_sequence, current_agent_id, registry
+    )
+    app.include_router(a2a_router)
+
+    print(f"Started agent: {profile['command']}")
+    print(f"Registered Agent ID: {current_agent_id}")
+    print(f"Submit sequence: {repr(submit_sequence)}")
+    print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
+
+    # Note: Initial instructions are sent by controller._send_identity_instruction()
+    # when the agent first reaches IDLE state (detected by idle_regex)
+
+    yield  # Application runs here
+
+    # Shutdown
+    if controller:
+        controller.stop()
+    if registry and current_agent_id:
+        registry.unregister(current_agent_id)
+
+
+# Global app instance for standalone mode
+app = FastAPI(
+    title="Synapse A2A Server",
+    description="CLI agent wrapper with Google A2A protocol compatibility",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+
 def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port: int,
-               submit_seq: str = '\n', agent_type: str = 'claude', registry: AgentRegistry = None) -> FastAPI:
+               submit_seq: str = '\n', agent_type: str = 'claude', registry: AgentRegistry | None = None) -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(
         title="Synapse A2A Server",
@@ -102,80 +191,6 @@ def create_app(ctrl: TerminalController, reg: AgentRegistry, agent_id: str, port
 
     return new_app
 
-def load_profile(profile_name: str):
-    profile_path = os.path.join(os.path.dirname(__file__), 'profiles', f"{profile_name}.yaml")
-    if not os.path.exists(profile_path):
-        raise FileNotFoundError(f"Profile {profile_name} not found")
-    
-    with open(profile_path, 'r') as f:
-        return yaml.safe_load(f)
-
-@app.on_event("startup")
-async def startup_event():
-    global controller, registry, current_agent_id, agent_port, agent_profile, submit_sequence
-
-    # Get profile and port from environment variables (set by CLI args)
-    profile_name = os.environ.get("SYNAPSE_PROFILE", agent_profile)
-    agent_port = int(os.environ.get("SYNAPSE_PORT", agent_port))
-    agent_profile = profile_name
-
-    # Get tool args from environment (null-separated)
-    tool_args_str = os.environ.get("SYNAPSE_TOOL_ARGS", "")
-    tool_args = tool_args_str.split('\x00') if tool_args_str else []
-
-    profile = load_profile(profile_name)
-
-    # Load submit sequence from profile (decode escape sequences)
-    submit_sequence = profile.get('submit_sequence', '\n').encode().decode('unicode_escape')
-
-    # Merge profile args with CLI tool args
-    profile_args = profile.get('args', [])
-    all_args = profile_args + tool_args
-
-    # Merge profile env with system env
-    env = os.environ.copy()
-    if 'env' in profile:
-        env.update(profile['env'])
-
-    # Registry Registration (before controller to pass agent_id)
-    registry = AgentRegistry()
-    current_agent_id = registry.get_agent_id(profile_name, agent_port)
-
-    # Set sender identification environment variables for child processes
-    # These are used by CLI tools (a2a.py) to auto-detect sender info
-    env["SYNAPSE_AGENT_ID"] = current_agent_id
-    env["SYNAPSE_AGENT_TYPE"] = profile_name
-    env["SYNAPSE_PORT"] = str(agent_port)
-
-    controller = TerminalController(
-        command=profile['command'],
-        args=all_args,
-        idle_regex=profile['idle_regex'],
-        env=env,
-        agent_id=current_agent_id,
-        agent_type=profile_name,
-        submit_seq=submit_sequence,
-        port=agent_port,
-        registry=registry,
-    )
-    controller.start()
-
-    registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
-
-    # Add Google A2A compatible routes
-    a2a_router = create_a2a_router(
-        controller, profile_name, agent_port, submit_sequence, current_agent_id, registry
-    )
-    app.include_router(a2a_router)
-
-    print(f"Started agent: {profile['command']}")
-    print(f"Registered Agent ID: {current_agent_id}")
-    print(f"Submit sequence: {repr(submit_sequence)}")
-    print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
-
-    # Note: Initial instructions are sent by controller._send_identity_instruction()
-    # when the agent first reaches IDLE state (detected by idle_regex)
-
 
 async def send_initial_instructions(
     ctrl: TerminalController,
@@ -227,19 +242,12 @@ async def send_initial_instructions(
         print(f"Warning: Failed to send bootstrap: {e}")
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    if controller:
-        controller.stop()
-    if registry and current_agent_id:
-        registry.unregister(current_agent_id)
-
 class MessageRequest(BaseModel):
     priority: int
     content: str
 
 # Global task store for standalone mode
-standalone_task_store: TaskStore = None
+standalone_task_store: TaskStore | None = None
 
 @app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
 async def send_message(msg: MessageRequest):
@@ -281,7 +289,7 @@ async def send_message(msg: MessageRequest):
     except Exception as e:
         print(f"Error writing to controller: {e}")
         standalone_task_store.update_status(task.id, "failed")
-        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e
 
     return {"status": "sent", "priority": msg.priority, "task_id": task.id}
 

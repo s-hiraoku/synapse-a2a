@@ -7,26 +7,25 @@ maintaining Synapse A2A's unique PTY-wrapping capabilities.
 Google A2A Spec: https://a2a-protocol.org/latest/specification/
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
-from datetime import datetime
-from uuid import uuid4
 import asyncio
 import json
 import os
 import threading
+from datetime import datetime, timezone
+from typing import Any, Literal
+from uuid import uuid4
 
-from synapse.a2a_client import get_client, ExternalAgent, A2ATask
-from synapse.error_detector import detect_task_status, is_input_required, TaskError
-from synapse.output_parser import parse_output, segments_to_artifacts
-from synapse.auth import require_auth, require_admin, load_auth_config
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from synapse.a2a_client import get_client
+from synapse.auth import require_auth
+from synapse.error_detector import detect_task_status, is_input_required
+from synapse.output_parser import parse_output
 from synapse.webhooks import (
-    get_webhook_registry,
     dispatch_event,
-    WebhookConfig,
-    WebhookDelivery,
+    get_webhook_registry,
 )
 
 # Task state mapping from Google A2A spec
@@ -42,7 +41,7 @@ TaskState = Literal[
 
 def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     """Map Synapse status to Google A2A task state"""
-    mapping = {
+    mapping: dict[str, TaskState] = {
         "STARTING": "submitted",
         "BUSY": "working",
         "IDLE": "completed",
@@ -64,13 +63,13 @@ class TextPart(BaseModel):
 class FilePart(BaseModel):
     """File reference part"""
     type: Literal["file"] = "file"
-    file: Dict[str, Any]
+    file: dict[str, Any]
 
 
 class DataPart(BaseModel):
     """Structured data part"""
     type: Literal["data"] = "data"
-    data: Dict[str, Any]
+    data: dict[str, Any]
 
 
 # Union type for parts
@@ -80,7 +79,7 @@ Part = TextPart | FilePart | DataPart
 class Message(BaseModel):
     """A2A Message with role and parts"""
     role: Literal["user", "agent"] = "user"
-    parts: List[TextPart | FilePart | DataPart]
+    parts: list[TextPart | FilePart | DataPart]
 
 
 class Artifact(BaseModel):
@@ -93,27 +92,27 @@ class TaskErrorModel(BaseModel):
     """A2A Task Error (for failed tasks)"""
     code: str
     message: str
-    data: Optional[Dict[str, Any]] = None
+    data: dict[str, Any] | None = None
 
 
 class Task(BaseModel):
     """A2A Task with lifecycle"""
     id: str
     status: TaskState
-    message: Optional[Message] = None
-    artifacts: List[Artifact] = []
-    error: Optional[TaskErrorModel] = None  # Error info for failed tasks
+    message: Message | None = None
+    artifacts: list[Artifact] = []
+    error: TaskErrorModel | None = None  # Error info for failed tasks
     created_at: str
     updated_at: str
-    context_id: Optional[str] = None
-    metadata: Dict[str, Any] = {}
+    context_id: str | None = None
+    metadata: dict[str, Any] = {}
 
 
 class SendMessageRequest(BaseModel):
     """Request to send a message"""
     message: Message
-    context_id: Optional[str] = None
-    metadata: Dict[str, Any] = {}
+    context_id: str | None = None
+    metadata: dict[str, Any] = {}
 
 
 class SendMessageResponse(BaseModel):
@@ -126,7 +125,7 @@ class AgentSkill(BaseModel):
     id: str
     name: str
     description: str
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: dict[str, Any] | None = None
 
 
 class AgentCapabilities(BaseModel):
@@ -143,10 +142,10 @@ class AgentCard(BaseModel):
     url: str
     version: str = "1.0.0"
     capabilities: AgentCapabilities
-    skills: List[AgentSkill] = []
-    securitySchemes: Dict[str, Any] = {}
+    skills: list[AgentSkill] = []
+    securitySchemes: dict[str, Any] = {}
     # Synapse A2A extensions
-    extensions: Dict[str, Any] = {}
+    extensions: dict[str, Any] = {}
 
 
 # ============================================================
@@ -157,17 +156,17 @@ class TaskStore:
     """Thread-safe in-memory task storage"""
 
     def __init__(self):
-        self._tasks: Dict[str, Task] = {}
+        self._tasks: dict[str, Task] = {}
         self._lock = threading.Lock()
 
     def create(
         self,
         message: Message,
-        context_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        context_id: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> Task:
         """Create a new task with optional metadata (including sender info)"""
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat() + "Z"
         task = Task(
             id=str(uuid4()),
             status="submitted",
@@ -182,43 +181,43 @@ class TaskStore:
             self._tasks[task.id] = task
         return task
 
-    def get(self, task_id: str) -> Optional[Task]:
+    def get(self, task_id: str) -> Task | None:
         """Get a task by ID"""
         with self._lock:
             return self._tasks.get(task_id)
 
-    def update_status(self, task_id: str, status: TaskState) -> Optional[Task]:
+    def update_status(self, task_id: str, status: TaskState) -> Task | None:
         """Update task status"""
         with self._lock:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.status = status
-                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
                 return task
         return None
 
-    def add_artifact(self, task_id: str, artifact: Artifact) -> Optional[Task]:
+    def add_artifact(self, task_id: str, artifact: Artifact) -> Task | None:
         """Add artifact to task"""
         with self._lock:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.artifacts.append(artifact)
-                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
                 return task
         return None
 
-    def set_error(self, task_id: str, error: TaskErrorModel) -> Optional[Task]:
+    def set_error(self, task_id: str, error: TaskErrorModel) -> Task | None:
         """Set error on a task"""
         with self._lock:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.error = error
                 task.status = "failed"
-                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
                 return task
         return None
 
-    def list_tasks(self, context_id: Optional[str] = None) -> List[Task]:
+    def list_tasks(self, context_id: str | None = None) -> list[Task]:
         """List all tasks, optionally filtered by context"""
         with self._lock:
             if context_id:
@@ -237,7 +236,7 @@ task_store = TaskStore()
 class DiscoverAgentRequest(BaseModel):
     """Request to discover an external agent"""
     url: str
-    alias: Optional[str] = None
+    alias: str | None = None
 
 
 class ExternalAgentInfo(BaseModel):
@@ -246,10 +245,10 @@ class ExternalAgentInfo(BaseModel):
     alias: str
     url: str
     description: str = ""
-    capabilities: Dict[str, Any] = {}
-    skills: List[Dict[str, Any]] = []
+    capabilities: dict[str, Any] = {}
+    skills: list[dict[str, Any]] = []
     added_at: str = ""
-    last_seen: Optional[str] = None
+    last_seen: str | None = None
 
 
 class SendExternalMessageRequest(BaseModel):
@@ -263,7 +262,7 @@ class ExternalTaskResponse(BaseModel):
     """Response from external agent task"""
     id: str
     status: str
-    artifacts: List[Dict[str, Any]] = []
+    artifacts: list[dict[str, Any]] = []
 
 
 # ============================================================
@@ -275,8 +274,8 @@ def create_a2a_router(
     agent_type: str,
     port: int,
     submit_seq: str = "\n",
-    agent_id: str = None,
-    registry = None
+    agent_id: str | None = None,
+    registry=None
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -407,11 +406,13 @@ def create_a2a_router(
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
-            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}") from e
 
         # Get updated task
-        task = task_store.get(task.id)
-        return SendMessageResponse(task=task)
+        updated_task = task_store.get(task.id)
+        if not updated_task:
+            raise HTTPException(status_code=500, detail="Task disappeared unexpectedly")
+        return SendMessageResponse(task=updated_task)
 
     @router.get("/tasks/{task_id}", response_model=Task)
     async def get_task(task_id: str, _=Depends(require_auth)):
@@ -467,7 +468,7 @@ def create_a2a_router(
                     if segments:
                         # Add each parsed segment as an artifact
                         for seg in segments:
-                            artifact_data: Dict[str, Any] = {"content": seg.content}
+                            artifact_data: dict[str, Any] = {"content": seg.content}
                             if seg.metadata:
                                 artifact_data["metadata"] = seg.metadata
                             task_store.add_artifact(task_id, Artifact(
@@ -485,8 +486,8 @@ def create_a2a_router(
 
         return task
 
-    @router.get("/tasks", response_model=List[Task])
-    async def list_tasks(context_id: Optional[str] = None, _=Depends(require_auth)):
+    @router.get("/tasks", response_model=list[Task])
+    async def list_tasks(context_id: str | None = None, _=Depends(require_auth)):
         """List all tasks, optionally filtered by context. Requires authentication."""
         return task_store.list_tasks(context_id)
 
@@ -645,10 +646,12 @@ def create_a2a_router(
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
-            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}") from e
 
-        task = task_store.get(task.id)
-        return SendMessageResponse(task=task)
+        updated_task = task_store.get(task.id)
+        if not updated_task:
+            raise HTTPException(status_code=500, detail="Task disappeared unexpectedly")
+        return SendMessageResponse(task=updated_task)
 
     # --------------------------------------------------------
     # External Agent Management (Google A2A Client)
@@ -682,7 +685,7 @@ def create_a2a_router(
             last_seen=agent.last_seen,
         )
 
-    @router.get("/external/agents", response_model=List[ExternalAgentInfo])
+    @router.get("/external/agents", response_model=list[ExternalAgentInfo])
     async def list_external_agents(_=Depends(require_auth)):
         """
         List all registered external agents.
@@ -781,13 +784,13 @@ def create_a2a_router(
     class WebhookRequest(BaseModel):
         """Request to register a webhook."""
         url: str
-        events: Optional[List[str]] = None
-        secret: Optional[str] = None
+        events: list[str] | None = None
+        secret: str | None = None
 
     class WebhookResponse(BaseModel):
         """Webhook registration response."""
         url: str
-        events: List[str]
+        events: list[str]
         enabled: bool
         created_at: datetime
 
@@ -796,11 +799,11 @@ def create_a2a_router(
         webhook_url: str
         event_type: str
         event_id: str
-        status_code: Optional[int]
+        status_code: int | None
         success: bool
         attempts: int
-        error: Optional[str]
-        delivered_at: Optional[datetime]
+        error: str | None
+        delivered_at: datetime | None
 
     @router.post("/webhooks", response_model=WebhookResponse)
     async def register_webhook(request: WebhookRequest, _=Depends(require_auth)):
@@ -823,7 +826,7 @@ def create_a2a_router(
                 secret=request.secret,
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         return WebhookResponse(
             url=webhook.url,
@@ -832,7 +835,7 @@ def create_a2a_router(
             created_at=webhook.created_at,
         )
 
-    @router.get("/webhooks", response_model=List[WebhookResponse])
+    @router.get("/webhooks", response_model=list[WebhookResponse])
     async def list_webhooks(_=Depends(require_auth)):
         """
         List all registered webhooks.
@@ -863,7 +866,7 @@ def create_a2a_router(
 
         return {"status": "removed", "url": url}
 
-    @router.get("/webhooks/deliveries", response_model=List[WebhookDeliveryResponse])
+    @router.get("/webhooks/deliveries", response_model=list[WebhookDeliveryResponse])
     async def list_webhook_deliveries(limit: int = 20, _=Depends(require_auth)):
         """
         Get recent webhook delivery attempts.

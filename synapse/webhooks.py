@@ -12,12 +12,11 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +30,19 @@ ENV_WEBHOOK_MAX_RETRIES = "SYNAPSE_WEBHOOK_MAX_RETRIES"
 class WebhookConfig:
     """Configuration for a webhook."""
     url: str
-    events: List[str] = field(default_factory=lambda: ["task.completed", "task.failed"])
-    secret: Optional[str] = None
+    events: list[str] = field(default_factory=lambda: ["task.completed", "task.failed"])
+    secret: str | None = None
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class WebhookEvent:
     """A webhook event to be delivered."""
     event_type: str
-    payload: Dict[str, Any]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    payload: dict[str, Any]
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: str = field(default_factory=lambda: hashlib.sha256(str(time.time()).encode()).hexdigest()[:16])
 
 
@@ -52,11 +51,11 @@ class WebhookDelivery:
     """Record of a webhook delivery attempt."""
     webhook_url: str
     event: WebhookEvent
-    status_code: Optional[int] = None
-    response_body: Optional[str] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    response_body: str | None = None
+    error: str | None = None
     attempts: int = 0
-    delivered_at: Optional[datetime] = None
+    delivered_at: datetime | None = None
     success: bool = False
 
 
@@ -64,15 +63,15 @@ class WebhookRegistry:
     """Registry for managing webhooks."""
 
     def __init__(self):
-        self._webhooks: Dict[str, WebhookConfig] = {}
-        self._deliveries: List[WebhookDelivery] = []
+        self._webhooks: dict[str, WebhookConfig] = {}
+        self._deliveries: list[WebhookDelivery] = []
 
     def register(
         self,
         url: str,
-        events: Optional[List[str]] = None,
-        secret: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        events: list[str] | None = None,
+        secret: str | None = None,
+        metadata: dict[str, Any] | None = None
     ) -> WebhookConfig:
         """Register a new webhook."""
         # Validate URL
@@ -99,15 +98,15 @@ class WebhookRegistry:
             return True
         return False
 
-    def get(self, url: str) -> Optional[WebhookConfig]:
+    def get(self, url: str) -> WebhookConfig | None:
         """Get a webhook by URL."""
         return self._webhooks.get(url)
 
-    def list_webhooks(self) -> List[WebhookConfig]:
+    def list_webhooks(self) -> list[WebhookConfig]:
         """List all registered webhooks."""
         return list(self._webhooks.values())
 
-    def get_webhooks_for_event(self, event_type: str) -> List[WebhookConfig]:
+    def get_webhooks_for_event(self, event_type: str) -> list[WebhookConfig]:
         """Get all webhooks subscribed to an event type."""
         return [
             w for w in self._webhooks.values()
@@ -121,7 +120,7 @@ class WebhookRegistry:
         if len(self._deliveries) > 100:
             self._deliveries = self._deliveries[-100:]
 
-    def get_recent_deliveries(self, limit: int = 20) -> List[WebhookDelivery]:
+    def get_recent_deliveries(self, limit: int = 20) -> list[WebhookDelivery]:
         """Get recent delivery attempts."""
         return self._deliveries[-limit:]
 
@@ -140,7 +139,7 @@ async def deliver_webhook(
     event: WebhookEvent,
     max_retries: int = 3,
     timeout: float = 10.0,
-    registry: Optional[WebhookRegistry] = None,
+    registry: WebhookRegistry | None = None,
 ) -> WebhookDelivery:
     """
     Deliver a webhook event to a URL.
@@ -199,7 +198,7 @@ async def deliver_webhook(
 
                 if 200 <= response.status_code < 300:
                     delivery.success = True
-                    delivery.delivered_at = datetime.utcnow()
+                    delivery.delivered_at = datetime.now(timezone.utc)
                     logger.info(f"Webhook delivered: {webhook.url} ({event.event_type})")
                     break
                 else:
@@ -228,9 +227,9 @@ async def deliver_webhook(
 async def dispatch_event(
     registry: WebhookRegistry,
     event_type: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     max_retries: int = 3,
-) -> List[WebhookDelivery]:
+) -> list[WebhookDelivery]:
     """
     Dispatch an event to all subscribed webhooks.
 
@@ -265,7 +264,7 @@ async def dispatch_event(
 
 
 # Global registry instance
-_webhook_registry: Optional[WebhookRegistry] = None
+_webhook_registry: WebhookRegistry | None = None
 
 
 def get_webhook_registry() -> WebhookRegistry:

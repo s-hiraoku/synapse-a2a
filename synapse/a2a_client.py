@@ -6,15 +6,14 @@ Google A2A compatible agents.
 """
 
 import json
-import os
-import requests
 import threading
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any
 from urllib.parse import urljoin
 
+import requests
 
 # ============================================================
 # Data Classes
@@ -26,15 +25,15 @@ class ExternalAgent:
     name: str
     url: str
     description: str = ""
-    capabilities: Dict[str, Any] = field(default_factory=dict)
-    skills: List[Dict[str, Any]] = field(default_factory=list)
+    capabilities: dict[str, Any] = field(default_factory=dict)
+    skills: list[dict[str, Any]] = field(default_factory=list)
     added_at: str = ""
     last_seen: str = ""
     alias: str = ""  # Short name for @alias syntax
 
     def __post_init__(self):
         if not self.added_at:
-            self.added_at = datetime.utcnow().isoformat() + "Z"
+            self.added_at = datetime.now(timezone.utc).isoformat() + "Z"
         if not self.alias:
             # Generate alias from name (lowercase, no spaces)
             self.alias = self.name.lower().replace(" ", "-").replace("_", "-")
@@ -44,7 +43,7 @@ class ExternalAgent:
 class A2AMessage:
     """A2A Message structure"""
     role: str = "user"
-    parts: List[Dict[str, Any]] = field(default_factory=list)
+    parts: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_text(cls, text: str) -> "A2AMessage":
@@ -60,8 +59,8 @@ class A2ATask:
     """A2A Task response"""
     id: str
     status: str
-    message: Optional[Dict[str, Any]] = None
-    artifacts: List[Dict[str, Any]] = field(default_factory=list)
+    message: dict[str, Any] | None = None
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
 
@@ -80,7 +79,7 @@ class ExternalAgentRegistry:
     def __init__(self):
         self.registry_dir = Path.home() / ".a2a" / "external"
         self.registry_dir.mkdir(parents=True, exist_ok=True)
-        self._cache: Dict[str, ExternalAgent] = {}
+        self._cache: dict[str, ExternalAgent] = {}
         self._lock = threading.Lock()
         self._load_all()
 
@@ -89,7 +88,7 @@ class ExternalAgentRegistry:
         with self._lock:
             for file in self.registry_dir.glob("*.json"):
                 try:
-                    with open(file, "r") as f:
+                    with open(file) as f:
                         data = json.load(f)
                         agent = ExternalAgent(**data)
                         self._cache[agent.alias] = agent
@@ -120,12 +119,12 @@ class ExternalAgentRegistry:
                 return True
             return False
 
-    def get(self, alias: str) -> Optional[ExternalAgent]:
+    def get(self, alias: str) -> ExternalAgent | None:
         """Get an agent by alias"""
         with self._lock:
             return self._cache.get(alias)
 
-    def list_agents(self) -> List[ExternalAgent]:
+    def list_agents(self) -> list[ExternalAgent]:
         """List all registered external agents"""
         with self._lock:
             return list(self._cache.values())
@@ -134,7 +133,7 @@ class ExternalAgentRegistry:
         """Update last seen timestamp"""
         with self._lock:
             if alias in self._cache:
-                self._cache[alias].last_seen = datetime.utcnow().isoformat() + "Z"
+                self._cache[alias].last_seen = datetime.now(timezone.utc).isoformat() + "Z"
                 self._save(self._cache[alias])
 
 
@@ -147,11 +146,11 @@ class A2AClient:
     Client for communicating with external Google A2A agents.
     """
 
-    def __init__(self, registry: Optional[ExternalAgentRegistry] = None):
+    def __init__(self, registry: ExternalAgentRegistry | None = None):
         self.registry = registry or ExternalAgentRegistry()
         self.timeout = (3, 30)  # (connect_timeout, read_timeout)
 
-    def discover(self, url: str, alias: Optional[str] = None) -> Optional[ExternalAgent]:
+    def discover(self, url: str, alias: str | None = None) -> ExternalAgent | None:
         """
         Discover an agent by fetching its Agent Card.
 
@@ -195,8 +194,8 @@ class A2AClient:
         priority: int = 1,
         wait_for_completion: bool = False,
         timeout: int = 60,
-        sender_info: Optional[Dict[str, str]] = None
-    ) -> Optional[A2ATask]:
+        sender_info: dict[str, str] | None = None
+    ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
 
@@ -219,7 +218,7 @@ class A2AClient:
             a2a_message = A2AMessage.from_text(message)
 
             # Build request payload
-            payload: Dict[str, Any] = {"message": asdict(a2a_message)}
+            payload: dict[str, Any] = {"message": asdict(a2a_message)}
 
             # Add sender info to metadata if provided
             if sender_info:
@@ -260,7 +259,7 @@ class A2AClient:
         endpoint: str,
         task_id: str,
         timeout: int
-    ) -> Optional[A2ATask]:
+    ) -> A2ATask | None:
         """Wait for a local task to complete"""
         import time
 
@@ -300,7 +299,7 @@ class A2AClient:
         message: str,
         wait_for_completion: bool = False,
         timeout: int = 60
-    ) -> Optional[A2ATask]:
+    ) -> A2ATask | None:
         """
         Send a message to an external agent.
 
@@ -354,7 +353,7 @@ class A2AClient:
             print(f"Failed to send message to {alias}: {e}")
             return None
 
-    def get_task(self, alias: str, task_id: str) -> Optional[A2ATask]:
+    def get_task(self, alias: str, task_id: str) -> A2ATask | None:
         """Get task status from an external agent"""
         agent = self.registry.get(alias)
         if not agent:
@@ -399,7 +398,7 @@ class A2AClient:
         agent: ExternalAgent,
         task_id: str,
         timeout: int
-    ) -> Optional[A2ATask]:
+    ) -> A2ATask | None:
         """Wait for a task to complete"""
         import time
 
@@ -415,7 +414,7 @@ class A2AClient:
         # Return last known state
         return self.get_task(agent.alias, task_id)
 
-    def list_agents(self) -> List[ExternalAgent]:
+    def list_agents(self) -> list[ExternalAgent]:
         """List all registered external agents"""
         return self.registry.list_agents()
 
@@ -428,7 +427,7 @@ class A2AClient:
 # Global client instance
 # ============================================================
 
-_client: Optional[A2AClient] = None
+_client: A2AClient | None = None
 
 
 def get_client() -> A2AClient:
