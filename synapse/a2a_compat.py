@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 from uuid import uuid4
+import os
 import threading
 
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
@@ -298,6 +299,10 @@ def create_a2a_router(
         Agent Card is a "business card" - it only contains discovery information,
         not internal instructions (which are sent via A2A Task at startup).
         """
+        # Determine protocol based on SSL configuration
+        use_https = os.environ.get("SYNAPSE_USE_HTTPS", "").lower() == "true"
+        protocol = "https" if use_https else "http"
+
         # Build extensions (synapse-specific metadata only, no x-synapse-context)
         extensions = {
             "synapse": {
@@ -316,7 +321,7 @@ def create_a2a_router(
         return AgentCard(
             name=f"Synapse {agent_type.capitalize()}",
             description=f"PTY-wrapped {agent_type} CLI agent with A2A communication",
-            url=f"http://localhost:{port}",
+            url=f"{protocol}://localhost:{port}",
             version="1.0.0",
             capabilities=AgentCapabilities(
                 streaming=False,  # Not yet supported

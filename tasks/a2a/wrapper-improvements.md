@@ -79,38 +79,28 @@
 
 ---
 
-### 1.3 HTTPS 対応
+### 1.3 HTTPS 対応 ✅ 完了
 
-**現状の問題**:
-- HTTP のみで通信
-- 外部公開時にセキュリティリスク
-- A2A 仕様では TLS が必須
+**状態**: 実装済み
 
-**改善内容**:
-- uvicorn の SSL オプション対応
-- 自己署名証明書の自動生成（開発用）
-- 証明書パス設定オプション
+**実装内容**:
+- `synapse start` に `--ssl-cert` と `--ssl-key` オプションを追加
+- SSL証明書が指定された場合、uvicornにSSL設定を渡す
+- Agent CardのURLが自動的に `https://` に切り替わる
 
-**実装箇所**: `synapse/cli.py`, `synapse/server.py`
+**使い方**:
+```bash
+# HTTPS で起動
+synapse start claude --ssl-cert /path/to/cert.pem --ssl-key /path/to/key.pem
 
-```python
-# CLI オプション追加
-@click.option('--ssl-cert', default=None, help='SSL certificate file')
-@click.option('--ssl-key', default=None, help='SSL key file')
-
-# uvicorn 起動時
-uvicorn.run(
-    app,
-    host=host,
-    port=port,
-    ssl_certfile=ssl_cert,
-    ssl_keyfile=ssl_key
-)
+# 自己署名証明書の生成例
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
 ```
 
-**優先度**: 高
-**工数**: 低（1日）
-**依存**: なし
+**実装箇所**:
+- `synapse/cli.py` - CLIオプション追加、バリデーション
+- `synapse/server.py` - uvicorn SSL設定
+- `synapse/a2a_compat.py` - Agent Card URL自動切替
 
 ---
 
@@ -320,10 +310,10 @@ gantt
 
 ## 完了条件
 
-### Phase 1 完了時
+### Phase 1 完了時 ✅
 - [x] CLI が `@agent` を出力したら自動的に A2A 送信される
 - [x] エラー時に `failed` ステータスとエラーコードが返る
-- [ ] HTTPS でサーバーを起動できる
+- [x] HTTPS でサーバーを起動できる
 
 ### Phase 2 完了時
 - [ ] SSE でリアルタイムに出力を受信できる
@@ -352,3 +342,4 @@ gantt
 | 2025-12-28 | 初版作成 |
 | 2025-12-31 | 1.1 CLI出力からの@agent自動ルーティング - 実装済みを確認、テスト修正 |
 | 2025-12-31 | 1.2 エラー状態の検出とfailedステータス - 実装完了 |
+| 2025-12-31 | 1.3 HTTPS対応 - 実装完了、**Phase 1 完了** |

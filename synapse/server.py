@@ -303,10 +303,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Synapse A2A Server")
     parser.add_argument("--profile", default="claude", help="Agent profile (claude, codex, gemini, dummy)")
     parser.add_argument("--port", type=int, default=8100, help="Server port")
+    parser.add_argument("--ssl-cert", default=None, help="SSL certificate file path")
+    parser.add_argument("--ssl-key", default=None, help="SSL private key file path")
     args = parser.parse_args()
 
     # Set environment variables for startup_event
     os.environ["SYNAPSE_PROFILE"] = args.profile
     os.environ["SYNAPSE_PORT"] = str(args.port)
 
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+    # Configure SSL if certificates provided
+    ssl_config = {}
+    if args.ssl_cert and args.ssl_key:
+        ssl_config["ssl_certfile"] = args.ssl_cert
+        ssl_config["ssl_keyfile"] = args.ssl_key
+        os.environ["SYNAPSE_USE_HTTPS"] = "true"
+        print(f"HTTPS enabled with certificate: {args.ssl_cert}")
+
+    uvicorn.run(app, host="0.0.0.0", port=args.port, **ssl_config)

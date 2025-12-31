@@ -23,6 +23,13 @@ def cmd_start(args):
     profile = args.profile
     port = args.port
     foreground = args.foreground
+    ssl_cert = getattr(args, 'ssl_cert', None)
+    ssl_key = getattr(args, 'ssl_key', None)
+
+    # Validate SSL options
+    if (ssl_cert and not ssl_key) or (ssl_key and not ssl_cert):
+        print("Error: Both --ssl-cert and --ssl-key must be provided together")
+        sys.exit(1)
 
     # Extract tool args (filter out -- if present at start)
     tool_args = getattr(args, 'tool_args', [])
@@ -46,14 +53,22 @@ def cmd_start(args):
         "--port", str(port)
     ]
 
+    # Add SSL options if provided
+    if ssl_cert and ssl_key:
+        cmd.extend(["--ssl-cert", ssl_cert, "--ssl-key", ssl_key])
+
     # Set up environment with tool args (null-separated for safe parsing)
     env = os.environ.copy()
     if tool_args:
         env["SYNAPSE_TOOL_ARGS"] = '\x00'.join(tool_args)
 
+    protocol = "https" if ssl_cert else "http"
+
     if foreground:
         # Run in foreground
-        print(f"Starting {profile} on port {port} (foreground)...")
+        print(f"Starting {profile} on port {port} (foreground, {protocol.upper()})...")
+        if ssl_cert:
+            print(f"SSL: {ssl_cert}")
         if tool_args:
             print(f"Tool args: {' '.join(tool_args)}")
         try:
@@ -62,7 +77,9 @@ def cmd_start(args):
             print("\nStopped.")
     else:
         # Run in background
-        print(f"Starting {profile} on port {port} (background)...")
+        print(f"Starting {profile} on port {port} (background, {protocol.upper()})...")
+        if ssl_cert:
+            print(f"SSL: {ssl_cert}")
         if tool_args:
             print(f"Tool args: {' '.join(tool_args)}")
 
@@ -471,6 +488,8 @@ def main():
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
     p_start.add_argument("--port", type=int, help="Server port (default: auto)")
     p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
+    p_start.add_argument("--ssl-cert", help="SSL certificate file path (enables HTTPS)")
+    p_start.add_argument("--ssl-key", help="SSL private key file path")
     p_start.add_argument("tool_args", nargs=argparse.REMAINDER,
                          help="Arguments after -- are passed to the CLI tool")
     p_start.set_defaults(func=cmd_start)
