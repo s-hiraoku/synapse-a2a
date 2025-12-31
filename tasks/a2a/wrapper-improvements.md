@@ -211,15 +211,43 @@ curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
 
 ---
 
-### 3.2 Push Notifications
+### 3.2 Push Notifications ✅ 完了
 
-**改善内容**:
-- Webhook URL 登録
-- タスク完了時に POST 通知
-- 再試行ロジック
+**状態**: 実装済み
 
-**優先度**: 低
-**工数**: 中（3-4日）
+**実装内容**:
+- `synapse/webhooks.py` - Webhook通知モジュール
+  - Webhook登録・解除
+  - HMAC-SHA256署名によるペイロード検証
+  - 指数バックオフによるリトライ（最大3回）
+  - 配信履歴の記録
+- A2Aエンドポイントにwebhook管理APIを追加
+- タスク完了/失敗/キャンセル時に自動通知
+
+**イベントタイプ**:
+- `task.completed`: タスク正常完了
+- `task.failed`: タスク失敗
+- `task.canceled`: タスクキャンセル
+
+**使い方**:
+```bash
+# Webhookを登録
+curl -X POST http://localhost:8100/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/hook", "events": ["task.completed"]}'
+
+# 登録済みWebhook一覧
+curl http://localhost:8100/webhooks
+
+# 配信履歴を確認
+curl http://localhost:8100/webhooks/deliveries
+```
+
+**実装箇所**:
+- `synapse/webhooks.py` - Webhookロジック
+- `synapse/a2a_compat.py` - API統合、自動発火
+
+**テスト**: `tests/test_webhooks.py` (25テスト)
 
 ---
 
@@ -271,7 +299,7 @@ gantt
 
 ### Phase 3 完了時
 - [x] API Key で認証できる
-- [ ] タスク完了時に Webhook 通知される
+- [x] タスク完了時に Webhook 通知される
 - [ ] gRPC でも通信できる
 
 ---
@@ -295,3 +323,4 @@ gantt
 | 2025-12-31 | 2.1 SSEストリーミング対応 - 実装完了 |
 | 2025-12-31 | 2.2 出力パーサー - 実装完了、**Phase 2 完了** |
 | 2025-12-31 | 3.1 認証/認可 - API Key認証実装完了 |
+| 2025-12-31 | 3.2 Push Notifications - Webhook通知実装完了 |

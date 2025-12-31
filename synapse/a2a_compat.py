@@ -22,6 +22,12 @@ from synapse.a2a_client import get_client, ExternalAgent, A2ATask
 from synapse.error_detector import detect_task_status, is_input_required, TaskError
 from synapse.output_parser import parse_output, segments_to_artifacts
 from synapse.auth import require_auth, require_admin, load_auth_config
+from synapse.webhooks import (
+    get_webhook_registry,
+    dispatch_event,
+    WebhookConfig,
+    WebhookDelivery,
+)
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -439,8 +445,20 @@ def create_a2a_router(
                         message=error.message,
                         data=error.data
                     ))
+                    # Dispatch webhook for failed task
+                    asyncio.create_task(dispatch_event(
+                        get_webhook_registry(),
+                        "task.failed",
+                        {"task_id": task_id, "error": {"code": error.code, "message": error.message}}
+                    ))
                 else:
                     task_store.update_status(task_id, "completed")
+                    # Dispatch webhook for completed task
+                    asyncio.create_task(dispatch_event(
+                        get_webhook_registry(),
+                        "task.completed",
+                        {"task_id": task_id}
+                    ))
 
                 # Parse and add output as structured artifacts
                 recent_context = context[-3000:]
@@ -495,6 +513,14 @@ def create_a2a_router(
             controller.interrupt()
 
         task_store.update_status(task_id, "canceled")
+
+        # Dispatch webhook for canceled task
+        asyncio.create_task(dispatch_event(
+            get_webhook_registry(),
+            "task.canceled",
+            {"task_id": task_id}
+        ))
+
         return {"status": "canceled", "task_id": task_id}
 
     # --------------------------------------------------------
@@ -747,5 +773,117 @@ def create_a2a_router(
             status=task.status,
             artifacts=task.artifacts,
         )
+
+    # --------------------------------------------------------
+    # Webhook Management
+    # --------------------------------------------------------
+
+    class WebhookRequest(BaseModel):
+        """Request to register a webhook."""
+        url: str
+        events: Optional[List[str]] = None
+        secret: Optional[str] = None
+
+    class WebhookResponse(BaseModel):
+        """Webhook registration response."""
+        url: str
+        events: List[str]
+        enabled: bool
+        created_at: datetime
+
+    class WebhookDeliveryResponse(BaseModel):
+        """Webhook delivery record."""
+        webhook_url: str
+        event_type: str
+        event_id: str
+        status_code: Optional[int]
+        success: bool
+        attempts: int
+        error: Optional[str]
+        delivered_at: Optional[datetime]
+
+    @router.post("/webhooks", response_model=WebhookResponse)
+    async def register_webhook(request: WebhookRequest, _=Depends(require_auth)):
+        """
+        Register a webhook for task notifications.
+
+        Events:
+        - task.completed: Task finished successfully
+        - task.failed: Task failed with error
+        - task.canceled: Task was canceled
+
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        registry = get_webhook_registry()
+
+        try:
+            webhook = registry.register(
+                url=request.url,
+                events=request.events,
+                secret=request.secret,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        return WebhookResponse(
+            url=webhook.url,
+            events=webhook.events,
+            enabled=webhook.enabled,
+            created_at=webhook.created_at,
+        )
+
+    @router.get("/webhooks", response_model=List[WebhookResponse])
+    async def list_webhooks(_=Depends(require_auth)):
+        """
+        List all registered webhooks.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        registry = get_webhook_registry()
+
+        return [
+            WebhookResponse(
+                url=w.url,
+                events=w.events,
+                enabled=w.enabled,
+                created_at=w.created_at,
+            )
+            for w in registry.list_webhooks()
+        ]
+
+    @router.delete("/webhooks")
+    async def unregister_webhook(url: str, _=Depends(require_auth)):
+        """
+        Unregister a webhook.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        registry = get_webhook_registry()
+
+        if not registry.unregister(url):
+            raise HTTPException(status_code=404, detail="Webhook not found")
+
+        return {"status": "removed", "url": url}
+
+    @router.get("/webhooks/deliveries", response_model=List[WebhookDeliveryResponse])
+    async def list_webhook_deliveries(limit: int = 20, _=Depends(require_auth)):
+        """
+        Get recent webhook delivery attempts.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        registry = get_webhook_registry()
+        deliveries = registry.get_recent_deliveries(limit)
+
+        return [
+            WebhookDeliveryResponse(
+                webhook_url=d.webhook_url,
+                event_type=d.event.event_type,
+                event_id=d.event.id,
+                status_code=d.status_code,
+                success=d.success,
+                attempts=d.attempts,
+                error=d.error,
+                delivered_at=d.delivered_at,
+            )
+            for d in deliveries
+        ]
 
     return router
