@@ -15,6 +15,7 @@ from uuid import uuid4
 import threading
 
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
+from synapse.error_detector import detect_task_status, is_input_required, TaskError
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -76,12 +77,20 @@ class Artifact(BaseModel):
     data: Any
 
 
+class TaskErrorModel(BaseModel):
+    """A2A Task Error (for failed tasks)"""
+    code: str
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+
 class Task(BaseModel):
     """A2A Task with lifecycle"""
     id: str
     status: TaskState
     message: Optional[Message] = None
     artifacts: List[Artifact] = []
+    error: Optional[TaskErrorModel] = None  # Error info for failed tasks
     created_at: str
     updated_at: str
     context_id: Optional[str] = None
@@ -182,6 +191,17 @@ class TaskStore:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.artifacts.append(artifact)
+                task.updated_at = datetime.utcnow().isoformat() + "Z"
+                return task
+        return None
+
+    def set_error(self, task_id: str, error: TaskErrorModel) -> Optional[Task]:
+        """Set error on a task"""
+        with self._lock:
+            if task_id in self._tasks:
+                task = self._tasks[task_id]
+                task.error = error
+                task.status = "failed"
                 task.updated_at = datetime.utcnow().isoformat() + "Z"
                 return task
         return None
@@ -382,6 +402,7 @@ def create_a2a_router(
         Get task status and results.
 
         Maps Synapse IDLE/BUSY status to A2A task states.
+        Detects errors in CLI output and sets failed status accordingly.
         """
         task = task_store.get(task_id)
         if not task:
@@ -390,16 +411,31 @@ def create_a2a_router(
         # Update status based on controller state
         if controller and task.status == "working":
             synapse_status = controller.status
-            a2a_status = map_synapse_status_to_a2a(synapse_status)
+            context = controller.get_context()
 
-            if a2a_status == "completed":
-                task_store.update_status(task_id, "completed")
+            # Check for input_required state first
+            if is_input_required(context):
+                task_store.update_status(task_id, "input_required")
+            elif synapse_status == "IDLE":
+                # Agent is idle, analyze output for errors
+                status, error = detect_task_status(context[-3000:])
+
+                if status == "failed" and error:
+                    # Set error and failed status
+                    task_store.set_error(task_id, TaskErrorModel(
+                        code=error.code,
+                        message=error.message,
+                        data=error.data
+                    ))
+                else:
+                    task_store.update_status(task_id, "completed")
+
                 # Add output as artifact
-                context = controller.get_context()[-2000:]
-                if context:
+                recent_context = context[-2000:]
+                if recent_context:
                     task_store.add_artifact(task_id, Artifact(
                         type="text",
-                        data=context
+                        data=recent_context
                     ))
 
             task = task_store.get(task_id)

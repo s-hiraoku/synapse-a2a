@@ -56,44 +56,26 @@
 
 ---
 
-### 1.2 エラー状態の検出と failed ステータス
+### 1.2 エラー状態の検出と failed ステータス ✅ 完了
 
-**現状の問題**:
-- タスクは常に `completed` になる
-- CLI のエラーを検出できない
-- クライアントが成否を判断できない
+**状態**: 実装済み
 
-**改善内容**:
-- 出力パターンからエラーを推測
-- `failed` ステータスとエラーコードを返す
-- A2A 標準のエラーレスポンス形式に準拠
+**実装内容**:
+- `synapse/error_detector.py` - エラーパターン検出モジュール
+  - 15種類以上のエラーパターン（command not found, permission denied, rate limit等）
+  - AIエージェント拒否パターン（"I cannot", "I'm unable to"等）
+  - `input_required` 状態の検出（質問、y/n確認等）
+- `Task` モデルに `error` フィールドを追加（A2A準拠）
+- `get_task` エンドポイントでエラー検出を実行
 
-**実装箇所**: `synapse/a2a_compat.py`, `synapse/controller.py`
+**エラーコード例**:
+- `COMMAND_NOT_FOUND` - コマンドが見つからない
+- `PERMISSION_DENIED` - 権限エラー
+- `AGENT_REFUSED` - AIが拒否
+- `RATE_LIMITED` - レート制限
+- `CLI_ERROR` - 一般的なエラー
 
-```python
-# エラーパターン定義
-ERROR_PATTERNS = [
-    (r'error:', 'CLI_ERROR'),
-    (r'failed:', 'EXECUTION_FAILED'),
-    (r'command not found', 'COMMAND_NOT_FOUND'),
-    (r'permission denied', 'PERMISSION_DENIED'),
-    (r'I cannot|I\'m unable to|I can\'t', 'AGENT_REFUSED'),
-]
-
-def detect_task_status(output: str) -> tuple[str, Optional[dict]]:
-    """出力からタスクの成否を判定"""
-    for pattern, error_code in ERROR_PATTERNS:
-        if re.search(pattern, output, re.IGNORECASE):
-            return "failed", {
-                "code": error_code,
-                "message": f"Detected error pattern: {pattern}"
-            }
-    return "completed", None
-```
-
-**優先度**: 高
-**工数**: 中（2-3日）
-**依存**: なし
+**テスト**: `tests/test_error_detector.py` (30テスト)
 
 ---
 
@@ -340,7 +322,7 @@ gantt
 
 ### Phase 1 完了時
 - [x] CLI が `@agent` を出力したら自動的に A2A 送信される
-- [ ] エラー時に `failed` ステータスとエラーコードが返る
+- [x] エラー時に `failed` ステータスとエラーコードが返る
 - [ ] HTTPS でサーバーを起動できる
 
 ### Phase 2 完了時
@@ -369,3 +351,4 @@ gantt
 |------|------|
 | 2025-12-28 | 初版作成 |
 | 2025-12-31 | 1.1 CLI出力からの@agent自動ルーティング - 実装済みを確認、テスト修正 |
+| 2025-12-31 | 1.2 エラー状態の検出とfailedステータス - 実装完了 |
