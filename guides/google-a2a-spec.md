@@ -135,6 +135,116 @@ flowchart LR
     Parts --> DataPart
 ```
 
+### 2.4 コンテキスト共有（Multiple Parts の活用）
+
+エージェント間でコンテキスト情報を共有する場合、A2A 標準の **Multiple Parts** 機能を使用します。
+独自拡張を追加せず、相互運用性を維持できます。
+
+#### 基本パターン
+
+```python
+from synapse.a2a_client import A2AClient
+
+client = A2AClient("http://target-agent:8100")
+
+# コンテキスト付きメッセージの送信
+response = await client.send_message_parts([
+    # 1. メインの指示（TextPart）
+    {
+        "type": "text",
+        "text": "このコードをレビューして"
+    },
+    # 2. コンテキスト情報（DataPart）
+    {
+        "type": "data",
+        "data": {
+            "conversation_id": "abc123",
+            "previous_summary": "認証機能の設計を議論",
+            "task_status": "design_complete",
+            "related_files": ["auth.py", "config.py"]
+        }
+    },
+    # 3. 関連ファイル（FilePart）
+    {
+        "type": "file",
+        "file": {
+            "name": "auth.py",
+            "mimeType": "text/x-python",
+            "bytes": "base64-encoded-content..."
+        }
+    }
+])
+```
+
+#### Part タイプ一覧
+
+| タイプ | 用途 | 例 |
+|--------|------|-----|
+| `TextPart` | テキストメッセージ | 指示、質問、回答 |
+| `DataPart` | 構造化 JSON データ | メタデータ、コンテキスト、設定 |
+| `FilePart` | バイナリ/テキストファイル | コード、画像、ログ |
+
+#### ユースケース例
+
+**1. コードレビュー依頼（設計意図付き）**
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "このPRをレビューして"},
+      {"type": "data", "data": {
+        "design_intent": "パフォーマンス改善のためキャッシュを導入",
+        "focus_areas": ["thread-safety", "memory-usage"]
+      }},
+      {"type": "file", "file": {"name": "cache.py", "mimeType": "text/x-python", "bytes": "..."}}
+    ]
+  }
+}
+```
+
+**2. パイプライン処理（前エージェントの出力を引き継ぎ）**
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "この設計を実装して"},
+      {"type": "data", "data": {
+        "previous_agent": "designer",
+        "previous_task_id": "task-456",
+        "handoff_context": "API設計が完了、実装フェーズへ"
+      }},
+      {"type": "file", "file": {"name": "api-spec.yaml", "mimeType": "application/yaml", "bytes": "..."}}
+    ]
+  }
+}
+```
+
+**3. デバッグ支援（エラーログ付き）**
+
+```json
+{
+  "message": {
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "このエラーを調査して"},
+      {"type": "data", "data": {
+        "error_type": "NullPointerException",
+        "environment": "production",
+        "frequency": "intermittent"
+      }},
+      {"type": "file", "file": {"name": "error.log", "mimeType": "text/plain", "bytes": "..."}}
+    ]
+  }
+}
+```
+
+> **重要**: Synapse 独自のメタデータ拡張（`task.metadata` への追加フィールド等）は A2A 互換性を損なうため、
+> 常に標準の `DataPart` を使用してください。
+
 ---
 
 ## 3. 通信プロトコル
