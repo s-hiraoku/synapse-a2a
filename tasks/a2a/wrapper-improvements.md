@@ -106,54 +106,28 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 
 ## Phase 2: 実用性向上
 
-### 2.1 SSE ストリーミング対応
+### 2.1 SSE ストリーミング対応 ✅ 完了
 
-**現状の問題**:
-- CLI の出力がリアルタイムで見れない
-- ポーリングでしか状態を取得できない
-- 長時間タスクで UX が悪い
+**状態**: 実装済み
 
-**改善内容**:
+**実装内容**:
 - `/tasks/{id}/subscribe` エンドポイント追加
-- Server-Sent Events で出力をストリーム
+- Server-Sent Events で CLI 出力をリアルタイムストリーム
 - Agent Card に `streaming: true` を追加
 
-**実装箇所**: `synapse/a2a_compat.py`
+**イベントタイプ**:
+- `output`: 新しいCLI出力
+- `status`: タスクステータス変更
+- `done`: タスク完了（最終イベント、artifacts/error含む）
 
-```python
-from fastapi.responses import StreamingResponse
-
-@router.get("/tasks/{task_id}/subscribe")
-async def subscribe_to_task(task_id: str):
-    async def event_generator():
-        last_len = 0
-        while True:
-            task = task_store.get(task_id)
-            if not task:
-                break
-
-            # 新しい出力があれば送信
-            context = controller.get_context()
-            if len(context) > last_len:
-                new_content = context[last_len:]
-                last_len = len(context)
-                yield f"data: {json.dumps({'type': 'output', 'data': new_content})}\n\n"
-
-            if task.status in ("completed", "failed", "canceled"):
-                yield f"data: {json.dumps({'type': 'done', 'status': task.status})}\n\n"
-                break
-
-            await asyncio.sleep(0.1)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream"
-    )
+**使い方**:
+```bash
+# SSEでタスク出力を購読
+curl -N "http://localhost:8100/tasks/{task_id}/subscribe"
 ```
 
-**優先度**: 中
-**工数**: 高（4-5日）
-**依存**: なし
+**実装箇所**: `synapse/a2a_compat.py`
+**テスト**: `tests/test_a2a_compat.py` (3テスト追加)
 
 ---
 
@@ -316,8 +290,9 @@ gantt
 - [x] HTTPS でサーバーを起動できる
 
 ### Phase 2 完了時
-- [ ] SSE でリアルタイムに出力を受信できる
+- [x] SSE でリアルタイムに出力を受信できる
 - [ ] 出力がコード/ファイル/テキストに分類される
+- [ ] input_required 状態が検出される
 - [ ] CLI が質問したら `input_required` になる
 
 ### Phase 3 完了時
@@ -343,3 +318,4 @@ gantt
 | 2025-12-31 | 1.1 CLI出力からの@agent自動ルーティング - 実装済みを確認、テスト修正 |
 | 2025-12-31 | 1.2 エラー状態の検出とfailedステータス - 実装完了 |
 | 2025-12-31 | 1.3 HTTPS対応 - 実装完了、**Phase 1 完了** |
+| 2025-12-31 | 2.1 SSEストリーミング対応 - 実装完了 |

@@ -8,10 +8,13 @@ Google A2A Spec: https://a2a-protocol.org/latest/specification/
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 from uuid import uuid4
+import asyncio
+import json
 import os
 import threading
 
@@ -324,7 +327,7 @@ def create_a2a_router(
             url=f"{protocol}://localhost:{port}",
             version="1.0.0",
             capabilities=AgentCapabilities(
-                streaming=False,  # Not yet supported
+                streaming=True,  # SSE streaming via /tasks/{id}/subscribe
                 pushNotifications=False,  # Not yet supported
                 multiTurn=True,
             ),
@@ -475,6 +478,76 @@ def create_a2a_router(
 
         task_store.update_status(task_id, "canceled")
         return {"status": "canceled", "task_id": task_id}
+
+    # --------------------------------------------------------
+    # SSE Streaming
+    # --------------------------------------------------------
+
+    @router.get("/tasks/{task_id}/subscribe")
+    async def subscribe_to_task(task_id: str):
+        """
+        Subscribe to task output via Server-Sent Events.
+
+        Streams CLI output in real-time until task completes.
+        Event types:
+        - output: New CLI output data
+        - status: Task status change
+        - done: Task completed (final event)
+        """
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        async def event_generator():
+            last_len = 0
+            last_status = task.status
+
+            while True:
+                current_task = task_store.get(task_id)
+                if not current_task:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Task not found'})}\n\n"
+                    break
+
+                # Check for status change
+                if current_task.status != last_status:
+                    last_status = current_task.status
+                    yield f"data: {json.dumps({'type': 'status', 'status': current_task.status})}\n\n"
+
+                # Stream new output if controller is available
+                if controller:
+                    context = controller.get_context()
+                    if len(context) > last_len:
+                        new_content = context[last_len:]
+                        last_len = len(context)
+                        yield f"data: {json.dumps({'type': 'output', 'data': new_content})}\n\n"
+
+                # Check for terminal states
+                if current_task.status in ("completed", "failed", "canceled"):
+                    # Send final task state with artifacts and error
+                    final_data = {
+                        'type': 'done',
+                        'status': current_task.status,
+                        'artifacts': [{'type': a.type, 'data': a.data} for a in current_task.artifacts],
+                    }
+                    if current_task.error:
+                        final_data['error'] = {
+                            'code': current_task.error.code,
+                            'message': current_task.error.message,
+                        }
+                    yield f"data: {json.dumps(final_data)}\n\n"
+                    break
+
+                await asyncio.sleep(0.1)
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # Disable nginx buffering
+            }
+        )
 
     # --------------------------------------------------------
     # Synapse Extensions (Priority Interrupt)
