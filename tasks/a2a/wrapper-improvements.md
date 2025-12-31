@@ -178,15 +178,36 @@ curl -N "http://localhost:8100/tasks/{task_id}/subscribe"
 
 ## Phase 3: エンタープライズ対応
 
-### 3.1 認証/認可
+### 3.1 認証/認可 ✅ 完了
 
-**改善内容**:
-- API Key 認証
-- OAuth2 対応（オプション）
-- スコープベースのアクセス制御
+**状態**: 実装済み
 
-**優先度**: 低
-**工数**: 高（5-7日）
+**実装内容**:
+- `synapse/auth.py` - 認証モジュール
+  - API Key認証（ヘッダー `X-API-Key` またはクエリ `api_key`）
+  - Admin Key（管理操作用）
+  - スコープベースのアクセス制御
+  - localhost自動許可（開発用）
+- 全タスク関連エンドポイントに認証を追加
+- 環境変数での設定:
+  - `SYNAPSE_AUTH_ENABLED=true` - 認証を有効化
+  - `SYNAPSE_API_KEYS=key1,key2` - 有効なAPIキー
+  - `SYNAPSE_ADMIN_KEY=secret` - 管理者キー
+
+**使い方**:
+```bash
+# 認証を有効にして起動
+SYNAPSE_AUTH_ENABLED=true SYNAPSE_API_KEYS=my-secret-key synapse start claude
+
+# APIキーでリクエスト
+curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+```
+
+**実装箇所**:
+- `synapse/auth.py` - 認証ロジック
+- `synapse/a2a_compat.py` - エンドポイント保護
+
+**テスト**: `tests/test_auth.py` (34テスト)
 
 ---
 
@@ -249,7 +270,7 @@ gantt
 - [x] CLI が質問したら `input_required` になる
 
 ### Phase 3 完了時
-- [ ] API Key で認証できる
+- [x] API Key で認証できる
 - [ ] タスク完了時に Webhook 通知される
 - [ ] gRPC でも通信できる
 
@@ -273,3 +294,4 @@ gantt
 | 2025-12-31 | 1.3 HTTPS対応 - 実装完了、**Phase 1 完了** |
 | 2025-12-31 | 2.1 SSEストリーミング対応 - 実装完了 |
 | 2025-12-31 | 2.2 出力パーサー - 実装完了、**Phase 2 完了** |
+| 2025-12-31 | 3.1 認証/認可 - API Key認証実装完了 |

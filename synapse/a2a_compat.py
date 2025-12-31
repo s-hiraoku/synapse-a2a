@@ -7,7 +7,7 @@ maintaining Synapse A2A's unique PTY-wrapping capabilities.
 Google A2A Spec: https://a2a-protocol.org/latest/specification/
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Literal
@@ -21,6 +21,7 @@ import threading
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
 from synapse.error_detector import detect_task_status, is_input_required, TaskError
 from synapse.output_parser import parse_output, segments_to_artifacts
+from synapse.auth import require_auth, require_admin, load_auth_config
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -360,11 +361,12 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.post("/tasks/send", response_model=SendMessageResponse)
-    async def send_message(request: SendMessageRequest):
+    async def send_message(request: SendMessageRequest, _=Depends(require_auth)):
         """
         Send a message to the agent (Google A2A compatible).
 
         Creates a task and sends the message content to the CLI via PTY.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
@@ -406,12 +408,13 @@ def create_a2a_router(
         return SendMessageResponse(task=task)
 
     @router.get("/tasks/{task_id}", response_model=Task)
-    async def get_task(task_id: str):
+    async def get_task(task_id: str, _=Depends(require_auth)):
         """
         Get task status and results.
 
         Maps Synapse IDLE/BUSY status to A2A task states.
         Detects errors in CLI output and sets failed status accordingly.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         task = task_store.get(task_id)
         if not task:
@@ -465,16 +468,17 @@ def create_a2a_router(
         return task
 
     @router.get("/tasks", response_model=List[Task])
-    async def list_tasks(context_id: Optional[str] = None):
-        """List all tasks, optionally filtered by context."""
+    async def list_tasks(context_id: Optional[str] = None, _=Depends(require_auth)):
+        """List all tasks, optionally filtered by context. Requires authentication."""
         return task_store.list_tasks(context_id)
 
     @router.post("/tasks/{task_id}/cancel")
-    async def cancel_task(task_id: str):
+    async def cancel_task(task_id: str, _=Depends(require_auth)):
         """
         Cancel a running task.
 
         Sends SIGINT to the CLI process (Synapse extension).
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         task = task_store.get(task_id)
         if not task:
@@ -498,7 +502,7 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.get("/tasks/{task_id}/subscribe")
-    async def subscribe_to_task(task_id: str):
+    async def subscribe_to_task(task_id: str, _=Depends(require_auth)):
         """
         Subscribe to task output via Server-Sent Events.
 
@@ -507,6 +511,7 @@ def create_a2a_router(
         - output: New CLI output data
         - status: Task status change
         - done: Task completed (final event)
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         task = task_store.get(task_id)
         if not task:
@@ -570,12 +575,14 @@ def create_a2a_router(
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(
         request: SendMessageRequest,
-        priority: int = 1
+        priority: int = 1,
+        _=Depends(require_auth)
     ):
         """
         Send a message with priority (Synapse extension).
 
         Priority 5 sends SIGINT before the message for interrupt.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
@@ -622,11 +629,12 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.post("/external/discover", response_model=ExternalAgentInfo)
-    async def discover_external_agent(request: DiscoverAgentRequest):
+    async def discover_external_agent(request: DiscoverAgentRequest, _=Depends(require_auth)):
         """
         Discover and register an external Google A2A agent.
 
         Fetches the Agent Card from the given URL and registers the agent.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         client = get_client()
         agent = client.discover(request.url, alias=request.alias)
@@ -649,9 +657,10 @@ def create_a2a_router(
         )
 
     @router.get("/external/agents", response_model=List[ExternalAgentInfo])
-    async def list_external_agents():
+    async def list_external_agents(_=Depends(require_auth)):
         """
         List all registered external agents.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         client = get_client()
         agents = client.list_agents()
@@ -671,9 +680,10 @@ def create_a2a_router(
         ]
 
     @router.get("/external/agents/{alias}", response_model=ExternalAgentInfo)
-    async def get_external_agent(alias: str):
+    async def get_external_agent(alias: str, _=Depends(require_auth)):
         """
         Get details of a specific external agent.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         client = get_client()
         agent = client.registry.get(alias)
@@ -693,9 +703,10 @@ def create_a2a_router(
         )
 
     @router.delete("/external/agents/{alias}")
-    async def remove_external_agent(alias: str):
+    async def remove_external_agent(alias: str, _=Depends(require_auth)):
         """
         Remove an external agent from the registry.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         client = get_client()
 
@@ -705,11 +716,12 @@ def create_a2a_router(
         return {"status": "removed", "alias": alias}
 
     @router.post("/external/agents/{alias}/send", response_model=ExternalTaskResponse)
-    async def send_to_external_agent(alias: str, request: SendExternalMessageRequest):
+    async def send_to_external_agent(alias: str, request: SendExternalMessageRequest, _=Depends(require_auth)):
         """
         Send a message to an external Google A2A agent.
 
         Uses the Google A2A protocol to communicate with the external agent.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         client = get_client()
         agent = client.registry.get(alias)
