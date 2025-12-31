@@ -38,41 +38,21 @@
 
 ## Phase 1: 必須改善（ラッパーとして最低限必要）
 
-### 1.1 CLI 出力からの @agent 自動ルーティング
+### 1.1 CLI 出力からの @agent 自動ルーティング ✅ 完了
 
-**現状の問題**:
-- CLI が `@gemini help me` と出力しても、A2A 送信されない
-- 人間が手動で入力した場合のみルーティングが機能
+**状態**: 実装済み
 
-**改善内容**:
-- `read_callback` で CLI 出力を監視
-- `@agent message` パターンを検出
-- 自動的に A2A Client 経由で送信
+**実装内容**:
+- `InputRouter` クラスで `@agent message` パターンを検出
+- `controller.py` の `read_callback` と `_monitor_output` で CLI 出力を監視
+- `_execute_a2a_action` でA2A送信を実行、フィードバックを表示
+- 外部エージェント（ExternalAgentRegistry登録済み）へのルーティングもサポート
 
-**実装箇所**: `synapse/controller.py`
+**実装箇所**:
+- `synapse/input_router.py` - パターン検出とA2A送信ロジック
+- `synapse/controller.py` - CLI出力の監視とアクション実行
 
-```python
-def read_callback(fd):
-    data = os.read(fd, 1024)
-    text = data.decode('utf-8', errors='replace')
-
-    # CLI の出力から @agent パターンを検出
-    a2a_pattern = re.compile(r'@([\w-]+)\s+(.+)', re.MULTILINE)
-    for match in a2a_pattern.finditer(text):
-        agent, message = match.groups()
-        # 自動的に A2A 送信（別スレッドで）
-        threading.Thread(
-            target=self._route_to_agent,
-            args=(agent, message),
-            daemon=True
-        ).start()
-
-    return data
-```
-
-**優先度**: 高
-**工数**: 中（2-3日）
-**依存**: なし
+**テスト**: `tests/test_input_router.py` (26テスト)
 
 ---
 
@@ -359,7 +339,7 @@ gantt
 ## 完了条件
 
 ### Phase 1 完了時
-- [ ] CLI が `@agent` を出力したら自動的に A2A 送信される
+- [x] CLI が `@agent` を出力したら自動的に A2A 送信される
 - [ ] エラー時に `failed` ステータスとエラーコードが返る
 - [ ] HTTPS でサーバーを起動できる
 
@@ -388,3 +368,4 @@ gantt
 | 日付 | 内容 |
 |------|------|
 | 2025-12-28 | 初版作成 |
+| 2025-12-31 | 1.1 CLI出力からの@agent自動ルーティング - 実装済みを確認、テスト修正 |

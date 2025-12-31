@@ -1,19 +1,20 @@
+import fcntl
+import logging
 import os
 import pty
+import re
 import select
+import shutil
+import signal
+import struct
 import subprocess
 import sys
 import termios
 import threading
-import tty
-import re
-import signal
 import time
-import fcntl
-import struct
-import shutil
+import tty
 import uuid
-from typing import Optional
+from typing import Callable, Optional
 
 from synapse.registry import AgentRegistry
 from synapse.agent_context import (
@@ -85,28 +86,22 @@ class TerminalController:
         self.thread.start()
         self.status = "BUSY"
 
-    def _execute_a2a_action(self, action_func, agent_name):
+    def _execute_a2a_action(self, action_func: Callable[[], bool], agent_name: str) -> None:
         """Execute A2A action in a thread and write feedback to PTY."""
         try:
             success = action_func()
             feedback = self.input_router.get_feedback_message(agent_name, success)
-            # Write feedback back to the agent's input (if applicable) or log it?
-            # For background mode (_monitor_output), we can't easily inject into the output stream
-            # that is being read by the logger, unless we write to the log explicitly.
-            # But _monitor_output reads from master_fd (output of agent).
-            # The feedback is for the USER (or the log).
-            
-            # Since _monitor_output does not write to stdout/log file itself (subprocess does),
-            # we can only log it or write to master_fd (which would be INPUT to agent).
-            # Writing to master_fd means the agent sees the feedback as user input.
-            # That might be useful: "Message sent".
-            
-            # However, usually feedback is for the human operator.
-            # In background mode, we should probably just log it.
-            pass
+
+            # Log the feedback for debugging
+            logging.debug(f"A2A action for {agent_name}: success={success}")
+
+            # In interactive mode, write feedback to stdout so user can see it
+            if self.interactive and feedback:
+                sys.stdout.write(feedback)
+                sys.stdout.flush()
+
         except Exception as e:
-            # log error
-            pass
+            logging.error(f"A2A action failed for {agent_name}: {e}")
 
     def _monitor_output(self):
         while self.running and self.process.poll() is None:
