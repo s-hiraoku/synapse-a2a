@@ -215,16 +215,10 @@ class TerminalController:
             self.status = "BUSY"
 
         try:
-            if submit_seq and self.interactive:
-                # For TUI apps (Ink-based), send message and submit sequence separately
-                # with a small delay to allow the app to process input
-                os.write(self.master_fd, data.encode('utf-8'))
-                time.sleep(0.1)
-                os.write(self.master_fd, submit_seq.encode('utf-8'))
-            else:
-                # Standard write: content + submit sequence together
-                full_data = data + (submit_seq or '')
-                os.write(self.master_fd, full_data.encode('utf-8'))
+            # Always write data + submit sequence together for reliability
+            # Split writes can cause issues where submit_seq is not processed
+            full_data = data + (submit_seq or '')
+            os.write(self.master_fd, full_data.encode('utf-8'))
         except OSError as e:
             raise
         # Assuming writing triggers activity, so we are BUSY until regex matches again.

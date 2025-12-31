@@ -269,7 +269,7 @@ class TestInterAgentMessageWrite:
     """Tests for inter-agent message writing."""
 
     def test_write_in_interactive_mode_with_submit_seq(self):
-        """Write should send data and submit_seq separately in interactive mode."""
+        """Write should combine data and submit_seq in a single write for reliability."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$",
@@ -296,10 +296,9 @@ class TestInterAgentMessageWrite:
         try:
             ctrl.write("test message", submit_seq="\r")
 
-            # Should have two writes: data and submit_seq
-            assert len(written_data) == 2
-            assert written_data[0] == (1, b"test message")
-            assert written_data[1] == (1, b"\r")
+            # Should have one write with combined data + submit_seq
+            assert len(written_data) == 1
+            assert written_data[0] == (1, b"test message\r")
         finally:
             os.write = original_write
 

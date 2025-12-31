@@ -173,10 +173,8 @@ async def startup_event():
     print(f"Submit sequence: {repr(submit_sequence)}")
     print(f"Agent Card available at: http://localhost:{agent_port}/.well-known/agent.json")
 
-    # Schedule minimal initial instructions (after CLI is ready)
-    asyncio.create_task(send_initial_instructions(
-        controller, current_agent_id, agent_port, submit_sequence
-    ))
+    # Note: Initial instructions are sent by controller._send_identity_instruction()
+    # when the agent first reaches IDLE state (detected by idle_regex)
 
 
 async def send_initial_instructions(
