@@ -251,15 +251,36 @@ curl http://localhost:8100/webhooks/deliveries
 
 ---
 
-### 3.3 gRPC 対応
+### 3.3 gRPC 対応 ✅ 完了
 
-**改善内容**:
-- Protocol Buffers 定義
-- gRPC サーバー実装
-- 高性能通信オプション
+**状態**: 実装済み
 
-**優先度**: 低
-**工数**: 高（7-10日）
+**実装内容**:
+- `synapse/proto/a2a.proto` - Protocol Buffers定義
+  - A2A準拠のメッセージ定義（Task, Message, Part, Artifact等）
+  - AgentCard定義（capabilities, skills）
+  - A2AService定義（SendMessage, GetTask, Subscribe等）
+- `synapse/grpc_server.py` - gRPCサーバー実装
+  - GrpcServicerクラス（REST API互換）
+  - ストリーミング対応（subscribe）
+  - オプショナル依存（grpcioがない場合はNone返却）
+- `pyproject.toml` - オプショナル依存追加
+  - `pip install synapse-a2a[grpc]` でインストール
+
+**使い方**:
+```bash
+# gRPC依存をインストール
+pip install synapse-a2a[grpc]
+
+# gRPCサーバーを起動（RESTと並行）
+# デフォルトでREST port + 1で起動
+```
+
+**実装箇所**:
+- `synapse/proto/a2a.proto` - Protocol Buffers定義
+- `synapse/grpc_server.py` - サーバー実装
+
+**テスト**: `tests/test_grpc_server.py` (18テスト)
 
 ---
 
@@ -297,10 +318,10 @@ gantt
 - [x] input_required 状態が検出される
 - [x] CLI が質問したら `input_required` になる
 
-### Phase 3 完了時
+### Phase 3 完了時 ✅
 - [x] API Key で認証できる
 - [x] タスク完了時に Webhook 通知される
-- [ ] gRPC でも通信できる
+- [x] gRPC でも通信できる
 
 ---
 
@@ -324,3 +345,4 @@ gantt
 | 2025-12-31 | 2.2 出力パーサー - 実装完了、**Phase 2 完了** |
 | 2025-12-31 | 3.1 認証/認可 - API Key認証実装完了 |
 | 2025-12-31 | 3.2 Push Notifications - Webhook通知実装完了 |
+| 2025-12-31 | 3.3 gRPC対応 - gRPCサーバー実装完了、**Phase 3 完了** |

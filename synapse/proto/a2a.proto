@@ -1,0 +1,180 @@
+// Synapse A2A Protocol - gRPC Service Definition
+// Compatible with Google A2A Protocol
+
+syntax = "proto3";
+
+package synapse.a2a;
+
+option python_generic_services = true;
+
+// Timestamp for datetime fields
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// ============================================================
+// Message Parts (A2A Compatible)
+// ============================================================
+
+message TextPart {
+    string type = 1;  // "text"
+    string text = 2;
+}
+
+message FilePart {
+    string type = 1;  // "file"
+    string name = 2;
+    string mime_type = 3;
+    bytes data = 4;
+}
+
+message Part {
+    oneof part {
+        TextPart text_part = 1;
+        FilePart file_part = 2;
+    }
+}
+
+// ============================================================
+// Messages and Tasks
+// ============================================================
+
+message Message {
+    string role = 1;  // "user" or "agent"
+    repeated Part parts = 2;
+}
+
+message Artifact {
+    string type = 1;  // "text", "code", "file", "error"
+    google.protobuf.Struct data = 2;
+}
+
+message TaskError {
+    string code = 1;
+    string message = 2;
+    google.protobuf.Struct data = 3;
+}
+
+message Task {
+    string id = 1;
+    string context_id = 2;
+    string status = 3;  // submitted, working, input_required, completed, failed, canceled
+    Message message = 4;
+    repeated Artifact artifacts = 5;
+    TaskError error = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+    google.protobuf.Struct metadata = 9;
+}
+
+// ============================================================
+// Agent Card (Discovery)
+// ============================================================
+
+message Skill {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    repeated string tags = 4;
+}
+
+message AgentCapabilities {
+    bool streaming = 1;
+    bool push_notifications = 2;
+    repeated string input_modes = 3;
+    repeated string output_modes = 4;
+}
+
+message AgentCard {
+    string name = 1;
+    string description = 2;
+    string url = 3;
+    string version = 4;
+    AgentCapabilities capabilities = 5;
+    repeated Skill skills = 6;
+}
+
+// ============================================================
+// Request/Response Messages
+// ============================================================
+
+message SendMessageRequest {
+    Message message = 1;
+    string context_id = 2;
+    google.protobuf.Struct metadata = 3;
+}
+
+message SendMessageResponse {
+    Task task = 1;
+}
+
+message GetTaskRequest {
+    string task_id = 1;
+}
+
+message GetTaskResponse {
+    Task task = 1;
+}
+
+message ListTasksRequest {
+    string context_id = 1;  // Optional filter
+}
+
+message ListTasksResponse {
+    repeated Task tasks = 1;
+}
+
+message CancelTaskRequest {
+    string task_id = 1;
+}
+
+message CancelTaskResponse {
+    string status = 1;
+    string task_id = 2;
+}
+
+message GetAgentCardRequest {
+    // Empty - just returns the agent's card
+}
+
+message GetAgentCardResponse {
+    AgentCard agent_card = 1;
+}
+
+// Streaming response for SSE-like functionality
+message TaskStreamEvent {
+    string event_type = 1;  // "output", "status", "done"
+    string data = 2;
+    Task task = 3;  // Included in "done" events
+}
+
+message SubscribeRequest {
+    string task_id = 1;
+}
+
+// ============================================================
+// gRPC Service Definition
+// ============================================================
+
+service A2AService {
+    // Agent Discovery
+    rpc GetAgentCard(GetAgentCardRequest) returns (GetAgentCardResponse);
+
+    // Task Management
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+    rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+    rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+    // Streaming (replaces SSE)
+    rpc Subscribe(SubscribeRequest) returns (stream TaskStreamEvent);
+
+    // Priority extension
+    rpc SendPriorityMessage(SendPriorityMessageRequest) returns (SendMessageResponse);
+}
+
+message SendPriorityMessageRequest {
+    Message message = 1;
+    string context_id = 2;
+    google.protobuf.Struct metadata = 3;
+    int32 priority = 4;  // Priority level (5 = interrupt)
+}

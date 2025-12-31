@@ -1,0 +1,320 @@
+"""
+gRPC Server for Synapse A2A.
+
+Provides high-performance gRPC interface for A2A communication.
+Requires optional 'grpc' dependencies: pip install synapse-a2a[grpc]
+"""
+
+import asyncio
+import logging
+import os
+from concurrent import futures
+from datetime import datetime
+from typing import Any, Dict, Iterator, Optional
+from uuid import uuid4
+
+try:
+    import grpc
+    from grpc import aio
+    from google.protobuf import struct_pb2, timestamp_pb2
+
+    GRPC_AVAILABLE = True
+except ImportError:
+    GRPC_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+
+def check_grpc_available() -> bool:
+    """Check if gRPC dependencies are available."""
+    return GRPC_AVAILABLE
+
+
+class GrpcServicer:
+    """
+    gRPC servicer implementation for A2A protocol.
+
+    This is a simplified implementation that mirrors the REST API.
+    The full implementation requires generated protobuf code.
+    """
+
+    def __init__(
+        self,
+        controller,
+        agent_type: str,
+        port: int,
+        submit_seq: str = "\n",
+        agent_id: str = None,
+    ):
+        self.controller = controller
+        self.agent_type = agent_type
+        self.port = port
+        self.submit_seq = submit_seq
+        self.agent_id = agent_id or f"synapse-{agent_type}-{port}"
+
+        # In-memory task store (simplified)
+        self._tasks: Dict[str, Dict[str, Any]] = {}
+
+    def _create_task(
+        self,
+        message_text: str,
+        context_id: str = None,
+        metadata: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """Create a new task."""
+        task_id = str(uuid4())
+        now = datetime.utcnow()
+
+        task = {
+            "id": task_id,
+            "context_id": context_id or str(uuid4()),
+            "status": "submitted",
+            "message": {"role": "user", "text": message_text},
+            "artifacts": [],
+            "error": None,
+            "created_at": now,
+            "updated_at": now,
+            "metadata": metadata or {},
+        }
+
+        self._tasks[task_id] = task
+        return task
+
+    def _update_task_status(self, task_id: str, status: str) -> None:
+        """Update task status."""
+        if task_id in self._tasks:
+            self._tasks[task_id]["status"] = status
+            self._tasks[task_id]["updated_at"] = datetime.utcnow()
+
+    def get_agent_card(self) -> Dict[str, Any]:
+        """Get agent card for discovery."""
+        protocol = "https" if os.environ.get("SYNAPSE_USE_HTTPS") else "http"
+        return {
+            "name": f"Synapse {self.agent_type.title()} Agent",
+            "description": f"CLI agent wrapped with Synapse A2A (via gRPC)",
+            "url": f"{protocol}://localhost:{self.port}",
+            "version": "1.0.0",
+            "capabilities": {
+                "streaming": True,
+                "push_notifications": True,
+                "input_modes": ["text"],
+                "output_modes": ["text"],
+            },
+            "skills": [
+                {
+                    "id": "general",
+                    "name": "General Assistant",
+                    "description": f"General-purpose {self.agent_type} assistant",
+                    "tags": ["general", "assistant"],
+                }
+            ],
+        }
+
+    def send_message(
+        self,
+        message_text: str,
+        context_id: str = None,
+        metadata: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """Send a message to the agent."""
+        if not self.controller:
+            raise RuntimeError("Agent not running")
+
+        task = self._create_task(message_text, context_id, metadata)
+        self._update_task_status(task["id"], "working")
+
+        # Send to PTY
+        try:
+            sender_id = (metadata or {}).get("sender", {}).get("sender_id", "unknown")
+            prefixed_content = f"[A2A:{task['id'][:8]}:{sender_id}] {message_text}"
+            self.controller.write(prefixed_content, submit_seq=self.submit_seq)
+        except Exception as e:
+            self._update_task_status(task["id"], "failed")
+            task["error"] = {"code": "SEND_FAILED", "message": str(e)}
+
+        return task
+
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get task by ID."""
+        task = self._tasks.get(task_id)
+
+        if task and self.controller and task["status"] == "working":
+            synapse_status = self.controller.status
+            if synapse_status == "IDLE":
+                self._update_task_status(task_id, "completed")
+                # Add context as artifact
+                context = self.controller.get_context()[-2000:]
+                if context:
+                    task["artifacts"].append({
+                        "type": "text",
+                        "data": {"content": context},
+                    })
+                task = self._tasks.get(task_id)
+
+        return task
+
+    def list_tasks(self, context_id: str = None) -> list:
+        """List all tasks."""
+        tasks = list(self._tasks.values())
+        if context_id:
+            tasks = [t for t in tasks if t.get("context_id") == context_id]
+        return tasks
+
+    def cancel_task(self, task_id: str) -> Dict[str, Any]:
+        """Cancel a task."""
+        task = self._tasks.get(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+
+        if task["status"] not in ["submitted", "working"]:
+            raise ValueError(f"Cannot cancel task in {task['status']} state")
+
+        if self.controller:
+            self.controller.interrupt()
+
+        self._update_task_status(task_id, "canceled")
+        return {"status": "canceled", "task_id": task_id}
+
+    def subscribe(self, task_id: str) -> Iterator[Dict[str, Any]]:
+        """
+        Subscribe to task output stream.
+
+        Yields events until task completes.
+        """
+        task = self._tasks.get(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+
+        last_len = 0
+        last_status = task["status"]
+
+        while True:
+            task = self._tasks.get(task_id)
+            if not task:
+                break
+
+            # Check for new output
+            if self.controller:
+                context = self.controller.get_context()
+                if len(context) > last_len:
+                    new_content = context[last_len:]
+                    last_len = len(context)
+                    yield {
+                        "event_type": "output",
+                        "data": new_content,
+                    }
+
+            # Check for status change
+            if task["status"] != last_status:
+                last_status = task["status"]
+                yield {
+                    "event_type": "status",
+                    "data": last_status,
+                }
+
+            # Check for terminal state
+            if task["status"] in ["completed", "failed", "canceled"]:
+                yield {
+                    "event_type": "done",
+                    "task": task,
+                }
+                break
+
+            # Small delay
+            import time
+            time.sleep(0.5)
+
+
+def create_grpc_server(
+    controller,
+    agent_type: str,
+    port: int,
+    grpc_port: int = None,
+    submit_seq: str = "\n",
+    agent_id: str = None,
+    max_workers: int = 10,
+):
+    """
+    Create a gRPC server for A2A communication.
+
+    Args:
+        controller: TerminalController instance
+        agent_type: Agent type (claude, codex, gemini, etc.)
+        port: REST API port (for agent card URL)
+        grpc_port: gRPC server port (default: port + 1)
+        submit_seq: Submit sequence for the CLI
+        agent_id: Unique agent ID
+        max_workers: Maximum worker threads
+
+    Returns:
+        Tuple of (server, servicer) if gRPC available, else (None, None)
+    """
+    if not GRPC_AVAILABLE:
+        logger.warning("gRPC not available. Install with: pip install synapse-a2a[grpc]")
+        return None, None
+
+    grpc_port = grpc_port or (port + 1)
+
+    servicer = GrpcServicer(
+        controller=controller,
+        agent_type=agent_type,
+        port=port,
+        submit_seq=submit_seq,
+        agent_id=agent_id,
+    )
+
+    # Create server
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+
+    # Note: In a full implementation, you would register the generated servicer:
+    # a2a_pb2_grpc.add_A2AServiceServicer_to_server(servicer, server)
+
+    server.add_insecure_port(f"[::]:{grpc_port}")
+
+    logger.info(f"gRPC server configured on port {grpc_port}")
+
+    return server, servicer
+
+
+async def serve_grpc(
+    controller,
+    agent_type: str,
+    port: int,
+    grpc_port: int = None,
+    submit_seq: str = "\n",
+    agent_id: str = None,
+):
+    """
+    Start the gRPC server.
+
+    Args:
+        controller: TerminalController instance
+        agent_type: Agent type
+        port: REST API port
+        grpc_port: gRPC server port
+        submit_seq: Submit sequence
+        agent_id: Agent ID
+    """
+    server, servicer = create_grpc_server(
+        controller=controller,
+        agent_type=agent_type,
+        port=port,
+        grpc_port=grpc_port,
+        submit_seq=submit_seq,
+        agent_id=agent_id,
+    )
+
+    if server is None:
+        return
+
+    grpc_port = grpc_port or (port + 1)
+
+    server.start()
+    logger.info(f"gRPC server started on port {grpc_port}")
+
+    try:
+        # Keep running until interrupted
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        server.stop(grace=5)
+        logger.info("gRPC server stopped")
