@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -30,11 +31,4 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run tests
-        id: pytest
         run: uv run pytest -v
-        continue-on-error: ${{ matrix.experimental || false }}
-
-      - name: Warn on experimental Python failure
-        if: ${{ matrix.experimental && steps.pytest.outcome == 'failure' }}
-        run: |
-          echo "::warning::Python ${{ matrix.python-version }} tests failed (experimental version - expected)"
