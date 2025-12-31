@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Python ${{ matrix.python-version }}${{ matrix.experimental && ' (experimental)' || '' }}
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental || false }}
     strategy:
