@@ -20,6 +20,7 @@ import threading
 
 from synapse.a2a_client import get_client, ExternalAgent, A2ATask
 from synapse.error_detector import detect_task_status, is_input_required, TaskError
+from synapse.output_parser import parse_output, segments_to_artifacts
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -438,13 +439,26 @@ def create_a2a_router(
                 else:
                     task_store.update_status(task_id, "completed")
 
-                # Add output as artifact
-                recent_context = context[-2000:]
+                # Parse and add output as structured artifacts
+                recent_context = context[-3000:]
                 if recent_context:
-                    task_store.add_artifact(task_id, Artifact(
-                        type="text",
-                        data=recent_context
-                    ))
+                    segments = parse_output(recent_context)
+                    if segments:
+                        # Add each parsed segment as an artifact
+                        for seg in segments:
+                            artifact_data: Dict[str, Any] = {"content": seg.content}
+                            if seg.metadata:
+                                artifact_data["metadata"] = seg.metadata
+                            task_store.add_artifact(task_id, Artifact(
+                                type=seg.type,
+                                data=artifact_data
+                            ))
+                    else:
+                        # Fallback to raw text if parsing fails
+                        task_store.add_artifact(task_id, Artifact(
+                            type="text",
+                            data=recent_context
+                        ))
 
             task = task_store.get(task_id)
 
