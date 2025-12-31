@@ -495,12 +495,12 @@ class TestControllerOutputBuffer:
         assert ctrl.output_buffer == b""
 
     def test_get_context_returns_decoded_buffer(self):
-        """get_context should return decoded output buffer."""
+        """get_context should return render buffer content."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = b"Hello World"
+        ctrl._render_buffer = list("Hello World")
 
         context = ctrl.get_context()
         assert context == "Hello World"
@@ -511,22 +511,21 @@ class TestControllerOutputBuffer:
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = "こんにちは".encode('utf-8')
+        ctrl._render_buffer = list("こんにちは")
 
         context = ctrl.get_context()
         assert context == "こんにちは"
 
-    def test_get_context_handles_invalid_bytes(self):
-        """get_context should handle invalid bytes gracefully."""
+    def test_get_context_returns_empty_for_empty_buffer(self):
+        """get_context should return empty string for empty buffer."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = b"valid \xff invalid"
+        ctrl._render_buffer = []
 
-        # Should not raise, uses errors='replace'
         context = ctrl.get_context()
-        assert "valid" in context
+        assert context == ""
 
 
 class TestControllerInterrupt:
