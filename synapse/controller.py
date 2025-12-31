@@ -1,3 +1,4 @@
+import codecs
 import fcntl
 import logging
 import os
@@ -42,6 +43,11 @@ class TerminalController:
         self.slave_fd = None
         self.process = None
         self.output_buffer = b""
+        self._render_buffer = []
+        self._render_cursor = 0
+        self._render_line_start = 0
+        self._max_buffer = 10000
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.status = "STARTING"
         self.lock = threading.Lock()
         self.running = False
@@ -115,12 +121,8 @@ class TerminalController:
                     data = os.read(self.master_fd, 1024)
                     if not data:
                         break
-                    
-                    with self.lock:
-                        self.output_buffer += data
-                        # Keep buffer size manageable, mainly for regex matching context
-                        if len(self.output_buffer) > 10000:
-                             self.output_buffer = self.output_buffer[-10000:]
+
+                    self._append_output(data)
                     
                     self._check_idle_state(data)
 
@@ -238,7 +240,7 @@ class TerminalController:
 
     def get_context(self) -> str:
         with self.lock:
-            return self.output_buffer.decode('utf-8', errors='replace')
+            return "".join(self._render_buffer)
 
     def stop(self):
         self.running = False
@@ -294,11 +296,7 @@ class TerminalController:
                 # Update last output time for idle detection
                 self._last_output_time = time.time()
 
-                # Update output buffer
-                with self.lock:
-                    self.output_buffer += data
-                    if len(self.output_buffer) > 10000:
-                        self.output_buffer = self.output_buffer[-10000:]
+                self._append_output(data)
                 self._check_idle_state(data)
 
                 # Pass output through directly - AI uses a2a.py tool for routing
@@ -335,3 +333,42 @@ class TerminalController:
         """Pass through human input directly to PTY. AI handles routing decisions."""
         if self.master_fd is not None:
             os.write(self.master_fd, data)
+
+    def _append_output(self, data: bytes) -> None:
+        """Append output to buffers, normalizing carriage returns for display context."""
+        text = self._decoder.decode(data)
+        with self.lock:
+            self.output_buffer += data
+            if len(self.output_buffer) > self._max_buffer:
+                self.output_buffer = self.output_buffer[-self._max_buffer:]
+
+            for ch in text:
+                if ch == "\r":
+                    self._render_cursor = self._render_line_start
+                    continue
+                if ch == "\b":
+                    if self._render_cursor > self._render_line_start:
+                        self._render_cursor -= 1
+                    continue
+
+                if self._render_cursor == len(self._render_buffer):
+                    self._render_buffer.append(ch)
+                else:
+                    self._render_buffer[self._render_cursor] = ch
+                self._render_cursor += 1
+
+                if ch == "\n":
+                    self._render_line_start = self._render_cursor
+
+            if len(self._render_buffer) > self._max_buffer:
+                remove = len(self._render_buffer) - self._max_buffer
+                del self._render_buffer[:remove]
+                self._render_cursor = max(0, self._render_cursor - remove)
+                if self._render_cursor > len(self._render_buffer):
+                    self._render_cursor = len(self._render_buffer)
+
+                self._render_line_start = 0
+                for i in range(self._render_cursor - 1, -1, -1):
+                    if self._render_buffer[i] == "\n":
+                        self._render_line_start = i + 1
+                        break
