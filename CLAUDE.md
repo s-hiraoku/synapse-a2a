@@ -63,6 +63,28 @@ User types `@codex review this` → InputRouter detects pattern → A2AClient.se
 **IDLE Detection**:
 `idle_regex` in profile YAML matches PTY output to detect when agent is ready for input.
 
+## Profile Configuration Notes
+
+### Claude Code (Ink TUI)
+
+Claude Code uses Ink-based TUI which requires special handling:
+
+```yaml
+# synapse/profiles/claude.yaml
+idle_regex: "BRACKETED_PASTE_MODE"  # Detects ESC[?2004h
+submit_sequence: "\r"                # CR required (not LF or CRLF)
+```
+
+- **IDLE Detection**: Uses `BRACKETED_PASTE_MODE` pattern which detects `ESC[?2004h` (bracketed paste mode enabled)
+- **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
+- See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
+
+### Other Agents (Gemini, Codex)
+
+Standard terminal apps use simpler configuration:
+- `idle_regex`: Plain text prompt pattern (e.g., `"> "`)
+- `submit_sequence`: `\r` (standard CR)
+
 ## Port Ranges
 
 | Agent  | Ports     |
