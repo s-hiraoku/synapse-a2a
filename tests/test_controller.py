@@ -150,15 +150,15 @@ class TestIdentityInstruction:
         assert instruction.startswith("[A2A:")
         assert ":synapse-system]" in instruction
 
-        # Check key content - full instructions per README design
+        # Check key content - bootstrap message format
         assert "synapse-claude-8100" in instruction
-        assert "Synapse A2A Protocol" in instruction
+        assert "SYNAPSE INSTRUCTIONS" in instruction
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
-        # Check for sender identification instructions (per README)
-        assert "A2A:" in instruction
-        assert "sender" in instruction.lower()
+        # Check for routing instructions
+        assert "ROUTING" in instruction
+        assert "REPLY" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""

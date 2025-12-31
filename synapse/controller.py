@@ -18,8 +18,7 @@ from typing import Callable, Optional
 
 from synapse.registry import AgentRegistry
 from synapse.agent_context import (
-    AgentContext,
-    build_initial_instructions,
+    build_bootstrap_message,
 )
 from synapse.input_router import InputRouter
 
@@ -185,17 +184,12 @@ class TerminalController:
             print(f"\x1b[31m[Synapse] Error: master_fd not available after {max_wait}s\x1b[0m")
             return
 
-        # Build initial instructions (agents use 'list' command to discover others)
-        ctx = AgentContext(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type or "unknown",
-            port=self.port,
-        )
-        instructions = build_initial_instructions(ctx)
+        # Build bootstrap message with agent identity and commands
+        bootstrap = build_bootstrap_message(self.agent_id, self.port)
 
         # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
         task_id = str(uuid.uuid4())[:8]
-        prefixed = f"[A2A:{task_id}:synapse-system] {instructions}"
+        prefixed = f"[A2A:{task_id}:synapse-system] {bootstrap}"
 
         # Small delay to ensure agent is ready
         time.sleep(0.5)
