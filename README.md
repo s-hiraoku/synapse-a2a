@@ -37,6 +37,7 @@ flowchart LR
 ## 目次
 
 - [主な特徴](#主な特徴)
+- [ユースケース](#ユースケース)
 - [クイックスタート](#クイックスタート)
 - [アーキテクチャ](#アーキテクチャ)
 - [CLI コマンド](#cli-コマンド)
@@ -65,16 +66,90 @@ flowchart LR
 
 ---
 
+## ユースケース
+
+### 分業・役割分担
+
+複数の AI エージェントに異なる役割を持たせて協調作業：
+
+```
+Claude: コード実装担当
+Gemini: レビュー・指摘担当
+Codex: テスト生成担当
+```
+
+### 複数視点の取得
+
+同じ問題を複数の AI に投げて比較検討：
+
+```bash
+# Claude の見解
+@claude この設計どう思う？
+
+# Gemini の見解
+@gemini 同じ質問
+```
+
+### CI/CD 連携
+
+GitHub Actions などから HTTP API でタスクを投入：
+
+```yaml
+# .github/workflows/review.yml
+- name: AI Review
+  run: |
+    curl -X POST http://your-server:8100/tasks/send \
+      -H "X-API-Key: ${{ secrets.SYNAPSE_API_KEY }}" \
+      -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "PRをレビューして"}]}}'
+```
+
+### 長時間タスクの非同期実行
+
+バックグラウンドでタスクを走らせて Webhook で完了通知：
+
+```bash
+# タスク投入
+curl -X POST http://localhost:8100/tasks/send \
+  -d '{"message": {...}}'
+
+# Webhook で Slack に通知
+# → task.completed イベントを受信
+```
+
+### SSHリモート環境との違い
+
+| 操作 | SSH | Synapse |
+|-----|-----|---------|
+| 手動でCLI操作 | ◎ | ◎ |
+| プログラムからタスク投入 | △ expect等が必要 | ◎ HTTP API |
+| 複数クライアント同時接続 | △ 複数セッション | ◎ 単一エンドポイント |
+| 進捗のリアルタイム通知 | ✗ | ◎ SSE/Webhook |
+| エージェント間の自動連携 | ✗ | ◎ @Agent記法 |
+
+> **Note**: 個人でCLI操作するだけなら SSH で十分なケースも多いです。Synapse は「自動化」「連携」「マルチエージェント」が必要な場面で真価を発揮します。
+
+---
+
 ## クイックスタート
 
 ### 1. インストール
 
 ```bash
+# 開発者向け（このリポジトリを編集する場合）
 # uv でインストール（推奨）
 uv sync
 
-# または pip
+# または pip（editable）
 pip install -e .
+```
+
+もし「使うだけ」の場合は、PyPI から通常インストールしてください。
+
+```bash
+pip install synapse-a2a
+
+# gRPC も使う場合
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. エージェントを起動
@@ -89,6 +164,13 @@ synapse codex
 # Terminal 3: Gemini
 synapse gemini
 ```
+
+> Note: 端末のスクロールバック表示が崩れる場合は、以下の起動方法を試してください。
+> ```bash
+> uv run synapse gemini
+> # または
+> uv run python -m synapse.cli gemini
+> ```
 
 ポートは自動割当されます：
 
@@ -649,6 +731,30 @@ curl -X POST http://localhost:8100/webhooks \
 ```bash
 curl -N http://localhost:8100/tasks/{task_id}/subscribe
 ```
+
+イベントタイプ:
+
+| イベント | 説明 |
+|---------|------|
+| `output` | 新しい CLI 出力 |
+| `status` | ステータス変更 |
+| `done` | タスク完了（Artifact 含む） |
+
+### 出力解析
+
+CLI 出力を自動解析し、エラー検出・ステータス更新・Artifact 生成を行います。
+
+```bash
+# エラー検出 → 自動的に failed ステータス
+# input_required 検出 → 追加入力待ち状態
+# 出力パース → コードブロック・ファイル参照を Artifact に変換
+```
+
+| 機能 | 説明 |
+|------|------|
+| エラー検出 | `command not found`, `permission denied` 等を検出 |
+| input_required | 質問・確認プロンプトを検出 |
+| 出力パーサー | コード/ファイル/エラーを構造化 |
 
 ### gRPC サポート
 

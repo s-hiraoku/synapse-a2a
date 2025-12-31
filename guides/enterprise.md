@@ -11,6 +11,8 @@
 - [概要](#概要)
 - [認証・認可 (API Key)](#認証認可-api-key)
 - [Webhook 通知](#webhook-通知)
+- [SSE ストリーミング](#sse-ストリーミング)
+- [出力解析](#出力解析)
 - [gRPC サポート](#grpc-サポート)
 - [セキュリティベストプラクティス](#セキュリティベストプラクティス)
 
@@ -24,6 +26,8 @@ Synapse A2A は以下のエンタープライズ機能を提供します：
 |------|------|-------------|
 | **API Key 認証** | エンドポイントへのアクセス制御 | 本番環境でのセキュリティ確保 |
 | **Webhook 通知** | タスク完了時の外部通知 | CI/CD 連携、監視システム |
+| **SSE ストリーミング** | リアルタイム出力配信 | 出力監視、進捗追跡 |
+| **出力解析** | エラー検出・Artifact 生成 | 自動エラーハンドリング、構造化出力 |
 | **gRPC** | 高性能バイナリプロトコル | 大量リクエスト、低レイテンシ要件 |
 
 ---
@@ -76,6 +80,67 @@ curl "http://localhost:8100/tasks?api_key=my-secret-key-1"
 | `SYNAPSE_API_KEYS` | 有効な API Key（カンマ区切り） | なし |
 | `SYNAPSE_ADMIN_KEY` | 管理者用 API Key | なし |
 | `SYNAPSE_ALLOW_LOCALHOST` | localhost からのアクセスを許可 | `true` |
+
+### API Key の発行
+
+API Key は外部サービスで発行するものではなく、自分で生成して環境変数に設定します。
+
+#### 方法1: synapse auth コマンドで生成（推奨）
+
+```bash
+# 単一キーを生成
+synapse auth generate-key
+# 出力: synapse_NzwQDYhGm_fqDIxb4h3WDtBu74ABs6pZSaSXwDck9vg
+
+# 複数キーを生成
+synapse auth generate-key --count 3
+
+# export 形式で出力（シェル設定に貼り付け可能）
+synapse auth generate-key --export
+# 出力: export SYNAPSE_API_KEYS=synapse_...
+
+# セットアップウィザード（API Key + Admin Key + 設定手順を表示）
+synapse auth setup
+```
+
+`synapse auth setup` の出力例:
+
+```
+============================================================
+Synapse A2A Authentication Setup
+============================================================
+
+Generated keys:
+  API Key:   synapse_YTsFj2jYvrqzKW_sBrVKbyisTAVZRzubuLP35EfnpsI
+  Admin Key: synapse_Be9HUurSxlQuOInoerb8zpEVd4ZveaH9uix0tX3DdEg
+
+Add these to your shell configuration (~/.bashrc, ~/.zshrc):
+
+  export SYNAPSE_AUTH_ENABLED=true
+  export SYNAPSE_API_KEYS=synapse_YTsFj2jYvrqzKW_sBrVKbyisTAVZRzubuLP35EfnpsI
+  export SYNAPSE_ADMIN_KEY=synapse_Be9HUurSxlQuOInoerb8zpEVd4ZveaH9uix0tX3DdEg
+
+============================================================
+IMPORTANT: Save these keys securely. They cannot be recovered.
+============================================================
+```
+
+#### 方法2: openssl で生成
+
+```bash
+# 強力なランダムキーを生成
+openssl rand -hex 32
+# 出力例: 7f3a9c2d1e4b5f6a8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b
+```
+
+#### 方法3: Python で生成
+
+```python
+from synapse.auth import generate_api_key
+
+key = generate_api_key()
+print(key)  # "synapse_..." 形式のキーが生成される
+```
 
 ### API Key の種類
 
@@ -312,6 +377,294 @@ curl http://localhost:8100/webhooks/deliveries \
     "created_at": "2025-12-31T12:00:00Z"
   }
 ]
+```
+
+---
+
+## SSE ストリーミング
+
+### 概要
+
+Server-Sent Events (SSE) を使って、タスクの出力をリアルタイムで受信できます。ポーリング不要で効率的な監視が可能です。
+
+```
+┌─────────────────┐                       ┌─────────────────┐
+│  Client         │ ─── GET /subscribe ──►│  Synapse A2A    │
+│                 │ ◄── SSE events ───────│                 │
+└─────────────────┘                       └─────────────────┘
+       │
+       │  イベント: output, status, done
+       │  リアルタイム配信
+       │
+```
+
+### クイックスタート
+
+#### 1. タスクを送信
+
+```bash
+# タスクを送信してIDを取得
+TASK_ID=$(curl -s -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}}' \
+  | jq -r '.task.id')
+
+echo "Task ID: $TASK_ID"
+```
+
+#### 2. SSE で購読
+
+```bash
+# リアルタイムで出力を受信
+curl -N http://localhost:8100/tasks/${TASK_ID}/subscribe
+```
+
+### イベントタイプ
+
+| イベント | 説明 | ペイロード |
+|---------|------|-----------|
+| `output` | 新しい CLI 出力 | `{"type": "output", "data": "..."}` |
+| `status` | ステータス変更 | `{"type": "status", "status": "working"}` |
+| `done` | タスク完了 | `{"type": "done", "status": "completed", "artifacts": [...]}` |
+
+### イベント例
+
+```
+data: {"type": "output", "data": "Processing request..."}
+
+data: {"type": "status", "status": "working"}
+
+data: {"type": "output", "data": "Generated file: main.py"}
+
+data: {"type": "done", "status": "completed", "artifacts": [{"type": "text", "data": {...}}]}
+```
+
+### JavaScript クライアント例
+
+```javascript
+const taskId = "550e8400-e29b-41d4-a716-446655440000";
+const eventSource = new EventSource(`http://localhost:8100/tasks/${taskId}/subscribe`);
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  switch (data.type) {
+    case "output":
+      console.log("Output:", data.data);
+      break;
+    case "status":
+      console.log("Status changed:", data.status);
+      break;
+    case "done":
+      console.log("Task completed:", data.status);
+      if (data.error) {
+        console.error("Error:", data.error);
+      }
+      eventSource.close();
+      break;
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error("SSE Error:", error);
+  eventSource.close();
+};
+```
+
+### Python クライアント例
+
+```python
+import httpx
+
+task_id = "550e8400-e29b-41d4-a716-446655440000"
+
+with httpx.Client() as client:
+    with client.stream("GET", f"http://localhost:8100/tasks/{task_id}/subscribe") as response:
+        for line in response.iter_lines():
+            if line.startswith("data: "):
+                import json
+                event = json.loads(line[6:])
+
+                if event["type"] == "output":
+                    print(f"Output: {event['data']}")
+                elif event["type"] == "status":
+                    print(f"Status: {event['status']}")
+                elif event["type"] == "done":
+                    print(f"Done: {event['status']}")
+                    break
+```
+
+### 認証付き SSE
+
+認証が有効な場合は API Key を使用します。
+
+```bash
+# curl
+curl -N -H "X-API-Key: your-key" \
+  http://localhost:8100/tasks/${TASK_ID}/subscribe
+
+# JavaScript (EventSource は標準ヘッダーを送れないため、クエリパラメータを使用)
+const eventSource = new EventSource(
+  `http://localhost:8100/tasks/${taskId}/subscribe?api_key=your-key`
+);
+```
+
+---
+
+## 出力解析
+
+### 概要
+
+Synapse A2A は CLI 出力を自動的に解析し、以下の機能を提供します：
+
+| 機能 | 説明 | ユースケース |
+|------|------|-------------|
+| **エラー検出** | エラーパターンを検出して `failed` ステータスに | 自動エラーハンドリング |
+| **input_required 検出** | 追加入力待ちを検出 | 対話的タスク管理 |
+| **出力パーサー** | 出力を構造化 Artifact に変換 | コードブロック・ファイル参照の抽出 |
+
+### エラー検出
+
+CLI 出力からエラーパターンを検出し、タスクを自動的に `failed` ステータスに更新します。
+
+#### 検出されるエラーパターン
+
+| カテゴリ | パターン例 | エラーコード |
+|---------|-----------|-------------|
+| システムエラー | `command not found`, `permission denied` | `COMMAND_NOT_FOUND`, `PERMISSION_DENIED` |
+| ネットワーク | `connection refused`, `timeout` | `CONNECTION_REFUSED`, `TIMEOUT` |
+| API エラー | `rate limit`, `unauthorized` | `RATE_LIMITED`, `AUTH_ERROR` |
+| AI 拒否 | `I cannot`, `I'm unable to` | `AGENT_REFUSED` |
+| 汎用エラー | `error:`, `failed:`, `exception:` | `CLI_ERROR`, `EXECUTION_FAILED` |
+
+#### エラーレスポンス例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "failed",
+  "error": {
+    "code": "PERMISSION_DENIED",
+    "message": "Permission denied",
+    "data": {
+      "context": "...cannot write to /etc/hosts: permission denied...",
+      "pattern": "permission denied"
+    }
+  }
+}
+```
+
+#### Webhook でエラー通知を受け取る
+
+```bash
+# task.failed イベントを購読
+curl -X POST http://localhost:8100/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-server.com/errors",
+    "events": ["task.failed"],
+    "secret": "your-secret"
+  }'
+```
+
+### input_required 検出
+
+CLI が追加入力を待っている状態を検出します。
+
+#### 検出されるパターン
+
+- 質問（`?` で終わる）
+- 確認プロンプト（`[y/n]`, `[yes/no]`）
+- 入力要求（`Enter ...:`）
+- 待機メッセージ（`waiting for input`, `press enter`）
+
+#### ステータス更新フロー
+
+```mermaid
+stateDiagram-v2
+    working --> input_required: 質問パターン検出
+    input_required --> working: 追加入力受信
+    working --> completed: 正常終了
+    working --> failed: エラー検出
+```
+
+#### input_required タスクへの応答
+
+```bash
+# 同じ context_id で追加入力を送信
+curl -X POST http://localhost:8100/tasks/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "context_id": "original-context-id",
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "yes"}]
+    }
+  }'
+```
+
+### 出力パーサー（Artifact 生成）
+
+CLI 出力を解析し、構造化された Artifact に変換します。
+
+#### 抽出されるセグメント
+
+| タイプ | 説明 | メタデータ |
+|--------|------|-----------|
+| `code` | Markdown コードブロック | `language` |
+| `file` | ファイル操作の参照 | `action` (created/modified/deleted) |
+| `error` | エラーメッセージ | `error_type` |
+| `text` | その他のテキスト | - |
+
+#### 入力例
+
+```text
+Processing your request...
+
+Created file `main.py`:
+```python
+def hello():
+    print("Hello!")
+```
+
+Modified `README.md` with new instructions.
+```
+
+#### 生成される Artifact
+
+```json
+{
+  "artifacts": [
+    {
+      "index": 0,
+      "parts": [{"type": "text", "text": "Processing your request..."}]
+    },
+    {
+      "index": 1,
+      "parts": [{"type": "file", "file": {"path": "main.py", "action": "created"}}]
+    },
+    {
+      "index": 2,
+      "parts": [{"type": "code", "code": "def hello():\n    print(\"Hello!\")", "language": "python"}]
+    },
+    {
+      "index": 3,
+      "parts": [{"type": "file", "file": {"path": "README.md", "action": "modified"}}]
+    }
+  ]
+}
+```
+
+#### SSE で Artifact を受け取る
+
+```bash
+curl -N http://localhost:8100/tasks/${TASK_ID}/subscribe
+```
+
+`done` イベントに Artifact が含まれます：
+
+```
+data: {"type": "done", "status": "completed", "artifacts": [...]}
 ```
 
 ---
