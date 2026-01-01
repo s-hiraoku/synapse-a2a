@@ -7,13 +7,21 @@ Google A2A compatible agents.
 
 import json
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
 import requests
+
+from synapse.config import (
+    COMPLETED_TASK_STATES,
+    REQUEST_TIMEOUT,
+    TASK_POLL_INTERVAL,
+)
+from synapse.utils import get_iso_timestamp
 
 # ============================================================
 # Data Classes
@@ -33,7 +41,7 @@ class ExternalAgent:
 
     def __post_init__(self):
         if not self.added_at:
-            self.added_at = datetime.now(timezone.utc).isoformat() + "Z"
+            self.added_at = get_iso_timestamp()
         if not self.alias:
             # Generate alias from name (lowercase, no spaces)
             self.alias = self.name.lower().replace(" ", "-").replace("_", "-")
@@ -133,7 +141,7 @@ class ExternalAgentRegistry:
         """Update last seen timestamp"""
         with self._lock:
             if alias in self._cache:
-                self._cache[alias].last_seen = datetime.now(timezone.utc).isoformat() + "Z"
+                self._cache[alias].last_seen = get_iso_timestamp()
                 self._save(self._cache[alias])
 
 
@@ -148,7 +156,7 @@ class A2AClient:
 
     def __init__(self, registry: ExternalAgentRegistry | None = None):
         self.registry = registry or ExternalAgentRegistry()
-        self.timeout = (3, 30)  # (connect_timeout, read_timeout)
+        self.timeout = REQUEST_TIMEOUT
 
     def discover(self, url: str, alias: str | None = None) -> ExternalAgent | None:
         """
@@ -254,21 +262,28 @@ class A2AClient:
             print(f"Failed to send message to local agent: {e}")
             return None
 
-    def _wait_for_local_completion(
+    def _wait_for_task_completion(
         self,
-        endpoint: str,
+        get_task_url: Callable[[], str],
         task_id: str,
-        timeout: int
+        timeout: int,
     ) -> A2ATask | None:
-        """Wait for a local task to complete"""
-        import time
+        """
+        Wait for a task to complete (unified wait logic).
 
+        Args:
+            get_task_url: Callable that returns the task status URL
+            task_id: Task ID to wait for
+            timeout: Maximum wait time in seconds
+
+        Returns:
+            A2ATask if completed, None on timeout
+        """
         start_time = time.time()
-        completed_states = {"completed", "failed", "canceled"}
 
         while time.time() - start_time < timeout:
             try:
-                url = f"{endpoint.rstrip('/')}/tasks/{task_id}"
+                url = get_task_url()
                 response = requests.get(url, timeout=self.timeout)
                 response.raise_for_status()
 
@@ -282,16 +297,28 @@ class A2AClient:
                     updated_at=data.get("updated_at", ""),
                 )
 
-                if task.status in completed_states:
+                if task.status in COMPLETED_TASK_STATES:
                     return task
 
             except requests.exceptions.RequestException:
                 pass
 
-            time.sleep(1)
+            time.sleep(TASK_POLL_INTERVAL)
 
-        # Return last known state
         return None
+
+    def _wait_for_local_completion(
+        self,
+        endpoint: str,
+        task_id: str,
+        timeout: int
+    ) -> A2ATask | None:
+        """Wait for a local task to complete."""
+        return self._wait_for_task_completion(
+            get_task_url=lambda: f"{endpoint.rstrip('/')}/tasks/{task_id}",
+            task_id=task_id,
+            timeout=timeout,
+        )
 
     def send_message(
         self,
@@ -399,20 +426,12 @@ class A2AClient:
         task_id: str,
         timeout: int
     ) -> A2ATask | None:
-        """Wait for a task to complete"""
-        import time
-
-        start_time = time.time()
-        completed_states = {"completed", "failed", "canceled"}
-
-        while time.time() - start_time < timeout:
-            task = self.get_task(agent.alias, task_id)
-            if task and task.status in completed_states:
-                return task
-            time.sleep(1)
-
-        # Return last known state
-        return self.get_task(agent.alias, task_id)
+        """Wait for a task to complete on external agent."""
+        return self._wait_for_task_completion(
+            get_task_url=lambda: urljoin(agent.url.rstrip("/") + "/", f"tasks/{task_id}"),
+            task_id=task_id,
+            timeout=timeout,
+        )
 
     def list_agents(self) -> list[ExternalAgent]:
         """List all registered external agents"""

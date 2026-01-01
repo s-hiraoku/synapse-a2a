@@ -11,7 +11,7 @@ import asyncio
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -21,8 +21,10 @@ from pydantic import BaseModel
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
+from synapse.config import CONTEXT_RECENT_SIZE
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.output_parser import parse_output
+from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
     get_webhook_registry,
@@ -166,7 +168,7 @@ class TaskStore:
         metadata: dict[str, Any] | None = None
     ) -> Task:
         """Create a new task with optional metadata (including sender info)"""
-        now = datetime.now(timezone.utc).isoformat() + "Z"
+        now = get_iso_timestamp()
         task = Task(
             id=str(uuid4()),
             status="submitted",
@@ -192,7 +194,7 @@ class TaskStore:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.status = status
-                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
+                task.updated_at = get_iso_timestamp()
                 return task
         return None
 
@@ -202,7 +204,7 @@ class TaskStore:
             if task_id in self._tasks:
                 task = self._tasks[task_id]
                 task.artifacts.append(artifact)
-                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
+                task.updated_at = get_iso_timestamp()
                 return task
         return None
 
@@ -213,7 +215,7 @@ class TaskStore:
                 task = self._tasks[task_id]
                 task.error = error
                 task.status = "failed"
-                task.updated_at = datetime.now(timezone.utc).isoformat() + "Z"
+                task.updated_at = get_iso_timestamp()
                 return task
         return None
 
@@ -377,12 +379,7 @@ def create_a2a_router(
             raise HTTPException(status_code=503, detail="Agent not running")
 
         # Extract text from message parts
-        text_content = ""
-        for part in request.message.parts:
-            if isinstance(part, TextPart) or (hasattr(part, 'type') and part.type == "text"):
-                text_content += part.text + "\n"
-
-        text_content = text_content.strip()
+        text_content = extract_text_from_parts(request.message.parts)
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
@@ -398,11 +395,8 @@ def create_a2a_router(
 
         # Send to PTY with A2A task reference for sender identification
         try:
-            # Extract sender_id if available
             sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
-            # Format: [A2A:task_id:sender_id] message
-            # Reply instructions are in initial Task, not per-message
-            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
@@ -437,7 +431,7 @@ def create_a2a_router(
                 task_store.update_status(task_id, "input_required")
             elif synapse_status == "IDLE":
                 # Agent is idle, analyze output for errors
-                status, error = detect_task_status(context[-3000:])
+                status, error = detect_task_status(context[-CONTEXT_RECENT_SIZE:])
 
                 if status == "failed" and error:
                     # Set error and failed status
@@ -462,7 +456,7 @@ def create_a2a_router(
                     ))
 
                 # Parse and add output as structured artifacts
-                recent_context = context[-3000:]
+                recent_context = context[-CONTEXT_RECENT_SIZE:]
                 if recent_context:
                     segments = parse_output(recent_context)
                     if segments:
@@ -614,13 +608,8 @@ def create_a2a_router(
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
 
-        # Extract text
-        text_content = ""
-        for part in request.message.parts:
-            if isinstance(part, TextPart) or (hasattr(part, 'type') and part.type == "text"):
-                text_content += part.text + "\n"
-
-        text_content = text_content.strip()
+        # Extract text from message parts
+        text_content = extract_text_from_parts(request.message.parts)
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
@@ -638,11 +627,8 @@ def create_a2a_router(
 
         # Send to PTY with A2A task reference for sender identification
         try:
-            # Extract sender_id if available
             sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
-            # Format: [A2A:task_id:sender_id] message
-            # Reply instructions are in initial Task, not per-message
-            prefixed_content = f"[A2A:{task.id[:8]}:{sender_id}] {text_content}"
+            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")

@@ -19,8 +19,18 @@ from collections.abc import Callable
 from synapse.agent_context import (
     build_bootstrap_message,
 )
+from synapse.config import (
+    IDENTITY_WAIT_TIMEOUT,
+    IDLE_CHECK_WINDOW,
+    OUTPUT_BUFFER_MAX,
+    OUTPUT_IDLE_THRESHOLD,
+    POST_WRITE_IDLE_DELAY,
+    STARTUP_DELAY,
+    WRITE_PROCESSING_DELAY,
+)
 from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
+from synapse.utils import format_a2a_message
 
 
 class TerminalController:
@@ -45,7 +55,7 @@ class TerminalController:
         self._render_buffer = []
         self._render_cursor = 0
         self._render_line_start = 0
-        self._max_buffer = 10000
+        self._max_buffer = OUTPUT_BUFFER_MAX
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.status = "STARTING"
         self.lock = threading.Lock()
@@ -58,9 +68,9 @@ class TerminalController:
         self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
         self._submit_seq = submit_seq or "\n"
-        self._startup_delay = startup_delay or 3  # Default 3 seconds
+        self._startup_delay = startup_delay or STARTUP_DELAY
         self._last_output_time = None  # Track last output for idle detection
-        self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
+        self._output_idle_threshold = OUTPUT_IDLE_THRESHOLD
 
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(
@@ -151,7 +161,7 @@ class TerminalController:
     def _check_idle_state(self, new_data):
         # We match against the end of the buffer to see if we reached a prompt
         with self.lock:
-            search_window = self.output_buffer[-1000:]
+            search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
             match = self.idle_regex.search(search_window)
 
             if match:
@@ -180,14 +190,13 @@ class TerminalController:
             return
 
         # Wait for master_fd to be available (set by read_callback in interactive mode)
-        max_wait = 10  # seconds
-        waited = 0
-        while self.master_fd is None and waited < max_wait:
+        waited = 0.0
+        while self.master_fd is None and waited < IDENTITY_WAIT_TIMEOUT:
             time.sleep(0.1)
             waited += 0.1
 
         if self.master_fd is None:
-            print(f"\x1b[31m[Synapse] Error: master_fd not available after {max_wait}s\x1b[0m")
+            print(f"\x1b[31m[Synapse] Error: master_fd not available after {IDENTITY_WAIT_TIMEOUT}s\x1b[0m")
             return
 
         # Build bootstrap message with agent identity and commands
@@ -195,10 +204,10 @@ class TerminalController:
 
         # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
         task_id = str(uuid.uuid4())[:8]
-        prefixed = f"[A2A:{task_id}:synapse-system] {bootstrap}"
+        prefixed = format_a2a_message(task_id, "synapse-system", bootstrap)
 
         # Wait for agent to be fully ready
-        time.sleep(2.0)
+        time.sleep(POST_WRITE_IDLE_DELAY)
 
         try:
             self.write(prefixed, self._submit_seq)
@@ -222,7 +231,7 @@ class TerminalController:
 
             # For TUI apps, wait for input to be processed before sending Enter
             if submit_seq:
-                time.sleep(0.5)
+                time.sleep(WRITE_PROCESSING_DELAY)
                 submit_encoded = submit_seq.encode('utf-8')
                 os.write(self.master_fd, submit_encoded)
         except OSError as e:
