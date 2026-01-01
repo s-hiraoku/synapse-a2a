@@ -390,7 +390,7 @@ flowchart LR
 
 ```text
 @codex この関数をリファクタリングして
-@claude --response "コードレビューして"
+@claude "コードレビューして"
 ```
 
 ### 5.3 Priority によるインタラプト
@@ -564,7 +564,7 @@ curl -X POST http://localhost:8100/external/discover \
 @myagent タスクを処理して
 
 # レスポンスを待つ
-@myagent --response "結果を教えて"
+@myagent "結果を教えて"
 ```
 
 ### 8.4 外部エージェント管理 API

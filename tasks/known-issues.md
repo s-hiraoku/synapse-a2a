@@ -93,4 +93,4 @@ This may work better with problematic TUIs.
 Implement Synapse as MCP server for agents that support MCP protocol.
 
 ### Response Routing
-Implement `@agent --response` to return responses to sender's terminal.
+Implement `@agent` to return responses to sender's terminal.

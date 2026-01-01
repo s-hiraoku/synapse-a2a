@@ -33,13 +33,22 @@ class TestPatternDetection:
         assert action is not None  # Should have send action
         assert output == ""  # Should suppress output
 
-    def test_detect_agent_with_response_flag(self, router):
-        """Should detect --response flag."""
-        for char in "@claude --response what is 2+2":
+    def test_detect_agent_with_non_response_flag(self, router):
+        """Should detect --non-response flag (opt-out of default response)."""
+        for char in "@claude --non-response do this task":
             router.process_char(char)
 
         output, action = router.process_char('\n')
         assert action is not None
+
+    def test_default_wants_response(self, router):
+        """Default behavior should want response (no --non-response flag)."""
+        for char in "@claude hello":
+            router.process_char(char)
+
+        output, action = router.process_char('\n')
+        assert action is not None
+        # The action should call send_to_agent with want_response=True by default
 
     def test_normal_input_passes_through(self, router):
         """Normal input should pass through."""
@@ -465,8 +474,7 @@ class TestMultipleAgentResolution:
     """Test agent resolution when multiple agents of same type exist."""
 
     @patch('synapse.input_router.is_port_open', return_value=True)
-    @patch('synapse.input_router.is_process_running', return_value=True)
-    def test_single_agent_by_type(self, mock_process, mock_port):
+    def test_single_agent_by_type(self, mock_port_open):
         """Single agent of type should match with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -530,8 +538,7 @@ class TestMultipleAgentResolution:
         assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
 
     @patch('synapse.input_router.is_port_open', return_value=True)
-    @patch('synapse.input_router.is_process_running', return_value=True)
-    def test_type_port_shorthand_resolves(self, mock_process, mock_port):
+    def test_type_port_shorthand_resolves(self, mock_port_open):
         """@type-port shorthand should resolve specific agent."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {

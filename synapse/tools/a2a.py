@@ -157,9 +157,13 @@ def cmd_send(args):
         }
     }
 
-    # Add sender info to metadata if available
+    # Add metadata (sender info and response_required)
+    metadata = {}
     if sender_info:
-        payload["metadata"] = {"sender": sender_info}
+        metadata["sender"] = sender_info
+    # Default: response_required is True, --non-response sets it to False
+    metadata["response_required"] = not getattr(args, 'non_response', False)
+    payload["metadata"] = metadata
 
     try:
         # Use tuple timeout: (connect_timeout, read_timeout)
@@ -191,6 +195,8 @@ def main():
     p_send.add_argument("--target", required=True, help="Target Agent ID or Type (e.g. 'claude')")
     p_send.add_argument("--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)")
     p_send.add_argument("--from", dest="sender", help="Sender Agent ID (auto-detected from env if not specified)")
+    p_send.add_argument("--non-response", dest="non_response", action="store_true",
+                        help="Do not require response from receiver (default: response required)")
     p_send.add_argument("message", help="Content of the message")
 
     args = parser.parse_args()
