@@ -52,8 +52,10 @@ def extract_code_blocks(output: str) -> list[ParsedSegment]:
     """Extract code blocks from markdown-style fenced code."""
     segments = []
 
-    # Pattern for fenced code blocks: ```lang\ncode\n```
-    code_pattern = r'```(\w*)\n(.*?)```'
+    # Pattern for fenced code blocks: ```lang\ncode\n``` or ```lang code```
+    # Language can include +, -, #, . (e.g., c++, c#, objective-c, .net)
+    # Newline after language is optional (allows inline code blocks)
+    code_pattern = r'```([\w+#.-]*)[ \t]*\n?(.*?)```'
 
     for match in re.finditer(code_pattern, output, re.DOTALL):
         lang = match.group(1) or "text"

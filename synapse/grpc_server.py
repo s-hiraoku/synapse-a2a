@@ -17,9 +17,12 @@ from uuid import uuid4
 try:
     import grpc
 
+    from synapse.proto import a2a_pb2_grpc
+
     GRPC_AVAILABLE = True
 except ImportError:
     GRPC_AVAILABLE = False
+    a2a_pb2_grpc = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +32,23 @@ def check_grpc_available() -> bool:
     return GRPC_AVAILABLE
 
 
-class GrpcServicer:
+class GrpcServicerBase:
+    """Base class for gRPC servicer when protobuf not available."""
+    pass
+
+
+# Use generated servicer base if available
+if a2a_pb2_grpc is not None:
+    _ServicerBase = a2a_pb2_grpc.A2AServiceServicer
+else:
+    _ServicerBase = GrpcServicerBase
+
+
+class GrpcServicer(_ServicerBase):  # type: ignore[misc]
     """
     gRPC servicer implementation for A2A protocol.
 
-    This is a simplified implementation that mirrors the REST API.
-    The full implementation requires generated protobuf code.
+    Implements the A2AService defined in a2a.proto.
     """
 
     def __init__(
@@ -45,6 +59,7 @@ class GrpcServicer:
         submit_seq: str = "\n",
         agent_id: str | None = None,
     ):
+        super().__init__()
         self.controller = controller
         self.agent_type = agent_type
         self.port = port
@@ -223,6 +238,68 @@ class GrpcServicer:
             import time
             time.sleep(0.5)
 
+    # =========================================================================
+    # gRPC Service Methods (PascalCase - required by generated servicer)
+    # These wrap the snake_case methods for gRPC compatibility
+    # =========================================================================
+
+    def GetAgentCard(self, request, context):  # noqa: N802
+        """gRPC: Get agent card for discovery."""
+        return self.get_agent_card()
+
+    def SendMessage(self, request, context):  # noqa: N802
+        """gRPC: Send a message to the agent."""
+        # Extract message text from protobuf
+        message_text = ""
+        if hasattr(request, "message") and request.message:
+            for part in request.message.parts:
+                if part.HasField("text_part"):
+                    message_text += part.text_part.text
+
+        context_id = request.context_id if request.context_id else None
+        metadata = None
+        if request.HasField("metadata"):
+            metadata = dict(request.metadata.fields)
+
+        task = self.send_message(message_text, context_id, metadata)
+        return {"task": task}
+
+    def GetTask(self, request, context):  # noqa: N802
+        """gRPC: Get task by ID."""
+        task = self.get_task(request.task_id)
+        return {"task": task}
+
+    def ListTasks(self, request, context):  # noqa: N802
+        """gRPC: List all tasks."""
+        context_id = request.context_id if request.context_id else None
+        tasks = self.list_tasks(context_id)
+        return {"tasks": tasks}
+
+    def CancelTask(self, request, context):  # noqa: N802
+        """gRPC: Cancel a task."""
+        result = self.cancel_task(request.task_id)
+        return result
+
+    def Subscribe(self, request, context):  # noqa: N802
+        """gRPC: Subscribe to task output stream."""
+        yield from self.subscribe(request.task_id)
+
+    def SendPriorityMessage(self, request, context):  # noqa: N802
+        """gRPC: Send a priority message."""
+        message_text = ""
+        if hasattr(request, "message") and request.message:
+            for part in request.message.parts:
+                if part.HasField("text_part"):
+                    message_text += part.text_part.text
+
+        context_id = request.context_id if request.context_id else None
+        metadata = {"priority": request.priority}
+        if request.HasField("metadata"):
+            metadata.update(dict(request.metadata.fields))
+
+        task = self.send_message(message_text, context_id, metadata)
+        return {"task": task}
+
 
 def create_grpc_server(
     controller,
@@ -265,8 +342,9 @@ def create_grpc_server(
     # Create server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
 
-    # Note: In a full implementation, you would register the generated servicer:
-    # a2a_pb2_grpc.add_A2AServiceServicer_to_server(servicer, server)
+    # Register the generated servicer
+    if a2a_pb2_grpc is not None:
+        a2a_pb2_grpc.add_A2AServiceServicer_to_server(servicer, server)
 
     server.add_insecure_port(f"[::]:{grpc_port}")
 

@@ -5,8 +5,6 @@ syntax = "proto3";
 
 package synapse.a2a;
 
-option python_generic_services = true;
-
 // Timestamp for datetime fields
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
