@@ -671,6 +671,11 @@ data: {"type": "done", "status": "completed", "artifacts": [...]}
 
 ## gRPC サポート
 
+> ⚠️ **実装状況: 未完成**
+>
+> gRPCサポートは現在開発中です。Proto定義とサーバー骨格は存在しますが、フル機能は動作しません。
+> 進捗は [Issue #22](https://github.com/s-hiraoku/synapse-a2a/issues/22) を参照してください。
+
 ### 概要
 
 gRPC は HTTP/2 ベースの高性能 RPC フレームワークです。大量のリクエストや低レイテンシ要件がある場合に有効です。
