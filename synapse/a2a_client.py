@@ -96,7 +96,7 @@ class ExternalAgentRegistry:
         with self._lock:
             for file in self.registry_dir.glob("*.json"):
                 try:
-                    with open(file) as f:
+                    with open(file, "r") as f:
                         data = json.load(f)
                         agent = ExternalAgent(**data)
                         self._cache[agent.alias] = agent

@@ -43,7 +43,7 @@ class WebhookEvent:
     event_type: str
     payload: dict[str, Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    id: str = field(default_factory=lambda: str(uuid.uuid4())[:16])
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
@@ -264,8 +264,18 @@ async def dispatch_event(
     # Use return_exceptions=True to ensure all webhooks are attempted
     # even if one fails
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    # Filter out exceptions, keeping only successful deliveries
-    deliveries = [r for r in results if isinstance(r, WebhookDelivery)]
+
+    # Filter out exceptions, keeping only successful deliveries, and log errors
+    deliveries = []
+    for r in results:
+        if isinstance(r, WebhookDelivery):
+            deliveries.append(r)
+        elif isinstance(r, Exception):
+            logger.error(
+                f"Webhook delivery raised unexpected exception: {r}",
+                exc_info=r
+            )
+
     return deliveries
 
 
