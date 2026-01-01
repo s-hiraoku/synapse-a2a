@@ -1,9 +1,10 @@
 """Tests for InputRouter - @Agent pattern detection and A2A routing."""
-import pytest
 from unittest.mock import MagicMock, patch
-from synapse.input_router import InputRouter
-from synapse.a2a_client import A2ATask
 
+import pytest
+
+from synapse.a2a_client import A2ATask
+from synapse.input_router import InputRouter
 
 # ============================================================
 # Pattern Detection Tests
@@ -463,7 +464,9 @@ class TestInputRouterIntegration:
 class TestMultipleAgentResolution:
     """Test agent resolution when multiple agents of same type exist."""
 
-    def test_single_agent_by_type(self):
+    @patch('synapse.input_router.is_port_open', return_value=True)
+    @patch('synapse.input_router.is_process_running', return_value=True)
+    def test_single_agent_by_type(self, mock_process, mock_port):
         """Single agent of type should match with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -526,7 +529,9 @@ class TestMultipleAgentResolution:
         assert router.ambiguous_matches is not None
         assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
 
-    def test_type_port_shorthand_resolves(self):
+    @patch('synapse.input_router.is_port_open', return_value=True)
+    @patch('synapse.input_router.is_process_running', return_value=True)
+    def test_type_port_shorthand_resolves(self, mock_process, mock_port):
         """@type-port shorthand should resolve specific agent."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {

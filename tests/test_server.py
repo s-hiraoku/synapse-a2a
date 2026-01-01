@@ -1,8 +1,8 @@
 """Tests for Synapse A2A Server - endpoint compliance."""
-import pytest
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ============================================================
 # Server App Tests

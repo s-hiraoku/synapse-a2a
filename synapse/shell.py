@@ -4,9 +4,9 @@
 import cmd
 import os
 import re
-import subprocess
-import sys
+
 import requests
+
 from synapse.registry import AgentRegistry
 
 
@@ -50,14 +50,14 @@ class SynapseShell(cmd.Cmd):
 
         # Find agent by name/type
         target = None
-        for agent_id, info in agents.items():
+        for _agent_id, info in agents.items():
             if info.get("agent_type", "").lower() == agent_name:
                 target = info
                 break
 
         if not target:
             print(f"Agent '{agent_name}' not found. Available agents:")
-            for agent_id, info in agents.items():
+            for _agent_id, info in agents.items():
                 print(f"  - {info.get('agent_type')}")
             return
 
@@ -126,7 +126,7 @@ class SynapseShell(cmd.Cmd):
 
         print(f"\n{'TYPE':<10} {'PORT':<8} {'STATUS':<10} {'ENDPOINT'}")
         print("-" * 50)
-        for agent_id, info in agents.items():
+        for _agent_id, info in agents.items():
             print(f"{info.get('agent_type', 'unknown'):<10} "
                   f"{info.get('port', '-'):<8} "
                   f"{info.get('status', '-'):<10} "
@@ -142,7 +142,7 @@ class SynapseShell(cmd.Cmd):
         agent_name = arg.lower()
         agents = self.registry.list_agents()
 
-        for agent_id, info in agents.items():
+        for _agent_id, info in agents.items():
             if info.get("agent_type", "").lower() == agent_name:
                 endpoint = info.get("endpoint")
                 try:

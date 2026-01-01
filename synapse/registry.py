@@ -1,9 +1,7 @@
-import os
 import json
-import hashlib
+import os
 import socket
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 def is_process_running(pid: int) -> bool:
@@ -20,7 +18,7 @@ def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
-    except (socket.timeout, ConnectionRefusedError, OSError):
+    except (TimeoutError, ConnectionRefusedError, OSError):
         return False
 
 class AgentRegistry:
@@ -57,19 +55,19 @@ class AgentRegistry:
         if file_path.exists():
             file_path.unlink()
 
-    def list_agents(self) -> Dict[str, dict]:
+    def list_agents(self) -> dict[str, dict]:
         """Returns all currently registered agents."""
         agents = {}
         for p in self.registry_dir.glob("*.json"):
             try:
-                with open(p, 'r') as f:
+                with open(p) as f:
                     data = json.load(f)
                     agents[data['agent_id']] = data
             except (json.JSONDecodeError, OSError):
                 continue
         return agents
 
-    def get_agent(self, agent_id: str) -> Optional[dict]:
+    def get_agent(self, agent_id: str) -> dict | None:
         """
         Get info for a specific agent by ID.
 
@@ -84,7 +82,7 @@ class AgentRegistry:
             return None
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             return None
@@ -105,7 +103,7 @@ class AgentRegistry:
             return False
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 data = json.load(f)
 
             data["status"] = status
@@ -117,7 +115,7 @@ class AgentRegistry:
         except (json.JSONDecodeError, OSError):
             return False
 
-    def cleanup_stale_entries(self) -> List[str]:
+    def cleanup_stale_entries(self) -> list[str]:
         """
         Remove registry entries for agents whose processes are no longer running.
 
@@ -132,7 +130,7 @@ class AgentRegistry:
                 removed.append(agent_id)
         return removed
 
-    def get_live_agents(self) -> Dict[str, dict]:
+    def get_live_agents(self) -> dict[str, dict]:
         """
         Returns only agents that are confirmed to be running.
         Automatically cleans up stale entries.

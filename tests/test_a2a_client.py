@@ -1,17 +1,18 @@
 """Tests for A2A Client - Google A2A protocol compliance."""
+import json
+import shutil
+from pathlib import Path
+
 import pytest
 import responses
-import json
+
 from synapse.a2a_client import (
     A2AClient,
     A2AMessage,
     A2ATask,
     ExternalAgent,
-    ExternalAgentRegistry
+    ExternalAgentRegistry,
 )
-from pathlib import Path
-import shutil
-
 
 # ============================================================
 # A2AMessage Tests

@@ -1,13 +1,13 @@
 """Tests for Agent Context module - initial instructions generation."""
 import pytest
+
 from synapse.agent_context import (
     AgentContext,
     AgentInfo,
-    build_initial_instructions,
     build_bootstrap_message,
+    build_initial_instructions,
     get_other_agents_from_registry,
 )
-
 
 # ============================================================
 # AgentInfo Model Tests

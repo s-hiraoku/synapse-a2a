@@ -325,8 +325,8 @@ A2Aエコシステムの成熟に必要なもの:
 
 | 機能 | 目的 | 設計書 |
 |------|------|--------|
-| 認証・認可 | 外部サービスとの信頼確立 | [Phase 3](../tasks/a2a/designs/phase3-design.md) |
-| HTTPS/mTLS | セキュアな通信 | [Phase 1](../tasks/a2a/designs/phase1-design.md) |
+| 認証・認可 | 外部サービスとの信頼確立 | [ロードマップ](../tasks/a2a/wrapper-improvements.md) |
+| HTTPS/mTLS | セキュアな通信 | [A2A仕様](../guides/google-a2a-spec.md) |
 | Agent Discovery | 外部エージェントの発見 | 今後設計 |
 | Rate Limiting | 外部からのアクセス制御 | 今後設計 |
 
@@ -348,7 +348,6 @@ client.discover("https://external-agent.example.com")
 ## 関連ドキュメント
 
 - [A2A設計思想と準拠性分析](./a2a-design-rationale.md)
-- [Phase 1 設計書](../tasks/a2a/designs/phase1-design.md)
-- [Phase 2 設計書](../tasks/a2a/designs/phase2-design.md)
-- [Phase 3 設計書](../tasks/a2a/designs/phase3-design.md)
-- [Google A2A 仕様](https://google.github.io/A2A/)
+- [ラッパー改善ロードマップ](../tasks/a2a/wrapper-improvements.md)
+- [Google A2A 仕様ガイド](../guides/google-a2a-spec.md)
+- [Google A2A 仕様（公式）](https://google.github.io/A2A/)

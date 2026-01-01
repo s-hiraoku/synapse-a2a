@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true,
+    "claude-mem@thedotmack": false,
+    "context7@claude-plugins-official": true,
+    "serena@claude-plugins-official": true,
+    "ralph-wiggum@claude-plugins-official": true
+  }
+}

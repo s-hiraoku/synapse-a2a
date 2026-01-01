@@ -4,7 +4,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-218%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-380%20passed-brightgreen.svg)](#テスト)
+[![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > Claude Code / Codex / Gemini などの CLI エージェントを PTY でラップし、Google A2A プロトコルで相互通信を可能にするフレームワーク
 
@@ -36,6 +37,7 @@ flowchart LR
 ## 目次
 
 - [主な特徴](#主な特徴)
+- [ユースケース](#ユースケース)
 - [クイックスタート](#クイックスタート)
 - [アーキテクチャ](#アーキテクチャ)
 - [CLI コマンド](#cli-コマンド)
@@ -52,15 +54,79 @@ flowchart LR
 
 ## 主な特徴
 
-| カテゴリ | 機能 |
-|---------|------|
-| **A2A 準拠** | 全通信が Message/Part + Task 形式、Agent Card による発見 |
-| **CLI 連携** | 既存の CLI ツールを改造せずに A2A エージェント化 |
-| **@Agent 記法** | `@claude`, `@codex-8120` で直接メッセージ送信 |
-| **送信元識別** | `metadata.sender` + PID マッチングで送信元を自動識別 |
-| **Priority Interrupt** | Priority 5 で SIGINT 送信後にメッセージ送信（緊急停止） |
-| **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当） |
-| **外部連携** | 他の Google A2A エージェントとの通信 |
+| カテゴリ               | 機能                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| **A2A 準拠**           | 全通信が Message/Part + Task 形式、Agent Card による発見 |
+| **CLI 連携**           | 既存の CLI ツールを改造せずに A2A エージェント化         |
+| **@Agent 記法**        | `@claude`, `@codex-8120` で直接メッセージ送信            |
+| **送信元識別**         | `metadata.sender` + PID マッチングで送信元を自動識別     |
+| **Priority Interrupt** | Priority 5 で SIGINT 送信後にメッセージ送信（緊急停止）  |
+| **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当）   |
+| **外部連携**           | 他の Google A2A エージェントとの通信                     |
+
+---
+
+## ユースケース
+
+### 分業・役割分担
+
+複数の AI エージェントに異なる役割を持たせて協調作業：
+
+```
+Claude: コード実装担当
+Gemini: レビュー・指摘担当
+Codex: テスト生成担当
+```
+
+### 複数視点の取得
+
+同じ問題を複数の AI に投げて比較検討：
+
+```bash
+# Claude の見解
+@claude この設計どう思う？
+
+# Gemini の見解
+@gemini 同じ質問
+```
+
+### CI/CD 連携
+
+GitHub Actions などから HTTP API でタスクを投入：
+
+```yaml
+# .github/workflows/review.yml
+- name: AI Review
+  run: |
+    curl -X POST http://your-server:8100/tasks/send \
+      -H "X-API-Key: ${{ secrets.SYNAPSE_API_KEY }}" \
+      -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "PRをレビューして"}]}}'
+```
+
+### 長時間タスクの非同期実行
+
+バックグラウンドでタスクを走らせて Webhook で完了通知：
+
+```bash
+# タスク投入
+curl -X POST http://localhost:8100/tasks/send \
+  -d '{"message": {...}}'
+
+# Webhook で Slack に通知
+# → task.completed イベントを受信
+```
+
+### SSHリモート環境との違い
+
+| 操作 | SSH | Synapse |
+|-----|-----|---------|
+| 手動でCLI操作 | ◎ | ◎ |
+| プログラムからタスク投入 | △ expect等が必要 | ◎ HTTP API |
+| 複数クライアント同時接続 | △ 複数セッション | ◎ 単一エンドポイント |
+| 進捗のリアルタイム通知 | ✗ | ◎ SSE/Webhook |
+| エージェント間の自動連携 | ✗ | ◎ @Agent記法 |
+
+> **Note**: 個人でCLI操作するだけなら SSH で十分なケースも多いです。Synapse は「自動化」「連携」「マルチエージェント」が必要な場面で真価を発揮します。
 
 ---
 
@@ -69,11 +135,21 @@ flowchart LR
 ### 1. インストール
 
 ```bash
+# 開発者向け（このリポジトリを編集する場合）
 # uv でインストール（推奨）
 uv sync
 
-# または pip
+# または pip（editable）
 pip install -e .
+```
+
+もし「使うだけ」の場合は、PyPI から通常インストールしてください。
+
+```bash
+pip install synapse-a2a
+
+# gRPC も使う場合
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. エージェントを起動
@@ -89,13 +165,20 @@ synapse codex
 synapse gemini
 ```
 
+> Note: 端末のスクロールバック表示が崩れる場合は、以下の起動方法を試してください。
+> ```bash
+> uv run synapse gemini
+> # または
+> uv run python -m synapse.cli gemini
+> ```
+
 ポートは自動割当されます：
 
 | エージェント | ポート範囲 |
-|-------------|-----------|
-| Claude      | 8100-8109 |
-| Gemini      | 8110-8119 |
-| Codex       | 8120-8129 |
+| ------------ | ---------- |
+| Claude       | 8100-8109  |
+| Gemini       | 8110-8119  |
+| Codex        | 8120-8129  |
 
 ### 3. エージェント間通信
 
@@ -151,19 +234,20 @@ Synapse では **各エージェントが A2A サーバーとして動作** し�
 ```
 
 各エージェントは：
+
 - **A2A サーバー**: 他のエージェントからのリクエストを受け付ける
 - **A2A クライアント**: 他のエージェントにリクエストを送信する
 
 ### 主要コンポーネント
 
-| コンポーネント | ファイル | 役割 |
-|---------------|---------|------|
-| FastAPI Server | `synapse/server.py` | A2A エンドポイント提供 |
-| A2A Router | `synapse/a2a_compat.py` | A2A プロトコル実装 |
-| A2A Client | `synapse/a2a_client.py` | 他エージェントへの通信 |
-| TerminalController | `synapse/controller.py` | PTY 管理、IDLE/BUSY 検出 |
-| InputRouter | `synapse/input_router.py` | @Agent パターン検出 |
-| AgentRegistry | `synapse/registry.py` | エージェント登録・検索 |
+| コンポーネント     | ファイル                  | 役割                     |
+| ------------------ | ------------------------- | ------------------------ |
+| FastAPI Server     | `synapse/server.py`       | A2A エンドポイント提供   |
+| A2A Router         | `synapse/a2a_compat.py`   | A2A プロトコル実装       |
+| A2A Client         | `synapse/a2a_client.py`   | 他エージェントへの通信   |
+| TerminalController | `synapse/controller.py`   | PTY 管理、IDLE/BUSY 検出 |
+| InputRouter        | `synapse/input_router.py` | @Agent パターン検出      |
+| AgentRegistry      | `synapse/registry.py`     | エージェント登録・検索   |
 
 ### 起動シーケンス
 
@@ -219,14 +303,14 @@ synapse claude -- --resume
 
 ### コマンド一覧
 
-| コマンド | 説明 |
-|---------|------|
-| `synapse <profile>` | フォアグラウンドで起動 |
-| `synapse start <profile>` | バックグラウンドで起動 |
-| `synapse stop <profile>` | エージェント停止 |
-| `synapse list` | 実行中エージェント一覧 |
-| `synapse logs <profile>` | ログ表示 |
-| `synapse send <target> <message>` | メッセージ送信 |
+| コマンド                          | 説明                   |
+| --------------------------------- | ---------------------- |
+| `synapse <profile>`               | フォアグラウンドで起動 |
+| `synapse start <profile>`         | バックグラウンドで起動 |
+| `synapse stop <profile>`          | エージェント停止       |
+| `synapse list`                    | 実行中エージェント一覧 |
+| `synapse logs <profile>`          | ログ表示               |
+| `synapse send <target> <message>` | メッセージ送信         |
 
 ### 外部エージェント管理
 
@@ -262,24 +346,24 @@ python3 synapse/tools/a2a.py send --target claude --priority 5 "Stop!"
 
 ### A2A 準拠
 
-| エンドポイント | メソッド | 説明 |
-|---------------|---------|------|
-| `/.well-known/agent.json` | GET | Agent Card |
-| `/tasks/send` | POST | メッセージ送信 |
-| `/tasks/send-priority` | POST | Priority 付き送信 |
-| `/tasks/{id}` | GET | タスク状態取得 |
-| `/tasks` | GET | タスク一覧 |
-| `/tasks/{id}/cancel` | POST | タスクキャンセル |
-| `/status` | GET | IDLE/BUSY 状態 |
+| エンドポイント            | メソッド | 説明              |
+| ------------------------- | -------- | ----------------- |
+| `/.well-known/agent.json` | GET      | Agent Card        |
+| `/tasks/send`             | POST     | メッセージ送信    |
+| `/tasks/send-priority`    | POST     | Priority 付き送信 |
+| `/tasks/{id}`             | GET      | タスク状態取得    |
+| `/tasks`                  | GET      | タスク一覧        |
+| `/tasks/{id}/cancel`      | POST     | タスクキャンセル  |
+| `/status`                 | GET      | IDLE/BUSY 状態    |
 
 ### 外部エージェント
 
-| エンドポイント | メソッド | 説明 |
-|---------------|---------|------|
-| `/external/discover` | POST | 外部エージェント登録 |
-| `/external/agents` | GET | 一覧 |
-| `/external/agents/{alias}` | DELETE | 削除 |
-| `/external/agents/{alias}/send` | POST | 送信 |
+| エンドポイント                  | メソッド | 説明                 |
+| ------------------------------- | -------- | -------------------- |
+| `/external/discover`            | POST     | 外部エージェント登録 |
+| `/external/agents`              | GET      | 一覧                 |
+| `/external/agents/{alias}`      | DELETE   | 削除                 |
+| `/external/agents/{alias}/send` | POST     | 送信                 |
 
 ---
 
@@ -310,9 +394,7 @@ stateDiagram-v2
   "status": "working",
   "message": {
     "role": "user",
-    "parts": [
-      {"type": "text", "text": "この設計をレビューして"}
-    ]
+    "parts": [{ "type": "text", "text": "この設計をレビューして" }]
   },
   "artifacts": [],
   "metadata": {
@@ -329,16 +411,16 @@ stateDiagram-v2
 
 ### フィールド説明
 
-| フィールド | 型 | 説明 |
-|-----------|-----|------|
-| `id` | string | タスクの一意識別子（UUID） |
-| `context_id` | string? | 会話コンテキスト ID（マルチターン用） |
-| `status` | string | `submitted` / `working` / `completed` / `failed` / `input_required` |
-| `message` | Message | 送信されたメッセージ |
-| `artifacts` | Artifact[] | タスク完了時の成果物 |
-| `metadata` | object | 送信元情報など（`metadata.sender`） |
-| `created_at` | string | 作成日時（ISO 8601） |
-| `updated_at` | string | 更新日時（ISO 8601） |
+| フィールド   | 型         | 説明                                                                |
+| ------------ | ---------- | ------------------------------------------------------------------- |
+| `id`         | string     | タスクの一意識別子（UUID）                                          |
+| `context_id` | string?    | 会話コンテキスト ID（マルチターン用）                               |
+| `status`     | string     | `submitted` / `working` / `completed` / `failed` / `input_required` |
+| `message`    | Message    | 送信されたメッセージ                                                |
+| `artifacts`  | Artifact[] | タスク完了時の成果物                                                |
+| `metadata`   | object     | 送信元情報など（`metadata.sender`）                                 |
+| `created_at` | string     | 作成日時（ISO 8601）                                                |
+| `updated_at` | string     | 更新日時（ISO 8601）                                                |
 
 ### Message 構造
 
@@ -346,17 +428,24 @@ stateDiagram-v2
 {
   "role": "user",
   "parts": [
-    {"type": "text", "text": "メッセージ内容"},
-    {"type": "file", "file": {"name": "doc.pdf", "mimeType": "application/pdf", "bytes": "..."}}
+    { "type": "text", "text": "メッセージ内容" },
+    {
+      "type": "file",
+      "file": {
+        "name": "doc.pdf",
+        "mimeType": "application/pdf",
+        "bytes": "..."
+      }
+    }
   ]
 }
 ```
 
-| Part タイプ | 説明 |
-|------------|------|
-| `text` | テキストメッセージ |
-| `file` | ファイル添付 |
-| `data` | 構造化データ |
+| Part タイプ | 説明               |
+| ----------- | ------------------ |
+| `text`      | テキストメッセージ |
+| `file`      | ファイル添付       |
+| `data`      | 構造化データ       |
 
 ### 初期指示 Task
 
@@ -368,7 +457,9 @@ stateDiagram-v2
   "status": "working",
   "message": {
     "role": "user",
-    "parts": [{"type": "text", "text": "[Synapse A2A Protocol Instructions]\n\n..."}]
+    "parts": [
+      { "type": "text", "text": "[Synapse A2A Protocol Instructions]\n\n..." }
+    ]
   },
   "metadata": {
     "sender": {
@@ -381,6 +472,7 @@ stateDiagram-v2
 ```
 
 PTY 出力形式：
+
 ```
 [A2A:init1234:synapse-system] [Synapse A2A Protocol Instructions]
 
@@ -396,6 +488,7 @@ You are participating in a multi-agent environment connected via the Synapse A2A
 ```
 
 初期指示には以下が含まれます：
+
 - エージェントの identity（ID, type, port）
 - @Agent でのメッセージ送信方法
 - 利用可能な他のエージェント一覧
@@ -414,6 +507,7 @@ A2A メッセージの送信元は `metadata.sender` で識別できます。
 ```
 
 例：
+
 ```
 [A2A:abc12345:synapse-claude-8100] この設計をレビューしてください
 ```
@@ -425,6 +519,7 @@ curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
 ```
 
 レスポンス：
+
 ```json
 {
   "sender_id": "synapse-claude-8100",
@@ -443,10 +538,10 @@ curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
 
 ## Priority（優先度）
 
-| Priority | 動作 | 用途 |
-|----------|------|------|
-| 1-4 | 通常の stdin 書き込み | 通常メッセージ |
-| 5 | SIGINT 送信後に書き込み | 緊急停止 |
+| Priority | 動作                    | 用途           |
+| -------- | ----------------------- | -------------- |
+| 1-4      | 通常の stdin 書き込み   | 通常メッセージ |
+| 5        | SIGINT 送信後に書き込み | 緊急停止       |
 
 ```bash
 # 緊急停止
@@ -474,8 +569,16 @@ curl http://localhost:8100/.well-known/agent.json
     "multiTurn": true
   },
   "skills": [
-    {"id": "chat", "name": "Chat", "description": "Send messages to the CLI agent"},
-    {"id": "interrupt", "name": "Interrupt", "description": "Interrupt current processing"}
+    {
+      "id": "chat",
+      "name": "Chat",
+      "description": "Send messages to the CLI agent"
+    },
+    {
+      "id": "interrupt",
+      "name": "Interrupt",
+      "description": "Interrupt current processing"
+    }
   ],
   "extensions": {
     "synapse": {
@@ -491,6 +594,7 @@ curl http://localhost:8100/.well-known/agent.json
 ### 設計思想
 
 Agent Card は「名刺」として他者向け情報のみを含みます：
+
 - capabilities, skills, endpoint など
 - 内部指示は含まない（起動時に A2A Task で送信）
 
@@ -510,6 +614,7 @@ Agent Card は「名刺」として他者向け情報のみを含みます：
 ### 自動クリーンアップ
 
 stale エントリは以下の操作で自動削除：
+
 - `synapse list` 実行時
 - メッセージ送信時（対象が死んでいる場合）
 
@@ -583,18 +688,99 @@ uvx synapse-a2a claude
 
 - **TUI 描画**: Ink ベースの CLI で描画が乱れる場合あり
 - **PTY 制限**: 一部の特殊入力シーケンスは未対応
-- **Streaming**: 未対応
+
+---
+
+## エンタープライズ機能
+
+本番環境向けのセキュリティ・通知・高性能通信機能を提供します。
+
+### API Key 認証
+
+```bash
+# 認証を有効にして起動
+export SYNAPSE_AUTH_ENABLED=true
+export SYNAPSE_API_KEYS=my-secret-key
+synapse claude
+
+# API Key でリクエスト
+curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+```
+
+### Webhook 通知
+
+タスク完了時に外部 URL へ通知を送信します。
+
+```bash
+# Webhook を登録
+curl -X POST http://localhost:8100/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-server.com/hook", "events": ["task.completed"]}'
+```
+
+| イベント | 説明 |
+|---------|------|
+| `task.completed` | タスク正常完了 |
+| `task.failed` | タスク失敗 |
+| `task.canceled` | タスクキャンセル |
+
+### SSE ストリーミング
+
+リアルタイムでタスク出力を受信できます。
+
+```bash
+curl -N http://localhost:8100/tasks/{task_id}/subscribe
+```
+
+イベントタイプ:
+
+| イベント | 説明 |
+|---------|------|
+| `output` | 新しい CLI 出力 |
+| `status` | ステータス変更 |
+| `done` | タスク完了（Artifact 含む） |
+
+### 出力解析
+
+CLI 出力を自動解析し、エラー検出・ステータス更新・Artifact 生成を行います。
+
+```bash
+# エラー検出 → 自動的に failed ステータス
+# input_required 検出 → 追加入力待ち状態
+# 出力パース → コードブロック・ファイル参照を Artifact に変換
+```
+
+| 機能 | 説明 |
+|------|------|
+| エラー検出 | `command not found`, `permission denied` 等を検出 |
+| input_required | 質問・確認プロンプトを検出 |
+| 出力パーサー | コード/ファイル/エラーを構造化 |
+
+### gRPC サポート
+
+高性能通信が必要な場合は gRPC を使用できます。
+
+```bash
+# gRPC 依存をインストール
+pip install synapse-a2a[grpc]
+
+# gRPC は REST ポート + 1 で起動
+# REST: 8100 → gRPC: 8101
+```
+
+詳細は [guides/enterprise.md](guides/enterprise.md) を参照してください。
 
 ---
 
 ## ドキュメント
 
-| パス | 内容 |
-|-----|------|
-| [guides/usage.md](guides/usage.md) | 使い方詳細 |
-| [guides/architecture.md](guides/architecture.md) | アーキテクチャ詳細 |
-| [guides/troubleshooting.md](guides/troubleshooting.md) | トラブルシューティング |
-| [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想 |
+| パス                                                     | 内容                   |
+| -------------------------------------------------------- | ---------------------- |
+| [guides/usage.md](guides/usage.md)                       | 使い方詳細             |
+| [guides/architecture.md](guides/architecture.md)         | アーキテクチャ詳細     |
+| [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
+| [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
+| [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
 
 ---
 

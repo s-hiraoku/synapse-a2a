@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Flow (Mandatory)
+
+1. When receiving a feature request or modification, write tests first
+2. Present the tests to confirm the specification
+3. Proceed to implementation only after confirmation
+4. Adjust implementation until all tests pass
+
 ## Project Overview
 
 Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
@@ -55,6 +62,7 @@ synapse/
 ## Key Flows
 
 **Startup Sequence**:
+
 1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `[A2A:id:synapse-system]` prefix
 
 **@Agent Routing**:
@@ -63,10 +71,33 @@ User types `@codex review this` → InputRouter detects pattern → A2AClient.se
 **IDLE Detection**:
 `idle_regex` in profile YAML matches PTY output to detect when agent is ready for input.
 
+## Profile Configuration Notes
+
+### Claude Code (Ink TUI)
+
+Claude Code uses Ink-based TUI which requires special handling:
+
+```yaml
+# synapse/profiles/claude.yaml
+idle_regex: "BRACKETED_PASTE_MODE" # Detects ESC[?2004h
+submit_sequence: "\r" # CR required (not LF or CRLF)
+```
+
+- **IDLE Detection**: Uses `BRACKETED_PASTE_MODE` pattern which detects `ESC[?2004h` (bracketed paste mode enabled)
+- **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
+- See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
+
+### Other Agents (Gemini, Codex)
+
+Standard terminal apps use simpler configuration:
+
+- `idle_regex`: Plain text prompt pattern (e.g., `"> "`)
+- `submit_sequence`: `\r` (standard CR)
+
 ## Port Ranges
 
 | Agent  | Ports     |
-|--------|-----------|
+| ------ | --------- |
 | Claude | 8100-8109 |
 | Gemini | 8110-8119 |
 | Codex  | 8120-8129 |

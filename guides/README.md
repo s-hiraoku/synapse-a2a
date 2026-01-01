@@ -16,7 +16,8 @@
 - **HTTP API**: RESTful な `/tasks/send` エンドポイントによるプログラマティックな制御
 - **Agent Card 対応**: `/.well-known/agent.json` による標準的なサービスディスカバリ
 - **外部エージェント連携**: 外部で動作する A2A 互換エージェントとの接続
-- **84 件のテストによる品質保証**: A2A 準拠性を継続的に検証
+- **エンタープライズ機能**: API Key 認証、Webhook 通知、gRPC サポート
+- **366 件のテストによる品質保証**: A2A 準拠性を継続的に検証
 
 ---
 
@@ -33,6 +34,7 @@ flowchart TD
 
     subgraph Configuration["設定"]
         Profiles["profiles.md<br/>プロファイル設定"]
+        Enterprise["enterprise.md<br/>エンタープライズ機能"]
     end
 
     subgraph Technical["技術詳細"]
@@ -95,6 +97,21 @@ flowchart TD
   - `env`: 環境変数
 - デフォルトプロファイル（claude, codex, gemini, dummy）
 - カスタムプロファイルの作成方法
+
+### [enterprise.md](enterprise.md)
+**エンタープライズ機能ガイド**
+
+- API Key 認証の設定と使い方
+- Webhook 通知の設定
+  - イベントタイプ（task.completed, task.failed, task.canceled）
+  - HMAC 署名検証
+  - リトライ機能
+- gRPC サポート
+  - Protocol Buffers 定義
+  - Python クライアント例
+- セキュリティベストプラクティス
+
+> 本番環境での運用にはこちらを参照してください
 
 ---
 
@@ -236,6 +253,7 @@ guides/
 ├── multi-agent-setup.md   # セットアップガイド
 ├── usage.md               # 使い方詳細
 ├── profiles.md            # プロファイル設定
+├── enterprise.md          # エンタープライズ機能（認証・Webhook・gRPC）
 ├── architecture.md        # アーキテクチャ
 ├── references.md          # API/CLI リファレンス
 ├── troubleshooting.md     # トラブルシューティング

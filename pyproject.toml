@@ -24,6 +24,15 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "httpx>=0.24.0",
+    "responses>=0.23.0",
+    "ruff>=0.8.0",
+    "ty>=0.0.1a7",
+]
+grpc = [
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "protobuf>=4.25.0",
 ]
 
 [project.scripts]
@@ -33,3 +42,18 @@ synapse-hook = "synapse.shell_hook:main"
 
 [tool.setuptools.packages.find]
 include = ["synapse*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = [
+    "synapse/proto/a2a_pb2.py",
+    "synapse/proto/a2a_pb2_grpc.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.format]
+quote-style = "double"

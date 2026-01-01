@@ -1,6 +1,10 @@
+# Claude Code CLI profile
+# Uses Ink-based TUI which requires CR for input submission (Claude Code v2.0.76)
 command: "claude"
 args: []
-idle_regex: "> "
+# BRACKETED_PASTE_MODE detects ESC[?2004h (TUI ready for input)
+idle_regex: "BRACKETED_PASTE_MODE"
+# CR required for Claude Code's Ink TUI to process Enter key
 submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
