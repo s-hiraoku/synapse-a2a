@@ -38,7 +38,7 @@ Synapse A2A は以下のエンタープライズ機能を提供します：
 
 API Key 認証により、Synapse A2A のエンドポイントへのアクセスを制御できます。
 
-```
+```text
 ┌─────────────┐     X-API-Key: xxx     ┌─────────────────┐
 │   Client    │ ─────────────────────► │  Synapse A2A    │
 │             │                        │  (認証有効)      │
@@ -105,7 +105,7 @@ synapse auth setup
 
 `synapse auth setup` の出力例:
 
-```
+```text
 ============================================================
 Synapse A2A Authentication Setup
 ============================================================
@@ -209,7 +209,7 @@ export SYNAPSE_ALLOW_LOCALHOST=false
 
 タスクの状態変化を外部 URL に通知できます。CI/CD パイプラインや監視システムとの連携に便利です。
 
-```
+```text
 ┌─────────────────┐    task.completed    ┌─────────────────┐
 │  Synapse A2A    │ ───────────────────► │  Your Server    │
 │                 │                      │  (Webhook URL)  │
@@ -311,7 +311,7 @@ def handle_webhook():
 
 Webhook リクエストには HMAC-SHA256 署名が含まれます。
 
-```
+```text
 X-Webhook-Signature: sha256=abc123...
 ```
 
@@ -387,7 +387,7 @@ curl http://localhost:8100/webhooks/deliveries \
 
 Server-Sent Events (SSE) を使って、タスクの出力をリアルタイムで受信できます。ポーリング不要で効率的な監視が可能です。
 
-```
+```text
 ┌─────────────────┐                       ┌─────────────────┐
 │  Client         │ ─── GET /subscribe ──►│  Synapse A2A    │
 │                 │ ◄── SSE events ───────│                 │
@@ -429,7 +429,7 @@ curl -N http://localhost:8100/tasks/${TASK_ID}/subscribe
 
 ### イベント例
 
-```
+```text
 data: {"type": "output", "data": "Processing request..."}
 
 data: {"type": "status", "status": "working"}
@@ -663,7 +663,7 @@ curl -N http://localhost:8100/tasks/${TASK_ID}/subscribe
 
 `done` イベントに Artifact が含まれます：
 
-```
+```text
 data: {"type": "done", "status": "completed", "artifacts": [...]}
 ```
 
@@ -680,7 +680,7 @@ data: {"type": "done", "status": "completed", "artifacts": [...]}
 
 gRPC は HTTP/2 ベースの高性能 RPC フレームワークです。大量のリクエストや低レイテンシ要件がある場合に有効です。
 
-```
+```text
 ┌─────────────────┐     Protocol Buffers    ┌─────────────────┐
 │  gRPC Client    │ ◄─────────────────────► │  Synapse gRPC   │
 │  (任意の言語)    │         HTTP/2          │  Server         │
