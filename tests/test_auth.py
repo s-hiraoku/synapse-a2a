@@ -95,6 +95,26 @@ class TestLoadAuthConfig:
             config = load_auth_config()
             assert config.admin_key_hash is not None
 
+    def test_load_config_allow_localhost_default(self):
+        """Test that allow_localhost is True by default."""
+        reset_auth_config()
+        config = load_auth_config()
+        assert config.allow_localhost is True
+
+    def test_load_config_allow_localhost_disabled(self):
+        """Test that allow_localhost can be disabled via environment variable."""
+        with patch.dict(os.environ, {"SYNAPSE_ALLOW_LOCALHOST": "false"}):
+            reset_auth_config()
+            config = load_auth_config()
+            assert config.allow_localhost is False
+
+    def test_load_config_allow_localhost_explicit_true(self):
+        """Test that allow_localhost can be explicitly enabled."""
+        with patch.dict(os.environ, {"SYNAPSE_ALLOW_LOCALHOST": "true"}):
+            reset_auth_config()
+            config = load_auth_config()
+            assert config.allow_localhost is True
+
 
 class TestValidateApiKey:
     """Tests for API key validation."""

@@ -18,6 +18,7 @@ from fastapi.security import APIKeyHeader, APIKeyQuery
 ENV_API_KEYS = "SYNAPSE_API_KEYS"  # Comma-separated list of valid API keys
 ENV_AUTH_ENABLED = "SYNAPSE_AUTH_ENABLED"  # "true" to enable, default disabled
 ENV_ADMIN_KEY = "SYNAPSE_ADMIN_KEY"  # Admin key for management operations
+ENV_ALLOW_LOCALHOST = "SYNAPSE_ALLOW_LOCALHOST"  # "false" to require auth for localhost
 
 
 @dataclass
@@ -74,10 +75,15 @@ def load_auth_config() -> AuthConfig:
     admin_key = os.environ.get(ENV_ADMIN_KEY)
     admin_key_hash = hash_key(admin_key) if admin_key else None
 
+    # Allow localhost by default, unless explicitly disabled
+    allow_localhost_str = os.environ.get(ENV_ALLOW_LOCALHOST, "true").lower()
+    allow_localhost = allow_localhost_str != "false"
+
     _auth_config = AuthConfig(
         enabled=enabled,
         api_keys=api_keys,
         admin_key_hash=admin_key_hash,
+        allow_localhost=allow_localhost,
     )
 
     return _auth_config
