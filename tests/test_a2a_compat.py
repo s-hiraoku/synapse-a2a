@@ -1,20 +1,19 @@
 """Tests for A2A Compatibility Layer - Google A2A protocol compliance."""
-import pytest
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
-from synapse.a2a_compat import (
-    TaskStore,
-    Task,
-    Message,
-    TextPart,
-    FilePart,
-    DataPart,
-    Artifact,
-    SendMessageRequest,
-    create_a2a_router,
-    map_synapse_status_to_a2a
-)
+from unittest.mock import MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
+
+from synapse.a2a_compat import (
+    Artifact,
+    DataPart,
+    FilePart,
+    Message,
+    TaskStore,
+    TextPart,
+    create_a2a_router,
+    map_synapse_status_to_a2a,
+)
 
 # ============================================================
 # Message/Part Model Tests
@@ -576,7 +575,7 @@ class TestSSEStreaming:
         app.include_router(router)
         return TestClient(app)
 
-    def test_subscribe_endpoint_exists(self, client, mock_controller):
+    def test_subscribe_endpoint_exists(self, client, mock_controller):  # noqa: ARG002
         """GET /tasks/{id}/subscribe should exist."""
         # Create a task first
         payload = {
@@ -597,12 +596,12 @@ class TestSSEStreaming:
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
 
-    def test_subscribe_returns_404_for_nonexistent_task(self, client, mock_controller):
+    def test_subscribe_returns_404_for_nonexistent_task(self, client, mock_controller):  # noqa: ARG002
         """Subscribe should return 404 for nonexistent task."""
         response = client.get("/tasks/nonexistent-id/subscribe")
         assert response.status_code == 404
 
-    def test_agent_card_streaming_capability(self, client, mock_controller):
+    def test_agent_card_streaming_capability(self, client, mock_controller):  # noqa: ARG002
         """Agent card should indicate streaming capability."""
         response = client.get("/.well-known/agent.json")
         assert response.status_code == 200

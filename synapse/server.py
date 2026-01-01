@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -309,6 +310,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Synapse A2A Server")
     parser.add_argument("--profile", default="claude", help="Agent profile (claude, codex, gemini, dummy)")
     parser.add_argument("--port", type=int, default=8100, help="Server port")
+    parser.add_argument("--host", default="127.0.0.1", help="Server host (default: localhost only)")
     parser.add_argument("--ssl-cert", default=None, help="SSL certificate file path")
     parser.add_argument("--ssl-key", default=None, help="SSL private key file path")
     args = parser.parse_args()
@@ -320,9 +322,15 @@ if __name__ == "__main__":
     # Configure SSL if certificates provided
     ssl_config = {}
     if args.ssl_cert and args.ssl_key:
+        if not os.path.isfile(args.ssl_cert):
+            print(f"Error: SSL certificate not found: {args.ssl_cert}")
+            sys.exit(1)
+        if not os.path.isfile(args.ssl_key):
+            print(f"Error: SSL key not found: {args.ssl_key}")
+            sys.exit(1)
         ssl_config["ssl_certfile"] = args.ssl_cert
         ssl_config["ssl_keyfile"] = args.ssl_key
         os.environ["SYNAPSE_USE_HTTPS"] = "true"
         print(f"HTTPS enabled with certificate: {args.ssl_cert}")
 
-    uvicorn.run(app, host="0.0.0.0", port=args.port, **ssl_config)
+    uvicorn.run(app, host=args.host, port=args.port, **ssl_config)

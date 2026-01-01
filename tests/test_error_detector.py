@@ -1,13 +1,10 @@
 """Tests for error_detector module."""
 
-import pytest
 from synapse.error_detector import (
     detect_error,
     detect_task_status,
     is_input_required,
-    TaskError,
 )
-
 
 # ============================================================
 # Error Detection Tests

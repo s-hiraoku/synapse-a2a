@@ -7,9 +7,8 @@ These tests verify the behavior of extracted utility functions:
 - a2a_client.py: Consolidated task completion wait logic
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 
 class TestConfig:
@@ -18,14 +17,14 @@ class TestConfig:
     def test_timeout_constants_exist(self):
         """Verify timeout constants are defined."""
         from synapse.config import (
-            STARTUP_DELAY,
-            OUTPUT_IDLE_THRESHOLD,
+            AGENT_WAIT_TIMEOUT,
             IDENTITY_WAIT_TIMEOUT,
-            WRITE_PROCESSING_DELAY,
+            OUTPUT_IDLE_THRESHOLD,
+            PORT_CHECK_TIMEOUT,
             POST_WRITE_IDLE_DELAY,
             REQUEST_TIMEOUT,
-            PORT_CHECK_TIMEOUT,
-            AGENT_WAIT_TIMEOUT,
+            STARTUP_DELAY,
+            WRITE_PROCESSING_DELAY,
         )
 
         assert STARTUP_DELAY == 3
@@ -40,10 +39,10 @@ class TestConfig:
     def test_buffer_size_constants_exist(self):
         """Verify buffer size constants are defined."""
         from synapse.config import (
-            OUTPUT_BUFFER_MAX,
-            IDLE_CHECK_WINDOW,
-            CONTEXT_RECENT_SIZE,
             API_RESPONSE_CONTEXT_SIZE,
+            CONTEXT_RECENT_SIZE,
+            IDLE_CHECK_WINDOW,
+            OUTPUT_BUFFER_MAX,
         )
 
         assert OUTPUT_BUFFER_MAX == 10000
@@ -139,7 +138,7 @@ class TestA2AClientWaitLogic:
 
     def test_wait_for_task_completion_success(self):
         """Wait for task to complete successfully."""
-        from synapse.a2a_client import A2AClient, A2ATask
+        from synapse.a2a_client import A2AClient
 
         client = A2AClient()
 

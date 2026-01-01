@@ -1,17 +1,15 @@
 """Tests for webhook notifications module."""
 
 import asyncio
-import os
-import pytest
-from datetime import datetime
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 
 from synapse.webhooks import (
     WebhookConfig,
-    WebhookEvent,
     WebhookDelivery,
+    WebhookEvent,
     WebhookRegistry,
     compute_signature,
     deliver_webhook,
@@ -23,7 +21,7 @@ from synapse.webhooks import (
 
 def run_async(coro):
     """Helper to run async functions in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 @pytest.fixture(autouse=True)

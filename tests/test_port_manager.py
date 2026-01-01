@@ -1,19 +1,20 @@
 """Tests for port manager module."""
 
-import os
 import json
-import socket
-import pytest
+import os
 import shutil
+import socket
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from synapse.port_manager import (
+    PORT_RANGES,
     PortManager,
     get_port_range,
     is_port_available,
     is_process_alive,
-    PORT_RANGES,
 )
 from synapse.registry import AgentRegistry
 
@@ -113,7 +114,7 @@ class TestPortManager:
         registry.register("synapse-claude-8100", "claude", 8100)
         # Manually set a dead PID
         file_path = registry.registry_dir / "synapse-claude-8100.json"
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             data = json.load(f)
         data["pid"] = 99999999  # Non-existent PID
         with open(file_path, 'w') as f:
@@ -158,7 +159,7 @@ class TestPortManager:
         # Register with fake dead PID
         registry.register("synapse-claude-8100", "claude", 8100)
         file_path = registry.registry_dir / "synapse-claude-8100.json"
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             data = json.load(f)
         data["pid"] = 99999999  # Non-existent PID
         with open(file_path, 'w') as f:

@@ -44,7 +44,7 @@ ERROR_PATTERNS: list[tuple[str, str, str]] = [
 ]
 
 
-def detect_error(output: str) -> TaskError | None:
+def detect_error(output: str | None) -> TaskError | None:
     """
     Detect error patterns in CLI output.
 

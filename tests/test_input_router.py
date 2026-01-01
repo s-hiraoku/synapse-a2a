@@ -1,9 +1,10 @@
 """Tests for InputRouter - @Agent pattern detection and A2A routing."""
-import pytest
-from unittest.mock import MagicMock, patch, call
-from synapse.input_router import InputRouter
-from synapse.a2a_client import A2ATask
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from synapse.a2a_client import A2ATask
+from synapse.input_router import InputRouter
 
 # ============================================================
 # Pattern Detection Tests

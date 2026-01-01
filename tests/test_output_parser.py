@@ -1,11 +1,10 @@
 """Tests for output parser module."""
 
-import pytest
 from synapse.output_parser import (
     ParsedSegment,
     extract_code_blocks,
-    extract_file_references,
     extract_errors,
+    extract_file_references,
     parse_output,
     segments_to_artifacts,
 )

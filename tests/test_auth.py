@@ -2,32 +2,30 @@
 
 import asyncio
 import os
-import pytest
 from unittest.mock import MagicMock, patch
-from fastapi import HTTPException
+
+import pytest
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from fastapi import FastAPI, Depends
 
 from synapse.auth import (
     APIKeyInfo,
-    AuthConfig,
-    hash_key,
     generate_api_key,
-    load_auth_config,
-    reset_auth_config,
-    validate_api_key,
+    hash_key,
     is_admin_key,
     is_localhost,
-    require_auth,
+    load_auth_config,
     require_admin,
+    require_auth,
     require_scope,
-    get_api_key,
+    reset_auth_config,
+    validate_api_key,
 )
 
 
 def run_async(coro):
     """Helper to run async functions in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 @pytest.fixture(autouse=True)
@@ -123,6 +121,26 @@ class TestValidateApiKey:
     def test_validate_empty_key(self):
         result = validate_api_key("")
         assert result is None
+
+    def test_validate_expired_key(self):
+        """Expired key should be rejected."""
+        from datetime import datetime, timedelta, timezone
+
+
+        # Create an expired key
+        expired_key = "expired-test-key"
+        expired_key_info = APIKeyInfo(
+            key_hash=hash_key(expired_key),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
+        )
+
+        with patch.dict(os.environ, {"SYNAPSE_AUTH_ENABLED": "true"}):
+            reset_auth_config()
+            # Manually add expired key to config
+            config = load_auth_config()
+            config.api_keys.append(expired_key_info)
+            result = validate_api_key(expired_key)
+            assert result is None
 
 
 class TestIsAdminKey:

@@ -1,12 +1,12 @@
 """Tests for gRPC server module."""
 
-import pytest
 from unittest.mock import MagicMock, patch
-from datetime import datetime
+
+import pytest
 
 from synapse.grpc_server import (
-    check_grpc_available,
     GrpcServicer,
+    check_grpc_available,
     create_grpc_server,
 )
 

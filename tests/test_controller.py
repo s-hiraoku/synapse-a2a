@@ -1,9 +1,11 @@
 """Tests for TerminalController identity instruction functionality."""
 
-import pytest
 import threading
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
+import pytest
+
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 
@@ -560,7 +562,6 @@ class TestControllerInitialization:
 
     def test_default_env_uses_system_environ(self):
         """Default env should be a copy of os.environ."""
-        import os
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
