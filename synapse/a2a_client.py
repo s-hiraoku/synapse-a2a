@@ -427,8 +427,9 @@ class A2AClient:
         timeout: int
     ) -> A2ATask | None:
         """Wait for a task to complete on external agent."""
+        base_url = agent.url.rstrip("/") + "/"
         return self._wait_for_task_completion(
-            get_task_url=lambda: urljoin(agent.url.rstrip("/") + "/", f"tasks/{task_id}"),
+            get_task_url=lambda: urljoin(base_url, f"tasks/{task_id}"),
             task_id=task_id,
             timeout=timeout,
         )

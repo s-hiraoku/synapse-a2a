@@ -21,7 +21,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Environment variables
-ENV_WEBHOOK_SECRET = "SYNAPSE_WEBHOOK_SECRET"
+ENV_WEBHOOK_SECRET = "SYNAPSE_WEBHOOK_SECRET"  # noqa: S105 (env var name)
 ENV_WEBHOOK_TIMEOUT = "SYNAPSE_WEBHOOK_TIMEOUT"
 ENV_WEBHOOK_MAX_RETRIES = "SYNAPSE_WEBHOOK_MAX_RETRIES"
 
@@ -199,7 +199,9 @@ async def deliver_webhook(
                 if 200 <= response.status_code < 300:
                     delivery.success = True
                     delivery.delivered_at = datetime.now(timezone.utc)
-                    logger.info(f"Webhook delivered: {webhook.url} ({event.event_type})")
+                    logger.info(
+                        f"Webhook delivered: {webhook.url} ({event.event_type})"
+                    )
                     break
                 else:
                     logger.warning(

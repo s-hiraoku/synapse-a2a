@@ -133,8 +133,8 @@ class AgentSkill(BaseModel):
 class AgentCapabilities(BaseModel):
     """Agent capabilities declaration"""
     streaming: bool = False
-    pushNotifications: bool = False
-    multiTurn: bool = True
+    pushNotifications: bool = False  # noqa: N815 (A2A protocol spec)
+    multiTurn: bool = True  # noqa: N815 (A2A protocol spec)
 
 
 class AgentCard(BaseModel):
@@ -145,7 +145,7 @@ class AgentCard(BaseModel):
     version: str = "1.0.0"
     capabilities: AgentCapabilities
     skills: list[AgentSkill] = []
-    securitySchemes: dict[str, Any] = {}
+    securitySchemes: dict[str, Any] = {}  # noqa: N815 (A2A protocol spec)
     # Synapse A2A extensions
     extensions: dict[str, Any] = {}
 
@@ -368,7 +368,9 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.post("/tasks/send", response_model=SendMessageResponse)
-    async def send_message(request: SendMessageRequest, _=Depends(require_auth)):
+    async def send_message(  # noqa: B008
+        request: SendMessageRequest, _=Depends(require_auth)
+    ):
         """
         Send a message to the agent (Google A2A compatible).
 
@@ -395,12 +397,17 @@ def create_a2a_router(
 
         # Send to PTY with A2A task reference for sender identification
         try:
-            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            sender_id = "unknown"
+            if request.metadata:
+                sender_id = request.metadata.get("sender", {}).get(
+                    "sender_id", "unknown"
+                )
             prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
-            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}") from e
+            msg = f"Failed to send: {e!s}"
+            raise HTTPException(status_code=500, detail=msg) from e
 
         # Get updated task
         updated_task = task_store.get(task.id)
@@ -409,7 +416,7 @@ def create_a2a_router(
         return SendMessageResponse(task=updated_task)
 
     @router.get("/tasks/{task_id}", response_model=Task)
-    async def get_task(task_id: str, _=Depends(require_auth)):
+    async def get_task(task_id: str, _=Depends(require_auth)):  # noqa: B008
         """
         Get task status and results.
 
@@ -441,10 +448,14 @@ def create_a2a_router(
                         data=error.data
                     ))
                     # Dispatch webhook for failed task
+                    error_payload = {
+                        "task_id": task_id,
+                        "error": {"code": error.code, "message": error.message}
+                    }
                     asyncio.create_task(dispatch_event(
                         get_webhook_registry(),
                         "task.failed",
-                        {"task_id": task_id, "error": {"code": error.code, "message": error.message}}
+                        error_payload
                     ))
                 else:
                     task_store.update_status(task_id, "completed")
@@ -481,12 +492,14 @@ def create_a2a_router(
         return task
 
     @router.get("/tasks", response_model=list[Task])
-    async def list_tasks(context_id: str | None = None, _=Depends(require_auth)):
+    async def list_tasks(  # noqa: B008
+        context_id: str | None = None, _=Depends(require_auth)
+    ):
         """List all tasks, optionally filtered by context. Requires authentication."""
         return task_store.list_tasks(context_id)
 
     @router.post("/tasks/{task_id}/cancel")
-    async def cancel_task(task_id: str, _=Depends(require_auth)):
+    async def cancel_task(task_id: str, _=Depends(require_auth)):  # noqa: B008
         """
         Cancel a running task.
 
@@ -523,7 +536,9 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.get("/tasks/{task_id}/subscribe")
-    async def subscribe_to_task(task_id: str, _=Depends(require_auth)):
+    async def subscribe_to_task(  # noqa: B008
+        task_id: str, _=Depends(require_auth)
+    ):
         """
         Subscribe to task output via Server-Sent Events.
 
@@ -545,13 +560,15 @@ def create_a2a_router(
             while True:
                 current_task = task_store.get(task_id)
                 if not current_task:
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Task not found'})}\n\n"
+                    err = {"type": "error", "message": "Task not found"}
+                    yield f"data: {json.dumps(err)}\n\n"
                     break
 
                 # Check for status change
                 if current_task.status != last_status:
                     last_status = current_task.status
-                    yield f"data: {json.dumps({'type': 'status', 'status': current_task.status})}\n\n"
+                    evt = {"type": "status", "status": current_task.status}
+                    yield f"data: {json.dumps(evt)}\n\n"
 
                 # Stream new output if controller is available
                 if controller:
@@ -559,7 +576,8 @@ def create_a2a_router(
                     if len(context) > last_len:
                         new_content = context[last_len:]
                         last_len = len(context)
-                        yield f"data: {json.dumps({'type': 'output', 'data': new_content})}\n\n"
+                        evt = {"type": "output", "data": new_content}
+                        yield f"data: {json.dumps(evt)}\n\n"
 
                 # Check for terminal states
                 if current_task.status in ("completed", "failed", "canceled"):
@@ -594,7 +612,7 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
-    async def send_priority_message(
+    async def send_priority_message(  # noqa: B008
         request: SendMessageRequest,
         priority: int = 1,
         _=Depends(require_auth)
@@ -627,12 +645,17 @@ def create_a2a_router(
 
         # Send to PTY with A2A task reference for sender identification
         try:
-            sender_id = request.metadata.get("sender", {}).get("sender_id", "unknown") if request.metadata else "unknown"
+            sender_id = "unknown"
+            if request.metadata:
+                sender_id = request.metadata.get("sender", {}).get(
+                    "sender_id", "unknown"
+                )
             prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")
-            raise HTTPException(status_code=500, detail=f"Failed to send: {str(e)}") from e
+            msg = f"Failed to send: {e!s}"
+            raise HTTPException(status_code=500, detail=msg) from e
 
         updated_task = task_store.get(task.id)
         if not updated_task:
@@ -644,7 +667,9 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.post("/external/discover", response_model=ExternalAgentInfo)
-    async def discover_external_agent(request: DiscoverAgentRequest, _=Depends(require_auth)):
+    async def discover_external_agent(  # noqa: B008
+        request: DiscoverAgentRequest, _=Depends(require_auth)
+    ):
         """
         Discover and register an external Google A2A agent.
 
