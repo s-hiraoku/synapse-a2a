@@ -59,4 +59,6 @@ def get_iso_timestamp() -> str:
     Returns:
         ISO formatted timestamp string (e.g., "2024-01-15T10:30:00.123456Z")
     """
-    return datetime.now(timezone.utc).isoformat() + "Z"
+    # Use replace to remove timezone info before adding Z suffix
+    # to avoid invalid format like "2024-01-15T10:30:00+00:00Z"
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"

@@ -10,7 +10,7 @@ import hmac
 import json
 import logging
 import os
-import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -43,7 +43,7 @@ class WebhookEvent:
     event_type: str
     payload: dict[str, Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    id: str = field(default_factory=lambda: hashlib.sha256(str(time.time()).encode()).hexdigest()[:16])
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:16])
 
 
 @dataclass
@@ -259,8 +259,12 @@ async def dispatch_event(
         for webhook in webhooks
     ]
 
-    deliveries = await asyncio.gather(*tasks)
-    return list(deliveries)
+    # Use return_exceptions=True to ensure all webhooks are attempted
+    # even if one fails
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    # Filter out exceptions, keeping only successful deliveries
+    deliveries = [r for r in results if isinstance(r, WebhookDelivery)]
+    return deliveries
 
 
 # Global registry instance
