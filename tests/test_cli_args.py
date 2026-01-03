@@ -99,24 +99,24 @@ class TestToolArgsMerging:
 
     def test_empty_profile_with_cli_args(self):
         """Profile args=[], CLI args=['--model', 'opus']"""
-        profile_args = []
-        tool_args = ["--model", "opus"]
+        profile_args: list[str] = []
+        tool_args: list[str] = ["--model", "opus"]
         all_args = profile_args + tool_args
 
         assert all_args == ["--model", "opus"]
 
     def test_profile_args_with_cli_args(self):
         """Profile args should come before CLI args."""
-        profile_args = ["--foo", "bar"]
-        tool_args = ["--model", "opus"]
+        profile_args: list[str] = ["--foo", "bar"]
+        tool_args: list[str] = ["--model", "opus"]
         all_args = profile_args + tool_args
 
         assert all_args == ["--foo", "bar", "--model", "opus"]
 
     def test_empty_both(self):
         """Both empty should result in empty list."""
-        profile_args = []
-        tool_args = []
+        profile_args: list[str] = []
+        tool_args: list[str] = []
         all_args = profile_args + tool_args
 
         assert all_args == []
@@ -151,7 +151,7 @@ class TestStartCommandToolArgs:
 
     def test_environment_variable_empty(self):
         """Empty tool args should result in empty string."""
-        tool_args = []
+        tool_args: list[str] = []
         if tool_args:
             encoded = "\x00".join(tool_args)
         else:
@@ -177,7 +177,7 @@ class TestControllerArgsHandling:
     def test_empty_args(self):
         """Empty args should result in command only."""
         command = "claude"
-        args = []
+        args: list[str] = []
         cmd_list = [command] + args
 
         assert cmd_list == ["claude"]

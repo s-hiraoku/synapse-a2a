@@ -60,7 +60,7 @@ class TerminalController:
         self.slave_fd: int | None = None
         self.process: subprocess.Popen[bytes] | None = None
         self.output_buffer = b""
-        self._render_buffer = []
+        self._render_buffer: list[str] = []
         self._render_cursor = 0
         self._render_line_start = 0
         self._max_buffer = OUTPUT_BUFFER_MAX
@@ -68,7 +68,7 @@ class TerminalController:
         self.status = "STARTING"
         self.lock = threading.Lock()
         self.running = False
-        self.thread = None
+        self.thread: threading.Thread | None = None
         self.registry = registry or AgentRegistry()
         self.interactive = False
         self.agent_id = agent_id
@@ -77,7 +77,9 @@ class TerminalController:
         self._identity_sent = False
         self._submit_seq = submit_seq or "\n"
         self._startup_delay = startup_delay or STARTUP_DELAY
-        self._last_output_time = None  # Track last output for idle detection
+        self._last_output_time: float | None = (
+            None  # Track last output for idle detection
+        )
         self._output_idle_threshold = OUTPUT_IDLE_THRESHOLD
 
         # InputRouter for parsing agent output and routing @Agent commands

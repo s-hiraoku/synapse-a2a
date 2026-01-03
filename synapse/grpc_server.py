@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 try:
-    import grpc
+    import grpc  # type: ignore[import-untyped]
 
     from synapse.proto import a2a_pb2_grpc
 
@@ -40,12 +40,12 @@ class GrpcServicerBase:
 
 # Use generated servicer base if available
 if a2a_pb2_grpc is not None:
-    _ServicerBase = a2a_pb2_grpc.A2AServiceServicer
+    _ServicerBase: type = a2a_pb2_grpc.A2AServiceServicer
 else:
     _ServicerBase = GrpcServicerBase
 
 
-class GrpcServicer(_ServicerBase):  # type: ignore[misc]
+class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
     """
     gRPC servicer implementation for A2A protocol.
 
@@ -80,7 +80,7 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc]
         task_id = str(uuid4())
         now = datetime.now(timezone.utc)
 
-        task = {
+        task: dict[str, Any] = {
             "id": task_id,
             "context_id": context_id or str(uuid4()),
             "status": "submitted",

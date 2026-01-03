@@ -86,7 +86,8 @@ class AgentRegistry:
 
         try:
             with open(file_path) as f:
-                return json.load(f)
+                data = json.load(f)
+                return data if isinstance(data, dict) else None
         except (json.JSONDecodeError, OSError):
             return None
 

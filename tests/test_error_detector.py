@@ -21,6 +21,7 @@ class TestDetectError:
 
         assert error is not None
         assert error.code == "COMMAND_NOT_FOUND"
+        assert isinstance(error.data, dict)
         assert "command not found" in error.data["context"].lower()
 
     def test_detect_permission_denied(self):
@@ -263,4 +264,5 @@ class TestEdgeCases:
         output = "Error: Command not found: foo"
         error = detect_error(output)
         # Should match "command not found" before generic "error:"
+        assert error is not None
         assert error.code == "COMMAND_NOT_FOUND"

@@ -239,10 +239,10 @@ def segments_to_artifacts(segments: list[ParsedSegment]) -> list[dict]:
     Returns:
         List of A2A-compatible artifact dictionaries
     """
-    artifacts = []
+    artifacts: list[dict] = []
 
     for i, seg in enumerate(segments):
-        artifact = {"index": i, "parts": []}
+        artifact: dict = {"index": i, "parts": []}
 
         if seg.type == "code":
             artifact["parts"].append(

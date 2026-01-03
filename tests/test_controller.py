@@ -175,7 +175,7 @@ class TestIdentityInstruction:
         ctrl.master_fd = 1
         ctrl.output_buffer = b"prompt $"
 
-        ctrl.write = Mock()
+        ctrl.write = Mock()  # type: ignore[method-assign]
         ctrl._check_idle_state(b"$")
 
         time.sleep(0.2)
@@ -247,7 +247,7 @@ class TestSubmitSequence:
         def mock_write(data, submit_seq=None):
             captured_submit_seq.append(submit_seq)
 
-        ctrl.write = mock_write
+        ctrl.write = mock_write  # type: ignore[method-assign]
         ctrl._send_identity_instruction()
 
         assert len(captured_submit_seq) == 1
@@ -387,7 +387,7 @@ class TestInterAgentMessageWrite:
         import os
 
         original_write = os.write
-        os.write = lambda fd, data: len(data)
+        os.write = lambda fd, data: len(data) if isinstance(data, (bytes, str)) else 0  # type: ignore[assignment, unused-ignore]
 
         try:
             ctrl.write("test", submit_seq="\n")
@@ -436,7 +436,7 @@ class TestControllerStatusTransitions:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.output_buffer = b"some output $"
-        ctrl.write = Mock()
+        ctrl.write = Mock()  # type: ignore[method-assign]
 
         ctrl._check_idle_state(b"$")
         assert ctrl.status == "IDLE"
