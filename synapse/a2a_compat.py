@@ -22,11 +22,11 @@ from pydantic import BaseModel
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
-from synapse.controller import TerminalController
-from synapse.registry import AgentRegistry
 from synapse.config import CONTEXT_RECENT_SIZE
+from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.output_parser import parse_output
+from synapse.registry import AgentRegistry
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
