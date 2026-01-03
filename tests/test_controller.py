@@ -530,3 +530,97 @@ class TestControllerInitialization:
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         # Should be a compiled regex
         assert hasattr(ctrl.idle_regex, "search")
+
+
+class TestInvalidRegexHandling:
+    """Tests for handling invalid regex patterns in idle detection."""
+
+    def test_invalid_regex_pattern_fallback_to_timeout(self):
+        """Invalid regex pattern should fall back to timeout without crashing."""
+        # Use an invalid regex pattern (unclosed bracket)
+        ctrl = TerminalController(
+            command="echo test",
+            idle_detection={
+                "strategy": "pattern",
+                "pattern": "[invalid(regex",
+                "timeout": 1.5,
+            },
+        )
+        # Should not raise, idle_regex should be None
+        assert ctrl.idle_regex is None
+        # Should fall back to timeout-based detection
+        assert ctrl._output_idle_threshold == 1.5
+
+    def test_hybrid_mode_with_invalid_regex_fallback(self):
+        """Hybrid mode with invalid regex should fall back to timeout."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "[invalid(",
+                "timeout": 2.0,
+            },
+        )
+        # Should not raise
+        assert ctrl.idle_regex is None
+        assert ctrl._pattern_detected is False
+        # Should use timeout as fallback
+        assert ctrl._output_idle_threshold == 2.0
+
+    def test_pattern_detected_flag_reset_on_error(self):
+        """_pattern_detected flag should be reset to False on regex error."""
+        # First, create a valid pattern to set the flag
+        ctrl = TerminalController(
+            command="echo test",
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": r"\$",
+                "timeout": 1.5,
+            },
+        )
+        # Verify pattern was compiled
+        assert ctrl.idle_regex is not None
+        assert ctrl._pattern_detected is False
+
+    def test_invalid_regex_in_hybrid_strategy(self):
+        """Invalid regex in hybrid strategy should safely fall back to timeout."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "(?P<invalid",  # Invalid named group
+                "timeout": 1.5,
+            },
+        )
+        # Should not crash
+        assert ctrl.idle_regex is None
+        assert ctrl._pattern_detected is False
+        assert ctrl._output_idle_threshold == 1.5
+
+    def test_special_pattern_bracketed_paste_mode_valid(self):
+        """BRACKETED_PASTE_MODE special pattern should compile successfully."""
+        ctrl = TerminalController(
+            command="claude",
+            idle_detection={
+                "strategy": "pattern",
+                "pattern": "BRACKETED_PASTE_MODE",
+                "timeout": 0.5,
+            },
+        )
+        # Should compile without error
+        assert ctrl.idle_regex is not None
+        # Should match the BRACKETED_PASTE_MODE escape sequence
+        assert ctrl.idle_regex.search(b"\x1b[?2004h") is not None
+
+    def test_timeout_default_on_pattern_error(self):
+        """Should use default timeout when pattern compilation fails."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_detection={
+                "strategy": "pattern",
+                "pattern": "*invalid",  # * without preceding character
+            },
+        )
+        # Should have default timeout
+        assert ctrl._output_idle_threshold == 1.5  # Default
+        assert ctrl.idle_regex is None
