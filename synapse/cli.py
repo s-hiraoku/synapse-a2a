@@ -210,10 +210,10 @@ def _render_agent_table(registry):
     lines = []
     header = (
         f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-        f"{'WORKING_DIR':<30} ENDPOINT"
+        f"{'WORKING_DIR':<50} ENDPOINT"
     )
     lines.append(header)
-    lines.append("-" * 100)
+    lines.append("-" * len(header))
 
     live_agents = False
     for agent_id, info in agents.items():
