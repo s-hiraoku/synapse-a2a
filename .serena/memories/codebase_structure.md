@@ -1,7 +1,7 @@
 # Codebase Structure
 
 ## Main Directory Layout
-```
+```text
 synapse/
 ├── cli.py           # Entry point, profile loading, interactive mode orchestration
 ├── controller.py    # TerminalController: PTY management, READY/PROCESSING detection
