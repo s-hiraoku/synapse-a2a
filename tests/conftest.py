@@ -1,7 +1,6 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
-import contextlib
 import sys
 from pathlib import Path
 
@@ -30,14 +29,27 @@ def reset_global_state():
         # asyncio.run() sets the event loop but doesn't always clean it up
         # Get the current event loop without creating a new one
         loop = asyncio.get_event_loop_policy().get_event_loop()
-        if loop is not None and not loop.is_closed() and loop.is_running():
-            # This shouldn't happen in normal test cleanup
+
+        if loop is None or loop.is_closed():
+            # No event loop to clean up
             pass
+        elif loop.is_running():
+            # Loop is still running - don't close it, just skip
+            # This can happen if test cleanup is called while async work is ongoing
+            pass
+        else:
+            # Loop exists, is not running, and is not closed - properly close it
+            loop.close()
     except RuntimeError:
         # No event loop in current thread
         pass
 
     # Force creation of a fresh event loop for next test
     # This prevents accumulation of old event loops
-    with contextlib.suppress(Exception):
+    try:
         asyncio.set_event_loop(None)
+    except (RuntimeError, ValueError) as e:
+        # RuntimeError: event loop is running
+        # ValueError: event loop policy does not support set_event_loop
+        # Just skip if we can't set the event loop to None
+        pass
