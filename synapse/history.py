@@ -103,7 +103,11 @@ class HistoryManager:
                 if self.enabled:
                     # Log error but don't crash - history is non-critical
                     import sys
-                    print(f"Warning: Failed to initialize history DB: {e}", file=sys.stderr)
+
+                    print(
+                        f"Warning: Failed to initialize history DB: {e}",
+                        file=sys.stderr,
+                    )
 
     def save_observation(
         self,
@@ -145,7 +149,15 @@ class HistoryManager:
                     (session_id, agent_name, task_id, input, output, status, metadata)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (session_id, agent_name, task_id, input_text, output_text, status, metadata_json),
+                    (
+                        session_id,
+                        agent_name,
+                        task_id,
+                        input_text,
+                        output_text,
+                        status,
+                        metadata_json,
+                    ),
                 )
 
                 conn.commit()
@@ -153,6 +165,7 @@ class HistoryManager:
             except sqlite3.Error as e:
                 # Non-critical error - don't crash
                 import sys
+
                 print(f"Warning: Failed to save observation: {e}", file=sys.stderr)
 
     def get_observation(self, task_id: str) -> dict[str, Any] | None:
@@ -186,6 +199,7 @@ class HistoryManager:
                 return None
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to retrieve observation: {e}", file=sys.stderr)
                 return None
 
@@ -238,6 +252,7 @@ class HistoryManager:
                 return [self._row_to_dict(row) for row in rows]
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to list observations: {e}", file=sys.stderr)
                 return []
 
