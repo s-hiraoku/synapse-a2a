@@ -78,7 +78,7 @@ class TestIdentityInstruction:
 
         # Track if _send_identity_instruction was called
         send_called = threading.Event()
-        original_send = controller._send_identity_instruction
+        original_send = controller._send_identity_instruction  # noqa: F841
 
         def mock_send():
             send_called.set()

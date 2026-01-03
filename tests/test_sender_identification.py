@@ -25,13 +25,14 @@ class TestBuildSenderInfo:
         }
 
         # Mock is_descendant_of to return True for the matching agent
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry):
-            with patch("synapse.tools.a2a.is_descendant_of", return_value=True):
-                sender = build_sender_info()
+        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
+            "synapse.tools.a2a.is_descendant_of", return_value=True
+        ):
+            sender = build_sender_info()
 
-                assert sender["sender_id"] == "synapse-claude-8100"
-                assert sender["sender_type"] == "claude"
-                assert sender["sender_endpoint"] == "http://localhost:8100"
+            assert sender["sender_id"] == "synapse-claude-8100"
+            assert sender["sender_type"] == "claude"
+            assert sender["sender_endpoint"] == "http://localhost:8100"
 
     def test_explicit_sender_overrides_auto(self):
         """--from flag should override auto-detection and return only sender_id."""
@@ -57,10 +58,11 @@ class TestBuildSenderInfo:
         }
 
         # Mock is_descendant_of to return False (no match)
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry):
-            with patch("synapse.tools.a2a.is_descendant_of", return_value=False):
-                sender = build_sender_info()
-                assert sender == {}
+        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
+            "synapse.tools.a2a.is_descendant_of", return_value=False
+        ):
+            sender = build_sender_info()
+            assert sender == {}
 
     def test_explicit_sender_without_registry(self):
         """--from flag works even without registry."""
@@ -93,14 +95,13 @@ class TestBuildSenderInfo:
         def mock_is_descendant(child, ancestor):
             return ancestor == 12346  # Only match gemini
 
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry):
-            with patch(
-                "synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant
-            ):
-                sender = build_sender_info()
+        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
+            "synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant
+        ):
+            sender = build_sender_info()
 
-                assert sender["sender_id"] == "synapse-gemini-8110"
-                assert sender["sender_type"] == "gemini"
+            assert sender["sender_id"] == "synapse-gemini-8110"
+            assert sender["sender_type"] == "gemini"
 
 
 # ============================================================
@@ -166,9 +167,10 @@ class TestInputRouterSenderInfo:
         )
 
         # Mock process and port checks
-        with patch("synapse.input_router.is_process_running", return_value=True):
-            with patch("synapse.input_router.is_port_open", return_value=True):
-                result = router.send_to_agent("gemini", "Hello from Claude!")
+        with patch("synapse.input_router.is_process_running", return_value=True), patch(
+            "synapse.input_router.is_port_open", return_value=True
+        ):
+            router.send_to_agent("gemini", "Hello from Claude!")
 
         # Verify sender_info was passed
         mock_client.send_to_local.assert_called_once()
@@ -203,9 +205,10 @@ class TestInputRouterSenderInfo:
         # No self-identity set
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
 
-        with patch("synapse.input_router.is_process_running", return_value=True):
-            with patch("synapse.input_router.is_port_open", return_value=True):
-                result = router.send_to_agent("gemini", "Hello!")
+        with patch("synapse.input_router.is_process_running", return_value=True), patch(
+            "synapse.input_router.is_port_open", return_value=True
+        ):
+            router.send_to_agent("gemini", "Hello!")
 
         # Verify sender_info is None
         call_kwargs = mock_client.send_to_local.call_args.kwargs

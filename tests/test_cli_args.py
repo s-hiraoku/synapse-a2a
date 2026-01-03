@@ -14,7 +14,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == []
@@ -29,7 +29,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         # Parse --port from synapse_args
@@ -51,7 +51,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == ["--port", "8100"]
@@ -66,7 +66,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == []
@@ -88,7 +88,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert tool_args == ["--model", "opus", "--dangerously-skip-permissions"]
@@ -128,16 +128,14 @@ class TestStartCommandToolArgs:
     def test_filter_separator_from_tool_args(self):
         """-- should be filtered from tool_args start."""
         tool_args = ["--", "--model", "opus"]
-        if tool_args and tool_args[0] == "--":
-            tool_args = tool_args[1:]
+        tool_args = tool_args[1:] if tool_args and tool_args[0] == "--" else tool_args
 
         assert tool_args == ["--model", "opus"]
 
     def test_no_separator_in_tool_args(self):
         """Tool args without -- should pass through."""
         tool_args = ["--model", "opus"]
-        if tool_args and tool_args[0] == "--":
-            tool_args = tool_args[1:]
+        tool_args = tool_args[1:] if tool_args and tool_args[0] == "--" else tool_args
 
         assert tool_args == ["--model", "opus"]
 
@@ -152,10 +150,7 @@ class TestStartCommandToolArgs:
     def test_environment_variable_empty(self):
         """Empty tool args should result in empty string."""
         tool_args: list[str] = []
-        if tool_args:
-            encoded = "\x00".join(tool_args)
-        else:
-            encoded = ""
+        encoded = "\x00".join(tool_args) if tool_args else ""
 
         # Decode
         decoded = encoded.split("\x00") if encoded else []
