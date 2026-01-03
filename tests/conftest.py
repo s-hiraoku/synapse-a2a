@@ -43,7 +43,11 @@ def reset_global_state() -> Generator[None, None, None]:
         # This can happen if test cleanup is called while async work is ongoing
         # Using debug=True to help troubleshoot test issues
         import sys
-        print(f"[DEBUG] Event loop still running at cleanup for {sys.argv[0]}", file=sys.stderr)
+
+        print(
+            f"[DEBUG] Event loop still running at cleanup for {sys.argv[0]}",
+            file=sys.stderr,
+        )
     else:
         # Loop exists, is not running, and is not closed - properly close it
         loop.close()
@@ -54,7 +58,12 @@ def reset_global_state() -> Generator[None, None, None]:
         asyncio.set_event_loop(None)
     except RuntimeError as e:
         # RuntimeError: event loop is running in current thread
-        print(f"[DEBUG] RuntimeError when setting event loop to None: {e}", file=sys.stderr)
+        print(
+            f"[DEBUG] RuntimeError when setting event loop to None: {e}",
+            file=sys.stderr,
+        )
     except ValueError as e:
         # ValueError: event loop policy does not support set_event_loop
-        print(f"[DEBUG] ValueError when setting event loop to None: {e}", file=sys.stderr)
+        print(
+            f"[DEBUG] ValueError when setting event loop to None: {e}", file=sys.stderr
+        )

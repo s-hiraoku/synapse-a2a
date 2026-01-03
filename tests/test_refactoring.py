@@ -46,7 +46,7 @@ class TestConfig:
         )
 
         assert OUTPUT_BUFFER_MAX == 10000
-        assert IDLE_CHECK_WINDOW == 1000
+        assert IDLE_CHECK_WINDOW == 10000
         assert CONTEXT_RECENT_SIZE == 3000
         assert API_RESPONSE_CONTEXT_SIZE == 2000
 
