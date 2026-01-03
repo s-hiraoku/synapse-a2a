@@ -65,6 +65,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         profile.get("submit_sequence", "\n").encode().decode("unicode_escape")
     )
 
+    # Parse idle detection config (with backward compatibility)
+    idle_detection = profile.get("idle_detection", {})
+    if not idle_detection:
+        # Legacy mode: Use top-level idle_regex
+        idle_regex = profile.get("idle_regex")
+        if idle_regex:
+            idle_detection = {
+                "strategy": "pattern",
+                "pattern": idle_regex,
+                "timeout": 1.5,
+            }
+
     # Merge profile args with CLI tool args
     profile_args = profile.get("args", [])
     all_args = profile_args + tool_args
@@ -87,7 +99,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     controller = TerminalController(
         command=profile["command"],
         args=all_args,
-        idle_regex=profile["idle_regex"],
+        idle_detection=idle_detection if idle_detection else None,
+        idle_regex=(
+            profile.get("idle_regex") if not idle_detection else None
+        ),  # Backward compat
         env=env,
         agent_id=current_agent_id,
         agent_type=profile_name,
@@ -97,7 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     controller.start()
 
-    registry.register(current_agent_id, profile_name, agent_port, status="BUSY")
+    registry.register(current_agent_id, profile_name, agent_port, status="PROCESSING")
 
     # Add Google A2A compatible routes
     a2a_router = create_a2a_router(

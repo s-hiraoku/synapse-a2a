@@ -33,14 +33,19 @@ flowchart LR
 ```yaml
 # 必須フィールド
 command: "claude"           # 起動する CLI コマンド
-idle_regex: "> $"          # IDLE 状態を検出する正規表現
 
 # オプションフィールド
 args: []                    # コマンドライン引数（現在未使用）
-submit_sequence: "\n"      # 送信時に付与するキーシーケンス
-env:                       # 環境変数
+submit_sequence: "\n"       # 送信時に付与するキーシーケンス
+idle_detection:            # IDLE 状態検出設定（新形式）
+  strategy: "pattern"       # "pattern" | "timeout" | "hybrid"
+  pattern: "> $"           # 正規表現パターン
+  timeout: 1.5             # 秒数（フォールバック）
+env:                        # 環境変数
   TERM: "xterm-256color"
 ```
+
+**後方互換性**: 古い `idle_regex` フィールドもサポートしていますが、新規作成時は `idle_detection` を使用してください。
 
 ---
 
@@ -49,9 +54,9 @@ env:                       # 環境変数
 | フィールド | 型 | 必須 | デフォルト | 説明 |
 |-----------|-----|------|-----------|------|
 | `command` | string | Yes | - | 起動する CLI コマンド |
-| `idle_regex` | string | Yes | - | IDLE 状態を検出する正規表現 |
 | `args` | array | No | `[]` | コマンドライン引数 |
 | `submit_sequence` | string | No | `\n` | 送信時のキーシーケンス |
+| `idle_detection` | object | No | `{strategy: "timeout", timeout: 1.5}` | IDLE 検出戦略 |
 | `env` | object | No | `{}` | 追加/上書きする環境変数 |
 
 ---
@@ -81,40 +86,58 @@ command: "/usr/local/bin/claude"
 
 ---
 
-### 3.2 idle_regex
+### 3.2 idle_detection
 
-エージェントが待機状態（IDLE）になったことを検出する正規表現です。
+エージェントが待機状態（READY）になったことを検出するための設定です。複数の検出戦略をサポートしています。
+
+```yaml
+# 戦略 1: pattern（正規表現ベース）
+idle_detection:
+  strategy: "pattern"
+  pattern: "> $"
+  timeout: 1.5
+
+# 戦略 2: timeout（タイムアウトベース）
+idle_detection:
+  strategy: "timeout"
+  timeout: 0.5
+
+# 戦略 3: hybrid（パターン + タイムアウト）
+idle_detection:
+  strategy: "hybrid"
+  pattern: "> $"
+  timeout: 1.5
+```
+
+**検出戦略**:
+
+| 戦略 | 説明 | 用途 |
+|-----|------|------|
+| `pattern` | 正規表現マッチングで IDLE を検出 | 一貫したプロンプトを持つ CLI |
+| `timeout` | 出力がない時間でアイドル判定 | 不規則なプロンプトの CLI |
+| `hybrid` | パターンをまず試し、失敗時にタイムアウト | 初期化シーケンスがある CLI |
+
+**正規表現パターン例**:
 
 ```yaml
 # プロンプトが "> " で終わる場合
-idle_regex: "> $"
+pattern: "> $"
 
 # プロンプトが ">>> " の場合
-idle_regex: ">>> $"
+pattern: ">>> $"
 
 # 複数パターン
-idle_regex: "(> |>>> )$"
-```
+pattern: "(> |>>> )$"
 
-**動作原理**:
-
-```mermaid
-flowchart LR
-    Output["CLI 出力"]
-    Buffer["output_buffer"]
-    Regex["idle_regex.search()"]
-    Status["status"]
-
-    Output --> Buffer
-    Buffer -->|"最後 1000 バイト"| Regex
-    Regex -->|"マッチ"| Status
+# 特殊パターン（Claude Code）
+pattern: "BRACKETED_PASTE_MODE"  # BRACKETED_PASTE_MODE エスケープシーケンスで検出
 ```
 
 **注意点**:
 
 - 正規表現はバイト列に対してマッチングされます（UTF-8 エンコード）
 - 出力バッファの最後 1000 バイトに対して検索されます
-- マッチしないと永久に BUSY のままになります
+- パターン検出は出力の最後のマッチのみを使用します
 
 ---
 
@@ -197,8 +220,12 @@ env:
 ```yaml
 command: "claude"
 args: []
-idle_regex: "> $"
 submit_sequence: "\r"
+idle_detection:
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
+  timeout: 0.5
 env:
   TERM: "xterm-256color"
 ```
@@ -207,7 +234,11 @@ env:
 
 - Claude Code CLI 用
 - Ink ベースの TUI のため `\r` を使用
-- `TERM` を `xterm-256color` に設定
+- **hybrid 戦略**: 2段階の IDLE 検出
+  - 起動時: `BRACKETED_PASTE_MODE` (ESC[?2004h) パターンで検出
+  - 以降: タイムアウト (500ms) で検出
+  - パターンは起動時一度だけ出現するため、`pattern_use: "startup_only"` で最初の IDLE のみ使用
+- 500ms の短いタイムアウト（高速応答性）
 
 ---
 
@@ -216,8 +247,11 @@ env:
 ```yaml
 command: "codex"
 args: []
-idle_regex: "> $"
 submit_sequence: "\r"
+idle_detection:
+  strategy: "pattern"
+  pattern: "›"
+  timeout: 1.5
 env:
   TERM: "xterm-256color"
 ```
@@ -225,7 +259,8 @@ env:
 **特徴**:
 
 - OpenAI Codex CLI 用
-- Claude と同様の設定
+- **pattern 戦略**: Codex は一貫したプロンプト文字 (`›`) を使用
+- 1.5 秒のタイムアウト（フォールバック）
 
 ---
 
@@ -234,8 +269,11 @@ env:
 ```yaml
 command: "gemini"
 args: []
-idle_regex: "> $"
 submit_sequence: "\r"
+idle_detection:
+  strategy: "pattern"
+  pattern: "(> |\\*)"
+  timeout: 1.5
 env:
   TERM: "xterm-256color"
 ```
@@ -243,7 +281,8 @@ env:
 **特徴**:
 
 - Google Gemini CLI 用
-- Claude と同様の設定
+- **pattern 戦略**: Gemini は一貫したプロンプトパターン (`> ` または `*`) を使用
+- 1.5 秒のタイムアウト（フォールバック）
 
 ---
 
@@ -251,8 +290,11 @@ env:
 
 ```yaml
 command: "python3 -u dummy_agent.py"
-idle_regex: "> $"
 submit_sequence: "\n"
+idle_detection:
+  strategy: "pattern"
+  pattern: "> $"
+  timeout: 1.5
 env:
   PYTHONUNBUFFERED: "1"
 ```
@@ -262,6 +304,7 @@ env:
 - テスト用のダミーエージェント
 - `python3 -u` で unbuffered モード
 - readline 系のため `\n` を使用
+- **pattern 戦略**: 一貫したプロンプトを使用するため、パターンマッチングが有効
 
 ---
 
@@ -277,7 +320,10 @@ env:
 # 1. プロファイル作成
 cat > synapse/profiles/myagent.yaml << EOF
 command: "myagent"
-idle_regex: "\\$ $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "\\$ $"
+  timeout: 1.5
 submit_sequence: "\n"
 env:
   TERM: "xterm-256color"
@@ -296,8 +342,11 @@ synapse myagent --port 8200
 
 ```yaml
 command: "gpt"
-idle_regex: "gpt> $"
 submit_sequence: "\n"
+idle_detection:
+  strategy: "pattern"
+  pattern: "gpt> $"
+  timeout: 1.5
 env:
   TERM: "xterm-256color"
   OPENAI_API_KEY: ""  # 環境変数から継承
@@ -309,8 +358,11 @@ env:
 
 ```yaml
 command: "python3 -u /path/to/my_agent.py"
-idle_regex: ">>> $"
 submit_sequence: "\n"
+idle_detection:
+  strategy: "pattern"
+  pattern: ">>> $"
+  timeout: 1.5
 env:
   PYTHONUNBUFFERED: "1"
   MY_CONFIG: "/path/to/config.json"
@@ -320,25 +372,40 @@ env:
 
 ## 6. トラブルシューティング
 
-### 6.1 IDLE にならない
+### 6.1 READY にならない
 
-**原因**: `idle_regex` がプロンプトと一致していない
+**原因**: `idle_detection` の設定が不適切
 
 **対処**:
 
+#### パターン戦略を使用している場合
 1. CLI を手動で起動してプロンプトを確認
-2. `idle_regex` を修正
+2. `idle_detection.pattern` を修正
 
 ```bash
 # プロンプトを確認
-claude
+$ claude
+> _
 
-# 表示されるプロンプト
-# > _
-
-# idle_regex を設定
-idle_regex: "> $"
+# idle_detection を設定
+idle_detection:
+  strategy: "pattern"
+  pattern: "> $"
 ```
+
+#### タイムアウト戦略を使用している場合
+1. タイムアウト値を調整（短すぎると誤検出、長すぎると応答が遅れる）
+2. デフォルトは 1.5 秒だが、環境に応じて調整
+
+```yaml
+idle_detection:
+  strategy: "timeout"
+  timeout: 2.0  # 2 秒に増加
+```
+
+#### ハイブリッド戦略を使用している場合
+1. パターン認識が不可能な場合、タイムアウトにフォールバックする
+2. 最初のパターン認識に失敗した場合、タイムアウトで検出されます
 
 ---
 
@@ -394,10 +461,16 @@ env:
 
 ```yaml
 # 複数行プロンプト
-idle_regex: "(claude|codex|gemini)> $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "(claude|codex|gemini)> $"
+  timeout: 1.5
 
 # ANSI エスケープシーケンス付き
-idle_regex: "\\x1b\\[0m> $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "\\x1b\\[0m> $"
+  timeout: 1.5
 ```
 
 ---

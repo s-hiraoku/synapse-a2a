@@ -21,7 +21,13 @@ from synapse.webhooks import (
 
 def run_async(coro):
     """Helper to run async functions in sync tests."""
-    return asyncio.run(coro)
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 @pytest.fixture(autouse=True)

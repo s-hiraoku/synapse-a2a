@@ -58,7 +58,7 @@ Agent Card (`/.well-known/agent.json`) に以下の拡張フィールドを追�
           "id": "synapse-gemini-8110",
           "type": "gemini",
           "endpoint": "http://localhost:8110",
-          "status": "IDLE"
+          "status": "READY"
         }
       ],
       "priority_levels": {

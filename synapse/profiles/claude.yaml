@@ -2,9 +2,18 @@
 # Uses Ink-based TUI which requires CR for input submission (Claude Code v2.0.76)
 command: "claude"
 args: []
-# BRACKETED_PASTE_MODE detects ESC[?2004h (TUI ready for input)
-idle_regex: "BRACKETED_PASTE_MODE"
 # CR required for Claude Code's Ink TUI to process Enter key
 submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
+
+# Multi-strategy idle detection configuration
+# Claude Code: Hybrid pattern + timeout detection
+# - Pattern: BRACKETED_PASTE_MODE (ESC[?2004h) indicates idle at startup
+# - Timeout: 0.5s fallback for subsequent idles (pattern may not reappear)
+# This hybrid approach gives fast startup detection + reliable ongoing detection
+idle_detection:
+  strategy: "hybrid"                           # Pattern first, then timeout
+  pattern: "BRACKETED_PASTE_MODE"              # ESC[?2004h = ready for input
+  pattern_use: "startup_only"                  # Only check pattern at startup
+  timeout: 0.5                                 # 500ms no output = idle (fallback)

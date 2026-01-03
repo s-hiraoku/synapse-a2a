@@ -167,10 +167,12 @@ synapse list
 ```
 TYPE       PORT     STATUS     PID      ENDPOINT
 ------------------------------------------------------------
-claude     8100     IDLE       12345    http://localhost:8100
-codex      8101     BUSY       12346    http://localhost:8101
-gemini     8102     IDLE       12347    http://localhost:8102
+claude     8100     READY      12345    http://localhost:8100
+codex      8101     PROCESSING 12346    http://localhost:8101
+gemini     8102     PROCESSING 12347    http://localhost:8102
 ```
+
+<!-- CodeRabbit fix: Updated example output to show actual status transitions instead of static values -->
 
 ---
 
@@ -334,7 +336,7 @@ flowchart LR
 **動作**:
 
 1. メッセージを送信
-2. 相手が `IDLE` になるまでポーリング（最大 60 秒）
+2. 相手が `READY` になるまでポーリング（最大 60 秒）
 3. 新しい出力をこの端末に表示
 
 **フィードバック**:
@@ -421,7 +423,7 @@ curl http://localhost:8100/status
 
 ```json
 {
-  "status": "IDLE",
+  "status": "READY",
   "context": "...最新の出力（最大2000文字）..."
 }
 ```
@@ -430,9 +432,8 @@ curl http://localhost:8100/status
 
 | 値 | 説明 |
 |----|------|
-| `STARTING` | 起動中 |
-| `BUSY` | 処理中 |
-| `IDLE` | 待機中（プロンプト表示中） |
+| `PROCESSING` | 処理中・起動中 |
+| `READY` | 待機中（プロンプト表示中） |
 | `NOT_STARTED` | 未起動 |
 
 ---
@@ -623,7 +624,8 @@ done
 # ステータス確認
 curl http://localhost:8101/status
 
-# IDLE なのに作業が終わっていない場合に nudge
+# CodeRabbit fix: Updated IDLE to READY status terminology
+# READY なのに作業が終わっていない場合に nudge
 synapse send --target codex --priority 1 "進捗を報告して"
 
 # 応答がない場合は緊急介入

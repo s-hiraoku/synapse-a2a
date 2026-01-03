@@ -64,7 +64,7 @@ synapse-{モデル名}-{ポート番号}
          │
          ▼
 ┌──────────────────┐
-│  IDLE検出        │
+│  READY検出       │
 │  (初回のみ)      │
 └────────┬─────────┘
          │
@@ -88,7 +88,7 @@ synapse-{モデル名}-{ポート番号}
 | ファイル | 変更内容 |
 |----------|----------|
 | `synapse/registry.py` | `get_agent_id()` を `synapse-{type}-{port}` 形式に変更 |
-| `synapse/controller.py` | 最初のIDLE時にインストラクションを自動送信 |
+| `synapse/controller.py` | 最初のREADY状態時にインストラクションを自動送信 |
 | `synapse/cli.py` | 新しいID形式を使用 |
 | `synapse/server.py` | 新しいID形式を使用 |
 | `synapse/a2a_compat.py` | Agent Card に `agent_id`, `addressable_as` を追加 |

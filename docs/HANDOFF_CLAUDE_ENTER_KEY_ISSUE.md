@@ -20,7 +20,7 @@ env:
 
 ## Technical Details
 
-### IDLE Detection
+### READY Detection
 - Uses `BRACKETED_PASTE_MODE` special pattern
 - Detects when Claude Code emits `ESC[?2004h` (bracketed paste mode enabled)
 - This indicates the TUI is ready to accept input

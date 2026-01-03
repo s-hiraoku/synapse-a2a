@@ -44,7 +44,7 @@ def test_register_unregister(registry):
         data = json.load(f)
         assert data["agent_id"] == agent_id
         assert data["port"] == 8100
-        assert data["status"] == "STARTING"
+        assert data["status"] == "PROCESSING"
 
     registry.unregister(agent_id)
     assert not expected_file.exists()

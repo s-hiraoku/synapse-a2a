@@ -33,7 +33,7 @@ class AgentRegistry:
         return f"synapse-{agent_type}-{port}"
 
     def register(
-        self, agent_id: str, agent_type: str, port: int, status: str = "STARTING"
+        self, agent_id: str, agent_type: str, port: int, status: str = "PROCESSING"
     ):
         """Writes connection info to registry file."""
         data = {

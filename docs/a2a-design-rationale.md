@@ -120,7 +120,7 @@ flowchart LR
 | Agent Card | ✅ 対応 | `/.well-known/agent.json` |
 | Task API | ✅ 対応 | send, get, list, cancel |
 | Message/Part | ✅ 対応 | TextPart 中心 |
-| Task 状態 | ✅ 対応 | IDLE/BUSY からマッピング |
+| Task 状態 | ✅ 対応 | READY/PROCESSING からマッピング |
 | SSE | ❌ 未対応 | ポーリングで代替 |
 | Push 通知 | ❌ 未対応 | - |
 | 認証 | ❌ 未対応 | ローカル前提 |
