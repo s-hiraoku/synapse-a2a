@@ -23,7 +23,7 @@ def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
 
 
 class AgentRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self.registry_dir = Path.home() / ".a2a" / "registry"
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.hostname = socket.gethostname()
@@ -34,7 +34,7 @@ class AgentRegistry:
 
     def register(
         self, agent_id: str, agent_type: str, port: int, status: str = "PROCESSING"
-    ):
+    ) -> Path:
         """Writes connection info to registry file."""
         data = {
             "agent_id": agent_id,
@@ -52,7 +52,7 @@ class AgentRegistry:
 
         return file_path
 
-    def unregister(self, agent_id: str):
+    def unregister(self, agent_id: str) -> None:
         """Removes the registry file."""
         file_path = self.registry_dir / f"{agent_id}.json"
         if file_path.exists():

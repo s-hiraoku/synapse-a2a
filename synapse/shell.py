@@ -20,13 +20,13 @@ class SynapseShell(cmd.Cmd):
 """
     prompt = "synapse> "
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.registry = AgentRegistry()
         # Pattern: @AgentName [--return] message
         self.agent_pattern = re.compile(r"^@(\w+)\s*(--return\s+)?(.+)$", re.IGNORECASE)
 
-    def default(self, line):
+    def default(self, line: str) -> None:
         """Handle input that doesn't match a command."""
         # Check for @Agent pattern
         match = self.agent_pattern.match(line)
@@ -41,7 +41,7 @@ class SynapseShell(cmd.Cmd):
         if line.strip():
             os.system(line)
 
-    def send_to_agent(self, agent_name: str, message: str, wait_response: bool = False):
+    def send_to_agent(self, agent_name: str, message: str, wait_response: bool = False) -> None:
         """Send a message to an agent."""
         agents = self.registry.list_agents()
 
@@ -81,7 +81,7 @@ class SynapseShell(cmd.Cmd):
         except requests.exceptions.RequestException as e:
             print(f"Error sending to {agent_name}: {e}")
 
-    def wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 30):
+    def wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 30) -> None:
         """Wait for agent to become IDLE and get response."""
         import time
 
@@ -117,7 +117,7 @@ class SynapseShell(cmd.Cmd):
 
         print(f"[Timeout waiting for {agent_name}]")
 
-    def do_list(self, arg):
+    def do_list(self, arg: str) -> None:
         """List running agents."""
         agents = self.registry.list_agents()
         if not agents:
@@ -135,7 +135,7 @@ class SynapseShell(cmd.Cmd):
             )
         print()
 
-    def do_status(self, arg):
+    def do_status(self, arg: str) -> None:
         """Check status of an agent. Usage: status <agent>"""
         if not arg:
             print("Usage: status <agent>")
@@ -161,26 +161,26 @@ class SynapseShell(cmd.Cmd):
 
         print(f"Agent '{agent_name}' not found.")
 
-    def do_exit(self, arg):
+    def do_exit(self, arg: str) -> bool:
         """Exit the shell."""
         print("Goodbye!")
         return True
 
-    def do_quit(self, arg):
+    def do_quit(self, arg: str) -> bool:
         """Exit the shell."""
         return self.do_exit(arg)
 
-    def do_EOF(self, arg):
+    def do_EOF(self, arg: str) -> bool:
         """Handle Ctrl+D."""
         print()
         return self.do_exit(arg)
 
-    def emptyline(self):
+    def emptyline(self) -> bool:
         """Do nothing on empty line."""
-        pass
+        return False
 
 
-def main():
+def main() -> None:
     """Start the Synapse interactive shell."""
     try:
         shell = SynapseShell()

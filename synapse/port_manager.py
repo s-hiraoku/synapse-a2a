@@ -2,6 +2,10 @@
 
 import os
 import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from synapse.registry import AgentRegistry
 
 # Port range definitions (agent_type -> (start, end) inclusive)
 PORT_RANGES: dict[str, tuple[int, int]] = {
@@ -77,7 +81,7 @@ def is_process_alive(pid: int) -> bool:
 class PortManager:
     """Manages port allocation for multi-instance agent support."""
 
-    def __init__(self, registry):
+    def __init__(self, registry: "AgentRegistry") -> None:
         """
         Initialize PortManager with an AgentRegistry.
 

@@ -16,7 +16,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "input_router.log")
 
 
-def log(level: str, msg: str):
+def log(level: str, msg: str) -> None:
     """Write log message to file."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a") as f:
@@ -120,7 +120,7 @@ class InputRouter:
                 self.pending_agent = agent
 
                 # Create action callback
-                def send_action():
+                def send_action() -> bool:
                     return self.send_to_agent(agent, message, want_response)
 
                 # Return empty string - don't send anything to PTY
@@ -296,7 +296,7 @@ class InputRouter:
             return False
 
     def _send_to_external_agent(
-        self, agent, message: str, want_response: bool = False
+        self, agent: object, message: str, want_response: bool = False
     ) -> bool:
         """Send a message to an external Google A2A agent."""
         self.is_external_agent = True
@@ -400,7 +400,7 @@ class InputRouter:
                 return msg
             return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"  # Red
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the router state."""
         self.line_buffer = ""
         self.in_escape_sequence = False

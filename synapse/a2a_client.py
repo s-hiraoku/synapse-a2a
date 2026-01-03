@@ -41,7 +41,7 @@ class ExternalAgent:
     last_seen: str = ""
     alias: str = ""  # Short name for @alias syntax
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.added_at:
             self.added_at = get_iso_timestamp()
         if not self.alias:
@@ -86,14 +86,14 @@ class ExternalAgentRegistry:
     Stores agent information in ~/.a2a/external/
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.registry_dir = Path.home() / ".a2a" / "external"
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self._cache: dict[str, ExternalAgent] = {}
         self._lock = threading.Lock()
         self._load_all()
 
-    def _load_all(self):
+    def _load_all(self) -> None:
         """Load all agents from disk"""
         with self._lock:
             for file in self.registry_dir.glob("*.json"):
@@ -105,7 +105,7 @@ class ExternalAgentRegistry:
                 except Exception as e:
                     print(f"Warning: Failed to load {file}: {e}")
 
-    def _save(self, agent: ExternalAgent):
+    def _save(self, agent: ExternalAgent) -> None:
         """Save agent to disk"""
         file_path = self.registry_dir / f"{agent.alias}.json"
         with open(file_path, "w") as f:
@@ -139,7 +139,7 @@ class ExternalAgentRegistry:
         with self._lock:
             return list(self._cache.values())
 
-    def update_last_seen(self, alias: str):
+    def update_last_seen(self, alias: str) -> None:
         """Update last seen timestamp"""
         with self._lock:
             if alias in self._cache:

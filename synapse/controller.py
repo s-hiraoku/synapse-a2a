@@ -128,7 +128,7 @@ class TerminalController:
             self_port=port,
         )
 
-    def start(self):
+    def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
         self.master_fd, self.slave_fd = pty.openpty()
 
@@ -177,7 +177,7 @@ class TerminalController:
         except Exception as e:
             logging.error(f"A2A action failed for {agent_name}: {e}")
 
-    def _monitor_output(self):
+    def _monitor_output(self) -> None:
         """Monitor and process output from the controlled process PTY."""
         if self.master_fd is None or self.process is None:
             return
@@ -215,7 +215,7 @@ class TerminalController:
                 # Periodically check idle state (timeout-based detection)
                 self._check_idle_state(b"")
 
-    def _check_idle_state(self, new_data):
+    def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
             pattern_match = False
@@ -282,7 +282,7 @@ class TerminalController:
                     target=self._send_identity_instruction, daemon=True
                 ).start()
 
-    def _send_identity_instruction(self):
+    def _send_identity_instruction(self) -> None:
         """
         Send full initial instructions to the agent on first IDLE.
 
@@ -323,7 +323,7 @@ class TerminalController:
         except Exception as e:
             logging.error(f"Failed to send initial instructions: {e}")
 
-    def write(self, data: str, submit_seq: str | None = None):
+    def write(self, data: str, submit_seq: str | None = None) -> None:
         """Write data to the controlled process PTY with optional submit sequence."""
         if not self.running:
             return
@@ -349,7 +349,7 @@ class TerminalController:
             raise
         # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
-    def interrupt(self):
+    def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""
         if not self.running or not self.process:
             return
@@ -364,7 +364,7 @@ class TerminalController:
         with self.lock:
             return "".join(self._render_buffer)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the controlled process and clean up resources."""
         self.running = False
         if self.process:
@@ -374,7 +374,7 @@ class TerminalController:
         if self.master_fd and not self.interactive:
             os.close(self.master_fd)
 
-    def run_interactive(self):
+    def run_interactive(self) -> None:
         """
         Run in interactive mode with input routing.
         Human's input is monitored for @Agent patterns.
