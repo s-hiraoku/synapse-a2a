@@ -61,7 +61,7 @@ class TestHistoryManager:
             input_text="Test input",
             output_text="Test output",
             status="completed",
-            metadata={"sender_id": "test-sender"}
+            metadata={"sender_id": "test-sender"},
         )
 
         # Verify saved
@@ -78,7 +78,7 @@ class TestHistoryManager:
         metadata = {
             "sender_id": "synapse-gemini-8110",
             "sender_type": "gemini",
-            "context_id": "ctx-123"
+            "context_id": "ctx-123",
         }
 
         history_manager.save_observation(
@@ -88,7 +88,7 @@ class TestHistoryManager:
             input_text="Input",
             output_text="Output",
             status="completed",
-            metadata=metadata
+            metadata=metadata,
         )
 
         observations = history_manager.list_observations(limit=1)
@@ -105,7 +105,7 @@ class TestHistoryManager:
                 session_id="session-1",
                 input_text=f"Input {i}",
                 output_text=f"Output {i}",
-                status="completed"
+                status="completed",
             )
 
         observations = history_manager.list_observations()
@@ -121,7 +121,7 @@ class TestHistoryManager:
                 session_id="session-1",
                 input_text=f"Input {i}",
                 output_text=f"Output {i}",
-                status="completed"
+                status="completed",
             )
 
         observations = history_manager.list_observations(limit=5)
@@ -135,7 +135,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Input 1",
             output_text="Output 1",
-            status="completed"
+            status="completed",
         )
         history_manager.save_observation(
             task_id="task-2",
@@ -143,7 +143,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Input 2",
             output_text="Output 2",
-            status="completed"
+            status="completed",
         )
         history_manager.save_observation(
             task_id="task-3",
@@ -151,7 +151,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Input 3",
             output_text="Output 3",
-            status="completed"
+            status="completed",
         )
 
         claude_obs = history_manager.list_observations(agent_name="claude")
@@ -169,7 +169,7 @@ class TestHistoryManager:
                 session_id="session-1",
                 input_text=f"Input {i}",
                 output_text=f"Output {i}",
-                status="completed"
+                status="completed",
             )
             time.sleep(0.01)  # Small delay to ensure different timestamps
 
@@ -187,7 +187,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Unique input",
             output_text="Unique output",
-            status="completed"
+            status="completed",
         )
 
         observation = history_manager.get_observation("task-unique")
@@ -203,10 +203,7 @@ class TestHistoryManager:
     def test_save_failed_task(self, history_manager):
         """Should save failed tasks with error information."""
         metadata = {
-            "error": {
-                "code": "COMMAND_NOT_FOUND",
-                "message": "Command 'xyz' not found"
-            }
+            "error": {"code": "COMMAND_NOT_FOUND", "message": "Command 'xyz' not found"}
         }
 
         history_manager.save_observation(
@@ -216,7 +213,7 @@ class TestHistoryManager:
             input_text="Run xyz command",
             output_text="Error: command not found",
             status="failed",
-            metadata=metadata
+            metadata=metadata,
         )
 
         observation = history_manager.get_observation("task-failed")
@@ -231,7 +228,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Long running task",
             output_text="Task canceled by user",
-            status="canceled"
+            status="canceled",
         )
 
         observation = history_manager.get_observation("task-canceled")
@@ -247,7 +244,7 @@ class TestHistoryManager:
             session_id="session-1",
             input_text="Input",
             output_text="Output",
-            status="completed"
+            status="completed",
         )
 
         # Database file should not be created
@@ -264,10 +261,12 @@ class TestHistoryManager:
                 session_id="session-1",
                 input_text=f"Input {i}",
                 output_text=f"Output {i}",
-                status="completed"
+                status="completed",
             )
 
-        threads = [threading.Thread(target=save_observation, args=(i,)) for i in range(10)]
+        threads = [
+            threading.Thread(target=save_observation, args=(i,)) for i in range(10)
+        ]
         for t in threads:
             t.start()
         for t in threads:
@@ -305,21 +304,20 @@ class TestHistoryIntegration:
             id="task-a2a-123",
             status="completed",
             message=Message(
-                role="user",
-                parts=[TextPart(text="Write a hello world function")]
+                role="user", parts=[TextPart(text="Write a hello world function")]
             ),
             artifacts=[
-                Artifact(type="code", data={"language": "python", "code": "def hello(): print('hello')"})
+                Artifact(
+                    type="code",
+                    data={"language": "python", "code": "def hello(): print('hello')"},
+                )
             ],
             created_at=datetime.now().isoformat(),
             updated_at=datetime.now().isoformat(),
             context_id="ctx-abc",
             metadata={
-                "sender": {
-                    "sender_id": "synapse-gemini-8110",
-                    "sender_type": "gemini"
-                }
-            }
+                "sender": {"sender_id": "synapse-gemini-8110", "sender_type": "gemini"}
+            },
         )
 
         # Extract input
@@ -329,7 +327,9 @@ class TestHistoryIntegration:
         output_parts = []
         for artifact in task.artifacts:
             if artifact.type == "code":
-                output_parts.append(f"[Code: {artifact.data.get('language', 'text')}]\n{artifact.data.get('code', '')}")
+                output_parts.append(
+                    f"[Code: {artifact.data.get('language', 'text')}]\n{artifact.data.get('code', '')}"
+                )
             elif artifact.type == "text":
                 output_parts.append(artifact.data)
         output_text = "\n".join(output_parts)
@@ -342,7 +342,7 @@ class TestHistoryIntegration:
             input_text=input_text,
             output_text=output_text,
             status=task.status,
-            metadata=task.metadata
+            metadata=task.metadata,
         )
 
         # Verify
