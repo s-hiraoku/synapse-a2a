@@ -51,7 +51,7 @@ synapse claude --port 8100
 [Synapse] Starting claude on port 8100
 [Synapse] Submit sequence: '\r'
 [Synapse] Use @Agent to send messages to other agents
-[Synapse] Use @Agent --response 'message' to get response here
+[Synapse] Use @Agent 'message' to get response here
 [Synapse] Press Ctrl+C twice to exit
 ```
 
@@ -285,7 +285,7 @@ synapse external remove <alias>
 ### 3.1 基本構文
 
 ```
-@<agent_name> [--response] <message>
+@<agent_name> [--non-response] <message>
 ```
 
 **パターン**:
@@ -294,7 +294,7 @@ synapse external remove <alias>
 flowchart LR
     At["@"]
     Agent["agent_name"]
-    Option["--response"]
+    Option["--non-response"]
     Message["message"]
 
     At --> Agent --> Option --> Message
@@ -327,8 +327,8 @@ flowchart LR
 ### 3.3 レスポンス付き送信
 
 ```text
-@codex --response "設計を書いて"
-@claude --response "コードレビューして"
+@codex "設計を書いて"
+@claude "コードレビューして"
 ```
 
 **動作**:
@@ -649,7 +649,7 @@ Ink ベースの TUI（Claude Code など）では、以下の問題が発生す
 
 ### 7.3 レスポンス待ちのタイムアウト
 
-`--response` オプションでのレスポンス待ちは最大 60 秒です。長時間の処理を依頼する場合は、別途 `/status` API でポーリングしてください。
+デフォルトでレスポンスを待ちます（最大 60 秒）。`--non-response` オプションを指定すると、レスポンスを待たずに送信のみ行います。長時間の処理を依頼する場合は、別途 `/status` API でポーリングしてください。
 
 ---
 

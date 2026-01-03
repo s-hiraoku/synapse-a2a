@@ -36,10 +36,11 @@ class InputRouter:
                 pty.write(output)
     """
 
-    # Pattern: @AgentName [--response] message
-    # --response: return response to sender's terminal
+    # Pattern: @AgentName [--non-response] message
+    # Default: return response to sender's terminal
+    # --non-response: opt-out of returning response (just send and forget)
     # Agent name can include hyphens, numbers, and colons (e.g., gemini:8110)
-    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
+    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--non-response)?\s+(.+)$', re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
@@ -104,7 +105,8 @@ class InputRouter:
             match = self.A2A_PATTERN.match(line)
             if match:
                 agent = match.group(1).lower()
-                want_response = bool(match.group(2))
+                # Default: want response. --non-response opts out.
+                want_response = not bool(match.group(2))
                 message = match.group(3).strip()
                 # Remove surrounding quotes if present
                 if (message.startswith("'") and message.endswith("'")) or \

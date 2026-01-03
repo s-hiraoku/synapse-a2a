@@ -670,32 +670,32 @@ curl -X POST http://localhost:8100/external/discover \
 ### 3.1 構文
 
 ```
-@<agent_name> [--response] <message>
+@<agent_name> [--non-response] <message>
 ```
 
 **正規表現パターン**:
 
 ```regex
-^@(\w+)(\s+--response)?\s+(.+)$
+^@(\w+)(\s+--non-response)?\s+(.+)$
 ```
 
 ### 3.2 パターン
 
 | 構文 | 説明 |
 |------|------|
-| `@agent message` | メッセージ送信（応答なし） |
-| `@agent --response "message"` | メッセージ送信（応答待ち） |
+| `@agent message` | メッセージ送信（デフォルトで応答待ち） |
+| `@agent --non-response message` | メッセージ送信（応答を待たない） |
 
 ### 3.3 例
 
 ```text
-# 通常送信
+# 通常送信（レスポンスを待つ）
 @codex 設計をレビューして
 @gemini このコードを最適化して
 
-# レスポンス付き
-@claude --response "コードレビューして"
-@codex --response "エラーを修正して"
+# レスポンスを待たない
+@claude --non-response "タスクを実行して"
+@codex --non-response "バックグラウンドで処理して"
 
 # クォート付き
 @gemini "複雑な メッセージ"

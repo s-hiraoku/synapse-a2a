@@ -225,7 +225,7 @@ synapse external remove other
 @external_alias メッセージ
 
 # レスポンスを受け取る
-@agent_name --response "メッセージ"
+@agent_name "メッセージ"
 ```
 
 ### HTTP API

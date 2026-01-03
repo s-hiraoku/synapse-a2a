@@ -81,6 +81,7 @@ class TerminalController:
         )
 
     def start(self):
+        """Start the controlled process in background mode with PTY."""
         self.master_fd, self.slave_fd = pty.openpty()
 
         # Build command list: command + args
@@ -123,6 +124,7 @@ class TerminalController:
             logging.error(f"A2A action failed for {agent_name}: {e}")
 
     def _monitor_output(self):
+        """Monitor and process output from the controlled process PTY."""
         if self.master_fd is None or self.process is None:
             return
         while self.running and self.process.poll() is None:
@@ -159,6 +161,7 @@ class TerminalController:
                     break
 
     def _check_idle_state(self, new_data):
+        """Check if the output matches the idle regex pattern and update status."""
         # We match against the end of the buffer to see if we reached a prompt
         with self.lock:
             search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
@@ -215,6 +218,7 @@ class TerminalController:
             logging.error(f"Failed to send initial instructions: {e}")
 
     def write(self, data: str, submit_seq: str | None = None):
+        """Write data to the controlled process PTY with optional submit sequence."""
         if not self.running:
             return
 
@@ -240,6 +244,7 @@ class TerminalController:
         # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
     def interrupt(self):
+        """Send SIGINT to interrupt the controlled process."""
         if not self.running or not self.process:
             return
             
@@ -249,10 +254,12 @@ class TerminalController:
             self.status = "BUSY" # Interruption might cause output/processing
 
     def get_context(self) -> str:
+        """Get the current output context from the controlled process."""
         with self.lock:
             return "".join(self._render_buffer)
 
     def stop(self):
+        """Stop the controlled process and clean up resources."""
         self.running = False
         if self.process:
             self.process.terminate()

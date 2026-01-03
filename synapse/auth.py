@@ -247,6 +247,7 @@ def require_scope(scope: str):
         request: Request,
         api_key: str | None = Security(get_api_key),
     ) -> APIKeyInfo | None:
+        """Check API key scope and validate request authorization."""
         config = load_auth_config()
 
         # Skip auth if disabled

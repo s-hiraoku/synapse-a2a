@@ -179,6 +179,7 @@ class SynapseShell(cmd.Cmd):
 
 
 def main():
+    """Start the Synapse interactive shell."""
     try:
         shell = SynapseShell()
         shell.cmdloop()

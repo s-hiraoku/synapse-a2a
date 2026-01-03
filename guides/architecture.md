@@ -166,11 +166,11 @@ classDiagram
 **パターン検出**:
 
 ```
-@Agent [--response] message
+@Agent [--non-response] message
 
 例:
 @codex 設計をレビューして
-@claude --response "コードをチェックして"
+@claude "コードをチェックして"
 ```
 
 **入力処理フロー**:
@@ -481,7 +481,7 @@ sequenceDiagram
 - メッセージは A2AMessage 形式（Message/Part 構造）に変換される
 - `/tasks/send-priority` エンドポイントを使用（priority サポートのため）
 
-### 4.2 --response オプション付き通信
+### 4.2 --non-response オプション付き通信
 
 ```mermaid
 sequenceDiagram
@@ -491,7 +491,7 @@ sequenceDiagram
     participant A2AClient as A2AClient
     participant Codex as Codex (8101)
 
-    User->>Claude: @codex --response "設計を書いて"
+    User->>Claude: @codex "設計を書いて"
     Claude->>IR: パターン検出
     IR->>A2AClient: send_to_local(endpoint, message, wait=true)
     A2AClient->>Codex: POST /tasks/send-priority<br/>{"message": {...}}

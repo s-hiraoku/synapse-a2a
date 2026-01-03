@@ -3,10 +3,12 @@
 
 import argparse
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import yaml
 
@@ -18,6 +20,29 @@ from synapse.registry import AgentRegistry
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
+
+
+def install_skills():
+    """Install Synapse A2A skills to ~/.claude/skills/ if not present."""
+    target_dir = Path.home() / ".claude" / "skills" / "synapse-a2a"
+
+    # Skip if already installed
+    if target_dir.exists():
+        return
+
+    # Find source skills directory (from package installation)
+    try:
+        import synapse
+        package_dir = Path(synapse.__file__).parent
+        source_dir = package_dir / "skills" / "synapse-a2a"
+
+        if source_dir.exists():
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source_dir, target_dir)
+            print(f"\x1b[32m[Synapse]\x1b[0m Installed A2A skill to {target_dir}")
+    except Exception:
+        # Silently ignore installation errors
+        pass
 
 
 def cmd_start(args):
@@ -458,9 +483,15 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
     print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
+<<<<<<< HEAD
     print("\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
     print("\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
     print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
+=======
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)")
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response")
+    print(f"\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
+>>>>>>> 0e416fc (feat: add synapse-a2a skill and change default to require response)
     print()
     print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
     print(f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json")
@@ -501,6 +532,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
 
 def main():
+    # Install A2A skills if not present
+    install_skills()
+
     # Check for shortcut: synapse claude [--port PORT] [-- TOOL_ARGS...]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]

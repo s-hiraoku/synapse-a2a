@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import os
 import sys
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,7 @@ submit_sequence: str = '\n'  # Default submit sequence
 
 
 def load_profile(profile_name: str):
+    """Load agent profile configuration from YAML file."""
     profile_path = os.path.join(os.path.dirname(__file__), 'profiles', f"{profile_name}.yaml")
     if not os.path.exists(profile_path):
         raise FileNotFoundError(f"Profile {profile_name} not found")
@@ -204,15 +206,30 @@ async def send_initial_instructions(
 
     Only sends identity and basic commands (3 lines).
     Detailed routing is handled by InputRouter and inline message instructions.
+
+    If READY detected quickly: send immediately (minimum startup time respected).
+    Otherwise: wait up to max_wait, then enforce minimum startup time before proceeding.
     """
-    # Wait for CLI to be ready (IDLE state)
-    max_wait = 30
+    # Poll for READY status immediately, up to max_wait seconds
+    # This allows fast startup if the agent is ready quickly
+    min_wait = 3  # Minimum startup time to allow agent initialization
+    max_wait = 30  # Maximum time to wait for READY status
+
+    start_time = time.time()
     waited = 0
+
+    # Poll for READY status (check every 0.1 seconds for responsiveness)
     while waited < max_wait:
-        if ctrl.status == "IDLE":
+        if ctrl.status == "READY":
             break
-        await asyncio.sleep(1)
-        waited += 1
+        await asyncio.sleep(0.1)
+        waited = time.time() - start_time
+
+    # Enforce minimum startup time: if we detected READY quickly,
+    # sleep for the remaining time to reach min_wait
+    if waited < min_wait:
+        remaining = min_wait - waited
+        await asyncio.sleep(remaining)
 
     # Build minimal bootstrap message
     bootstrap = build_bootstrap_message(agent_id, port)
@@ -296,6 +313,7 @@ async def send_message(msg: MessageRequest):
 
 @app.get("/status")
 async def get_status():
+    """Get the current status of the agent and recent output context."""
     if not controller:
         return {"status": "NOT_STARTED", "context": ""}
         
