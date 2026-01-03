@@ -1,6 +1,6 @@
+import signal
 import sys
 import time
-import signal
 
 sigint_count = 0
 
