@@ -4,13 +4,11 @@ import os
 import sqlite3
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
 from synapse.a2a_compat import Message, TextPart
 from synapse.history import HistoryManager
-
 
 # ============================================================
 # HistoryManager Tests
@@ -40,7 +38,7 @@ class TestHistoryManager:
 
     def test_init_creates_observations_table(self, temp_db_path):
         """Should create observations table with correct schema."""
-        manager = HistoryManager(db_path=temp_db_path)
+        HistoryManager(db_path=temp_db_path)
 
         # Check table exists
         conn = sqlite3.connect(temp_db_path)
@@ -296,8 +294,9 @@ class TestHistoryIntegration:
 
     def test_save_completed_task_from_a2a(self, temp_db_path):
         """Should save task data from A2A task completion."""
-        from synapse.a2a_compat import Artifact, Task
         from datetime import datetime
+
+        from synapse.a2a_compat import Artifact, Task
 
         manager = HistoryManager(db_path=temp_db_path)
 
