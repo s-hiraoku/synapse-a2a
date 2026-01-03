@@ -483,15 +483,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
     print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
-<<<<<<< HEAD
-    print("\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
-    print("\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
-    print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
-=======
     print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)")
     print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response")
-    print(f"\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
->>>>>>> 0e416fc (feat: add synapse-a2a skill and change default to require response)
+    print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
     print()
     print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
     print(f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json")
