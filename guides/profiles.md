@@ -249,7 +249,8 @@ command: "codex"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "timeout"
+  strategy: "pattern"
+  pattern: "›"
   timeout: 1.5
 env:
   TERM: "xterm-256color"
@@ -258,8 +259,8 @@ env:
 **特徴**:
 
 - OpenAI Codex CLI 用
-- **timeout 戦略**: 不規則なプロンプト出力
-- 1.5 秒のタイムアウト
+- **pattern 戦略**: Codex は一貫したプロンプト文字 (`›`) を使用
+- 1.5 秒のタイムアウト（フォールバック）
 
 ---
 
@@ -270,7 +271,8 @@ command: "gemini"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "timeout"
+  strategy: "pattern"
+  pattern: "(> |\\*)"
   timeout: 1.5
 env:
   TERM: "xterm-256color"
@@ -279,8 +281,8 @@ env:
 **特徴**:
 
 - Google Gemini CLI 用
-- **timeout 戦略**: 会話履歴の中にプロンプトパターンが現れることがあるため、パターンマッチングは不確実
-- 1.5 秒のタイムアウト
+- **pattern 戦略**: Gemini は一貫したプロンプトパターン (`> ` または `*`) を使用
+- 1.5 秒のタイムアウト（フォールバック）
 
 ---
 
@@ -318,7 +320,10 @@ env:
 # 1. プロファイル作成
 cat > synapse/profiles/myagent.yaml << EOF
 command: "myagent"
-idle_regex: "\\$ $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "\\$ $"
+  timeout: 1.5
 submit_sequence: "\n"
 env:
   TERM: "xterm-256color"
@@ -456,10 +461,16 @@ env:
 
 ```yaml
 # 複数行プロンプト
-idle_regex: "(claude|codex|gemini)> $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "(claude|codex|gemini)> $"
+  timeout: 1.5
 
 # ANSI エスケープシーケンス付き
-idle_regex: "\\x1b\\[0m> $"
+idle_detection:
+  strategy: "pattern"
+  pattern: "\\x1b\\[0m> $"
+  timeout: 1.5
 ```
 
 ---

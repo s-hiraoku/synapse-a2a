@@ -10,7 +10,6 @@ import pytest
 
 from synapse.cli import cmd_list
 from synapse.registry import AgentRegistry
-from synapse.port_manager import is_process_alive
 
 
 @pytest.fixture
