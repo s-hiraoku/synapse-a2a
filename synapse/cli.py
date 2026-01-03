@@ -292,6 +292,93 @@ def cmd_logs(args: argparse.Namespace) -> None:
         subprocess.run(["tail", "-n", str(args.lines), log_file])
 
 
+# ============================================================
+# History Commands
+# ============================================================
+
+
+def cmd_history_list(args: argparse.Namespace) -> None:
+    """List task history."""
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    observations = manager.list_observations(
+        limit=args.limit, agent_name=args.agent if args.agent else None
+    )
+
+    if not observations:
+        print("No task history found.")
+        return
+
+    # Print table header
+    print(
+        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
+    )
+    print("-" * 119)
+
+    # Print each observation
+    for obs in observations:
+        task_id = obs["task_id"][:36]
+        agent = obs["agent_name"][:10]
+        status = obs["status"][:12]
+        timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
+        input_preview = obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
+        print(f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}")
+
+    print(f"\nShowing {len(observations)} entries (limit: {args.limit})")
+    if args.agent:
+        print(f"Filtered by agent: {args.agent}")
+
+
+def cmd_history_show(args: argparse.Namespace) -> None:
+    """Show detailed task information."""
+    import json
+
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    observation = manager.get_observation(args.task_id)
+
+    if not observation:
+        print(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    # Print task details
+    print(f"Task ID:        {observation['task_id']}")
+    print(f"Agent:          {observation['agent_name']}")
+    print(f"Status:         {observation['status']}")
+    print(f"Session ID:     {observation['session_id']}")
+    print(f"Timestamp:      {observation['timestamp']}")
+
+    print("\n" + "=" * 80)
+    print("INPUT:")
+    print("=" * 80)
+    print(observation["input"] or "(empty)")
+
+    print("\n" + "=" * 80)
+    print("OUTPUT:")
+    print("=" * 80)
+    print(observation["output"] or "(empty)")
+
+    if observation.get("metadata"):
+        print("\n" + "=" * 80)
+        print("METADATA:")
+        print("=" * 80)
+        print(json.dumps(observation["metadata"], indent=2))
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     target = args.target
@@ -725,6 +812,27 @@ def main() -> None:
     )
     p_send.set_defaults(func=cmd_send)
 
+    # history - Task history management
+    p_history = subparsers.add_parser("history", help="View and manage task history")
+    history_subparsers = p_history.add_subparsers(
+        dest="history_command", help="History commands"
+    )
+
+    # history list
+    p_hist_list = history_subparsers.add_parser("list", help="List task history")
+    p_hist_list.add_argument(
+        "--agent", "-a", help="Filter by agent name (e.g., claude, gemini, codex)"
+    )
+    p_hist_list.add_argument(
+        "--limit", "-n", type=int, default=50, help="Maximum number of entries (default: 50)"
+    )
+    p_hist_list.set_defaults(func=cmd_history_list)
+
+    # history show
+    p_hist_show = history_subparsers.add_parser("show", help="Show task details")
+    p_hist_show.add_argument("task_id", help="Task ID to display")
+    p_hist_show.set_defaults(func=cmd_history_show)
+
     # external - External A2A agent management
     p_external = subparsers.add_parser("external", help="Manage external A2A agents")
     external_subparsers = p_external.add_subparsers(
@@ -788,6 +896,13 @@ def main() -> None:
 
     if args.command is None:
         parser.print_help()
+        sys.exit(1)
+
+    # Handle history subcommand without action
+    if args.command == "history" and (
+        not hasattr(args, "history_command") or args.history_command is None
+    ):
+        p_history.print_help()
         sys.exit(1)
 
     # Handle external subcommand without action
