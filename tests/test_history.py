@@ -309,7 +309,10 @@ class TestHistoryIntegration:
             artifacts=[
                 Artifact(
                     type="code",
-                    data={"language": "python", "code": "def hello(): print('hello')"},
+                    data={
+                        "metadata": {"language": "python"},
+                        "content": "def hello(): print('hello')",
+                    },
                 )
             ],
             created_at=datetime.now().isoformat(),
@@ -323,15 +326,21 @@ class TestHistoryIntegration:
         # Extract input
         input_text = task.message.parts[0].text if task.message else ""
 
-        # Extract output from artifacts
+        # Extract output from artifacts (matching implementation in _save_task_to_history)
         output_parts = []
         for artifact in task.artifacts:
             if artifact.type == "code":
-                output_parts.append(
-                    f"[Code: {artifact.data.get('language', 'text')}]\n{artifact.data.get('code', '')}"
-                )
+                code_data = artifact.data.get("metadata", {})
+                language = code_data.get("language", "text")
+                content = artifact.data.get("content", "")
+                output_parts.append(f"[Code: {language}]\n{content}")
             elif artifact.type == "text":
-                output_parts.append(artifact.data)
+                content = (
+                    artifact.data
+                    if isinstance(artifact.data, str)
+                    else artifact.data.get("content", "")
+                )
+                output_parts.append(content)
         output_text = "\n".join(output_parts)
 
         # Save to history
