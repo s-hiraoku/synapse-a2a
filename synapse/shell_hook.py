@@ -93,6 +93,7 @@ def generate_hook(shell_type: str = "bash") -> str:
 
 
 def main():
+    """Generate and print the shell hook for agent integration."""
     import argparse
     parser = argparse.ArgumentParser(description="Generate Synapse shell hook")
     parser.add_argument("--type", choices=["bash", "zsh", "simple"], default="bash",

@@ -180,6 +180,7 @@ def cmd_send(args):
         sys.exit(1)
 
 def main():
+    """Parse command-line arguments and execute A2A client operations."""
     parser = argparse.ArgumentParser(description="Synapse A2A Client Tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
