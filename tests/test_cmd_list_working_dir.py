@@ -47,7 +47,7 @@ class TestCmdListWorkingDir:
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.port_manager.is_process_alive", return_value=True),
+            patch("synapse.cli.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -84,7 +84,7 @@ class TestCmdListWorkingDir:
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.port_manager.is_process_alive", return_value=True),
+            patch("synapse.cli.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -106,7 +106,7 @@ class TestCmdListWorkingDir:
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.port_manager.is_process_alive", return_value=True),
+            patch("synapse.cli.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -156,7 +156,7 @@ class TestCmdListWorkingDir:
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.port_manager.is_process_alive", return_value=True),
+            patch("synapse.cli.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 

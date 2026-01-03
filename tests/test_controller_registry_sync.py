@@ -1,8 +1,6 @@
 """Tests for controller status synchronization to registry."""
 
 import json
-import shutil
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -12,12 +10,9 @@ from synapse.registry import AgentRegistry
 
 
 @pytest.fixture
-def temp_registry_dir():
+def temp_registry_dir(tmp_path):
     """Create a temporary registry directory."""
-    temp_dir = Path("/tmp/a2a_test_controller_sync")
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    yield temp_dir
-    shutil.rmtree(temp_dir, ignore_errors=True)
+    return tmp_path
 
 
 @pytest.fixture

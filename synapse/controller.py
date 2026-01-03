@@ -155,7 +155,8 @@ class TerminalController:
         self.status = "PROCESSING"
 
         # Initialize last output time for timeout-based idle detection
-        self._last_output_time = time.time()
+        with self.lock:
+            self._last_output_time = time.time()
 
     def _execute_a2a_action(
         self, action_func: Callable[[], bool], agent_name: str
@@ -381,7 +382,8 @@ class TerminalController:
         """
         self.interactive = True
         self.running = True
-        self._last_output_time = time.time()
+        with self.lock:
+            self._last_output_time = time.time()
 
         # Start background thread for periodic idle checking
         # This ensures timeout-based idle detection works in interactive mode
@@ -426,7 +428,8 @@ class TerminalController:
             data = os.read(fd, 1024)
             if data:
                 # Update last output time for idle detection
-                self._last_output_time = time.time()
+                with self.lock:
+                    self._last_output_time = time.time()
 
                 self._append_output(data)
                 self._check_idle_state(data)

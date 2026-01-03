@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 class TestConfig:
     """Tests for synapse/config.py constants."""
 
-    def test_timeout_constants_exist(self):
+    def test_timeout_constants_exist(self) -> None:
         """Verify timeout constants are defined."""
         from synapse.config import (
             AGENT_WAIT_TIMEOUT,
@@ -36,7 +36,7 @@ class TestConfig:
         assert PORT_CHECK_TIMEOUT == 1.0
         assert AGENT_WAIT_TIMEOUT == 60
 
-    def test_buffer_size_constants_exist(self):
+    def test_buffer_size_constants_exist(self) -> None:
         """Verify buffer size constants are defined."""
         from synapse.config import (
             API_RESPONSE_CONTEXT_SIZE,
@@ -54,7 +54,7 @@ class TestConfig:
 class TestUtils:
     """Tests for synapse/utils.py utility functions."""
 
-    def test_extract_text_from_parts_with_text_parts(self):
+    def test_extract_text_from_parts_with_text_parts(self) -> None:
         """Extract text from TextPart objects."""
         from synapse.utils import extract_text_from_parts
 
@@ -65,7 +65,7 @@ class TestUtils:
         result = extract_text_from_parts(parts)
         assert result == "Hello\nWorld"
 
-    def test_extract_text_from_parts_with_mixed_parts(self):
+    def test_extract_text_from_parts_with_mixed_parts(self) -> None:
         """Extract text from mixed part types, ignoring non-text."""
         from synapse.utils import extract_text_from_parts
 
@@ -77,7 +77,7 @@ class TestUtils:
         result = extract_text_from_parts(parts)
         assert result == "Hello\nWorld"
 
-    def test_extract_text_from_parts_empty(self):
+    def test_extract_text_from_parts_empty(self) -> None:
         """Return empty string for no text parts."""
         from synapse.utils import extract_text_from_parts
 
@@ -85,7 +85,7 @@ class TestUtils:
         result = extract_text_from_parts(parts)
         assert result == ""
 
-    def test_extract_text_from_parts_with_pydantic_models(self):
+    def test_extract_text_from_parts_with_pydantic_models(self) -> None:
         """Extract text from Pydantic model objects."""
         from synapse.utils import extract_text_from_parts
 
@@ -97,21 +97,21 @@ class TestUtils:
         result = extract_text_from_parts(parts)
         assert result == "Pydantic text"
 
-    def test_format_a2a_message(self):
+    def test_format_a2a_message(self) -> None:
         """Format A2A message with prefix."""
         from synapse.utils import format_a2a_message
 
         result = format_a2a_message("task123", "sender-id", "Hello world")
         assert result == "[A2A:task123:sender-id] Hello world"
 
-    def test_format_a2a_message_with_short_task_id(self):
+    def test_format_a2a_message_with_short_task_id(self) -> None:
         """Format A2A message with full task ID (truncation is caller's responsibility)."""
         from synapse.utils import format_a2a_message
 
         result = format_a2a_message("abcd1234", "synapse-system", "Message")
         assert result == "[A2A:abcd1234:synapse-system] Message"
 
-    def test_get_iso_timestamp(self):
+    def test_get_iso_timestamp(self) -> None:
         """Generate ISO timestamp with Z suffix."""
         from synapse.utils import get_iso_timestamp
 
@@ -119,7 +119,7 @@ class TestUtils:
         assert result.endswith("Z")
         assert "T" in result  # ISO format has T separator
 
-    def test_get_iso_timestamp_is_utc(self):
+    def test_get_iso_timestamp_is_utc(self) -> None:
         """Verify timestamp is in UTC."""
         from synapse.utils import get_iso_timestamp
 
@@ -136,7 +136,7 @@ class TestUtils:
 class TestA2AClientWaitLogic:
     """Tests for consolidated task completion wait logic."""
 
-    def test_wait_for_task_completion_success(self):
+    def test_wait_for_task_completion_success(self) -> None:
         """Wait for task to complete successfully."""
         from synapse.a2a_client import A2AClient
 
@@ -169,7 +169,7 @@ class TestA2AClientWaitLogic:
             assert result is not None
             assert result.status == "completed"
 
-    def test_wait_for_task_completion_timeout(self):
+    def test_wait_for_task_completion_timeout(self) -> None:
         """Return None when timeout expires."""
         from synapse.a2a_client import A2AClient
 
@@ -191,7 +191,7 @@ class TestA2AClientWaitLogic:
             # Should return None on timeout
             assert result is None
 
-    def test_wait_for_task_completion_failed_state(self):
+    def test_wait_for_task_completion_failed_state(self) -> None:
         """Stop waiting when task reaches failed state."""
         from synapse.a2a_client import A2AClient
 
@@ -212,7 +212,7 @@ class TestA2AClientWaitLogic:
             assert result is not None
             assert result.status == "failed"
 
-    def test_wait_for_task_completion_canceled_state(self):
+    def test_wait_for_task_completion_canceled_state(self) -> None:
         """Stop waiting when task is canceled."""
         from synapse.a2a_client import A2AClient
 
