@@ -4,6 +4,7 @@ import json
 import shutil
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from synapse.controller import TerminalController
@@ -171,7 +172,7 @@ class TestStatusSyncToRegistry:
         registry_file = temp_registry.registry_dir / f"{agent_id}.json"
         assert registry_file.exists()
 
-        with open(registry_file, 'r') as f:
+        with open(registry_file) as f:
             data = json.load(f)
 
         assert data.get("status") == "READY"

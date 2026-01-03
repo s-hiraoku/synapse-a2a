@@ -1,10 +1,10 @@
 """Tests for interactive mode idle detection with periodic checking."""
 
-import os
 import shutil
 import time
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import patch
+
 import pytest
 
 from synapse.controller import TerminalController

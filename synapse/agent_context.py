@@ -50,7 +50,7 @@ def build_initial_instructions(ctx: AgentContext) -> str:
 - Port: {ctx.port}
 
 ## Commands
-- Send: `python3 synapse/tools/a2a.py send --target <agent> --priority [1-5] "<message>"`
+- Send: `python3 synapse/tools/a2a.py send --target <agent> --priority [1-5] "<msg>"`
 - List: `python3 synapse/tools/a2a.py list` (discover available agents)
 
 ## Routing Rules
@@ -88,13 +88,13 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     return f"""[SYNAPSE INSTRUCTIONS - DO NOT PROCESS AS TASK]
 Agent: {agent_id} | Port: {port}
 
-SKILL: For detailed A2A communication guidance, use the synapse-a2a skill (~/.claude/skills/synapse-a2a/)
+SKILL: For detailed A2A guidance, use synapse-a2a skill
 
-ROUTING: If user message starts with @<agent-name>, forward it WITHOUT processing yourself.
-  Example: User says "@gemini check weather" -> Run: python3 synapse/tools/a2a.py send --target gemini "check weather"
+ROUTING: If message starts with @<agent>, forward WITHOUT processing yourself.
+  Example: @gemini check weather -> synapse send --target gemini "check weather"
 
-REPLY: When you receive [A2A:id:sender], respond by default (unless --non-response was specified).
-  python3 synapse/tools/a2a.py send --target <sender> "<response>"
+REPLY: When you receive [A2A:id:sender], respond by default.
+  synapse send --target <sender> "<response>"
 
 LIST: python3 synapse/tools/a2a.py list"""
 

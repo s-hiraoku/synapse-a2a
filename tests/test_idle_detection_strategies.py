@@ -1,10 +1,10 @@
 """Tests for multi-strategy idle detection in TerminalController."""
 
-import json
 import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from synapse.controller import TerminalController
@@ -296,7 +296,7 @@ class TestHybridStrategy:
         assert controller.status == "READY"
 
     def test_hybrid_pattern_startup_only(self, temp_registry):
-        """Hybrid strategy with pattern_use=startup_only should ignore pattern after first match."""
+        """Hybrid with pattern_use=startup_only ignores pattern after first match."""
         agent_id = "test-agent-hybrid-3"
 
         controller = TerminalController(
@@ -381,7 +381,7 @@ class TestBackwardCompatibility:
     """Tests for backward compatibility with legacy idle_regex parameter."""
 
     def test_legacy_idle_regex_parameter(self, temp_registry):
-        """Old idle_regex parameter should still work (converted to pattern strategy)."""
+        """Old idle_regex parameter should still work (converted)."""
         agent_id = "test-agent-legacy"
 
         # Using old idle_regex parameter
@@ -459,7 +459,7 @@ class TestProfileLoading:
         assert profile["idle_detection"]["timeout"] == 0.5
 
     def test_profile_gemini_timeout_strategy(self):
-        """Gemini profile should use timeout strategy (pattern unreliable with history)."""
+        """Gemini profile should use timeout strategy."""
         profile = {
             "command": "gemini",
             "idle_detection": {
@@ -472,7 +472,7 @@ class TestProfileLoading:
         assert profile["idle_detection"]["timeout"] == 1.5
 
     def test_profile_codex_timeout_strategy(self):
-        """Codex profile should use timeout strategy (pattern unreliable with history)."""
+        """Codex profile should use timeout strategy."""
         profile = {
             "command": "codex",
             "idle_detection": {
@@ -489,7 +489,7 @@ class TestStrategyTransitions:
     """Tests for status transitions with different strategies."""
 
     def test_pattern_ready_to_processing_transition(self, temp_registry):
-        """Pattern strategy keeps READY if pattern is anywhere in buffer (can't detect processing)."""
+        """Pattern strategy keeps READY if pattern exists in buffer."""
         agent_id = "test-agent-transition-1"
 
         controller = TerminalController(
@@ -524,7 +524,7 @@ class TestStrategyTransitions:
         """Simulate Gemini output with timeout-based detection (pattern unreliable)."""
         agent_id = "test-agent-gemini-timeout"
 
-        # Gemini uses timeout strategy (pattern matching is unreliable with conversation history)
+        # Gemini uses timeout strategy
         controller = TerminalController(
             command="gemini",
             idle_detection={

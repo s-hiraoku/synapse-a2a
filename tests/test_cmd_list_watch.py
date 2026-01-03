@@ -1,12 +1,12 @@
 """Tests for synapse list --watch command."""
 
-import json
 import shutil
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from synapse.cli import cmd_list, _render_agent_table, _clear_screen
+from synapse.cli import _clear_screen, _render_agent_table, cmd_list
 from synapse.registry import AgentRegistry
 
 
@@ -53,7 +53,9 @@ class TestRenderAgentTable:
     def test_render_multiple_agents(self, temp_registry):
         """Should render table with multiple agents."""
         temp_registry.register("synapse-claude-8100", "claude", 8100, status="READY")
-        temp_registry.register("synapse-gemini-8110", "gemini", 8110, status="PROCESSING")
+        temp_registry.register(
+            "synapse-gemini-8110", "gemini", 8110, status="PROCESSING"
+        )
 
         with patch("synapse.cli.is_process_alive", return_value=True):
             output = _render_agent_table(temp_registry)
@@ -163,8 +165,11 @@ class TestCmdListWatchMode:
             if len(clear_calls) >= 2:
                 raise KeyboardInterrupt()
 
+        def clear_side_effect():
+            clear_calls.append(1)
+
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
-            with patch("synapse.cli._clear_screen", side_effect=lambda: clear_calls.append(1)):
+            with patch("synapse.cli._clear_screen", side_effect=clear_side_effect):
                 with patch("synapse.cli.time.sleep", side_effect=sleep_side_effect):
                     with pytest.raises(SystemExit):
                         cmd_list(args)
@@ -214,10 +219,13 @@ class TestCmdListWatchMode:
         args.watch = True
         args.interval = 0.1
 
+        timestamp = "2026-01-03 12:00:00"
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             with patch("synapse.cli._clear_screen"):
                 with patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt):
-                    with patch("synapse.cli.time.strftime", return_value="2026-01-03 12:00:00"):
+                    with patch(
+                        "synapse.cli.time.strftime", return_value=timestamp
+                    ):
                         with pytest.raises(SystemExit):
                             cmd_list(args)
 

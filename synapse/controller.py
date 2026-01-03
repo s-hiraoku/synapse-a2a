@@ -13,7 +13,6 @@ import sys
 import termios
 import threading
 import time
-import tty
 import uuid
 from collections.abc import Callable
 
@@ -180,9 +179,7 @@ class TerminalController:
                     self._check_idle_state(data)
 
                     # Process output through InputRouter to detect @Agent commands
-                    # We process decoded text, but we don't modify the data stream here
-                    # because in start() mode, the subprocess stdout is already redirected
-                    # to the log file by Popen. _monitor_output just "snoops".
+                    # Don't modify data stream - subprocess output is redirected
                     text = data.decode("utf-8", errors="replace")
                     for char in text:
                         _, action = self.input_router.process_char(char)
@@ -200,8 +197,7 @@ class TerminalController:
                 except OSError:
                     break
             else:
-                # Even if there's no output, periodically check idle state
-                # This enables timeout-based idle detection when no output is being produced
+                # Periodically check idle state (timeout-based detection)
                 self._check_idle_state(b"")
 
     def _check_idle_state(self, new_data):
@@ -262,7 +258,12 @@ class TerminalController:
                     self.registry.update_status(self.agent_id, self.status)
 
             # 5. Send initial instructions on first READY
-            if is_idle and self.status == "READY" and not self._identity_sent and self.agent_id:
+            if (
+                is_idle
+                and self.status == "READY"
+                and not self._identity_sent
+                and self.agent_id
+            ):
                 self._identity_sent = True
                 threading.Thread(
                     target=self._send_identity_instruction, daemon=True
@@ -287,9 +288,11 @@ class TerminalController:
             waited += 0.1
 
         if self.master_fd is None:
-            print(
-                f"\x1b[31m[Synapse] Error: master_fd not available after {IDENTITY_WAIT_TIMEOUT}s\x1b[0m"
+            msg = (
+                f"[Synapse] Error: master_fd not available after"
+                f" {IDENTITY_WAIT_TIMEOUT}s"
             )
+            print(f"\x1b[31m{msg}\x1b[0m")
             return
 
         # Build bootstrap message with agent identity and commands
@@ -381,8 +384,7 @@ class TerminalController:
         checker_thread = threading.Thread(target=periodic_idle_checker, daemon=True)
         checker_thread.start()
 
-        # Note: Initial instructions are sent via cli.py -> server.send_initial_instructions()
-        # which uses A2A Task format with [A2A:id:sender] prefix
+        # Note: Initial instructions sent via cli.py (A2A Task format)
 
         def sync_pty_window_size():
             """Sync current terminal size to the PTY master for TUI apps."""
@@ -454,7 +456,7 @@ class TerminalController:
             os.write(self.master_fd, data)
 
     def _append_output(self, data: bytes) -> None:
-        """Append output to buffers, normalizing carriage returns for display context."""
+        """Append output to buffers, normalizing carriage returns."""
         text = self._decoder.decode(data)
         with self.lock:
             # Update last output time for idle detection

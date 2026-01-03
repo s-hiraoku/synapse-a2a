@@ -4,8 +4,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from io import StringIO
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,7 +30,7 @@ class TestCmdListWorkingDir:
         # Register an agent with working_dir
         test_working_dir = "/home/user/project"
         temp_registry.register("synapse-claude-8100", "claude", 8100)
-        
+
         # Update the registry file to include working_dir
         file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
         with open(file_path) as f:
@@ -42,7 +41,7 @@ class TestCmdListWorkingDir:
 
         # Mock the arguments object
         args = MagicMock()
-        
+
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             with patch("synapse.cli.is_process_alive", return_value=True):
@@ -57,12 +56,12 @@ class TestCmdListWorkingDir:
         """synapse list should display working_dir for multiple agents."""
         # Register multiple agents with different working_dirs
         test_dirs = ["/home/user/project1", "/home/user/project2"]
-        
+
         for i, test_dir in enumerate(test_dirs):
             agent_id = f"synapse-claude-810{i}"
             port = 8100 + i
             temp_registry.register(agent_id, "claude", port)
-            
+
             # Update the registry file
             file_path = temp_registry.registry_dir / f"{agent_id}.json"
             with open(file_path) as f:
@@ -73,7 +72,7 @@ class TestCmdListWorkingDir:
 
         # Mock the arguments object
         args = MagicMock()
-        
+
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             with patch("synapse.cli.is_process_alive", return_value=True):
@@ -88,10 +87,10 @@ class TestCmdListWorkingDir:
         """synapse list header should include WORKING_DIR column."""
         # Register an agent
         temp_registry.register("synapse-claude-8100", "claude", 8100)
-        
+
         # Mock the arguments object
         args = MagicMock()
-        
+
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             with patch("synapse.cli.is_process_alive", return_value=True):
@@ -108,7 +107,7 @@ class TestCmdListWorkingDir:
         """synapse list should handle empty registry gracefully."""
         # Mock the arguments object
         args = MagicMock()
-        
+
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             cmd_list(args)
@@ -121,10 +120,10 @@ class TestCmdListWorkingDir:
         """synapse list should display agent registered from current directory."""
         # Get the current working directory
         current_dir = os.getcwd()
-        
+
         # Register an agent with current working directory
         temp_registry.register("synapse-claude-8100", "claude", 8100)
-        
+
         # Update to use current directory (as done in register())
         file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
         with open(file_path) as f:
@@ -135,7 +134,7 @@ class TestCmdListWorkingDir:
 
         # Mock the arguments object
         args = MagicMock()
-        
+
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
             with patch("synapse.cli.is_process_alive", return_value=True):

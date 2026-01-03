@@ -208,8 +208,12 @@ def _render_agent_table(registry):
         return "\n".join(output)
 
     lines = []
-    lines.append(f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} {'WORKING_DIR':<50} {'ENDPOINT'}")
-    lines.append("-" * 112)
+    header = (
+        f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+        f"{'WORKING_DIR':<30} ENDPOINT"
+    )
+    lines.append(header)
+    lines.append("-" * 100)
 
     live_agents = False
     for agent_id, info in agents.items():
@@ -334,9 +338,10 @@ def cmd_external_add(args):
         print(f"  URL: {agent.url}")
         print(f"  Description: {agent.description}")
         if agent.skills:
-            print(
-                f"  Skills: {', '.join(s.get('name', s.get('id', '')) for s in agent.skills)}"
+            skills_str = ", ".join(
+                s.get("name", s.get("id", "")) for s in agent.skills
             )
+            print(f"  Skills: {skills_str}")
     else:
         print(f"Failed to add agent from {args.url}")
         sys.exit(1)
@@ -525,12 +530,14 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     env["SYNAPSE_AGENT_TYPE"] = profile
     env["SYNAPSE_PORT"] = str(port)
 
-    # Create controller - initial instructions sent via _send_identity_instruction on IDLE
+    # Create controller - initial instructions sent on IDLE
     controller = TerminalController(
         command=config["command"],
         args=all_args,
         idle_detection=idle_detection if idle_detection else None,
-        idle_regex=config.get("idle_regex") if not idle_detection else None,  # Backward compat
+        idle_regex=(
+            config.get("idle_regex") if not idle_detection else None
+        ),  # Backward compat
         env=env,
         registry=registry,
         agent_id=agent_id,
@@ -555,12 +562,10 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
     print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
-    print(
-        "\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)"
-    )
-    print(
-        "\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response"
-    )
+    msg = "Use @Agent 'message' to send (response expected by default)"
+    print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
+    msg2 = "Use @Agent --non-response 'message' to send without response"
+    print(f"\x1b[32m[Synapse]\x1b[0m {msg2}")
     print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
     print()
     print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
