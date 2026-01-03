@@ -600,7 +600,7 @@ def create_a2a_router(
                 # Check for terminal states
                 if current_task.status in ("completed", "failed", "canceled"):
                     # Send final task state with artifacts and error
-                    final_data = {
+                    final_data: dict[str, object] = {
                         "type": "done",
                         "status": current_task.status,
                         "artifacts": [

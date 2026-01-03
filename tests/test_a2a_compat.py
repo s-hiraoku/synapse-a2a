@@ -47,6 +47,7 @@ class TestMessageModels:
         msg = Message(role="user", parts=[TextPart(text="Test message")])
         assert msg.role == "user"
         assert len(msg.parts) == 1
+        assert isinstance(msg.parts[0], TextPart)
         assert msg.parts[0].text == "Test message"
 
     def test_message_default_role(self):

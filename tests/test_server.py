@@ -215,7 +215,7 @@ class TestErrorHandling(TestServerApp):
         from synapse.server import create_app
 
         app = create_app(
-            ctrl=None,  # No controller
+            ctrl=None,  # type: ignore[arg-type]  # No controller
             reg=mock_registry,
             agent_id="test",
             port=8000,

@@ -59,7 +59,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
 
     Returns dict with sender_id, sender_type, sender_endpoint if available.
     """
-    sender_info = {}
+    sender_info: dict[str, str] = {}
 
     # Explicit --from flag takes priority
     if explicit_sender:
@@ -76,8 +76,12 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
             agent_pid = info.get("pid")
             if agent_pid and is_descendant_of(current_pid, agent_pid):
                 sender_info["sender_id"] = agent_id
-                sender_info["sender_type"] = info.get("agent_type")
-                sender_info["sender_endpoint"] = info.get("endpoint")
+                agent_type = info.get("agent_type")
+                if agent_type:
+                    sender_info["sender_type"] = agent_type
+                endpoint = info.get("endpoint")
+                if endpoint:
+                    sender_info["sender_endpoint"] = endpoint
                 return sender_info
     except Exception:
         pass
@@ -172,12 +176,12 @@ def cmd_send(args):
 
     # 4. Send Request using Google A2A protocol
     url = f"{target_agent['endpoint']}/tasks/send-priority?priority={args.priority}"
-    payload = {
+    payload: dict[str, object] = {
         "message": {"role": "user", "parts": [{"type": "text", "text": args.message}]}
     }
 
     # Add metadata (sender info and response_required)
-    metadata = {}
+    metadata: dict[str, object] = {}
     if sender_info:
         metadata["sender"] = sender_info
     # Default: response_required is True, --non-response sets it to False

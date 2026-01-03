@@ -14,7 +14,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == []
@@ -29,7 +29,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         # Parse --port from synapse_args
@@ -51,7 +51,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == ["--port", "8100"]
@@ -66,7 +66,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert synapse_args == []
@@ -88,7 +88,7 @@ class TestShortcutToolArgsParsing:
             synapse_args = argv[2:separator_idx]
             tool_args = argv[separator_idx + 1 :]
         except ValueError:
-            synapse_args = argv[2:]
+            synapse_args = argv[2:]  # noqa: F841
             tool_args = []
 
         assert tool_args == ["--model", "opus", "--dangerously-skip-permissions"]
@@ -99,24 +99,24 @@ class TestToolArgsMerging:
 
     def test_empty_profile_with_cli_args(self):
         """Profile args=[], CLI args=['--model', 'opus']"""
-        profile_args = []
-        tool_args = ["--model", "opus"]
+        profile_args: list[str] = []
+        tool_args: list[str] = ["--model", "opus"]
         all_args = profile_args + tool_args
 
         assert all_args == ["--model", "opus"]
 
     def test_profile_args_with_cli_args(self):
         """Profile args should come before CLI args."""
-        profile_args = ["--foo", "bar"]
-        tool_args = ["--model", "opus"]
+        profile_args: list[str] = ["--foo", "bar"]
+        tool_args: list[str] = ["--model", "opus"]
         all_args = profile_args + tool_args
 
         assert all_args == ["--foo", "bar", "--model", "opus"]
 
     def test_empty_both(self):
         """Both empty should result in empty list."""
-        profile_args = []
-        tool_args = []
+        profile_args: list[str] = []
+        tool_args: list[str] = []
         all_args = profile_args + tool_args
 
         assert all_args == []
@@ -128,16 +128,14 @@ class TestStartCommandToolArgs:
     def test_filter_separator_from_tool_args(self):
         """-- should be filtered from tool_args start."""
         tool_args = ["--", "--model", "opus"]
-        if tool_args and tool_args[0] == "--":
-            tool_args = tool_args[1:]
+        tool_args = tool_args[1:] if tool_args and tool_args[0] == "--" else tool_args
 
         assert tool_args == ["--model", "opus"]
 
     def test_no_separator_in_tool_args(self):
         """Tool args without -- should pass through."""
         tool_args = ["--model", "opus"]
-        if tool_args and tool_args[0] == "--":
-            tool_args = tool_args[1:]
+        tool_args = tool_args[1:] if tool_args and tool_args[0] == "--" else tool_args
 
         assert tool_args == ["--model", "opus"]
 
@@ -151,11 +149,8 @@ class TestStartCommandToolArgs:
 
     def test_environment_variable_empty(self):
         """Empty tool args should result in empty string."""
-        tool_args = []
-        if tool_args:
-            encoded = "\x00".join(tool_args)
-        else:
-            encoded = ""
+        tool_args: list[str] = []
+        encoded = "\x00".join(tool_args) if tool_args else ""
 
         # Decode
         decoded = encoded.split("\x00") if encoded else []
@@ -177,7 +172,7 @@ class TestControllerArgsHandling:
     def test_empty_args(self):
         """Empty args should result in command only."""
         command = "claude"
-        args = []
+        args: list[str] = []
         cmd_list = [command] + args
 
         assert cmd_list == ["claude"]

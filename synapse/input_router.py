@@ -61,6 +61,8 @@ class InputRouter:
         self.pending_command: tuple[str, str, bool] | None = None
         self.pending_agent: str | None = None  # Track last agent for feedback
         self.is_external_agent: bool = False  # Track if last agent was external
+        self.ambiguous_matches: list[str] | None = None  # Track ambiguous agent matches
+        self.last_response: str | None = None  # Track last response from agent
 
         # Self-identification for sender info in A2A messages
         self.self_agent_id = self_agent_id

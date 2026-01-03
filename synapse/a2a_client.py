@@ -253,7 +253,11 @@ class A2AClient:
             )
 
             if wait_for_completion:
-                task = self._wait_for_local_completion(endpoint, task.id, timeout)
+                completed_task = self._wait_for_local_completion(
+                    endpoint, task.id, timeout
+                )
+                if completed_task is not None:
+                    task = completed_task
 
             return task
 
@@ -366,7 +370,9 @@ class A2AClient:
             self.registry.update_last_seen(alias)
 
             if wait_for_completion:
-                task = self._wait_for_completion(agent, task.id, timeout)
+                completed_task = self._wait_for_completion(agent, task.id, timeout)
+                if completed_task is not None:
+                    task = completed_task
 
             return task
 

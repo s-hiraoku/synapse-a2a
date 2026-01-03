@@ -220,6 +220,7 @@ class TestA2AClientSendToLocal:
         )
 
         # Verify request body format
+        assert responses.calls[0].request.body is not None
         request_body = json.loads(responses.calls[0].request.body)
         assert "message" in request_body
         assert request_body["message"]["role"] == "user"

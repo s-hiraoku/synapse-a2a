@@ -231,7 +231,7 @@ async def send_initial_instructions(
     max_wait = 30  # Maximum time to wait for READY status
 
     start_time = time.time()
-    waited = 0
+    waited: float = 0
 
     # Poll for READY status (check every 0.1 seconds for responsiveness)
     while waited < max_wait:

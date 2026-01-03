@@ -1,8 +1,9 @@
+import signal
 import sys
 import time
-import signal
 
 sigint_count = 0
+
 
 def handle_sigint(signum, frame):
     global sigint_count
@@ -12,6 +13,7 @@ def handle_sigint(signum, frame):
         sys.exit(0)
     print("\n[DUMMY] Press Ctrl+C again to exit...")
     sys.stdout.flush()
+
 
 signal.signal(signal.SIGINT, handle_sigint)
 
@@ -25,9 +27,9 @@ while True:
         line = sys.stdin.readline()
         if not line:
             break
-        
+
         line = line.strip()
-        if line == 'exit':
+        if line == "exit":
             break
 
         # Skip empty lines (e.g., from @Agent command interception)
@@ -37,7 +39,7 @@ while True:
         print(f"[DUMMY] You said: {line}")
         # Simulate some work
         time.sleep(0.5)
-        
+
     except KeyboardInterrupt:
         # Should be handled by signal handler, but just in case
         pass
