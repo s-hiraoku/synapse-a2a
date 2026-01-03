@@ -1,7 +1,7 @@
 """Tests for status unification (READY/PROCESSING system)."""
 
-import json
 import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -13,8 +13,7 @@ from synapse.registry import AgentRegistry
 def temp_registry():
     """Create a test registry with temp directory."""
     reg = AgentRegistry()
-    reg.registry_dir = Path("/tmp/a2a_test_status_unification")
-    reg.registry_dir.mkdir(parents=True, exist_ok=True)
+    reg.registry_dir = Path(tempfile.mkdtemp(prefix="a2a_test_status_unification_"))
     yield reg
     shutil.rmtree(reg.registry_dir, ignore_errors=True)
 
@@ -26,13 +25,12 @@ class TestStatusUnification:
         """Agent should start with PROCESSING status (startup in progress)."""
         temp_registry.register("synapse-claude-8100", "claude", 8100)
 
-        file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read to get consistent status
+        agent_data = temp_registry.get_agent("synapse-claude-8100")
 
         # Initial status should be what's set in register()
         # which should be PROCESSING for startup
-        assert data.get("status") in ["PROCESSING", "STARTING"]
+        assert agent_data.get("status") == "PROCESSING"
 
     def test_ready_status_when_idle(self, temp_registry):
         """Agent should have READY status when in IDLE state (waiting for input)."""
@@ -41,11 +39,10 @@ class TestStatusUnification:
         # Simulate IDLE state transition
         temp_registry.update_status("synapse-claude-8100", "READY")
 
-        file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read
+        agent_data = temp_registry.get_agent("synapse-claude-8100")
 
-        assert data.get("status") == "READY"
+        assert agent_data.get("status") == "READY"
 
     def test_processing_status_when_busy(self, temp_registry):
         """Agent should have PROCESSING status when handling requests."""
@@ -54,29 +51,27 @@ class TestStatusUnification:
         # Simulate BUSY state
         temp_registry.update_status("synapse-claude-8100", "PROCESSING")
 
-        file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read
+        agent_data = temp_registry.get_agent("synapse-claude-8100")
 
-        assert data.get("status") == "PROCESSING"
+        assert agent_data.get("status") == "PROCESSING"
 
     def test_status_transition_processing_to_ready(self, temp_registry):
         """Status should transition from PROCESSING to READY when idle."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100)
 
-        # Initial: PROCESSING (during startup)
-        file_path = temp_registry.registry_dir / f"{agent_id}.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Verify initial PROCESSING status
+        initial_data = temp_registry.get_agent(agent_id)
+        assert initial_data.get("status") == "PROCESSING"
 
         # Transition to READY (when agent becomes idle)
         temp_registry.update_status(agent_id, "READY")
 
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read
+        updated_data = temp_registry.get_agent(agent_id)
 
-        assert data.get("status") == "READY"
+        assert updated_data.get("status") == "READY"
 
     def test_status_transition_ready_to_processing(self, temp_registry):
         """Status should transition from READY to PROCESSING when handling work."""
@@ -87,22 +82,20 @@ class TestStatusUnification:
         # Transition to PROCESSING (when handling a request)
         temp_registry.update_status(agent_id, "PROCESSING")
 
-        file_path = temp_registry.registry_dir / f"{agent_id}.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read
+        agent_data = temp_registry.get_agent(agent_id)
 
-        assert data.get("status") == "PROCESSING"
+        assert agent_data.get("status") == "PROCESSING"
 
     def test_no_old_status_values(self, temp_registry):
         """Registry should only use READY/PROCESSING, not BUSY/IDLE."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100)
 
-        file_path = temp_registry.registry_dir / f"{agent_id}.json"
-        with open(file_path) as f:
-            data = json.load(f)
+        # CodeRabbit fix: Use registry method instead of direct file read
+        agent_data = temp_registry.get_agent(agent_id)
 
-        status = data.get("status")
+        status = agent_data.get("status")
         # Should not contain old status values
         assert status not in ["BUSY", "IDLE", "STARTING"]
         # Should be one of the new values

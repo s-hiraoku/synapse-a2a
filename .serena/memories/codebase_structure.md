@@ -1,6 +1,7 @@
 # Codebase Structure
 
 ## Main Directory Layout
+
 ```text
 synapse/
 ├── cli.py           # Entry point, profile loading, interactive mode orchestration
@@ -19,6 +20,8 @@ tests/               # pytest test suite with async support
 docs/                # Design documents and specifications
 guides/              # User guides and reference documentation
 ```
+
+<!-- CodeRabbit fix: Added language identifier to text code block (MD040) -->
 
 ## Key Concepts
 

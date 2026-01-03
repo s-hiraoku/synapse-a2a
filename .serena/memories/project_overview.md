@@ -25,6 +25,8 @@ Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) wi
 | Gemini | 8110-8119 |
 | Codex  | 8120-8129 |
 
+<!-- CodeRabbit fix: Added blank lines around table (MD058) -->
+
 ## Storage Locations
 
 ```bash
@@ -32,3 +34,5 @@ Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) wi
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/logs/     # Log files
 ```
+
+<!-- CodeRabbit fix: Added language identifier to bash code block (MD040) -->

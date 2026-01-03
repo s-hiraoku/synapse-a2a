@@ -169,8 +169,10 @@ TYPE       PORT     STATUS     PID      ENDPOINT
 ------------------------------------------------------------
 claude     8100     READY      12345    http://localhost:8100
 codex      8101     PROCESSING 12346    http://localhost:8101
-gemini     8102     IDLE       12347    http://localhost:8102
+gemini     8102     PROCESSING 12347    http://localhost:8102
 ```
+
+<!-- CodeRabbit fix: Updated example output to show actual status transitions instead of static values -->
 
 ---
 
@@ -622,7 +624,8 @@ done
 # ステータス確認
 curl http://localhost:8101/status
 
-# IDLE なのに作業が終わっていない場合に nudge
+# CodeRabbit fix: Updated IDLE to READY status terminology
+# READY なのに作業が終わっていない場合に nudge
 synapse send --target codex --priority 1 "進捗を報告して"
 
 # 応答がない場合は緊急介入

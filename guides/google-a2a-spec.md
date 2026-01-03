@@ -315,7 +315,7 @@ flowchart TB
 | **主な目的** | エンタープライズ相互運用 | CLI エージェント統合 | - |
 | **通信方式** | JSON-RPC / gRPC / REST | HTTP REST | ✅ REST 対応 |
 | **Agent 検出** | Agent Card (JSON) | Registry + Agent Card | ✅ 対応 |
-| **状態管理** | Task ライフサイクル | Task + READY/PROCESSING/ERROR マッピング* | ⚠️ 拡張 |
+| **状態管理** | Task ライフサイクル（submitted/working/completed/failed等） | READY / PROCESSING / ERROR¹ | ⚠️ 拡張 |
 | **Message/Part** | 標準構造 | 標準構造 | ✅ 対応 |
 | **認証** | OAuth2, API Key 等 | なし（ローカル前提） | ❌ 未対応 |
 | **ストリーミング** | SSE, WebSocket | ポーリング | ❌ 未対応 |
@@ -324,7 +324,33 @@ flowchart TB
 | **PTY サポート** | なし | あり（コア機能） | 独自拡張 |
 | **TUI 対応** | なし | あり | 独自拡張 |
 
-\* **注**: ERROR は Synapse A2A 独自の拡張状態です。Google A2A の Task ライフサイクルの `failed` 状態に相当し、CLI エージェントの障害や予期しない終了を検出する際に使用されます。
+### 状態管理の詳細
+
+#### Google A2A の Task ライフサイクル
+
+Google A2A 標準仕様では以下の状態をサポートしています：
+`submitted` → `working` → `completed` / `failed` / `cancelled` / `input_required` / `auth_required` / `rejected`
+
+#### Synapse A2A の状態管理（Google A2A との関係）
+
+Synapse は PTY ラップされた CLI エージェント向けに、シンプルな 3 状態モデルを採用しています：
+
+| Synapse 状態 | 説明 | Google A2A への対応 |
+|------------|------|------------------|
+| **READY** | エージェントがアイドル状態（入力待ち中） | `working` / `input_required` に相当（タスク継続中） |
+| **PROCESSING** | エージェントがタスク処理中 | `submitted` / `working` に相当 |
+| **ERROR** | エージェント障害またはプロセス異常 | `failed` に相当（ただし Synapse 独自拡張） |
+
+¹ **ERROR 状態について（Synapse 独自拡張）**
+
+ERROR は Synapse A2A が Google A2A 仕様に追加した **独自の状態** です。以下のシナリオで使用されます：
+
+- CLI プロセスの異常終了またはクラッシュ
+- PTY 接続の断絶
+- プロセスがゾンビ状態（停止応答不可）
+- 設定エラーによるプロセス起動失敗
+
+**Google A2A との互換性**: ERROR は A2A の `failed` ステータスの詳細情報として扱われます。外部 A2A エージェントとの通信時は、ERROR 状態は Task API の `failed` レスポンスにマッピングされます。
 
 ### 4.3 アーキテクチャ比較
 
@@ -477,10 +503,20 @@ curl http://localhost:8100/tasks/{task_id}
 
 **状態マッピング:**
 
-| Synapse 状態 | Google A2A 状態 |
-|-------------|----------------|
-| PROCESSING | submitted / working |
-| READY | completed |
+| Synapse 状態 | Google A2A 状態 | 意味 |
+|-------------|----------------|------|
+| PROCESSING | submitted / working | タスク実行中 |
+| READY | working / input_required | エージェント待機中（入力待ち） |
+| ERROR | failed | エージェント障害 |
+
+**重要な語義的区別:**
+
+READY 状態とタスク完了（completed）は **異なる概念** です：
+
+- **READY**: エージェントが次の入力を待っている状態。タスクはまだ終了していないため、同じタスク上で追加入力を受け付けられます。
+- **completed**: Google A2A の Task ライフサイクルが終了した状態。新しい指示を受ける場合は新規タスクとなります。
+
+Synapse では、エージェントが READY 状態の間、関連する Task は Google A2A では `working` または `input_required` 状態として報告されます。タスクが本当に完了するのは、エージェントがそのタスクに対する最終レスポンスを返し、以後その Task への追加入力を受け付けない場合です。
 
 ### 6.4 Synapse 拡張: Priority 付き送信
 

@@ -23,7 +23,6 @@ from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
     IDLE_CHECK_WINDOW,
     OUTPUT_BUFFER_MAX,
-    OUTPUT_IDLE_THRESHOLD,
     POST_WRITE_IDLE_DELAY,
     STARTUP_DELAY,
     WRITE_PROCESSING_DELAY,
@@ -52,7 +51,9 @@ class TerminalController:
         self.args = args or []
 
         # Handle multi-strategy idle detection configuration
+        # DEPRECATED: idle_regex parameter is deprecated in favor of idle_detection dict
         # Backward compatibility: convert legacy idle_regex to new format
+        # This fallback will be removed in a future version. Use idle_detection instead.
         if idle_detection is None and idle_regex is not None:
             idle_detection = {
                 "strategy": "pattern",
@@ -104,7 +105,6 @@ class TerminalController:
         self._last_output_time: float | None = (
             None  # Track last output for idle detection
         )
-        self._output_idle_threshold = OUTPUT_IDLE_THRESHOLD
 
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(

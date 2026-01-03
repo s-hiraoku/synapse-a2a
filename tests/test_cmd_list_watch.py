@@ -9,6 +9,8 @@ import pytest
 from synapse.cli import _clear_screen, _render_agent_table, cmd_list
 from synapse.registry import AgentRegistry
 
+# CodeRabbit fix: Removed unused 'json' import that was not used in tests
+
 
 @pytest.fixture
 def temp_registry_dir():
