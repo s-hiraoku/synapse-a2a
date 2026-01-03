@@ -473,8 +473,9 @@ class TestInputRouterIntegration:
 class TestMultipleAgentResolution:
     """Test agent resolution when multiple agents of same type exist."""
 
-    @patch('synapse.input_router.is_port_open', return_value=True)
-    def test_single_agent_by_type(self, mock_port_open):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_single_agent_by_type(self, mock_port, mock_pid):
         """Single agent of type should match with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -503,7 +504,9 @@ class TestMultipleAgentResolution:
         result = action()
         assert result is True
 
-    def test_multiple_agents_by_type_fails(self):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_multiple_agents_by_type_fails(self, mock_port, mock_pid):
         """Multiple agents of same type should fail with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -537,8 +540,9 @@ class TestMultipleAgentResolution:
         assert router.ambiguous_matches is not None
         assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
 
-    @patch('synapse.input_router.is_port_open', return_value=True)
-    def test_type_port_shorthand_resolves(self, mock_port_open):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_type_port_shorthand_resolves(self, mock_port, mock_pid):
         """@type-port shorthand should resolve specific agent."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
