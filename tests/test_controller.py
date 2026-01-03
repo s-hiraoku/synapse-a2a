@@ -26,7 +26,7 @@ class TestIdentityInstruction:
                 "agent_id": "synapse-gemini-8101",
                 "agent_type": "gemini",
                 "endpoint": "http://localhost:8101",
-                "status": "IDLE"
+                "status": "IDLE",
             }
         }
         return registry
@@ -40,7 +40,7 @@ class TestIdentityInstruction:
             registry=mock_registry,
             agent_id="synapse-claude-8100",
             agent_type="claude",
-            submit_seq="\r"
+            submit_seq="\r",
         )
         return ctrl
 
@@ -169,7 +169,7 @@ class TestIdentityInstruction:
             idle_regex=r"\$",
             registry=mock_registry,
             agent_id=None,
-            agent_type="claude"
+            agent_type="claude",
         )
         ctrl.running = True
         ctrl.master_fd = 1
@@ -193,33 +193,25 @@ class TestOutputIdleDetection:
             command="echo test",
             idle_regex=r"\$",
             agent_id="synapse-claude-8100",
-            agent_type="claude"
+            agent_type="claude",
         )
         assert ctrl._last_output_time is None
 
     def test_output_idle_threshold_default(self):
         """Default output idle threshold should be 1.5 seconds."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         assert ctrl._output_idle_threshold == 1.5
 
     def test_startup_delay_from_config(self):
         """Startup delay should be configurable."""
         ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$",
-            startup_delay=8
+            command="echo test", idle_regex=r"\$", startup_delay=8
         )
         assert ctrl._startup_delay == 8
 
     def test_startup_delay_default(self):
         """Default startup delay should be 3 seconds."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         assert ctrl._startup_delay == 3
 
 
@@ -228,18 +220,13 @@ class TestSubmitSequence:
 
     def test_default_submit_seq(self):
         """Default submit sequence should be newline."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         assert ctrl._submit_seq == "\n"
 
     def test_custom_submit_seq(self):
         """Custom submit sequence should be stored."""
         ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$",
-            submit_seq="\r"
+            command="echo test", idle_regex=r"\$", submit_seq="\r"
         )
         assert ctrl._submit_seq == "\r"
 
@@ -250,7 +237,7 @@ class TestSubmitSequence:
             idle_regex=r"\$",
             agent_id="synapse-claude-8100",
             agent_type="claude",
-            submit_seq="\r"
+            submit_seq="\r",
         )
         ctrl.running = True
         ctrl.master_fd = 1
@@ -277,7 +264,7 @@ class TestInterAgentMessageWrite:
             idle_regex=r"\$",
             agent_id="synapse-claude-8100",
             agent_type="claude",
-            submit_seq="\r"
+            submit_seq="\r",
         )
         ctrl.running = True
         ctrl.interactive = True
@@ -287,6 +274,7 @@ class TestInterAgentMessageWrite:
 
         # Mock os.write to capture what's being written
         import os
+
         original_write = os.write
 
         def mock_os_write(fd, data):
@@ -312,7 +300,7 @@ class TestInterAgentMessageWrite:
             idle_regex="BRACKETED_PASTE_MODE",  # For IDLE detection only, not for writing
             agent_id="synapse-claude-8100",
             agent_type="claude",
-            submit_seq="\r"
+            submit_seq="\r",
         )
         ctrl.running = True
         ctrl.interactive = True
@@ -321,6 +309,7 @@ class TestInterAgentMessageWrite:
         written_data = []
 
         import os
+
         original_write = os.write
 
         def mock_os_write(fd, data):
@@ -341,10 +330,7 @@ class TestInterAgentMessageWrite:
 
     def test_write_in_non_interactive_mode(self):
         """Write should send data then submit_seq in non-interactive mode."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
@@ -352,6 +338,7 @@ class TestInterAgentMessageWrite:
         written_data = []
 
         import os
+
         original_write = os.write
 
         def mock_os_write(fd, data):
@@ -372,10 +359,7 @@ class TestInterAgentMessageWrite:
 
     def test_write_fails_when_not_running(self):
         """Write should do nothing when controller is not running."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = False
         ctrl.master_fd = 1
 
@@ -384,10 +368,7 @@ class TestInterAgentMessageWrite:
 
     def test_write_raises_when_master_fd_none(self):
         """Write should raise when master_fd is None."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.master_fd = None
 
@@ -397,16 +378,14 @@ class TestInterAgentMessageWrite:
 
     def test_write_sets_status_to_busy(self):
         """Write should set status to BUSY."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
         ctrl.status = "IDLE"
 
         import os
+
         original_write = os.write
         os.write = lambda fd, data: len(data)
 
@@ -418,10 +397,7 @@ class TestInterAgentMessageWrite:
 
     def test_write_without_submit_seq(self):
         """Write should work without submit_seq."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
@@ -429,6 +405,7 @@ class TestInterAgentMessageWrite:
         written_data = []
 
         import os
+
         original_write = os.write
 
         def mock_os_write(fd, data):
@@ -450,18 +427,12 @@ class TestControllerStatusTransitions:
 
     def test_initial_status_is_starting(self):
         """Controller should start with STARTING status."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         assert ctrl.status == "STARTING"
 
     def test_status_changes_to_idle_on_pattern_match(self):
         """Status should change to IDLE when idle_regex matches."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.output_buffer = b"some output $"
@@ -474,7 +445,7 @@ class TestControllerStatusTransitions:
         """Status should change to BUSY when idle_regex doesn't match."""
         ctrl = TerminalController(
             command="echo test",
-            idle_regex=r"\$$"  # Must end with $
+            idle_regex=r"\$$",  # Must end with $
         )
         ctrl.running = True
         ctrl.master_fd = 1
@@ -490,18 +461,12 @@ class TestControllerOutputBuffer:
 
     def test_output_buffer_initialized_empty(self):
         """Output buffer should be empty initially."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         assert ctrl.output_buffer == b""
 
     def test_get_context_returns_decoded_buffer(self):
         """get_context should return render buffer content."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl._render_buffer = list("Hello World")
 
         context = ctrl.get_context()
@@ -509,10 +474,7 @@ class TestControllerOutputBuffer:
 
     def test_get_context_handles_unicode(self):
         """get_context should handle unicode properly."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl._render_buffer = list("こんにちは")
 
         context = ctrl.get_context()
@@ -520,10 +482,7 @@ class TestControllerOutputBuffer:
 
     def test_get_context_returns_empty_for_empty_buffer(self):
         """get_context should return empty string for empty buffer."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl._render_buffer = []
 
         context = ctrl.get_context()
@@ -535,10 +494,7 @@ class TestControllerInterrupt:
 
     def test_interrupt_does_nothing_when_not_running(self):
         """interrupt should do nothing when not running."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = False
 
         # Should not raise
@@ -546,10 +502,7 @@ class TestControllerInterrupt:
 
     def test_interrupt_does_nothing_when_no_process(self):
         """interrupt should do nothing when process is None."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.process = None
 
@@ -562,28 +515,18 @@ class TestControllerInitialization:
 
     def test_default_env_uses_system_environ(self):
         """Default env should be a copy of os.environ."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         # env should be a dict (copy of os.environ)
         assert isinstance(ctrl.env, dict)
 
     def test_custom_env_is_used(self):
         """Custom env should be stored."""
         custom_env = {"FOO": "bar"}
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$",
-            env=custom_env
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$", env=custom_env)
         assert ctrl.env == custom_env
 
     def test_idle_regex_compiled(self):
         """idle_regex should be compiled as bytes pattern."""
-        ctrl = TerminalController(
-            command="echo test",
-            idle_regex=r"\$"
-        )
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         # Should be a compiled regex
-        assert hasattr(ctrl.idle_regex, 'search')
+        assert hasattr(ctrl.idle_regex, "search")

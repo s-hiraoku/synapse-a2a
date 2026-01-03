@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate shell hook for bash/zsh integration."""
 
-BASH_HOOK = '''
+BASH_HOOK = """
 # Synapse A2A Shell Hook
 # Add this to your .bashrc or .zshrc
 
@@ -65,9 +65,9 @@ fi
 
 echo "Synapse shell hook loaded. Use @Agent <message> to send messages."
 echo "For best experience, use: synapse-shell"
-'''
+"""
 
-ZSH_HOOK_SIMPLE = '''
+ZSH_HOOK_SIMPLE = """
 # Synapse A2A - Simple Zsh Integration
 # Add to your .zshrc
 
@@ -82,7 +82,7 @@ synapse-send() {
 }
 
 alias @='synapse-send @'
-'''
+"""
 
 
 def generate_hook(shell_type: str = "bash") -> str:
@@ -95,9 +95,14 @@ def generate_hook(shell_type: str = "bash") -> str:
 def main():
     """Generate and print the shell hook for agent integration."""
     import argparse
+
     parser = argparse.ArgumentParser(description="Generate Synapse shell hook")
-    parser.add_argument("--type", choices=["bash", "zsh", "simple"], default="bash",
-                        help="Shell type (default: bash)")
+    parser.add_argument(
+        "--type",
+        choices=["bash", "zsh", "simple"],
+        default="bash",
+        help="Shell type (default: bash)",
+    )
     args = parser.parse_args()
 
     print(generate_hook(args.type))

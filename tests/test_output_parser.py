@@ -25,7 +25,7 @@ That's it."""
         assert len(segments) == 1
         assert segments[0].type == "code"
         assert segments[0].metadata["language"] == "python"
-        assert 'def hello():' in segments[0].content
+        assert "def hello():" in segments[0].content
 
     def test_extract_multiple_code_blocks(self):
         output = """First:
@@ -70,7 +70,7 @@ fn main() {
         segments = extract_code_blocks(output)
 
         assert len(segments) == 1
-        assert 'fn main()' in segments[0].content
+        assert "fn main()" in segments[0].content
         assert 'println!("World")' in segments[0].content
 
 
@@ -148,7 +148,9 @@ Done."""
         segments = extract_errors(output)
 
         assert len(segments) >= 1
-        traceback_seg = [s for s in segments if s.metadata.get("error_type") == "traceback"]
+        traceback_seg = [
+            s for s in segments if s.metadata.get("error_type") == "traceback"
+        ]
         assert len(traceback_seg) == 1
         assert "NameError" in traceback_seg[0].content
 
@@ -303,11 +305,11 @@ class TestSegmentsToArtifacts:
         assert artifacts[0]["parts"][0]["text"] == "Hello"
 
     def test_convert_code_segment(self):
-        segments = [ParsedSegment(
-            type="code",
-            content="print('hi')",
-            metadata={"language": "python"}
-        )]
+        segments = [
+            ParsedSegment(
+                type="code", content="print('hi')", metadata={"language": "python"}
+            )
+        ]
         artifacts = segments_to_artifacts(segments)
 
         assert artifacts[0]["parts"][0]["type"] == "code"
@@ -315,11 +317,11 @@ class TestSegmentsToArtifacts:
         assert artifacts[0]["parts"][0]["language"] == "python"
 
     def test_convert_file_segment(self):
-        segments = [ParsedSegment(
-            type="file",
-            content="src/app.py",
-            metadata={"action": "created"}
-        )]
+        segments = [
+            ParsedSegment(
+                type="file", content="src/app.py", metadata={"action": "created"}
+            )
+        ]
         artifacts = segments_to_artifacts(segments)
 
         assert artifacts[0]["parts"][0]["type"] == "file"
@@ -327,11 +329,13 @@ class TestSegmentsToArtifacts:
         assert artifacts[0]["parts"][0]["file"]["action"] == "created"
 
     def test_convert_error_segment(self):
-        segments = [ParsedSegment(
-            type="error",
-            content="NameError: name 'x' is not defined",
-            metadata={"error_type": "traceback"}
-        )]
+        segments = [
+            ParsedSegment(
+                type="error",
+                content="NameError: name 'x' is not defined",
+                metadata={"error_type": "traceback"},
+            )
+        ]
         artifacts = segments_to_artifacts(segments)
 
         assert artifacts[0]["parts"][0]["type"] == "error"
@@ -341,8 +345,12 @@ class TestSegmentsToArtifacts:
     def test_convert_multiple_segments(self):
         segments = [
             ParsedSegment(type="text", content="Intro"),
-            ParsedSegment(type="code", content="x = 1", metadata={"language": "python"}),
-            ParsedSegment(type="file", content="test.py", metadata={"action": "created"}),
+            ParsedSegment(
+                type="code", content="x = 1", metadata={"language": "python"}
+            ),
+            ParsedSegment(
+                type="file", content="test.py", metadata={"action": "created"}
+            ),
         ]
         artifacts = segments_to_artifacts(segments)
 

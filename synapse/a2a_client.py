@@ -27,9 +27,11 @@ from synapse.utils import get_iso_timestamp
 # Data Classes
 # ============================================================
 
+
 @dataclass
 class ExternalAgent:
     """Represents an external A2A agent"""
+
     name: str
     url: str
     description: str = ""
@@ -50,21 +52,20 @@ class ExternalAgent:
 @dataclass
 class A2AMessage:
     """A2A Message structure"""
+
     role: str = "user"
     parts: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_text(cls, text: str) -> "A2AMessage":
         """Create a message from plain text"""
-        return cls(
-            role="user",
-            parts=[{"type": "text", "text": text}]
-        )
+        return cls(role="user", parts=[{"type": "text", "text": text}])
 
 
 @dataclass
 class A2ATask:
     """A2A Task response"""
+
     id: str
     status: str
     message: dict[str, Any] | None = None
@@ -76,6 +77,7 @@ class A2ATask:
 # ============================================================
 # External Agent Registry
 # ============================================================
+
 
 class ExternalAgentRegistry:
     """
@@ -96,7 +98,7 @@ class ExternalAgentRegistry:
         with self._lock:
             for file in self.registry_dir.glob("*.json"):
                 try:
-                    with open(file, "r") as f:
+                    with open(file) as f:
                         data = json.load(f)
                         agent = ExternalAgent(**data)
                         self._cache[agent.alias] = agent
@@ -148,6 +150,7 @@ class ExternalAgentRegistry:
 # ============================================================
 # A2A Client
 # ============================================================
+
 
 class A2AClient:
     """
@@ -202,7 +205,7 @@ class A2AClient:
         priority: int = 1,
         wait_for_completion: bool = False,
         timeout: int = 60,
-        sender_info: dict[str, str] | None = None
+        sender_info: dict[str, str] | None = None,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -234,11 +237,7 @@ class A2AClient:
 
             # Use /tasks/send-priority for priority support
             url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
-            response = requests.post(
-                url,
-                json=payload,
-                timeout=self.timeout
-            )
+            response = requests.post(url, json=payload, timeout=self.timeout)
             response.raise_for_status()
 
             result = response.json()
@@ -308,10 +307,7 @@ class A2AClient:
         return None
 
     def _wait_for_local_completion(
-        self,
-        endpoint: str,
-        task_id: str,
-        timeout: int
+        self, endpoint: str, task_id: str, timeout: int
     ) -> A2ATask | None:
         """Wait for a local task to complete."""
         return self._wait_for_task_completion(
@@ -325,7 +321,7 @@ class A2AClient:
         alias: str,
         message: str,
         wait_for_completion: bool = False,
-        timeout: int = 60
+        timeout: int = 60,
     ) -> A2ATask | None:
         """
         Send a message to an external agent.
@@ -351,9 +347,7 @@ class A2AClient:
             # Send to /tasks/send
             url = urljoin(agent.url.rstrip("/") + "/", "tasks/send")
             response = requests.post(
-                url,
-                json={"message": asdict(a2a_message)},
-                timeout=self.timeout
+                url, json={"message": asdict(a2a_message)}, timeout=self.timeout
             )
             response.raise_for_status()
 
@@ -421,10 +415,7 @@ class A2AClient:
             return False
 
     def _wait_for_completion(
-        self,
-        agent: ExternalAgent,
-        task_id: str,
-        timeout: int
+        self, agent: ExternalAgent, task_id: str, timeout: int
     ) -> A2ATask | None:
         """Wait for a task to complete on external agent."""
         base_url = agent.url.rstrip("/") + "/"

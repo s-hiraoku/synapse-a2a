@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 @dataclass
 class AgentInfo:
     """Information about another registered agent."""
+
     id: str
     type: str
     endpoint: str
@@ -21,6 +22,7 @@ class AgentInfo:
 @dataclass
 class AgentContext:
     """Context information for an agent."""
+
     agent_id: str
     agent_type: str
     port: int
@@ -113,11 +115,13 @@ def get_other_agents_from_registry(registry, exclude_agent_id: str) -> list[Agen
 
     for agent_id, info in agents.items():
         if agent_id != exclude_agent_id:
-            other_agents.append(AgentInfo(
-                id=agent_id,
-                type=info.get("agent_type", "unknown"),
-                endpoint=info.get("endpoint", ""),
-                status=info.get("status", "unknown"),
-            ))
+            other_agents.append(
+                AgentInfo(
+                    id=agent_id,
+                    type=info.get("agent_type", "unknown"),
+                    endpoint=info.get("endpoint", ""),
+                    status=info.get("status", "unknown"),
+                )
+            )
 
     return other_agents

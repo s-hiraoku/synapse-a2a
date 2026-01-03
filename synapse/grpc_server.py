@@ -34,6 +34,7 @@ def check_grpc_available() -> bool:
 
 class GrpcServicerBase:
     """Base class for gRPC servicer when protobuf not available."""
+
     pass
 
 
@@ -159,10 +160,12 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc]
                 # Add context as artifact
                 context = self.controller.get_context()[-2000:]
                 if context:
-                    task["artifacts"].append({
-                        "type": "text",
-                        "data": {"content": context},
-                    })
+                    task["artifacts"].append(
+                        {
+                            "type": "text",
+                            "data": {"content": context},
+                        }
+                    )
                 task = self._tasks.get(task_id)
 
         return task
@@ -236,6 +239,7 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc]
 
             # Small delay
             import time
+
             time.sleep(0.5)
 
     # =========================================================================
@@ -326,7 +330,9 @@ def create_grpc_server(
         Tuple of (server, servicer) if gRPC available, else (None, None)
     """
     if not GRPC_AVAILABLE:
-        logger.warning("gRPC not available. Install with: pip install synapse-a2a[grpc]")
+        logger.warning(
+            "gRPC not available. Install with: pip install synapse-a2a[grpc]"
+        )
         return None, None
 
     grpc_port = grpc_port or (port + 1)

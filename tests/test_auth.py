@@ -79,18 +79,16 @@ class TestLoadAuthConfig:
             assert config.enabled is True
 
     def test_load_config_with_api_keys(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "key1,key2,key3"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "key1,key2,key3"},
+        ):
             reset_auth_config()
             config = load_auth_config()
             assert len(config.api_keys) == 3
 
     def test_load_config_with_admin_key(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_ADMIN_KEY": "admin-secret"
-        }):
+        with patch.dict(os.environ, {"SYNAPSE_ADMIN_KEY": "admin-secret"}):
             reset_auth_config()
             config = load_auth_config()
             assert config.admin_key_hash is not None
@@ -120,20 +118,20 @@ class TestValidateApiKey:
     """Tests for API key validation."""
 
     def test_validate_valid_key(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "valid-key"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "valid-key"},
+        ):
             reset_auth_config()
             result = validate_api_key("valid-key")
             assert result is not None
             assert isinstance(result, APIKeyInfo)
 
     def test_validate_invalid_key(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "valid-key"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "valid-key"},
+        ):
             reset_auth_config()
             result = validate_api_key("invalid-key")
             assert result is None
@@ -146,12 +144,11 @@ class TestValidateApiKey:
         """Expired key should be rejected."""
         from datetime import datetime, timedelta, timezone
 
-
         # Create an expired key
         expired_key = "expired-test-key"
         expired_key_info = APIKeyInfo(
             key_hash=hash_key(expired_key),
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
 
         with patch.dict(os.environ, {"SYNAPSE_AUTH_ENABLED": "true"}):
@@ -167,16 +164,12 @@ class TestIsAdminKey:
     """Tests for admin key checking."""
 
     def test_is_admin_key_valid(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_ADMIN_KEY": "admin-secret"
-        }):
+        with patch.dict(os.environ, {"SYNAPSE_ADMIN_KEY": "admin-secret"}):
             reset_auth_config()
             assert is_admin_key("admin-secret") is True
 
     def test_is_admin_key_invalid(self):
-        with patch.dict(os.environ, {
-            "SYNAPSE_ADMIN_KEY": "admin-secret"
-        }):
+        with patch.dict(os.environ, {"SYNAPSE_ADMIN_KEY": "admin-secret"}):
             reset_auth_config()
             assert is_admin_key("wrong-key") is False
 
@@ -242,10 +235,10 @@ class TestRequireAuthDependency:
 
     def test_require_auth_invalid_key_raises(self):
         """Invalid API key should raise 401."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "valid-key"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "valid-key"},
+        ):
             reset_auth_config()
             request = MagicMock()
             request.client.host = "192.168.1.100"
@@ -258,10 +251,10 @@ class TestRequireAuthDependency:
 
     def test_require_auth_valid_key_passes(self):
         """Valid API key should return APIKeyInfo."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "valid-key"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "valid-key"},
+        ):
             reset_auth_config()
             request = MagicMock()
             request.client.host = "192.168.1.100"
@@ -293,10 +286,10 @@ class TestRequireAdminDependency:
 
     def test_require_admin_non_admin_key_raises(self):
         """Non-admin key should raise 403."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_ADMIN_KEY": "admin-secret"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_ADMIN_KEY": "admin-secret"},
+        ):
             reset_auth_config()
             request = MagicMock()
             request.client.host = "192.168.1.100"
@@ -308,10 +301,10 @@ class TestRequireAdminDependency:
 
     def test_require_admin_valid_admin_key_passes(self):
         """Admin key should pass."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_ADMIN_KEY": "admin-secret"
-        }):
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_ADMIN_KEY": "admin-secret"},
+        ):
             reset_auth_config()
             request = MagicMock()
             request.client.host = "192.168.1.100"
@@ -373,16 +366,15 @@ class TestIntegration:
             client = TestClient(app)
             # TestClient uses localhost by default, which is allowed
             # So we need to override the client host check
-            with patch('synapse.auth.is_localhost', return_value=False):
+            with patch("synapse.auth.is_localhost", return_value=False):
                 response = client.get("/protected")
                 assert response.status_code == 401
 
     def test_protected_endpoint_with_valid_key(self):
         """Protected endpoint should accept valid key."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "test-key"
-        }):
+        with patch.dict(
+            os.environ, {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "test-key"}
+        ):
             reset_auth_config()
 
             app = FastAPI()
@@ -392,16 +384,15 @@ class TestIntegration:
                 return {"status": "ok"}
 
             client = TestClient(app)
-            with patch('synapse.auth.is_localhost', return_value=False):
+            with patch("synapse.auth.is_localhost", return_value=False):
                 response = client.get("/protected", headers={"X-API-Key": "test-key"})
                 assert response.status_code == 200
 
     def test_protected_endpoint_with_query_param_key(self):
         """Protected endpoint should accept key via query param."""
-        with patch.dict(os.environ, {
-            "SYNAPSE_AUTH_ENABLED": "true",
-            "SYNAPSE_API_KEYS": "test-key"
-        }):
+        with patch.dict(
+            os.environ, {"SYNAPSE_AUTH_ENABLED": "true", "SYNAPSE_API_KEYS": "test-key"}
+        ):
             reset_auth_config()
 
             app = FastAPI()
@@ -411,6 +402,6 @@ class TestIntegration:
                 return {"status": "ok"}
 
             client = TestClient(app)
-            with patch('synapse.auth.is_localhost', return_value=False):
+            with patch("synapse.auth.is_localhost", return_value=False):
                 response = client.get("/protected?api_key=test-key")
                 assert response.status_code == 200

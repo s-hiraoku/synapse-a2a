@@ -29,6 +29,7 @@ ENV_WEBHOOK_MAX_RETRIES = "SYNAPSE_WEBHOOK_MAX_RETRIES"
 @dataclass
 class WebhookConfig:
     """Configuration for a webhook."""
+
     url: str
     events: list[str] = field(default_factory=lambda: ["task.completed", "task.failed"])
     secret: str | None = None
@@ -40,6 +41,7 @@ class WebhookConfig:
 @dataclass
 class WebhookEvent:
     """A webhook event to be delivered."""
+
     event_type: str
     payload: dict[str, Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -49,6 +51,7 @@ class WebhookEvent:
 @dataclass
 class WebhookDelivery:
     """Record of a webhook delivery attempt."""
+
     webhook_url: str
     event: WebhookEvent
     status_code: int | None = None
@@ -71,7 +74,7 @@ class WebhookRegistry:
         url: str,
         events: list[str] | None = None,
         secret: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> WebhookConfig:
         """Register a new webhook."""
         # Validate URL
@@ -109,8 +112,7 @@ class WebhookRegistry:
     def get_webhooks_for_event(self, event_type: str) -> list[WebhookConfig]:
         """Get all webhooks subscribed to an event type."""
         return [
-            w for w in self._webhooks.values()
-            if w.enabled and event_type in w.events
+            w for w in self._webhooks.values() if w.enabled and event_type in w.events
         ]
 
     def add_delivery(self, delivery: WebhookDelivery) -> None:
@@ -127,11 +129,7 @@ class WebhookRegistry:
 
 def compute_signature(payload: str, secret: str) -> str:
     """Compute HMAC-SHA256 signature for webhook payload."""
-    return hmac.new(
-        secret.encode(),
-        payload.encode(),
-        hashlib.sha256
-    ).hexdigest()
+    return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
 async def deliver_webhook(
@@ -272,8 +270,7 @@ async def dispatch_event(
             deliveries.append(r)
         elif isinstance(r, Exception):
             logger.error(
-                f"Webhook delivery raised unexpected exception: {r}",
-                exc_info=r
+                f"Webhook delivery raised unexpected exception: {r}", exc_info=r
             )
 
     return deliveries

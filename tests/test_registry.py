@@ -18,6 +18,7 @@ def registry():
     # Teardown: Cleanup temp directory
     shutil.rmtree(reg.registry_dir, ignore_errors=True)
 
+
 def test_get_agent_id(registry):
     id1 = registry.get_agent_id("claude", 8100)
     id2 = registry.get_agent_id("claude", 8100)
@@ -31,13 +32,14 @@ def test_get_agent_id(registry):
     assert id3 == "synapse-gemini-8100"
     assert id4 == "synapse-claude-8101"
 
+
 def test_register_unregister(registry):
     agent_id = "test_agent_123"
     registry.register(agent_id, "claude", 8100)
-    
+
     expected_file = registry.registry_dir / f"{agent_id}.json"
     assert expected_file.exists()
-    
+
     with open(expected_file) as f:
         data = json.load(f)
         assert data["agent_id"] == agent_id
@@ -46,6 +48,7 @@ def test_register_unregister(registry):
 
     registry.unregister(agent_id)
     assert not expected_file.exists()
+
 
 def test_list_agents(registry):
     registry.register("id1", "claude", 8100)
@@ -102,7 +105,7 @@ def test_list_agents_handles_corrupted_json(registry):
 
     # Create a corrupted JSON file
     corrupted_file = registry.registry_dir / "corrupted_agent.json"
-    with open(corrupted_file, 'w') as f:
+    with open(corrupted_file, "w") as f:
         f.write("{ invalid json }")
 
     # Should only return the valid agent
@@ -161,7 +164,7 @@ def test_get_agent_corrupted_json(registry):
     """Should return None for corrupted JSON file."""
     # Create a corrupted JSON file
     corrupted_file = registry.registry_dir / "corrupted_agent.json"
-    with open(corrupted_file, 'w') as f:
+    with open(corrupted_file, "w") as f:
         f.write("{ invalid json }")
 
     info = registry.get_agent("corrupted_agent")

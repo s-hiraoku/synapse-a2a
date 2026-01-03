@@ -51,7 +51,7 @@ def is_port_available(port: int) -> bool:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(('localhost', port))
+            s.bind(("localhost", port))
             return True
     except OSError:
         return False
@@ -171,9 +171,11 @@ class PortManager:
             pid = info.get("pid", "?")
             lines.append(f"  {agent_id} (PID: {pid})")
 
-        lines.extend([
-            "",
-            f"Use 'synapse stop {agent_type}' to stop an instance, or specify --port manually.",
-        ])
+        lines.extend(
+            [
+                "",
+                f"Use 'synapse stop {agent_type}' to stop an instance, or specify --port manually.",
+            ]
+        )
 
         return "\n".join(lines)

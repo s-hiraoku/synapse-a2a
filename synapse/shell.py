@@ -24,10 +24,7 @@ class SynapseShell(cmd.Cmd):
         super().__init__()
         self.registry = AgentRegistry()
         # Pattern: @AgentName [--return] message
-        self.agent_pattern = re.compile(
-            r'^@(\w+)\s*(--return\s+)?(.+)$',
-            re.IGNORECASE
-        )
+        self.agent_pattern = re.compile(r"^@(\w+)\s*(--return\s+)?(.+)$", re.IGNORECASE)
 
     def default(self, line):
         """Handle input that doesn't match a command."""
@@ -73,7 +70,7 @@ class SynapseShell(cmd.Cmd):
             response = requests.post(
                 f"{endpoint}/message",
                 json={"content": message, "priority": priority},
-                timeout=10
+                timeout=10,
             )
             response.raise_for_status()
             print(f"[Message sent to {agent_name}]")
@@ -87,6 +84,7 @@ class SynapseShell(cmd.Cmd):
     def wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 30):
         """Wait for agent to become IDLE and get response."""
         import time
+
         print(f"[Waiting for {agent_name} response...]")
 
         start_time = time.time()
@@ -101,9 +99,11 @@ class SynapseShell(cmd.Cmd):
 
                 if status == "IDLE" and context != last_context:
                     # Agent became IDLE, extract new content
-                    new_content = context[len(last_context):] if last_context else context
+                    new_content = (
+                        context[len(last_context) :] if last_context else context
+                    )
                     # Clean ANSI escape codes
-                    clean_content = re.sub(r'\x1b\[[0-9;]*m', '', new_content)
+                    clean_content = re.sub(r"\x1b\[[0-9;]*m", "", new_content)
                     if clean_content.strip():
                         print(f"\n[{agent_name}]:")
                         print(clean_content[-1000:])  # Last 1000 chars
@@ -127,10 +127,12 @@ class SynapseShell(cmd.Cmd):
         print(f"\n{'TYPE':<10} {'PORT':<8} {'STATUS':<10} {'ENDPOINT'}")
         print("-" * 50)
         for _agent_id, info in agents.items():
-            print(f"{info.get('agent_type', 'unknown'):<10} "
-                  f"{info.get('port', '-'):<8} "
-                  f"{info.get('status', '-'):<10} "
-                  f"{info.get('endpoint', '-')}")
+            print(
+                f"{info.get('agent_type', 'unknown'):<10} "
+                f"{info.get('port', '-'):<8} "
+                f"{info.get('status', '-'):<10} "
+                f"{info.get('endpoint', '-')}"
+            )
         print()
 
     def do_status(self, arg):
@@ -149,9 +151,9 @@ class SynapseShell(cmd.Cmd):
                     response = requests.get(f"{endpoint}/status", timeout=5)
                     data = response.json()
                     print(f"Status: {data.get('status')}")
-                    context = data.get('context', '')[-500:]
+                    context = data.get("context", "")[-500:]
                     # Clean ANSI codes
-                    clean = re.sub(r'\x1b\[[0-9;]*m', '', context)
+                    clean = re.sub(r"\x1b\[[0-9;]*m", "", context)
                     print(f"Context:\n{clean}")
                 except requests.exceptions.RequestException as e:
                     print(f"Error: {e}")

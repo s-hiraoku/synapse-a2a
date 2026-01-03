@@ -32,12 +32,12 @@ from synapse.webhooks import (
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
-    "submitted",      # Task received
-    "working",        # Task in progress
-    "input_required", # Waiting for additional input
-    "completed",      # Task finished successfully
-    "failed",         # Task failed
-    "canceled",       # Task was canceled
+    "submitted",  # Task received
+    "working",  # Task in progress
+    "input_required",  # Waiting for additional input
+    "completed",  # Task finished successfully
+    "failed",  # Task failed
+    "canceled",  # Task was canceled
 ]
 
 
@@ -56,20 +56,24 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
 # Pydantic Models (Google A2A Compatible)
 # ============================================================
 
+
 class TextPart(BaseModel):
     """Text content part"""
+
     type: Literal["text"] = "text"
     text: str
 
 
 class FilePart(BaseModel):
     """File reference part"""
+
     type: Literal["file"] = "file"
     file: dict[str, Any]
 
 
 class DataPart(BaseModel):
     """Structured data part"""
+
     type: Literal["data"] = "data"
     data: dict[str, Any]
 
@@ -80,18 +84,21 @@ Part = TextPart | FilePart | DataPart
 
 class Message(BaseModel):
     """A2A Message with role and parts"""
+
     role: Literal["user", "agent"] = "user"
     parts: list[TextPart | FilePart | DataPart]
 
 
 class Artifact(BaseModel):
     """Task output artifact"""
+
     type: str = "text"
     data: Any
 
 
 class TaskErrorModel(BaseModel):
     """A2A Task Error (for failed tasks)"""
+
     code: str
     message: str
     data: dict[str, Any] | None = None
@@ -99,6 +106,7 @@ class TaskErrorModel(BaseModel):
 
 class Task(BaseModel):
     """A2A Task with lifecycle"""
+
     id: str
     status: TaskState
     message: Message | None = None
@@ -112,6 +120,7 @@ class Task(BaseModel):
 
 class SendMessageRequest(BaseModel):
     """Request to send a message"""
+
     message: Message
     context_id: str | None = None
     metadata: dict[str, Any] = {}
@@ -119,11 +128,13 @@ class SendMessageRequest(BaseModel):
 
 class SendMessageResponse(BaseModel):
     """Response after sending a message"""
+
     task: Task
 
 
 class AgentSkill(BaseModel):
     """Agent capability/skill definition"""
+
     id: str
     name: str
     description: str
@@ -132,6 +143,7 @@ class AgentSkill(BaseModel):
 
 class AgentCapabilities(BaseModel):
     """Agent capabilities declaration"""
+
     streaming: bool = False
     pushNotifications: bool = False  # noqa: N815 (A2A protocol spec)
     multiTurn: bool = True  # noqa: N815 (A2A protocol spec)
@@ -139,6 +151,7 @@ class AgentCapabilities(BaseModel):
 
 class AgentCard(BaseModel):
     """Google A2A Agent Card for discovery"""
+
     name: str
     description: str
     url: str
@@ -154,6 +167,7 @@ class AgentCard(BaseModel):
 # Task Store (In-Memory)
 # ============================================================
 
+
 class TaskStore:
     """Thread-safe in-memory task storage"""
 
@@ -165,7 +179,7 @@ class TaskStore:
         self,
         message: Message,
         context_id: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> Task:
         """Create a new task with optional metadata (including sender info)"""
         now = get_iso_timestamp()
@@ -235,14 +249,17 @@ task_store = TaskStore()
 # External Agent Models
 # ============================================================
 
+
 class DiscoverAgentRequest(BaseModel):
     """Request to discover an external agent"""
+
     url: str
     alias: str | None = None
 
 
 class ExternalAgentInfo(BaseModel):
     """External agent information"""
+
     name: str
     alias: str
     url: str
@@ -255,6 +272,7 @@ class ExternalAgentInfo(BaseModel):
 
 class SendExternalMessageRequest(BaseModel):
     """Request to send message to external agent"""
+
     message: str
     wait_for_completion: bool = False
     timeout: int = 60
@@ -262,6 +280,7 @@ class SendExternalMessageRequest(BaseModel):
 
 class ExternalTaskResponse(BaseModel):
     """Response from external agent task"""
+
     id: str
     status: str
     artifacts: list[dict[str, Any]] = []
@@ -271,13 +290,14 @@ class ExternalTaskResponse(BaseModel):
 # A2A Router Factory
 # ============================================================
 
+
 def create_a2a_router(
     controller,
     agent_type: str,
     port: int,
     submit_seq: str = "\n",
     agent_id: str | None = None,
-    registry=None
+    registry=None,
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -354,9 +374,9 @@ def create_a2a_router(
                         "priority": {
                             "type": "integer",
                             "description": "Priority level (5 for interrupt)",
-                            "default": 1
+                            "default": 1,
                         }
-                    }
+                    },
                 ),
             ],
             securitySchemes={},  # No auth for local use
@@ -387,9 +407,7 @@ def create_a2a_router(
 
         # Create task with metadata (may include sender info)
         task = task_store.create(
-            request.message,
-            request.context_id,
-            metadata=request.metadata
+            request.message, request.context_id, metadata=request.metadata
         )
 
         # Update to working
@@ -442,29 +460,32 @@ def create_a2a_router(
 
                 if status == "failed" and error:
                     # Set error and failed status
-                    task_store.set_error(task_id, TaskErrorModel(
-                        code=error.code,
-                        message=error.message,
-                        data=error.data
-                    ))
+                    task_store.set_error(
+                        task_id,
+                        TaskErrorModel(
+                            code=error.code, message=error.message, data=error.data
+                        ),
+                    )
                     # Dispatch webhook for failed task
                     error_payload = {
                         "task_id": task_id,
-                        "error": {"code": error.code, "message": error.message}
+                        "error": {"code": error.code, "message": error.message},
                     }
-                    asyncio.create_task(dispatch_event(
-                        get_webhook_registry(),
-                        "task.failed",
-                        error_payload
-                    ))
+                    asyncio.create_task(
+                        dispatch_event(
+                            get_webhook_registry(), "task.failed", error_payload
+                        )
+                    )
                 else:
                     task_store.update_status(task_id, "completed")
                     # Dispatch webhook for completed task
-                    asyncio.create_task(dispatch_event(
-                        get_webhook_registry(),
-                        "task.completed",
-                        {"task_id": task_id}
-                    ))
+                    asyncio.create_task(
+                        dispatch_event(
+                            get_webhook_registry(),
+                            "task.completed",
+                            {"task_id": task_id},
+                        )
+                    )
 
                 # Parse and add output as structured artifacts
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
@@ -476,16 +497,14 @@ def create_a2a_router(
                             artifact_data: dict[str, Any] = {"content": seg.content}
                             if seg.metadata:
                                 artifact_data["metadata"] = seg.metadata
-                            task_store.add_artifact(task_id, Artifact(
-                                type=seg.type,
-                                data=artifact_data
-                            ))
+                            task_store.add_artifact(
+                                task_id, Artifact(type=seg.type, data=artifact_data)
+                            )
                     else:
                         # Fallback to raw text if parsing fails
-                        task_store.add_artifact(task_id, Artifact(
-                            type="text",
-                            data=recent_context
-                        ))
+                        task_store.add_artifact(
+                            task_id, Artifact(type="text", data=recent_context)
+                        )
 
             task = task_store.get(task_id)
 
@@ -512,8 +531,7 @@ def create_a2a_router(
 
         if task.status not in ["submitted", "working"]:
             raise HTTPException(
-                status_code=400,
-                detail=f"Cannot cancel task in {task.status} state"
+                status_code=400, detail=f"Cannot cancel task in {task.status} state"
             )
 
         # Interrupt the CLI
@@ -523,11 +541,11 @@ def create_a2a_router(
         task_store.update_status(task_id, "canceled")
 
         # Dispatch webhook for canceled task
-        asyncio.create_task(dispatch_event(
-            get_webhook_registry(),
-            "task.canceled",
-            {"task_id": task_id}
-        ))
+        asyncio.create_task(
+            dispatch_event(
+                get_webhook_registry(), "task.canceled", {"task_id": task_id}
+            )
+        )
 
         return {"status": "canceled", "task_id": task_id}
 
@@ -583,14 +601,17 @@ def create_a2a_router(
                 if current_task.status in ("completed", "failed", "canceled"):
                     # Send final task state with artifacts and error
                     final_data = {
-                        'type': 'done',
-                        'status': current_task.status,
-                        'artifacts': [{'type': a.type, 'data': a.data} for a in current_task.artifacts],
+                        "type": "done",
+                        "status": current_task.status,
+                        "artifacts": [
+                            {"type": a.type, "data": a.data}
+                            for a in current_task.artifacts
+                        ],
                     }
                     if current_task.error:
-                        final_data['error'] = {
-                            'code': current_task.error.code,
-                            'message': current_task.error.message,
+                        final_data["error"] = {
+                            "code": current_task.error.code,
+                            "message": current_task.error.message,
                         }
                     yield f"data: {json.dumps(final_data)}\n\n"
                     break
@@ -604,7 +625,7 @@ def create_a2a_router(
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",  # Disable nginx buffering
-            }
+            },
         )
 
     # --------------------------------------------------------
@@ -613,9 +634,7 @@ def create_a2a_router(
 
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(  # noqa: B008
-        request: SendMessageRequest,
-        priority: int = 1,
-        _=Depends(require_auth)
+        request: SendMessageRequest, priority: int = 1, _=Depends(require_auth)
     ):
         """
         Send a message with priority (Synapse extension).
@@ -633,9 +652,7 @@ def create_a2a_router(
 
         # Create task with metadata (may include sender info)
         task = task_store.create(
-            request.message,
-            request.context_id,
-            metadata=request.metadata
+            request.message, request.context_id, metadata=request.metadata
         )
         task_store.update_status(task.id, "working")
 
@@ -681,8 +698,7 @@ def create_a2a_router(
 
         if not agent:
             raise HTTPException(
-                status_code=400,
-                detail=f"Failed to discover agent at {request.url}"
+                status_code=400, detail=f"Failed to discover agent at {request.url}"
             )
 
         return ExternalAgentInfo(
@@ -756,7 +772,9 @@ def create_a2a_router(
         return {"status": "removed", "alias": alias}
 
     @router.post("/external/agents/{alias}/send", response_model=ExternalTaskResponse)
-    async def send_to_external_agent(alias: str, request: SendExternalMessageRequest, _=Depends(require_auth)):
+    async def send_to_external_agent(
+        alias: str, request: SendExternalMessageRequest, _=Depends(require_auth)
+    ):
         """
         Send a message to an external Google A2A agent.
 
@@ -773,13 +791,12 @@ def create_a2a_router(
             alias,
             request.message,
             wait_for_completion=request.wait_for_completion,
-            timeout=request.timeout
+            timeout=request.timeout,
         )
 
         if not task:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to send message to {alias}"
+                status_code=500, detail=f"Failed to send message to {alias}"
             )
 
         return ExternalTaskResponse(
@@ -794,12 +811,14 @@ def create_a2a_router(
 
     class WebhookRequest(BaseModel):
         """Request to register a webhook."""
+
         url: str
         events: list[str] | None = None
         secret: str | None = None
 
     class WebhookResponse(BaseModel):
         """Webhook registration response."""
+
         url: str
         events: list[str]
         enabled: bool
@@ -807,6 +826,7 @@ def create_a2a_router(
 
     class WebhookDeliveryResponse(BaseModel):
         """Webhook delivery record."""
+
         webhook_url: str
         event_type: str
         event_id: str

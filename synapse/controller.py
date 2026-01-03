@@ -34,19 +34,27 @@ from synapse.utils import format_a2a_message
 
 
 class TerminalController:
-    def __init__(self, command: str, idle_regex: str, env: dict | None = None,
-                 registry: AgentRegistry | None = None,
-                 agent_id: str | None = None, agent_type: str | None = None,
-                 submit_seq: str | None = None, startup_delay: int | None = None,
-                 args: list | None = None, port: int | None = None):
+    def __init__(
+        self,
+        command: str,
+        idle_regex: str,
+        env: dict | None = None,
+        registry: AgentRegistry | None = None,
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        submit_seq: str | None = None,
+        startup_delay: int | None = None,
+        args: list | None = None,
+        port: int | None = None,
+    ):
         self.command = command
         self.args = args or []
         # Handle special pattern names for TUI apps
         # BRACKETED_PASTE_MODE detects when ESC[?2004h is emitted (TUI ready for input)
         if idle_regex == "BRACKETED_PASTE_MODE":
-            self.idle_regex = re.compile(b'\x1b\\[\\?2004h')
+            self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
         else:
-            self.idle_regex = re.compile(idle_regex.encode('utf-8'))
+            self.idle_regex = re.compile(idle_regex.encode("utf-8"))
         self.env = env or os.environ.copy()
         self.master_fd: int | None = None
         self.slave_fd: int | None = None
@@ -77,7 +85,7 @@ class TerminalController:
             registry=self.registry,
             self_agent_id=agent_id,
             self_agent_type=agent_type,
-            self_port=port
+            self_port=port,
         )
 
     def start(self):
@@ -93,20 +101,22 @@ class TerminalController:
             stdout=self.slave_fd,
             stderr=self.slave_fd,
             env=self.env,
-            preexec_fn=os.setsid, # Create new session
-            close_fds=True
+            preexec_fn=os.setsid,  # Create new session
+            close_fds=True,
         )
-        
+
         # Close slave_fd in parent as it's now attached to child
         os.close(self.slave_fd)
-        
+
         self.running = True
         self.thread = threading.Thread(target=self._monitor_output)
         self.thread.daemon = True
         self.thread.start()
         self.status = "BUSY"
 
-    def _execute_a2a_action(self, action_func: Callable[[], bool], agent_name: str) -> None:
+    def _execute_a2a_action(
+        self, action_func: Callable[[], bool], agent_name: str
+    ) -> None:
         """Execute A2A action in a thread and write feedback to PTY."""
         try:
             success = action_func()
@@ -136,14 +146,14 @@ class TerminalController:
                         break
 
                     self._append_output(data)
-                    
+
                     self._check_idle_state(data)
 
                     # Process output through InputRouter to detect @Agent commands
                     # We process decoded text, but we don't modify the data stream here
-                    # because in start() mode, the subprocess stdout is already redirected 
+                    # because in start() mode, the subprocess stdout is already redirected
                     # to the log file by Popen. _monitor_output just "snoops".
-                    text = data.decode('utf-8', errors='replace')
+                    text = data.decode("utf-8", errors="replace")
                     for char in text:
                         _, action = self.input_router.process_char(char)
                         if action:
@@ -151,12 +161,12 @@ class TerminalController:
                             threading.Thread(
                                 target=self._execute_a2a_action,
                                 args=(action, self.input_router.pending_agent),
-                                daemon=True
+                                daemon=True,
                             ).start()
-                    
+
                     # For debugging/logging locally
                     # print(data.decode(errors='replace'), end='', flush=True)
-                    
+
                 except OSError:
                     break
 
@@ -174,8 +184,7 @@ class TerminalController:
                 if was_busy and not self._identity_sent and self.agent_id:
                     self._identity_sent = True
                     threading.Thread(
-                        target=self._send_identity_instruction,
-                        daemon=True
+                        target=self._send_identity_instruction, daemon=True
                     ).start()
             else:
                 self.status = "BUSY"
@@ -199,7 +208,9 @@ class TerminalController:
             waited += 0.1
 
         if self.master_fd is None:
-            print(f"\x1b[31m[Synapse] Error: master_fd not available after {IDENTITY_WAIT_TIMEOUT}s\x1b[0m")
+            print(
+                f"\x1b[31m[Synapse] Error: master_fd not available after {IDENTITY_WAIT_TIMEOUT}s\x1b[0m"
+            )
             return
 
         # Build bootstrap message with agent identity and commands
@@ -230,13 +241,13 @@ class TerminalController:
 
         try:
             # Write data first
-            data_encoded = data.encode('utf-8')
+            data_encoded = data.encode("utf-8")
             os.write(self.master_fd, data_encoded)
 
             # For TUI apps, wait for input to be processed before sending Enter
             if submit_seq:
                 time.sleep(WRITE_PROCESSING_DELAY)
-                submit_encoded = submit_seq.encode('utf-8')
+                submit_encoded = submit_seq.encode("utf-8")
                 os.write(self.master_fd, submit_encoded)
         except OSError as e:
             logging.error(f"Write to PTY failed: {e}")
@@ -247,11 +258,11 @@ class TerminalController:
         """Send SIGINT to interrupt the controlled process."""
         if not self.running or not self.process:
             return
-            
+
         # Send SIGINT to the process group
         os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
         with self.lock:
-            self.status = "BUSY" # Interruption might cause output/processing
+            self.status = "BUSY"  # Interruption might cause output/processing
 
     def get_context(self) -> str:
         """Get the current output context from the controlled process."""
@@ -357,7 +368,7 @@ class TerminalController:
         with self.lock:
             self.output_buffer += data
             if len(self.output_buffer) > self._max_buffer:
-                self.output_buffer = self.output_buffer[-self._max_buffer:]
+                self.output_buffer = self.output_buffer[-self._max_buffer :]
 
             for ch in text:
                 if ch == "\r":

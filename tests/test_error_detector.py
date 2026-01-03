@@ -10,6 +10,7 @@ from synapse.error_detector import (
 # Error Detection Tests
 # ============================================================
 
+
 class TestDetectError:
     """Test error pattern detection."""
 
@@ -130,6 +131,7 @@ class TestDetectError:
 # Task Status Detection Tests
 # ============================================================
 
+
 class TestDetectTaskStatus:
     """Test task status determination."""
 
@@ -164,6 +166,7 @@ class TestDetectTaskStatus:
 # ============================================================
 # Input Required Detection Tests
 # ============================================================
+
 
 class TestIsInputRequired:
     """Test input required detection."""
@@ -231,6 +234,7 @@ class TestIsInputRequired:
 # ============================================================
 # Edge Cases
 # ============================================================
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""

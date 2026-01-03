@@ -21,7 +21,7 @@ dependencies = [
     "types-requests>=2.32.4.20250913",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.1.0",
@@ -29,6 +29,9 @@ dev = [
     "responses>=0.23.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.8.0",
+    "mypy>=1.8.0",
+    "types-requests>=2.32.4.20250913",
+    "types-pyyaml>=6.0.12.20250915",
     "ty>=0.0.1a7",
 ]
 grpc = [
@@ -59,6 +62,27 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+exclude = [
+    "synapse/proto/a2a_pb2.py",
+    "synapse/proto/a2a_pb2_grpc.py",
+]
+
+[[tool.mypy.overrides]]
+module = "synapse.proto.*"
+ignore_errors = true
 
 [tool.setuptools.package-data]
 synapse = ["skills/**/*"]

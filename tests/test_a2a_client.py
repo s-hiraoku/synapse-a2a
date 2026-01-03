@@ -1,4 +1,5 @@
 """Tests for A2A Client - Google A2A protocol compliance."""
+
 import json
 import shutil
 from pathlib import Path
@@ -17,6 +18,7 @@ from synapse.a2a_client import (
 # ============================================================
 # A2AMessage Tests
 # ============================================================
+
 
 class TestA2AMessage:
     """Test A2A Message structure."""
@@ -46,6 +48,7 @@ class TestA2AMessage:
 # ExternalAgentRegistry Tests
 # ============================================================
 
+
 @pytest.fixture
 def external_registry():
     """Create a temporary external agent registry."""
@@ -63,9 +66,7 @@ class TestExternalAgentRegistry:
     def test_add_and_get_agent(self, external_registry):
         """Should add and retrieve an agent."""
         agent = ExternalAgent(
-            name="Test Agent",
-            url="http://localhost:8000",
-            alias="test"
+            name="Test Agent", url="http://localhost:8000", alias="test"
         )
         external_registry.add(agent)
 
@@ -85,8 +86,12 @@ class TestExternalAgentRegistry:
 
     def test_list_agents(self, external_registry):
         """Should list all agents."""
-        external_registry.add(ExternalAgent(name="Agent1", url="http://a1.com", alias="a1"))
-        external_registry.add(ExternalAgent(name="Agent2", url="http://a2.com", alias="a2"))
+        external_registry.add(
+            ExternalAgent(name="Agent1", url="http://a1.com", alias="a1")
+        )
+        external_registry.add(
+            ExternalAgent(name="Agent2", url="http://a2.com", alias="a2")
+        )
 
         agents = external_registry.list_agents()
         assert len(agents) == 2
@@ -98,6 +103,7 @@ class TestExternalAgentRegistry:
 # ============================================================
 # A2AClient Tests
 # ============================================================
+
 
 @pytest.fixture
 def a2a_client(external_registry):
@@ -116,14 +122,14 @@ class TestA2AClientDiscover:
             "description": "A remote A2A agent",
             "url": "http://remote.example.com",
             "capabilities": {"streaming": False},
-            "skills": []
+            "skills": [],
         }
 
         responses.add(
             responses.GET,
             "http://remote.example.com/.well-known/agent.json",
             json=agent_card,
-            status=200
+            status=200,
         )
 
         agent = a2a_client.discover("http://remote.example.com", alias="remote")
@@ -136,9 +142,7 @@ class TestA2AClientDiscover:
     def test_discover_agent_not_found(self, a2a_client):
         """Should return None when agent not found."""
         responses.add(
-            responses.GET,
-            "http://invalid.com/.well-known/agent.json",
-            status=404
+            responses.GET, "http://invalid.com/.well-known/agent.json", status=404
         )
 
         agent = a2a_client.discover("http://invalid.com")
@@ -155,10 +159,13 @@ class TestA2AClientSendToLocal:
             "task": {
                 "id": "task-123",
                 "status": "working",
-                "message": {"role": "user", "parts": [{"type": "text", "text": "test"}]},
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "test"}],
+                },
                 "artifacts": [],
                 "created_at": "2025-01-01T00:00:00Z",
-                "updated_at": "2025-01-01T00:00:00Z"
+                "updated_at": "2025-01-01T00:00:00Z",
             }
         }
 
@@ -166,13 +173,11 @@ class TestA2AClientSendToLocal:
             responses.POST,
             "http://localhost:8001/tasks/send-priority?priority=1",
             json=task_response,
-            status=200
+            status=200,
         )
 
         task = a2a_client.send_to_local(
-            endpoint="http://localhost:8001",
-            message="Hello",
-            priority=1
+            endpoint="http://localhost:8001", message="Hello", priority=1
         )
 
         assert task is not None
@@ -186,18 +191,19 @@ class TestA2AClientSendToLocal:
             responses.POST,
             "http://localhost:8001/tasks/send-priority?priority=5",
             json={"task": {"id": "t-1", "status": "working"}},
-            status=200
+            status=200,
         )
 
         task = a2a_client.send_to_local(
-            endpoint="http://localhost:8001",
-            message="Urgent!",
-            priority=5
+            endpoint="http://localhost:8001", message="Urgent!", priority=5
         )
 
         assert task is not None
         # Verify the URL included priority=5
-        assert responses.calls[0].request.url == "http://localhost:8001/tasks/send-priority?priority=5"
+        assert (
+            responses.calls[0].request.url
+            == "http://localhost:8001/tasks/send-priority?priority=5"
+        )
 
     @responses.activate
     def test_send_to_local_request_format(self, a2a_client):
@@ -206,12 +212,11 @@ class TestA2AClientSendToLocal:
             responses.POST,
             "http://localhost:8001/tasks/send-priority?priority=1",
             json={"task": {"id": "t-1", "status": "working"}},
-            status=200
+            status=200,
         )
 
         a2a_client.send_to_local(
-            endpoint="http://localhost:8001",
-            message="Test message"
+            endpoint="http://localhost:8001", message="Test message"
         )
 
         # Verify request body format
@@ -227,12 +232,11 @@ class TestA2AClientSendToLocal:
         responses.add(
             responses.POST,
             "http://localhost:8001/tasks/send-priority?priority=1",
-            status=500
+            status=500,
         )
 
         task = a2a_client.send_to_local(
-            endpoint="http://localhost:8001",
-            message="Test"
+            endpoint="http://localhost:8001", message="Test"
         )
 
         assert task is None
@@ -245,17 +249,17 @@ class TestA2AClientSendMessage:
     def test_send_message_to_external_agent(self, a2a_client, external_registry):
         """Should send message to external agent."""
         # Register external agent
-        external_registry.add(ExternalAgent(
-            name="External",
-            url="http://external.example.com",
-            alias="ext"
-        ))
+        external_registry.add(
+            ExternalAgent(
+                name="External", url="http://external.example.com", alias="ext"
+            )
+        )
 
         responses.add(
             responses.POST,
             "http://external.example.com/tasks/send",
             json={"task": {"id": "ext-task-1", "status": "submitted"}},
-            status=200
+            status=200,
         )
 
         task = a2a_client.send_message("ext", "Hello external!")
@@ -280,20 +284,22 @@ class TestA2AClientWaitForCompletion:
             responses.GET,
             "http://localhost:8001/tasks/task-1",
             json={"id": "task-1", "status": "working", "artifacts": []},
-            status=200
+            status=200,
         )
         # Second poll: completed
         responses.add(
             responses.GET,
             "http://localhost:8001/tasks/task-1",
-            json={"id": "task-1", "status": "completed", "artifacts": [{"type": "text", "data": "Result"}]},
-            status=200
+            json={
+                "id": "task-1",
+                "status": "completed",
+                "artifacts": [{"type": "text", "data": "Result"}],
+            },
+            status=200,
         )
 
         task = a2a_client._wait_for_local_completion(
-            endpoint="http://localhost:8001",
-            task_id="task-1",
-            timeout=5
+            endpoint="http://localhost:8001", task_id="task-1", timeout=5
         )
 
         assert task is not None
@@ -304,6 +310,7 @@ class TestA2AClientWaitForCompletion:
 # ============================================================
 # A2ATask Tests
 # ============================================================
+
 
 class TestA2ATask:
     """Test A2A Task structure."""
@@ -316,7 +323,7 @@ class TestA2ATask:
             message={"role": "user", "parts": []},
             artifacts=[{"type": "text", "data": "output"}],
             created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:01Z"
+            updated_at="2025-01-01T00:00:01Z",
         )
 
         assert task.id == "test-id"

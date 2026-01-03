@@ -150,7 +150,11 @@ class TestA2AClientWaitLogic:
                     raise_for_status=lambda: None,
                 ),
                 MagicMock(
-                    json=lambda: {"id": "task1", "status": "completed", "artifacts": [{"type": "text"}]},
+                    json=lambda: {
+                        "id": "task1",
+                        "status": "completed",
+                        "artifacts": [{"type": "text"}],
+                    },
                     raise_for_status=lambda: None,
                 ),
             ]

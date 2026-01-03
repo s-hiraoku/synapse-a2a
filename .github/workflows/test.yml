@@ -29,7 +29,16 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
+
+      - name: Lint with ruff
+        run: |
+          uv run ruff check synapse/ tests/
+          uv run ruff format synapse/ tests/ --check
+
+      - name: Type check with mypy
+        run: uv run mypy synapse/
+        continue-on-error: true
 
       - name: Run tests
         run: uv run pytest -v

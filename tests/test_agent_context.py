@@ -1,4 +1,5 @@
 """Tests for Agent Context module - initial instructions generation."""
+
 import pytest
 
 from synapse.agent_context import (
@@ -13,6 +14,7 @@ from synapse.agent_context import (
 # AgentInfo Model Tests
 # ============================================================
 
+
 class TestAgentInfo:
     """Test AgentInfo dataclass."""
 
@@ -22,7 +24,7 @@ class TestAgentInfo:
             id="synapse-claude-8100",
             type="claude",
             endpoint="http://localhost:8100",
-            status="IDLE"
+            status="IDLE",
         )
         assert info.id == "synapse-claude-8100"
         assert info.type == "claude"
@@ -32,9 +34,7 @@ class TestAgentInfo:
     def test_agent_info_default_status(self):
         """Should have default status 'unknown'."""
         info = AgentInfo(
-            id="synapse-test-8000",
-            type="test",
-            endpoint="http://localhost:8000"
+            id="synapse-test-8000", type="test", endpoint="http://localhost:8000"
         )
         assert info.status == "unknown"
 
@@ -42,6 +42,7 @@ class TestAgentInfo:
 # ============================================================
 # AgentContext Model Tests
 # ============================================================
+
 
 class TestAgentContext:
     """Test AgentContext dataclass."""
@@ -52,7 +53,7 @@ class TestAgentContext:
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100,
-            other_agents=[]
+            other_agents=[],
         )
         assert ctx.agent_id == "synapse-claude-8100"
         assert ctx.agent_type == "claude"
@@ -62,26 +63,20 @@ class TestAgentContext:
     def test_agent_context_with_other_agents(self):
         """Should accept list of other agents."""
         other = AgentInfo(
-            id="synapse-gemini-8110",
-            type="gemini",
-            endpoint="http://localhost:8110"
+            id="synapse-gemini-8110", type="gemini", endpoint="http://localhost:8110"
         )
         ctx = AgentContext(
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100,
-            other_agents=[other]
+            other_agents=[other],
         )
         assert len(ctx.other_agents) == 1
         assert ctx.other_agents[0].id == "synapse-gemini-8110"
 
     def test_agent_context_default_other_agents(self):
         """Should have empty list as default for other_agents."""
-        ctx = AgentContext(
-            agent_id="synapse-test-8000",
-            agent_type="test",
-            port=8000
-        )
+        ctx = AgentContext(agent_id="synapse-test-8000", agent_type="test", port=8000)
         assert ctx.other_agents == []
 
 
@@ -89,15 +84,14 @@ class TestAgentContext:
 # build_initial_instructions Tests
 # ============================================================
 
+
 class TestBuildInitialInstructions:
     """Test build_initial_instructions function."""
 
     def test_returns_string(self):
         """Should return a string."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
         assert isinstance(result, str)
@@ -105,9 +99,7 @@ class TestBuildInitialInstructions:
     def test_contains_identity(self):
         """Should contain agent identity information."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
 
@@ -118,9 +110,7 @@ class TestBuildInitialInstructions:
     def test_contains_a2a_tool_command(self):
         """Should contain the a2a.py tool command."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
 
@@ -131,9 +121,7 @@ class TestBuildInitialInstructions:
     def test_contains_sender_identification(self):
         """Should contain sender identification and reply instructions."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
 
@@ -144,9 +132,7 @@ class TestBuildInitialInstructions:
     def test_contains_target_resolution(self):
         """Should explain target resolution patterns."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
 
@@ -156,9 +142,7 @@ class TestBuildInitialInstructions:
     def test_contains_list_command(self):
         """Should contain list command for dynamic agent discovery."""
         ctx = AgentContext(
-            agent_id="synapse-claude-8100",
-            agent_type="claude",
-            port=8100
+            agent_id="synapse-claude-8100", agent_type="claude", port=8100
         )
         result = build_initial_instructions(ctx)
 
@@ -169,6 +153,7 @@ class TestBuildInitialInstructions:
 # ============================================================
 # build_bootstrap_message Tests
 # ============================================================
+
 
 class TestBuildBootstrapMessage:
     """Test build_bootstrap_message function."""
@@ -215,6 +200,7 @@ class TestBuildBootstrapMessage:
 # get_other_agents_from_registry Tests
 # ============================================================
 
+
 class TestGetOtherAgentsFromRegistry:
     """Test get_other_agents_from_registry function."""
 
@@ -222,6 +208,7 @@ class TestGetOtherAgentsFromRegistry:
     def mock_registry(self):
         """Create a mock registry."""
         from unittest.mock import MagicMock
+
         registry = MagicMock()
         return registry
 
@@ -232,14 +219,14 @@ class TestGetOtherAgentsFromRegistry:
                 "agent_id": "synapse-claude-8100",
                 "agent_type": "claude",
                 "endpoint": "http://localhost:8100",
-                "status": "IDLE"
+                "status": "IDLE",
             },
             "synapse-gemini-8110": {
                 "agent_id": "synapse-gemini-8110",
                 "agent_type": "gemini",
                 "endpoint": "http://localhost:8110",
-                "status": "IDLE"
-            }
+                "status": "IDLE",
+            },
         }
 
         result = get_other_agents_from_registry(mock_registry, "synapse-claude-8100")
@@ -254,7 +241,7 @@ class TestGetOtherAgentsFromRegistry:
                 "agent_id": "synapse-claude-8100",
                 "agent_type": "claude",
                 "endpoint": "http://localhost:8100",
-                "status": "IDLE"
+                "status": "IDLE",
             }
         }
 
@@ -277,7 +264,7 @@ class TestGetOtherAgentsFromRegistry:
                 "agent_id": "synapse-gemini-8110",
                 "agent_type": "gemini",
                 "endpoint": "http://localhost:8110",
-                "status": "BUSY"
+                "status": "BUSY",
             }
         }
 

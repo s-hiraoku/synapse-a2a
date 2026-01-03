@@ -42,8 +42,7 @@ class TestWebhookConfig:
 
     def test_custom_events(self):
         config = WebhookConfig(
-            url="https://example.com/hook",
-            events=["task.completed"]
+            url="https://example.com/hook", events=["task.completed"]
         )
         assert config.events == ["task.completed"]
 
@@ -65,8 +64,7 @@ class TestWebhookRegistry:
     def test_register_with_events(self):
         registry = WebhookRegistry()
         webhook = registry.register(
-            "https://example.com/hook",
-            events=["task.completed"]
+            "https://example.com/hook", events=["task.completed"]
         )
 
         assert webhook.events == ["task.completed"]
@@ -98,14 +96,8 @@ class TestWebhookRegistry:
 
     def test_get_webhooks_for_event(self):
         registry = WebhookRegistry()
-        registry.register(
-            "https://example.com/hook1",
-            events=["task.completed"]
-        )
-        registry.register(
-            "https://example.com/hook2",
-            events=["task.failed"]
-        )
+        registry.register("https://example.com/hook1", events=["task.completed"])
+        registry.register("https://example.com/hook2", events=["task.failed"])
 
         completed_hooks = registry.get_webhooks_for_event("task.completed")
         assert len(completed_hooks) == 1
@@ -144,10 +136,7 @@ class TestDeliverWebhook:
 
     def test_successful_delivery(self):
         webhook = WebhookConfig(url="https://example.com/hook")
-        event = WebhookEvent(
-            event_type="task.completed",
-            payload={"task_id": "123"}
-        )
+        event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -163,10 +152,7 @@ class TestDeliverWebhook:
 
     def test_failed_delivery_retries(self):
         webhook = WebhookConfig(url="https://example.com/hook")
-        event = WebhookEvent(
-            event_type="task.completed",
-            payload={"task_id": "123"}
-        )
+        event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -182,10 +168,7 @@ class TestDeliverWebhook:
 
     def test_timeout_error(self):
         webhook = WebhookConfig(url="https://example.com/hook")
-        event = WebhookEvent(
-            event_type="task.completed",
-            payload={"task_id": "123"}
-        )
+        event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = httpx.TimeoutException("Timeout")
@@ -196,14 +179,8 @@ class TestDeliverWebhook:
             assert delivery.error == "Request timed out"
 
     def test_includes_signature_when_secret_set(self):
-        webhook = WebhookConfig(
-            url="https://example.com/hook",
-            secret="my-secret"
-        )
-        event = WebhookEvent(
-            event_type="task.completed",
-            payload={"task_id": "123"}
-        )
+        webhook = WebhookConfig(url="https://example.com/hook", secret="my-secret")
+        event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -225,65 +202,47 @@ class TestDispatchEvent:
 
     def test_dispatch_to_subscribed_webhooks(self):
         registry = WebhookRegistry()
-        registry.register(
-            "https://example.com/hook1",
-            events=["task.completed"]
-        )
-        registry.register(
-            "https://example.com/hook2",
-            events=["task.completed"]
-        )
+        registry.register("https://example.com/hook1", events=["task.completed"])
+        registry.register("https://example.com/hook2", events=["task.completed"])
 
         with patch("synapse.webhooks.deliver_webhook") as mock_deliver:
             mock_deliver.return_value = WebhookDelivery(
                 webhook_url="",
                 event=WebhookEvent(event_type="task.completed", payload={}),
-                success=True
+                success=True,
             )
 
-            deliveries = run_async(dispatch_event(
-                registry,
-                "task.completed",
-                {"task_id": "123"}
-            ))
+            deliveries = run_async(
+                dispatch_event(registry, "task.completed", {"task_id": "123"})
+            )
 
             assert len(deliveries) == 2
             assert mock_deliver.call_count == 2
 
     def test_dispatch_only_to_matching_events(self):
         registry = WebhookRegistry()
-        registry.register(
-            "https://example.com/hook1",
-            events=["task.completed"]
-        )
-        registry.register(
-            "https://example.com/hook2",
-            events=["task.failed"]
-        )
+        registry.register("https://example.com/hook1", events=["task.completed"])
+        registry.register("https://example.com/hook2", events=["task.failed"])
 
         with patch("synapse.webhooks.deliver_webhook") as mock_deliver:
             mock_deliver.return_value = WebhookDelivery(
                 webhook_url="",
                 event=WebhookEvent(event_type="task.completed", payload={}),
-                success=True
+                success=True,
             )
 
-            deliveries = run_async(dispatch_event(
-                registry,
-                "task.completed",
-                {"task_id": "123"}
-            ))
+            deliveries = run_async(
+                dispatch_event(registry, "task.completed", {"task_id": "123"})
+            )
 
             assert len(deliveries) == 1
 
     def test_dispatch_no_webhooks(self):
         registry = WebhookRegistry()
 
-        deliveries = run_async(dispatch_event(
-            registry,
-            "task.completed",
-            {"task_id": "123"}
-        ))
+        deliveries = run_async(
+            dispatch_event(registry, "task.completed", {"task_id": "123"})
+        )
 
         assert len(deliveries) == 0
 
@@ -313,9 +272,7 @@ class TestDeliveryRecording:
         registry = WebhookRegistry()
         event = WebhookEvent(event_type="task.completed", payload={})
         delivery = WebhookDelivery(
-            webhook_url="https://example.com/hook",
-            event=event,
-            success=True
+            webhook_url="https://example.com/hook", event=event, success=True
         )
 
         registry.add_delivery(delivery)
@@ -331,9 +288,7 @@ class TestDeliveryRecording:
         # Add more than 100 deliveries
         for i in range(120):
             delivery = WebhookDelivery(
-                webhook_url=f"https://example.com/hook{i}",
-                event=event,
-                success=True
+                webhook_url=f"https://example.com/hook{i}", event=event, success=True
             )
             registry.add_delivery(delivery)
 

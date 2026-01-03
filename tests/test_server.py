@@ -1,4 +1,5 @@
 """Tests for Synapse A2A Server - endpoint compliance."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 # ============================================================
 # Server App Tests
 # ============================================================
+
 
 class TestServerApp:
     """Test server application factory."""
@@ -29,13 +31,14 @@ class TestServerApp:
     def app(self, mock_controller, mock_registry):
         """Create test application."""
         from synapse.server import create_app
+
         return create_app(
             ctrl=mock_controller,
             reg=mock_registry,
             agent_id="test-agent-id",
             port=8000,
             submit_seq="\n",
-            agent_type="test-agent"
+            agent_type="test-agent",
         )
 
     @pytest.fixture
@@ -47,6 +50,7 @@ class TestServerApp:
 # ============================================================
 # Legacy /message Endpoint Tests
 # ============================================================
+
 
 class TestLegacyMessageEndpoint(TestServerApp):
     """Test deprecated /message endpoint."""
@@ -75,7 +79,9 @@ class TestLegacyMessageEndpoint(TestServerApp):
 
     def test_message_writes_to_controller(self, client, mock_controller):
         """POST /message should write content to controller."""
-        response = client.post("/message", json={"priority": 1, "content": "hello world"})
+        response = client.post(
+            "/message", json={"priority": 1, "content": "hello world"}
+        )
 
         assert response.status_code == 200
         mock_controller.write.assert_called_once_with("hello world", submit_seq="\n")
@@ -91,6 +97,7 @@ class TestLegacyMessageEndpoint(TestServerApp):
 # ============================================================
 # A2A Endpoint Tests
 # ============================================================
+
 
 class TestA2AEndpoints(TestServerApp):
     """Test Google A2A compatible endpoints."""
@@ -109,7 +116,7 @@ class TestA2AEndpoints(TestServerApp):
         payload = {
             "message": {
                 "role": "user",
-                "parts": [{"type": "text", "text": "Hello A2A"}]
+                "parts": [{"type": "text", "text": "Hello A2A"}],
             }
         }
 
@@ -125,7 +132,7 @@ class TestA2AEndpoints(TestServerApp):
         payload = {
             "message": {
                 "role": "user",
-                "parts": [{"type": "text", "text": "Priority message"}]
+                "parts": [{"type": "text", "text": "Priority message"}],
             }
         }
 
@@ -147,6 +154,7 @@ class TestA2AEndpoints(TestServerApp):
 # ============================================================
 # Backward Compatibility Tests
 # ============================================================
+
 
 class TestBackwardCompatibility(TestServerApp):
     """Test backward compatibility with legacy clients."""
@@ -176,13 +184,18 @@ class TestBackwardCompatibility(TestServerApp):
     def test_both_apis_work_simultaneously(self, client, mock_controller):
         """Both /message and /tasks/send should work."""
         # Legacy API
-        legacy_response = client.post("/message", json={"priority": 1, "content": "legacy"})
+        legacy_response = client.post(
+            "/message", json={"priority": 1, "content": "legacy"}
+        )
         assert legacy_response.status_code == 200
 
         # New A2A API
-        a2a_response = client.post("/tasks/send", json={
-            "message": {"role": "user", "parts": [{"type": "text", "text": "a2a"}]}
-        })
+        a2a_response = client.post(
+            "/tasks/send",
+            json={
+                "message": {"role": "user", "parts": [{"type": "text", "text": "a2a"}]}
+            },
+        )
         assert a2a_response.status_code == 200
 
         # Both should have written to controller
@@ -193,17 +206,19 @@ class TestBackwardCompatibility(TestServerApp):
 # Error Handling Tests
 # ============================================================
 
+
 class TestErrorHandling(TestServerApp):
     """Test error handling."""
 
     def test_message_without_controller(self, mock_registry):
         """Should return 503 when controller not available."""
         from synapse.server import create_app
+
         app = create_app(
             ctrl=None,  # No controller
             reg=mock_registry,
             agent_id="test",
-            port=8000
+            port=8000,
         )
         client = TestClient(app)
 
@@ -227,15 +242,22 @@ class TestErrorHandling(TestServerApp):
 # Integration Tests
 # ============================================================
 
+
 class TestIntegration(TestServerApp):
     """Integration tests for full workflow."""
 
     def test_full_a2a_workflow(self, client, mock_controller):
         """Test complete A2A workflow: create -> poll -> complete."""
         # 1. Create task via A2A
-        create_response = client.post("/tasks/send", json={
-            "message": {"role": "user", "parts": [{"type": "text", "text": "test command"}]}
-        })
+        create_response = client.post(
+            "/tasks/send",
+            json={
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "test command"}],
+                }
+            },
+        )
         assert create_response.status_code == 200
         task_id = create_response.json()["task"]["id"]
 
@@ -254,14 +276,22 @@ class TestIntegration(TestServerApp):
     def test_legacy_to_a2a_migration_path(self, client, mock_controller):
         """Test migration path from legacy to A2A API."""
         # Old way: /message - now returns task_id for tracking
-        legacy_response = client.post("/message", json={"priority": 1, "content": "old style"})
+        legacy_response = client.post(
+            "/message", json={"priority": 1, "content": "old style"}
+        )
         assert legacy_response.status_code == 200
         assert "task_id" in legacy_response.json()
 
         # New way: /tasks/send - full A2A workflow
-        a2a_response = client.post("/tasks/send", json={
-            "message": {"role": "user", "parts": [{"type": "text", "text": "new style"}]}
-        })
+        a2a_response = client.post(
+            "/tasks/send",
+            json={
+                "message": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "new style"}],
+                }
+            },
+        )
         assert a2a_response.status_code == 200
         task_id = a2a_response.json()["task"]["id"]
 

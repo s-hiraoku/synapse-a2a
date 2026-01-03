@@ -1,4 +1,5 @@
 """Pytest configuration and shared fixtures."""
+
 import sys
 from pathlib import Path
 
@@ -13,6 +14,7 @@ def reset_global_state():
     """Reset global state between tests."""
     # Reset any singleton instances
     from synapse import a2a_client
+
     a2a_client._client = None
 
     yield

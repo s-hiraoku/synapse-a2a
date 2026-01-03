@@ -1,4 +1,5 @@
 """Tests for InputRouter - @Agent pattern detection and A2A routing."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ from synapse.input_router import InputRouter
 # ============================================================
 # Pattern Detection Tests
 # ============================================================
+
 
 class TestPatternDetection:
     """Test @Agent pattern detection."""
@@ -28,7 +30,7 @@ class TestPatternDetection:
         for char in "@claude hello":
             router.process_char(char)
 
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         assert action is not None  # Should have send action
         assert output == ""  # Should suppress output
@@ -38,7 +40,7 @@ class TestPatternDetection:
         for char in "@claude --non-response do this task":
             router.process_char(char)
 
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
         assert action is not None
 
     def test_default_wants_response(self, router):
@@ -46,19 +48,19 @@ class TestPatternDetection:
         for char in "@claude hello":
             router.process_char(char)
 
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
         assert action is not None
         # The action should call send_to_agent with want_response=True by default
 
     def test_normal_input_passes_through(self, router):
         """Normal input should pass through."""
-        output, action = router.process_char('a')
-        assert output == 'a'
+        output, action = router.process_char("a")
+        assert output == "a"
         assert action is None
 
     def test_escape_sequence_handling(self, router):
         """Escape sequences should be handled."""
-        output, action = router.process_char('\x1b')
+        output, action = router.process_char("\x1b")
         assert action is None
 
     def test_control_char_clears_buffer(self, router):
@@ -66,7 +68,7 @@ class TestPatternDetection:
         for char in "@claude":
             router.process_char(char)
 
-        router.process_char('\x03')  # Ctrl+C
+        router.process_char("\x03")  # Ctrl+C
         assert router.line_buffer == ""
 
     def test_backspace_edits_buffer(self, router):
@@ -74,13 +76,14 @@ class TestPatternDetection:
         for char in "@claude":
             router.process_char(char)
 
-        router.process_char('\x7f')  # Backspace
+        router.process_char("\x7f")  # Backspace
         assert router.line_buffer == "@claud"
 
 
 # ============================================================
 # Agent Resolution Tests
 # ============================================================
+
 
 class TestAgentResolution:
     """Test agent resolution (local vs external)."""
@@ -93,7 +96,7 @@ class TestAgentResolution:
             "agent-123": {
                 "agent_id": "agent-123",
                 "agent_type": "claude",
-                "endpoint": "http://localhost:8001"
+                "endpoint": "http://localhost:8001",
             }
         }
         return registry
@@ -104,9 +107,7 @@ class TestAgentResolution:
         client = MagicMock()
         client.registry.get.return_value = None
         client.send_to_local.return_value = A2ATask(
-            id="task-1",
-            status="working",
-            artifacts=[]
+            id="task-1", status="working", artifacts=[]
         )
         return client
 
@@ -131,9 +132,7 @@ class TestAgentResolution:
         external = ExternalAgent(name="Remote", url="http://remote.com", alias="remote")
         mock_a2a_client.registry.get.return_value = external
         mock_a2a_client.send_message.return_value = A2ATask(
-            id="ext-task",
-            status="submitted",
-            artifacts=[]
+            id="ext-task", status="submitted", artifacts=[]
         )
 
         mock_registry.list_agents.return_value = {}  # No local agents
@@ -160,6 +159,7 @@ class TestAgentResolution:
 # Response Handling Tests
 # ============================================================
 
+
 class TestResponseHandling:
     """Test response handling from agents."""
 
@@ -167,10 +167,7 @@ class TestResponseHandling:
     def mock_registry(self):
         registry = MagicMock()
         registry.list_agents.return_value = {
-            "agent-1": {
-                "agent_type": "claude",
-                "endpoint": "http://localhost:8001"
-            }
+            "agent-1": {"agent_type": "claude", "endpoint": "http://localhost:8001"}
         }
         return registry
 
@@ -183,8 +180,8 @@ class TestResponseHandling:
             status="completed",
             artifacts=[
                 {"type": "text", "data": "First response"},
-                {"type": "text", "data": "Second response"}
-            ]
+                {"type": "text", "data": "Second response"},
+            ],
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
@@ -200,9 +197,7 @@ class TestResponseHandling:
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
-            id="task-1",
-            status="working",
-            artifacts=[]
+            id="task-1", status="working", artifacts=[]
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
@@ -214,6 +209,7 @@ class TestResponseHandling:
 # ============================================================
 # Feedback Message Tests
 # ============================================================
+
 
 class TestFeedbackMessages:
     """Test feedback message generation."""
@@ -264,6 +260,7 @@ class TestFeedbackMessages:
 # Integration Tests
 # ============================================================
 
+
 class TestInputRouterIntegration:
     """Integration tests for InputRouter."""
 
@@ -271,18 +268,13 @@ class TestInputRouterIntegration:
         """Test complete flow: input -> detect -> send."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
-            "agent-1": {
-                "agent_type": "gemini",
-                "endpoint": "http://localhost:8002"
-            }
+            "agent-1": {"agent_type": "gemini", "endpoint": "http://localhost:8002"}
         }
 
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
-            id="task-123",
-            status="working",
-            artifacts=[]
+            id="task-123", status="working", artifacts=[]
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
@@ -290,11 +282,11 @@ class TestInputRouterIntegration:
         # Simulate typing "@gemini help me"
         for char in "@gemini help me":
             output, action = router.process_char(char)
-            if char != '@':  # @ starts the pattern
+            if char != "@":  # @ starts the pattern
                 assert action is None
 
         # Press Enter
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         # Should have an action
         assert action is not None
@@ -334,16 +326,14 @@ class TestInputRouterIntegration:
             "synapse-gemini-8102": {
                 "agent_id": "synapse-gemini-8102",
                 "agent_type": "gemini",
-                "endpoint": "http://localhost:8102"
+                "endpoint": "http://localhost:8102",
             }
         }
 
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
-            id="task-456",
-            status="working",
-            artifacts=[]
+            id="task-456", status="working", artifacts=[]
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
@@ -353,7 +343,7 @@ class TestInputRouterIntegration:
             output, action = router.process_char(char)
 
         # Press Enter
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         # Should have an action
         assert action is not None
@@ -375,16 +365,14 @@ class TestInputRouterIntegration:
             "synapse-gemini-8102": {
                 "agent_id": "synapse-gemini-8102",
                 "agent_type": "gemini",
-                "endpoint": "http://localhost:8102"
+                "endpoint": "http://localhost:8102",
             }
         }
 
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
-            id="task-789",
-            status="working",
-            artifacts=[]
+            id="task-789", status="working", artifacts=[]
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
@@ -394,7 +382,7 @@ class TestInputRouterIntegration:
             router.process_char(char)
 
         # Press Enter
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         assert action is not None
         result = action()
@@ -424,8 +412,8 @@ class TestInputRouterIntegration:
         assert outputs == ["h", "e", "l", "l", "o"]
 
         # Enter should also pass through
-        output, action = router.process_char('\n')
-        assert output == '\n'
+        output, action = router.process_char("\n")
+        assert output == "\n"
         assert action is None
 
     def test_at_prefixed_input_also_passes_through(self):
@@ -461,14 +449,15 @@ class TestInputRouterIntegration:
             router.process_char(char)
 
         # Press backspace - should pass through
-        output, action = router.process_char('\x7f')
-        assert output == '\x7f'  # Passes through to PTY
+        output, action = router.process_char("\x7f")
+        assert output == "\x7f"  # Passes through to PTY
         assert router.line_buffer == "@he"  # Buffer updated
 
 
 # ============================================================
 # Multiple Agent Resolution Tests
 # ============================================================
+
 
 class TestMultipleAgentResolution:
     """Test agent resolution when multiple agents of same type exist."""
@@ -483,7 +472,7 @@ class TestMultipleAgentResolution:
                 "agent_id": "synapse-codex-8120",
                 "agent_type": "codex",
                 "port": 8120,
-                "endpoint": "http://localhost:8120"
+                "endpoint": "http://localhost:8120",
             }
         }
 
@@ -498,7 +487,7 @@ class TestMultipleAgentResolution:
         # @codex should work when only one codex exists
         for char in "@codex hello":
             router.process_char(char)
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         assert action is not None
         result = action()
@@ -514,14 +503,14 @@ class TestMultipleAgentResolution:
                 "agent_id": "synapse-codex-8120",
                 "agent_type": "codex",
                 "port": 8120,
-                "endpoint": "http://localhost:8120"
+                "endpoint": "http://localhost:8120",
             },
             "synapse-codex-8130": {
                 "agent_id": "synapse-codex-8130",
                 "agent_type": "codex",
                 "port": 8130,
-                "endpoint": "http://localhost:8130"
-            }
+                "endpoint": "http://localhost:8130",
+            },
         }
 
         mock_client = MagicMock()
@@ -532,13 +521,16 @@ class TestMultipleAgentResolution:
         # @codex should fail when multiple codex agents exist
         for char in "@codex hello":
             router.process_char(char)
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         assert action is not None
         result = action()
         assert result is False
         assert router.ambiguous_matches is not None
-        assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
+        assert (
+            "@codex-8120" in router.ambiguous_matches
+            or "@codex-8130" in router.ambiguous_matches
+        )
 
     @patch("synapse.input_router.is_process_running", return_value=True)
     @patch("synapse.input_router.is_port_open", return_value=True)
@@ -550,14 +542,14 @@ class TestMultipleAgentResolution:
                 "agent_id": "synapse-codex-8120",
                 "agent_type": "codex",
                 "port": 8120,
-                "endpoint": "http://localhost:8120"
+                "endpoint": "http://localhost:8120",
             },
             "synapse-codex-8130": {
                 "agent_id": "synapse-codex-8130",
                 "agent_type": "codex",
                 "port": 8130,
-                "endpoint": "http://localhost:8130"
-            }
+                "endpoint": "http://localhost:8130",
+            },
         }
 
         mock_client = MagicMock()
@@ -571,7 +563,7 @@ class TestMultipleAgentResolution:
         # @codex-8120 should work
         for char in "@codex-8120 hello":
             router.process_char(char)
-        output, action = router.process_char('\n')
+        output, action = router.process_char("\n")
 
         assert action is not None
         result = action()

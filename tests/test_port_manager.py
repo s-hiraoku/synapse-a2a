@@ -72,7 +72,7 @@ class TestIsPortAvailable:
         # Bind and listen to a port temporarily
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(('localhost', 65433))
+            s.bind(("localhost", 65433))
             s.listen(1)  # Need to listen to actually block the port
             assert is_port_available(65433) is False
 
@@ -95,7 +95,7 @@ class TestPortManager:
 
     def test_get_available_port_empty_registry(self, port_manager):
         """Should return first port when registry is empty."""
-        with patch('synapse.port_manager.is_port_available', return_value=True):
+        with patch("synapse.port_manager.is_port_available", return_value=True):
             port = port_manager.get_available_port("claude")
             assert port == 8100
 
@@ -104,7 +104,7 @@ class TestPortManager:
         # Register first port with current PID (alive)
         registry.register("synapse-claude-8100", "claude", 8100)
 
-        with patch('synapse.port_manager.is_port_available', return_value=True):
+        with patch("synapse.port_manager.is_port_available", return_value=True):
             port = port_manager.get_available_port("claude")
             assert port == 8101
 
@@ -117,10 +117,10 @@ class TestPortManager:
         with open(file_path) as f:
             data = json.load(f)
         data["pid"] = 99999999  # Non-existent PID
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             json.dump(data, f)
 
-        with patch('synapse.port_manager.is_port_available', return_value=True):
+        with patch("synapse.port_manager.is_port_available", return_value=True):
             port = port_manager.get_available_port("claude")
             assert port == 8100  # Should reclaim the port
 
@@ -130,14 +130,14 @@ class TestPortManager:
         for port in range(8100, 8110):
             registry.register(f"synapse-claude-{port}", "claude", port)
 
-        with patch('synapse.port_manager.is_port_available', return_value=True):
+        with patch("synapse.port_manager.is_port_available", return_value=True):
             port = port_manager.get_available_port("claude")
             assert port is None
 
     def test_get_available_port_skips_bound_ports(self, port_manager):
         """Should skip ports that are actually bound."""
         # First call returns False (port in use), second returns True
-        with patch('synapse.port_manager.is_port_available', side_effect=[False, True]):
+        with patch("synapse.port_manager.is_port_available", side_effect=[False, True]):
             port = port_manager.get_available_port("claude")
             assert port == 8101  # Skipped 8100
 
@@ -162,7 +162,7 @@ class TestPortManager:
         with open(file_path) as f:
             data = json.load(f)
         data["pid"] = 99999999  # Non-existent PID
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             json.dump(data, f)
 
         running = port_manager.get_running_instances("claude")
@@ -205,8 +205,9 @@ class TestPortRangesNoOverlap:
             for j, (start2, end2) in enumerate(ranges):
                 if i != j:
                     # Ranges should not overlap
-                    assert end1 < start2 or end2 < start1, \
+                    assert end1 < start2 or end2 < start1, (
                         f"Range {i} ({start1}-{end1}) overlaps with range {j} ({start2}-{end2})"
+                    )
 
     def test_range_size(self):
         """Each range should have exactly 10 ports."""

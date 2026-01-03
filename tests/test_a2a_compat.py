@@ -1,4 +1,5 @@
 """Tests for A2A Compatibility Layer - Google A2A protocol compliance."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,6 +19,7 @@ from synapse.a2a_compat import (
 # ============================================================
 # Message/Part Model Tests
 # ============================================================
+
 
 class TestMessageModels:
     """Test A2A Message and Part models."""
@@ -42,10 +44,7 @@ class TestMessageModels:
 
     def test_message_with_text_part(self):
         """Message should accept TextPart."""
-        msg = Message(
-            role="user",
-            parts=[TextPart(text="Test message")]
-        )
+        msg = Message(role="user", parts=[TextPart(text="Test message")])
         assert msg.role == "user"
         assert len(msg.parts) == 1
         assert msg.parts[0].text == "Test message"
@@ -64,6 +63,7 @@ class TestMessageModels:
 # ============================================================
 # TaskStore Tests
 # ============================================================
+
 
 class TestTaskStore:
     """Test TaskStore for task lifecycle management."""
@@ -174,7 +174,7 @@ class TestTaskStore:
             "sender": {
                 "sender_id": "synapse-claude-8100",
                 "sender_type": "claude",
-                "sender_endpoint": "http://localhost:8100"
+                "sender_endpoint": "http://localhost:8100",
             }
         }
         task = task_store.create(msg, metadata=metadata)
@@ -194,11 +194,7 @@ class TestTaskStore:
     def test_create_task_with_partial_sender_info(self, task_store):
         """Should accept partial sender info in metadata."""
         msg = Message(parts=[TextPart(text="Test")])
-        metadata = {
-            "sender": {
-                "sender_id": "external-agent"
-            }
-        }
+        metadata = {"sender": {"sender_id": "external-agent"}}
         task = task_store.create(msg, metadata=metadata)
 
         assert task.metadata["sender"]["sender_id"] == "external-agent"
@@ -208,6 +204,7 @@ class TestTaskStore:
 # ============================================================
 # Status Mapping Tests
 # ============================================================
+
 
 class TestStatusMapping:
     """Test Synapse to A2A status mapping."""
@@ -237,6 +234,7 @@ class TestStatusMapping:
 # A2A Router Endpoint Tests
 # ============================================================
 
+
 class TestA2ARouterEndpoints:
     """Test A2A Router HTTP endpoints."""
 
@@ -252,6 +250,7 @@ class TestA2ARouterEndpoints:
     def app(self, mock_controller):
         """Create test application with A2A router."""
         from fastapi import FastAPI
+
         app = FastAPI()
         router = create_a2a_router(mock_controller, "test-agent", 8000, "\n")
         app.include_router(router)
@@ -275,10 +274,7 @@ class TestA2ARouterEndpoints:
     def test_tasks_send_endpoint(self, client, mock_controller):
         """POST /tasks/send should create task."""
         payload = {
-            "message": {
-                "role": "user",
-                "parts": [{"type": "text", "text": "Hello"}]
-            }
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}
         }
 
         response = client.post("/tasks/send", json=payload)
@@ -292,10 +288,7 @@ class TestA2ARouterEndpoints:
     def test_tasks_send_priority_endpoint(self, client, mock_controller):
         """POST /tasks/send-priority should handle priority."""
         payload = {
-            "message": {
-                "role": "user",
-                "parts": [{"type": "text", "text": "Urgent!"}]
-            }
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Urgent!"}]}
         }
 
         response = client.post("/tasks/send-priority?priority=5", json=payload)
@@ -308,10 +301,7 @@ class TestA2ARouterEndpoints:
         """GET /tasks/{id} should return task status."""
         # First create a task
         payload = {
-            "message": {
-                "role": "user",
-                "parts": [{"type": "text", "text": "Test"}]
-            }
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
         }
         create_response = client.post("/tasks/send", json=payload)
         task_id = create_response.json()["task"]["id"]
@@ -326,7 +316,9 @@ class TestA2ARouterEndpoints:
     def test_tasks_list_endpoint(self, client, mock_controller):
         """GET /tasks should list all tasks."""
         # Create some tasks
-        payload = {"message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}}
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
+        }
         client.post("/tasks/send", json=payload)
         client.post("/tasks/send", json=payload)
 
@@ -340,7 +332,9 @@ class TestA2ARouterEndpoints:
     def test_tasks_cancel_endpoint(self, client, mock_controller):
         """POST /tasks/{id}/cancel should cancel task."""
         # First create a task
-        payload = {"message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}}
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
+        }
         create_response = client.post("/tasks/send", json=payload)
         task_id = create_response.json()["task"]["id"]
 
@@ -352,12 +346,7 @@ class TestA2ARouterEndpoints:
 
     def test_tasks_send_empty_message_rejected(self, client):
         """POST /tasks/send should reject empty message."""
-        payload = {
-            "message": {
-                "role": "user",
-                "parts": []
-            }
-        }
+        payload = {"message": {"role": "user", "parts": []}}
 
         response = client.post("/tasks/send", json=payload)
         assert response.status_code == 400
@@ -368,7 +357,9 @@ class TestA2ARouterEndpoints:
         mock_controller.get_context.return_value = "Command output here"
 
         # Create and retrieve task
-        payload = {"message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}}
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
+        }
         create_response = client.post("/tasks/send", json=payload)
         task_id = create_response.json()["task"]["id"]
 
@@ -384,6 +375,7 @@ class TestA2ARouterEndpoints:
 # Integration Tests
 # ============================================================
 
+
 class TestAgentCardSynapseExtension:
     """Test synapse extension in Agent Card (pure business card format)."""
 
@@ -397,11 +389,15 @@ class TestAgentCardSynapseExtension:
     @pytest.fixture
     def client(self, mock_controller):
         from fastapi import FastAPI
+
         app = FastAPI()
         router = create_a2a_router(
-            mock_controller, "claude", 8100, "\n",
+            mock_controller,
+            "claude",
+            8100,
+            "\n",
             agent_id="synapse-claude-8100",
-            registry=None
+            registry=None,
         )
         app.include_router(router)
         return TestClient(app)
@@ -491,6 +487,7 @@ class TestA2ACompliance:
     @pytest.fixture
     def client(self, mock_controller):
         from fastapi import FastAPI
+
         app = FastAPI()
         router = create_a2a_router(mock_controller, "test", 8000, "\n")
         app.include_router(router)
@@ -499,7 +496,9 @@ class TestA2ACompliance:
     def test_task_lifecycle(self, client, mock_controller):
         """Test complete task lifecycle: submitted -> working -> completed."""
         # 1. Create task (submitted -> working)
-        payload = {"message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}}
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
+        }
         response = client.post("/tasks/send", json=payload)
         assert response.status_code == 200
         task_id = response.json()["task"]["id"]
@@ -524,11 +523,11 @@ class TestA2ACompliance:
                 "role": "user",
                 "parts": [
                     {"type": "text", "text": "First part"},
-                    {"type": "text", "text": "Second part"}
-                ]
+                    {"type": "text", "text": "Second part"},
+                ],
             },
             "context_id": "conv-123",
-            "metadata": {"custom": "value"}
+            "metadata": {"custom": "value"},
         }
 
         response = client.post("/tasks/send", json=payload)
@@ -547,6 +546,7 @@ class TestA2ACompliance:
 # SSE Streaming Tests
 # ============================================================
 
+
 class TestSSEStreaming:
     """Test SSE streaming endpoints."""
 
@@ -564,13 +564,14 @@ class TestSSEStreaming:
     def client(self, mock_controller):
         """Create test client with mock controller."""
         from fastapi import FastAPI
+
         app = FastAPI()
         router = create_a2a_router(
             mock_controller,
             agent_type="test",
             port=8000,
             submit_seq="\n",
-            agent_id="test-agent"
+            agent_id="test-agent",
         )
         app.include_router(router)
         return TestClient(app)
@@ -579,22 +580,22 @@ class TestSSEStreaming:
         """GET /tasks/{id}/subscribe should exist."""
         # Create a task first
         payload = {
-            "message": {
-                "role": "user",
-                "parts": [{"type": "text", "text": "Test"}]
-            }
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
         }
         create_response = client.post("/tasks/send", json=payload)
         task_id = create_response.json()["task"]["id"]
 
         # Mark task as completed so streaming ends quickly
         from synapse.a2a_compat import task_store
+
         task_store.update_status(task_id, "completed")
 
         # Subscribe should return streaming response
         with client.stream("GET", f"/tasks/{task_id}/subscribe") as response:
             assert response.status_code == 200
-            assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+            assert (
+                response.headers["content-type"] == "text/event-stream; charset=utf-8"
+            )
 
     def test_subscribe_returns_404_for_nonexistent_task(self, client, mock_controller):  # noqa: ARG002
         """Subscribe should return 404 for nonexistent task."""

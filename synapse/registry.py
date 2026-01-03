@@ -21,6 +21,7 @@ def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
     except (TimeoutError, ConnectionRefusedError, OSError):
         return False
 
+
 class AgentRegistry:
     def __init__(self):
         self.registry_dir = Path.home() / ".a2a" / "registry"
@@ -31,7 +32,9 @@ class AgentRegistry:
         """Generates a unique agent ID in format: synapse-{agent_type}-{port}."""
         return f"synapse-{agent_type}-{port}"
 
-    def register(self, agent_id: str, agent_type: str, port: int, status: str = "STARTING"):
+    def register(
+        self, agent_id: str, agent_type: str, port: int, status: str = "STARTING"
+    ):
         """Writes connection info to registry file."""
         data = {
             "agent_id": agent_id,
@@ -40,13 +43,13 @@ class AgentRegistry:
             "status": status,
             "pid": os.getpid(),
             "working_dir": os.getcwd(),
-            "endpoint": f"http://localhost:{port}"
+            "endpoint": f"http://localhost:{port}",
         }
-        
+
         file_path = self.registry_dir / f"{agent_id}.json"
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             json.dump(data, f, indent=2)
-            
+
         return file_path
 
     def unregister(self, agent_id: str):
@@ -62,7 +65,7 @@ class AgentRegistry:
             try:
                 with open(p) as f:
                     data = json.load(f)
-                    agents[data['agent_id']] = data
+                    agents[data["agent_id"]] = data
             except (json.JSONDecodeError, OSError):
                 continue
         return agents
@@ -108,7 +111,7 @@ class AgentRegistry:
 
             data["status"] = status
 
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 json.dump(data, f, indent=2)
 
             return True
@@ -124,7 +127,7 @@ class AgentRegistry:
         """
         removed = []
         for agent_id, info in list(self.list_agents().items()):
-            pid = info.get('pid')
+            pid = info.get("pid")
             if pid and not is_process_running(pid):
                 self.unregister(agent_id)
                 removed.append(agent_id)

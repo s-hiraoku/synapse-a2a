@@ -15,6 +15,7 @@ LOG_DIR = os.path.expanduser("~/.synapse/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "input_router.log")
 
+
 def log(level: str, msg: str):
     """Write log message to file."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -40,10 +41,10 @@ class InputRouter:
     # Default: return response to sender's terminal
     # --non-response: opt-out of returning response (just send and forget)
     # Agent name can include hyphens, numbers, and colons (e.g., gemini:8110)
-    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--non-response)?\s+(.+)$', re.IGNORECASE)
+    A2A_PATTERN = re.compile(r"^@([\w:-]+)(\s+--non-response)?\s+(.+)$", re.IGNORECASE)
 
     # Control characters that should clear the buffer
-    CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
+    CONTROL_CHARS = {"\x03", "\x04", "\x1a"}  # Ctrl+C, Ctrl+D, Ctrl+Z
 
     def __init__(
         self,
@@ -51,7 +52,7 @@ class InputRouter:
         a2a_client: A2AClient | None = None,
         self_agent_id: str | None = None,
         self_agent_type: str | None = None,
-        self_port: int | None = None
+        self_port: int | None = None,
     ):
         self.registry = registry or AgentRegistry()
         self.a2a_client = a2a_client or get_client()
@@ -76,7 +77,7 @@ class InputRouter:
             - action_callback: Function to call for A2A action, or None
         """
         # Handle escape sequences (arrow keys, etc.)
-        if char == '\x1b':
+        if char == "\x1b":
             self.in_escape_sequence = True
             return (char, None)
 
@@ -92,13 +93,13 @@ class InputRouter:
             return (char, None)
 
         # Handle backspace
-        if char == '\x7f' or char == '\b':
+        if char == "\x7f" or char == "\b":
             if self.line_buffer:
                 self.line_buffer = self.line_buffer[:-1]
             return (char, None)
 
         # Handle Enter (line complete)
-        if char in ('\r', '\n'):
+        if char in ("\r", "\n"):
             line = self.line_buffer
             self.line_buffer = ""
 
@@ -109,8 +110,9 @@ class InputRouter:
                 want_response = not bool(match.group(2))
                 message = match.group(3).strip()
                 # Remove surrounding quotes if present
-                if (message.startswith("'") and message.endswith("'")) or \
-                   (message.startswith('"') and message.endswith('"')):
+                if (message.startswith("'") and message.endswith("'")) or (
+                    message.startswith('"') and message.endswith('"')
+                ):
                     message = message[1:-1]
 
                 self.pending_agent = agent
@@ -137,7 +139,9 @@ class InputRouter:
             results.append(self.process_char(char))
         return results
 
-    def send_to_agent(self, agent_name: str, message: str, want_response: bool = False) -> bool:
+    def send_to_agent(
+        self, agent_name: str, message: str, want_response: bool = False
+    ) -> bool:
         """Send a message to another agent via A2A."""
         log("INFO", f"Sending to {agent_name}: {message}")
         self.is_external_agent = False
@@ -164,21 +168,28 @@ class InputRouter:
         # If not found, try match on type-port shorthand (e.g., codex-8120)
         if not target:
             import re
-            type_port_match = re.match(r'^(\w+)-(\d+)$', agent_name_lower)
+
+            type_port_match = re.match(r"^(\w+)-(\d+)$", agent_name_lower)
             if type_port_match:
                 target_type = type_port_match.group(1)
                 target_port = int(type_port_match.group(2))
                 for _agent_id, info in agents.items():
-                    if (info.get("agent_type", "").lower() == target_type and
-                        info.get("port") == target_port):
+                    if (
+                        info.get("agent_type", "").lower() == target_type
+                        and info.get("port") == target_port
+                    ):
                         target = info
-                        log("DEBUG", f"Matched by type-port: {target_type}-{target_port}")
+                        log(
+                            "DEBUG",
+                            f"Matched by type-port: {target_type}-{target_port}",
+                        )
                         break
 
         # If not found, try match on agent_type (only if single match)
         if not target:
             matching_agents = [
-                (agent_id, info) for agent_id, info in agents.items()
+                (agent_id, info)
+                for agent_id, info in agents.items()
                 if info.get("agent_type", "").lower() == agent_name_lower
             ]
             if len(matching_agents) == 1:
@@ -186,7 +197,10 @@ class InputRouter:
                 log("DEBUG", f"Matched by agent_type (single): {matching_agents[0][0]}")
             elif len(matching_agents) > 1:
                 # Multiple agents of same type - require specific identifier
-                options = [f"@{info.get('agent_type')}-{info.get('port')}" for _, info in matching_agents]
+                options = [
+                    f"@{info.get('agent_type')}-{info.get('port')}"
+                    for _, info in matching_agents
+                ]
                 log("ERROR", f"Multiple agents of type '{agent_name}': {options}")
                 self.ambiguous_matches = options
                 self.last_response = None
@@ -196,8 +210,13 @@ class InputRouter:
         if not target:
             external_agent = self.a2a_client.registry.get(agent_name)
             if external_agent:
-                log("INFO", f"Found external agent: {agent_name} at {external_agent.url}")
-                return self._send_to_external_agent(external_agent, message, want_response)
+                log(
+                    "INFO",
+                    f"Found external agent: {agent_name} at {external_agent.url}",
+                )
+                return self._send_to_external_agent(
+                    external_agent, message, want_response
+                )
 
         if not target:
             log("ERROR", f"Agent '{agent_name}' not found (local or external)")
@@ -241,7 +260,9 @@ class InputRouter:
                 if self.self_agent_type:
                     sender_info["sender_type"] = self.self_agent_type
                 if self.self_port:
-                    sender_info["sender_endpoint"] = f"http://localhost:{self.self_port}"
+                    sender_info["sender_endpoint"] = (
+                        f"http://localhost:{self.self_port}"
+                    )
 
             # Send using A2A protocol
             task = self.a2a_client.send_to_local(
@@ -250,13 +271,15 @@ class InputRouter:
                 priority=1,
                 wait_for_completion=want_response,
                 timeout=60,
-                sender_info=sender_info
+                sender_info=sender_info,
             )
 
             if task:
                 log("INFO", f"Task created: {task.id}, status: {task.status}")
                 if want_response and task.artifacts:
-                    self.last_response = self._extract_text_from_artifacts(task.artifacts)
+                    self.last_response = self._extract_text_from_artifacts(
+                        task.artifacts
+                    )
                 else:
                     self.last_response = None
                 return True
@@ -270,16 +293,15 @@ class InputRouter:
             self.last_response = None
             return False
 
-    def _send_to_external_agent(self, agent, message: str, want_response: bool = False) -> bool:
+    def _send_to_external_agent(
+        self, agent, message: str, want_response: bool = False
+    ) -> bool:
         """Send a message to an external Google A2A agent."""
         self.is_external_agent = True
 
         try:
             task = self.a2a_client.send_message(
-                agent.alias,
-                message,
-                wait_for_completion=want_response,
-                timeout=60
+                agent.alias, message, wait_for_completion=want_response, timeout=60
             )
 
             if task:
@@ -302,7 +324,9 @@ class InputRouter:
             self.last_response = None
             return False
 
-    def _wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 60) -> str | None:
+    def _wait_for_response(
+        self, endpoint: str, agent_name: str, timeout: int = 60
+    ) -> str | None:
         """Wait for agent to become IDLE and capture response."""
         import time
 
@@ -326,9 +350,11 @@ class InputRouter:
 
                 if status == "IDLE":
                     # Extract new content since our message
-                    new_content = context[len(initial_context):] if initial_context else context
+                    new_content = (
+                        context[len(initial_context) :] if initial_context else context
+                    )
                     # Clean ANSI escape codes
-                    clean = re.sub(r'\x1b\[[0-9;]*m', '', new_content)
+                    clean = re.sub(r"\x1b\[[0-9;]*m", "", new_content)
                     return clean.strip() if clean.strip() else None
 
                 time.sleep(1)
@@ -349,19 +375,23 @@ class InputRouter:
         """Generate feedback message for the user."""
         # Use different indicator for external agents
         agent_type = "ext" if self.is_external_agent else "local"
-        color = "\x1b[35m" if self.is_external_agent else "\x1b[32m"  # Magenta for external, Green for local
+        color = (
+            "\x1b[35m" if self.is_external_agent else "\x1b[32m"
+        )  # Magenta for external, Green for local
 
         if success:
-            if hasattr(self, 'last_response') and self.last_response:
+            if hasattr(self, "last_response") and self.last_response:
                 # Include response from agent
-                return (f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
-                        f"\x1b[36m[← {agent}]\x1b[0m\n"
-                        f"{self.last_response}\n")
+                return (
+                    f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
+                    f"\x1b[36m[← {agent}]\x1b[0m\n"
+                    f"{self.last_response}\n"
+                )
             else:
                 return f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
         else:
             # Check for ambiguous matches
-            if hasattr(self, 'ambiguous_matches') and self.ambiguous_matches:
+            if hasattr(self, "ambiguous_matches") and self.ambiguous_matches:
                 options = ", ".join(self.ambiguous_matches)
                 msg = f"\x1b[33m[⚠ Multiple '{agent}' agents found. Use: {options}]\x1b[0m\n"
                 self.ambiguous_matches = None  # Clear after showing

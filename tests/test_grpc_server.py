@@ -158,10 +158,7 @@ class TestCreateGrpcServer:
             assert server is None
             assert servicer is None
 
-    @pytest.mark.skipif(
-        not check_grpc_available(),
-        reason="gRPC not installed"
-    )
+    @pytest.mark.skipif(not check_grpc_available(), reason="gRPC not installed")
     def test_create_with_grpc(self):
         """Test creation when gRPC is available."""
         server, servicer = create_grpc_server(

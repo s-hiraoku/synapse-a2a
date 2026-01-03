@@ -24,6 +24,7 @@ ENV_ALLOW_LOCALHOST = "SYNAPSE_ALLOW_LOCALHOST"  # "false" to require auth for l
 @dataclass
 class APIKeyInfo:
     """Information about an API key."""
+
     key_hash: str  # SHA-256 hash of the key
     name: str = "default"
     scopes: set[str] = field(default_factory=lambda: {"read", "write"})
@@ -35,6 +36,7 @@ class APIKeyInfo:
 @dataclass
 class AuthConfig:
     """Authentication configuration."""
+
     enabled: bool = False
     api_keys: list[APIKeyInfo] = field(default_factory=list)
     allow_localhost: bool = True  # Skip auth for localhost
@@ -243,6 +245,7 @@ def require_scope(scope: str):
         async def sensitive_endpoint():
             ...
     """
+
     async def check_scope(
         request: Request,
         api_key: str | None = Security(get_api_key),

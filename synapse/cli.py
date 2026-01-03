@@ -33,6 +33,7 @@ def install_skills():
     # Find source skills directory (from package installation)
     try:
         import synapse
+
         package_dir = Path(synapse.__file__).parent
         source_dir = package_dir / "skills" / "synapse-a2a"
 
@@ -50,8 +51,8 @@ def cmd_start(args):
     profile = args.profile
     port = args.port
     foreground = args.foreground
-    ssl_cert = getattr(args, 'ssl_cert', None)
-    ssl_key = getattr(args, 'ssl_key', None)
+    ssl_cert = getattr(args, "ssl_cert", None)
+    ssl_key = getattr(args, "ssl_key", None)
 
     # Validate SSL options
     if (ssl_cert and not ssl_key) or (ssl_key and not ssl_cert):
@@ -59,8 +60,8 @@ def cmd_start(args):
         sys.exit(1)
 
     # Extract tool args (filter out -- if present at start)
-    tool_args = getattr(args, 'tool_args', [])
-    if tool_args and tool_args[0] == '--':
+    tool_args = getattr(args, "tool_args", [])
+    if tool_args and tool_args[0] == "--":
         tool_args = tool_args[1:]
 
     # Auto-select port if not specified
@@ -75,9 +76,13 @@ def cmd_start(args):
 
     # Build command
     cmd = [
-        sys.executable, "-m", "synapse.server",
-        "--profile", profile,
-        "--port", str(port)
+        sys.executable,
+        "-m",
+        "synapse.server",
+        "--profile",
+        profile,
+        "--port",
+        str(port),
     ]
 
     # Add SSL options if provided
@@ -87,7 +92,7 @@ def cmd_start(args):
     # Set up environment with tool args (null-separated for safe parsing)
     env = os.environ.copy()
     if tool_args:
-        env["SYNAPSE_TOOL_ARGS"] = '\x00'.join(tool_args)
+        env["SYNAPSE_TOOL_ARGS"] = "\x00".join(tool_args)
 
     protocol = "https" if ssl_cert else "http"
 
@@ -117,11 +122,7 @@ def cmd_start(args):
 
         with open(log_file, "w") as log:
             process = subprocess.Popen(
-                cmd,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-                env=env
+                cmd, stdout=log, stderr=log, start_new_session=True, env=env
             )
 
         # Wait a bit and check if it started
@@ -164,7 +165,7 @@ def cmd_stop(args):
         sys.exit(1)
 
     # If --all flag is set, stop all instances
-    if getattr(args, 'all', False):
+    if getattr(args, "all", False):
         for info in running:
             _stop_agent(registry, info)
         return
@@ -198,19 +199,21 @@ def cmd_list(args):
     print("-" * 60)
     for agent_id, info in agents.items():
         # Verify process is still alive
-        pid = info.get('pid')
-        status = info.get('status', '-')
+        pid = info.get("pid")
+        status = info.get("status", "-")
         if pid and not is_process_alive(pid):
             status = "DEAD"
             # Clean up stale entry
             registry.unregister(agent_id)
             continue  # Skip showing dead entries
 
-        print(f"{info.get('agent_type', 'unknown'):<10} "
-              f"{info.get('port', '-'):<8} "
-              f"{status:<10} "
-              f"{pid or '-':<8} "
-              f"{info.get('endpoint', '-')}")
+        print(
+            f"{info.get('agent_type', 'unknown'):<10} "
+            f"{info.get('port', '-'):<8} "
+            f"{status:<10} "
+            f"{pid or '-':<8} "
+            f"{info.get('endpoint', '-')}"
+        )
 
 
 def cmd_logs(args):
@@ -239,11 +242,14 @@ def cmd_send(args):
 
     # Use the existing a2a tool
     cmd = [
-        sys.executable, "synapse/tools/a2a.py",
+        sys.executable,
+        "synapse/tools/a2a.py",
         "send",
-        "--target", target,
-        "--priority", str(priority),
-        message
+        "--target",
+        target,
+        "--priority",
+        str(priority),
+        message,
     ]
 
     env = os.environ.copy()
@@ -263,6 +269,7 @@ def cmd_send(args):
 # External Agent Management Commands
 # ============================================================
 
+
 def cmd_external_add(args):
     """Add an external A2A agent."""
     client = get_client()
@@ -274,7 +281,9 @@ def cmd_external_add(args):
         print(f"  URL: {agent.url}")
         print(f"  Description: {agent.description}")
         if agent.skills:
-            print(f"  Skills: {', '.join(s.get('name', s.get('id', '')) for s in agent.skills)}")
+            print(
+                f"  Skills: {', '.join(s.get('name', s.get('id', '')) for s in agent.skills)}"
+            )
     else:
         print(f"Failed to add agent from {args.url}")
         sys.exit(1)
@@ -312,11 +321,7 @@ def cmd_external_send(args):
     """Send a message to an external A2A agent."""
     client = get_client()
 
-    task = client.send_message(
-        args.alias,
-        args.message,
-        wait_for_completion=args.wait
-    )
+    task = client.send_message(args.alias, args.message, wait_for_completion=args.wait)
 
     if task:
         print(f"Task ID: {task.id}")
@@ -355,7 +360,7 @@ def cmd_external_info(args):
         print("\nSkills:")
         for skill in agent.skills:
             print(f"  - {skill.get('name', skill.get('id', 'Unknown'))}")
-            if skill.get('description'):
+            if skill.get("description"):
                 print(f"    {skill['description']}")
 
 
@@ -363,10 +368,11 @@ def cmd_external_info(args):
 # Auth Management Commands
 # ============================================================
 
+
 def cmd_auth_generate_key(args):
     """Generate a new API key."""
-    count = getattr(args, 'count', 1)
-    export_format = getattr(args, 'export', False)
+    count = getattr(args, "count", 1)
+    export_format = getattr(args, "export", False)
 
     keys = [generate_api_key() for _ in range(count)]
 
@@ -423,7 +429,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     # Load profile
     profile_path = os.path.join(
-        os.path.dirname(__file__), 'profiles', f"{profile}.yaml"
+        os.path.dirname(__file__), "profiles", f"{profile}.yaml"
     )
     if not os.path.exists(profile_path):
         print(f"Profile '{profile}' not found")
@@ -433,17 +439,17 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
         config = yaml.safe_load(f)
 
     # Load submit sequence from profile (decode escape sequences)
-    submit_seq = config.get('submit_sequence', '\n').encode().decode('unicode_escape')
-    startup_delay = config.get('startup_delay', 3)
+    submit_seq = config.get("submit_sequence", "\n").encode().decode("unicode_escape")
+    startup_delay = config.get("startup_delay", 3)
 
     # Merge profile args with CLI tool args
-    profile_args = config.get('args', [])
+    profile_args = config.get("args", [])
     all_args = profile_args + tool_args
 
     # Merge environment
     env = os.environ.copy()
-    if 'env' in config:
-        env.update(config['env'])
+    if "env" in config:
+        env.update(config["env"])
 
     # Create registry and register this agent
     registry = AgentRegistry()
@@ -456,9 +462,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     # Create controller - initial instructions sent via _send_identity_instruction on IDLE
     controller = TerminalController(
-        command=config['command'],
+        command=config["command"],
         args=all_args,
-        idle_regex=config['idle_regex'],
+        idle_regex=config["idle_regex"],
         env=env,
         registry=registry,
         agent_id=agent_id,
@@ -483,12 +489,18 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
     print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
-    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)")
-    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response")
+    print(
+        "\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)"
+    )
+    print(
+        "\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response"
+    )
     print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
     print()
     print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
-    print(f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json")
+    print(
+        f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json"
+    )
     print(f"\x1b[32m[Synapse]\x1b[0m   Tasks API:  http://localhost:{port}/tasks/send")
     print()
 
@@ -500,7 +512,15 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
 
         from synapse.server import create_app
 
-        app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile, registry=registry)
+        app = create_app(
+            controller,
+            registry,
+            agent_id,
+            port,
+            submit_seq,
+            agent_type=profile,
+            registry=registry,
+        )
 
         def run_server():
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
@@ -535,17 +555,17 @@ def main():
 
         # Find -- separator to split synapse args from tool args
         try:
-            separator_idx = sys.argv.index('--')
+            separator_idx = sys.argv.index("--")
             synapse_args = sys.argv[2:separator_idx]
-            tool_args = sys.argv[separator_idx + 1:]
+            tool_args = sys.argv[separator_idx + 1 :]
         except ValueError:
             synapse_args = sys.argv[2:]
             tool_args = []
 
         # Parse --port from synapse_args
         port = None
-        if '--port' in synapse_args:
-            idx = synapse_args.index('--port')
+        if "--port" in synapse_args:
+            idx = synapse_args.index("--port")
             if idx + 1 < len(synapse_args):
                 try:
                     port = int(synapse_args[idx + 1])
@@ -570,7 +590,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Synapse A2A - Agent-to-Agent Communication",
         prog="synapse",
-        epilog="Shortcuts: synapse claude, synapse gemini --port 8102"
+        epilog="Shortcuts: synapse claude, synapse gemini --port 8102",
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -578,18 +598,24 @@ def main():
     p_start = subparsers.add_parser("start", help="Start an agent in background")
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
     p_start.add_argument("--port", type=int, help="Server port (default: auto)")
-    p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
+    p_start.add_argument(
+        "--foreground", "-f", action="store_true", help="Run in foreground"
+    )
     p_start.add_argument("--ssl-cert", help="SSL certificate file path (enables HTTPS)")
     p_start.add_argument("--ssl-key", help="SSL private key file path")
-    p_start.add_argument("tool_args", nargs=argparse.REMAINDER,
-                         help="Arguments after -- are passed to the CLI tool")
+    p_start.add_argument(
+        "tool_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments after -- are passed to the CLI tool",
+    )
     p_start.set_defaults(func=cmd_start)
 
     # stop
     p_stop = subparsers.add_parser("stop", help="Stop an agent")
     p_stop.add_argument("profile", help="Agent profile to stop")
-    p_stop.add_argument("--all", "-a", action="store_true",
-                        help="Stop all instances of this profile")
+    p_stop.add_argument(
+        "--all", "-a", action="store_true", help="Stop all instances of this profile"
+    )
     p_stop.set_defaults(func=cmd_stop)
 
     # list
@@ -600,7 +626,9 @@ def main():
     p_logs = subparsers.add_parser("logs", help="Show agent logs")
     p_logs.add_argument("profile", help="Agent profile")
     p_logs.add_argument("-f", "--follow", action="store_true", help="Follow log output")
-    p_logs.add_argument("-n", "--lines", type=int, default=50, help="Number of lines to show")
+    p_logs.add_argument(
+        "-n", "--lines", type=int, default=50, help="Number of lines to show"
+    )
     p_logs.set_defaults(func=cmd_logs)
 
     # send
@@ -608,12 +636,16 @@ def main():
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
     p_send.add_argument("message", help="Message to send")
     p_send.add_argument("--priority", "-p", type=int, default=1, help="Priority (1-5)")
-    p_send.add_argument("--return", "-r", dest="wait", action="store_true", help="Wait for response")
+    p_send.add_argument(
+        "--return", "-r", dest="wait", action="store_true", help="Wait for response"
+    )
     p_send.set_defaults(func=cmd_send)
 
     # external - External A2A agent management
     p_external = subparsers.add_parser("external", help="Manage external A2A agents")
-    external_subparsers = p_external.add_subparsers(dest="external_command", help="External agent commands")
+    external_subparsers = p_external.add_subparsers(
+        dest="external_command", help="External agent commands"
+    )
 
     # external add
     p_ext_add = external_subparsers.add_parser("add", help="Add an external A2A agent")
@@ -631,10 +663,14 @@ def main():
     p_ext_rm.set_defaults(func=cmd_external_remove)
 
     # external send
-    p_ext_send = external_subparsers.add_parser("send", help="Send message to external agent")
+    p_ext_send = external_subparsers.add_parser(
+        "send", help="Send message to external agent"
+    )
     p_ext_send.add_argument("alias", help="Agent alias")
     p_ext_send.add_argument("message", help="Message to send")
-    p_ext_send.add_argument("--wait", "-w", action="store_true", help="Wait for completion")
+    p_ext_send.add_argument(
+        "--wait", "-w", action="store_true", help="Wait for completion"
+    )
     p_ext_send.set_defaults(func=cmd_external_send)
 
     # external info
@@ -647,13 +683,21 @@ def main():
     auth_subparsers = p_auth.add_subparsers(dest="auth_command", help="Auth commands")
 
     # auth generate-key
-    p_auth_gen = auth_subparsers.add_parser("generate-key", help="Generate a new API key")
-    p_auth_gen.add_argument("--count", "-n", type=int, default=1, help="Number of keys to generate")
-    p_auth_gen.add_argument("--export", "-e", action="store_true", help="Output in export format")
+    p_auth_gen = auth_subparsers.add_parser(
+        "generate-key", help="Generate a new API key"
+    )
+    p_auth_gen.add_argument(
+        "--count", "-n", type=int, default=1, help="Number of keys to generate"
+    )
+    p_auth_gen.add_argument(
+        "--export", "-e", action="store_true", help="Output in export format"
+    )
     p_auth_gen.set_defaults(func=cmd_auth_generate_key)
 
     # auth setup
-    p_auth_setup = auth_subparsers.add_parser("setup", help="Generate keys and show setup instructions")
+    p_auth_setup = auth_subparsers.add_parser(
+        "setup", help="Generate keys and show setup instructions"
+    )
     p_auth_setup.set_defaults(func=cmd_auth_setup)
 
     args = parser.parse_args()
@@ -663,12 +707,16 @@ def main():
         sys.exit(1)
 
     # Handle external subcommand without action
-    if args.command == "external" and (not hasattr(args, 'external_command') or args.external_command is None):
+    if args.command == "external" and (
+        not hasattr(args, "external_command") or args.external_command is None
+    ):
         p_external.print_help()
         sys.exit(1)
 
     # Handle auth subcommand without action
-    if args.command == "auth" and (not hasattr(args, 'auth_command') or args.auth_command is None):
+    if args.command == "auth" and (
+        not hasattr(args, "auth_command") or args.auth_command is None
+    ):
         p_auth.print_help()
         sys.exit(1)
 

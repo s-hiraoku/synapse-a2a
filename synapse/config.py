@@ -57,8 +57,10 @@ API_RESPONSE_CONTEXT_SIZE: int = 2000
 # ============================================================
 
 # Task states that indicate completion (no need to wait further)
-COMPLETED_TASK_STATES: frozenset[str] = frozenset({
-    "completed",
-    "failed",
-    "canceled",
-})
+COMPLETED_TASK_STATES: frozenset[str] = frozenset(
+    {
+        "completed",
+        "failed",
+        "canceled",
+    }
+)
