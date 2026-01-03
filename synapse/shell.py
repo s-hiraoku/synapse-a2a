@@ -41,7 +41,9 @@ class SynapseShell(cmd.Cmd):
         if line.strip():
             os.system(line)
 
-    def send_to_agent(self, agent_name: str, message: str, wait_response: bool = False) -> None:
+    def send_to_agent(
+        self, agent_name: str, message: str, wait_response: bool = False
+    ) -> None:
         """Send a message to an agent."""
         agents = self.registry.list_agents()
 
@@ -81,7 +83,9 @@ class SynapseShell(cmd.Cmd):
         except requests.exceptions.RequestException as e:
             print(f"Error sending to {agent_name}: {e}")
 
-    def wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 30) -> None:
+    def wait_for_response(
+        self, endpoint: str, agent_name: str, timeout: int = 30
+    ) -> None:
         """Wait for agent to become IDLE and get response."""
         import time
 

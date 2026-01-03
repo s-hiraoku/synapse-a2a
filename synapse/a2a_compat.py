@@ -523,7 +523,9 @@ def create_a2a_router(
         return task_store.list_tasks(context_id)
 
     @router.post("/tasks/{task_id}/cancel")
-    async def cancel_task(task_id: str, _: Any = Depends(require_auth)) -> dict[str, str]:  # noqa: B008
+    async def cancel_task(
+        task_id: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:  # noqa: B008
         """
         Cancel a running task.
 
@@ -718,7 +720,9 @@ def create_a2a_router(
         )
 
     @router.get("/external/agents", response_model=list[ExternalAgentInfo])
-    async def list_external_agents(_: Any = Depends(require_auth)) -> list[ExternalAgentInfo]:
+    async def list_external_agents(
+        _: Any = Depends(require_auth),
+    ) -> list[ExternalAgentInfo]:
         """
         List all registered external agents.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -741,7 +745,9 @@ def create_a2a_router(
         ]
 
     @router.get("/external/agents/{alias}", response_model=ExternalAgentInfo)
-    async def get_external_agent(alias: str, _: Any = Depends(require_auth)) -> ExternalAgentInfo:
+    async def get_external_agent(
+        alias: str, _: Any = Depends(require_auth)
+    ) -> ExternalAgentInfo:
         """
         Get details of a specific external agent.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -764,7 +770,9 @@ def create_a2a_router(
         )
 
     @router.delete("/external/agents/{alias}")
-    async def remove_external_agent(alias: str, _: Any = Depends(require_auth)) -> dict[str, str]:
+    async def remove_external_agent(
+        alias: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:
         """
         Remove an external agent from the registry.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -842,7 +850,9 @@ def create_a2a_router(
         delivered_at: datetime | None
 
     @router.post("/webhooks", response_model=WebhookResponse)
-    async def register_webhook(request: WebhookRequest, _: Any = Depends(require_auth)) -> WebhookResponse:
+    async def register_webhook(
+        request: WebhookRequest, _: Any = Depends(require_auth)
+    ) -> WebhookResponse:
         """
         Register a webhook for task notifications.
 
@@ -890,7 +900,9 @@ def create_a2a_router(
         ]
 
     @router.delete("/webhooks")
-    async def unregister_webhook(url: str, _: Any = Depends(require_auth)) -> dict[str, str]:
+    async def unregister_webhook(
+        url: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:
         """
         Unregister a webhook.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -903,7 +915,9 @@ def create_a2a_router(
         return {"status": "removed", "url": url}
 
     @router.get("/webhooks/deliveries", response_model=list[WebhookDeliveryResponse])
-    async def list_webhook_deliveries(limit: int = 20, _: Any = Depends(require_auth)) -> list[WebhookDeliveryResponse]:
+    async def list_webhook_deliveries(
+        limit: int = 20, _: Any = Depends(require_auth)
+    ) -> list[WebhookDeliveryResponse]:
         """
         Get recent webhook delivery attempts.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
