@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 import os
@@ -138,10 +139,8 @@ class AgentRegistry:
             except Exception:
                 # Cleanup temp file on error
                 if os.path.exists(temp_path):
-                    try:
+                    with contextlib.suppress(OSError):
                         os.unlink(temp_path)
-                    except OSError:
-                        pass
                 raise
 
         except (json.JSONDecodeError, OSError) as e:
