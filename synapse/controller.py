@@ -66,19 +66,33 @@ class TerminalController:
 
         # Compile pattern regex if strategy uses it
         self.idle_regex = None
+        self._pattern_detected = False
+
         if self.idle_strategy in ("pattern", "hybrid"):
             pattern = self.idle_config.get("pattern", "")
-            if pattern == "BRACKETED_PASTE_MODE":
-                self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
-            elif pattern:
-                self.idle_regex = re.compile(pattern.encode("utf-8"))
+            try:
+                if pattern == "BRACKETED_PASTE_MODE":
+                    self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
+                elif pattern:
+                    self.idle_regex = re.compile(pattern.encode("utf-8"))
+            except re.error as e:
+                logging.error(
+                    f"Invalid idle detection pattern '{pattern}': {e}. "
+                    f"Falling back to timeout-based idle detection."
+                )
+                self.idle_regex = None
+                self._pattern_detected = False
+            except Exception as e:
+                logging.error(
+                    f"Unexpected error compiling idle pattern '{pattern}': {e}. "
+                    f"Falling back to timeout-based idle detection."
+                )
+                self.idle_regex = None
+                self._pattern_detected = False
 
         # Timeout settings
         timeout = self.idle_config.get("timeout", 1.5)
         self._output_idle_threshold = timeout
-
-        # Track pattern detection for hybrid mode
-        self._pattern_detected = False
 
         self.env = env or os.environ.copy()
         self.master_fd: int | None = None
