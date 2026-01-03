@@ -18,6 +18,7 @@ Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) wi
 - PTY output format: `[A2A:<task_id>:<sender_id>] <message>`
 
 ## Agent Port Ranges
+
 | Agent  | Ports     |
 | ------ | --------- |
 | Claude | 8100-8109 |
@@ -25,7 +26,8 @@ Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) wi
 | Codex  | 8120-8129 |
 
 ## Storage Locations
-```
+
+```bash
 ~/.a2a/registry/     # Running agents (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/logs/     # Log files
