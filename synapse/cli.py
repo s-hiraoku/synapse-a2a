@@ -22,7 +22,7 @@ from synapse.registry import AgentRegistry
 KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 
-def install_skills():
+def install_skills() -> None:
     """Install Synapse A2A skills to ~/.claude/skills/ if not present."""
     target_dir = Path.home() / ".claude" / "skills" / "synapse-a2a"
 
@@ -46,7 +46,7 @@ def install_skills():
         pass
 
 
-def cmd_start(args):
+def cmd_start(args: argparse.Namespace) -> None:
     """Start an agent in background or foreground."""
     profile = args.profile
     port = args.port
@@ -135,7 +135,7 @@ def cmd_start(args):
             sys.exit(1)
 
 
-def _stop_agent(registry, info):
+def _stop_agent(registry: AgentRegistry, info: dict) -> None:
     """Stop a single agent given its info dict."""
     agent_id = info.get("agent_id")
     pid = info.get("pid")
@@ -144,15 +144,17 @@ def _stop_agent(registry, info):
         try:
             os.kill(pid, signal.SIGTERM)
             print(f"Stopped {agent_id} (PID: {pid})")
-            registry.unregister(agent_id)
+            if isinstance(agent_id, str):
+                registry.unregister(agent_id)
         except ProcessLookupError:
             print(f"Process {pid} not found. Cleaning up registry...")
-            registry.unregister(agent_id)
+            if isinstance(agent_id, str):
+                registry.unregister(agent_id)
     else:
         print(f"No PID found for {agent_id}")
 
 
-def cmd_stop(args):
+def cmd_stop(args: argparse.Namespace) -> None:
     """Stop a running agent."""
     profile = args.profile
     registry = AgentRegistry()
@@ -183,12 +185,12 @@ def cmd_stop(args):
     _stop_agent(registry, target)
 
 
-def _clear_screen():
+def _clear_screen() -> None:
     """Clear terminal screen (cross-platform)."""
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def _render_agent_table(registry):
+def _render_agent_table(registry: AgentRegistry) -> str:
     """
     Render the agent table output.
 
@@ -246,7 +248,7 @@ def _render_agent_table(registry):
     return "\n".join(lines)
 
 
-def cmd_list(args):
+def cmd_list(args: argparse.Namespace) -> None:
     """List running agents (with optional watch mode)."""
     registry = AgentRegistry()
     watch_mode = getattr(args, "watch", False)
@@ -273,7 +275,7 @@ def cmd_list(args):
         sys.exit(0)
 
 
-def cmd_logs(args):
+def cmd_logs(args: argparse.Namespace) -> None:
     """Show logs for an agent."""
     profile = args.profile
     log_file = os.path.expanduser(f"~/.synapse/logs/{profile}.log")
@@ -290,7 +292,7 @@ def cmd_logs(args):
         subprocess.run(["tail", "-n", str(args.lines), log_file])
 
 
-def cmd_send(args):
+def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     target = args.target
     message = args.message
@@ -327,7 +329,7 @@ def cmd_send(args):
 # ============================================================
 
 
-def cmd_external_add(args):
+def cmd_external_add(args: argparse.Namespace) -> None:
     """Add an external A2A agent."""
     client = get_client()
     agent = client.discover(args.url, alias=args.alias)
@@ -345,7 +347,7 @@ def cmd_external_add(args):
         sys.exit(1)
 
 
-def cmd_external_list(args):
+def cmd_external_list(args: argparse.Namespace) -> None:
     """List external A2A agents."""
     client = get_client()
     agents = client.list_agents()
@@ -362,7 +364,7 @@ def cmd_external_list(args):
         print(f"{agent.alias:<15} {agent.name:<20} {agent.url:<40} {last_seen}")
 
 
-def cmd_external_remove(args):
+def cmd_external_remove(args: argparse.Namespace) -> None:
     """Remove an external A2A agent."""
     client = get_client()
 
@@ -373,7 +375,7 @@ def cmd_external_remove(args):
         sys.exit(1)
 
 
-def cmd_external_send(args):
+def cmd_external_send(args: argparse.Namespace) -> None:
     """Send a message to an external A2A agent."""
     client = get_client()
 
@@ -391,7 +393,7 @@ def cmd_external_send(args):
         sys.exit(1)
 
 
-def cmd_external_info(args):
+def cmd_external_info(args: argparse.Namespace) -> None:
     """Show detailed info about an external agent."""
     client = get_client()
     agent = client.registry.get(args.alias)
@@ -425,7 +427,7 @@ def cmd_external_info(args):
 # ============================================================
 
 
-def cmd_auth_generate_key(args):
+def cmd_auth_generate_key(args: argparse.Namespace) -> None:
     """Generate a new API key."""
     count = getattr(args, "count", 1)
     export_format = getattr(args, "export", False)
@@ -444,7 +446,7 @@ def cmd_auth_generate_key(args):
             print(key)
 
 
-def cmd_auth_setup(args):
+def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
     admin_key = generate_api_key()
@@ -479,7 +481,7 @@ def cmd_auth_setup(args):
     print("=" * 60)
 
 
-def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
+def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) -> None:
     """Run an agent in interactive mode with input routing."""
     tool_args = tool_args or []
 
@@ -549,7 +551,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     registry.register(agent_id, profile, port, status="PROCESSING")
 
     # Handle Ctrl+C gracefully
-    def cleanup(signum, frame):
+    def cleanup(signum: int, frame: object) -> None:
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
         registry.unregister(agent_id)
         controller.stop()
@@ -591,7 +593,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
             registry=registry,
         )
 
-        def run_server():
+        def run_server() -> None:
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
         server_thread = threading.Thread(target=run_server, daemon=True)
@@ -614,7 +616,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
         controller.stop()
 
 
-def main():
+def main() -> None:
     # Install A2A skills if not present
     install_skills()
 

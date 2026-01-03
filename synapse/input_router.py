@@ -296,14 +296,17 @@ class InputRouter:
             return False
 
     def _send_to_external_agent(
-        self, agent: object, message: str, want_response: bool = False
+        self, agent: "object", message: str, want_response: bool = False
     ) -> bool:
         """Send a message to an external Google A2A agent."""
         self.is_external_agent = True
 
         try:
             task = self.a2a_client.send_message(
-                agent.alias, message, wait_for_completion=want_response, timeout=60
+                agent.alias,  # type: ignore[attr-defined]
+                message,
+                wait_for_completion=want_response,
+                timeout=60,
             )
 
             if task:

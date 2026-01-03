@@ -387,7 +387,7 @@ class TerminalController:
 
         # Start background thread for periodic idle checking
         # This ensures timeout-based idle detection works in interactive mode
-        def periodic_idle_checker():
+        def periodic_idle_checker() -> None:
             """Background thread: check idle state periodically (every 100ms)."""
             while self.running and self.interactive:
                 time.sleep(0.1)
@@ -400,7 +400,7 @@ class TerminalController:
 
         # Note: Initial instructions sent via cli.py (A2A Task format)
 
-        def sync_pty_window_size():
+        def sync_pty_window_size() -> None:
             """Sync current terminal size to the PTY master for TUI apps."""
             if self.master_fd is None:
                 return
@@ -415,10 +415,10 @@ class TerminalController:
                 # Best-effort; ignore failures to avoid breaking interaction
                 pass
 
-        def handle_winch(signum, frame):
+        def handle_winch(signum: int, frame: object) -> None:
             sync_pty_window_size()
 
-        def read_callback(fd):
+        def read_callback(fd: int) -> bytes:
             """Called when there's data to read from the PTY."""
             # Capture master_fd for API server to use
             if self.master_fd is None:
@@ -440,7 +440,7 @@ class TerminalController:
                 # No data available
                 return data
 
-        def input_callback(fd):
+        def input_callback(fd: int) -> bytes:
             """Called when there's data from stdin. Pass through to PTY."""
             data = os.read(fd, 1024)
             return data
@@ -465,7 +465,7 @@ class TerminalController:
         else:
             pty.spawn(cmd_list, read_callback)
 
-    def _handle_interactive_input(self, data: bytes):
+    def _handle_interactive_input(self, data: bytes) -> None:
         """Pass through human input directly to PTY. AI handles routing decisions."""
         if self.master_fd is not None:
             os.write(self.master_fd, data)

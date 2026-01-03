@@ -65,7 +65,7 @@ class WebhookDelivery:
 class WebhookRegistry:
     """Registry for managing webhooks."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._webhooks: dict[str, WebhookConfig] = {}
         self._deliveries: list[WebhookDelivery] = []
 
