@@ -25,8 +25,9 @@ class TestBuildSenderInfo:
         }
 
         # Mock is_descendant_of to return True for the matching agent
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
-            "synapse.tools.a2a.is_descendant_of", return_value=True
+        with (
+            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
+            patch("synapse.tools.a2a.is_descendant_of", return_value=True),
         ):
             sender = build_sender_info()
 
@@ -58,8 +59,9 @@ class TestBuildSenderInfo:
         }
 
         # Mock is_descendant_of to return False (no match)
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
-            "synapse.tools.a2a.is_descendant_of", return_value=False
+        with (
+            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
+            patch("synapse.tools.a2a.is_descendant_of", return_value=False),
         ):
             sender = build_sender_info()
             assert sender == {}
@@ -95,8 +97,9 @@ class TestBuildSenderInfo:
         def mock_is_descendant(child, ancestor):
             return ancestor == 12346  # Only match gemini
 
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry), patch(
-            "synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant
+        with (
+            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
+            patch("synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant),
         ):
             sender = build_sender_info()
 
@@ -167,8 +170,9 @@ class TestInputRouterSenderInfo:
         )
 
         # Mock process and port checks
-        with patch("synapse.input_router.is_process_running", return_value=True), patch(
-            "synapse.input_router.is_port_open", return_value=True
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open", return_value=True),
         ):
             router.send_to_agent("gemini", "Hello from Claude!")
 
@@ -205,8 +209,9 @@ class TestInputRouterSenderInfo:
         # No self-identity set
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
 
-        with patch("synapse.input_router.is_process_running", return_value=True), patch(
-            "synapse.input_router.is_port_open", return_value=True
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open", return_value=True),
         ):
             router.send_to_agent("gemini", "Hello!")
 
