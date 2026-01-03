@@ -43,9 +43,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
-            with patch("synapse.cli.is_process_alive", return_value=True):
-                cmd_list(args)
+        with patch(
+            "synapse.cli.AgentRegistry", return_value=temp_registry
+        ), patch("synapse.cli.is_process_alive", return_value=True):
+            cmd_list(args)
 
         # Check output
         captured = capsys.readouterr()
@@ -74,9 +75,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
-            with patch("synapse.cli.is_process_alive", return_value=True):
-                cmd_list(args)
+        with patch(
+            "synapse.cli.AgentRegistry", return_value=temp_registry
+        ), patch("synapse.cli.is_process_alive", return_value=True):
+            cmd_list(args)
 
         # Check output
         captured = capsys.readouterr()
@@ -92,9 +94,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
-            with patch("synapse.cli.is_process_alive", return_value=True):
-                cmd_list(args)
+        with patch(
+            "synapse.cli.AgentRegistry", return_value=temp_registry
+        ), patch("synapse.cli.is_process_alive", return_value=True):
+            cmd_list(args)
 
         # Check output
         captured = capsys.readouterr()
@@ -136,9 +139,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
-            with patch("synapse.cli.is_process_alive", return_value=True):
-                cmd_list(args)
+        with patch(
+            "synapse.cli.AgentRegistry", return_value=temp_registry
+        ), patch("synapse.cli.is_process_alive", return_value=True):
+            cmd_list(args)
 
         # Check output
         captured = capsys.readouterr()
