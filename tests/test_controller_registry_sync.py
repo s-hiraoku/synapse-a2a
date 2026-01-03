@@ -128,7 +128,7 @@ class TestStatusSyncToRegistry:
             update_count += 1
             return original_update(*args, **kwargs)
 
-        with patch.object(temp_registry, 'update_status', side_effect=count_updates):
+        with patch.object(temp_registry, "update_status", side_effect=count_updates):
             # Send same idle output multiple times (READY → READY)
             idle_output = b"\x1b[?2004h"
             controller.output_buffer = idle_output

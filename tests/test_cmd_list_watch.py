@@ -84,19 +84,19 @@ class TestRenderAgentTable:
 class TestClearScreen:
     """Tests for _clear_screen helper function."""
 
-    @patch('os.system')
-    @patch('os.name', 'posix')
+    @patch("os.system")
+    @patch("os.name", "posix")
     def test_clear_on_posix(self, mock_system):
         """Should use 'clear' on POSIX systems."""
         _clear_screen()
-        mock_system.assert_called_once_with('clear')
+        mock_system.assert_called_once_with("clear")
 
-    @patch('os.system')
-    @patch('os.name', 'nt')
+    @patch("os.system")
+    @patch("os.name", "nt")
     def test_clear_on_windows(self, mock_system):
         """Should use 'cls' on Windows."""
         _clear_screen()
-        mock_system.assert_called_once_with('cls')
+        mock_system.assert_called_once_with("cls")
 
 
 class TestCmdListNormalMode:
@@ -110,9 +110,10 @@ class TestCmdListNormalMode:
         args = MagicMock()
         args.watch = False
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
             cmd_list(args)
 
         captured = capsys.readouterr()
@@ -147,11 +148,12 @@ class TestCmdListWatchMode:
             if call_count >= 3:  # Exit after 3 iterations
                 raise KeyboardInterrupt()
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=sleep_side_effect
-        ), pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             cmd_list(args)
 
         assert exc_info.value.code == 0
@@ -172,13 +174,12 @@ class TestCmdListWatchMode:
         def clear_side_effect():
             clear_calls.append(1)
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch(
-            "synapse.cli._clear_screen", side_effect=clear_side_effect
-        ), patch(
-            "synapse.cli.time.sleep", side_effect=sleep_side_effect
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen", side_effect=clear_side_effect),
+            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         assert len(clear_calls) >= 2
@@ -195,11 +196,12 @@ class TestCmdListWatchMode:
             sleep_calls.append(duration)
             raise KeyboardInterrupt()
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=sleep_side_effect
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         assert 5.0 in sleep_calls
@@ -210,11 +212,12 @@ class TestCmdListWatchMode:
         args.watch = True
         args.interval = 0.1
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=KeyboardInterrupt
-        ), pytest.raises(SystemExit) as exc_info:
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             cmd_list(args)
 
         assert exc_info.value.code == 0
@@ -229,13 +232,13 @@ class TestCmdListWatchMode:
         args.interval = 0.1
 
         timestamp = "2026-01-03 12:00:00"
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=KeyboardInterrupt
-        ), patch(
-            "synapse.cli.time.strftime", return_value=timestamp
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            patch("synapse.cli.time.strftime", return_value=timestamp),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         captured = capsys.readouterr()
@@ -248,11 +251,12 @@ class TestCmdListWatchMode:
         args.watch = True
         args.interval = 2.5
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=KeyboardInterrupt
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         captured = capsys.readouterr()
@@ -272,11 +276,12 @@ class TestCmdListWatchMode:
             if call_count >= 2:
                 raise KeyboardInterrupt()
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=sleep_side_effect
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         captured = capsys.readouterr()
@@ -295,11 +300,12 @@ class TestCmdListWatchMode:
             sleep_calls.append(duration)
             raise KeyboardInterrupt()
 
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli._clear_screen"), patch(
-            "synapse.cli.time.sleep", side_effect=sleep_side_effect
-        ), pytest.raises(SystemExit):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
+            pytest.raises(SystemExit),
+        ):
             cmd_list(args)
 
         assert 2.0 in sleep_calls

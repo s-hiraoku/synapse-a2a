@@ -86,6 +86,3 @@ ignore_errors = true
 
 [tool.setuptools.package-data]
 synapse = ["skills/**/*"]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"

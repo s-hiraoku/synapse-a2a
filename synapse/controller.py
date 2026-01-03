@@ -210,9 +210,8 @@ class TerminalController:
             if self.idle_strategy in ("pattern", "hybrid") and self.idle_regex:
                 # Check pattern only if appropriate for the mode
                 pattern_use = self.idle_config.get("pattern_use", "always")
-                should_check_pattern = (
-                    pattern_use == "always" or
-                    (pattern_use == "startup_only" and not self._pattern_detected)
+                should_check_pattern = pattern_use == "always" or (
+                    pattern_use == "startup_only" and not self._pattern_detected
                 )
 
                 if should_check_pattern:
@@ -227,9 +226,8 @@ class TerminalController:
             # 2. Timeout-based detection (if strategy uses it)
             if self.idle_strategy in ("timeout", "hybrid"):
                 # For hybrid mode, only use timeout after pattern detected
-                should_check_timeout = (
-                    self.idle_strategy == "timeout" or
-                    (self.idle_strategy == "hybrid" and self._pattern_detected)
+                should_check_timeout = self.idle_strategy == "timeout" or (
+                    self.idle_strategy == "hybrid" and self._pattern_detected
                 )
 
                 if should_check_timeout and self._last_output_time:

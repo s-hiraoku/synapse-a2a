@@ -43,9 +43,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
             cmd_list(args)
 
         # Check output
@@ -53,7 +54,9 @@ class TestCmdListWorkingDir:
         assert test_working_dir in captured.out
         assert "WORKING_DIR" in captured.out  # Header should include WORKING_DIR
 
-    def test_list_displays_multiple_agents_with_working_dir(self, temp_registry, capsys):
+    def test_list_displays_multiple_agents_with_working_dir(
+        self, temp_registry, capsys
+    ):
         """synapse list should display working_dir for multiple agents."""
         # Register multiple agents with different working_dirs
         test_dirs = ["/home/user/project1", "/home/user/project2"]
@@ -75,9 +78,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
             cmd_list(args)
 
         # Check output
@@ -94,9 +98,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
             cmd_list(args)
 
         # Check output
@@ -139,9 +144,10 @@ class TestCmdListWorkingDir:
         args = MagicMock()
 
         # Run the command with patched registry
-        with patch(
-            "synapse.cli.AgentRegistry", return_value=temp_registry
-        ), patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
             cmd_list(args)
 
         # Check output

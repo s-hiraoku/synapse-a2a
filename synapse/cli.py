@@ -185,7 +185,7 @@ def cmd_stop(args):
 
 def _clear_screen():
     """Clear terminal screen (cross-platform)."""
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 def _render_agent_table(registry):
@@ -338,9 +338,7 @@ def cmd_external_add(args):
         print(f"  URL: {agent.url}")
         print(f"  Description: {agent.description}")
         if agent.skills:
-            skills_str = ", ".join(
-                s.get("name", s.get("id", "")) for s in agent.skills
-            )
+            skills_str = ", ".join(s.get("name", s.get("id", "")) for s in agent.skills)
             print(f"  Skills: {skills_str}")
     else:
         print(f"Failed to add agent from {args.url}")
@@ -692,12 +690,17 @@ def main():
     # list
     p_list = subparsers.add_parser("list", help="List running agents")
     p_list.add_argument(
-        "--watch", "-w", action="store_true",
-        help="Watch mode: continuously refresh the agent list"
+        "--watch",
+        "-w",
+        action="store_true",
+        help="Watch mode: continuously refresh the agent list",
     )
     p_list.add_argument(
-        "--interval", "-i", type=float, default=2.0,
-        help="Refresh interval in seconds (default: 2.0, only used with --watch)"
+        "--interval",
+        "-i",
+        type=float,
+        default=2.0,
+        help="Refresh interval in seconds (default: 2.0, only used with --watch)",
     )
     p_list.set_defaults(func=cmd_list)
 
