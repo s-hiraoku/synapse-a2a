@@ -29,27 +29,31 @@ def reset_global_state():
         # asyncio.run() sets the event loop but doesn't always clean it up
         # Get the current event loop without creating a new one
         loop = asyncio.get_event_loop_policy().get_event_loop()
-
-        if loop is None or loop.is_closed():
-            # No event loop to clean up
-            pass
-        elif loop.is_running():
-            # Loop is still running - don't close it, just skip
-            # This can happen if test cleanup is called while async work is ongoing
-            pass
-        else:
-            # Loop exists, is not running, and is not closed - properly close it
-            loop.close()
     except RuntimeError:
         # No event loop in current thread
+        loop = None
+
+    # Explicitly handle three cases: None/closed, running, or open
+    if loop is None or loop.is_closed():
+        # No event loop to clean up
         pass
+    elif loop.is_running():
+        # Loop is still running - don't close it
+        # This can happen if test cleanup is called while async work is ongoing
+        # Using debug=True to help troubleshoot test issues
+        import sys
+        print(f"[DEBUG] Event loop still running at cleanup for {sys.argv[0]}", file=sys.stderr)
+    else:
+        # Loop exists, is not running, and is not closed - properly close it
+        loop.close()
 
     # Force creation of a fresh event loop for next test
     # This prevents accumulation of old event loops
     try:
         asyncio.set_event_loop(None)
-    except (RuntimeError, ValueError) as e:
-        # RuntimeError: event loop is running
+    except RuntimeError as e:
+        # RuntimeError: event loop is running in current thread
+        print(f"[DEBUG] RuntimeError when setting event loop to None: {e}", file=sys.stderr)
+    except ValueError as e:
         # ValueError: event loop policy does not support set_event_loop
-        # Just skip if we can't set the event loop to None
-        pass
+        print(f"[DEBUG] ValueError when setting event loop to None: {e}", file=sys.stderr)
