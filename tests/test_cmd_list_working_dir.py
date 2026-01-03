@@ -10,6 +10,7 @@ import pytest
 
 from synapse.cli import cmd_list
 from synapse.registry import AgentRegistry
+from synapse.port_manager import is_process_alive
 
 
 @pytest.fixture
@@ -39,13 +40,15 @@ class TestCmdListWorkingDir:
         with open(file_path, "w") as f:
             json.dump(data, f)
 
-        # Mock the arguments object
+        # Mock the arguments object with explicit attributes
         args = MagicMock()
+        args.watch = False
+        args.interval = 2.0
 
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.port_manager.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -74,13 +77,15 @@ class TestCmdListWorkingDir:
             with open(file_path, "w") as f:
                 json.dump(data, f)
 
-        # Mock the arguments object
+        # Mock the arguments object with explicit attributes
         args = MagicMock()
+        args.watch = False
+        args.interval = 2.0
 
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.port_manager.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -94,13 +99,15 @@ class TestCmdListWorkingDir:
         # Register an agent
         temp_registry.register("synapse-claude-8100", "claude", 8100)
 
-        # Mock the arguments object
+        # Mock the arguments object with explicit attributes
         args = MagicMock()
+        args.watch = False
+        args.interval = 2.0
 
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.port_manager.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 
@@ -113,8 +120,10 @@ class TestCmdListWorkingDir:
 
     def test_list_empty_registry(self, temp_registry, capsys):
         """synapse list should handle empty registry gracefully."""
-        # Mock the arguments object
+        # Mock the arguments object with explicit attributes
         args = MagicMock()
+        args.watch = False
+        args.interval = 2.0
 
         # Run the command with patched registry
         with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
@@ -140,13 +149,15 @@ class TestCmdListWorkingDir:
         with open(file_path, "w") as f:
             json.dump(data, f)
 
-        # Mock the arguments object
+        # Mock the arguments object with explicit attributes
         args = MagicMock()
+        args.watch = False
+        args.interval = 2.0
 
         # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.port_manager.is_process_alive", return_value=True),
         ):
             cmd_list(args)
 

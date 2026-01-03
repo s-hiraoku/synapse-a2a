@@ -222,7 +222,9 @@ command: "claude"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "timeout"
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
   timeout: 0.5
 env:
   TERM: "xterm-256color"
@@ -232,7 +234,10 @@ env:
 
 - Claude Code CLI 用
 - Ink ベースの TUI のため `\r` を使用
-- **timeout 戦略**: TUI 初期化はBRACKETED_PASTE_MODEが一度だけ出るため、以降のアイドル検出はタイムアウトに依存
+- **hybrid 戦略**: 2段階の IDLE 検出
+  - 起動時: `BRACKETED_PASTE_MODE` (ESC[?2004h) パターンで検出
+  - 以降: タイムアウト (500ms) で検出
+  - パターンは起動時一度だけ出現するため、`pattern_use: "startup_only"` で最初の IDLE のみ使用
 - 500ms の短いタイムアウト（高速応答性）
 
 ---
