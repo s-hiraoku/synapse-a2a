@@ -1,6 +1,12 @@
 command: "codex"
 args: []
-idle_regex: "›"
 submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
+
+# Multi-strategy idle detection configuration
+# Codex: Use timeout-based detection (more reliable than pattern matching)
+# Pattern matching is unreliable because prompt patterns may appear in conversation history
+idle_detection:
+  strategy: "timeout"
+  timeout: 1.5               # 1.5 seconds of no output = idle

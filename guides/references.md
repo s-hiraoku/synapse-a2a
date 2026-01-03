@@ -132,15 +132,15 @@ synapse list
 ```
 TYPE       PORT     STATUS     PID      ENDPOINT
 ------------------------------------------------------------
-claude     8100     IDLE       12345    http://localhost:8100
-codex      8101     BUSY       12346    http://localhost:8101
+claude     8100     READY      12345    http://localhost:8100
+codex      8101     PROCESSING 12346    http://localhost:8101
 ```
 
 | 列 | 説明 |
 |----|------|
 | TYPE | エージェントタイプ（プロファイル名） |
 | PORT | HTTP サーバーポート |
-| STATUS | 現在の状態（IDLE/BUSY/STARTING） |
+| STATUS | 現在の状態（READY/PROCESSING） |
 | PID | プロセス ID |
 | ENDPOINT | HTTP エンドポイント URL |
 
@@ -470,7 +470,7 @@ Host: localhost:8100
 
 ```json
 {
-  "status": "IDLE",
+  "status": "READY",
   "context": "最新の出力内容（最大2000文字）"
 }
 ```
@@ -484,9 +484,8 @@ Host: localhost:8100
 
 | 値 | 説明 |
 |----|------|
-| `STARTING` | 起動中 |
-| `BUSY` | 処理中 |
-| `IDLE` | 待機中（プロンプト表示） |
+| `PROCESSING` | 処理中・起動中 |
+| `READY` | 待機中（プロンプト表示） |
 | `NOT_STARTED` | 未起動 |
 
 **curl 例**:
@@ -749,7 +748,7 @@ curl -X POST http://localhost:8100/external/discover \
   "agent_id": "abc123def456...",
   "agent_type": "claude",
   "port": 8100,
-  "status": "IDLE",
+  "status": "READY",
   "pid": 12345,
   "working_dir": "/path/to/project",
   "endpoint": "http://localhost:8100"

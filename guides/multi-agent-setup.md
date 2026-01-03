@@ -99,7 +99,7 @@ synapse gemini --port 8102
 
 補足:
 - `--non-response` は「相手の返信をこの端末に返す」オプションです
-- 返信は相手が `IDLE` になるのをポーリングして取得します
+- 返信は相手が `READY` になるのをポーリングして取得します
 - 返答が長い/処理が長い場合は、戻りが遅くなることがあります
 
 ---
@@ -137,10 +137,10 @@ curl -X POST "http://localhost:8101/tasks/send-priority?priority=1" \
 
 ```bash
 curl http://localhost:8100/status
-# {"status": "BUSY", "context": "..."}
+# {"status": "PROCESSING", "context": "..."}
 ```
 
-- `status` は `IDLE` / `BUSY` を返します
+- `status` は `READY` / `PROCESSING` を返します
 - `context` は直近の出力の一部です
 
 ---
@@ -251,6 +251,6 @@ Synapse が提供する主な A2A 互換エンドポイント:
 | POST | `/tasks/send` | Task 作成・メッセージ送信 |
 | POST | `/tasks/send-priority` | Priority 付きメッセージ送信（Synapse 拡張） |
 | GET | `/tasks/{task_id}` | Task 状態取得 |
-| GET | `/status` | エージェント状態（IDLE/BUSY） |
+| GET | `/status` | エージェント状態（READY/PROCESSING） |
 
 詳細は [guides/google-a2a-spec.md](google-a2a-spec.md) を参照してください。

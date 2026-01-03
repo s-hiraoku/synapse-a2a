@@ -117,7 +117,7 @@ eval "$(synapse shell-hook)"
 エージェントの回答をキャプチャして返却する仕組み。
 
 **方法1: Idle検知ベース**
-- エージェントがIDLE状態になったら、前回のメッセージ以降の出力を回答として返す
+- エージェントがREADY状態になったら、前回のメッセージ以降の出力を回答として返す
 
 **方法2: 明示的なマーカー**
 - エージェントが `[RESPONSE_END]` のようなマーカーを出力
@@ -142,7 +142,7 @@ eval "$(synapse shell-hook)"
 
 ```json
 {
-  "status": "IDLE",
+  "status": "READY",
   "context": "...(last 2000 chars)..."
 }
 ```
@@ -205,7 +205,7 @@ agents:
 
 ### Phase 2: Interactive Shell
 - [x] `synapse-shell` with @Agent detection
-- [x] Basic response collection (idle-based)
+- [x] Basic response collection (READY-state-based)
 - [x] `--return` flag support
 
 ### Phase 3: Shell Integration

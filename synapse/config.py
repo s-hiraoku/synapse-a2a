@@ -44,7 +44,9 @@ TASK_POLL_INTERVAL: float = 1.0
 OUTPUT_BUFFER_MAX: int = 10000
 
 # Window size for idle state regex matching
-IDLE_CHECK_WINDOW: int = 1000
+# Increased from 1000 to 10000 to match full buffer for better idle detection
+# especially for agents with large startup output (e.g., Claude Code)
+IDLE_CHECK_WINDOW: int = 10000
 
 # Recent context size for error detection and artifact generation
 CONTEXT_RECENT_SIZE: int = 3000

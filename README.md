@@ -4,7 +4,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-380%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-395%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > Claude Code / Codex / Gemini などの CLI エージェントを PTY でラップし、Google A2A プロトコルで相互通信を可能にするフレームワーク
@@ -245,7 +245,7 @@ Synapse では **各エージェントが A2A サーバーとして動作** し�
 | FastAPI Server     | `synapse/server.py`       | A2A エンドポイント提供   |
 | A2A Router         | `synapse/a2a_compat.py`   | A2A プロトコル実装       |
 | A2A Client         | `synapse/a2a_client.py`   | 他エージェントへの通信   |
-| TerminalController | `synapse/controller.py`   | PTY 管理、IDLE/BUSY 検出 |
+| TerminalController | `synapse/controller.py`   | PTY 管理、READY/PROCESSING 検出 |
 | InputRouter        | `synapse/input_router.py` | @Agent パターン検出      |
 | AgentRegistry      | `synapse/registry.py`     | エージェント登録・検索   |
 
@@ -354,7 +354,7 @@ python3 synapse/tools/a2a.py send --target claude --priority 5 "Stop!"
 | `/tasks/{id}`             | GET      | タスク状態取得    |
 | `/tasks`                  | GET      | タスク一覧        |
 | `/tasks/{id}/cancel`      | POST     | タスクキャンセル  |
-| `/status`                 | GET      | IDLE/BUSY 状態    |
+| `/status`                 | GET      | READY/PROCESSING 状態 |
 
 ### 外部エージェント
 

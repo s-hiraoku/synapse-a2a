@@ -26,7 +26,7 @@ class TestIdentityInstruction:
                 "agent_id": "synapse-gemini-8101",
                 "agent_type": "gemini",
                 "endpoint": "http://localhost:8101",
-                "status": "IDLE",
+                "status": "READY",
             }
         }
         return registry
@@ -68,7 +68,7 @@ class TestIdentityInstruction:
 
         controller._check_idle_state(b"$")
 
-        assert controller.status == "IDLE"
+        assert controller.status == "READY"
 
     def test_identity_sent_on_first_idle(self, controller):
         """Identity instruction should be sent on first IDLE detection."""
@@ -96,7 +96,7 @@ class TestIdentityInstruction:
 
         # Flag should be set and _send_identity_instruction should be called
         assert controller._identity_sent is True
-        assert controller.status == "IDLE"
+        assert controller.status == "READY"
         assert send_called.is_set()
 
     def test_identity_sent_only_once(self, controller):
@@ -127,7 +127,7 @@ class TestIdentityInstruction:
         controller._check_idle_state(b"$")
         time.sleep(0.1)
         assert controller._identity_sent is True
-        assert controller.status == "IDLE"
+        assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
 
     def test_identity_instruction_content(self, controller, mock_registry):
@@ -377,12 +377,12 @@ class TestInterAgentMessageWrite:
         assert "master_fd is None" in str(excinfo.value)
 
     def test_write_sets_status_to_busy(self):
-        """Write should set status to BUSY."""
+        """Write should set status to PROCESSING."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
-        ctrl.status = "IDLE"
+        ctrl.status = "READY"
 
         import os
 
@@ -391,7 +391,7 @@ class TestInterAgentMessageWrite:
 
         try:
             ctrl.write("test", submit_seq="\n")
-            assert ctrl.status == "BUSY"
+            assert ctrl.status == "PROCESSING"
         finally:
             os.write = original_write
 
@@ -426,12 +426,12 @@ class TestControllerStatusTransitions:
     """Tests for controller status transitions."""
 
     def test_initial_status_is_starting(self):
-        """Controller should start with STARTING status."""
+        """Controller should start with PROCESSING status."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
-        assert ctrl.status == "STARTING"
+        assert ctrl.status == "PROCESSING"
 
     def test_status_changes_to_idle_on_pattern_match(self):
-        """Status should change to IDLE when idle_regex matches."""
+        """Status should change to READY when idle_regex matches."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.master_fd = 1
@@ -439,10 +439,10 @@ class TestControllerStatusTransitions:
         ctrl.write = Mock()  # type: ignore[method-assign]
 
         ctrl._check_idle_state(b"$")
-        assert ctrl.status == "IDLE"
+        assert ctrl.status == "READY"
 
     def test_status_changes_to_busy_on_no_match(self):
-        """Status should change to BUSY when idle_regex doesn't match."""
+        """Status should change to PROCESSING when idle_regex doesn't match."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$$",  # Must end with $
@@ -450,10 +450,10 @@ class TestControllerStatusTransitions:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.output_buffer = b"some output without prompt"
-        ctrl.status = "IDLE"
+        ctrl.status = "READY"
 
         ctrl._check_idle_state(b"no prompt here")
-        assert ctrl.status == "BUSY"
+        assert ctrl.status == "PROCESSING"
 
 
 class TestControllerOutputBuffer:

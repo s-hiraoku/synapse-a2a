@@ -315,7 +315,7 @@ flowchart TB
 | **主な目的** | エンタープライズ相互運用 | CLI エージェント統合 | - |
 | **通信方式** | JSON-RPC / gRPC / REST | HTTP REST | ✅ REST 対応 |
 | **Agent 検出** | Agent Card (JSON) | Registry + Agent Card | ✅ 対応 |
-| **状態管理** | Task ライフサイクル | Task + IDLE/BUSY マッピング | ✅ 対応 |
+| **状態管理** | Task ライフサイクル | Task + READY/PROCESSING マッピング | ✅ 対応 |
 | **Message/Part** | 標準構造 | 標準構造 | ✅ 対応 |
 | **認証** | OAuth2, API Key 等 | なし（ローカル前提） | ❌ 未対応 |
 | **ストリーミング** | SSE, WebSocket | ポーリング | ❌ 未対応 |
@@ -477,9 +477,8 @@ curl http://localhost:8100/tasks/{task_id}
 
 | Synapse 状態 | Google A2A 状態 |
 |-------------|----------------|
-| STARTING | submitted |
-| BUSY | working |
-| IDLE | completed |
+| PROCESSING | submitted / working |
+| READY | completed |
 
 ### 6.4 Synapse 拡張: Priority 付き送信
 

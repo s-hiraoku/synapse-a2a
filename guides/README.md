@@ -92,7 +92,7 @@ flowchart TD
 - YAML スキーマの解説
 - 各フィールドの意味
   - `command`: CLI コマンド
-  - `idle_regex`: IDLE 状態検出パターン
+  - `idle_regex`: READY 状態検出パターン
   - `submit_sequence`: 送信キーシーケンス
   - `env`: 環境変数
 - デフォルトプロファイル（claude, codex, gemini, dummy）
@@ -160,7 +160,7 @@ flowchart TD
 - PTY/TUI 描画の問題
 - エージェントが見つからない
 - ポート競合
-- IDLE 検出の問題
+- READY 検出の問題
 - Claude Code 固有の問題
 - デバッグ方法
 

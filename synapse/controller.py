@@ -13,6 +13,7 @@ import sys
 import termios
 import threading
 import time
+import tty
 import uuid
 from collections.abc import Callable
 
@@ -37,7 +38,8 @@ class TerminalController:
     def __init__(
         self,
         command: str,
-        idle_regex: str,
+        idle_regex: str | None = None,
+        idle_detection: dict | None = None,
         env: dict | None = None,
         registry: AgentRegistry | None = None,
         agent_id: str | None = None,
@@ -49,12 +51,35 @@ class TerminalController:
     ):
         self.command = command
         self.args = args or []
-        # Handle special pattern names for TUI apps
-        # BRACKETED_PASTE_MODE detects when ESC[?2004h is emitted (TUI ready for input)
-        if idle_regex == "BRACKETED_PASTE_MODE":
-            self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
-        else:
-            self.idle_regex = re.compile(idle_regex.encode("utf-8"))
+
+        # Handle multi-strategy idle detection configuration
+        # Backward compatibility: convert legacy idle_regex to new format
+        if idle_detection is None and idle_regex is not None:
+            idle_detection = {
+                "strategy": "pattern",
+                "pattern": idle_regex,
+                "timeout": 1.5,
+            }
+
+        self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
+        self.idle_strategy = self.idle_config.get("strategy", "pattern")
+
+        # Compile pattern regex if strategy uses it
+        self.idle_regex = None
+        if self.idle_strategy in ("pattern", "hybrid"):
+            pattern = self.idle_config.get("pattern", "")
+            if pattern == "BRACKETED_PASTE_MODE":
+                self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
+            elif pattern:
+                self.idle_regex = re.compile(pattern.encode("utf-8"))
+
+        # Timeout settings
+        timeout = self.idle_config.get("timeout", 1.5)
+        self._output_idle_threshold = timeout
+
+        # Track pattern detection for hybrid mode
+        self._pattern_detected = False
+
         self.env = env or os.environ.copy()
         self.master_fd: int | None = None
         self.slave_fd: int | None = None
@@ -65,7 +90,7 @@ class TerminalController:
         self._render_line_start = 0
         self._max_buffer = OUTPUT_BUFFER_MAX
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
-        self.status = "STARTING"
+        self.status = "PROCESSING"
         self.lock = threading.Lock()
         self.running = False
         self.thread: threading.Thread | None = None
@@ -114,7 +139,10 @@ class TerminalController:
         self.thread = threading.Thread(target=self._monitor_output)
         self.thread.daemon = True
         self.thread.start()
-        self.status = "BUSY"
+        self.status = "PROCESSING"
+
+        # Initialize last output time for timeout-based idle detection
+        self._last_output_time = time.time()
 
     def _execute_a2a_action(
         self, action_func: Callable[[], bool], agent_name: str
@@ -171,25 +199,74 @@ class TerminalController:
 
                 except OSError:
                     break
+            else:
+                # Even if there's no output, periodically check idle state
+                # This enables timeout-based idle detection when no output is being produced
+                self._check_idle_state(b"")
 
     def _check_idle_state(self, new_data):
-        """Check if the output matches the idle regex pattern and update status."""
-        # We match against the end of the buffer to see if we reached a prompt
+        """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
-            search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
-            match = self.idle_regex.search(search_window)
+            pattern_match = False
+            timeout_idle = False
 
-            if match:
-                was_busy = self.status != "IDLE"
-                self.status = "IDLE"
-                # On first IDLE, send initial instructions via A2A Task format
-                if was_busy and not self._identity_sent and self.agent_id:
-                    self._identity_sent = True
-                    threading.Thread(
-                        target=self._send_identity_instruction, daemon=True
-                    ).start()
+            # 1. Pattern-based detection (if strategy uses it)
+            if self.idle_strategy in ("pattern", "hybrid") and self.idle_regex:
+                # Check pattern only if appropriate for the mode
+                pattern_use = self.idle_config.get("pattern_use", "always")
+                should_check_pattern = (
+                    pattern_use == "always" or
+                    (pattern_use == "startup_only" and not self._pattern_detected)
+                )
+
+                if should_check_pattern:
+                    # For pattern strategy: check if pattern is in the buffer
+                    # The pattern indicates the agent is idle/ready
+                    search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
+                    match = self.idle_regex.search(search_window)
+                    if match:
+                        pattern_match = True
+                        self._pattern_detected = True
+
+            # 2. Timeout-based detection (if strategy uses it)
+            if self.idle_strategy in ("timeout", "hybrid"):
+                # For hybrid mode, only use timeout after pattern detected
+                should_check_timeout = (
+                    self.idle_strategy == "timeout" or
+                    (self.idle_strategy == "hybrid" and self._pattern_detected)
+                )
+
+                if should_check_timeout and self._last_output_time:
+                    elapsed = time.time() - self._last_output_time
+                    if elapsed >= self._output_idle_threshold:
+                        timeout_idle = True
+
+            # 3. Determine new status based on strategy
+            if self.idle_strategy == "pattern":
+                is_idle = pattern_match
+            elif self.idle_strategy == "timeout":
+                is_idle = timeout_idle
+            elif self.idle_strategy == "hybrid":
+                is_idle = pattern_match or timeout_idle
             else:
-                self.status = "BUSY"
+                is_idle = False
+
+            new_status = "READY" if is_idle else "PROCESSING"
+
+            # 4. Update status and sync to registry (only if changed)
+            if new_status != self.status:
+                self.status = new_status
+
+                # Sync to registry
+                if self.agent_id:
+                    self.registry.update_status(self.agent_id, self.status)
+
+            # 5. Send initial instructions on first READY
+            if is_idle and self.status == "READY" and not self._identity_sent and self.agent_id:
+                self._identity_sent = True
+                threading.Thread(
+                    target=self._send_identity_instruction, daemon=True
+                ).start()
 
     def _send_identity_instruction(self):
         """
@@ -239,7 +316,7 @@ class TerminalController:
             raise ValueError(f"master_fd is None (interactive={self.interactive})")
 
         with self.lock:
-            self.status = "BUSY"
+            self.status = "PROCESSING"
 
         try:
             # Write data first
@@ -264,7 +341,7 @@ class TerminalController:
         # Send SIGINT to the process group
         os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
         with self.lock:
-            self.status = "BUSY"  # Interruption might cause output/processing
+            self.status = "PROCESSING"  # Interruption might cause output/processing
 
     def get_context(self) -> str:
         """Get the current output context from the controlled process."""
@@ -285,10 +362,24 @@ class TerminalController:
         """
         Run in interactive mode with input routing.
         Human's input is monitored for @Agent patterns.
-        Uses pty.spawn() for robust terminal handling.
+        Includes background thread for periodic idle detection.
         """
         self.interactive = True
         self.running = True
+        self._last_output_time = time.time()
+
+        # Start background thread for periodic idle checking
+        # This ensures timeout-based idle detection works in interactive mode
+        def periodic_idle_checker():
+            """Background thread: check idle state periodically (every 100ms)."""
+            while self.running and self.interactive:
+                time.sleep(0.1)
+                # Call _check_idle_state with no data to trigger timeout-based detection
+                if self.running:
+                    self._check_idle_state(b"")
+
+        checker_thread = threading.Thread(target=periodic_idle_checker, daemon=True)
+        checker_thread.start()
 
         # Note: Initial instructions are sent via cli.py -> server.send_initial_instructions()
         # which uses A2A Task format with [A2A:id:sender] prefix
@@ -320,9 +411,6 @@ class TerminalController:
 
             data = os.read(fd, 1024)
             if data:
-                # DEBUG: Uncomment to log raw data
-                # import sys; sys.stderr.write(f"[RAW] {repr(data[:80])}\n")
-
                 # Update last output time for idle detection
                 self._last_output_time = time.time()
 
@@ -331,8 +419,9 @@ class TerminalController:
 
                 # Pass output through directly - AI uses a2a.py tool for routing
                 return data
-
-            return data
+            else:
+                # No data available
+                return data
 
         def input_callback(fd):
             """Called when there's data from stdin. Pass through to PTY."""
@@ -368,6 +457,9 @@ class TerminalController:
         """Append output to buffers, normalizing carriage returns for display context."""
         text = self._decoder.decode(data)
         with self.lock:
+            # Update last output time for idle detection
+            self._last_output_time = time.time()
+
             self.output_buffer += data
             if len(self.output_buffer) > self._max_buffer:
                 self.output_buffer = self.output_buffer[-self._max_buffer :]

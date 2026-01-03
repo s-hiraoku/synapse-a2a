@@ -183,37 +183,90 @@ def cmd_stop(args):
     _stop_agent(registry, target)
 
 
-def cmd_list(args):
-    """List running agents."""
-    registry = AgentRegistry()
+def _clear_screen():
+    """Clear terminal screen (cross-platform)."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def _render_agent_table(registry):
+    """
+    Render the agent table output.
+
+    Args:
+        registry: AgentRegistry instance
+
+    Returns:
+        str: Formatted table output
+    """
     agents = registry.list_agents()
 
     if not agents:
-        print("No agents running.")
-        print("\nPort ranges:")
+        output = ["No agents running.", ""]
+        output.append("Port ranges:")
         for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            print(f"  {agent_type}: {start}-{end}")
-        return
+            output.append(f"  {agent_type}: {start}-{end}")
+        return "\n".join(output)
 
-    print(f"{'TYPE':<10} {'PORT':<8} {'STATUS':<10} {'PID':<8} {'ENDPOINT'}")
-    print("-" * 60)
+    lines = []
+    lines.append(f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} {'WORKING_DIR':<50} {'ENDPOINT'}")
+    lines.append("-" * 112)
+
+    live_agents = False
     for agent_id, info in agents.items():
         # Verify process is still alive
         pid = info.get("pid")
         status = info.get("status", "-")
         if pid and not is_process_alive(pid):
-            status = "DEAD"
             # Clean up stale entry
             registry.unregister(agent_id)
             continue  # Skip showing dead entries
 
-        print(
+        live_agents = True
+        lines.append(
             f"{info.get('agent_type', 'unknown'):<10} "
             f"{info.get('port', '-'):<8} "
-            f"{status:<10} "
+            f"{status:<12} "
             f"{pid or '-':<8} "
+            f"{info.get('working_dir', '-'):<50} "
             f"{info.get('endpoint', '-')}"
         )
+
+    # If all agents were dead, show empty registry message
+    if not live_agents:
+        output = ["No agents running.", ""]
+        output.append("Port ranges:")
+        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+            output.append(f"  {agent_type}: {start}-{end}")
+        return "\n".join(output)
+
+    return "\n".join(lines)
+
+
+def cmd_list(args):
+    """List running agents (with optional watch mode)."""
+    registry = AgentRegistry()
+    watch_mode = getattr(args, "watch", False)
+    interval = getattr(args, "interval", 2.0)
+
+    if not watch_mode:
+        # Normal mode: single output
+        print(_render_agent_table(registry))
+        return
+
+    # Watch mode: continuous refresh
+    print("Watch mode: Press Ctrl+C to exit\n")
+
+    try:
+        while True:
+            _clear_screen()
+            print(f"Synapse Agent List (refreshing every {interval}s)")
+            print(f"Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print()
+            print(_render_agent_table(registry))
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print("\n\nExiting watch mode...")
+        sys.exit(0)
 
 
 def cmd_logs(args):
@@ -442,6 +495,18 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     submit_seq = config.get("submit_sequence", "\n").encode().decode("unicode_escape")
     startup_delay = config.get("startup_delay", 3)
 
+    # Parse idle detection config (with backward compatibility)
+    idle_detection = config.get("idle_detection", {})
+    if not idle_detection:
+        # Legacy mode: Use top-level idle_regex
+        idle_regex = config.get("idle_regex")
+        if idle_regex:
+            idle_detection = {
+                "strategy": "pattern",
+                "pattern": idle_regex,
+                "timeout": 1.5,
+            }
+
     # Merge profile args with CLI tool args
     profile_args = config.get("args", [])
     all_args = profile_args + tool_args
@@ -464,7 +529,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     controller = TerminalController(
         command=config["command"],
         args=all_args,
-        idle_regex=config["idle_regex"],
+        idle_detection=idle_detection if idle_detection else None,
+        idle_regex=config.get("idle_regex") if not idle_detection else None,  # Backward compat
         env=env,
         registry=registry,
         agent_id=agent_id,
@@ -475,7 +541,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     )
 
     # Register agent
-    registry.register(agent_id, profile, port, status="BUSY")
+    registry.register(agent_id, profile, port, status="PROCESSING")
 
     # Handle Ctrl+C gracefully
     def cleanup(signum, frame):
@@ -620,6 +686,14 @@ def main():
 
     # list
     p_list = subparsers.add_parser("list", help="List running agents")
+    p_list.add_argument(
+        "--watch", "-w", action="store_true",
+        help="Watch mode: continuously refresh the agent list"
+    )
+    p_list.add_argument(
+        "--interval", "-i", type=float, default=2.0,
+        help="Refresh interval in seconds (default: 2.0, only used with --watch)"
+    )
     p_list.set_defaults(func=cmd_list)
 
     # logs

@@ -106,15 +106,14 @@ classDiagram
 | `get_context()` | 出力バッファの内容を取得 |
 | `run_interactive()` | `pty.spawn()` を使ったインタラクティブモード |
 
-**IDLE/BUSY 状態管理**:
+**READY/PROCESSING 状態管理**:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> STARTING: 起動
-    STARTING --> BUSY: プロセス開始
-    BUSY --> IDLE: idle_regex マッチ
-    IDLE --> BUSY: 入力受信
-    BUSY --> BUSY: 出力継続
+    [*] --> PROCESSING: 起動
+    PROCESSING --> PROCESSING: 出力継続
+    PROCESSING --> READY: idle_regex マッチ
+    READY --> PROCESSING: 入力受信
 ```
 
 ---
@@ -240,7 +239,7 @@ agent_id = sha256(raw_key).hexdigest()
   "agent_id": "abc123...",
   "agent_type": "claude",
   "port": 8100,
-  "status": "BUSY",
+  "status": "PROCESSING",
   "pid": 12345,
   "working_dir": "/path/to/project",
   "endpoint": "http://localhost:8100"
@@ -595,7 +594,7 @@ flowchart TB
 |---------|---------|------|
 | メインスレッド | No | `pty.spawn()` による入出力処理 |
 | サーバースレッド | Yes | FastAPI/Uvicorn HTTP サーバー |
-| 監視スレッド | Yes | 出力バッファリング、IDLE 状態検出 |
+| 監視スレッド | Yes | 出力バッファリング、READY 状態検出 |
 
 ---
 

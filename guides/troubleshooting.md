@@ -222,7 +222,7 @@ curl -v http://localhost:8100/status
 
 ## 4. 状態検出の問題
 
-### 4.1 IDLE にならない（永久に BUSY）
+### 4.1 READY にならない（永久に PROCESSING）
 
 ```mermaid
 flowchart TB
@@ -268,7 +268,7 @@ idle_regex: "(> |>>> )$"
 - レスポンスが空になる
 
 **原因候補**:
-- 相手エージェントが IDLE にならない
+- 相手エージェントが READY にならない
 - 処理時間が 60 秒を超えている
 - ネットワークの問題
 
@@ -635,7 +635,7 @@ curl -s http://localhost:8100/tasks/<task_id> | jq '{status, artifacts}'
 ```
 
 **対処法**:
-1. エージェントが `IDLE` になるまで待機
+1. エージェントが `READY` になるまで待機
 2. プロファイルの `idle_regex` がプロンプトと一致しているか確認
 3. エージェントログでエラーがないか確認
 

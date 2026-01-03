@@ -15,7 +15,7 @@
 #### 主要コンポーネント
 
 - **A2A Server (FastAPI):** 外部（他エージェントのラッパー）からの A2A メッセージを受信し、状態を外部に露出するインターフェース。
-- **Terminal Controller:** CLI のプロセス管理、標準入出力の監視、出力を解析して状態（IDLE/BUSY/ERROR）を判定するロジックを担う。
+- **Terminal Controller:** CLI のプロセス管理、標準入出力の監視、出力を解析して状態（READY/PROCESSING/ERROR）を判定するロジックを担う。
 - **Pseudo-Terminal (PTY):** OS レベルで「仮想端末」を生成。ターゲット CLI に「人間が操作している」と誤認させ、リッチな対話機能を維持したまま制御する。
 - **Agent Profile (YAML):** CLI ごとの起動コマンドや、入力待ち状態を検知するための正規表現パターンを定義した設定ファイル。
 
@@ -93,7 +93,7 @@ user> @ClaudeCode 今実施している処理を止めて、先に `tests/` の�
 
 1. **指示:** User > `@Gemini Claude が止まっていないか定期的に見て、サボっていたら「続きをやって」と言って。`
 2. **監視:** Gemini (またはループ実行スクリプト) が定期的に Claude の `GET /status` を叩く。
-3. **検知:** `{"status": "IDLE", "context": "...(まだ途中)..."}` を確認。
+3. **検知:** `{"status": "READY", "context": "...(まだ途中)..."}` を確認。
 4. **介入:** Gemini が `POST /message` で `＠ClaudeCode 続きをお願い` を送信。
 5. **再開:** Claude がハッとして作業を再開する。
 
