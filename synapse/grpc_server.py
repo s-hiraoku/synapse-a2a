@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 try:
-    import grpc  # type: ignore[import-untyped]
+    import grpc
 
     from synapse.proto import a2a_pb2_grpc
 
@@ -54,12 +54,12 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
 
     def __init__(
         self,
-        controller,
+        controller: Any,
         agent_type: str,
         port: int,
         submit_seq: str = "\n",
         agent_id: str | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self.controller = controller
         self.agent_type = agent_type
@@ -247,11 +247,11 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
     # These wrap the snake_case methods for gRPC compatibility
     # =========================================================================
 
-    def GetAgentCard(self, request, context):  # noqa: N802
+    def GetAgentCard(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: Get agent card for discovery."""
         return self.get_agent_card()
 
-    def SendMessage(self, request, context):  # noqa: N802
+    def SendMessage(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: Send a message to the agent."""
         # Extract message text from protobuf
         message_text = ""
@@ -268,27 +268,27 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
         task = self.send_message(message_text, context_id, metadata)
         return {"task": task}
 
-    def GetTask(self, request, context):  # noqa: N802
+    def GetTask(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: Get task by ID."""
         task = self.get_task(request.task_id)
         return {"task": task}
 
-    def ListTasks(self, request, context):  # noqa: N802
+    def ListTasks(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: List all tasks."""
         context_id = request.context_id if request.context_id else None
         tasks = self.list_tasks(context_id)
         return {"tasks": tasks}
 
-    def CancelTask(self, request, context):  # noqa: N802
+    def CancelTask(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: Cancel a task."""
         result = self.cancel_task(request.task_id)
         return result
 
-    def Subscribe(self, request, context):  # noqa: N802
+    def Subscribe(self, request: Any, context: Any) -> Iterator[dict[str, Any]]:  # noqa: N802
         """gRPC: Subscribe to task output stream."""
         yield from self.subscribe(request.task_id)
 
-    def SendPriorityMessage(self, request, context):  # noqa: N802
+    def SendPriorityMessage(self, request: Any, context: Any) -> dict[str, Any]:  # noqa: N802
         """gRPC: Send a priority message."""
         message_text = ""
         if hasattr(request, "message") and request.message:
@@ -306,14 +306,14 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
 
 
 def create_grpc_server(
-    controller,
+    controller: Any,
     agent_type: str,
     port: int,
     grpc_port: int | None = None,
     submit_seq: str = "\n",
     agent_id: str | None = None,
     max_workers: int = 10,
-):
+) -> tuple[Any, GrpcServicer] | tuple[None, None]:
     """
     Create a gRPC server for A2A communication.
 
@@ -360,13 +360,13 @@ def create_grpc_server(
 
 
 async def serve_grpc(
-    controller,
+    controller: Any,
     agent_type: str,
     port: int,
     grpc_port: int | None = None,
     submit_seq: str = "\n",
     agent_id: str | None = None,
-):
+) -> None:
     """
     Start the gRPC server.
 

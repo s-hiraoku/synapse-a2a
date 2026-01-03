@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import os
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -236,7 +237,7 @@ async def require_admin(
         )
 
 
-def require_scope(scope: str):
+def require_scope(scope: str) -> Callable:
     """
     Create a FastAPI dependency that requires a specific scope.
 
@@ -249,7 +250,7 @@ def require_scope(scope: str):
     async def check_scope(
         request: Request,
         api_key: str | None = Security(get_api_key),
-    ) -> APIKeyInfo | None:
+    ) -> "APIKeyInfo | None":
         """Check API key scope and validate request authorization."""
         config = load_auth_config()
 

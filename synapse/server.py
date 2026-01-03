@@ -26,7 +26,7 @@ agent_profile: str = "claude"
 submit_sequence: str = "\n"  # Default submit sequence
 
 
-def load_profile(profile_name: str):
+def load_profile(profile_name: str) -> dict:
     """Load agent profile configuration from YAML file."""
     profile_path = os.path.join(
         os.path.dirname(__file__), "profiles", f"{profile_name}.yaml"
@@ -35,7 +35,10 @@ def load_profile(profile_name: str):
         raise FileNotFoundError(f"Profile {profile_name} not found")
 
     with open(profile_path) as f:
-        return yaml.safe_load(f)
+        result = yaml.safe_load(f)
+        if not isinstance(result, dict):
+            raise ValueError(f"Profile {profile_name} must be a dictionary")
+        return result
 
 
 @asynccontextmanager
@@ -182,7 +185,7 @@ def create_app(
     # --------------------------------------------------------
 
     @new_app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-    async def send_message(msg: MessageRequest):
+    async def send_message(msg: MessageRequest) -> dict:
         """
         Send message to agent (Synapse original API).
 
@@ -210,7 +213,7 @@ def create_app(
         return {"status": "sent", "priority": msg.priority, "task_id": task.id}
 
     @new_app.get("/status", tags=["Synapse Original"])
-    async def get_status():
+    async def get_status() -> dict:
         """Get agent status (Synapse original API)"""
         if not ctrl:
             return {"status": "NOT_STARTED", "context": ""}
@@ -230,7 +233,7 @@ def create_app(
 
 async def send_initial_instructions(
     ctrl: TerminalController, agent_id: str, port: int, submit_seq: str
-):
+) -> None:
     """
     Send minimal initial instructions to the AI agent via A2A Task.
 
@@ -297,7 +300,7 @@ standalone_task_store: TaskStore | None = None
 
 
 @app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-async def send_message(msg: MessageRequest):
+async def send_message(msg: MessageRequest) -> dict:
     """
     Send message to agent (Synapse original API).
 
@@ -339,7 +342,7 @@ async def send_message(msg: MessageRequest):
 
 
 @app.get("/status")
-async def get_status():
+async def get_status() -> dict:
     """Get the current status of the agent and recent output context."""
     if not controller:
         return {"status": "NOT_STARTED", "context": ""}

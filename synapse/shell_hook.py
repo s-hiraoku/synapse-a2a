@@ -92,7 +92,7 @@ def generate_hook(shell_type: str = "bash") -> str:
     return BASH_HOOK
 
 
-def main():
+def main() -> None:
     """Generate and print the shell hook for agent integration."""
     import argparse
 

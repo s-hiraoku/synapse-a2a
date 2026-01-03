@@ -7,6 +7,10 @@ keeping Agent Card as a pure "business card" for discovery.
 """
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from synapse.registry import AgentRegistry
 
 
 @dataclass
@@ -99,7 +103,9 @@ REPLY: When you receive [A2A:id:sender], respond by default.
 LIST: python3 synapse/tools/a2a.py list"""
 
 
-def get_other_agents_from_registry(registry, exclude_agent_id: str) -> list[AgentInfo]:
+def get_other_agents_from_registry(
+    registry: "AgentRegistry", exclude_agent_id: str
+) -> list[AgentInfo]:
     """
     Get list of other registered agents from the registry.
 

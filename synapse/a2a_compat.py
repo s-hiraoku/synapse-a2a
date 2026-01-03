@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import threading
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any, Literal
 from uuid import uuid4
@@ -22,8 +23,10 @@ from pydantic import BaseModel
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
 from synapse.config import CONTEXT_RECENT_SIZE
+from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.output_parser import parse_output
+from synapse.registry import AgentRegistry
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
@@ -171,7 +174,7 @@ class AgentCard(BaseModel):
 class TaskStore:
     """Thread-safe in-memory task storage"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tasks: dict[str, Task] = {}
         self._lock = threading.Lock()
 
@@ -292,12 +295,12 @@ class ExternalTaskResponse(BaseModel):
 
 
 def create_a2a_router(
-    controller,
+    controller: TerminalController | None,
     agent_type: str,
     port: int,
     submit_seq: str = "\n",
     agent_id: str | None = None,
-    registry=None,
+    registry: AgentRegistry | None = None,
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -323,7 +326,7 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.get("/.well-known/agent.json", response_model=AgentCard)
-    async def get_agent_card():
+    async def get_agent_card() -> AgentCard:
         """
         Return Agent Card for discovery.
 
@@ -389,8 +392,8 @@ def create_a2a_router(
 
     @router.post("/tasks/send", response_model=SendMessageResponse)
     async def send_message(  # noqa: B008
-        request: SendMessageRequest, _=Depends(require_auth)
-    ):
+        request: SendMessageRequest, _: Any = Depends(require_auth)
+    ) -> SendMessageResponse:
         """
         Send a message to the agent (Google A2A compatible).
 
@@ -434,7 +437,7 @@ def create_a2a_router(
         return SendMessageResponse(task=updated_task)
 
     @router.get("/tasks/{task_id}", response_model=Task)
-    async def get_task(task_id: str, _=Depends(require_auth)):  # noqa: B008
+    async def get_task(task_id: str, _: Any = Depends(require_auth)) -> Task:  # noqa: B008
         """
         Get task status and results.
 
@@ -506,19 +509,23 @@ def create_a2a_router(
                             task_id, Artifact(type="text", data=recent_context)
                         )
 
-            task = task_store.get(task_id)
+            updated_task = task_store.get(task_id)
+            if updated_task:
+                task = updated_task
 
         return task
 
     @router.get("/tasks", response_model=list[Task])
     async def list_tasks(  # noqa: B008
-        context_id: str | None = None, _=Depends(require_auth)
-    ):
+        context_id: str | None = None, _: Any = Depends(require_auth)
+    ) -> list[Task]:
         """List all tasks, optionally filtered by context. Requires authentication."""
         return task_store.list_tasks(context_id)
 
     @router.post("/tasks/{task_id}/cancel")
-    async def cancel_task(task_id: str, _=Depends(require_auth)):  # noqa: B008
+    async def cancel_task(
+        task_id: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:  # noqa: B008
         """
         Cancel a running task.
 
@@ -555,8 +562,8 @@ def create_a2a_router(
 
     @router.get("/tasks/{task_id}/subscribe")
     async def subscribe_to_task(  # noqa: B008
-        task_id: str, _=Depends(require_auth)
-    ):
+        task_id: str, _: Any = Depends(require_auth)
+    ) -> StreamingResponse:
         """
         Subscribe to task output via Server-Sent Events.
 
@@ -571,7 +578,7 @@ def create_a2a_router(
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        async def event_generator():
+        async def event_generator() -> "AsyncGenerator[str, None]":
             last_len = 0
             last_status = task.status
 
@@ -634,8 +641,8 @@ def create_a2a_router(
 
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(  # noqa: B008
-        request: SendMessageRequest, priority: int = 1, _=Depends(require_auth)
-    ):
+        request: SendMessageRequest, priority: int = 1, _: Any = Depends(require_auth)
+    ) -> SendMessageResponse:
         """
         Send a message with priority (Synapse extension).
 
@@ -685,8 +692,8 @@ def create_a2a_router(
 
     @router.post("/external/discover", response_model=ExternalAgentInfo)
     async def discover_external_agent(  # noqa: B008
-        request: DiscoverAgentRequest, _=Depends(require_auth)
-    ):
+        request: DiscoverAgentRequest, _: Any = Depends(require_auth)
+    ) -> ExternalAgentInfo:
         """
         Discover and register an external Google A2A agent.
 
@@ -713,7 +720,9 @@ def create_a2a_router(
         )
 
     @router.get("/external/agents", response_model=list[ExternalAgentInfo])
-    async def list_external_agents(_=Depends(require_auth)):
+    async def list_external_agents(
+        _: Any = Depends(require_auth),
+    ) -> list[ExternalAgentInfo]:
         """
         List all registered external agents.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -736,7 +745,9 @@ def create_a2a_router(
         ]
 
     @router.get("/external/agents/{alias}", response_model=ExternalAgentInfo)
-    async def get_external_agent(alias: str, _=Depends(require_auth)):
+    async def get_external_agent(
+        alias: str, _: Any = Depends(require_auth)
+    ) -> ExternalAgentInfo:
         """
         Get details of a specific external agent.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -759,7 +770,9 @@ def create_a2a_router(
         )
 
     @router.delete("/external/agents/{alias}")
-    async def remove_external_agent(alias: str, _=Depends(require_auth)):
+    async def remove_external_agent(
+        alias: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:
         """
         Remove an external agent from the registry.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -773,8 +786,8 @@ def create_a2a_router(
 
     @router.post("/external/agents/{alias}/send", response_model=ExternalTaskResponse)
     async def send_to_external_agent(
-        alias: str, request: SendExternalMessageRequest, _=Depends(require_auth)
-    ):
+        alias: str, request: SendExternalMessageRequest, _: Any = Depends(require_auth)
+    ) -> ExternalTaskResponse:
         """
         Send a message to an external Google A2A agent.
 
@@ -837,7 +850,9 @@ def create_a2a_router(
         delivered_at: datetime | None
 
     @router.post("/webhooks", response_model=WebhookResponse)
-    async def register_webhook(request: WebhookRequest, _=Depends(require_auth)):
+    async def register_webhook(
+        request: WebhookRequest, _: Any = Depends(require_auth)
+    ) -> WebhookResponse:
         """
         Register a webhook for task notifications.
 
@@ -867,7 +882,7 @@ def create_a2a_router(
         )
 
     @router.get("/webhooks", response_model=list[WebhookResponse])
-    async def list_webhooks(_=Depends(require_auth)):
+    async def list_webhooks(_: Any = Depends(require_auth)) -> list[WebhookResponse]:
         """
         List all registered webhooks.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -885,7 +900,9 @@ def create_a2a_router(
         ]
 
     @router.delete("/webhooks")
-    async def unregister_webhook(url: str, _=Depends(require_auth)):
+    async def unregister_webhook(
+        url: str, _: Any = Depends(require_auth)
+    ) -> dict[str, str]:
         """
         Unregister a webhook.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
@@ -898,7 +915,9 @@ def create_a2a_router(
         return {"status": "removed", "url": url}
 
     @router.get("/webhooks/deliveries", response_model=list[WebhookDeliveryResponse])
-    async def list_webhook_deliveries(limit: int = 20, _=Depends(require_auth)):
+    async def list_webhook_deliveries(
+        limit: int = 20, _: Any = Depends(require_auth)
+    ) -> list[WebhookDeliveryResponse]:
         """
         Get recent webhook delivery attempts.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.

@@ -89,14 +89,14 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
     return sender_info
 
 
-def cmd_list(args):
+def cmd_list(args: argparse.Namespace) -> None:
     """List all available agents."""
     reg = AgentRegistry()
     agents = reg.get_live_agents() if args.live else reg.list_agents()
     print(json.dumps(agents, indent=2))
 
 
-def cmd_cleanup(args):
+def cmd_cleanup(args: argparse.Namespace) -> None:
     """Remove stale registry entries for dead agents."""
     reg = AgentRegistry()
     removed = reg.cleanup_stale_entries()
@@ -108,7 +108,7 @@ def cmd_cleanup(args):
         print("No stale entries found.")
 
 
-def cmd_send(args):
+def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
     agents = reg.list_agents()
@@ -205,7 +205,7 @@ def cmd_send(args):
         sys.exit(1)
 
 
-def main():
+def main() -> None:
     """Parse command-line arguments and execute A2A client operations."""
     parser = argparse.ArgumentParser(description="Synapse A2A Client Tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
