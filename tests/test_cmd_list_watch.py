@@ -165,7 +165,7 @@ class TestCmdListWatchMode:
         args.watch = True
         args.interval = 0.1
 
-        clear_calls = []
+        clear_calls: list[int] = []
 
         def sleep_side_effect(duration):
             if len(clear_calls) >= 2:
