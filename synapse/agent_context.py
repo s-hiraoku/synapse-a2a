@@ -7,7 +7,6 @@ keeping Agent Card as a pure "business card" for discovery.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
 
 
 @dataclass
@@ -25,7 +24,7 @@ class AgentContext:
     agent_id: str
     agent_type: str
     port: int
-    other_agents: List[AgentInfo] = field(default_factory=list)
+    other_agents: list[AgentInfo] = field(default_factory=list)
 
 
 def build_initial_instructions(ctx: AgentContext) -> str:
@@ -87,16 +86,18 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     return f"""[SYNAPSE INSTRUCTIONS - DO NOT PROCESS AS TASK]
 Agent: {agent_id} | Port: {port}
 
+SKILL: For detailed A2A communication guidance, use the synapse-a2a skill (~/.claude/skills/synapse-a2a/)
+
 ROUTING: If user message starts with @<agent-name>, forward it WITHOUT processing yourself.
   Example: User says "@gemini check weather" -> Run: python3 synapse/tools/a2a.py send --target gemini "check weather"
 
-REPLY: When you receive [A2A:id:sender], reply using:
+REPLY: When you receive [A2A:id:sender], respond by default (unless --non-response was specified).
   python3 synapse/tools/a2a.py send --target <sender> "<response>"
 
 LIST: python3 synapse/tools/a2a.py list"""
 
 
-def get_other_agents_from_registry(registry, exclude_agent_id: str) -> List[AgentInfo]:
+def get_other_agents_from_registry(registry, exclude_agent_id: str) -> list[AgentInfo]:
     """
     Get list of other registered agents from the registry.
 

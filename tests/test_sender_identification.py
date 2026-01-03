@@ -1,8 +1,5 @@
 """Tests for A2A sender identification feature."""
-import os
-import pytest
 from unittest.mock import MagicMock, patch
-
 
 # ============================================================
 # CLI Tool: build_sender_info Tests
@@ -135,8 +132,9 @@ class TestInputRouterSenderInfo:
 
     def test_send_to_agent_includes_sender_info(self):
         """send_to_agent should include sender_info when self-identity is set."""
-        from synapse.input_router import InputRouter
         from unittest.mock import MagicMock
+
+        from synapse.input_router import InputRouter
 
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -179,8 +177,9 @@ class TestInputRouterSenderInfo:
 
     def test_send_to_agent_no_sender_info_without_self_identity(self):
         """send_to_agent should not include sender_info when self-identity is not set."""
-        from synapse.input_router import InputRouter
         from unittest.mock import MagicMock
+
+        from synapse.input_router import InputRouter
 
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -224,8 +223,9 @@ class TestA2AClientSenderInfo:
 
     def test_send_to_local_includes_sender_in_payload(self):
         """send_to_local should include sender info in request payload."""
-        from synapse.a2a_client import A2AClient
         import requests
+
+        from synapse.a2a_client import A2AClient
 
         with patch.object(requests, 'post') as mock_post:
             mock_response = MagicMock()
@@ -261,8 +261,9 @@ class TestA2AClientSenderInfo:
 
     def test_send_to_local_no_metadata_without_sender(self):
         """send_to_local should not include metadata when sender_info is None."""
-        from synapse.a2a_client import A2AClient
         import requests
+
+        from synapse.a2a_client import A2AClient
 
         with patch.object(requests, 'post') as mock_post:
             mock_response = MagicMock()

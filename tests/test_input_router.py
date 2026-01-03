@@ -1,9 +1,10 @@
 """Tests for InputRouter - @Agent pattern detection and A2A routing."""
-import pytest
 from unittest.mock import MagicMock, patch
-from synapse.input_router import InputRouter
-from synapse.a2a_client import A2ATask
 
+import pytest
+
+from synapse.a2a_client import A2ATask
+from synapse.input_router import InputRouter
 
 # ============================================================
 # Pattern Detection Tests
@@ -32,13 +33,22 @@ class TestPatternDetection:
         assert action is not None  # Should have send action
         assert output == ""  # Should suppress output
 
-    def test_detect_agent_with_response_flag(self, router):
-        """Should detect --response flag."""
-        for char in "@claude --response what is 2+2":
+    def test_detect_agent_with_non_response_flag(self, router):
+        """Should detect --non-response flag (opt-out of default response)."""
+        for char in "@claude --non-response do this task":
             router.process_char(char)
 
         output, action = router.process_char('\n')
         assert action is not None
+
+    def test_default_wants_response(self, router):
+        """Default behavior should want response (no --non-response flag)."""
+        for char in "@claude hello":
+            router.process_char(char)
+
+        output, action = router.process_char('\n')
+        assert action is not None
+        # The action should call send_to_agent with want_response=True by default
 
     def test_normal_input_passes_through(self, router):
         """Normal input should pass through."""
@@ -463,7 +473,9 @@ class TestInputRouterIntegration:
 class TestMultipleAgentResolution:
     """Test agent resolution when multiple agents of same type exist."""
 
-    def test_single_agent_by_type(self):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_single_agent_by_type(self, mock_port, mock_pid):
         """Single agent of type should match with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -492,7 +504,9 @@ class TestMultipleAgentResolution:
         result = action()
         assert result is True
 
-    def test_multiple_agents_by_type_fails(self):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_multiple_agents_by_type_fails(self, mock_port, mock_pid):
         """Multiple agents of same type should fail with @type."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -526,7 +540,9 @@ class TestMultipleAgentResolution:
         assert router.ambiguous_matches is not None
         assert "@codex-8120" in router.ambiguous_matches or "@codex-8130" in router.ambiguous_matches
 
-    def test_type_port_shorthand_resolves(self):
+    @patch("synapse.input_router.is_process_running", return_value=True)
+    @patch("synapse.input_router.is_port_open", return_value=True)
+    def test_type_port_shorthand_resolves(self, mock_port, mock_pid):
         """@type-port shorthand should resolve specific agent."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {

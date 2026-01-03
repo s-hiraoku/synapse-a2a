@@ -1,9 +1,11 @@
 """Tests for TerminalController identity instruction functionality."""
 
-import pytest
 import threading
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
+import pytest
+
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 
@@ -150,15 +152,15 @@ class TestIdentityInstruction:
         assert instruction.startswith("[A2A:")
         assert ":synapse-system]" in instruction
 
-        # Check key content - full instructions per README design
+        # Check key content - bootstrap message format
         assert "synapse-claude-8100" in instruction
-        assert "Synapse A2A Protocol" in instruction
+        assert "SYNAPSE INSTRUCTIONS" in instruction
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
-        # Check for sender identification instructions (per README)
-        assert "A2A:" in instruction
-        assert "sender" in instruction.lower()
+        # Check for routing instructions
+        assert "ROUTING" in instruction
+        assert "REPLY" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
@@ -268,8 +270,8 @@ class TestSubmitSequence:
 class TestInterAgentMessageWrite:
     """Tests for inter-agent message writing."""
 
-    def test_write_in_interactive_mode_with_submit_seq(self):
-        """Write should send data and submit_seq separately in interactive mode."""
+    def test_write_sends_data_then_submit_seq(self):
+        """Write should send data first, then submit_seq after delay."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$",
@@ -296,15 +298,49 @@ class TestInterAgentMessageWrite:
         try:
             ctrl.write("test message", submit_seq="\r")
 
-            # Should have two writes: data and submit_seq
+            # Should have two writes: data, then submit_seq
             assert len(written_data) == 2
             assert written_data[0] == (1, b"test message")
             assert written_data[1] == (1, b"\r")
         finally:
             os.write = original_write
 
-    def test_write_in_non_interactive_mode_combines_data(self):
-        """Write should combine data and submit_seq in non-interactive mode."""
+    def test_write_with_bracketed_paste_mode_idle_regex(self):
+        """Write should send data then submit_seq with BRACKETED_PASTE_MODE idle_regex."""
+        ctrl = TerminalController(
+            command="claude",
+            idle_regex="BRACKETED_PASTE_MODE",  # For IDLE detection only, not for writing
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            submit_seq="\r"
+        )
+        ctrl.running = True
+        ctrl.interactive = True
+        ctrl.master_fd = 1  # Mock fd
+
+        written_data = []
+
+        import os
+        original_write = os.write
+
+        def mock_os_write(fd, data):
+            written_data.append((fd, data))
+            return len(data)
+
+        os.write = mock_os_write
+
+        try:
+            ctrl.write("test message", submit_seq="\r")
+
+            # Should have two writes: data, then submit_seq
+            assert len(written_data) == 2
+            assert written_data[0] == (1, b"test message")
+            assert written_data[1] == (1, b"\r")
+        finally:
+            os.write = original_write
+
+    def test_write_in_non_interactive_mode(self):
+        """Write should send data then submit_seq in non-interactive mode."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
@@ -327,9 +363,10 @@ class TestInterAgentMessageWrite:
         try:
             ctrl.write("test message", submit_seq="\n")
 
-            # Should have one write with combined data
-            assert len(written_data) == 1
-            assert written_data[0] == (1, b"test message\n")
+            # Should have two writes: data, then submit_seq
+            assert len(written_data) == 2
+            assert written_data[0] == (1, b"test message")
+            assert written_data[1] == (1, b"\n")
         finally:
             os.write = original_write
 
@@ -460,12 +497,12 @@ class TestControllerOutputBuffer:
         assert ctrl.output_buffer == b""
 
     def test_get_context_returns_decoded_buffer(self):
-        """get_context should return decoded output buffer."""
+        """get_context should return render buffer content."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = b"Hello World"
+        ctrl._render_buffer = list("Hello World")
 
         context = ctrl.get_context()
         assert context == "Hello World"
@@ -476,22 +513,21 @@ class TestControllerOutputBuffer:
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = "こんにちは".encode('utf-8')
+        ctrl._render_buffer = list("こんにちは")
 
         context = ctrl.get_context()
         assert context == "こんにちは"
 
-    def test_get_context_handles_invalid_bytes(self):
-        """get_context should handle invalid bytes gracefully."""
+    def test_get_context_returns_empty_for_empty_buffer(self):
+        """get_context should return empty string for empty buffer."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"
         )
-        ctrl.output_buffer = b"valid \xff invalid"
+        ctrl._render_buffer = []
 
-        # Should not raise, uses errors='replace'
         context = ctrl.get_context()
-        assert "valid" in context
+        assert context == ""
 
 
 class TestControllerInterrupt:
@@ -526,7 +562,6 @@ class TestControllerInitialization:
 
     def test_default_env_uses_system_environ(self):
         """Default env should be a copy of os.environ."""
-        import os
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$"

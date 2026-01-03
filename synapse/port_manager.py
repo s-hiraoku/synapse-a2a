@@ -1,11 +1,10 @@
 """Port management for Synapse A2A multi-instance support."""
 
-import socket
 import os
-from typing import Tuple, Optional, Dict, List
+import socket
 
 # Port range definitions (agent_type -> (start, end) inclusive)
-PORT_RANGES: Dict[str, Tuple[int, int]] = {
+PORT_RANGES: dict[str, tuple[int, int]] = {
     "claude": (8100, 8109),
     "gemini": (8110, 8119),
     "codex": (8120, 8129),
@@ -16,7 +15,7 @@ DEFAULT_PORT_RANGE_SIZE = 10
 DEFAULT_BASE_PORT = 8200  # For unknown agent types
 
 
-def get_port_range(agent_type: str) -> Tuple[int, int]:
+def get_port_range(agent_type: str) -> tuple[int, int]:
     """
     Get the port range for an agent type.
 
@@ -87,7 +86,7 @@ class PortManager:
         """
         self.registry = registry
 
-    def get_available_port(self, agent_type: str) -> Optional[int]:
+    def get_available_port(self, agent_type: str) -> int | None:
         """
         Find the first available port in the range for agent_type.
 
@@ -124,7 +123,7 @@ class PortManager:
 
         return None
 
-    def get_running_instances(self, agent_type: str) -> List[Dict]:
+    def get_running_instances(self, agent_type: str) -> list[dict]:
         """
         Get list of running instances for an agent type.
 

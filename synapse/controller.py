@@ -1,42 +1,62 @@
+import codecs
+import fcntl
+import logging
 import os
 import pty
+import re
 import select
+import shutil
+import signal
+import struct
 import subprocess
 import sys
 import termios
 import threading
-import tty
-import re
-import signal
 import time
-import fcntl
-import struct
-import shutil
 import uuid
-from typing import Optional
+from collections.abc import Callable
 
-from synapse.registry import AgentRegistry
 from synapse.agent_context import (
-    AgentContext,
-    build_initial_instructions,
+    build_bootstrap_message,
+)
+from synapse.config import (
+    IDENTITY_WAIT_TIMEOUT,
+    IDLE_CHECK_WINDOW,
+    OUTPUT_BUFFER_MAX,
+    OUTPUT_IDLE_THRESHOLD,
+    POST_WRITE_IDLE_DELAY,
+    STARTUP_DELAY,
+    WRITE_PROCESSING_DELAY,
 )
 from synapse.input_router import InputRouter
+from synapse.registry import AgentRegistry
+from synapse.utils import format_a2a_message
 
 
 class TerminalController:
-    def __init__(self, command: str, idle_regex: str, env: Optional[dict] = None,
-                 registry: Optional[AgentRegistry] = None,
-                 agent_id: Optional[str] = None, agent_type: Optional[str] = None,
-                 submit_seq: Optional[str] = None, startup_delay: Optional[int] = None,
-                 args: Optional[list] = None, port: Optional[int] = None):
+    def __init__(self, command: str, idle_regex: str, env: dict | None = None,
+                 registry: AgentRegistry | None = None,
+                 agent_id: str | None = None, agent_type: str | None = None,
+                 submit_seq: str | None = None, startup_delay: int | None = None,
+                 args: list | None = None, port: int | None = None):
         self.command = command
         self.args = args or []
-        self.idle_regex = re.compile(idle_regex.encode('utf-8'))
+        # Handle special pattern names for TUI apps
+        # BRACKETED_PASTE_MODE detects when ESC[?2004h is emitted (TUI ready for input)
+        if idle_regex == "BRACKETED_PASTE_MODE":
+            self.idle_regex = re.compile(b'\x1b\\[\\?2004h')
+        else:
+            self.idle_regex = re.compile(idle_regex.encode('utf-8'))
         self.env = env or os.environ.copy()
-        self.master_fd = None
-        self.slave_fd = None
-        self.process = None
+        self.master_fd: int | None = None
+        self.slave_fd: int | None = None
+        self.process: subprocess.Popen[bytes] | None = None
         self.output_buffer = b""
+        self._render_buffer = []
+        self._render_cursor = 0
+        self._render_line_start = 0
+        self._max_buffer = OUTPUT_BUFFER_MAX
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.status = "STARTING"
         self.lock = threading.Lock()
         self.running = False
@@ -48,9 +68,9 @@ class TerminalController:
         self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
         self._submit_seq = submit_seq or "\n"
-        self._startup_delay = startup_delay or 3  # Default 3 seconds
+        self._startup_delay = startup_delay or STARTUP_DELAY
         self._last_output_time = None  # Track last output for idle detection
-        self._output_idle_threshold = 1.5  # Seconds of no output = ready for input
+        self._output_idle_threshold = OUTPUT_IDLE_THRESHOLD
 
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(
@@ -61,6 +81,7 @@ class TerminalController:
         )
 
     def start(self):
+        """Start the controlled process in background mode with PTY."""
         self.master_fd, self.slave_fd = pty.openpty()
 
         # Build command list: command + args
@@ -85,30 +106,27 @@ class TerminalController:
         self.thread.start()
         self.status = "BUSY"
 
-    def _execute_a2a_action(self, action_func, agent_name):
+    def _execute_a2a_action(self, action_func: Callable[[], bool], agent_name: str) -> None:
         """Execute A2A action in a thread and write feedback to PTY."""
         try:
             success = action_func()
             feedback = self.input_router.get_feedback_message(agent_name, success)
-            # Write feedback back to the agent's input (if applicable) or log it?
-            # For background mode (_monitor_output), we can't easily inject into the output stream
-            # that is being read by the logger, unless we write to the log explicitly.
-            # But _monitor_output reads from master_fd (output of agent).
-            # The feedback is for the USER (or the log).
-            
-            # Since _monitor_output does not write to stdout/log file itself (subprocess does),
-            # we can only log it or write to master_fd (which would be INPUT to agent).
-            # Writing to master_fd means the agent sees the feedback as user input.
-            # That might be useful: "Message sent".
-            
-            # However, usually feedback is for the human operator.
-            # In background mode, we should probably just log it.
-            pass
+
+            # Log the feedback for debugging
+            logging.debug(f"A2A action for {agent_name}: success={success}")
+
+            # In interactive mode, write feedback to stdout so user can see it
+            if self.interactive and feedback:
+                sys.stdout.write(feedback)
+                sys.stdout.flush()
+
         except Exception as e:
-            # log error
-            pass
+            logging.error(f"A2A action failed for {agent_name}: {e}")
 
     def _monitor_output(self):
+        """Monitor and process output from the controlled process PTY."""
+        if self.master_fd is None or self.process is None:
+            return
         while self.running and self.process.poll() is None:
             r, _, _ = select.select([self.master_fd], [], [], 0.1)
             if self.master_fd in r:
@@ -116,12 +134,8 @@ class TerminalController:
                     data = os.read(self.master_fd, 1024)
                     if not data:
                         break
-                    
-                    with self.lock:
-                        self.output_buffer += data
-                        # Keep buffer size manageable, mainly for regex matching context
-                        if len(self.output_buffer) > 10000:
-                             self.output_buffer = self.output_buffer[-10000:]
+
+                    self._append_output(data)
                     
                     self._check_idle_state(data)
 
@@ -147,10 +161,10 @@ class TerminalController:
                     break
 
     def _check_idle_state(self, new_data):
+        """Check if the output matches the idle regex pattern and update status."""
         # We match against the end of the buffer to see if we reached a prompt
         with self.lock:
-            # Simple check: does the end of buffer match the regex?
-            search_window = self.output_buffer[-1000:]
+            search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
             match = self.idle_regex.search(search_window)
 
             if match:
@@ -159,7 +173,6 @@ class TerminalController:
                 # On first IDLE, send initial instructions via A2A Task format
                 if was_busy and not self._identity_sent and self.agent_id:
                     self._identity_sent = True
-                    # Run in thread to avoid blocking
                     threading.Thread(
                         target=self._send_identity_instruction,
                         daemon=True
@@ -180,36 +193,32 @@ class TerminalController:
             return
 
         # Wait for master_fd to be available (set by read_callback in interactive mode)
-        max_wait = 10  # seconds
-        waited = 0
-        while self.master_fd is None and waited < max_wait:
+        waited = 0.0
+        while self.master_fd is None and waited < IDENTITY_WAIT_TIMEOUT:
             time.sleep(0.1)
             waited += 0.1
 
         if self.master_fd is None:
-            print(f"\x1b[31m[Synapse] Error: master_fd not available after {max_wait}s\x1b[0m")
+            print(f"\x1b[31m[Synapse] Error: master_fd not available after {IDENTITY_WAIT_TIMEOUT}s\x1b[0m")
             return
 
-        # Build initial instructions (agents use 'list' command to discover others)
-        ctx = AgentContext(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type or "unknown",
-            port=self.port,
-        )
-        instructions = build_initial_instructions(ctx)
+        # Build bootstrap message with agent identity and commands
+        bootstrap = build_bootstrap_message(self.agent_id, self.port)
 
         # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
         task_id = str(uuid.uuid4())[:8]
-        prefixed = f"[A2A:{task_id}:synapse-system] {instructions}"
+        prefixed = format_a2a_message(task_id, "synapse-system", bootstrap)
 
-        # Small delay to ensure agent is ready
-        time.sleep(0.5)
+        # Wait for agent to be fully ready
+        time.sleep(POST_WRITE_IDLE_DELAY)
+
         try:
             self.write(prefixed, self._submit_seq)
         except Exception as e:
-            print(f"\x1b[31m[Synapse] Error sending initial instructions: {e}\x1b[0m")
+            logging.error(f"Failed to send initial instructions: {e}")
 
-    def write(self, data: str, submit_seq: str = None):
+    def write(self, data: str, submit_seq: str | None = None):
+        """Write data to the controlled process PTY with optional submit sequence."""
         if not self.running:
             return
 
@@ -220,21 +229,22 @@ class TerminalController:
             self.status = "BUSY"
 
         try:
-            if submit_seq and self.interactive:
-                # For TUI apps (Ink-based), send message and submit sequence separately
-                # with a small delay to allow the app to process input
-                os.write(self.master_fd, data.encode('utf-8'))
-                time.sleep(0.1)
-                os.write(self.master_fd, submit_seq.encode('utf-8'))
-            else:
-                # Standard write: content + submit sequence together
-                full_data = data + (submit_seq or '')
-                os.write(self.master_fd, full_data.encode('utf-8'))
+            # Write data first
+            data_encoded = data.encode('utf-8')
+            os.write(self.master_fd, data_encoded)
+
+            # For TUI apps, wait for input to be processed before sending Enter
+            if submit_seq:
+                time.sleep(WRITE_PROCESSING_DELAY)
+                submit_encoded = submit_seq.encode('utf-8')
+                os.write(self.master_fd, submit_encoded)
         except OSError as e:
+            logging.error(f"Write to PTY failed: {e}")
             raise
         # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
     def interrupt(self):
+        """Send SIGINT to interrupt the controlled process."""
         if not self.running or not self.process:
             return
             
@@ -244,10 +254,12 @@ class TerminalController:
             self.status = "BUSY" # Interruption might cause output/processing
 
     def get_context(self) -> str:
+        """Get the current output context from the controlled process."""
         with self.lock:
-            return self.output_buffer.decode('utf-8', errors='replace')
+            return "".join(self._render_buffer)
 
     def stop(self):
+        """Stop the controlled process and clean up resources."""
         self.running = False
         if self.process:
             self.process.terminate()
@@ -301,11 +313,7 @@ class TerminalController:
                 # Update last output time for idle detection
                 self._last_output_time = time.time()
 
-                # Update output buffer
-                with self.lock:
-                    self.output_buffer += data
-                    if len(self.output_buffer) > 10000:
-                        self.output_buffer = self.output_buffer[-10000:]
+                self._append_output(data)
                 self._check_idle_state(data)
 
                 # Pass output through directly - AI uses a2a.py tool for routing
@@ -316,7 +324,12 @@ class TerminalController:
         def input_callback(fd):
             """Called when there's data from stdin. Pass through to PTY."""
             data = os.read(fd, 1024)
-            return data  # AI handles @agent routing based on initial Task instructions
+            return data
+
+        use_input_callback = (
+            os.environ.get("SYNAPSE_INTERACTIVE_PASSTHROUGH") != "1"
+            and self.agent_type != "claude"
+        )
 
         # Use pty.spawn for robust handling
         signal.signal(signal.SIGWINCH, handle_winch)
@@ -328,13 +341,51 @@ class TerminalController:
         # to pass SYNAPSE_* vars to child process for sender identification
         os.environ.update(self.env)
 
-        pty.spawn(
-            cmd_list,
-            read_callback,
-            input_callback
-        )
+        if use_input_callback:
+            pty.spawn(cmd_list, read_callback, input_callback)
+        else:
+            pty.spawn(cmd_list, read_callback)
 
     def _handle_interactive_input(self, data: bytes):
         """Pass through human input directly to PTY. AI handles routing decisions."""
         if self.master_fd is not None:
             os.write(self.master_fd, data)
+
+    def _append_output(self, data: bytes) -> None:
+        """Append output to buffers, normalizing carriage returns for display context."""
+        text = self._decoder.decode(data)
+        with self.lock:
+            self.output_buffer += data
+            if len(self.output_buffer) > self._max_buffer:
+                self.output_buffer = self.output_buffer[-self._max_buffer:]
+
+            for ch in text:
+                if ch == "\r":
+                    self._render_cursor = self._render_line_start
+                    continue
+                if ch == "\b":
+                    if self._render_cursor > self._render_line_start:
+                        self._render_cursor -= 1
+                    continue
+
+                if self._render_cursor == len(self._render_buffer):
+                    self._render_buffer.append(ch)
+                else:
+                    self._render_buffer[self._render_cursor] = ch
+                self._render_cursor += 1
+
+                if ch == "\n":
+                    self._render_line_start = self._render_cursor
+
+            if len(self._render_buffer) > self._max_buffer:
+                remove = len(self._render_buffer) - self._max_buffer
+                del self._render_buffer[:remove]
+                self._render_cursor = max(0, self._render_cursor - remove)
+                if self._render_cursor > len(self._render_buffer):
+                    self._render_cursor = len(self._render_buffer)
+
+                self._render_line_start = 0
+                for i in range(self._render_cursor - 1, -1, -1):
+                    if self._render_buffer[i] == "\n":
+                        self._render_line_start = i + 1
+                        break

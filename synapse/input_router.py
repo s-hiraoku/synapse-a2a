@@ -2,11 +2,13 @@
 
 import os
 import re
-import requests
+from collections.abc import Callable
 from datetime import datetime
-from typing import Optional, Tuple
+
+import requests
+
+from synapse.a2a_client import A2AClient, get_client
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
-from synapse.a2a_client import get_client, A2AClient
 
 # Simple file-based logging
 LOG_DIR = os.path.expanduser("~/.synapse/logs")
@@ -34,28 +36,29 @@ class InputRouter:
                 pty.write(output)
     """
 
-    # Pattern: @AgentName [--response] message
-    # --response: return response to sender's terminal
+    # Pattern: @AgentName [--non-response] message
+    # Default: return response to sender's terminal
+    # --non-response: opt-out of returning response (just send and forget)
     # Agent name can include hyphens, numbers, and colons (e.g., gemini:8110)
-    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--response)?\s+(.+)$', re.IGNORECASE)
+    A2A_PATTERN = re.compile(r'^@([\w:-]+)(\s+--non-response)?\s+(.+)$', re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {'\x03', '\x04', '\x1a'}  # Ctrl+C, Ctrl+D, Ctrl+Z
 
     def __init__(
         self,
-        registry: Optional[AgentRegistry] = None,
-        a2a_client: Optional[A2AClient] = None,
-        self_agent_id: Optional[str] = None,
-        self_agent_type: Optional[str] = None,
-        self_port: Optional[int] = None
+        registry: AgentRegistry | None = None,
+        a2a_client: A2AClient | None = None,
+        self_agent_id: str | None = None,
+        self_agent_type: str | None = None,
+        self_port: int | None = None
     ):
         self.registry = registry or AgentRegistry()
         self.a2a_client = a2a_client or get_client()
         self.line_buffer = ""
         self.in_escape_sequence = False
-        self.pending_command: Optional[Tuple[str, str, bool]] = None
-        self.pending_agent: Optional[str] = None  # Track last agent for feedback
+        self.pending_command: tuple[str, str, bool] | None = None
+        self.pending_agent: str | None = None  # Track last agent for feedback
         self.is_external_agent: bool = False  # Track if last agent was external
 
         # Self-identification for sender info in A2A messages
@@ -63,7 +66,7 @@ class InputRouter:
         self.self_agent_type = self_agent_type
         self.self_port = self_port
 
-    def process_char(self, char: str) -> Tuple[str, Optional[callable]]:
+    def process_char(self, char: str) -> tuple[str, Callable | None]:
         """
         Process a single character of input.
 
@@ -102,7 +105,8 @@ class InputRouter:
             match = self.A2A_PATTERN.match(line)
             if match:
                 agent = match.group(1).lower()
-                want_response = bool(match.group(2))
+                # Default: want response. --non-response opts out.
+                want_response = not bool(match.group(2))
                 message = match.group(3).strip()
                 # Remove surrounding quotes if present
                 if (message.startswith("'") and message.endswith("'")) or \
@@ -126,7 +130,7 @@ class InputRouter:
         self.line_buffer += char
         return (char, None)
 
-    def process_input(self, data: str) -> list[Tuple[str, Optional[callable]]]:
+    def process_input(self, data: str) -> list[tuple[str, Callable | None]]:
         """Process multiple characters at once."""
         results = []
         for char in data:
@@ -164,7 +168,7 @@ class InputRouter:
             if type_port_match:
                 target_type = type_port_match.group(1)
                 target_port = int(type_port_match.group(2))
-                for agent_id, info in agents.items():
+                for _agent_id, info in agents.items():
                     if (info.get("agent_type", "").lower() == target_type and
                         info.get("port") == target_port):
                         target = info
@@ -257,7 +261,7 @@ class InputRouter:
                     self.last_response = None
                 return True
             else:
-                log("ERROR", f"Failed to create task")
+                log("ERROR", "Failed to create task")
                 self.last_response = None
                 return False
 
@@ -298,7 +302,7 @@ class InputRouter:
             self.last_response = None
             return False
 
-    def _wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 60) -> Optional[str]:
+    def _wait_for_response(self, endpoint: str, agent_name: str, timeout: int = 60) -> str | None:
         """Wait for agent to become IDLE and capture response."""
         import time
 
@@ -309,7 +313,7 @@ class InputRouter:
         try:
             resp = requests.get(f"{endpoint}/status", timeout=5)
             initial_context = resp.json().get("context", "")
-        except:
+        except Exception:
             pass
 
         # Poll for IDLE status
@@ -328,18 +332,17 @@ class InputRouter:
                     return clean.strip() if clean.strip() else None
 
                 time.sleep(1)
-            except:
+            except Exception:
                 time.sleep(1)
 
         return None
 
-    def _extract_text_from_artifacts(self, artifacts: list) -> Optional[str]:
+    def _extract_text_from_artifacts(self, artifacts: list) -> str | None:
         """Extract text content from A2A artifacts."""
         responses = []
         for artifact in artifacts:
-            if isinstance(artifact, dict):
-                if artifact.get("type") == "text":
-                    responses.append(str(artifact.get("data", "")))
+            if isinstance(artifact, dict) and artifact.get("type") == "text":
+                responses.append(str(artifact.get("data", "")))
         return "\n".join(responses) if responses else None
 
     def get_feedback_message(self, agent: str, success: bool) -> str:

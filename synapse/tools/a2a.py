@@ -1,9 +1,11 @@
 import argparse
-import sys
 import json
 import os
 import subprocess
+import sys
+
 import requests
+
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 
 
@@ -11,7 +13,7 @@ def get_parent_pid(pid: int) -> int:
     """Get parent PID of a process (cross-platform)."""
     try:
         # Try /proc first (Linux)
-        with open(f"/proc/{pid}/stat", "r") as f:
+        with open(f"/proc/{pid}/stat") as f:
             stat = f.read().split()
             return int(stat[3])
     except (FileNotFoundError, PermissionError, IndexError):
@@ -48,7 +50,7 @@ def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> 
     return False
 
 
-def build_sender_info(explicit_sender: str = None) -> dict:
+def build_sender_info(explicit_sender: str | None = None) -> dict:
     """
     Build sender info using Registry PID matching.
 
@@ -85,10 +87,7 @@ def build_sender_info(explicit_sender: str = None) -> dict:
 def cmd_list(args):
     """List all available agents."""
     reg = AgentRegistry()
-    if args.live:
-        agents = reg.get_live_agents()
-    else:
-        agents = reg.list_agents()
+    agents = reg.get_live_agents() if args.live else reg.list_agents()
     print(json.dumps(agents, indent=2))
 
 
@@ -136,13 +135,13 @@ def cmd_send(args):
         print(f"Error: Agent '{agent_id}' process (PID {pid}) is no longer running.", file=sys.stderr)
         print(f"  Hint: Remove stale registry with: rm ~/.a2a/registry/{agent_id}.json", file=sys.stderr)
         reg.unregister(agent_id)  # Auto-cleanup
-        print(f"  (Registry entry has been automatically removed)", file=sys.stderr)
+        print("  (Registry entry has been automatically removed)", file=sys.stderr)
         sys.exit(1)
 
     # Check if port is reachable (fast 1-second check)
     if port and not is_port_open("localhost", port, timeout=1.0):
         print(f"Error: Agent '{agent_id}' server on port {port} is not responding.", file=sys.stderr)
-        print(f"  The process may be running but the A2A server is not started.", file=sys.stderr)
+        print("  The process may be running but the A2A server is not started.", file=sys.stderr)
         print(f"  Hint: Start the server with: synapse start {target_agent['agent_type']} --port {port}", file=sys.stderr)
         sys.exit(1)
 
@@ -158,9 +157,13 @@ def cmd_send(args):
         }
     }
 
-    # Add sender info to metadata if available
+    # Add metadata (sender info and response_required)
+    metadata = {}
     if sender_info:
-        payload["metadata"] = {"sender": sender_info}
+        metadata["sender"] = sender_info
+    # Default: response_required is True, --non-response sets it to False
+    metadata["response_required"] = not getattr(args, 'non_response', False)
+    payload["metadata"] = metadata
 
     try:
         # Use tuple timeout: (connect_timeout, read_timeout)
@@ -177,6 +180,7 @@ def cmd_send(args):
         sys.exit(1)
 
 def main():
+    """Parse command-line arguments and execute A2A client operations."""
     parser = argparse.ArgumentParser(description="Synapse A2A Client Tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -192,6 +196,8 @@ def main():
     p_send.add_argument("--target", required=True, help="Target Agent ID or Type (e.g. 'claude')")
     p_send.add_argument("--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)")
     p_send.add_argument("--from", dest="sender", help="Sender Agent ID (auto-detected from env if not specified)")
+    p_send.add_argument("--non-response", dest="non_response", action="store_true",
+                        help="Do not require response from receiver (default: response required)")
     p_send.add_argument("message", help="Content of the message")
 
     args = parser.parse_args()

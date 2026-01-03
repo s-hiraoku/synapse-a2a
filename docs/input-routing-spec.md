@@ -20,8 +20,8 @@ synapse claude
 synapse gemini --port 8102
 
 # Claudeのターミナルで:
-claude> @gemini 明日の天気は？           # Gemini側に表示
-claude> @gemini --response '天気は？'     # Claudeに回答が返る
+claude> @gemini 明日の天気は？                      # デフォルトで回答を待つ
+claude> @gemini --non-response 'ログを記録して'     # 回答を待たずに送信
 ```
 
 ## Architecture

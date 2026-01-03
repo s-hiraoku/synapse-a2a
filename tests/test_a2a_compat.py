@@ -1,20 +1,19 @@
 """Tests for A2A Compatibility Layer - Google A2A protocol compliance."""
-import pytest
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
-from synapse.a2a_compat import (
-    TaskStore,
-    Task,
-    Message,
-    TextPart,
-    FilePart,
-    DataPart,
-    Artifact,
-    SendMessageRequest,
-    create_a2a_router,
-    map_synapse_status_to_a2a
-)
+from unittest.mock import MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
+
+from synapse.a2a_compat import (
+    Artifact,
+    DataPart,
+    FilePart,
+    Message,
+    TaskStore,
+    TextPart,
+    create_a2a_router,
+    map_synapse_status_to_a2a,
+)
 
 # ============================================================
 # Message/Part Model Tests
@@ -542,3 +541,69 @@ class TestA2ACompliance:
         assert "artifacts" in task
         assert "created_at" in task
         assert "updated_at" in task
+
+
+# ============================================================
+# SSE Streaming Tests
+# ============================================================
+
+class TestSSEStreaming:
+    """Test SSE streaming endpoints."""
+
+    @pytest.fixture
+    def mock_controller(self):
+        """Create mock controller."""
+        controller = MagicMock()
+        controller.status = "BUSY"
+        controller.get_context.return_value = ""
+        controller.write = MagicMock()
+        controller.interrupt = MagicMock()
+        return controller
+
+    @pytest.fixture
+    def client(self, mock_controller):
+        """Create test client with mock controller."""
+        from fastapi import FastAPI
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller,
+            agent_type="test",
+            port=8000,
+            submit_seq="\n",
+            agent_id="test-agent"
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_subscribe_endpoint_exists(self, client, mock_controller):  # noqa: ARG002
+        """GET /tasks/{id}/subscribe should exist."""
+        # Create a task first
+        payload = {
+            "message": {
+                "role": "user",
+                "parts": [{"type": "text", "text": "Test"}]
+            }
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        # Mark task as completed so streaming ends quickly
+        from synapse.a2a_compat import task_store
+        task_store.update_status(task_id, "completed")
+
+        # Subscribe should return streaming response
+        with client.stream("GET", f"/tasks/{task_id}/subscribe") as response:
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+    def test_subscribe_returns_404_for_nonexistent_task(self, client, mock_controller):  # noqa: ARG002
+        """Subscribe should return 404 for nonexistent task."""
+        response = client.get("/tasks/nonexistent-id/subscribe")
+        assert response.status_code == 404
+
+    def test_agent_card_streaming_capability(self, client, mock_controller):  # noqa: ARG002
+        """Agent card should indicate streaming capability."""
+        response = client.get("/.well-known/agent.json")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["capabilities"]["streaming"] is True

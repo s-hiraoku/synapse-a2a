@@ -1,8 +1,5 @@
 """Tests for CLI tool arguments passthrough."""
 
-import pytest
-import sys
-from unittest.mock import patch, MagicMock
 
 
 class TestShortcutToolArgsParsing:

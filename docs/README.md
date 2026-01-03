@@ -25,6 +25,14 @@ For user guides, see the [`/guides`](../guides/) directory.
   - PTY 出力を最小限に抑える設計
   - ブートストラップメッセージの仕組み
 
+### ビジョンドキュメント
+
+- `external-agent-connectivity.md` - **外部A2Aエージェント連携ビジョン**
+  - SaaS/クラウドサービス連携のユースケース
+  - B2B、IoT、専門AIモデル連携の可能性
+  - エコシステム成熟の時間軸予測
+  - Synapse A2A の戦略的ポジション
+
 ### 仕様ドキュメント
 
 - `draft-spec.md` - Draft specification for Synapse A2A protocol

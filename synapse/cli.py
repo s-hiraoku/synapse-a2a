@@ -3,19 +3,46 @@
 
 import argparse
 import os
-import sys
+import shutil
 import signal
-import asyncio
 import subprocess
+import sys
 import time
+from pathlib import Path
+
 import yaml
-from synapse.registry import AgentRegistry
-from synapse.controller import TerminalController
+
 from synapse.a2a_client import get_client
-from synapse.port_manager import PortManager, PORT_RANGES, is_process_alive
+from synapse.auth import generate_api_key
+from synapse.controller import TerminalController
+from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
+from synapse.registry import AgentRegistry
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
+
+
+def install_skills():
+    """Install Synapse A2A skills to ~/.claude/skills/ if not present."""
+    target_dir = Path.home() / ".claude" / "skills" / "synapse-a2a"
+
+    # Skip if already installed
+    if target_dir.exists():
+        return
+
+    # Find source skills directory (from package installation)
+    try:
+        import synapse
+        package_dir = Path(synapse.__file__).parent
+        source_dir = package_dir / "skills" / "synapse-a2a"
+
+        if source_dir.exists():
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source_dir, target_dir)
+            print(f"\x1b[32m[Synapse]\x1b[0m Installed A2A skill to {target_dir}")
+    except Exception:
+        # Silently ignore installation errors
+        pass
 
 
 def cmd_start(args):
@@ -23,6 +50,13 @@ def cmd_start(args):
     profile = args.profile
     port = args.port
     foreground = args.foreground
+    ssl_cert = getattr(args, 'ssl_cert', None)
+    ssl_key = getattr(args, 'ssl_key', None)
+
+    # Validate SSL options
+    if (ssl_cert and not ssl_key) or (ssl_key and not ssl_cert):
+        print("Error: Both --ssl-cert and --ssl-key must be provided together")
+        sys.exit(1)
 
     # Extract tool args (filter out -- if present at start)
     tool_args = getattr(args, 'tool_args', [])
@@ -46,14 +80,22 @@ def cmd_start(args):
         "--port", str(port)
     ]
 
+    # Add SSL options if provided
+    if ssl_cert and ssl_key:
+        cmd.extend(["--ssl-cert", ssl_cert, "--ssl-key", ssl_key])
+
     # Set up environment with tool args (null-separated for safe parsing)
     env = os.environ.copy()
     if tool_args:
         env["SYNAPSE_TOOL_ARGS"] = '\x00'.join(tool_args)
 
+    protocol = "https" if ssl_cert else "http"
+
     if foreground:
         # Run in foreground
-        print(f"Starting {profile} on port {port} (foreground)...")
+        print(f"Starting {profile} on port {port} (foreground, {protocol.upper()})...")
+        if ssl_cert:
+            print(f"SSL: {ssl_cert}")
         if tool_args:
             print(f"Tool args: {' '.join(tool_args)}")
         try:
@@ -62,7 +104,9 @@ def cmd_start(args):
             print("\nStopped.")
     else:
         # Run in background
-        print(f"Starting {profile} on port {port} (background)...")
+        print(f"Starting {profile} on port {port} (background, {protocol.upper()})...")
+        if ssl_cert:
+            print(f"SSL: {ssl_cert}")
         if tool_args:
             print(f"Tool args: {' '.join(tool_args)}")
 
@@ -315,7 +359,65 @@ def cmd_external_info(args):
                 print(f"    {skill['description']}")
 
 
-def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
+# ============================================================
+# Auth Management Commands
+# ============================================================
+
+def cmd_auth_generate_key(args):
+    """Generate a new API key."""
+    count = getattr(args, 'count', 1)
+    export_format = getattr(args, 'export', False)
+
+    keys = [generate_api_key() for _ in range(count)]
+
+    if export_format:
+        # Output in export format
+        if count == 1:
+            print(f"export SYNAPSE_API_KEYS={keys[0]}")
+        else:
+            print(f"export SYNAPSE_API_KEYS={','.join(keys)}")
+    else:
+        # Simple output
+        for key in keys:
+            print(key)
+
+
+def cmd_auth_setup(args):
+    """Generate API keys and show setup instructions."""
+    api_key = generate_api_key()
+    admin_key = generate_api_key()
+
+    print("=" * 60)
+    print("Synapse A2A Authentication Setup")
+    print("=" * 60)
+    print()
+    print("Generated keys:")
+    print(f"  API Key:   {api_key}")
+    print(f"  Admin Key: {admin_key}")
+    print()
+    print("Add these to your shell configuration (~/.bashrc, ~/.zshrc):")
+    print()
+    print("  export SYNAPSE_AUTH_ENABLED=true")
+    print(f"  export SYNAPSE_API_KEYS={api_key}")
+    print(f"  export SYNAPSE_ADMIN_KEY={admin_key}")
+    print()
+    print("Or run with environment variables:")
+    print()
+    print("  SYNAPSE_AUTH_ENABLED=true \\")
+    print(f"  SYNAPSE_API_KEYS={api_key} \\")
+    print(f"  SYNAPSE_ADMIN_KEY={admin_key} \\")
+    print("  synapse claude")
+    print()
+    print("Client usage:")
+    print()
+    print(f"  curl -H 'X-API-Key: {api_key}' http://localhost:8100/tasks")
+    print()
+    print("=" * 60)
+    print("IMPORTANT: Save these keys securely. They cannot be recovered.")
+    print("=" * 60)
+
+
+def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None):
     """Run an agent in interactive mode with input routing."""
     tool_args = tool_args or []
 
@@ -327,7 +429,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
         print(f"Profile '{profile}' not found")
         sys.exit(1)
 
-    with open(profile_path, 'r') as f:
+    with open(profile_path) as f:
         config = yaml.safe_load(f)
 
     # Load submit sequence from profile (decode escape sequences)
@@ -381,11 +483,17 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
 
     print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
     print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
-    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
-    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
+<<<<<<< HEAD
+    print("\x1b[32m[Synapse]\x1b[0m Use @Agent to send messages to other agents")
+    print("\x1b[32m[Synapse]\x1b[0m Use @Agent --response 'message' to get response here")
+    print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
+=======
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent 'message' to send (response expected by default)")
+    print(f"\x1b[32m[Synapse]\x1b[0m Use @Agent --non-response 'message' to send without expecting response")
     print(f"\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
+>>>>>>> 0e416fc (feat: add synapse-a2a skill and change default to require response)
     print()
-    print(f"\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
+    print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
     print(f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json")
     print(f"\x1b[32m[Synapse]\x1b[0m   Tasks API:  http://localhost:{port}/tasks/send")
     print()
@@ -393,8 +501,10 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
     try:
         # Start the API server in background
         import threading
-        from synapse.server import create_app
+
         import uvicorn
+
+        from synapse.server import create_app
 
         app = create_app(controller, registry, agent_id, port, submit_seq, agent_type=profile, registry=registry)
 
@@ -422,6 +532,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list = None):
 
 
 def main():
+    # Install A2A skills if not present
+    install_skills()
+
     # Check for shortcut: synapse claude [--port PORT] [-- TOOL_ARGS...]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]
@@ -456,6 +569,7 @@ def main():
                 print(port_manager.format_exhaustion_error(profile))
                 sys.exit(1)
 
+        assert port is not None  # Type narrowing for mypy/ty
         cmd_run_interactive(profile, port, tool_args)
         return
 
@@ -471,6 +585,8 @@ def main():
     p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
     p_start.add_argument("--port", type=int, help="Server port (default: auto)")
     p_start.add_argument("--foreground", "-f", action="store_true", help="Run in foreground")
+    p_start.add_argument("--ssl-cert", help="SSL certificate file path (enables HTTPS)")
+    p_start.add_argument("--ssl-key", help="SSL private key file path")
     p_start.add_argument("tool_args", nargs=argparse.REMAINDER,
                          help="Arguments after -- are passed to the CLI tool")
     p_start.set_defaults(func=cmd_start)
@@ -532,6 +648,20 @@ def main():
     p_ext_info.add_argument("alias", help="Agent alias")
     p_ext_info.set_defaults(func=cmd_external_info)
 
+    # auth - Authentication management
+    p_auth = subparsers.add_parser("auth", help="Manage API key authentication")
+    auth_subparsers = p_auth.add_subparsers(dest="auth_command", help="Auth commands")
+
+    # auth generate-key
+    p_auth_gen = auth_subparsers.add_parser("generate-key", help="Generate a new API key")
+    p_auth_gen.add_argument("--count", "-n", type=int, default=1, help="Number of keys to generate")
+    p_auth_gen.add_argument("--export", "-e", action="store_true", help="Output in export format")
+    p_auth_gen.set_defaults(func=cmd_auth_generate_key)
+
+    # auth setup
+    p_auth_setup = auth_subparsers.add_parser("setup", help="Generate keys and show setup instructions")
+    p_auth_setup.set_defaults(func=cmd_auth_setup)
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -541,6 +671,11 @@ def main():
     # Handle external subcommand without action
     if args.command == "external" and (not hasattr(args, 'external_command') or args.external_command is None):
         p_external.print_help()
+        sys.exit(1)
+
+    # Handle auth subcommand without action
+    if args.command == "auth" and (not hasattr(args, 'auth_command') or args.auth_command is None):
+        p_auth.print_help()
         sys.exit(1)
 
     args.func(args)
