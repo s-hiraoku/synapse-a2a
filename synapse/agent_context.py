@@ -91,10 +91,10 @@ Agent: {agent_id} | Port: {port}
 SKILL: For detailed A2A guidance, use synapse-a2a skill
 
 ROUTING: If message starts with @<agent>, forward WITHOUT processing yourself.
-  Example: @gemini check weather -> synapse send --target gemini "check weather"
+  Example: @gemini check weather -> python3 synapse/tools/a2a.py send --target gemini "check weather"
 
 REPLY: When you receive [A2A:id:sender], respond by default.
-  synapse send --target <sender> "<response>"
+  python3 synapse/tools/a2a.py send --target <sender> "<response>"
 
 LIST: python3 synapse/tools/a2a.py list"""
 

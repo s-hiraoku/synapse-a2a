@@ -315,7 +315,7 @@ flowchart TB
 | **主な目的** | エンタープライズ相互運用 | CLI エージェント統合 | - |
 | **通信方式** | JSON-RPC / gRPC / REST | HTTP REST | ✅ REST 対応 |
 | **Agent 検出** | Agent Card (JSON) | Registry + Agent Card | ✅ 対応 |
-| **状態管理** | Task ライフサイクル | Task + READY/PROCESSING マッピング | ✅ 対応 |
+| **状態管理** | Task ライフサイクル | Task + READY/PROCESSING/ERROR マッピング* | ⚠️ 拡張 |
 | **Message/Part** | 標準構造 | 標準構造 | ✅ 対応 |
 | **認証** | OAuth2, API Key 等 | なし（ローカル前提） | ❌ 未対応 |
 | **ストリーミング** | SSE, WebSocket | ポーリング | ❌ 未対応 |
@@ -323,6 +323,8 @@ flowchart TB
 | **CLI 統合** | なし | @Agent 記法 | 独自拡張 |
 | **PTY サポート** | なし | あり（コア機能） | 独自拡張 |
 | **TUI 対応** | なし | あり | 独自拡張 |
+
+\* **注**: ERROR は Synapse A2A 独自の拡張状態です。Google A2A の Task ライフサイクルの `failed` 状態に相当し、CLI エージェントの障害や予期しない終了を検出する際に使用されます。
 
 ### 4.3 アーキテクチャ比較
 
