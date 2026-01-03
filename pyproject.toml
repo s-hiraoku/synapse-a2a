@@ -67,8 +67,8 @@ quote-style = "double"
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 check_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true
@@ -83,6 +83,11 @@ exclude = [
 [[tool.mypy.overrides]]
 module = "synapse.proto.*"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
 [tool.setuptools.package-data]
 synapse = ["skills/**/*"]

@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 try:
-    import grpc  # type: ignore[import-untyped]
+    import grpc
 
     from synapse.proto import a2a_pb2_grpc
 
