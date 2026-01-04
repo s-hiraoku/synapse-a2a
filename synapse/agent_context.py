@@ -57,6 +57,13 @@ def build_initial_instructions(ctx: AgentContext) -> str:
 - Send: `python3 synapse/tools/a2a.py send --target <agent> --priority [1-5] "<msg>"`
 - List: `python3 synapse/tools/a2a.py list` (discover available agents)
 
+## Task History (Enable with SYNAPSE_HISTORY_ENABLED=true)
+- List: `synapse history list [--agent <name>] [--limit <n>]`
+- Search: `synapse history search <keywords> [--agent <name>] [--limit <n>]`
+- Stats: `synapse history stats [--agent <name>]`
+- Export: `synapse history export --format [json|csv] [--output <file>]`
+- Cleanup: `synapse history cleanup --days <n>` or `--max-size <mb>`
+
 ## Routing Rules
 - `@OtherAgent <message>`: FORWARD to that agent (do NOT process yourself)
 - No @mention or addressed to you: PROCESS it yourself
@@ -102,7 +109,14 @@ When user types @agent message, use: python3 synapse/tools/a2a.py send --target 
 AVAILABLE AGENTS: claude, gemini, codex
 LIST COMMAND: python3 synapse/tools/a2a.py list
 
-SKILL: For advanced A2A features, use synapse-a2a skill"""
+SKILL: For advanced A2A features, use synapse-a2a skill
+
+TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
+  synapse history list [--agent <name>] [--limit <n>]    - List tasks
+  synapse history search <keywords>                       - Search by keywords
+  synapse history stats [--agent <name>]                  - View statistics
+  synapse history export --format [json|csv] [--output <file>]  - Export data
+  synapse history cleanup --days <n> [--force]            - Delete old tasks"""
 
 
 def get_other_agents_from_registry(
