@@ -13,6 +13,7 @@ import os
 import threading
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -25,6 +26,7 @@ from synapse.auth import require_auth
 from synapse.config import CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
+from synapse.history import HistoryManager
 from synapse.output_parser import parse_output
 from synapse.registry import AgentRegistry
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
@@ -53,6 +55,73 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
         "NOT_STARTED": "submitted",
     }
     return mapping.get(synapse_status, "working")
+
+
+def _save_task_to_history(
+    task: "Task", agent_id: str, agent_name: str, task_status: str
+) -> None:
+    """Save completed task to history database.
+
+    Args:
+        task: The completed Task object
+        agent_id: Agent ID that processed the task
+        agent_name: Agent name (claude, gemini, codex)
+        task_status: Final status (completed, failed, canceled)
+    """
+    if not history_manager.enabled:
+        return
+
+    try:
+        # Extract input text
+        input_text = ""
+        if task.message and task.message.parts:
+            input_text = extract_text_from_parts(task.message.parts)
+
+        # Extract output text from artifacts
+        output_parts = []
+        for artifact in task.artifacts:
+            if artifact.type == "code":
+                code_data = artifact.data.get("metadata", {})
+                language = code_data.get("language", "text")
+                content = artifact.data.get("content", "")
+                output_parts.append(f"[Code: {language}]\n{content}")
+            elif artifact.type == "text":
+                content = (
+                    artifact.data
+                    if isinstance(artifact.data, str)
+                    else artifact.data.get("content", "")
+                )
+                output_parts.append(content)
+            else:
+                # Other artifact types
+                output_parts.append(f"[{artifact.type}] {artifact.data}")
+
+        output_text = "\n".join(output_parts) if output_parts else ""
+
+        # Build metadata
+        metadata = task.metadata.copy() if task.metadata else {}
+        if task.error:
+            metadata["error"] = {
+                "code": task.error.code,
+                "message": task.error.message,
+                "data": task.error.data,
+            }
+
+        # Save to history
+        history_manager.save_observation(
+            task_id=task.id,
+            agent_name=agent_name,
+            session_id=task.context_id or "default",
+            input_text=input_text,
+            output_text=output_text,
+            status=task_status,
+            metadata=metadata,
+        )
+    except Exception as e:
+        # Non-critical error - log but don't crash
+        import sys
+
+        print(f"Warning: Failed to save task to history: {e}", file=sys.stderr)
 
 
 # ============================================================
@@ -246,6 +315,10 @@ class TaskStore:
 
 # Global task store
 task_store = TaskStore()
+
+# Global history manager
+_history_db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+history_manager = HistoryManager.from_env(db_path=_history_db_path)
 
 
 # ============================================================
@@ -490,7 +563,7 @@ def create_a2a_router(
                         )
                     )
 
-                # Parse and add output as structured artifacts
+                # Parse and add output as structured artifacts (before history saving)
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
                 if recent_context:
                     segments = parse_output(recent_context)
@@ -508,6 +581,16 @@ def create_a2a_router(
                         task_store.add_artifact(
                             task_id, Artifact(type="text", data=recent_context)
                         )
+
+                # Save to history after all task updates are complete
+                updated_task = task_store.get(task_id)
+                if updated_task:
+                    _save_task_to_history(
+                        updated_task,
+                        agent_id=agent_id or "unknown",
+                        agent_name=agent_type or "unknown",
+                        task_status=updated_task.status,
+                    )
 
             updated_task = task_store.get(task_id)
             if updated_task:
@@ -553,6 +636,16 @@ def create_a2a_router(
                 get_webhook_registry(), "task.canceled", {"task_id": task_id}
             )
         )
+
+        # Save to history
+        updated_task = task_store.get(task_id)
+        if updated_task:
+            _save_task_to_history(
+                updated_task,
+                agent_id=agent_id or "unknown",
+                agent_name=agent_type or "unknown",
+                task_status="canceled",
+            )
 
         return {"status": "canceled", "task_id": task_id}
 
