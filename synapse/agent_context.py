@@ -72,6 +72,7 @@ def build_initial_instructions(ctx: AgentContext) -> str:
 ## Replying
 Messages from other agents include sender info: `[A2A:<task_id>:<sender_id>] <message>`
 Reply using: `python3 synapse/tools/a2a.py send --target <sender_id> "<response>"`
+Avoid reply loops: if you get repeated greetings/acks with no new request, reply once and stop unless the user asks.
 """
 
 
@@ -99,6 +100,7 @@ ROUTING: If message starts with @<agent>, forward WITHOUT processing yourself.
 
 REPLY: When you receive [A2A:id:sender], respond by default.
   python3 synapse/tools/a2a.py send --target <sender> "<response>"
+REPLY LOOP: If greetings/acks repeat without new requests, reply once and stop unless the user asks.
 
 AGENTS: claude, gemini, codex
 
