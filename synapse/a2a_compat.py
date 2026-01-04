@@ -86,8 +86,10 @@ def _save_task_to_history(
                 content = artifact.data.get("content", "")
                 output_parts.append(f"[Code: {language}]\n{content}")
             elif artifact.type == "text":
-                content = artifact.data if isinstance(artifact.data, str) else artifact.data.get(
-                    "content", ""
+                content = (
+                    artifact.data
+                    if isinstance(artifact.data, str)
+                    else artifact.data.get("content", "")
                 )
                 output_parts.append(content)
             else:
@@ -118,6 +120,7 @@ def _save_task_to_history(
     except Exception as e:
         # Non-critical error - log but don't crash
         import sys
+
         print(f"Warning: Failed to save task to history: {e}", file=sys.stderr)
 
 

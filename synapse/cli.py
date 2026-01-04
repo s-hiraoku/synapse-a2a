@@ -328,8 +328,12 @@ def cmd_history_list(args: argparse.Namespace) -> None:
         agent = obs["agent_name"][:10]
         status = obs["status"][:12]
         timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
-        input_preview = obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
-        print(f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}")
+        input_preview = (
+            obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
+        )
+        print(
+            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
+        )
 
     print(f"\nShowing {len(observations)} entries (limit: {args.limit})")
     if args.agent:
@@ -824,7 +828,11 @@ def main() -> None:
         "--agent", "-a", help="Filter by agent name (e.g., claude, gemini, codex)"
     )
     p_hist_list.add_argument(
-        "--limit", "-n", type=int, default=50, help="Maximum number of entries (default: 50)"
+        "--limit",
+        "-n",
+        type=int,
+        default=50,
+        help="Maximum number of entries (default: 50)",
     )
     p_hist_list.set_defaults(func=cmd_history_list)
 
