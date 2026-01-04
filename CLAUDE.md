@@ -23,6 +23,7 @@ uv sync
 pytest                                    # All tests
 pytest tests/test_a2a_compat.py -v        # Specific file
 pytest -k "test_identity" -v              # Pattern match
+pytest tests/test_history.py -v           # History feature tests
 
 # Run agent (interactive)
 synapse claude
@@ -33,6 +34,12 @@ synapse gemini
 synapse list                              # Show all running agents
 synapse list --watch                      # Watch mode (refresh every 2s)
 synapse list -w -i 1                      # Watch mode with 1s interval
+
+# Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
+SYNAPSE_HISTORY_ENABLED=true synapse claude
+synapse history list                      # Show recent task history
+synapse history list --agent claude       # Filter by agent
+synapse history show <task_id>            # Show task details
 
 # Low-level A2A tool
 python3 synapse/tools/a2a.py list
@@ -61,6 +68,7 @@ synapse/
 ├── input_router.py  # @Agent pattern detection and routing
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
+├── history.py       # Session history persistence using SQLite
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 ```
 
