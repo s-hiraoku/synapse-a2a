@@ -174,14 +174,15 @@ class TestBuildBootstrapMessage:
         """Bootstrap message should be short with essential commands only."""
         msg = build_bootstrap_message("synapse-claude-8100", 8100)
 
-        # Should be minimal (identity + skill ref + routing + reply + list, ~650 chars)
-        assert len(msg) < 700
+        # Should be minimal (identity + skill ref + A2A instructions + list, ~1000 chars)
+        assert len(msg) < 1200
         # Should contain essential commands
         assert "a2a.py send" in msg
         assert "a2a.py list" in msg
-        # Should contain routing and reply instructions
-        assert "ROUTING" in msg
-        assert "REPLY" in msg
+        # Should contain A2A message handling instructions
+        assert "RECEIVING A2A MESSAGES" in msg
+        assert "SENDING MESSAGES TO OTHER AGENTS" in msg
+        assert "You MUST respond using" in msg
         # Should have clear "do not process" marker
         assert "DO NOT PROCESS" in msg
         # Should reference the synapse-a2a skill

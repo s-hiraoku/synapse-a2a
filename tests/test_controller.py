@@ -158,9 +158,10 @@ class TestIdentityInstruction:
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
-        # Check for routing instructions
-        assert "ROUTING" in instruction
-        assert "REPLY" in instruction
+        # Check for A2A message handling instructions
+        assert "RECEIVING A2A MESSAGES" in instruction
+        assert "SENDING MESSAGES TO OTHER AGENTS" in instruction
+        assert "You MUST respond using" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
