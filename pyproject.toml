@@ -33,6 +33,7 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "types-pyyaml>=6.0.12.20250915",
     "ty>=0.0.1a7",
+    "pre-commit>=4.0.0",
 ]
 grpc = [
     "grpcio>=1.60.0",

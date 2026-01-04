@@ -389,7 +389,7 @@ class TestInterAgentMessageWrite:
         import os
 
         original_write = os.write
-        os.write = lambda fd, data: len(data) if isinstance(data, (bytes, str)) else 0  # type: ignore[assignment, unused-ignore]
+        os.write = lambda fd, data: len(data) if isinstance(data, bytes | str) else 0  # type: ignore[assignment, unused-ignore]
 
         try:
             ctrl.write("test", submit_seq="\n")
