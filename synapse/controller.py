@@ -19,8 +19,6 @@ from collections.abc import Callable
 from synapse.agent_context import (
     build_bootstrap_message,
 )
-
-logger = logging.getLogger(__name__)
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
     IDLE_CHECK_WINDOW,
@@ -32,6 +30,8 @@ from synapse.config import (
 from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
 from synapse.utils import format_a2a_message
+
+logger = logging.getLogger(__name__)
 
 
 class TerminalController:
