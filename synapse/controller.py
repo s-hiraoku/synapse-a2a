@@ -271,7 +271,8 @@ class TerminalController:
                     success = self.registry.update_status(self.agent_id, self.status)
                     if not success:
                         logging.warning(
-                            f"Failed to sync status to registry: {self.agent_id} -> {self.status}"
+                            f"Failed to sync status to registry: {self.agent_id}"
+                            f" -> {self.status}"
                         )
 
             # 5. Send initial instructions on first READY
