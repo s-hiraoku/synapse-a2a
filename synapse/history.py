@@ -306,8 +306,8 @@ class HistoryManager:
                 cursor = conn.cursor()
 
                 # Build LIKE/GLOB clauses dynamically
-                like_clauses = []
-                params = []
+                like_clauses: list[str] = []
+                params: list[Any] = []
 
                 for keyword in keywords:
                     if case_sensitive:

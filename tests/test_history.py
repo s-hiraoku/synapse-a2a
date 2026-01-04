@@ -482,7 +482,9 @@ class TestHistorySearch:
         """Should find observations containing keyword."""
         results = populated_history.search_observations(keywords=["Python"])
         assert len(results) >= 2
-        assert any("Python" in obs["input"] or "Python" in obs["output"] for obs in results)
+        assert any(
+            "Python" in obs["input"] or "Python" in obs["output"] for obs in results
+        )
 
     def test_search_multiple_keywords_or_logic(self, populated_history):
         """Should find observations matching any keyword (OR logic)."""
@@ -604,7 +606,14 @@ class TestHistoryCleanup:
                 """INSERT INTO observations
                 (session_id, agent_name, task_id, input, output, status, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-40 days'))""",
-                ("session-old", "gemini", f"task-old-{i}", f"Old input {i}", f"Old output {i}", "completed"),
+                (
+                    "session-old",
+                    "gemini",
+                    f"task-old-{i}",
+                    f"Old input {i}",
+                    f"Old output {i}",
+                    "completed",
+                ),
             )
         conn.commit()
         conn.close()
@@ -754,7 +763,7 @@ class TestHistoryStatistics:
         assert stats["total_tasks"] >= 3
         assert all(
             agent in ["claude"] or agent not in stats.get("by_agent", {})
-            for agent in stats.get("by_agent", {}).keys()
+            for agent in stats.get("by_agent", {})
         )
 
     def test_statistics_database_size(self, populated_history_with_stats):
