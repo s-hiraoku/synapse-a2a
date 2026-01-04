@@ -275,3 +275,346 @@ class HistoryManager:
                 data["metadata"] = {}
 
         return data
+
+    def search_observations(
+        self,
+        keywords: list[str],
+        logic: str = "OR",
+        case_sensitive: bool = False,
+        limit: int = 50,
+        agent_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Search observations by keyword(s) in input/output fields.
+
+        Args:
+            keywords: List of keywords to search for
+            logic: Search logic - "OR" (any keyword) or "AND" (all keywords)
+            case_sensitive: Whether search is case-sensitive (default: False)
+            limit: Maximum number of results to return
+            agent_name: Optional filter by agent name
+
+        Returns:
+            List of observation dicts matching search criteria
+        """
+        if not self.enabled or not keywords:
+            return []
+
+        with self._lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Build LIKE/GLOB clauses dynamically
+                like_clauses = []
+                params = []
+
+                for keyword in keywords:
+                    if case_sensitive:
+                        # Use GLOB for case-sensitive matching
+                        like_clauses.append("(input GLOB ? OR output GLOB ?)")
+                        params.extend([f"*{keyword}*", f"*{keyword}*"])
+                    else:
+                        # Use LOWER() + LIKE for case-insensitive matching
+                        like_clauses.append("(LOWER(input) LIKE ? OR LOWER(output) LIKE ?)")
+                        params.extend([f"%{keyword.lower()}%", f"%{keyword.lower()}%"])
+
+                # Join clauses with OR or AND based on logic parameter
+                if logic.upper() == "AND":
+                    where_clause = " AND ".join(like_clauses)
+                else:
+                    where_clause = " OR ".join(like_clauses)
+
+                # Build full query
+                query = f"SELECT * FROM observations WHERE ({where_clause})"
+
+                # Add agent filter if provided
+                if agent_name:
+                    query += " AND agent_name = ?"
+                    params.append(agent_name)
+
+                # Add ordering and limit
+                query += " ORDER BY timestamp DESC LIMIT ?"
+                params.append(limit)
+
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                conn.close()
+
+                return [self._row_to_dict(row) for row in rows]
+            except sqlite3.Error as e:
+                import sys
+                print(f"Warning: Failed to search observations: {e}", file=sys.stderr)
+                return []
+
+    def cleanup_old_observations(
+        self,
+        days: int,
+        vacuum: bool = True,
+    ) -> dict[str, Any]:
+        """Delete observations older than specified number of days.
+
+        Args:
+            days: Number of days - delete records older than this
+            vacuum: Whether to run VACUUM to reclaim disk space
+
+        Returns:
+            Dict with keys: deleted_count, vacuum_reclaimed_mb
+        """
+        if not self.enabled:
+            return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
+
+        with self._lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+
+                # Delete observations older than N days
+                cursor.execute(
+                    f"""DELETE FROM observations
+                       WHERE timestamp < datetime('now', '-{days} days')"""
+                )
+                deleted_count = cursor.rowcount
+                conn.commit()
+
+                # VACUUM to reclaim space
+                vacuum_reclaimed_mb = 0.0
+                if vacuum and deleted_count > 0:
+                    try:
+                        size_before = Path(self.db_path).stat().st_size
+                        cursor.execute("VACUUM")
+                        conn.commit()
+                        size_after = Path(self.db_path).stat().st_size
+                        vacuum_reclaimed_mb = (size_before - size_after) / (1024 * 1024)
+                    except (OSError, sqlite3.Error):
+                        # If VACUUM fails, still report the deletion
+                        vacuum_reclaimed_mb = 0.0
+
+                conn.close()
+
+                return {
+                    "deleted_count": deleted_count,
+                    "vacuum_reclaimed_mb": vacuum_reclaimed_mb,
+                }
+            except sqlite3.Error as e:
+                import sys
+                print(f"Warning: Failed to cleanup observations: {e}", file=sys.stderr)
+                return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
+
+    def cleanup_by_size(
+        self,
+        max_size_mb: int,
+        vacuum: bool = True,
+    ) -> dict[str, Any]:
+        """Delete oldest observations to keep database under max size.
+
+        Args:
+            max_size_mb: Target maximum database size in megabytes
+            vacuum: Whether to run VACUUM to reclaim disk space
+
+        Returns:
+            Dict with keys: deleted_count, vacuum_reclaimed_mb
+        """
+        if not self.enabled:
+            return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
+
+        with self._lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+
+                # Check current size
+                current_size_mb = Path(self.db_path).stat().st_size / (1024 * 1024)
+
+                if current_size_mb <= max_size_mb:
+                    conn.close()
+                    return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
+
+                # Delete in batches (25% at a time) until under target size
+                cursor.execute("SELECT COUNT(*) FROM observations")
+                total_rows = cursor.fetchone()[0]
+                deleted_count = 0
+                max_iterations = 10
+
+                for _ in range(max_iterations):
+                    # Delete oldest 25% of remaining records
+                    batch_size = max(1, total_rows // 4)
+
+                    cursor.execute(
+                        """DELETE FROM observations
+                           WHERE id IN (
+                               SELECT id FROM observations
+                               ORDER BY timestamp ASC
+                               LIMIT ?
+                           )""",
+                        (batch_size,),
+                    )
+
+                    deleted_count += cursor.rowcount
+                    total_rows -= cursor.rowcount
+                    conn.commit()
+
+                    # Check size after deletion
+                    current_size_mb = Path(self.db_path).stat().st_size / (1024 * 1024)
+
+                    if current_size_mb <= max_size_mb or total_rows == 0:
+                        break
+
+                # VACUUM to reclaim space
+                vacuum_reclaimed_mb = 0.0
+                if vacuum and deleted_count > 0:
+                    try:
+                        size_before = Path(self.db_path).stat().st_size
+                        cursor.execute("VACUUM")
+                        conn.commit()
+                        size_after = Path(self.db_path).stat().st_size
+                        vacuum_reclaimed_mb = (size_before - size_after) / (1024 * 1024)
+                    except (OSError, sqlite3.Error):
+                        vacuum_reclaimed_mb = 0.0
+
+                conn.close()
+
+                return {
+                    "deleted_count": deleted_count,
+                    "vacuum_reclaimed_mb": vacuum_reclaimed_mb,
+                }
+            except sqlite3.Error as e:
+                import sys
+                print(f"Warning: Failed to cleanup by size: {e}", file=sys.stderr)
+                return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
+
+    def get_database_size(self) -> int:
+        """Get database file size in bytes.
+
+        Returns:
+            Size of database file in bytes, or 0 if file doesn't exist
+        """
+        try:
+            return Path(self.db_path).stat().st_size
+        except OSError:
+            return 0
+
+    def get_statistics(
+        self,
+        agent_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Get usage statistics for task history.
+
+        Args:
+            agent_name: Optional filter to get stats for specific agent only
+
+        Returns:
+            Dict with statistics: total_tasks, completed, failed, canceled,
+            success_rate, by_agent breakdown, db_size_mb, oldest_task, newest_task
+        """
+        if not self.enabled:
+            return {}
+
+        with self._lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Build WHERE clause for agent filter
+                where_clause = ""
+                params = []
+                if agent_name:
+                    where_clause = "WHERE agent_name = ?"
+                    params = [agent_name]
+
+                # Total task count
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM observations {where_clause}",
+                    params,
+                )
+                total_tasks = cursor.fetchone()[0]
+
+                if total_tasks == 0:
+                    conn.close()
+                    return {
+                        "total_tasks": 0,
+                        "completed": 0,
+                        "failed": 0,
+                        "canceled": 0,
+                        "success_rate": 0.0,
+                        "by_agent": {},
+                        "db_size_mb": self.get_database_size() / (1024 * 1024),
+                        "oldest_task": None,
+                        "newest_task": None,
+                        "date_range_days": 0,
+                    }
+
+                # Status breakdown
+                cursor.execute(
+                    f"SELECT status, COUNT(*) FROM observations {where_clause} GROUP BY status",
+                    params,
+                )
+                status_counts = dict(cursor.fetchall())
+
+                completed = status_counts.get("completed", 0)
+                failed = status_counts.get("failed", 0)
+                canceled = status_counts.get("canceled", 0)
+
+                # Success rate (only count completed and failed, exclude canceled)
+                total_finished = completed + failed
+                success_rate = (
+                    (completed / total_finished * 100) if total_finished > 0 else 0.0
+                )
+
+                # Per-agent breakdown (only if not filtering by agent)
+                by_agent = {}
+                if not agent_name:
+                    cursor.execute(
+                        """SELECT agent_name, status, COUNT(*)
+                           FROM observations
+                           GROUP BY agent_name, status"""
+                    )
+                    for agent, status, count in cursor.fetchall():
+                        if agent not in by_agent:
+                            by_agent[agent] = {
+                                "total": 0,
+                                "completed": 0,
+                                "failed": 0,
+                                "canceled": 0,
+                            }
+                        by_agent[agent][status] = count
+                        by_agent[agent]["total"] += count
+
+                # Time range
+                cursor.execute(
+                    f"SELECT MIN(timestamp), MAX(timestamp) FROM observations {where_clause}",
+                    params,
+                )
+                oldest, newest = cursor.fetchone()
+
+                # Calculate date range in days
+                date_range_days = 0
+                if oldest and newest:
+                    from datetime import datetime
+
+                    oldest_dt = datetime.fromisoformat(oldest)
+                    newest_dt = datetime.fromisoformat(newest)
+                    date_range_days = (newest_dt - oldest_dt).days
+
+                # Database size
+                db_size_mb = self.get_database_size() / (1024 * 1024)
+
+                conn.close()
+
+                return {
+                    "total_tasks": total_tasks,
+                    "completed": completed,
+                    "failed": failed,
+                    "canceled": canceled,
+                    "success_rate": success_rate,
+                    "by_agent": by_agent,
+                    "db_size_mb": db_size_mb,
+                    "oldest_task": oldest,
+                    "newest_task": newest,
+                    "date_range_days": date_range_days,
+                }
+            except sqlite3.Error as e:
+                import sys
+                print(f"Warning: Failed to get statistics: {e}", file=sys.stderr)
+                return {}
