@@ -264,7 +264,18 @@ class TerminalController:
 
             # 4. Update status and sync to registry (only if changed)
             if new_status != self.status:
+                old_status = self.status
                 self.status = new_status
+
+                elapsed = (
+                    time.time() - self._last_output_time
+                    if self._last_output_time
+                    else 0
+                )
+                logging.debug(
+                    f"[{self.agent_id}] Status: {old_status} -> {new_status} "
+                    f"(strategy={self.idle_strategy}, elapsed={elapsed:.2f}s)"
+                )
 
                 # Sync to registry
                 if self.agent_id:
@@ -299,6 +310,11 @@ class TerminalController:
         if not self.agent_id:
             return
 
+        logging.debug(
+            f"[{self.agent_id}] Waiting for master_fd "
+            f"(timeout={IDENTITY_WAIT_TIMEOUT}s, interactive={self.interactive})"
+        )
+
         # Wait for master_fd to be available (set by read_callback in interactive mode)
         waited = 0.0
         while self.master_fd is None and waited < IDENTITY_WAIT_TIMEOUT:
@@ -306,12 +322,21 @@ class TerminalController:
             waited += 0.1
 
         if self.master_fd is None:
+            logging.error(
+                f"[{self.agent_id}] master_fd timeout after {IDENTITY_WAIT_TIMEOUT}s. "
+                f"Agent may not have produced output yet."
+            )
             msg = (
                 f"[Synapse] Error: master_fd not available after"
                 f" {IDENTITY_WAIT_TIMEOUT}s"
             )
             print(f"\x1b[31m{msg}\x1b[0m")
             return
+
+        logging.info(
+            f"[{self.agent_id}] Sending initial instructions "
+            f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
+        )
 
         # Build bootstrap message with agent identity and commands
         bootstrap = build_bootstrap_message(self.agent_id, self.port)
@@ -388,7 +413,7 @@ class TerminalController:
         self.interactive = True
         self.running = True
         with self.lock:
-            self._last_output_time = time.time()
+            self._last_output_time = None  # Don't start timeout detection until first output
 
         # Start background thread for periodic idle checking
         # This ensures timeout-based idle detection works in interactive mode
@@ -428,6 +453,7 @@ class TerminalController:
             # Capture master_fd for API server to use
             if self.master_fd is None:
                 self.master_fd = fd
+                logging.debug(f"[{self.agent_id}] master_fd initialized to {fd}")
                 sync_pty_window_size()
 
             data = os.read(fd, 1024)
