@@ -31,6 +31,8 @@ from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
 from synapse.utils import format_a2a_message
 
+logger = logging.getLogger(__name__)
+
 
 class TerminalController:
     def __init__(
@@ -179,41 +181,47 @@ class TerminalController:
 
     def _monitor_output(self) -> None:
         """Monitor and process output from the controlled process PTY."""
-        if self.master_fd is None or self.process is None:
-            return
-        while self.running and self.process.poll() is None:
-            r, _, _ = select.select([self.master_fd], [], [], 0.1)
-            if self.master_fd in r:
-                try:
-                    data = os.read(self.master_fd, 1024)
-                    if not data:
+        try:
+            if self.master_fd is None or self.process is None:
+                return
+            while self.running and self.process.poll() is None:
+                r, _, _ = select.select([self.master_fd], [], [], 0.1)
+                if self.master_fd in r:
+                    try:
+                        data = os.read(self.master_fd, 1024)
+                        if not data:
+                            break
+
+                        self._append_output(data)
+
+                        self._check_idle_state(data)
+
+                        # Process output through InputRouter to detect @Agent commands
+                        # Don't modify data stream - subprocess output is redirected
+                        text = data.decode("utf-8", errors="replace")
+                        for char in text:
+                            _, action = self.input_router.process_char(char)
+                            if action:
+                                # Execute action in thread
+                                threading.Thread(
+                                    target=self._execute_a2a_action,
+                                    args=(action, self.input_router.pending_agent),
+                                    daemon=True,
+                                ).start()
+
+                        # For debugging/logging locally
+                        # print(data.decode(errors='replace'), end='', flush=True)
+
+                    except OSError:
                         break
-
-                    self._append_output(data)
-
-                    self._check_idle_state(data)
-
-                    # Process output through InputRouter to detect @Agent commands
-                    # Don't modify data stream - subprocess output is redirected
-                    text = data.decode("utf-8", errors="replace")
-                    for char in text:
-                        _, action = self.input_router.process_char(char)
-                        if action:
-                            # Execute action in thread
-                            threading.Thread(
-                                target=self._execute_a2a_action,
-                                args=(action, self.input_router.pending_agent),
-                                daemon=True,
-                            ).start()
-
-                    # For debugging/logging locally
-                    # print(data.decode(errors='replace'), end='', flush=True)
-
-                except OSError:
-                    break
-            else:
-                # Periodically check idle state (timeout-based detection)
-                self._check_idle_state(b"")
+                else:
+                    # Periodically check idle state (timeout-based detection)
+                    self._check_idle_state(b"")
+        except Exception as e:
+            logger.error(
+                f"Error in _monitor_output for {self.agent_id}: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""

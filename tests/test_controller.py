@@ -158,9 +158,11 @@ class TestIdentityInstruction:
         assert "8100" in instruction
         assert "a2a.py send" in instruction
         assert "a2a.py list" in instruction
-        # Check for routing instructions
-        assert "ROUTING" in instruction
-        assert "REPLY" in instruction
+        # Check for A2A message handling instructions
+        assert "RECEIVE A2A MESSAGES" in instruction
+        assert "SEND" in instruction and "AGENTS" in instruction
+        # Check for do not execute marker
+        assert "DO NOT EXECUTE" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
@@ -387,7 +389,7 @@ class TestInterAgentMessageWrite:
         import os
 
         original_write = os.write
-        os.write = lambda fd, data: len(data) if isinstance(data, (bytes, str)) else 0  # type: ignore[assignment, unused-ignore]
+        os.write = lambda fd, data: len(data) if isinstance(data, bytes | str) else 0  # type: ignore[assignment, unused-ignore]
 
         try:
             ctrl.write("test", submit_seq="\n")
