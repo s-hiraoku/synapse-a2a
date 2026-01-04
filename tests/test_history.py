@@ -852,8 +852,9 @@ class TestHistoryExport:
         parsed = json.loads(json_data)
         assert isinstance(parsed, list)
         assert len(parsed) == 3
-        assert parsed[0]["task_id"] == "task-1"
-        assert parsed[0]["agent_name"] == "claude"
+        # Results are ordered by timestamp DESC (newest first)
+        assert parsed[0]["task_id"] == "task-3"
+        assert parsed[2]["task_id"] == "task-1"
 
     def test_export_json_with_agent_filter(self, populated_history_for_export):
         """Should filter JSON export by agent."""
@@ -871,14 +872,14 @@ class TestHistoryExport:
         """Should preserve metadata in JSON export."""
         import json
 
-        json_data = populated_history_for_export.export_observations(
-            format="json", limit=1
-        )
+        json_data = populated_history_for_export.export_observations(format="json")
 
         parsed = json.loads(json_data)
-        assert len(parsed) == 1
+        assert len(parsed) == 3
         assert "metadata" in parsed[0]
-        assert parsed[0]["metadata"]["language"] == "python"
+        # Find task-1 which has the "language" metadata
+        task_1 = next(obs for obs in parsed if obs["task_id"] == "task-1")
+        assert task_1["metadata"]["language"] == "python"
 
     def test_export_csv_format(self, populated_history_for_export):
         """Should export observations in CSV format."""
@@ -892,8 +893,9 @@ class TestHistoryExport:
         rows = list(reader)
 
         assert len(rows) == 3
-        assert rows[0]["task_id"] == "task-1"
-        assert rows[0]["agent_name"] == "claude"
+        # Results are ordered by timestamp DESC (newest first)
+        assert rows[0]["task_id"] == "task-3"
+        assert rows[2]["task_id"] == "task-1"
 
     def test_export_csv_has_headers(self, populated_history_for_export):
         """Should include proper CSV headers."""

@@ -558,7 +558,9 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
         print("BY AGENT")
         print("=" * 60)
         print()
-        print(f"{'Agent':<10} {'Total':<8} {'Completed':<10} {'Failed':<8} {'Canceled':<8}")
+        print(
+            f"{'Agent':<10} {'Total':<8} {'Completed':<10} {'Failed':<8} {'Canceled':<8}"
+        )
         print("-" * 60)
 
         for agent, counts in sorted(stats["by_agent"].items()):
@@ -570,6 +572,44 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
 
     if args.agent:
         print(f"(Filtered by agent: {args.agent})")
+
+
+def cmd_history_export(args: argparse.Namespace) -> None:
+    """Export task history in specified format."""
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    # Get export format
+    export_format = args.format.lower()
+    if export_format not in ("json", "csv"):
+        print(f"Error: Invalid format '{export_format}'. Use 'json' or 'csv'.")
+        sys.exit(1)
+
+    # Export with optional filters
+    exported_data = manager.export_observations(
+        format=export_format,
+        agent_name=args.agent if args.agent else None,
+        limit=args.limit if args.limit else None,
+    )
+
+    # Output to file or stdout
+    if args.output:
+        try:
+            with open(args.output, "w") as f:
+                f.write(exported_data)
+            print(f"Exported to {args.output}")
+        except OSError as e:
+            print(f"Error writing to file: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Output to stdout
+        print(exported_data)
 
 
 def cmd_send(args: argparse.Namespace) -> None:
@@ -1050,9 +1090,7 @@ def main() -> None:
         action="store_true",
         help="Enable case-sensitive search (default: case-insensitive)",
     )
-    p_hist_search.add_argument(
-        "--agent", "-a", help="Filter results by agent name"
-    )
+    p_hist_search.add_argument("--agent", "-a", help="Filter results by agent name")
     p_hist_search.add_argument(
         "--limit",
         "-n",
@@ -1095,13 +1133,38 @@ def main() -> None:
     p_hist_cleanup.set_defaults(func=cmd_history_cleanup)
 
     # history stats
-    p_hist_stats = history_subparsers.add_parser(
-        "stats", help="Show usage statistics"
-    )
+    p_hist_stats = history_subparsers.add_parser("stats", help="Show usage statistics")
     p_hist_stats.add_argument(
         "--agent", "-a", help="Show statistics for specific agent only"
     )
     p_hist_stats.set_defaults(func=cmd_history_stats)
+
+    # history export
+    p_hist_export = history_subparsers.add_parser(
+        "export", help="Export task history to JSON or CSV"
+    )
+    p_hist_export.add_argument(
+        "--format",
+        "-f",
+        choices=["json", "csv"],
+        default="json",
+        help="Export format (default: json)",
+    )
+    p_hist_export.add_argument(
+        "--agent", "-a", help="Export only observations from specific agent"
+    )
+    p_hist_export.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        help="Maximum number of observations to export",
+    )
+    p_hist_export.add_argument(
+        "--output",
+        "-o",
+        help="Output file path (default: stdout)",
+    )
+    p_hist_export.set_defaults(func=cmd_history_export)
 
     # external - External A2A agent management
     p_external = subparsers.add_parser("external", help="Manage external A2A agents")

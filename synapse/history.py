@@ -316,7 +316,9 @@ class HistoryManager:
                         params.extend([f"*{keyword}*", f"*{keyword}*"])
                     else:
                         # Use LOWER() + LIKE for case-insensitive matching
-                        like_clauses.append("(LOWER(input) LIKE ? OR LOWER(output) LIKE ?)")
+                        like_clauses.append(
+                            "(LOWER(input) LIKE ? OR LOWER(output) LIKE ?)"
+                        )
                         params.extend([f"%{keyword.lower()}%", f"%{keyword.lower()}%"])
 
                 # Join clauses with OR or AND based on logic parameter
@@ -344,6 +346,7 @@ class HistoryManager:
                 return [self._row_to_dict(row) for row in rows]
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to search observations: {e}", file=sys.stderr)
                 return []
 
@@ -398,6 +401,7 @@ class HistoryManager:
                 }
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to cleanup observations: {e}", file=sys.stderr)
                 return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
 
@@ -480,6 +484,7 @@ class HistoryManager:
                 }
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to cleanup by size: {e}", file=sys.stderr)
                 return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
 
@@ -616,5 +621,121 @@ class HistoryManager:
                 }
             except sqlite3.Error as e:
                 import sys
+
                 print(f"Warning: Failed to get statistics: {e}", file=sys.stderr)
                 return {}
+
+    def export_observations(
+        self,
+        format: str = "json",
+        agent_name: str | None = None,
+        limit: int | None = None,
+    ) -> str:
+        """Export observations in specified format (JSON or CSV).
+
+        Args:
+            format: Export format - "json" or "csv" (default: "json")
+            agent_name: Optional filter by agent name
+            limit: Optional maximum number of observations to export
+
+        Returns:
+            String representation of exported data in requested format
+        """
+        if not self.enabled:
+            return "[]" if format.lower() == "json" else ""
+
+        with self._lock:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Build query
+                query = "SELECT * FROM observations"
+                params: list[Any] = []
+
+                if agent_name:
+                    query += " WHERE agent_name = ?"
+                    params.append(agent_name)
+
+                query += " ORDER BY timestamp DESC"
+
+                if limit:
+                    query += " LIMIT ?"
+                    params.append(limit)
+
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                conn.close()
+
+                observations = [self._row_to_dict(row) for row in rows]
+
+                # Export in requested format
+                if format.lower() == "json":
+                    return json.dumps(observations, indent=2, default=str)
+                elif format.lower() == "csv":
+                    return self._export_to_csv(observations)
+                else:
+                    import sys
+
+                    print(f"Warning: Unknown export format: {format}", file=sys.stderr)
+                    return "[]" if format.lower() == "json" else ""
+
+            except sqlite3.Error as e:
+                import sys
+
+                print(f"Warning: Failed to export observations: {e}", file=sys.stderr)
+                return "[]" if format.lower() == "json" else ""
+
+    def _export_to_csv(self, observations: list[dict[str, Any]]) -> str:
+        """Convert observations to CSV format.
+
+        Args:
+            observations: List of observation dictionaries
+
+        Returns:
+            CSV string representation
+        """
+        import csv
+        import io
+
+        if not observations:
+            return ""
+
+        output = io.StringIO()
+
+        # Define field order
+        fieldnames = [
+            "id",
+            "task_id",
+            "agent_name",
+            "session_id",
+            "status",
+            "timestamp",
+            "input",
+            "output",
+            "metadata",
+        ]
+
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for obs in observations:
+            # Handle metadata serialization
+            metadata = obs.get("metadata", {})
+            metadata_str = json.dumps(metadata) if metadata else ""
+
+            row = {
+                "id": obs.get("id", ""),
+                "task_id": obs.get("task_id", ""),
+                "agent_name": obs.get("agent_name", ""),
+                "session_id": obs.get("session_id", ""),
+                "status": obs.get("status", ""),
+                "timestamp": obs.get("timestamp", ""),
+                "input": obs.get("input", ""),
+                "output": obs.get("output", ""),
+                "metadata": metadata_str,
+            }
+            writer.writerow(row)
+
+        return output.getvalue()
