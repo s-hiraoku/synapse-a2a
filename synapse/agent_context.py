@@ -95,16 +95,16 @@ Agent: {agent_id} | Port: {port}
 RECEIVING A2A MESSAGES:
 When you see input starting with [A2A:task_id:sender_id], this is an incoming message from another agent.
 You MUST respond using:
-  python3 synapse/tools/a2a.py send --target <sender_id> "<your response>"
+  python3 synapse/tools/a2a.py send --target <sender_id> '<your response>'
 
 Example of receiving and responding to a message:
   Input:  [A2A:abc12345:synapse-gemini-8110] How are you?
-  Action: python3 synapse/tools/a2a.py send --target gemini "I'm doing well, thank you!"
+  Action: python3 synapse/tools/a2a.py send --target gemini 'I am doing well, thank you!'
 
 SENDING MESSAGES TO OTHER AGENTS:
 When user input starts with @<agent>, forward the message WITHOUT processing yourself:
-  @gemini check weather -> python3 synapse/tools/a2a.py send --target gemini "check weather"
-  @codex-8120 help      -> python3 synapse/tools/a2a.py send --target codex-8120 "help"
+  @gemini check weather -> python3 synapse/tools/a2a.py send --target gemini 'check weather'
+  @codex-8120 help      -> python3 synapse/tools/a2a.py send --target codex-8120 'help'
 
 AVAILABLE AGENTS: claude, gemini, codex
 LIST AGENTS: python3 synapse/tools/a2a.py list
