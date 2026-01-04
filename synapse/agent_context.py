@@ -100,6 +100,8 @@ ROUTING: If message starts with @<agent>, forward WITHOUT processing yourself.
 REPLY: When you receive [A2A:id:sender], respond by default.
   python3 synapse/tools/a2a.py send --target <sender> "<response>"
 
+AGENTS: claude, gemini, codex
+
 LIST: python3 synapse/tools/a2a.py list"""
 
 

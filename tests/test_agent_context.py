@@ -187,6 +187,14 @@ class TestBuildBootstrapMessage:
         # Should reference the synapse-a2a skill
         assert "synapse-a2a" in msg
 
+    def test_message_lists_common_agents(self):
+        """Bootstrap message should list common agent types."""
+        msg = build_bootstrap_message("synapse-claude-8100", 8100).lower()
+
+        assert "claude" in msg
+        assert "gemini" in msg
+        assert "codex" in msg
+
     def test_different_ports(self):
         """Should use different port in message."""
         msg1 = build_bootstrap_message("synapse-claude-8100", 8100)
