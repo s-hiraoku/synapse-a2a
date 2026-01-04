@@ -311,6 +311,8 @@ synapse claude -- --resume
 | `synapse list`                    | 実行中エージェント一覧 |
 | `synapse logs <profile>`          | ログ表示               |
 | `synapse send <target> <message>` | メッセージ送信         |
+| `synapse history list`            | タスク履歴表示         |
+| `synapse history show <task_id>`  | タスク詳細表示         |
 
 ### 外部エージェント管理
 
@@ -324,6 +326,44 @@ synapse external list
 # メッセージ送信
 synapse external send other "タスクを処理して"
 ```
+
+### タスク履歴管理
+
+タスク履歴機能により、過去のエージェント実行結果を検索・参照できます。
+
+**有効化:**
+
+```bash
+# 環境変数で有効化
+export SYNAPSE_HISTORY_ENABLED=true
+synapse claude
+```
+
+**使用方法:**
+
+```bash
+# 最新50件の履歴を表示
+synapse history list
+
+# 特定エージェントのみ表示
+synapse history list --agent claude
+
+# カスタム件数で表示
+synapse history list --limit 100
+
+# タスク詳細を表示
+synapse history show task-id-uuid
+```
+
+**ストレージ:**
+
+- SQLite データベース: `~/.synapse/history/history.db`
+- 保存項目: タスクID、エージェント名、入力、出力、ステータス、メタデータ
+
+**デフォルト:**
+
+- 無効（`SYNAPSE_HISTORY_ENABLED=false` 相当）
+- 有効化するには `SYNAPSE_HISTORY_ENABLED=true` を設定してから起動
 
 ### A2A CLI ツール
 
