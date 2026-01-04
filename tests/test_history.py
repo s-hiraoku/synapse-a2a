@@ -787,3 +787,216 @@ class TestHistoryStatistics:
         manager = HistoryManager(db_path=temp_db_path, enabled=False)
         stats = manager.get_statistics()
         assert stats == {}
+
+
+# ============================================================
+# Phase 2b: Export Tests
+# ============================================================
+
+
+class TestHistoryExport:
+    """Test export functionality for session history."""
+
+    @pytest.fixture
+    def temp_db_path(self):
+        """Create a temporary database path for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "history.db"
+            yield str(db_path)
+
+    @pytest.fixture
+    def populated_history_for_export(self, temp_db_path):
+        """Create a populated history for export testing."""
+        manager = HistoryManager(db_path=temp_db_path)
+
+        # Create diverse observations
+        test_data = [
+            {
+                "task_id": "task-1",
+                "agent_name": "claude",
+                "status": "completed",
+                "input_text": "Write a Python function",
+                "output_text": "def hello(): pass",
+                "metadata": {"language": "python"},
+            },
+            {
+                "task_id": "task-2",
+                "agent_name": "gemini",
+                "status": "completed",
+                "input_text": "Create a Docker image",
+                "output_text": "FROM python:3.11",
+                "metadata": {"framework": "docker"},
+            },
+            {
+                "task_id": "task-3",
+                "agent_name": "claude",
+                "status": "failed",
+                "input_text": "Run invalid command",
+                "output_text": "Error: command not found",
+                "metadata": {"error": "COMMAND_NOT_FOUND"},
+            },
+        ]
+
+        for data in test_data:
+            manager.save_observation(session_id="test-session", **data)
+
+        return manager
+
+    def test_export_json_format(self, populated_history_for_export):
+        """Should export observations in JSON format."""
+        import json
+
+        json_data = populated_history_for_export.export_observations(format="json")
+
+        assert json_data is not None
+        parsed = json.loads(json_data)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 3
+        assert parsed[0]["task_id"] == "task-1"
+        assert parsed[0]["agent_name"] == "claude"
+
+    def test_export_json_with_agent_filter(self, populated_history_for_export):
+        """Should filter JSON export by agent."""
+        import json
+
+        json_data = populated_history_for_export.export_observations(
+            format="json", agent_name="claude"
+        )
+
+        parsed = json.loads(json_data)
+        assert len(parsed) == 2
+        assert all(obs["agent_name"] == "claude" for obs in parsed)
+
+    def test_export_json_preserves_metadata(self, populated_history_for_export):
+        """Should preserve metadata in JSON export."""
+        import json
+
+        json_data = populated_history_for_export.export_observations(
+            format="json", limit=1
+        )
+
+        parsed = json.loads(json_data)
+        assert len(parsed) == 1
+        assert "metadata" in parsed[0]
+        assert parsed[0]["metadata"]["language"] == "python"
+
+    def test_export_csv_format(self, populated_history_for_export):
+        """Should export observations in CSV format."""
+        import csv
+        import io
+
+        csv_data = populated_history_for_export.export_observations(format="csv")
+
+        assert csv_data is not None
+        reader = csv.DictReader(io.StringIO(csv_data))
+        rows = list(reader)
+
+        assert len(rows) == 3
+        assert rows[0]["task_id"] == "task-1"
+        assert rows[0]["agent_name"] == "claude"
+
+    def test_export_csv_has_headers(self, populated_history_for_export):
+        """Should include proper CSV headers."""
+        import csv
+        import io
+
+        csv_data = populated_history_for_export.export_observations(format="csv")
+
+        lines = csv_data.strip().split("\n")
+        assert len(lines) > 0
+
+        reader = csv.DictReader(io.StringIO(csv_data))
+        assert reader.fieldnames is not None
+        expected_fields = ["task_id", "agent_name", "status", "timestamp", "input"]
+        assert all(field in reader.fieldnames for field in expected_fields)
+
+    def test_export_csv_with_agent_filter(self, populated_history_for_export):
+        """Should filter CSV export by agent."""
+        import csv
+        import io
+
+        csv_data = populated_history_for_export.export_observations(
+            format="csv", agent_name="gemini"
+        )
+
+        reader = csv.DictReader(io.StringIO(csv_data))
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert rows[0]["agent_name"] == "gemini"
+
+    def test_export_with_limit(self, populated_history_for_export):
+        """Should respect limit parameter in export."""
+        import json
+
+        json_data = populated_history_for_export.export_observations(
+            format="json", limit=2
+        )
+
+        parsed = json.loads(json_data)
+        assert len(parsed) == 2
+
+    def test_export_empty_database(self, temp_db_path):
+        """Should handle empty database gracefully."""
+        import json
+
+        manager = HistoryManager(db_path=temp_db_path)
+        json_data = manager.export_observations(format="json")
+
+        parsed = json.loads(json_data)
+        assert parsed == []
+
+    def test_export_disabled_manager(self, temp_db_path):
+        """Should return empty result when history is disabled."""
+        import json
+
+        manager = HistoryManager(db_path=temp_db_path, enabled=False)
+        json_data = manager.export_observations(format="json")
+
+        parsed = json.loads(json_data)
+        assert parsed == []
+
+    def test_export_csv_special_characters(self, temp_db_path):
+        """Should properly escape special characters in CSV."""
+        import csv
+        import io
+
+        manager = HistoryManager(db_path=temp_db_path)
+        manager.save_observation(
+            task_id="task-special",
+            agent_name="claude",
+            session_id="session-1",
+            input_text='Input with "quotes" and, commas',
+            output_text="Output with\nnewlines",
+            status="completed",
+        )
+
+        csv_data = manager.export_observations(format="csv")
+
+        reader = csv.DictReader(io.StringIO(csv_data))
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert '"quotes"' in rows[0]["input"]
+        assert "commas" in rows[0]["input"]
+
+    def test_export_json_escapes_special_chars(self, temp_db_path):
+        """Should properly escape special characters in JSON."""
+        import json
+
+        manager = HistoryManager(db_path=temp_db_path)
+        manager.save_observation(
+            task_id="task-json",
+            agent_name="claude",
+            session_id="session-1",
+            input_text='Input with "quotes" and\nnewlines',
+            output_text="Output",
+            status="completed",
+        )
+
+        json_data = manager.export_observations(format="json")
+
+        parsed = json.loads(json_data)
+        assert len(parsed) == 1
+        assert "quotes" in parsed[0]["input"]
+        assert "newlines" in parsed[0]["input"]
