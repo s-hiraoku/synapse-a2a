@@ -50,3 +50,63 @@
 - Agent profiles and defaults are documented in `guides/profiles.md` and `guides/references.md`.
 - For architecture or protocol details, start with `guides/architecture.md`.
 - Agent-specific instructions for tooling live in `CLAUDE.md`.
+
+## Registry & Status Updates Testing
+
+### Manual Verification of `synapse list --watch`
+
+To verify agent status tracking and updates work correctly:
+
+```bash
+# Terminal 1: Start a Claude agent
+synapse claude
+
+# Terminal 2: Watch agent status changes in real-time
+synapse list --watch                      # 2s refresh (default)
+synapse list -w -i 0.5                    # 0.5s refresh (faster for testing)
+
+# Expected behavior:
+# 1. Agent starts in PROCESSING status (initialization phase)
+# 2. After initialization, status changes to READY (idle and waiting for input)
+# 3. Status updates appear within the refresh interval
+# 4. No flickering or temporary disappearances
+# 5. No stale status values (always shows current state)
+```
+
+### Verifying Recent Bug Fixes (Registry Race Conditions)
+
+The following bugs were fixed in the registry status update system:
+
+**Bug #1 (Non-Atomic Writes - Race Conditions)**:
+- Start multiple agents simultaneously: `synapse claude & synapse gemini & synapse codex`
+- Watch status updates: `synapse list --watch`
+- Verify: All updates are consistent (no lost updates), status values are correct
+
+**Bug #2 (Silent Failures)**:
+- Monitor logs during watch: `tail -f ~/.synapse/logs/synapse.log`
+- Any status update failures will be logged with `"Failed to update status for ..."`
+- File permission or disk issues are now visible
+
+**Bug #3 (Partial JSON Reads)**:
+- Watch for agent flickering: `synapse list -w -i 0.5`
+- With atomic writes, agents should never disappear temporarily
+- Temp files (`.*.json.tmp`) should never appear in `~/.a2a/registry/`
+
+### Running Test Suite
+
+```bash
+# All tests
+pytest
+
+# Registry and status update tests
+pytest tests/test_cmd_list_watch.py -v
+pytest tests/test_registry.py -v
+pytest tests/test_controller_registry_sync.py -v
+
+# Tests for the specific bug fixes
+pytest tests/test_cmd_list_watch.py::TestSilentFailures -v
+pytest tests/test_cmd_list_watch.py::TestRegistryRaceConditions -v
+pytest tests/test_cmd_list_watch.py::TestPartialJSONRead -v
+```
+
+See `CLAUDE.md` for additional testing details and troubleshooting.

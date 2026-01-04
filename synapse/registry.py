@@ -1,7 +1,12 @@
+import contextlib
 import json
+import logging
 import os
 import socket
+import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def is_process_running(pid: int) -> bool:
@@ -93,7 +98,7 @@ class AgentRegistry:
 
     def update_status(self, agent_id: str, status: str) -> bool:
         """
-        Update the status of a registered agent.
+        Update the status of a registered agent (atomic write).
 
         Args:
             agent_id: The unique agent identifier.
@@ -107,16 +112,39 @@ class AgentRegistry:
             return False
 
         try:
+            # Read current data
             with open(file_path) as f:
                 data = json.load(f)
 
             data["status"] = status
 
-            with open(file_path, "w") as f:
-                json.dump(data, f, indent=2)
+            # Atomic write: write to temp file, then rename
+            # This ensures watch mode always reads complete JSON
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=self.registry_dir,
+                prefix=f".{agent_id}.",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(temp_fd, "w") as f:
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                    # Force write to disk for critical updates
+                    os.fsync(f.fileno())
 
-            return True
-        except (json.JSONDecodeError, OSError):
+                # Atomic rename (POSIX guarantee)
+                # This prevents watch mode from seeing partial files
+                os.replace(temp_path, file_path)
+                return True
+            except Exception:
+                # Cleanup temp file on error
+                if os.path.exists(temp_path):
+                    with contextlib.suppress(OSError):
+                        os.unlink(temp_path)
+                raise
+
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error(f"Failed to update status for {agent_id}: {e}")
             return False
 
     def cleanup_stale_entries(self) -> list[str]:

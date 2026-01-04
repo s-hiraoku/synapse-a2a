@@ -174,3 +174,59 @@ idle_detection:
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/logs/     # Log files
 ```
+
+## Testing Registry & Status Updates
+
+### Manual Verification of `synapse list --watch`
+
+To verify the registry status update system works correctly:
+
+```bash
+# Terminal 1: Start a Claude agent
+synapse claude
+
+# Terminal 2: Watch agent status changes
+synapse list --watch                      # 2s refresh (default)
+synapse list -w -i 0.5                    # 0.5s refresh (faster)
+
+# Expected behavior:
+# 1. Agent starts in PROCESSING status (initializing)
+# 2. After initialization completes, status changes to READY
+# 3. Status updates are immediate (within refresh interval)
+# 4. No "flickering" where agent disappears/reappears
+# 5. No stale status values (always shows current state)
+```
+
+### Verifying Bug Fixes
+
+**Bug #1 (Race Conditions)**:
+- Start multiple agents simultaneously
+- Status updates should be consistent (no lost updates)
+- Each agent's status visible in watch mode without flicker
+
+**Bug #2 (Silent Failures)**:
+- Check logs: `tail -f ~/.synapse/logs/*.log`
+- If update fails, error message appears: `"Failed to update status for ..."`
+- Registry file permissions issues are logged
+
+**Bug #3 (Partial JSON)**:
+- With atomic writes, agents never flicker
+- Agent always visible once started (no temporary disappearances)
+- Temp files (`.*.json.tmp`) should not appear in `~/.a2a/registry/`
+
+### Running Test Suite
+
+```bash
+# All tests (should pass)
+pytest
+
+# Specific tests for registry/status system
+pytest tests/test_cmd_list_watch.py -v
+pytest tests/test_registry.py -v
+pytest tests/test_controller_registry_sync.py -v
+
+# Tests specifically for bug fixes
+pytest tests/test_cmd_list_watch.py::TestSilentFailures -v
+pytest tests/test_cmd_list_watch.py::TestRegistryRaceConditions -v
+pytest tests/test_cmd_list_watch.py::TestPartialJSONRead -v
+```

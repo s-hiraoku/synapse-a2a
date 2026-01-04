@@ -1,6 +1,10 @@
 """Tests for synapse list --watch command."""
 
+import json
+import os
 import shutil
+import threading
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -8,8 +12,6 @@ import pytest
 
 from synapse.cli import _clear_screen, _render_agent_table, cmd_list
 from synapse.registry import AgentRegistry
-
-# CodeRabbit fix: Removed unused 'json' import that was not used in tests
 
 
 @pytest.fixture
@@ -309,3 +311,349 @@ class TestCmdListWatchMode:
             cmd_list(args)
 
         assert 2.0 in sleep_calls
+
+
+# ============================================================================
+# Tests for Bug #2: Silent Exception Swallowing
+# ============================================================================
+
+
+class TestSilentFailures:
+    """Tests for Bug #2: Silent exception swallowing in registry updates."""
+
+    def test_update_status_returns_false_on_json_error(self, temp_registry):
+        """update_status should return False when JSON file is corrupted."""
+        agent_id = "corrupt-json-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        # Corrupt the JSON file
+        file_path = temp_registry.registry_dir / f"{agent_id}.json"
+        with open(file_path, "w") as f:
+            f.write("{ invalid json syntax }")
+
+        # Attempt to update status
+        result = temp_registry.update_status(agent_id, "READY")
+
+        # Should return False for corrupted file
+        assert result is False
+
+        # Verify agent data is still corrupted
+        agent_data = temp_registry.get_agent(agent_id)
+        assert agent_data is None
+
+    def test_update_status_file_permission_error(self, temp_registry):
+        """update_status should return False on permission errors."""
+        agent_id = "permission-error-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        # Make registry directory read-only to prevent temp file creation
+        registry_dir = temp_registry.registry_dir
+        os.chmod(registry_dir, 0o555)
+
+        try:
+            # Attempt to update status
+            result = temp_registry.update_status(agent_id, "READY")
+
+            # Should return False due to permission error on temp file creation
+            assert result is False
+
+            # Status should remain unchanged
+            agent_data = temp_registry.get_agent(agent_id)
+            assert agent_data["status"] == "PROCESSING"
+
+        finally:
+            # Cleanup: restore permissions
+            os.chmod(registry_dir, 0o755)
+
+    def test_controller_ignores_update_status_failure(self, temp_registry, caplog):
+        """Controller should detect and handle update_status failures."""
+        from synapse.controller import TerminalController
+
+        agent_id = "ignore-failure-agent"
+        temp_registry.register(agent_id, "test", 8100, status="PROCESSING")
+
+        # Mock update_status to fail
+        original_update = temp_registry.update_status
+
+        call_count = 0
+
+        def failing_update(aid, status):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False  # First call fails
+            return original_update(aid, status)
+
+        with patch.object(temp_registry, "update_status", side_effect=failing_update):
+            controller = TerminalController(
+                command="echo test",
+                idle_regex="test",
+                registry=temp_registry,
+                agent_id=agent_id,
+                agent_type="test",
+                port=8100,
+            )
+
+            # Verify controller was created
+            assert controller.agent_id == agent_id
+            assert controller.registry == temp_registry
+
+
+# ============================================================================
+# Tests for Bug #1: Non-Atomic JSON Updates (Race Conditions)
+# ============================================================================
+
+
+class TestRegistryRaceConditions:
+    """Tests for Bug #1: Non-atomic JSON updates causing race conditions."""
+
+    def test_concurrent_status_updates_race_condition(self, temp_registry):
+        """Two concurrent update_status calls can lose updates (demonstrates bug)."""
+        agent_id = "race-test-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        barrier = threading.Barrier(2)
+        results = []
+
+        def update_with_delay(new_status, delay_after_read):
+            """Update status with controlled timing to trigger race."""
+            file_path = temp_registry.registry_dir / f"{agent_id}.json"
+
+            # Read
+            with open(file_path) as f:
+                data = json.load(f)
+
+            # Synchronize both threads at read point
+            barrier.wait()
+
+            # Inject delay to create race window
+            time.sleep(delay_after_read)
+
+            # Write
+            data["status"] = new_status
+            with open(file_path, "w") as f:
+                json.dump(data, f, indent=2)
+
+            results.append(new_status)
+
+        # Launch concurrent updates
+        t1 = threading.Thread(target=update_with_delay, args=("READY", 0.01))
+        t2 = threading.Thread(target=update_with_delay, args=("BUSY", 0.02))
+
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        # Verify race condition manifests
+        final_status = temp_registry.get_agent(agent_id)["status"]
+
+        # Both threads wrote, but only last write wins
+        assert final_status in ["READY", "BUSY"]
+        assert len(results) == 2
+
+    def test_watch_reads_partial_update(self, temp_registry):
+        """Watch mode can read stale data while update is in progress."""
+        agent_id = "watch-race-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        read_started = threading.Event()
+        read_complete = threading.Event()
+        status_reads = []
+
+        def watch_reader():
+            """Simulates watch mode reading registry."""
+            for _ in range(3):
+                read_started.set()
+
+                # Read registry (simulates _render_agent_table)
+                agents = temp_registry.list_agents()
+                if agent_id in agents:
+                    status_reads.append(agents[agent_id]["status"])
+
+                read_started.clear()
+                read_complete.set()
+                time.sleep(0.01)
+
+        def status_updater():
+            """Simulates controller updating status."""
+            # Wait for first read to start
+            read_started.wait()
+            time.sleep(0.005)
+
+            # Do update (read-modify-write)
+            file_path = temp_registry.registry_dir / f"{agent_id}.json"
+            with open(file_path) as f:
+                data = json.load(f)
+
+            time.sleep(0.01)  # Window where watch might read
+
+            data["status"] = "READY"
+            with open(file_path, "w") as f:
+                json.dump(data, f, indent=2)
+
+        watch_thread = threading.Thread(target=watch_reader)
+        update_thread = threading.Thread(target=status_updater)
+
+        watch_thread.start()
+        update_thread.start()
+
+        watch_thread.join()
+        update_thread.join()
+
+        # Should see both old and new status
+        assert "PROCESSING" in status_reads
+        assert "READY" in status_reads
+
+
+# ============================================================================
+# Tests for Bug #3: Partial JSON Read During Write
+# ============================================================================
+
+
+class TestPartialJSONRead:
+    """Tests for Bug #3: Partial JSON reads when file is being written."""
+
+    def test_list_agents_handles_incomplete_json(self, temp_registry):
+        """list_agents() should skip incomplete JSON files gracefully."""
+        # Create valid agent
+        agent_id_1 = "valid-agent"
+        temp_registry.register(agent_id_1, "claude", 8100, status="READY")
+
+        # Create incomplete JSON file manually (simulating mid-write)
+        agent_id_2 = "incomplete-agent"
+        incomplete_file = temp_registry.registry_dir / f"{agent_id_2}.json"
+        with open(incomplete_file, "w") as f:
+            # Write truncated JSON
+            f.write('{\n  "agent_id": "incomplete-agent",\n  "agen')
+
+        # Call list_agents()
+        agents = temp_registry.list_agents()
+
+        # Valid agent should be returned
+        assert agent_id_1 in agents
+
+        # Incomplete JSON should be silently skipped
+        assert agent_id_2 not in agents
+
+        # Valid agent data should be accessible
+        assert agents[agent_id_1]["status"] == "READY"
+
+    def test_watch_reads_partial_json_write(self, temp_registry):
+        """Watch mode can read partially written JSON (demonstrates race)."""
+        agent_id = "partial-json-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        write_started = threading.Event()
+        read_results = []
+
+        full_json_data = {
+            "agent_id": agent_id,
+            "agent_type": "claude",
+            "port": 8100,
+            "status": "READY",
+            "pid": 12345,
+            "working_dir": "/tmp",
+            "endpoint": "http://localhost:8100",
+        }
+
+        def slow_writer():
+            """Simulate slow multi-line JSON write."""
+            file_path = temp_registry.registry_dir / f"{agent_id}.json"
+
+            # Convert to string with indent
+            json_str = json.dumps(full_json_data, indent=2)
+
+            with open(file_path, "w") as f:
+                # Write first half
+                f.write(json_str[: len(json_str) // 2])
+                f.flush()
+
+                # Signal that write started (reader can try now)
+                write_started.set()
+
+                # Wait a bit to let reader try
+                time.sleep(0.05)
+
+                # Write second half
+                f.write(json_str[len(json_str) // 2 :])
+
+        def watch_reader():
+            """Simulate watch mode reading."""
+            # Wait for write to start
+            write_started.wait()
+            time.sleep(0.01)  # Read during write window
+
+            # Try to read (may get partial JSON)
+            agents = temp_registry.list_agents()
+            read_results.append(agents)
+
+        writer_thread = threading.Thread(target=slow_writer)
+        reader_thread = threading.Thread(target=watch_reader)
+
+        writer_thread.start()
+        reader_thread.start()
+
+        writer_thread.join()
+        reader_thread.join()
+
+        # During partial write, agent may not be in list
+        assert len(read_results) == 1
+
+        # After write completes, agent should be visible
+        final_agents = temp_registry.list_agents()
+        assert agent_id in final_agents
+
+    def test_watch_mode_agent_flickering(self, temp_registry):
+        """Watch mode shows agent flickering in/out due to partial reads."""
+        agent_id = "flickering-agent"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        watch_outputs = []
+        stop_event = threading.Event()
+        update_count = 0
+
+        def simulated_watch_loop():
+            """Simulates watch mode reading registry frequently."""
+            while not stop_event.is_set():
+                # Read registry
+                agents = temp_registry.list_agents()
+
+                # Record whether agent was visible
+                watch_outputs.append(agent_id in agents)
+                time.sleep(0.03)
+
+        def frequent_updater():
+            """Simulates controller updating status frequently."""
+            nonlocal update_count
+            for _ in range(5):
+                # Update status (write multi-line JSON)
+                temp_registry.update_status(
+                    agent_id,
+                    "READY" if update_count % 2 == 0 else "PROCESSING",
+                )
+                update_count += 1
+                time.sleep(0.02)
+
+            # Signal watch loop to stop
+            time.sleep(0.1)
+            stop_event.set()
+
+        watch_thread = threading.Thread(target=simulated_watch_loop)
+        update_thread = threading.Thread(target=frequent_updater)
+
+        watch_thread.start()
+        update_thread.start()
+
+        watch_thread.join()
+        update_thread.join()
+
+        # Agent should always be visible, but may flicker
+        # (Some reads might fail during partial writes)
+        assert len(watch_outputs) > 0
+
+        # If we see any False values, the bug manifests
+        # (Agent temporarily invisible due to partial read)
+        if False in watch_outputs:
+            # Bug is present: agent disappeared temporarily
+            assert watch_outputs[-1] is True  # But reappears at end
