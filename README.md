@@ -313,6 +313,10 @@ synapse claude -- --resume
 | `synapse send <target> <message>` | メッセージ送信         |
 | `synapse history list`            | タスク履歴表示         |
 | `synapse history show <task_id>`  | タスク詳細表示         |
+| `synapse history search`          | キーワード検索         |
+| `synapse history cleanup`         | 古いデータ削除         |
+| `synapse history stats`           | 統計情報表示           |
+| `synapse history export`          | JSON/CSV エクスポート  |
 
 ### 外部エージェント管理
 
@@ -329,7 +333,7 @@ synapse external send other "タスクを処理して"
 
 ### タスク履歴管理
 
-タスク履歴機能により、過去のエージェント実行結果を検索・参照できます。
+タスク履歴機能により、過去のエージェント実行結果を検索・参照・分析できます。
 
 **有効化:**
 
@@ -339,7 +343,7 @@ export SYNAPSE_HISTORY_ENABLED=true
 synapse claude
 ```
 
-**使用方法:**
+#### 基本操作
 
 ```bash
 # 最新50件の履歴を表示
@@ -355,15 +359,112 @@ synapse history list --limit 100
 synapse history show task-id-uuid
 ```
 
+#### キーワード検索（Phase 2a）
+
+入力・出力フィールドからキーワードで検索：
+
+```bash
+# 単一キーワード検索
+synapse history search "Python"
+
+# 複数キーワード（OR ロジック）
+synapse history search "Python" "Docker"
+
+# AND ロジック（すべてのキーワードを含む）
+synapse history search "Python" "function" --logic AND
+
+# エージェント フィルタ付き
+synapse history search "Python" --agent claude
+
+# 件数制限
+synapse history search "error" --limit 20
+```
+
+#### 統計情報表示（Phase 2d）
+
+タスク実行の統計情報を表示：
+
+```bash
+# 全体統計（総数、成功率、エージェント別集計）
+synapse history stats
+
+# 特定エージェントの統計
+synapse history stats --agent claude
+```
+
+出力例：
+```text
+============================================================
+TASK HISTORY STATISTICS
+============================================================
+
+Total Tasks:     150
+Completed:       140
+Failed:          10
+Success Rate:    93.3%
+
+Database Size:   2.5 MB
+Oldest Task:     2026-01-01 10:00:00
+Newest Task:     2026-01-04 15:30:00
+
+============================================================
+BY AGENT
+============================================================
+
+Agent      Total    Completed  Failed
+------------------------------------------------------------
+claude     100      95         5
+gemini     50       45         5
+```
+
+#### データ エクスポート（Phase 2b）
+
+JSON または CSV 形式でエクスポート：
+
+```bash
+# JSON エクスポート（標準出力）
+synapse history export --format json
+
+# CSV エクスポート
+synapse history export --format csv
+
+# ファイル保存
+synapse history export --format json --output history.json
+synapse history export --format csv --agent claude > claude_history.csv
+
+# フィルタ付きエクスポート
+synapse history export --format json --agent gemini --limit 50
+```
+
+#### リテンション ポリシー（Phase 2c）
+
+古いデータを自動削除：
+
+```bash
+# 30日以上前のデータを削除
+synapse history cleanup --days 30
+
+# データベースサイズを 100MB 以下に保つ
+synapse history cleanup --max-size 100
+
+# 確認なしで実行（自動化用）
+synapse history cleanup --days 30 --force
+
+# ドライラン（削除予定内容を表示するだけ）
+synapse history cleanup --days 30 --dry-run
+```
+
 **ストレージ:**
 
 - SQLite データベース: `~/.synapse/history/history.db`
 - 保存項目: タスクID、エージェント名、入力、出力、ステータス、メタデータ
+- 自動インデックス: agent_name, timestamp, task_id
 
-**デフォルト:**
+**設定:**
 
-- 無効（`SYNAPSE_HISTORY_ENABLED=false` 相当）
-- 有効化するには `SYNAPSE_HISTORY_ENABLED=true` を設定してから起動
+- **有効化**: `SYNAPSE_HISTORY_ENABLED=true`
+- **無効化**: `SYNAPSE_HISTORY_ENABLED=false`（デフォルト）
+- デフォルトでは無効です。有効化するには環境変数を設定してから起動してください
 
 ### A2A CLI ツール
 

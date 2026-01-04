@@ -39,6 +39,13 @@ For user guides, see the [`/guides`](../guides/) directory.
 - `universal-agent-communication-spec.md` - Universal agent communication specification
 - `input-routing-spec.md` - Input routing specification
 
+### 実装ドキュメント
+
+- `../PHASE2_HANDOFF.md` - **セッション履歴機能 Phase 2 実装完了レポート**
+  - キーワード検索、統計情報、エクスポート、クリーンアップ機能
+  - テスト覆率: 56 個のテストケース（全て合格）
+  - PR #34 で実装済み
+
 ### アセット
 
 - `Gemini_Generated_Image_*.png` - Design assets

@@ -1,6 +1,6 @@
 ---
 name: synapse-a2a
-description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, or handling A2A protocol operations. Automatically triggered when agent communication or A2A protocol tasks are detected.
+description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, or handling A2A protocol operations. Also covers task history management including search, statistics, export, and cleanup operations. Automatically triggered when agent communication, A2A protocol tasks, or history operations are detected.
 ---
 
 # Synapse A2A Communication
@@ -9,7 +9,58 @@ description: This skill provides comprehensive guidance for inter-agent communic
 
 Synapse A2A enables inter-agent communication via Google A2A Protocol. All communication uses Message/Part + Task format. Messages are prefixed with `[A2A:<task_id>:<sender_id>]` for identification.
 
+Additionally, Synapse A2A provides comprehensive task history management capabilities:
+- **Search**: Find tasks by keywords with flexible logic (OR/AND)
+- **Statistics**: View task counts, success rates, and per-agent metrics
+- **Export**: Extract data in JSON or CSV formats
+- **Cleanup**: Manage database size with retention policies (days-based or size-based)
+
 ## Core Commands
+
+### Task History Management
+
+View, search, and analyze task execution history with these commands:
+
+```bash
+# List task history (default: 50 entries)
+synapse history list
+synapse history list --agent claude --limit 100
+
+# Show task details
+synapse history show <task_id>
+
+# Search by keywords
+synapse history search "Python" "Docker" --logic OR
+synapse history search "error" --agent claude --limit 20
+
+# View statistics
+synapse history stats
+synapse history stats --agent gemini
+
+# Export data
+synapse history export --format json > history.json
+synapse history export --format csv --agent claude > claude_tasks.csv
+synapse history export --format json --output export.json
+
+# Cleanup old data
+synapse history cleanup --days 30
+synapse history cleanup --max-size 100
+```
+
+**Parameters:**
+- `--agent`: Filter by agent name (e.g., `claude`, `gemini`, `codex`)
+- `--limit`: Maximum number of results (default: 50)
+- `--logic`: Search logic - `OR` (any keyword) or `AND` (all keywords)
+- `--format`: Export format - `json` or `csv`
+- `--output`: Output file path (default: stdout)
+- `--days`: Delete observations older than N days
+- `--max-size`: Keep database under N megabytes
+
+**Enable History:**
+```bash
+export SYNAPSE_HISTORY_ENABLED=true
+synapse claude  # Start with history enabled
+```
 
 ### Send Message to Agent
 

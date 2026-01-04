@@ -57,6 +57,13 @@ def build_initial_instructions(ctx: AgentContext) -> str:
 - Send: `python3 synapse/tools/a2a.py send --target <agent> --priority [1-5] "<msg>"`
 - List: `python3 synapse/tools/a2a.py list` (discover available agents)
 
+## Task History (Enable with SYNAPSE_HISTORY_ENABLED=true)
+- List: `synapse history list [--agent <name>] [--limit <n>]`
+- Search: `synapse history search <keywords> [--agent <name>] [--limit <n>]`
+- Stats: `synapse history stats [--agent <name>]`
+- Export: `synapse history export --format [json|csv] [--output <file>]`
+- Cleanup: `synapse history cleanup --days <n>` or `--max-size <mb>`
+
 ## Routing Rules
 - `@OtherAgent <message>`: FORWARD to that agent (do NOT process yourself)
 - No @mention or addressed to you: PROCESS it yourself
@@ -90,21 +97,30 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     Returns:
         Minimal bootstrap instruction string.
     """
-    return f"""[SYNAPSE INSTRUCTIONS - DO NOT PROCESS AS TASK]
+    return f"""[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
 Agent: {agent_id} | Port: {port}
 
-SKILL: For detailed A2A guidance, use synapse-a2a skill
+HOW TO RECEIVE A2A MESSAGES:
+Input format: [A2A:task_id:sender_id] message
+Response command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE
 
-ROUTING: If message starts with @<agent>, forward WITHOUT processing yourself.
-  Example: @gemini check weather -> python3 synapse/tools/a2a.py send --target gemini "check weather"
+HOW TO SEND MESSAGES TO OTHER AGENTS:
+When user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE
 
 REPLY: When you receive [A2A:id:sender], respond by default.
   python3 synapse/tools/a2a.py send --target <sender> "<response>"
 REPLY LOOP: If greetings/acks repeat without new requests, reply once and stop unless the user asks.
+AVAILABLE AGENTS: claude, gemini, codex
+LIST COMMAND: python3 synapse/tools/a2a.py list
 
-AGENTS: claude, gemini, codex
+SKILL: For advanced A2A features, use synapse-a2a skill
 
-LIST: python3 synapse/tools/a2a.py list"""
+TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
+  synapse history list [--agent <name>] [--limit <n>]    - List tasks
+  synapse history search <keywords>                       - Search by keywords
+  synapse history stats [--agent <name>]                  - View statistics
+  synapse history export --format [json|csv] [--output <file>]  - Export data
+  synapse history cleanup --days <n> [--force]            - Delete old tasks"""
 
 
 def get_other_agents_from_registry(
