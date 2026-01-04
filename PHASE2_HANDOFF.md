@@ -349,8 +349,8 @@ LIMIT ?
 #### 複数キーワード（AND ロジック）
 ```sql
 SELECT * FROM observations
-WHERE input LIKE ? OR output LIKE ?
-  AND input LIKE ? OR output LIKE ?
+WHERE (input LIKE ? OR output LIKE ?)
+  AND (input LIKE ? OR output LIKE ?)
 ORDER BY timestamp DESC
 LIMIT ?
 ```
