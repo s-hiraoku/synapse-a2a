@@ -413,7 +413,9 @@ class TerminalController:
         self.interactive = True
         self.running = True
         with self.lock:
-            self._last_output_time = None  # Don't start timeout detection until first output
+            self._last_output_time = (
+                None  # Don't start timeout detection until first output
+            )
 
         # Start background thread for periodic idle checking
         # This ensures timeout-based idle detection works in interactive mode
