@@ -128,6 +128,7 @@ class TestBuildInitialInstructions:
         assert "A2A:" in result
         assert "sender_id" in result
         assert "Replying" in result
+        assert "reply loop" in result.lower()
 
     def test_contains_target_resolution(self):
         """Should explain target resolution patterns."""
@@ -174,8 +175,8 @@ class TestBuildBootstrapMessage:
         """Bootstrap message should be short with essential commands only."""
         msg = build_bootstrap_message("synapse-claude-8100", 8100)
 
-        # Should be minimal (identity + skill ref + A2A instructions + list + history, ~985 chars)
-        assert len(msg) < 1100
+        # Should be minimal (identity + skill ref + A2A instructions + list + history + reply loop, ~1200 chars)
+        assert len(msg) < 1300
         # Should contain essential commands
         assert "a2a.py send" in msg
         assert "a2a.py list" in msg
@@ -189,6 +190,8 @@ class TestBuildBootstrapMessage:
         assert "synapse history list" in msg
         # Should reference the synapse-a2a skill
         assert "synapse-a2a" in msg
+        # Should include reply-loop prevention
+        assert "reply loop" in msg.lower()
 
     def test_message_lists_common_agents(self):
         """Bootstrap message should list common agent types."""
