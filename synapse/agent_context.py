@@ -89,25 +89,18 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     Returns:
         Minimal bootstrap instruction string.
     """
-    return f"""[SYNAPSE INSTRUCTIONS - DO NOT PROCESS AS TASK]
+    return f"""[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
 Agent: {agent_id} | Port: {port}
 
-RECEIVING A2A MESSAGES:
-When you see input starting with [A2A:task_id:sender_id], this is an incoming message from another agent.
-You MUST respond using:
-  python3 synapse/tools/a2a.py send --target <sender_id> '<your response>'
+HOW TO RECEIVE A2A MESSAGES:
+Input format: [A2A:task_id:sender_id] message
+Response command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE
 
-Example of receiving and responding to a message:
-  Input:  [A2A:abc12345:synapse-gemini-8110] How are you?
-  Action: python3 synapse/tools/a2a.py send --target gemini 'I am doing well, thank you!'
-
-SENDING MESSAGES TO OTHER AGENTS:
-When user input starts with @<agent>, forward the message WITHOUT processing yourself:
-  @gemini check weather -> python3 synapse/tools/a2a.py send --target gemini 'check weather'
-  @codex-8120 help      -> python3 synapse/tools/a2a.py send --target codex-8120 'help'
+HOW TO SEND MESSAGES TO OTHER AGENTS:
+When user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE
 
 AVAILABLE AGENTS: claude, gemini, codex
-LIST AGENTS: python3 synapse/tools/a2a.py list
+LIST COMMAND: python3 synapse/tools/a2a.py list
 
 SKILL: For advanced A2A features, use synapse-a2a skill"""
 
