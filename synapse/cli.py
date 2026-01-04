@@ -383,6 +383,195 @@ def cmd_history_show(args: argparse.Namespace) -> None:
         print(json.dumps(observation["metadata"], indent=2))
 
 
+def cmd_history_search(args: argparse.Namespace) -> None:
+    """Search task history by keywords."""
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    observations = manager.search_observations(
+        keywords=args.keywords,
+        logic=args.logic,
+        case_sensitive=args.case_sensitive,
+        limit=args.limit,
+        agent_name=args.agent if args.agent else None,
+    )
+
+    if not observations:
+        print(f"No matches found for: {', '.join(args.keywords)}")
+        return
+
+    # Print table header
+    print(
+        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
+    )
+    print("-" * 119)
+
+    # Print each observation
+    for obs in observations:
+        task_id = obs["task_id"][:36]
+        agent = obs["agent_name"][:10]
+        status = obs["status"][:12]
+        timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
+        input_preview = (
+            obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
+        )
+        print(
+            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
+        )
+
+    print(f"\nFound {len(observations)} matches")
+    print(f"Keywords: {', '.join(args.keywords)} (logic: {args.logic})")
+    if args.agent:
+        print(f"Filtered by agent: {args.agent}")
+
+
+def cmd_history_cleanup(args: argparse.Namespace) -> None:
+    """Clean up old task history."""
+    import sqlite3
+
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    # Validate arguments
+    if args.days is None and args.max_size is None:
+        print("Error: Specify --days or --max-size")
+        sys.exit(1)
+
+    if args.days is not None and args.max_size is not None:
+        print("Error: Specify only one of --days or --max-size")
+        sys.exit(1)
+
+    # Dry-run mode: Show what would be deleted
+    if args.dry_run:
+        if args.days:
+            # Count observations older than N days
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cutoff_sql = f"datetime('now', '-{args.days} days')"
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM observations WHERE timestamp < {cutoff_sql}"
+                )
+                count = cursor.fetchone()[0]
+                conn.close()
+                print(f"Would delete {count} observations older than {args.days} days")
+            except Exception as e:
+                print(f"Error checking observations: {e}", file=sys.stderr)
+        else:
+            # Show current size and target
+            try:
+                current_size_mb = Path(db_path).stat().st_size / (1024 * 1024)
+                print(f"Current database size: {current_size_mb:.2f} MB")
+                print(f"Target size: {args.max_size} MB")
+                if current_size_mb > args.max_size:
+                    print("Would delete oldest observations to reach target size")
+                else:
+                    print("No cleanup needed (already under target size)")
+            except Exception as e:
+                print(f"Error checking database: {e}", file=sys.stderr)
+        return
+
+    # Confirm deletion (unless --force flag)
+    if not args.force:
+        response = input(
+            "This will permanently delete observations. Continue? (yes/no): "
+        )
+        if response.lower() not in ("yes", "y"):
+            print("Cancelled.")
+            return
+
+    # Execute cleanup
+    print("Cleaning up...")
+    if args.days:
+        result = manager.cleanup_old_observations(
+            days=args.days,
+            vacuum=not args.no_vacuum,
+        )
+        print(
+            f"Deleted {result['deleted_count']} observations older than {args.days} days"
+        )
+    else:
+        result = manager.cleanup_by_size(
+            max_size_mb=args.max_size,
+            vacuum=not args.no_vacuum,
+        )
+        print(f"Deleted {result['deleted_count']} observations to reach target size")
+
+    if not args.no_vacuum and result["vacuum_reclaimed_mb"] > 0:
+        print(f"Reclaimed {result['vacuum_reclaimed_mb']:.2f} MB of disk space")
+
+
+def cmd_history_stats(args: argparse.Namespace) -> None:
+    """Show task history statistics."""
+    from synapse.history import HistoryManager
+
+    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    manager = HistoryManager.from_env(db_path=db_path)
+
+    if not manager.enabled:
+        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        return
+
+    stats = manager.get_statistics(agent_name=args.agent if args.agent else None)
+
+    if not stats or stats["total_tasks"] == 0:
+        print("No task history found.")
+        return
+
+    # Print statistics (section-based format)
+    print("=" * 60)
+    print("TASK HISTORY STATISTICS")
+    print("=" * 60)
+    print()
+
+    # Overall metrics
+    print(f"Total Tasks:     {stats['total_tasks']}")
+    print(f"Completed:       {stats['completed']}")
+    print(f"Failed:          {stats['failed']}")
+    print(f"Canceled:        {stats['canceled']}")
+    print(f"Success Rate:    {stats['success_rate']:.1f}%")
+    print()
+
+    # Database info
+    print(f"Database Size:   {stats['db_size_mb']:.2f} MB")
+    if stats["oldest_task"]:
+        print(f"Oldest Task:     {stats['oldest_task']}")
+        print(f"Newest Task:     {stats['newest_task']}")
+        print(f"Date Range:      {stats['date_range_days']} days")
+    print()
+
+    # Agent breakdown (if not filtering by specific agent)
+    if stats["by_agent"]:
+        print("=" * 60)
+        print("BY AGENT")
+        print("=" * 60)
+        print()
+        print(f"{'Agent':<10} {'Total':<8} {'Completed':<10} {'Failed':<8} {'Canceled':<8}")
+        print("-" * 60)
+
+        for agent, counts in sorted(stats["by_agent"].items()):
+            print(
+                f"{agent:<10} {counts['total']:<8} {counts['completed']:<10} "
+                f"{counts['failed']:<8} {counts['canceled']:<8}"
+            )
+        print()
+
+    if args.agent:
+        print(f"(Filtered by agent: {args.agent})")
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     target = args.target
@@ -840,6 +1029,79 @@ def main() -> None:
     p_hist_show = history_subparsers.add_parser("show", help="Show task details")
     p_hist_show.add_argument("task_id", help="Task ID to display")
     p_hist_show.set_defaults(func=cmd_history_show)
+
+    # history search
+    p_hist_search = history_subparsers.add_parser(
+        "search", help="Search task history by keywords"
+    )
+    p_hist_search.add_argument(
+        "keywords",
+        nargs="+",
+        help="Search keywords (searches in input and output fields)",
+    )
+    p_hist_search.add_argument(
+        "--logic",
+        choices=["OR", "AND"],
+        default="OR",
+        help="Search logic: OR (any keyword) or AND (all keywords). Default: OR",
+    )
+    p_hist_search.add_argument(
+        "--case-sensitive",
+        action="store_true",
+        help="Enable case-sensitive search (default: case-insensitive)",
+    )
+    p_hist_search.add_argument(
+        "--agent", "-a", help="Filter results by agent name"
+    )
+    p_hist_search.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=50,
+        help="Maximum number of results to return (default: 50)",
+    )
+    p_hist_search.set_defaults(func=cmd_history_search)
+
+    # history cleanup
+    p_hist_cleanup = history_subparsers.add_parser(
+        "cleanup", help="Clean up old task history"
+    )
+    p_hist_cleanup.add_argument(
+        "--days",
+        type=int,
+        help="Delete observations older than N days",
+    )
+    p_hist_cleanup.add_argument(
+        "--max-size",
+        type=int,
+        help="Keep database under N megabytes (delete oldest records)",
+    )
+    p_hist_cleanup.add_argument(
+        "--no-vacuum",
+        action="store_true",
+        help="Skip VACUUM after deletion (faster but doesn't reclaim disk space)",
+    )
+    p_hist_cleanup.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be deleted without actually deleting",
+    )
+    p_hist_cleanup.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Skip confirmation prompt (useful for automation)",
+    )
+    p_hist_cleanup.set_defaults(func=cmd_history_cleanup)
+
+    # history stats
+    p_hist_stats = history_subparsers.add_parser(
+        "stats", help="Show usage statistics"
+    )
+    p_hist_stats.add_argument(
+        "--agent", "-a", help="Show statistics for specific agent only"
+    )
+    p_hist_stats.set_defaults(func=cmd_history_stats)
 
     # external - External A2A agent management
     p_external = subparsers.add_parser("external", help="Manage external A2A agents")
