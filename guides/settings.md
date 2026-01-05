@@ -74,6 +74,44 @@ $ synapse reset
 ✔ Reset ~/.synapse/settings.json to defaults
 ```
 
+## Skills のインストール
+
+`synapse init` と `synapse reset` は、設定ファイルの作成に加えて、Synapse A2A スキルを `.claude/skills/` と `.codex/skills/` にインストールします。
+
+### インストール先
+
+```
+~/.claude/skills/synapse-a2a/      # User スコープ
+~/.codex/skills/synapse-a2a/
+
+./.claude/skills/synapse-a2a/      # Project スコープ
+./.codex/skills/synapse-a2a/
+```
+
+### 注意事項
+
+- **Gemini**: スキル機能に対応していないため、`.gemini/skills/` にはインストールされません
+- **既存スキル**: `synapse init` は既存のスキルディレクトリを上書きしません（`synapse reset` は上書きします）
+- **スキル内容**: `SKILL.md` ファイルがインストールされ、A2A プロトコルの使用方法が記載されています
+
+### スキルの再インストール
+
+スキルを最新版に更新するには：
+
+```bash
+$ synapse reset
+
+? Which settings do you want to reset?
+  ❯ Project scope (./.synapse/settings.json)
+
+? This will overwrite existing settings. Continue? (y/N) y
+
+✔ Reset ./.synapse/settings.json to defaults
+✔ Installed skills to:
+  - .claude/skills/synapse-a2a
+  - .codex/skills/synapse-a2a
+```
+
 ## settings.json の構造
 
 ### 完全な例

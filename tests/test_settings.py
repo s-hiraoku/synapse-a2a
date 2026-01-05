@@ -4,9 +4,6 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from synapse.settings import (
     DEFAULT_SETTINGS,
@@ -111,9 +108,7 @@ class TestLoadSettings:
 
     def test_load_valid_json(self):
         """Loading valid JSON file returns parsed content."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"env": {"TEST": "value"}}, f)
             f.flush()
             try:
@@ -124,9 +119,7 @@ class TestLoadSettings:
 
     def test_load_invalid_json_returns_empty(self):
         """Loading invalid JSON file returns empty dict."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("not valid json {{{")
             f.flush()
             try:
@@ -229,9 +222,7 @@ class TestSynapseSettings:
 
             # Local says history enabled
             local_settings = {"env": {"SYNAPSE_HISTORY_ENABLED": "true"}}
-            (project_dir / "settings.local.json").write_text(
-                json.dumps(local_settings)
-            )
+            (project_dir / "settings.local.json").write_text(json.dumps(local_settings))
 
             settings = SynapseSettings.load(
                 project_path=project_dir / "settings.json",
@@ -267,9 +258,109 @@ class TestInstructionPlaceholders:
         """Multiple placeholders are all replaced."""
         settings = SynapseSettings(
             env={},
-            instructions={
-                "default": "{{agent_id}} on {{port}}, again {{agent_id}}"
-            },
+            instructions={"default": "{{agent_id}} on {{port}}, again {{agent_id}}"},
         )
         result = settings.get_instruction("claude", "my-agent", 1234)
         assert result == "my-agent on 1234, again my-agent"
+
+
+class TestSkillInstallation:
+    """Test skill installation functionality."""
+
+    def test_install_skills_to_dir(self):
+        """Test _install_skills_to_dir creates skills in .claude and .codex."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            # Install skills
+            installed = _install_skills_to_dir(base_dir, force=False)
+
+            # Should install to both .claude and .codex
+            assert len(installed) == 2
+
+            # Check .claude skill exists
+            claude_skill = base_dir / ".claude" / "skills" / "synapse-a2a"
+            assert claude_skill.exists()
+            assert (claude_skill / "SKILL.md").exists()
+
+            # Check .codex skill exists
+            codex_skill = base_dir / ".codex" / "skills" / "synapse-a2a"
+            assert codex_skill.exists()
+            assert (codex_skill / "SKILL.md").exists()
+
+    def test_install_skills_skips_existing(self):
+        """Test _install_skills_to_dir skips existing without force."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            # Create existing skill directory
+            existing = base_dir / ".claude" / "skills" / "synapse-a2a"
+            existing.mkdir(parents=True)
+            (existing / "custom.txt").write_text("custom content")
+
+            # Install without force
+            installed = _install_skills_to_dir(base_dir, force=False)
+
+            # Should only install to .codex (skip existing .claude)
+            assert len(installed) == 1
+            assert ".codex" in installed[0]
+
+            # Custom file should still exist
+            assert (existing / "custom.txt").exists()
+
+    def test_install_skills_force_overwrites(self):
+        """Test _install_skills_to_dir overwrites with force=True."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            # Create existing skill directory with custom file
+            existing = base_dir / ".claude" / "skills" / "synapse-a2a"
+            existing.mkdir(parents=True)
+            (existing / "custom.txt").write_text("custom content")
+
+            # Install with force
+            installed = _install_skills_to_dir(base_dir, force=True)
+
+            # Should install to both
+            assert len(installed) == 2
+
+            # Custom file should be gone, replaced with SKILL.md
+            assert not (existing / "custom.txt").exists()
+            assert (existing / "SKILL.md").exists()
+
+    def test_install_skills_no_gemini(self):
+        """Test that skills are not installed to .gemini (unsupported)."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            installed = _install_skills_to_dir(base_dir, force=False)
+
+            # Check no .gemini directory was created
+            gemini_skill = base_dir / ".gemini" / "skills" / "synapse-a2a"
+            assert not gemini_skill.exists()
+
+            # Only .claude and .codex (paths are like .../base/.claude/skills/synapse-a2a)
+            # Extract the agent dir name (e.g., ".claude", ".codex")
+            installed_agent_dirs = []
+            for p in installed:
+                parts = Path(p).parts
+                # Find the part that starts with "."
+                for part in parts:
+                    if part.startswith(".") and part in [
+                        ".claude",
+                        ".codex",
+                        ".gemini",
+                    ]:
+                        installed_agent_dirs.append(part)
+                        break
+            assert ".claude" in installed_agent_dirs
+            assert ".codex" in installed_agent_dirs
+            assert ".gemini" not in installed_agent_dirs

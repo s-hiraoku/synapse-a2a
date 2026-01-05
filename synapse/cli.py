@@ -848,8 +848,50 @@ def _write_default_settings(path: Path) -> bool:
         return False
 
 
+def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
+    """
+    Install synapse-a2a skills to .claude and .codex directories.
+
+    Args:
+        base_dir: Base directory (e.g., Path.home() or Path.cwd())
+        force: If True, overwrite existing skills
+
+    Returns:
+        List of installed paths
+    """
+    import synapse
+
+    package_dir = Path(synapse.__file__).parent
+    source_dir = package_dir / "skills" / "synapse-a2a"
+
+    if not source_dir.exists():
+        return []
+
+    installed = []
+    # Install to both .claude and .codex (Gemini doesn't support skills)
+    for agent_dir in [".claude", ".codex"]:
+        target_dir = base_dir / agent_dir / "skills" / "synapse-a2a"
+
+        # Skip if exists and not forcing
+        if target_dir.exists() and not force:
+            continue
+
+        try:
+            # Remove existing if forcing
+            if target_dir.exists() and force:
+                shutil.rmtree(target_dir)
+
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source_dir, target_dir)
+            installed.append(str(target_dir))
+        except OSError:
+            pass  # Silently ignore errors
+
+    return installed
+
+
 def cmd_init(args: argparse.Namespace) -> None:
-    """Initialize settings.json with default values."""
+    """Initialize settings.json and install skills."""
     scope = getattr(args, "scope", None)
 
     # If scope not provided via flag, prompt interactively
@@ -860,28 +902,39 @@ def cmd_init(args: argparse.Namespace) -> None:
         print("Cancelled.")
         return
 
-    # Determine path based on scope
+    # Determine paths based on scope
     if scope == "user":
-        path = Path.home() / ".synapse" / "settings.json"
+        settings_path = Path.home() / ".synapse" / "settings.json"
+        skills_base = Path.home()
     else:  # project
-        path = Path.cwd() / ".synapse" / "settings.json"
+        settings_path = Path.cwd() / ".synapse" / "settings.json"
+        skills_base = Path.cwd()
 
-    # Check if file already exists
-    if path.exists():
-        response = input(f"\n{path} already exists. Overwrite? (y/N): ").strip().lower()
+    # Check if settings file already exists
+    if settings_path.exists():
+        response = (
+            input(f"\n{settings_path} already exists. Overwrite? (y/N): ")
+            .strip()
+            .lower()
+        )
         if response not in ("y", "yes"):
             print("Cancelled.")
             return
 
     # Write default settings
-    if _write_default_settings(path):
-        print(f"\n✔ Created {path}")
+    if _write_default_settings(settings_path):
+        print(f"✔ Created {settings_path}")
     else:
         sys.exit(1)
 
+    # Install skills to .claude and .codex
+    installed = _install_skills_to_dir(skills_base, force=False)
+    for path in installed:
+        print(f"✔ Installed skill to {path}")
+
 
 def cmd_reset(args: argparse.Namespace) -> None:
-    """Reset settings.json to default values."""
+    """Reset settings.json and reinstall skills to defaults."""
     scope = getattr(args, "scope", None)
 
     # If scope not provided via flag, prompt interactively
@@ -892,36 +945,53 @@ def cmd_reset(args: argparse.Namespace) -> None:
         print("Cancelled.")
         return
 
-    # Determine paths
+    # Determine paths and skill bases
     user_path = Path.home() / ".synapse" / "settings.json"
     project_path = Path.cwd() / ".synapse" / "settings.json"
 
     paths_to_reset = []
+    skill_bases = []
     if scope == "user":
         paths_to_reset.append(user_path)
+        skill_bases.append(Path.home())
     elif scope == "project":
         paths_to_reset.append(project_path)
+        skill_bases.append(Path.cwd())
     else:  # both
         paths_to_reset.extend([user_path, project_path])
+        skill_bases.extend([Path.home(), Path.cwd()])
 
     # Confirm
     force = getattr(args, "force", False)
     if not force:
-        print("\nThis will reset the following files to defaults:")
+        print("\nThis will reset the following to defaults:")
+        print("\nSettings:")
         for p in paths_to_reset:
             exists = "exists" if p.exists() else "will be created"
             print(f"  - {p} ({exists})")
+        print("\nSkills (will be reinstalled):")
+        for base in skill_bases:
+            for agent in [".claude", ".codex"]:
+                skill_path = base / agent / "skills" / "synapse-a2a"
+                exists = "exists" if skill_path.exists() else "will be created"
+                print(f"  - {skill_path} ({exists})")
         response = input("\nContinue? (y/N): ").strip().lower()
         if response not in ("y", "yes"):
             print("Cancelled.")
             return
 
-    # Reset each path
+    # Reset settings
     for path in paths_to_reset:
         if _write_default_settings(path):
             print(f"✔ Reset {path}")
         else:
             print(f"✗ Failed to reset {path}")
+
+    # Reinstall skills (force=True to overwrite)
+    for base in skill_bases:
+        installed = _install_skills_to_dir(base, force=True)
+        for installed_path in installed:
+            print(f"✔ Reinstalled skill to {installed_path}")
 
 
 def cmd_auth_setup(args: argparse.Namespace) -> None:

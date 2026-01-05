@@ -104,7 +104,10 @@ def load_settings(path: Path) -> dict[str, Any]:
 
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, dict):
+                return dict(data)
+            return {}
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to load settings from {path}: {e}")
         return {}
@@ -224,9 +227,7 @@ class SynapseSettings:
             instructions=merged.get("instructions", {}),
         )
 
-    def get_instruction(
-        self, agent_type: str, agent_id: str, port: int
-    ) -> str | None:
+    def get_instruction(self, agent_type: str, agent_id: str, port: int) -> str | None:
         """
         Get the instruction for a specific agent type.
 

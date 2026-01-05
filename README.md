@@ -816,6 +816,8 @@ synapse init
 synapse reset
 ```
 
+**スキル自動インストール**: `synapse init` および `synapse reset` は、設定ファイルの作成に加えて、`.claude/skills/synapse-a2a/` と `.codex/skills/synapse-a2a/` にスキルを自動インストールします。（Gemini は Skills 非対応のためスキップ）
+
 ### settings.json の構造
 
 ```json
