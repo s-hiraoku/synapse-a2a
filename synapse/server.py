@@ -1,8 +1,6 @@
 import argparse
-import asyncio
 import os
 import sys
-import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -11,9 +9,6 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
-from synapse.agent_context import (
-    build_bootstrap_message,
-)
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 
@@ -229,65 +224,6 @@ def create_app(
     new_app.include_router(a2a_router)
 
     return new_app
-
-
-async def send_initial_instructions(
-    ctrl: TerminalController, agent_id: str, port: int, submit_seq: str
-) -> None:
-    """
-    Send minimal initial instructions to the AI agent via A2A Task.
-
-    Only sends identity and basic commands (3 lines).
-    Detailed routing is handled by InputRouter and inline message instructions.
-
-    If READY detected quickly: send immediately (minimum startup time respected).
-    Otherwise: wait up to max_wait, then enforce minimum startup time before proceeding.
-    """
-    # Poll for READY status immediately, up to max_wait seconds
-    # This allows fast startup if the agent is ready quickly
-    min_wait = 3  # Minimum startup time to allow agent initialization
-    max_wait = 30  # Maximum time to wait for READY status
-
-    start_time = time.time()
-    waited: float = 0
-
-    # Poll for READY status (check every 0.1 seconds for responsiveness)
-    while waited < max_wait:
-        if ctrl.status == "READY":
-            break
-        await asyncio.sleep(0.1)
-        waited = time.time() - start_time
-
-    # Enforce minimum startup time: if we detected READY quickly,
-    # sleep for the remaining time to reach min_wait
-    if waited < min_wait:
-        remaining = min_wait - waited
-        await asyncio.sleep(remaining)
-
-    # Build minimal bootstrap message
-    bootstrap = build_bootstrap_message(agent_id, port)
-
-    # Create A2A Task for tracking
-    task_store = TaskStore()
-    message = Message(role="user", parts=[TextPart(text=bootstrap)])
-    task = task_store.create(
-        message,
-        metadata={
-            "sender": {
-                "sender_id": "synapse-system",
-                "sender_type": "system",
-            }
-        },
-    )
-    task_store.update_status(task.id, "working")
-
-    # Send to PTY with A2A format
-    try:
-        prefixed_content = f"[A2A:{task.id[:8]}:synapse-system] {bootstrap}"
-        ctrl.write(prefixed_content, submit_seq=submit_seq)
-        print(f"Sent bootstrap instructions (Task ID: {task.id[:8]})")
-    except Exception as e:
-        print(f"Warning: Failed to send bootstrap: {e}")
 
 
 class MessageRequest(BaseModel):

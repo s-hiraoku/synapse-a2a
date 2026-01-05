@@ -1,0 +1,305 @@
+# 設定ファイル (.synapse) ガイド
+
+Synapse A2A の設定ファイルについての詳細ガイドです。
+
+## 概要
+
+`.synapse/settings.json` を使用して、以下をカスタマイズできます：
+
+- **環境変数**: エージェント起動時に設定される環境変数
+- **初期インストラクション**: エージェント起動時に送信される指示
+
+## ディレクトリ構造
+
+```
+~/.synapse/                              # User スコープ（グローバル）
+└── settings.json
+
+./.synapse/                              # Project スコープ
+├── settings.json                        # チーム共有設定（git管理）
+└── settings.local.json                  # 個人設定（gitignore推奨）
+```
+
+## スコープと優先順位
+
+設定は3つのスコープで管理され、高優先度が低優先度を上書きします。
+
+| スコープ | パス | 優先度 | 用途 |
+|----------|------|--------|------|
+| User | `~/.synapse/settings.json` | 低 | 全プロジェクト共通の個人設定 |
+| Project | `./.synapse/settings.json` | 中 | プロジェクト固有のチーム共有設定 |
+| Local | `./.synapse/settings.local.json` | 高 | 個人のローカル上書き |
+
+### マージ動作
+
+```
+最終設定 = User + Project + Local（後から上書き）
+```
+
+例：
+- User: `SYNAPSE_HISTORY_ENABLED=false`
+- Project: `SYNAPSE_HISTORY_ENABLED=true`
+- → 結果: `SYNAPSE_HISTORY_ENABLED=true`（Project が優先）
+
+## コマンド
+
+### synapse init
+
+設定ファイルを対話的に作成します。
+
+```bash
+$ synapse init
+
+? Where do you want to create settings.json?
+  ❯ User scope (~/.synapse/settings.json)
+    Project scope (./.synapse/settings.json)
+
+✔ Created ~/.synapse/settings.json
+```
+
+### synapse reset
+
+設定ファイルをデフォルトに戻します。
+
+```bash
+$ synapse reset
+
+? Which settings do you want to reset?
+  ❯ User scope (~/.synapse/settings.json)
+    Project scope (./.synapse/settings.json)
+    Both
+
+? This will overwrite existing settings. Continue? (y/N) y
+
+✔ Reset ~/.synapse/settings.json to defaults
+```
+
+## Skills のインストール
+
+`synapse init` と `synapse reset` は、設定ファイルの作成に加えて、Synapse A2A スキルを `.claude/skills/` と `.codex/skills/` にインストールします。
+
+### インストール先
+
+```
+~/.claude/skills/synapse-a2a/      # User スコープ
+~/.codex/skills/synapse-a2a/
+
+./.claude/skills/synapse-a2a/      # Project スコープ
+./.codex/skills/synapse-a2a/
+```
+
+### 注意事項
+
+- **Gemini**: スキル機能に対応していないため、`.gemini/skills/` にはインストールされません
+- **既存スキル**: `synapse init` は既存のスキルディレクトリを上書きしません（`synapse reset` は上書きします）
+- **スキル内容**: `SKILL.md` ファイルがインストールされ、A2A プロトコルの使用方法が記載されています
+
+### スキルの再インストール
+
+スキルを最新版に更新するには：
+
+```bash
+$ synapse reset
+
+? Which settings do you want to reset?
+  ❯ Project scope (./.synapse/settings.json)
+
+? This will overwrite existing settings. Continue? (y/N) y
+
+✔ Reset ./.synapse/settings.json to defaults
+✔ Installed skills to:
+  - .claude/skills/synapse-a2a
+  - .codex/skills/synapse-a2a
+```
+
+## settings.json の構造
+
+### 完全な例
+
+```json
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "false",
+    "SYNAPSE_AUTH_ENABLED": "false",
+    "SYNAPSE_API_KEYS": "",
+    "SYNAPSE_ADMIN_KEY": "",
+    "SYNAPSE_ALLOW_LOCALHOST": "true",
+    "SYNAPSE_USE_HTTPS": "false",
+    "SYNAPSE_WEBHOOK_SECRET": "",
+    "SYNAPSE_WEBHOOK_TIMEOUT": "10",
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+  },
+  "instructions": {
+    "default": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nSKILL: For advanced A2A features, use synapse-a2a skill\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "claude": "",
+    "gemini": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "codex": ""
+  }
+}
+```
+
+## 環境変数 (env)
+
+`env` セクションで設定した環境変数は、エージェント起動時に自動的に設定されます。
+
+### 利用可能な変数
+
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
+| `SYNAPSE_AUTH_ENABLED` | API Key 認証を有効化 | `false` |
+| `SYNAPSE_API_KEYS` | 有効な API キー（カンマ区切り） | - |
+| `SYNAPSE_ADMIN_KEY` | 管理者用 API キー | - |
+| `SYNAPSE_ALLOW_LOCALHOST` | localhost からのアクセスで認証をスキップ | `true` |
+| `SYNAPSE_USE_HTTPS` | HTTPS を使用 | `false` |
+| `SYNAPSE_WEBHOOK_SECRET` | Webhook 署名用シークレット | - |
+| `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
+| `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
+
+### 例: 履歴を常に有効にする
+
+```json
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true"
+  }
+}
+```
+
+### 例: 認証を有効にする
+
+```json
+{
+  "env": {
+    "SYNAPSE_AUTH_ENABLED": "true",
+    "SYNAPSE_API_KEYS": "my-secret-key-1,my-secret-key-2",
+    "SYNAPSE_ADMIN_KEY": "admin-secret-key"
+  }
+}
+```
+
+## 初期インストラクション (instructions)
+
+`instructions` セクションで、エージェント起動時に送信される指示をカスタマイズできます。
+
+### 解決ロジック
+
+```
+if instructions.{agent_type} が設定されている:
+    → それを使用
+elif instructions.default が設定されている:
+    → default を使用
+else:
+    → 初期インストラクションを送信しない
+```
+
+### プレースホルダー
+
+以下のプレースホルダーは実行時に置換されます：
+
+| プレースホルダー | 説明 | 例 |
+|------------------|------|-----|
+| `{{agent_id}}` | エージェントID | `synapse-claude-8100` |
+| `{{port}}` | ポート番号 | `8100` |
+
+### 例: 日本語で応答させる
+
+```json
+{
+  "instructions": {
+    "default": "[SYNAPSE INSTRUCTIONS...]\n\n必ず日本語で応答してください。"
+  }
+}
+```
+
+### 例: エージェント毎にカスタマイズ
+
+```json
+{
+  "instructions": {
+    "default": "共通の指示...",
+    "claude": "Claude用: コードレビューに集中してください",
+    "gemini": "Gemini用: 簡潔に回答してください",
+    "codex": "Codex用: テストコードを必ず書いてください"
+  }
+}
+```
+
+### Gemini の注意点
+
+Gemini は Claude Code の Skills に対応していないため、デフォルトでは SKILL 行を除いた指示が設定されています。
+
+## ユースケース
+
+### プロジェクト全体で履歴を有効化
+
+`.synapse/settings.json`（git 管理）:
+```json
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true"
+  }
+}
+```
+
+### 個人の API キーを設定
+
+`.synapse/settings.local.json`（gitignore）:
+```json
+{
+  "env": {
+    "SYNAPSE_API_KEYS": "my-personal-key"
+  }
+}
+```
+
+### 全プロジェクトで共通の指示
+
+`~/.synapse/settings.json`:
+```json
+{
+  "instructions": {
+    "default": "全プロジェクト共通: 日本語で応答してください"
+  }
+}
+```
+
+### プロジェクト固有の指示で上書き
+
+`.synapse/settings.json`:
+```json
+{
+  "instructions": {
+    "default": "このプロジェクトでは Python 3.11 を使用しています"
+  }
+}
+```
+
+## .gitignore 推奨設定
+
+```gitignore
+# Synapse local settings (contains secrets)
+.synapse/settings.local.json
+```
+
+## トラブルシューティング
+
+### 設定が反映されない
+
+1. ファイルパスを確認（`~/.synapse/` または `./.synapse/`）
+2. JSON 構文を確認（`jq . settings.json` でバリデーション）
+3. エージェントを再起動
+
+### 初期インストラクションが送信されない
+
+1. `instructions.default` または `instructions.{agent_type}` が設定されているか確認
+2. 空文字列 `""` は「送信しない」と解釈される
+
+### 環境変数が上書きされる
+
+シェルで設定した環境変数は `settings.json` より優先されます：
+
+```bash
+# settings.json の SYNAPSE_HISTORY_ENABLED=true を上書き
+SYNAPSE_HISTORY_ENABLED=false synapse claude
+```
