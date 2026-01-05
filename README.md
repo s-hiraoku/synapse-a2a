@@ -48,6 +48,7 @@ flowchart LR
 - [Agent Card](#agent-card)
 - [レジストリとポート管理](#レジストリとポート管理)
 - [テスト](#テスト)
+- [設定ファイル (.synapse)](#設定ファイル-synapse)
 - [開発・リリース](#開発リリース)
 
 ---
@@ -784,6 +785,100 @@ pytest
 pytest tests/test_a2a_compat.py -v
 pytest tests/test_sender_identification.py -v
 ```
+
+---
+
+## 設定ファイル (.synapse)
+
+`.synapse/settings.json` を使って、環境変数や初期インストラクションをカスタマイズできます。
+
+### スコープ
+
+| スコープ | パス | 優先度 |
+|----------|------|--------|
+| User | `~/.synapse/settings.json` | 低 |
+| Project | `./.synapse/settings.json` | 中 |
+| Local | `./.synapse/settings.local.json` | 高（gitignore推奨） |
+
+高優先度の設定が低優先度を上書きします。
+
+### セットアップ
+
+```bash
+# 設定ファイルを作成
+synapse init
+
+# ? Where do you want to create settings.json?
+#   ❯ User scope (~/.synapse/settings.json)
+#     Project scope (./.synapse/settings.json)
+
+# デフォルトに戻す
+synapse reset
+```
+
+### settings.json の構造
+
+```json
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true",
+    "SYNAPSE_AUTH_ENABLED": "false",
+    "SYNAPSE_API_KEYS": "",
+    "SYNAPSE_ADMIN_KEY": "",
+    "SYNAPSE_ALLOW_LOCALHOST": "true",
+    "SYNAPSE_USE_HTTPS": "false",
+    "SYNAPSE_WEBHOOK_SECRET": "",
+    "SYNAPSE_WEBHOOK_TIMEOUT": "10",
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+  },
+  "instructions": {
+    "default": "[SYNAPSE INSTRUCTIONS...]\n...",
+    "claude": "",
+    "gemini": "",
+    "codex": ""
+  }
+}
+```
+
+### 環境変数 (env)
+
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
+| `SYNAPSE_AUTH_ENABLED` | API認証を有効化 | `false` |
+| `SYNAPSE_API_KEYS` | APIキー（カンマ区切り） | - |
+| `SYNAPSE_ADMIN_KEY` | 管理者キー | - |
+| `SYNAPSE_ALLOW_LOCALHOST` | localhost認証スキップ | `true` |
+| `SYNAPSE_USE_HTTPS` | HTTPS使用 | `false` |
+| `SYNAPSE_WEBHOOK_SECRET` | Webhookシークレット | - |
+| `SYNAPSE_WEBHOOK_TIMEOUT` | Webhookタイムアウト(秒) | `10` |
+| `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhookリトライ数 | `3` |
+
+### 初期インストラクション (instructions)
+
+エージェント起動時に送信される指示をカスタマイズできます。
+
+```json
+{
+  "instructions": {
+    "default": "全エージェント共通の指示",
+    "claude": "Claude専用の指示（設定時はdefaultより優先）",
+    "gemini": "Gemini専用の指示",
+    "codex": "Codex専用の指示"
+  }
+}
+```
+
+**優先順位**:
+1. エージェント固有の設定（`claude`, `gemini`, `codex`）があればそれを使用
+2. なければ `default` を使用
+3. 両方とも空なら初期インストラクションは送信しない
+
+**プレースホルダー**:
+- `{{agent_id}}` - エージェントID（例: `synapse-claude-8100`）
+- `{{port}}` - ポート番号（例: `8100`）
+
+詳細は [guides/settings.md](guides/settings.md) を参照してください。
 
 ---
 

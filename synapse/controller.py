@@ -16,9 +16,6 @@ import time
 import uuid
 from collections.abc import Callable
 
-from synapse.agent_context import (
-    build_bootstrap_message,
-)
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
     IDLE_CHECK_WINDOW,
@@ -29,6 +26,7 @@ from synapse.config import (
 )
 from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
+from synapse.settings import get_settings
 from synapse.utils import format_a2a_message
 
 logger = logging.getLogger(__name__)
@@ -310,8 +308,8 @@ class TerminalController:
         """
         Send full initial instructions to the agent on first IDLE.
 
-        Per README design: sends A2A Task with complete instructions including
-        identity, @Agent routing, available agents, and reply instructions.
+        Uses .synapse/settings.json for customizable instructions.
+        Falls back to default if no settings found.
 
         Format: [A2A:<task_id>:synapse-system] <full_instructions>
         """
@@ -346,8 +344,17 @@ class TerminalController:
             f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
         )
 
-        # Build bootstrap message with agent identity and commands
-        bootstrap = build_bootstrap_message(self.agent_id, self.port)
+        # Get instruction from settings (supports customization via .synapse/settings.json)
+        settings = get_settings()
+        agent_type = self.agent_type or "unknown"
+        bootstrap = settings.get_instruction(agent_type, self.agent_id, self.port)
+
+        # Skip if no instruction configured
+        if bootstrap is None:
+            logging.info(
+                f"[{self.agent_id}] No initial instructions configured, skipping."
+            )
+            return
 
         # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
         task_id = str(uuid.uuid4())[:8]
