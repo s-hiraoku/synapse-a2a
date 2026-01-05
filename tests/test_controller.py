@@ -81,6 +81,8 @@ class TestIdentityInstruction:
         original_send = controller._send_identity_instruction  # noqa: F841
 
         def mock_send():
+            controller._identity_sent = True
+            controller._identity_sending = False
             send_called.set()
 
         controller._send_identity_instruction = mock_send
@@ -109,6 +111,8 @@ class TestIdentityInstruction:
         call_count = [0]
 
         def mock_send():
+            controller._identity_sent = True
+            controller._identity_sending = False
             call_count[0] += 1
 
         controller._send_identity_instruction = mock_send
@@ -184,6 +188,49 @@ class TestIdentityInstruction:
 
         # write should not have been called
         ctrl.write.assert_not_called()
+
+    def test_identity_not_marked_sent_on_master_fd_timeout(
+        self, controller, monkeypatch
+    ):
+        """Identity should retry if master_fd isn't ready in time."""
+        controller.running = True
+        controller.master_fd = None
+        controller.write = Mock()
+
+        monkeypatch.setattr("synapse.controller.IDENTITY_WAIT_TIMEOUT", 0)
+
+        controller._send_identity_instruction()
+
+        assert controller._identity_sent is False
+        assert controller._identity_sending is False
+        controller.write.assert_not_called()
+
+    def test_identity_sent_on_success_marks_sent(self, controller, monkeypatch):
+        """Successful send should mark identity as sent."""
+        controller.running = True
+        controller.master_fd = 1
+        controller.write = Mock()
+
+        monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
+
+        controller._send_identity_instruction()
+
+        assert controller._identity_sent is True
+        assert controller._identity_sending is False
+        assert controller.write.called
+
+    def test_idle_check_skips_when_identity_sending(self, controller):
+        """Idle checks should not spawn duplicate identity send threads."""
+        controller.running = True
+        controller.master_fd = 1
+        controller.output_buffer = b"prompt $"
+        controller._identity_sending = True
+
+        controller._send_identity_instruction = Mock()
+
+        controller._check_idle_state(b"$")
+
+        controller._send_identity_instruction.assert_not_called()
 
 
 class TestOutputIdleDetection:

@@ -114,6 +114,7 @@ class TerminalController:
         self.agent_type = agent_type
         self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
+        self._identity_sending = False
         self._submit_seq = submit_seq or "\n"
         self._startup_delay = startup_delay or STARTUP_DELAY
         self._last_output_time: float | None = (
@@ -297,9 +298,10 @@ class TerminalController:
                 is_idle
                 and self.status == "READY"
                 and not self._identity_sent
+                and not self._identity_sending
                 and self.agent_id
             ):
-                self._identity_sent = True
+                self._identity_sending = True
                 threading.Thread(
                     target=self._send_identity_instruction, daemon=True
                 ).start()
@@ -337,6 +339,7 @@ class TerminalController:
                 f" {IDENTITY_WAIT_TIMEOUT}s"
             )
             print(f"\x1b[31m{msg}\x1b[0m")
+            self._identity_sending = False
             return
 
         logging.info(
@@ -354,6 +357,8 @@ class TerminalController:
             logging.info(
                 f"[{self.agent_id}] No initial instructions configured, skipping."
             )
+            self._identity_sent = True
+            self._identity_sending = False
             return
 
         # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
@@ -365,8 +370,11 @@ class TerminalController:
 
         try:
             self.write(prefixed, self._submit_seq)
+            self._identity_sent = True
         except Exception as e:
             logging.error(f"Failed to send initial instructions: {e}")
+        finally:
+            self._identity_sending = False
 
     def write(self, data: str, submit_seq: str | None = None) -> None:
         """Write data to the controlled process PTY with optional submit sequence."""
