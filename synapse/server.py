@@ -1,7 +1,6 @@
 import argparse
 import os
 import sys
-import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
