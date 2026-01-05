@@ -192,13 +192,14 @@ class TestGeminiInitInstructionTiming:
 
         # Should be READY
         assert controller.status == "READY"
-        assert controller._identity_sent is True
+        assert controller._identity_sending is True
 
         # wait for the identity instruction thread to complete
         time.sleep(2.2)  # POST_WRITE_IDLE_DELAY + send time
 
         # write should have been called with the initial instructions
         assert controller.write.called
+        assert controller._identity_sent is True
 
     def test_multiple_agents_independent_timing(self, temp_registry):
         """Multiple agents should have independent idle detection timing."""
