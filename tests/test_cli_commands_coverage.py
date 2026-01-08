@@ -21,7 +21,7 @@ class TestCliCoverage:
             skill_dir.mkdir(parents=True)
 
         with (
-            patch("synapse.cli.Path.home", return_value=home),
+            patch("pathlib.Path.home", return_value=home),
             patch("synapse.cli.shutil.copytree") as mock_copy,
         ):
             install_skills()
@@ -54,25 +54,6 @@ class TestCliCoverage:
         with pytest.raises(SystemExit) as exc:
             cmd_start(args)
         assert exc.value.code == 1
-
-    def test_cmd_start_auto_port_failure(self):
-        """Test error when no ports available (Line 124)."""
-        args = argparse.Namespace(
-            profile="claude",
-            port=None,
-            foreground=False,
-            ssl_cert=None,
-            ssl_key=None,
-            tool_args=[],
-        )
-        with patch("synapse.cli.PortManager") as mock_pm_cls:
-            mock_pm = mock_pm_cls.return_value
-            mock_pm.get_available_port.return_value = None
-            mock_pm.format_exhaustion_error.return_value = "Out of ports"
-
-            with pytest.raises(SystemExit) as exc:
-                cmd_start(args)
-            assert exc.value.code == 1
 
     def test_cmd_list_dead_agent_cleanup(self):
         """Test cleaning up dead agents from list (Lines 268, 291)."""

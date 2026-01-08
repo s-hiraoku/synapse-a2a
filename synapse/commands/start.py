@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from typing import Any
 
 from synapse.port_manager import PortManager
 from synapse.registry import AgentRegistry
@@ -14,6 +15,9 @@ from synapse.registry import AgentRegistry
 
 class StartCommand:
     """Start an agent in background or foreground."""
+
+    def __init__(self, subprocess_module: Any = subprocess) -> None:
+        self._subprocess = subprocess_module
 
     def run(self, args: argparse.Namespace) -> None:
         profile = args.profile
@@ -67,22 +71,20 @@ class StartCommand:
         if foreground:
             # Run in foreground
             print(
-                f"Starting {profile} on port {port} "
-                f"(foreground, {protocol.upper()})..."
+                f"Starting {profile} on port {port} (foreground, {protocol.upper()})..."
             )
             if ssl_cert:
                 print(f"SSL: {ssl_cert}")
             if tool_args:
                 print(f"Tool args: {' '.join(tool_args)}")
             try:
-                subprocess.run(cmd, env=env)
+                self._subprocess.run(cmd, env=env)
             except KeyboardInterrupt:
                 print("\nStopped.")
         else:
             # Run in background
             print(
-                f"Starting {profile} on port {port} "
-                f"(background, {protocol.upper()})..."
+                f"Starting {profile} on port {port} (background, {protocol.upper()})..."
             )
             if ssl_cert:
                 print(f"SSL: {ssl_cert}")
@@ -95,7 +97,7 @@ class StartCommand:
             log_file = os.path.join(log_dir, f"{profile}.log")
 
             with open(log_file, "w") as log:
-                process = subprocess.Popen(
+                process = self._subprocess.Popen(
                     cmd, stdout=log, stderr=log, start_new_session=True, env=env
                 )
 
