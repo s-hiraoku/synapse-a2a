@@ -151,6 +151,51 @@ app = FastAPI(
 )
 
 
+class MessageRequest(BaseModel):
+    priority: int
+    content: str
+
+
+def _send_legacy_message(
+    ctrl: TerminalController | None,
+    task_store: TaskStore,
+    msg: MessageRequest,
+    submit_seq: str,
+) -> dict:
+    """Send a legacy /message request using a TaskStore for tracking."""
+    if not ctrl:
+        raise HTTPException(status_code=503, detail="Agent not running")
+
+    # Convert to A2A Message format internally
+    a2a_message = Message(role="user", parts=[TextPart(text=msg.content)])
+
+    # Create task for tracking
+    task = task_store.create(a2a_message)
+
+    if msg.priority >= 5:
+        ctrl.interrupt()
+
+    # Update task status to working
+    task_store.update_status(task.id, "working")
+
+    # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
+    try:
+        ctrl.write(msg.content, submit_seq=submit_seq)
+    except Exception as e:
+        task_store.update_status(task.id, "failed")
+        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e
+
+    return {"status": "sent", "priority": msg.priority, "task_id": task.id}
+
+
+def _get_standalone_task_store() -> TaskStore:
+    """Return the singleton TaskStore for standalone mode."""
+    global standalone_task_store
+    if standalone_task_store is None:
+        standalone_task_store = TaskStore()
+    return standalone_task_store
+
+
 def create_app(
     ctrl: TerminalController,
     reg: AgentRegistry,
@@ -166,10 +211,6 @@ def create_app(
         description="CLI agent wrapper with Google A2A protocol compatibility",
         version="1.0.0",
     )
-
-    class MessageRequest(BaseModel):
-        priority: int
-        content: str
 
     # Task store shared with A2A router (will be set when router is created)
     task_store = TaskStore()
@@ -187,25 +228,7 @@ def create_app(
         DEPRECATED: Use /tasks/send or /tasks/send-priority instead.
         This endpoint now creates A2A tasks internally for consistency.
         """
-        if not ctrl:
-            raise HTTPException(status_code=503, detail="Agent not running")
-
-        # Convert to A2A Message format internally
-        a2a_message = Message(role="user", parts=[TextPart(text=msg.content)])
-
-        # Create task for tracking
-        task = task_store.create(a2a_message)
-
-        if msg.priority >= 5:
-            ctrl.interrupt()
-
-        # Update task status to working
-        task_store.update_status(task.id, "working")
-
-        # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
-        ctrl.write(msg.content, submit_seq=submit_seq)
-
-        return {"status": "sent", "priority": msg.priority, "task_id": task.id}
+        return _send_legacy_message(ctrl, task_store, msg, submit_seq)
 
     @new_app.get("/status", tags=["Synapse Original"])
     async def get_status() -> dict:
@@ -226,11 +249,6 @@ def create_app(
     return new_app
 
 
-class MessageRequest(BaseModel):
-    priority: int
-    content: str
-
-
 # Global task store for standalone mode
 standalone_task_store: TaskStore | None = None
 
@@ -243,38 +261,10 @@ async def send_message(msg: MessageRequest) -> dict:
     DEPRECATED: Use /tasks/send or /tasks/send-priority instead.
     This endpoint now creates A2A tasks internally for consistency.
     """
-    global standalone_task_store
-
     if not controller:
         raise HTTPException(status_code=503, detail="Agent not running")
-
-    # Initialize task store if needed
-    if standalone_task_store is None:
-        standalone_task_store = TaskStore()
-
-    # Convert to A2A Message format internally
-    a2a_message = Message(role="user", parts=[TextPart(text=msg.content)])
-
-    # Create task for tracking
-    task = standalone_task_store.create(a2a_message)
-
-    if msg.priority >= 5:
-        # Emergency: Interrupt first
-        controller.interrupt()
-
-    # Update task status to working
-    standalone_task_store.update_status(task.id, "working")
-
-    # For Priority < 5, we just write.
-    # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
-    try:
-        controller.write(msg.content, submit_seq=submit_sequence)
-    except Exception as e:
-        print(f"Error writing to controller: {e}")
-        standalone_task_store.update_status(task.id, "failed")
-        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e
-
-    return {"status": "sent", "priority": msg.priority, "task_id": task.id}
+    task_store = _get_standalone_task_store()
+    return _send_legacy_message(controller, task_store, msg, submit_sequence)
 
 
 @app.get("/status")

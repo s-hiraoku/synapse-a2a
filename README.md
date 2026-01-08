@@ -64,6 +64,7 @@ flowchart LR
 | **Priority Interrupt** | Priority 5 で SIGINT 送信後にメッセージ送信（緊急停止）  |
 | **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当）   |
 | **外部連携**           | 他の Google A2A エージェントとの通信                     |
+| **タスク委任**         | 自然言語ルールで他エージェントへ自動タスク転送           |
 
 ---
 
@@ -78,6 +79,42 @@ Claude: コード実装担当
 Gemini: レビュー・指摘担当
 Codex: テスト生成担当
 ```
+
+### 自動タスク委任
+
+委任ルールを設定して、タスクを自動的に適切なエージェントへ振り分け：
+
+```bash
+# Step 1: モードを設定
+synapse delegate set orchestrator
+
+# Step 2: ルールを作成
+cat > .synapse/delegate.md << 'EOF'
+# Delegation Rules
+コーディングはCodexに任せる
+リサーチはGeminiに依頼する
+EOF
+
+# Step 3: エージェント起動
+synapse claude
+```
+
+**設定の2つの要素:**
+
+| 設定 | ファイル | 役割 |
+|------|----------|------|
+| モード | `settings.json` | 結果の扱い方 |
+| ルール | `delegate.md` | 誰に何を任せるか |
+
+**モードの違い:**
+
+| モード | delegate.md | 動作 |
+|--------|-------------|------|
+| `orchestrator` | ✅ 参照 | 結果をClaudeが統合して報告 |
+| `passthrough` | ✅ 参照 | 結果をそのまま転送 |
+| `off` | ❌ 無視 | 自動委任なし（デフォルト） |
+
+詳細は [guides/delegation.md](guides/delegation.md) を参照。
 
 ### 複数視点の取得
 
@@ -318,6 +355,9 @@ synapse claude -- --resume
 | `synapse history cleanup`         | 古いデータ削除         |
 | `synapse history stats`           | 統計情報表示           |
 | `synapse history export`          | JSON/CSV エクスポート  |
+| `synapse delegate`                | 委任設定表示           |
+| `synapse delegate set <mode>`     | 委任モード設定         |
+| `synapse delegate off`            | 委任無効化             |
 
 ### 外部エージェント管理
 
@@ -1018,6 +1058,7 @@ pip install synapse-a2a[grpc]
 | [guides/architecture.md](guides/architecture.md)         | アーキテクチャ詳細     |
 | [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
 | [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
+| [guides/delegation.md](guides/delegation.md)             | タスク委任ガイド       |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
 
 ---

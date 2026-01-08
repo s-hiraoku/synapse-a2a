@@ -15,8 +15,12 @@ import yaml
 from synapse.a2a_client import get_client
 from synapse.auth import generate_api_key
 from synapse.controller import TerminalController
+from synapse.delegation import (
+    get_delegate_instructions_path,
+    load_delegate_instructions,
+)
 from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, is_port_open
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
@@ -24,23 +28,27 @@ KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 def install_skills() -> None:
     """Install Synapse A2A skills to ~/.claude/skills/ if not present."""
-    target_dir = Path.home() / ".claude" / "skills" / "synapse-a2a"
-
-    # Skip if already installed
-    if target_dir.exists():
-        return
-
-    # Find source skills directory (from package installation)
     try:
         import synapse
 
         package_dir = Path(synapse.__file__).parent
-        source_dir = package_dir / "skills" / "synapse-a2a"
+        skills_to_install = ["synapse-a2a", "delegation"]
 
-        if source_dir.exists():
-            target_dir.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source_dir, target_dir)
-            print(f"\x1b[32m[Synapse]\x1b[0m Installed A2A skill to {target_dir}")
+        for skill_name in skills_to_install:
+            target_dir = Path.home() / ".claude" / "skills" / skill_name
+
+            # Skip if already installed
+            if target_dir.exists():
+                continue
+
+            source_dir = package_dir / "skills" / skill_name
+
+            if source_dir.exists():
+                target_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_dir, target_dir)
+                print(
+                    f"\x1b[32m[Synapse]\x1b[0m Installed {skill_name} skill to {target_dir}"
+                )
     except Exception:
         # Silently ignore installation errors
         pass
@@ -219,13 +227,25 @@ def _render_agent_table(registry: AgentRegistry) -> str:
 
     live_agents = False
     for agent_id, info in agents.items():
-        # Verify process is still alive
+        # Verify agent is still alive (PID check + port check)
         pid = info.get("pid")
+        port = info.get("port")
         status = info.get("status", "-")
+
+        # Check 1: PID must be alive
         if pid and not is_process_alive(pid):
-            # Clean up stale entry
             registry.unregister(agent_id)
-            continue  # Skip showing dead entries
+            continue
+
+        # Check 2: Port must be open (agent server responding)
+        # Skip port check for PROCESSING agents (server may still be starting)
+        if (
+            status != "PROCESSING"
+            and port
+            and not is_port_open("localhost", port, timeout=0.5)
+        ):
+            registry.unregister(agent_id)
+            continue
 
         live_agents = True
         lines.append(
@@ -850,7 +870,7 @@ def _write_default_settings(path: Path) -> bool:
 
 def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
     """
-    Install synapse-a2a skills to .claude and .codex directories.
+    Install synapse skills to .claude and .codex directories.
 
     Args:
         base_dir: Base directory (e.g., Path.home() or Path.cwd())
@@ -862,30 +882,33 @@ def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
     import synapse
 
     package_dir = Path(synapse.__file__).parent
-    source_dir = package_dir / "skills" / "synapse-a2a"
-
-    if not source_dir.exists():
-        return []
+    skills_to_install = ["synapse-a2a", "delegation"]
 
     installed = []
     # Install to both .claude and .codex (Gemini doesn't support skills)
     for agent_dir in [".claude", ".codex"]:
-        target_dir = base_dir / agent_dir / "skills" / "synapse-a2a"
+        for skill_name in skills_to_install:
+            source_dir = package_dir / "skills" / skill_name
 
-        # Skip if exists and not forcing
-        if target_dir.exists() and not force:
-            continue
+            if not source_dir.exists():
+                continue
 
-        try:
-            # Remove existing if forcing
-            if target_dir.exists() and force:
-                shutil.rmtree(target_dir)
+            target_dir = base_dir / agent_dir / "skills" / skill_name
 
-            target_dir.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source_dir, target_dir)
-            installed.append(str(target_dir))
-        except OSError:
-            pass  # Silently ignore errors
+            # Skip if exists and not forcing
+            if target_dir.exists() and not force:
+                continue
+
+            try:
+                # Remove existing if forcing
+                if target_dir.exists() and force:
+                    shutil.rmtree(target_dir)
+
+                target_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_dir, target_dir)
+                installed.append(str(target_dir))
+            except OSError:
+                pass  # Silently ignore errors
 
     return installed
 
@@ -992,6 +1015,107 @@ def cmd_reset(args: argparse.Namespace) -> None:
         installed = _install_skills_to_dir(base, force=True)
         for installed_path in installed:
             print(f"✔ Reinstalled skill to {installed_path}")
+
+
+# ============================================================
+# Delegation Commands
+# ============================================================
+
+
+def cmd_delegate_status(args: argparse.Namespace) -> None:
+    """Show current delegation configuration."""
+    from synapse.settings import get_settings
+
+    settings = get_settings()
+    mode = settings.get_delegation_mode()
+    instructions_path = get_delegate_instructions_path()
+    instructions = load_delegate_instructions()
+
+    print("=== Delegation Configuration ===")
+    print(f"Mode: {mode}")
+
+    if instructions_path:
+        print(f"Instructions: {instructions_path}")
+    else:
+        print("Instructions: (not found)")
+
+    is_active = mode in ("orchestrator", "passthrough") and instructions is not None
+    print(f"Status: {'active' if is_active else 'inactive'}")
+    print()
+
+    if instructions:
+        print("Rules:")
+        for line in instructions.strip().split("\n")[:10]:  # Show first 10 lines
+            print(f"  {line}")
+        lines = instructions.strip().split("\n")
+        if len(lines) > 10:
+            print(f"  ... ({len(lines) - 10} more lines)")
+    else:
+        print("No delegation instructions found.")
+        print()
+        print("To set up delegation:")
+        print("  1. Set mode in .synapse/settings.json:")
+        print('     {"delegation": {"mode": "orchestrator"}}')
+        print("  2. Create .synapse/delegate.md with your rules")
+
+    print("================================")
+
+
+def cmd_delegate_set(args: argparse.Namespace) -> None:
+    """Set delegation mode in settings.json."""
+    import json
+
+    mode = args.mode
+    scope = getattr(args, "scope", "project")
+
+    # Determine settings path
+    if scope == "user":
+        settings_path = Path.home() / ".synapse" / "settings.json"
+    else:
+        settings_path = Path.cwd() / ".synapse" / "settings.json"
+
+    # Load existing settings
+    settings_data: dict = {}
+    if settings_path.exists():
+        try:
+            with open(settings_path, encoding="utf-8") as f:
+                settings_data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Update delegation mode
+    if "delegation" not in settings_data:
+        settings_data["delegation"] = {}
+    settings_data["delegation"]["mode"] = mode
+
+    # Save settings
+    try:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(settings_data, f, indent=2, ensure_ascii=False)
+        print(f"Delegation mode set to '{mode}' in {settings_path}")
+
+        if mode != "off":
+            instructions_path = get_delegate_instructions_path()
+            if instructions_path:
+                print(f"Instructions will be loaded from: {instructions_path}")
+            else:
+                print()
+                print("Note: Create .synapse/delegate.md with your delegation rules.")
+                print("Example:")
+                print("  # Delegation Rules")
+                print("  コーディングはCodexに任せる")
+                print("  リサーチはGeminiに依頼する")
+    except OSError as e:
+        print(f"Failed to save settings: {e}")
+        sys.exit(1)
+
+
+def cmd_delegate_off(args: argparse.Namespace) -> None:
+    """Disable delegation."""
+    args.mode = "off"
+    args.scope = getattr(args, "scope", "project")
+    cmd_delegate_set(args)
 
 
 def cmd_auth_setup(args: argparse.Namespace) -> None:
@@ -1487,6 +1611,41 @@ def main() -> None:
     )
     p_reset.set_defaults(func=cmd_reset)
 
+    # delegate - Delegation management
+    p_delegate = subparsers.add_parser(
+        "delegate", help="Configure automatic task delegation between agents"
+    )
+    delegate_subparsers = p_delegate.add_subparsers(
+        dest="delegate_command", help="Delegation commands"
+    )
+
+    # delegate status
+    p_del_status = delegate_subparsers.add_parser(
+        "status", help="Show current delegation configuration"
+    )
+    p_del_status.set_defaults(func=cmd_delegate_status)
+
+    # delegate set
+    p_del_set = delegate_subparsers.add_parser(
+        "set", help="Set delegation mode in settings.json"
+    )
+    p_del_set.add_argument(
+        "mode",
+        choices=["orchestrator", "passthrough", "off"],
+        help="Delegation mode: orchestrator (analyze & integrate), passthrough (direct forward), off (disable)",
+    )
+    p_del_set.add_argument(
+        "--scope",
+        choices=["user", "project"],
+        default="project",
+        help="Settings scope: user (~/.synapse) or project (./.synapse)",
+    )
+    p_del_set.set_defaults(func=cmd_delegate_set)
+
+    # delegate off
+    p_del_off = delegate_subparsers.add_parser("off", help="Disable delegation")
+    p_del_off.set_defaults(func=cmd_delegate_off)
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -1513,6 +1672,13 @@ def main() -> None:
     ):
         p_auth.print_help()
         sys.exit(1)
+
+    # Handle delegate subcommand without action (show status by default)
+    if args.command == "delegate" and (
+        not hasattr(args, "delegate_command") or args.delegate_command is None
+    ):
+        cmd_delegate_status(args)
+        return
 
     args.func(args)
 

@@ -9,6 +9,7 @@ Google A2A Spec: https://a2a-protocol.org/latest/specification/
 
 import asyncio
 import json
+import logging
 import os
 import threading
 from collections.abc import AsyncGenerator
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -320,6 +322,95 @@ task_store = TaskStore()
 _history_db_path = str(Path.home() / ".synapse" / "history" / "history.db")
 history_manager = HistoryManager.from_env(db_path=_history_db_path)
 
+# Logger for A2A operations
+logger = logging.getLogger(__name__)
+
+
+async def _send_response_to_sender(
+    task: Task,
+    sender_endpoint: str,
+    self_agent_id: str,
+) -> bool:
+    """
+    Send task response back to the original sender.
+
+    This implements the A2A response mechanism where completed tasks
+    are sent back to the sender_endpoint specified in metadata.
+
+    Args:
+        task: The completed task with artifacts
+        sender_endpoint: The endpoint URL of the sender agent
+        self_agent_id: This agent's ID for sender identification
+
+    Returns:
+        True if response was sent successfully, False otherwise
+    """
+    # Build response message with task results
+    response_parts = []
+
+    # Add artifacts as text parts
+    for artifact in task.artifacts:
+        if artifact.type == "text":
+            content = (
+                artifact.data
+                if isinstance(artifact.data, str)
+                else artifact.data.get("content", str(artifact.data))
+            )
+            response_parts.append({"type": "text", "text": content})
+        elif artifact.type == "code":
+            code_data = artifact.data if isinstance(artifact.data, dict) else {}
+            content = code_data.get("content", str(artifact.data))
+            language = code_data.get("metadata", {}).get("language", "text")
+            response_parts.append(
+                {"type": "text", "text": f"```{language}\n{content}\n```"}
+            )
+        else:
+            # Other artifact types - convert to text
+            response_parts.append(
+                {"type": "text", "text": f"[{artifact.type}] {artifact.data}"}
+            )
+
+    # If no artifacts, send a minimal response
+    if not response_parts:
+        response_parts.append(
+            {
+                "type": "text",
+                "text": f"[Task {task.id[:8]} completed with status: {task.status}]",
+            }
+        )
+
+    # Build A2A request payload
+    payload = {
+        "message": {"role": "agent", "parts": response_parts},
+        "metadata": {
+            "sender": {
+                "sender_id": self_agent_id,
+            },
+            "response_required": False,  # Response to response not needed
+            "in_reply_to": task.id,  # Reference to original task
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Send to sender's /tasks/send endpoint
+            url = f"{sender_endpoint}/tasks/send"
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info(f"Response sent to {sender_endpoint} for task {task.id[:8]}")
+            return True
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            f"Failed to send response to {sender_endpoint}: HTTP {e.response.status_code}"
+        )
+        return False
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to send response to {sender_endpoint}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error sending response to {sender_endpoint}: {e}")
+        return False
+
 
 # ============================================================
 # External Agent Models
@@ -393,6 +484,50 @@ def create_a2a_router(
     if agent_id is None:
         agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
+
+    def _send_task_message(
+        request: SendMessageRequest, priority: int = 1
+    ) -> SendMessageResponse:
+        """Create a task and send message to controller with optional priority."""
+        if not controller:
+            raise HTTPException(status_code=503, detail="Agent not running")
+
+        # Extract text from message parts
+        text_content = extract_text_from_parts(request.message.parts)
+        if not text_content:
+            raise HTTPException(status_code=400, detail="No text content in message")
+
+        # Create task with metadata (may include sender info)
+        task = task_store.create(
+            request.message, request.context_id, metadata=request.metadata
+        )
+
+        # Update to working
+        task_store.update_status(task.id, "working")
+
+        # Priority 5 = interrupt first
+        if priority >= 5:
+            controller.interrupt()
+
+        # Send to PTY with A2A task reference for sender identification
+        try:
+            sender_id = "unknown"
+            if request.metadata:
+                sender_id = request.metadata.get("sender", {}).get(
+                    "sender_id", "unknown"
+                )
+            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
+            controller.write(prefixed_content, submit_seq=submit_seq)
+        except Exception as e:
+            task_store.update_status(task.id, "failed")
+            msg = f"Failed to send: {e!s}"
+            raise HTTPException(status_code=500, detail=msg) from e
+
+        # Get updated task
+        updated_task = task_store.get(task.id)
+        if not updated_task:
+            raise HTTPException(status_code=500, detail="Task disappeared unexpectedly")
+        return SendMessageResponse(task=updated_task)
 
     # --------------------------------------------------------
     # Agent Card (Discovery)
@@ -473,41 +608,7 @@ def create_a2a_router(
         Creates a task and sends the message content to the CLI via PTY.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
-        if not controller:
-            raise HTTPException(status_code=503, detail="Agent not running")
-
-        # Extract text from message parts
-        text_content = extract_text_from_parts(request.message.parts)
-        if not text_content:
-            raise HTTPException(status_code=400, detail="No text content in message")
-
-        # Create task with metadata (may include sender info)
-        task = task_store.create(
-            request.message, request.context_id, metadata=request.metadata
-        )
-
-        # Update to working
-        task_store.update_status(task.id, "working")
-
-        # Send to PTY with A2A task reference for sender identification
-        try:
-            sender_id = "unknown"
-            if request.metadata:
-                sender_id = request.metadata.get("sender", {}).get(
-                    "sender_id", "unknown"
-                )
-            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
-            controller.write(prefixed_content, submit_seq=submit_seq)
-        except Exception as e:
-            task_store.update_status(task.id, "failed")
-            msg = f"Failed to send: {e!s}"
-            raise HTTPException(status_code=500, detail=msg) from e
-
-        # Get updated task
-        updated_task = task_store.get(task.id)
-        if not updated_task:
-            raise HTTPException(status_code=500, detail="Task disappeared unexpectedly")
-        return SendMessageResponse(task=updated_task)
+        return _send_task_message(request)
 
     @router.get("/tasks/{task_id}", response_model=Task)
     async def get_task(task_id: str, _: Any = Depends(require_auth)) -> Task:  # noqa: B008
@@ -591,6 +692,22 @@ def create_a2a_router(
                         agent_name=agent_type or "unknown",
                         task_status=updated_task.status,
                     )
+
+                    # Send response back to sender if response_required
+                    metadata = updated_task.metadata or {}
+                    response_required = metadata.get("response_required", False)
+                    sender_info = metadata.get("sender", {})
+                    sender_endpoint = sender_info.get("sender_endpoint")
+
+                    if response_required and sender_endpoint:
+                        # Send response asynchronously
+                        asyncio.create_task(
+                            _send_response_to_sender(
+                                updated_task,
+                                sender_endpoint,
+                                agent_id or "unknown",
+                            )
+                        )
 
             updated_task = task_store.get(task_id)
             if updated_task:
@@ -742,42 +859,7 @@ def create_a2a_router(
         Priority 5 sends SIGINT before the message for interrupt.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
-        if not controller:
-            raise HTTPException(status_code=503, detail="Agent not running")
-
-        # Extract text from message parts
-        text_content = extract_text_from_parts(request.message.parts)
-        if not text_content:
-            raise HTTPException(status_code=400, detail="No text content in message")
-
-        # Create task with metadata (may include sender info)
-        task = task_store.create(
-            request.message, request.context_id, metadata=request.metadata
-        )
-        task_store.update_status(task.id, "working")
-
-        # Priority 5 = interrupt first
-        if priority >= 5:
-            controller.interrupt()
-
-        # Send to PTY with A2A task reference for sender identification
-        try:
-            sender_id = "unknown"
-            if request.metadata:
-                sender_id = request.metadata.get("sender", {}).get(
-                    "sender_id", "unknown"
-                )
-            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
-            controller.write(prefixed_content, submit_seq=submit_seq)
-        except Exception as e:
-            task_store.update_status(task.id, "failed")
-            msg = f"Failed to send: {e!s}"
-            raise HTTPException(status_code=500, detail=msg) from e
-
-        updated_task = task_store.get(task.id)
-        if not updated_task:
-            raise HTTPException(status_code=500, detail="Task disappeared unexpectedly")
-        return SendMessageResponse(task=updated_task)
+        return _send_task_message(request, priority=priority)
 
     # --------------------------------------------------------
     # External Agent Management (Google A2A Client)

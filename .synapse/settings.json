@@ -1,0 +1,19 @@
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true",
+    "SYNAPSE_AUTH_ENABLED": "false",
+    "SYNAPSE_API_KEYS": "",
+    "SYNAPSE_ADMIN_KEY": "",
+    "SYNAPSE_ALLOW_LOCALHOST": "true",
+    "SYNAPSE_USE_HTTPS": "false",
+    "SYNAPSE_WEBHOOK_SECRET": "",
+    "SYNAPSE_WEBHOOK_TIMEOUT": "10",
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+  },
+  "instructions": {
+    "default": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nSKILL: For advanced A2A features, use synapse-a2a skill\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "claude": "",
+    "gemini": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "codex": ""
+  }
+}

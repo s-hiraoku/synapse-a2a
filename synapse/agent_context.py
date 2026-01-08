@@ -7,7 +7,14 @@ keeping Agent Card as a pure "business card" for discovery.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+from synapse.delegation import (
+    DelegationMode,
+    build_delegation_instructions,
+    load_delegate_instructions,
+)
+from synapse.settings import get_settings
 
 if TYPE_CHECKING:
     from synapse.registry import AgentRegistry
@@ -46,7 +53,7 @@ def build_initial_instructions(ctx: AgentContext) -> str:
     Returns:
         Instruction text to send via A2A Task.
     """
-    return f"""[Synapse A2A Protocol Instructions]
+    instructions = f"""[Synapse A2A Protocol Instructions]
 
 ## Your Identity
 - Agent ID: {ctx.agent_id}
@@ -80,6 +87,20 @@ def build_initial_instructions(ctx: AgentContext) -> str:
 Messages from other agents include sender info: `[A2A:<task_id>:<sender_id>] <message>`
 Reply using: `python3 synapse/tools/a2a.py send --target <sender_id> "<response>"`
 """
+
+    # Append delegation rules if configured
+    settings = get_settings()
+    mode = settings.get_delegation_mode()
+    if mode in ("orchestrator", "passthrough"):
+        rules = load_delegate_instructions()
+        if rules:
+            delegation_instructions = build_delegation_instructions(
+                cast(DelegationMode, mode), rules
+            )
+            if delegation_instructions:
+                instructions += "\n" + delegation_instructions
+
+    return instructions
 
 
 def build_bootstrap_message(agent_id: str, port: int) -> str:
