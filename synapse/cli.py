@@ -20,7 +20,7 @@ from synapse.delegation import (
     load_delegate_instructions,
 )
 from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, is_port_open
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
@@ -227,13 +227,25 @@ def _render_agent_table(registry: AgentRegistry) -> str:
 
     live_agents = False
     for agent_id, info in agents.items():
-        # Verify process is still alive
+        # Verify agent is still alive (PID check + port check)
         pid = info.get("pid")
+        port = info.get("port")
         status = info.get("status", "-")
+
+        # Check 1: PID must be alive
         if pid and not is_process_alive(pid):
-            # Clean up stale entry
             registry.unregister(agent_id)
-            continue  # Skip showing dead entries
+            continue
+
+        # Check 2: Port must be open (agent server responding)
+        # Skip port check for PROCESSING agents (server may still be starting)
+        if (
+            status != "PROCESSING"
+            and port
+            and not is_port_open("localhost", port, timeout=0.5)
+        ):
+            registry.unregister(agent_id)
+            continue
 
         live_agents = True
         lines.append(

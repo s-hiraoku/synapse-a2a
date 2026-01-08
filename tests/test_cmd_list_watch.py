@@ -61,7 +61,10 @@ class TestRenderAgentTable:
             "synapse-gemini-8110", "gemini", 8110, status="PROCESSING"
         )
 
-        with patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
+        ):
             output = _render_agent_table(temp_registry)
 
         assert "claude" in output
