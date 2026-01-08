@@ -502,6 +502,222 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 
 # ============================================================
+# File Safety Commands
+# ============================================================
+
+
+def cmd_file_safety_status(args: argparse.Namespace) -> None:
+    """Show file safety statistics."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    stats = manager.get_statistics()
+
+    if not stats:
+        print("No file safety data found.")
+        return
+
+    print("=" * 60)
+    print("FILE SAFETY STATISTICS")
+    print("=" * 60)
+    print()
+    print(f"Active Locks:        {stats.get('active_locks', 0)}")
+    print(f"Total Modifications: {stats.get('total_modifications', 0)}")
+    print()
+
+    by_type = stats.get("by_change_type", {})
+    if by_type:
+        print("By Change Type:")
+        for change_type, count in by_type.items():
+            print(f"  {change_type}: {count}")
+        print()
+
+    by_agent = stats.get("by_agent", {})
+    if by_agent:
+        print("By Agent:")
+        for agent, count in by_agent.items():
+            print(f"  {agent}: {count}")
+        print()
+
+    most_modified = stats.get("most_modified_files", [])
+    if most_modified:
+        print("Most Modified Files:")
+        for item in most_modified[:5]:
+            print(f"  {item['file_path']}: {item['count']} modifications")
+
+
+def cmd_file_safety_locks(args: argparse.Namespace) -> None:
+    """List active file locks."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    locks = manager.list_locks(
+        agent_name=args.agent if hasattr(args, "agent") else None
+    )
+
+    if not locks:
+        print("No active file locks.")
+        return
+
+    print(f"{'File Path':<50} {'Agent':<15} {'Expires At':<20}")
+    print("-" * 85)
+
+    for lock in locks:
+        file_path = lock["file_path"][:50]
+        agent = lock["agent_name"][:15]
+        expires = lock["expires_at"][:20] if lock.get("expires_at") else "N/A"
+        print(f"{file_path:<50} {agent:<15} {expires:<20}")
+
+    print(f"\nTotal: {len(locks)} active locks")
+
+
+def cmd_file_safety_lock(args: argparse.Namespace) -> None:
+    """Acquire a lock on a file."""
+    from synapse.file_safety import FileSafetyManager, LockStatus
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    result = manager.acquire_lock(
+        file_path=args.file,
+        agent_name=args.agent,
+        task_id=args.task_id if hasattr(args, "task_id") else None,
+        duration_seconds=args.duration if hasattr(args, "duration") else None,
+        intent=args.intent if hasattr(args, "intent") else None,
+    )
+
+    status = result["status"]
+    if status == LockStatus.ACQUIRED:
+        print(f"Lock acquired on {args.file}")
+        print(f"Expires at: {result.get('expires_at')}")
+    elif status == LockStatus.RENEWED:
+        print(f"Lock renewed on {args.file}")
+        print(f"New expiration: {result.get('expires_at')}")
+    elif status == LockStatus.ALREADY_LOCKED:
+        print(f"File is already locked by {result.get('lock_holder')}")
+        print(f"Expires at: {result.get('expires_at')}")
+        sys.exit(1)
+
+
+def cmd_file_safety_unlock(args: argparse.Namespace) -> None:
+    """Release a lock on a file."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    if manager.release_lock(args.file, args.agent):
+        print(f"Lock released on {args.file}")
+    else:
+        print(f"No lock found for {args.file} by {args.agent}")
+        sys.exit(1)
+
+
+def cmd_file_safety_history(args: argparse.Namespace) -> None:
+    """Show modification history for a file."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    history = manager.get_file_history(args.file, limit=args.limit)
+
+    if not history:
+        print(f"No modification history found for {args.file}")
+        return
+
+    print(f"Modification history for: {args.file}")
+    print("=" * 80)
+
+    for mod in history:
+        print(f"\n[{mod['timestamp']}] {mod['agent_name']} - {mod['change_type']}")
+        if mod.get("intent"):
+            print(f"  Intent: {mod['intent']}")
+        if mod.get("affected_lines"):
+            print(f"  Lines: {mod['affected_lines']}")
+        print(f"  Task ID: {mod['task_id']}")
+
+
+def cmd_file_safety_recent(args: argparse.Namespace) -> None:
+    """Show recent file modifications."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    mods = manager.get_recent_modifications(
+        limit=args.limit,
+        agent_name=args.agent if hasattr(args, "agent") and args.agent else None,
+    )
+
+    if not mods:
+        print("No recent modifications found.")
+        return
+
+    print(f"{'Timestamp':<20} {'Agent':<12} {'Type':<8} {'File':<40}")
+    print("-" * 80)
+
+    for mod in mods:
+        timestamp = mod["timestamp"][:20] if mod.get("timestamp") else "N/A"
+        agent = mod["agent_name"][:12]
+        change_type = mod["change_type"][:8]
+        file_path = mod["file_path"][-40:]  # Show last 40 chars
+        print(f"{timestamp:<20} {agent:<12} {change_type:<8} {file_path:<40}")
+
+    print(f"\nShowing {len(mods)} recent modifications")
+
+
+def cmd_file_safety_cleanup(args: argparse.Namespace) -> None:
+    """Clean up old modification records."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    # Confirm
+    if not args.force:
+        response = input(
+            f"Delete modification records older than {args.days} days? (yes/no): "
+        )
+        if response.lower() not in ("yes", "y"):
+            print("Cancelled.")
+            return
+
+    deleted = manager.cleanup_old_modifications(days=args.days)
+    print(f"Deleted {deleted} modification records older than {args.days} days")
+
+    # Also cleanup expired locks
+    expired_locks = manager.cleanup_expired_locks()
+    if expired_locks > 0:
+        print(f"Cleaned up {expired_locks} expired locks")
+
+
+# ============================================================
 # External Agent Management Commands
 # ============================================================
 
@@ -1483,6 +1699,87 @@ def main() -> None:
     p_del_off = delegate_subparsers.add_parser("off", help="Disable delegation")
     p_del_off.set_defaults(func=cmd_delegate_off)
 
+    # file-safety - File locking and modification tracking
+    p_file_safety = subparsers.add_parser(
+        "file-safety",
+        help="File locking and modification tracking for multi-agent safety",
+    )
+    file_safety_subparsers = p_file_safety.add_subparsers(
+        dest="file_safety_command", help="File safety commands"
+    )
+
+    # file-safety status
+    p_fs_status = file_safety_subparsers.add_parser(
+        "status", help="Show file safety statistics"
+    )
+    p_fs_status.set_defaults(func=cmd_file_safety_status)
+
+    # file-safety locks
+    p_fs_locks = file_safety_subparsers.add_parser(
+        "locks", help="List active file locks"
+    )
+    p_fs_locks.add_argument("--agent", "-a", help="Filter by agent name")
+    p_fs_locks.set_defaults(func=cmd_file_safety_locks)
+
+    # file-safety lock
+    p_fs_lock = file_safety_subparsers.add_parser(
+        "lock", help="Acquire a lock on a file"
+    )
+    p_fs_lock.add_argument("file", help="File path to lock")
+    p_fs_lock.add_argument("agent", help="Agent name acquiring the lock")
+    p_fs_lock.add_argument("--task-id", help="Task ID associated with the lock")
+    p_fs_lock.add_argument(
+        "--duration",
+        type=int,
+        default=300,
+        help="Lock duration in seconds (default: 300)",
+    )
+    p_fs_lock.add_argument("--intent", help="Description of intended changes")
+    p_fs_lock.set_defaults(func=cmd_file_safety_lock)
+
+    # file-safety unlock
+    p_fs_unlock = file_safety_subparsers.add_parser(
+        "unlock", help="Release a lock on a file"
+    )
+    p_fs_unlock.add_argument("file", help="File path to unlock")
+    p_fs_unlock.add_argument("agent", help="Agent name releasing the lock")
+    p_fs_unlock.set_defaults(func=cmd_file_safety_unlock)
+
+    # file-safety history
+    p_fs_history = file_safety_subparsers.add_parser(
+        "history", help="Show modification history for a file"
+    )
+    p_fs_history.add_argument("file", help="File path to show history for")
+    p_fs_history.add_argument(
+        "--limit", "-n", type=int, default=20, help="Maximum number of entries"
+    )
+    p_fs_history.set_defaults(func=cmd_file_safety_history)
+
+    # file-safety recent
+    p_fs_recent = file_safety_subparsers.add_parser(
+        "recent", help="Show recent file modifications"
+    )
+    p_fs_recent.add_argument("--agent", "-a", help="Filter by agent name")
+    p_fs_recent.add_argument(
+        "--limit", "-n", type=int, default=50, help="Maximum number of entries"
+    )
+    p_fs_recent.set_defaults(func=cmd_file_safety_recent)
+
+    # file-safety cleanup
+    p_fs_cleanup = file_safety_subparsers.add_parser(
+        "cleanup", help="Clean up old modification records"
+    )
+    p_fs_cleanup.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="Delete records older than N days (default: 30)",
+    )
+    p_fs_cleanup.add_argument(
+        "--force", "-f", action="store_true", help="Skip confirmation prompt"
+    )
+    p_fs_cleanup.set_defaults(func=cmd_file_safety_cleanup)
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -1515,6 +1812,13 @@ def main() -> None:
         not hasattr(args, "delegate_command") or args.delegate_command is None
     ):
         cmd_delegate_status(args)
+        return
+
+    # Handle file-safety subcommand without action (show status by default)
+    if args.command == "file-safety" and (
+        not hasattr(args, "file_safety_command") or args.file_safety_command is None
+    ):
+        cmd_file_safety_status(args)
         return
 
     args.func(args)
