@@ -1,0 +1,132 @@
+"""List command implementation for Synapse CLI."""
+
+from __future__ import annotations
+
+import argparse
+from collections.abc import Callable
+from typing import Any, Protocol
+
+from synapse.port_manager import PORT_RANGES
+from synapse.registry import AgentRegistry
+
+
+class _TimeModule(Protocol):
+    """Protocol for time module interface."""
+
+    def strftime(self, format: str) -> str: ...
+    def sleep(self, seconds: float) -> None: ...
+
+
+class ListCommand:
+    """List running agents (with optional watch mode)."""
+
+    def __init__(
+        self,
+        registry_factory: Callable[[], AgentRegistry],
+        is_process_alive: Callable[[int], bool],
+        is_port_open: Callable[..., bool],
+        clear_screen: Callable[[], None],
+        time_module: _TimeModule | Any,
+        print_func: Callable[[str], None],
+    ) -> None:
+        self._registry_factory = registry_factory
+        self._is_process_alive = is_process_alive
+        self._is_port_open = is_port_open
+        self._clear_screen = clear_screen
+        self._time = time_module
+        self._print = print_func
+
+    def _render_agent_table(self, registry: AgentRegistry) -> str:
+        """
+        Render the agent table output.
+
+        Args:
+            registry: AgentRegistry instance
+
+        Returns:
+            str: Formatted table output
+        """
+        agents = registry.list_agents()
+
+        if not agents:
+            output = ["No agents running.", ""]
+            output.append("Port ranges:")
+            for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+                output.append(f"  {agent_type}: {start}-{end}")
+            return "\n".join(output)
+
+        lines = []
+        header = (
+            f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+            f"{'WORKING_DIR':<50} ENDPOINT"
+        )
+        lines.append(header)
+        lines.append("-" * len(header))
+
+        live_agents = False
+        for agent_id, info in agents.items():
+            # Verify agent is still alive (PID check + port check)
+            pid = info.get("pid")
+            port = info.get("port")
+            status = info.get("status", "-")
+
+            # Check 1: PID must be alive
+            if pid and not self._is_process_alive(pid):
+                registry.unregister(agent_id)
+                continue
+
+            # Check 2: Port must be open (agent server responding)
+            # Skip port check for PROCESSING agents (server may still be starting)
+            if (
+                status != "PROCESSING"
+                and port
+                and not self._is_port_open("localhost", port, timeout=0.5)
+            ):
+                registry.unregister(agent_id)
+                continue
+
+            live_agents = True
+            lines.append(
+                f"{info.get('agent_type', 'unknown'):<10} "
+                f"{info.get('port', '-'):<8} "
+                f"{status:<12} "
+                f"{pid or '-':<8} "
+                f"{info.get('working_dir', '-'):<50} "
+                f"{info.get('endpoint', '-')}"
+            )
+
+        # If all agents were dead, show empty registry message
+        if not live_agents:
+            output = ["No agents running.", ""]
+            output.append("Port ranges:")
+            for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+                output.append(f"  {agent_type}: {start}-{end}")
+            return "\n".join(output)
+
+        return "\n".join(lines)
+
+    def run(self, args: argparse.Namespace) -> None:
+        """List running agents (with optional watch mode)."""
+        registry = self._registry_factory()
+        watch_mode = getattr(args, "watch", False)
+        interval = getattr(args, "interval", 2.0)
+
+        if not watch_mode:
+            # Normal mode: single output
+            self._print(self._render_agent_table(registry))
+            return
+
+        # Watch mode: continuous refresh
+        self._print("Watch mode: Press Ctrl+C to exit\n")
+
+        try:
+            while True:
+                self._clear_screen()
+                self._print(f"Synapse Agent List (refreshing every {interval}s)")
+                self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
+                self._print("")
+                self._print(self._render_agent_table(registry))
+                self._time.sleep(interval)
+        except KeyboardInterrupt:
+            self._print("\n\nExiting watch mode...")
+            raise SystemExit(0) from None

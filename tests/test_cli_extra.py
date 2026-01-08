@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.cli import _render_agent_table, cmd_stop
+from synapse.cli import cmd_stop
+from synapse.commands.list import ListCommand
 
 
 class TestCliExtra:
@@ -36,9 +37,15 @@ class TestCliExtra:
 
             assert mock_stop.call_count == 2
 
+
+class TestListCommand:
+    """Test cases for ListCommand class."""
+
     def test_render_table_with_dead_agents(self):
         """Test that _render_agent_table cleans up dead agents."""
+        mock_registry_factory = MagicMock()
         mock_registry = MagicMock()
+        mock_registry_factory.return_value = mock_registry
         mock_registry.list_agents.return_value = {
             "dead-agent": {
                 "agent_id": "dead-agent",
@@ -49,14 +56,23 @@ class TestCliExtra:
             }
         }
 
-        # Mock is_process_alive False to trigger unregister
-        with patch("synapse.cli.is_process_alive", return_value=False):
-            _render_agent_table(mock_registry)
-            mock_registry.unregister.assert_called_with("dead-agent")
+        list_cmd = ListCommand(
+            registry_factory=mock_registry_factory,
+            is_process_alive=lambda pid: False,  # Always dead
+            is_port_open=lambda host, port, timeout=0.5: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
+
+        list_cmd._render_agent_table(mock_registry)
+        mock_registry.unregister.assert_called_with("dead-agent")
 
     def test_render_table_with_closed_port(self):
         """Test that _render_agent_table cleans up agents with closed ports."""
+        mock_registry_factory = MagicMock()
         mock_registry = MagicMock()
+        mock_registry_factory.return_value = mock_registry
         mock_registry.list_agents.return_value = {
             "closed-port-agent": {
                 "agent_id": "closed-port-agent",
@@ -67,9 +83,14 @@ class TestCliExtra:
             }
         }
 
-        with (
-            patch("synapse.cli.is_process_alive", return_value=True),
-            patch("synapse.cli.is_port_open", return_value=False),
-        ):
-            _render_agent_table(mock_registry)
-            mock_registry.unregister.assert_called_with("closed-port-agent")
+        list_cmd = ListCommand(
+            registry_factory=mock_registry_factory,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda host, port, timeout=0.5: False,  # Port closed
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
+
+        list_cmd._render_agent_table(mock_registry)
+        mock_registry.unregister.assert_called_with("closed-port-agent")

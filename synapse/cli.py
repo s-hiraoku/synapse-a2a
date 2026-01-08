@@ -14,6 +14,7 @@ import yaml
 
 from synapse.a2a_client import get_client
 from synapse.auth import generate_api_key
+from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
 from synapse.delegation import (
@@ -118,101 +119,17 @@ def _clear_screen() -> None:
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def _render_agent_table(registry: AgentRegistry) -> str:
-    """
-    Render the agent table output.
-
-    Args:
-        registry: AgentRegistry instance
-
-    Returns:
-        str: Formatted table output
-    """
-    agents = registry.list_agents()
-
-    if not agents:
-        output = ["No agents running.", ""]
-        output.append("Port ranges:")
-        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            output.append(f"  {agent_type}: {start}-{end}")
-        return "\n".join(output)
-
-    lines = []
-    header = (
-        f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-        f"{'WORKING_DIR':<50} ENDPOINT"
-    )
-    lines.append(header)
-    lines.append("-" * len(header))
-
-    live_agents = False
-    for agent_id, info in agents.items():
-        # Verify agent is still alive (PID check + port check)
-        pid = info.get("pid")
-        port = info.get("port")
-        status = info.get("status", "-")
-
-        # Check 1: PID must be alive
-        if pid and not is_process_alive(pid):
-            registry.unregister(agent_id)
-            continue
-
-        # Check 2: Port must be open (agent server responding)
-        # Skip port check for PROCESSING agents (server may still be starting)
-        if (
-            status != "PROCESSING"
-            and port
-            and not is_port_open("localhost", port, timeout=0.5)
-        ):
-            registry.unregister(agent_id)
-            continue
-
-        live_agents = True
-        lines.append(
-            f"{info.get('agent_type', 'unknown'):<10} "
-            f"{info.get('port', '-'):<8} "
-            f"{status:<12} "
-            f"{pid or '-':<8} "
-            f"{info.get('working_dir', '-'):<50} "
-            f"{info.get('endpoint', '-')}"
-        )
-
-    # If all agents were dead, show empty registry message
-    if not live_agents:
-        output = ["No agents running.", ""]
-        output.append("Port ranges:")
-        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            output.append(f"  {agent_type}: {start}-{end}")
-        return "\n".join(output)
-
-    return "\n".join(lines)
-
-
 def cmd_list(args: argparse.Namespace) -> None:
     """List running agents (with optional watch mode)."""
-    registry = AgentRegistry()
-    watch_mode = getattr(args, "watch", False)
-    interval = getattr(args, "interval", 2.0)
-
-    if not watch_mode:
-        # Normal mode: single output
-        print(_render_agent_table(registry))
-        return
-
-    # Watch mode: continuous refresh
-    print("Watch mode: Press Ctrl+C to exit\n")
-
-    try:
-        while True:
-            _clear_screen()
-            print(f"Synapse Agent List (refreshing every {interval}s)")
-            print(f"Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print()
-            print(_render_agent_table(registry))
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        print("\n\nExiting watch mode...")
-        sys.exit(0)
+    list_command = ListCommand(
+        AgentRegistry,
+        is_process_alive,
+        is_port_open,
+        _clear_screen,
+        time,
+        print,
+    )
+    list_command.run(args)
 
 
 def cmd_logs(args: argparse.Namespace) -> None:

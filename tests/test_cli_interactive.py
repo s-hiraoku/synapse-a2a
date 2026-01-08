@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.cli import _render_agent_table, cmd_run_interactive
+from synapse.cli import cmd_run_interactive
+from synapse.commands.list import ListCommand
 from synapse.registry import AgentRegistry
 
 # ============================================================
@@ -96,19 +97,36 @@ class TestCmdRunInteractive:
 
 
 # ============================================================
-# render_agent_table Tests
+# ListCommand._render_agent_table Tests
 # ============================================================
 
 
 class TestRenderAgentTable:
-    """Tests for _render_agent_table function."""
+    """Tests for ListCommand._render_agent_table method."""
+
+    def _create_list_command(
+        self,
+        is_process_alive=lambda p: True,
+        is_port_open=lambda host, port, timeout=0.5: True,
+    ):
+        """Create a ListCommand with mock dependencies."""
+        return ListCommand(
+            registry_factory=lambda: MagicMock(spec=AgentRegistry),
+            is_process_alive=is_process_alive,
+            is_port_open=is_port_open,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
 
     def test_render_empty_registry(self):
         """Should return message when no agents running."""
         registry = MagicMock(spec=AgentRegistry)
         registry.list_agents.return_value = {}
 
-        output = _render_agent_table(registry)
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(registry)
+
         assert "No agents running" in output
         assert "Port ranges:" in output
 
@@ -125,11 +143,8 @@ class TestRenderAgentTable:
             }
         }
 
-        with (
-            patch("synapse.cli.is_process_alive", return_value=True),
-            patch("synapse.cli.is_port_open", return_value=True),
-        ):
-            output = _render_agent_table(registry)
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(registry)
 
         assert "claude" in output
         assert "8100" in output
@@ -143,8 +158,8 @@ class TestRenderAgentTable:
             "agent-1": {"agent_type": "claude", "pid": 12345}
         }
 
-        with patch("synapse.cli.is_process_alive", return_value=False):
-            output = _render_agent_table(registry)
+        list_cmd = self._create_list_command(is_process_alive=lambda p: False)
+        output = list_cmd._render_agent_table(registry)
 
         registry.unregister.assert_called_with("agent-1")
         assert "No agents running" in output
@@ -161,11 +176,11 @@ class TestRenderAgentTable:
             }
         }
 
-        with (
-            patch("synapse.cli.is_process_alive", return_value=True),
-            patch("synapse.cli.is_port_open", return_value=False),
-        ):
-            output = _render_agent_table(registry)
+        list_cmd = self._create_list_command(
+            is_process_alive=lambda p: True,
+            is_port_open=lambda host, port, timeout=0.5: False,
+        )
+        output = list_cmd._render_agent_table(registry)
 
         registry.unregister.assert_called_with("agent-1")
         assert "No agents running" in output
@@ -182,11 +197,17 @@ class TestRenderAgentTable:
             }
         }
 
-        with (
-            patch("synapse.cli.is_process_alive", return_value=True),
-            patch("synapse.cli.is_port_open") as mock_port_check,
-        ):
-            output = _render_agent_table(registry)
+        port_check_called = []
 
-        mock_port_check.assert_not_called()
+        def track_port_check(h, p, t):
+            port_check_called.append(True)
+            return True
+
+        list_cmd = self._create_list_command(
+            is_process_alive=lambda p: True,
+            is_port_open=track_port_check,
+        )
+        output = list_cmd._render_agent_table(registry)
+
+        assert len(port_check_called) == 0
         assert "PROCESSING" in output
