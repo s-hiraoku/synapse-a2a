@@ -10,4 +10,4 @@ env:
 # Pattern matching is unreliable because prompt patterns may appear in conversation history
 idle_detection:
   strategy: "timeout"
-  timeout: 1.5               # 1.5 seconds of no output = idle
+  timeout: 3.0               # 3.0 seconds of no output = idle
