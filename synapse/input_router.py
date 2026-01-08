@@ -5,8 +5,6 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 
-import requests
-
 from synapse.a2a_client import A2AClient, get_client
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 
@@ -184,8 +182,6 @@ class InputRouter:
 
         # If not found, try match on type-port shorthand (e.g., codex-8120)
         if not target:
-            import re
-
             type_port_match = re.match(r"^(\w+)-(\d+)$", agent_name_lower)
             if type_port_match:
                 target_type = type_port_match.group(1)
@@ -349,45 +345,6 @@ class InputRouter:
             log("ERROR", f"External agent request failed: {e}")
             self.last_response = None
             return False
-
-    def _wait_for_response(
-        self, endpoint: str, agent_name: str, timeout: int = 60
-    ) -> str | None:
-        """Wait for agent to become IDLE and capture response."""
-        import time
-
-        start_time = time.time()
-        initial_context = ""
-
-        # Get initial context
-        try:
-            resp = requests.get(f"{endpoint}/status", timeout=5)
-            initial_context = resp.json().get("context", "")
-        except Exception:
-            pass
-
-        # Poll for IDLE status
-        while time.time() - start_time < timeout:
-            try:
-                resp = requests.get(f"{endpoint}/status", timeout=5)
-                data = resp.json()
-                status = data.get("status", "")
-                context = data.get("context", "")
-
-                if status == "IDLE":
-                    # Extract new content since our message
-                    new_content = (
-                        context[len(initial_context) :] if initial_context else context
-                    )
-                    # Clean ANSI escape codes
-                    clean = re.sub(r"\x1b\[[0-9;]*m", "", new_content)
-                    return clean.strip() if clean.strip() else None
-
-                time.sleep(1)
-            except Exception:
-                time.sleep(1)
-
-        return None
 
     def _extract_text_from_artifacts(self, artifacts: list) -> str | None:
         """Extract text content from A2A artifacts."""

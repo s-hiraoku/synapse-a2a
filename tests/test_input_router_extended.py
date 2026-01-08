@@ -119,6 +119,26 @@ class TestInputRouterRefactorSpec:
             assert success is False
             router.registry.unregister.assert_called_with("dead-agent")
 
+    def test_route_to_agent_single_type_match(self, router):
+        """Spec: Should match by agent_type if only one exists (Lines 264-265)."""
+        router.registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "endpoint": "http://localhost:8100",
+                "pid": 123,
+            }
+        }
+        router.a2a_client.send_to_local.return_value = A2ATask(id="t1", status="done")
+
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open", return_value=True),
+        ):
+            success = router.route_to_agent("claude", "msg")
+            assert success is True
+
     def test_error_handling_ambiguous(self, router):
         """Spec: Should return options when multiple agents match type."""
         router.registry.list_agents.return_value = {
@@ -166,6 +186,34 @@ class TestInputRouterRefactorSpec:
             success = router.route_to_agent("codex-8120", "msg")
             assert success is True
 
+    def test_route_to_agent_task_creation_failure(self, router):
+        """Covers task creation failure (Lines 302-304)."""
+        router.registry.list_agents.return_value = {
+            "target": {"agent_id": "target", "port": 8100, "endpoint": "http://target"}
+        }
+        router.a2a_client.send_to_local.return_value = None
+
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open", return_value=True),
+        ):
+            success = router.route_to_agent("target", "msg")
+            assert success is False
+
+    def test_route_to_agent_request_exception(self, router):
+        """Covers request exception (Lines 306-309)."""
+        router.registry.list_agents.return_value = {
+            "target": {"agent_id": "target", "port": 8100, "endpoint": "http://target"}
+        }
+        router.a2a_client.send_to_local.side_effect = Exception("Network error")
+
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open", return_value=True),
+        ):
+            success = router.route_to_agent("target", "msg")
+            assert success is False
+
     def test_route_to_agent_external_registry(self, router):
         """Covers external agent registry check (Lines 304-311)."""
         router.registry.list_agents.return_value = {}
@@ -198,3 +246,21 @@ class TestInputRouterRefactorSpec:
             success = router.route_to_agent("target", "msg", want_response=True)
             assert success is True
             assert router.last_response == "response"
+
+    def test_send_to_external_agent_task_failure(self, router):
+        """Covers external task failure (Lines 342-344)."""
+        mock_agent = MagicMock()
+        mock_agent.alias = "ext"
+        router.a2a_client.send_message.return_value = None
+
+        success = router._send_to_external_agent(mock_agent, "msg")
+        assert success is False
+
+    def test_send_to_external_agent_exception(self, router):
+        """Covers external task exception (Lines 346-349)."""
+        mock_agent = MagicMock()
+        mock_agent.alias = "ext"
+        router.a2a_client.send_message.side_effect = Exception("error")
+
+        success = router._send_to_external_agent(mock_agent, "msg")
+        assert success is False
