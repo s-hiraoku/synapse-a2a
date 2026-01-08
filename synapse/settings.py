@@ -249,13 +249,36 @@ class SynapseSettings:
 
         Returns:
             The instruction string with placeholders replaced, or None.
+
+        Note:
+            Delegation rules should be manually included in the instructions
+            section of .synapse/settings.json if needed. This function only
+            handles placeholder replacement ({{agent_id}}, {{port}}).
+
+            To enable delegation, configure both:
+            1. .synapse/settings.json: {"delegation": {"mode": "orchestrator"}}
+            2. Include delegation rules in the "instructions" section
+
+        Supported instruction formats:
+            - String: "line1\\nline2" (escaped newlines)
+            - Array: ["line1", "line2"] (joined with newlines, easier to read)
+            - Filename: "default.md" (loads from .synapse/<filename>)
         """
+
         # Try agent-specific first
         instruction = self.instructions.get(agent_type, "")
 
         # Fall back to default
         if not instruction:
             instruction = self.instructions.get("default", "")
+
+        # Handle array format: join with newlines
+        if isinstance(instruction, list):
+            instruction = "\n".join(instruction)
+
+        # Handle file reference: load from .synapse/<filename>
+        if isinstance(instruction, str) and instruction.endswith(".md"):
+            instruction = self._load_instruction_file(instruction)
 
         # Return None if empty
         if not instruction:
@@ -266,6 +289,34 @@ class SynapseSettings:
         instruction = instruction.replace("{{port}}", str(port))
 
         return instruction
+
+    def _load_instruction_file(self, filename: str) -> str:
+        """
+        Load instruction content from a file in .synapse directory.
+
+        Search order:
+        1. Project: .synapse/<filename>
+        2. User: ~/.synapse/<filename>
+
+        Args:
+            filename: The filename to load (e.g., "default.md")
+
+        Returns:
+            File content if found, empty string otherwise.
+        """
+        from pathlib import Path
+
+        project_path = Path.cwd() / ".synapse" / filename
+        user_path = Path.home() / ".synapse" / filename
+
+        for path in [project_path, user_path]:
+            if path.exists():
+                try:
+                    return path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+
+        return ""
 
     def apply_env(self, env: dict[str, str]) -> dict[str, str]:
         """

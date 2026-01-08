@@ -69,9 +69,12 @@ class TestLoadDelegateInstructions:
         """Should return None for empty file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             md_path = Path(tmpdir) / "delegate.md"
+            nonexistent_path = Path(tmpdir) / "nonexistent" / "delegate.md"
             md_path.write_text("   \n  ", encoding="utf-8")
 
-            result = load_delegate_instructions(project_path=md_path)
+            result = load_delegate_instructions(
+                project_path=md_path, user_path=nonexistent_path
+            )
             assert result is None
 
     def test_unicode_content_preserved(self) -> None:

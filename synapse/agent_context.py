@@ -110,6 +110,10 @@ def build_bootstrap_message(agent_id: str, port: int) -> str:
     This is sent via A2A Task at startup to provide agents with
     identity and basic communication commands.
 
+    Note: This function is kept for backward compatibility but is not
+    used in the main flow. The actual instructions are loaded from
+    settings.json via SynapseSettings.get_instruction().
+
     Args:
         agent_id: The agent's unique identifier.
         port: The port the agent's API server is running on.

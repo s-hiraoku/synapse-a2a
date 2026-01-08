@@ -2,7 +2,7 @@
 
 import threading
 import time
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -134,39 +134,55 @@ class TestIdentityInstruction:
         assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
 
-    def test_identity_instruction_content(self, controller, mock_registry):
-        """Identity instruction should contain correct full instructions with A2A format."""
-        controller.running = True
-        controller.master_fd = 1
+        def test_identity_instruction_content(self, controller, mock_registry):
+            """Identity instruction should contain correct full instructions with A2A format."""
+            controller.running = True
+            controller.master_fd = 1
 
-        written_data = []
+            written_data = []
 
-        def mock_write(data, submit_seq=None):
-            written_data.append(data)
+            def mock_write(data, submit_seq=None):
+                written_data.append(data)
 
-        controller.write = mock_write
+            controller.write = mock_write
 
-        # Call directly to test content
-        controller._send_identity_instruction()
+            # Patch get_settings to return deterministic instructions
+            with patch("synapse.controller.get_settings") as mock_get_settings:
+                mock_settings = Mock()
+                mock_settings.get_instruction.return_value = (
+                    "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE]\n"
+                    "Agent: {{agent_id}} | Port: {{port}}\n"
+                    "HOW TO RECEIVE A2A MESSAGES\n"
+                    "HOW TO SEND MESSAGES TO OTHER AGENTS\n"
+                    "AVAILABLE AGENTS: claude, gemini, codex\n"
+                    "LIST COMMAND: a2a.py list\n"
+                    "SKILL: synapse-a2a skill\n"
+                    "TASK HISTORY:\n"
+                    "  synapse history list\n"
+                    "  synapse history cleanup\n"
+                )
+                mock_get_settings.return_value = mock_settings
 
-        assert len(written_data) == 1
-        instruction = written_data[0]
+                # Call directly to test content
+                controller._send_identity_instruction()
 
-        # Check A2A Task format prefix
-        assert instruction.startswith("[A2A:")
-        assert ":synapse-system]" in instruction
+            assert len(written_data) == 1
+            instruction = written_data[0]
 
-        # Check key content - bootstrap message format
-        assert "synapse-claude-8100" in instruction
-        assert "SYNAPSE INSTRUCTIONS" in instruction
-        assert "8100" in instruction
-        assert "a2a.py send" in instruction
-        assert "a2a.py list" in instruction
-        # Check for A2A message handling instructions
-        assert "RECEIVE A2A MESSAGES" in instruction
-        assert "SEND" in instruction and "AGENTS" in instruction
-        # Check for do not execute marker
-        assert "DO NOT EXECUTE" in instruction
+            # Check A2A Task format prefix
+            assert instruction.startswith("[A2A:")
+            assert ":synapse-system]" in instruction
+
+            # Check key content - bootstrap message format
+            assert "synapse-claude-8100" in instruction
+            assert "SYNAPSE INSTRUCTIONS" in instruction
+            assert "8100" in instruction
+            assert "a2a.py list" in instruction
+            # Check for A2A message handling instructions
+            assert "RECEIVE A2A MESSAGES" in instruction
+            assert "SEND" in instruction and "AGENTS" in instruction
+            # Check for do not execute marker
+            assert "DO NOT EXECUTE" in instruction
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
