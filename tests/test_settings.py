@@ -174,6 +174,62 @@ class TestSynapseSettings:
         result = settings.get_instruction("claude", "agent-id", 8100)
         assert result is None
 
+    def test_get_instruction_array_format(self):
+        """Get instruction supports array format for easier multiline."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": ["line 1", "line 2", "line 3"],
+            },
+        )
+        result = settings.get_instruction("claude", "agent-id", 8100)
+        assert result == "line 1\nline 2\nline 3"
+
+    def test_get_instruction_array_with_placeholders(self):
+        """Get instruction replaces placeholders in array format."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": ["Agent: {{agent_id}}", "Port: {{port}}"],
+            },
+        )
+        result = settings.get_instruction("claude", "test-agent", 9000)
+        assert result == "Agent: test-agent\nPort: 9000"
+
+    def test_get_instruction_file_reference(self):
+        """Get instruction loads content from .md file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create .synapse directory with instruction file
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            instruction_file = synapse_dir / "test.md"
+            instruction_file.write_text("Hello {{agent_id}} on port {{port}}")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "test.md"},
+            )
+
+            # Change to temp directory so .synapse/test.md is found
+            import os
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                result = settings.get_instruction("claude", "my-agent", 8100)
+                assert result == "Hello my-agent on port 8100"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_get_instruction_file_not_found_returns_none(self):
+        """Get instruction returns None when file not found."""
+        settings = SynapseSettings(
+            env={},
+            instructions={"default": "nonexistent.md"},
+        )
+        result = settings.get_instruction("claude", "agent", 8100)
+        assert result is None
+
     def test_get_instruction_replaces_placeholders(self):
         """Get instruction replaces placeholders."""
         settings = SynapseSettings(

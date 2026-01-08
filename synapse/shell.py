@@ -4,6 +4,7 @@
 import cmd
 import os
 import re
+import time
 
 import requests
 
@@ -87,7 +88,6 @@ class SynapseShell(cmd.Cmd):
         self, endpoint: str, agent_name: str, timeout: int = 30
     ) -> None:
         """Wait for agent to become IDLE and get response."""
-        import time
 
         print(f"[Waiting for {agent_name} response...]")
 

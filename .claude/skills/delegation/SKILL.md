@@ -12,7 +12,7 @@ Configure automatic task delegation to other agents based on natural language ru
 At session startup, check for existing delegation configuration:
 
 ```bash
-cat ~/.synapse/delegation.yaml 2>/dev/null
+cat ~/.synapse/delegation.md 2>/dev/null
 ```
 
 If configuration exists:
@@ -75,11 +75,13 @@ Prompt user for delegation rules in natural language:
 
 ```bash
 mkdir -p ~/.synapse
-cat > ~/.synapse/delegation.yaml << 'EOF'
+cat > ~/.synapse/delegation.md << 'EOF'
+# Delegation Configuration
+
 mode: <selected_mode>
-rules: |
-  <user's natural language rules>
-hooks_enabled: false
+
+## Rules
+<user's natural language rules>
 EOF
 ```
 
@@ -118,14 +120,16 @@ When delegation is active, follow this process for each user request:
 
 ## Configuration File Format
 
-`~/.synapse/delegation.yaml`:
-```yaml
-mode: orchestrator    # orchestrator | passthrough | off
-rules: |
-  コーディング作業はCodexに任せる。
-  調査やドキュメント検索はGeminiに依頼する。
-  コードレビューは自分で行う。
-hooks_enabled: false  # Reserved for future Claude Code hooks integration
+`~/.synapse/delegation.md`:
+```markdown
+# Delegation Configuration
+
+mode: orchestrator
+
+## Rules
+コーディング作業はCodexに任せる。
+調査やドキュメント検索はGeminiに依頼する。
+コードレビューは自分で行う。
 ```
 
 ## Example Session
