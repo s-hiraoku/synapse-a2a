@@ -125,8 +125,8 @@ class TestCmdStart:
         mock_args.tool_args = ["--", "--model", "opus"]
 
         with (
-            patch("synapse.cli.subprocess.run") as mock_run,
-            patch("synapse.cli.PortManager"),
+            patch("synapse.commands.start.subprocess.run") as mock_run,
+            patch("synapse.commands.start.PortManager"),
         ):
             cmd_start(mock_args)
 
@@ -145,9 +145,9 @@ class TestCmdStart:
         mock_args.tool_args = []
 
         with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.PortManager") as mock_pm_class,
-            patch("synapse.cli.subprocess.run"),
+            patch("synapse.commands.start.AgentRegistry", return_value=temp_registry),
+            patch("synapse.commands.start.PortManager") as mock_pm_class,
+            patch("synapse.commands.start.subprocess.run"),
         ):
             mock_pm = mock_pm_class.return_value
             mock_pm.get_available_port.return_value = 8100
@@ -166,8 +166,8 @@ class TestCmdStart:
         mock_args.tool_args = []
 
         with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.PortManager") as mock_pm_class,
+            patch("synapse.commands.start.AgentRegistry", return_value=temp_registry),
+            patch("synapse.commands.start.PortManager") as mock_pm_class,
         ):
             mock_pm = mock_pm_class.return_value
             mock_pm.get_available_port.return_value = None
@@ -190,9 +190,9 @@ class TestCmdStart:
         mock_args.tool_args = []
 
         with (
-            patch("synapse.cli.subprocess.Popen") as mock_popen,
-            patch("synapse.cli.time.sleep"),
-            patch("synapse.cli.os.makedirs"),
+            patch("synapse.commands.start.subprocess.Popen") as mock_popen,
+            patch("synapse.commands.start.time.sleep"),
+            patch("synapse.commands.start.os.makedirs"),
             patch("builtins.open", MagicMock()),
         ):
             mock_process = MagicMock()
@@ -215,7 +215,7 @@ class TestCmdStart:
         mock_args.ssl_key = None
         mock_args.tool_args = []
 
-        with patch("synapse.cli.subprocess.run") as mock_run:
+        with patch("synapse.commands.start.subprocess.run") as mock_run:
             cmd_start(mock_args)
 
         captured = capsys.readouterr()
