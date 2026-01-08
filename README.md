@@ -85,21 +85,36 @@ Codex: テスト生成担当
 委任ルールを設定して、タスクを自動的に適切なエージェントへ振り分け：
 
 ```bash
-# 方法1: Markdownファイルで設定（推奨）
+# Step 1: モードを設定
+synapse delegate set orchestrator
+
+# Step 2: ルールを作成
 cat > .synapse/delegate.md << 'EOF'
 # Delegation Rules
 コーディングはCodexに任せる
 リサーチはGeminiに依頼する
 EOF
 
-# 方法2: CLIで設定
-synapse delegate set orchestrator "コーディングはCodexに、リサーチはGeminiに任せる"
-
-# エージェント起動
+# Step 3: エージェント起動
 synapse claude
 ```
 
-Claude が自動的にタスクを分析し、ルールに従って適切なエージェントへ転送します。詳細は [docs/DELEGATION_GUIDE.md](docs/DELEGATION_GUIDE.md) を参照。
+**設定の2つの要素:**
+
+| 設定 | ファイル | 役割 |
+|------|----------|------|
+| モード | `settings.json` | 結果の扱い方 |
+| ルール | `delegate.md` | 誰に何を任せるか |
+
+**モードの違い:**
+
+| モード | delegate.md | 動作 |
+|--------|-------------|------|
+| `orchestrator` | ✅ 参照 | 結果をClaudeが統合して報告 |
+| `passthrough` | ✅ 参照 | 結果をそのまま転送 |
+| `off` | ❌ 無視 | 自動委任なし（デフォルト） |
+
+詳細は [guides/delegation.md](guides/delegation.md) を参照。
 
 ### 複数視点の取得
 
@@ -1043,7 +1058,7 @@ pip install synapse-a2a[grpc]
 | [guides/architecture.md](guides/architecture.md)         | アーキテクチャ詳細     |
 | [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
 | [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
-| [docs/DELEGATION_GUIDE.md](docs/DELEGATION_GUIDE.md)     | タスク委任ガイド       |
+| [guides/delegation.md](guides/delegation.md)             | タスク委任ガイド       |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
 
 ---
