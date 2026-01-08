@@ -46,7 +46,10 @@ class TestRenderAgentTable:
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
-        with patch("synapse.cli.is_process_alive", return_value=True):
+        with (
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
+        ):
             output = _render_agent_table(temp_registry)
 
         assert "TYPE" in output  # Header
