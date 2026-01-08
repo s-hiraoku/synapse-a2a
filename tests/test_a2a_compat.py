@@ -286,6 +286,22 @@ class TestA2ARouterEndpoints:
         assert data["task"]["status"] in ["submitted", "working"]
         mock_controller.write.assert_called_once()
 
+    def test_tasks_send_prefixes_sender_id(self, client, mock_controller):
+        """/tasks/send should prefix sender_id in controller.write content."""
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {"sender": {"sender_id": "synapse-claude-8100"}},
+        }
+
+        response = client.post("/tasks/send", json=payload)
+
+        assert response.status_code == 200
+        mock_controller.write.assert_called_once()
+        write_args = mock_controller.write.call_args
+        assert write_args[0][0].startswith("[A2A:")
+        assert ":synapse-claude-8100]" in write_args[0][0]
+        assert write_args[0][0].endswith("Hello")
+
     def test_tasks_send_priority_endpoint(self, client, mock_controller):
         """POST /tasks/send-priority should handle priority."""
         payload = {
@@ -297,6 +313,23 @@ class TestA2ARouterEndpoints:
         assert response.status_code == 200
         mock_controller.interrupt.assert_called_once()
         mock_controller.write.assert_called_once()
+
+    def test_tasks_send_priority_prefixes_sender_id(self, client, mock_controller):
+        """/tasks/send-priority should prefix sender_id in controller.write content."""
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Urgent!"}]},
+            "metadata": {"sender": {"sender_id": "synapse-gemini-8110"}},
+        }
+
+        response = client.post("/tasks/send-priority?priority=5", json=payload)
+
+        assert response.status_code == 200
+        mock_controller.interrupt.assert_called_once()
+        mock_controller.write.assert_called_once()
+        write_args = mock_controller.write.call_args
+        assert write_args[0][0].startswith("[A2A:")
+        assert ":synapse-gemini-8110]" in write_args[0][0]
+        assert write_args[0][0].endswith("Urgent!")
 
     def test_tasks_get_endpoint(self, client, mock_controller):
         """GET /tasks/{id} should return task status."""

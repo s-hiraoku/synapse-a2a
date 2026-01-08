@@ -1,6 +1,6 @@
 """Tests for Synapse A2A Server - endpoint compliance."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -85,6 +85,37 @@ class TestLegacyMessageEndpoint(TestServerApp):
 
         assert response.status_code == 200
         mock_controller.write.assert_called_once_with("hello world", submit_seq="\n")
+
+    def test_message_write_failure_marks_task_failed(
+        self, mock_controller, mock_registry
+    ):
+        """POST /message should return 500 and mark task failed on write error."""
+        from synapse.server import create_app
+
+        task_store = MagicMock()
+        task = MagicMock()
+        task.id = "task-1"
+        task_store.create.return_value = task
+        task_store.update_status.return_value = task
+
+        mock_controller.write.side_effect = RuntimeError("boom")
+
+        with patch("synapse.server.TaskStore", return_value=task_store):
+            app = create_app(
+                ctrl=mock_controller,
+                reg=mock_registry,
+                agent_id="test-agent-id",
+                port=8000,
+                submit_seq="\n",
+                agent_type="test-agent",
+            )
+            client = TestClient(app, raise_server_exceptions=False)
+
+            response = client.post(
+                "/message", json={"priority": 1, "content": "hello world"}
+            )
+        assert response.status_code == 500
+        task_store.update_status.assert_any_call(task.id, "failed")
 
     def test_message_endpoint_is_deprecated(self, app):
         """POST /message should be marked as deprecated."""
