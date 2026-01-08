@@ -69,6 +69,30 @@ class InputRouter:
         self.self_agent_type = self_agent_type
         self.self_port = self_port
 
+    def parse_at_mention(self, line: str) -> tuple[str, bool, str] | None:
+        """
+        Parse a line for @Agent mention.
+
+        Returns:
+            Tuple of (agent_name, want_response, message) or None.
+        """
+        match = self.A2A_PATTERN.match(line)
+        if not match:
+            return None
+
+        agent = match.group(1).lower()
+        # Default: want response. --non-response opts out.
+        want_response = not bool(match.group(2))
+        message = match.group(3).strip()
+
+        # Remove surrounding quotes if present
+        if (message.startswith("'") and message.endswith("'")) or (
+            message.startswith('"') and message.endswith('"')
+        ):
+            message = message[1:-1]
+
+        return (agent, want_response, message)
+
     def process_char(self, char: str) -> tuple[str, Callable | None]:
         """
         Process a single character of input.
@@ -105,23 +129,14 @@ class InputRouter:
             line = self.line_buffer
             self.line_buffer = ""
 
-            match = self.A2A_PATTERN.match(line)
-            if match:
-                agent = match.group(1).lower()
-                # Default: want response. --non-response opts out.
-                want_response = not bool(match.group(2))
-                message = match.group(3).strip()
-                # Remove surrounding quotes if present
-                if (message.startswith("'") and message.endswith("'")) or (
-                    message.startswith('"') and message.endswith('"')
-                ):
-                    message = message[1:-1]
-
+            result = self.parse_at_mention(line)
+            if result:
+                agent, want_response, message = result
                 self.pending_agent = agent
 
                 # Create action callback
                 def send_action() -> bool:
-                    return self.send_to_agent(agent, message, want_response)
+                    return self.route_to_agent(agent, message, want_response)
 
                 # Return empty string - don't send anything to PTY
                 # The feedback will be shown separately
@@ -141,7 +156,7 @@ class InputRouter:
             results.append(self.process_char(char))
         return results
 
-    def send_to_agent(
+    def route_to_agent(
         self, agent_name: str, message: str, want_response: bool = False
     ) -> bool:
         """Send a message to another agent via A2A."""
@@ -294,6 +309,12 @@ class InputRouter:
             log("ERROR", f"Request failed: {e}")
             self.last_response = None
             return False
+
+    def send_to_agent(
+        self, agent_name: str, message: str, want_response: bool = False
+    ) -> bool:
+        """Alias for route_to_agent (backward compatibility)."""
+        return self.route_to_agent(agent_name, message, want_response)
 
     def _send_to_external_agent(
         self, agent: "object", message: str, want_response: bool = False
