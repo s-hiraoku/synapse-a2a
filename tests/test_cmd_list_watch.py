@@ -82,6 +82,34 @@ class TestRenderAgentTable:
         # Should have cleaned up the registry
         assert len(temp_registry.list_agents()) == 0
 
+    def test_cleans_up_stale_pid_reuse_when_port_closed(self, temp_registry):
+        """Should remove entries when PID is alive but port is closed (PID reuse)."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        with (
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=False),
+        ):
+            output = _render_agent_table(temp_registry)
+
+        assert "No agents running" in output
+        assert len(temp_registry.list_agents()) == 0
+
+    def test_processing_agent_kept_when_port_closed(self, temp_registry):
+        """PROCESSING agents should not be removed if port isn't open yet."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        with (
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=False),
+        ):
+            output = _render_agent_table(temp_registry)
+
+        assert "PROCESSING" in output
+        assert len(temp_registry.list_agents()) == 1
+
 
 class TestClearScreen:
     """Tests for _clear_screen helper function."""

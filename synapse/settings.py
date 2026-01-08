@@ -86,6 +86,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "gemini": get_gemini_instructions(),
         "codex": "",
     },
+    "delegation": {
+        "mode": "off",  # "orchestrator" | "passthrough" | "off"
+    },
 }
 
 
@@ -154,12 +157,13 @@ class SynapseSettings:
     """
     Synapse settings container.
 
-    Manages environment variables and initial instructions
+    Manages environment variables, initial instructions, and delegation settings
     loaded from .synapse/settings.json files.
     """
 
     env: dict[str, str] = field(default_factory=dict)
     instructions: dict[str, str] = field(default_factory=dict)
+    delegation: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -167,6 +171,7 @@ class SynapseSettings:
         return cls(
             env=dict(DEFAULT_SETTINGS["env"]),
             instructions=dict(DEFAULT_SETTINGS["instructions"]),
+            delegation=dict(DEFAULT_SETTINGS["delegation"]),
         )
 
     @classmethod
@@ -225,6 +230,7 @@ class SynapseSettings:
         return cls(
             env=merged.get("env", {}),
             instructions=merged.get("instructions", {}),
+            delegation=merged.get("delegation", {}),
         )
 
     def get_instruction(self, agent_type: str, agent_id: str, port: int) -> str | None:
@@ -278,6 +284,15 @@ class SynapseSettings:
             if value and key not in env:
                 env[key] = value
         return env
+
+    def get_delegation_mode(self) -> str:
+        """
+        Get the delegation mode.
+
+        Returns:
+            Delegation mode: "orchestrator", "passthrough", or "off"
+        """
+        return self.delegation.get("mode", "off")
 
 
 def get_settings() -> SynapseSettings:

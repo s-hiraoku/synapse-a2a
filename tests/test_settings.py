@@ -277,18 +277,24 @@ class TestSkillInstallation:
             # Install skills
             installed = _install_skills_to_dir(base_dir, force=False)
 
-            # Should install to both .claude and .codex
-            assert len(installed) == 2
+            # Should install synapse-a2a and delegation to both .claude and .codex (4 total)
+            assert len(installed) == 4
 
-            # Check .claude skill exists
-            claude_skill = base_dir / ".claude" / "skills" / "synapse-a2a"
-            assert claude_skill.exists()
-            assert (claude_skill / "SKILL.md").exists()
+            # Check .claude skills exist
+            claude_a2a = base_dir / ".claude" / "skills" / "synapse-a2a"
+            assert claude_a2a.exists()
+            assert (claude_a2a / "SKILL.md").exists()
 
-            # Check .codex skill exists
-            codex_skill = base_dir / ".codex" / "skills" / "synapse-a2a"
-            assert codex_skill.exists()
-            assert (codex_skill / "SKILL.md").exists()
+            claude_delegation = base_dir / ".claude" / "skills" / "delegation"
+            assert claude_delegation.exists()
+
+            # Check .codex skills exist
+            codex_a2a = base_dir / ".codex" / "skills" / "synapse-a2a"
+            assert codex_a2a.exists()
+            assert (codex_a2a / "SKILL.md").exists()
+
+            codex_delegation = base_dir / ".codex" / "skills" / "delegation"
+            assert codex_delegation.exists()
 
     def test_install_skills_skips_existing(self):
         """Test _install_skills_to_dir skips existing without force."""
@@ -305,9 +311,11 @@ class TestSkillInstallation:
             # Install without force
             installed = _install_skills_to_dir(base_dir, force=False)
 
-            # Should only install to .codex (skip existing .claude)
-            assert len(installed) == 1
-            assert ".codex" in installed[0]
+            # Should skip existing .claude/synapse-a2a, but install:
+            # - .claude/delegation
+            # - .codex/synapse-a2a
+            # - .codex/delegation
+            assert len(installed) == 3
 
             # Custom file should still exist
             assert (existing / "custom.txt").exists()
@@ -327,8 +335,8 @@ class TestSkillInstallation:
             # Install with force
             installed = _install_skills_to_dir(base_dir, force=True)
 
-            # Should install to both
-            assert len(installed) == 2
+            # Should install all 4 skills (synapse-a2a + delegation for .claude and .codex)
+            assert len(installed) == 4
 
             # Custom file should be gone, replaced with SKILL.md
             assert not (existing / "custom.txt").exists()
