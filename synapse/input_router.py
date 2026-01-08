@@ -278,6 +278,10 @@ class InputRouter:
                     )
 
             # Send using A2A protocol
+            # Request response if we have sender info (can receive responses)
+            response_required = sender_info is not None and bool(
+                sender_info.get("sender_endpoint")
+            )
             task = self.a2a_client.send_to_local(
                 endpoint=endpoint,
                 message=message,
@@ -285,6 +289,7 @@ class InputRouter:
                 wait_for_completion=want_response,
                 timeout=60,
                 sender_info=sender_info,
+                response_required=response_required,
             )
 
             if task:
