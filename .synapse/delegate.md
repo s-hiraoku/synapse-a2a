@@ -1,11 +1,22 @@
 # Delegation Rules
 
-## Branch Management (IMPORTANT)
+## Critical Rules (MUST FOLLOW)
 
+### Self-Execution Rule
+- **Do NOT delegate tasks to yourself** - If you ARE the target agent, execute the task directly
+- Example: If you are Codex and the task matches "delegate to @codex", DO NOT delegate - just do it
+- Example: If you are Gemini and the task is "write tests", DO NOT delegate - just write the tests
+
+### Branch Management
 - **Do NOT change branches during active work** - All agents must stay on the current branch
 - **If branch change is needed**, ask the user for confirmation first
 - Before switching, ensure all changes are committed or stashed
 - When receiving delegated tasks, work on the same branch as the delegating agent
+
+### Task Execution
+- When you receive a task via A2A, **execute it immediately** - do not wait or announce
+- Start working on the task right away, then report results
+- Do not output "waiting for results" or similar - just do the work
 
 ---
 
