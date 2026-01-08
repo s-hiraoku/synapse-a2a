@@ -206,6 +206,7 @@ class A2AClient:
         wait_for_completion: bool = False,
         timeout: int = 60,
         sender_info: dict[str, str] | None = None,
+        response_required: bool = True,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -220,6 +221,7 @@ class A2AClient:
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
+            response_required: Whether to request a response from the target agent
 
         Returns:
             A2ATask if successful, None otherwise
@@ -231,9 +233,11 @@ class A2AClient:
             # Build request payload
             payload: dict[str, Any] = {"message": asdict(a2a_message)}
 
-            # Add sender info to metadata if provided
+            # Add metadata with sender info and response_required flag
+            metadata: dict[str, Any] = {"response_required": response_required}
             if sender_info:
-                payload["metadata"] = {"sender": sender_info}
+                metadata["sender"] = sender_info
+            payload["metadata"] = metadata
 
             # Use /tasks/send-priority for priority support
             url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"

@@ -14,6 +14,8 @@ import yaml
 
 from synapse.a2a_client import get_client
 from synapse.auth import generate_api_key
+from synapse.commands.list import ListCommand
+from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
 from synapse.delegation import (
     get_delegate_instructions_path,
@@ -54,93 +56,12 @@ def install_skills() -> None:
         pass
 
 
+_START_COMMAND = StartCommand(subprocess_module=subprocess)
+
+
 def cmd_start(args: argparse.Namespace) -> None:
     """Start an agent in background or foreground."""
-    profile = args.profile
-    port = args.port
-    foreground = args.foreground
-    ssl_cert = getattr(args, "ssl_cert", None)
-    ssl_key = getattr(args, "ssl_key", None)
-
-    # Validate SSL options
-    if (ssl_cert and not ssl_key) or (ssl_key and not ssl_cert):
-        print("Error: Both --ssl-cert and --ssl-key must be provided together")
-        sys.exit(1)
-
-    # Extract tool args (filter out -- if present at start)
-    tool_args = getattr(args, "tool_args", [])
-    if tool_args and tool_args[0] == "--":
-        tool_args = tool_args[1:]
-
-    # Auto-select port if not specified
-    if port is None:
-        registry = AgentRegistry()
-        port_manager = PortManager(registry)
-        port = port_manager.get_available_port(profile)
-
-        if port is None:
-            print(port_manager.format_exhaustion_error(profile))
-            sys.exit(1)
-
-    # Build command
-    cmd = [
-        sys.executable,
-        "-m",
-        "synapse.server",
-        "--profile",
-        profile,
-        "--port",
-        str(port),
-    ]
-
-    # Add SSL options if provided
-    if ssl_cert and ssl_key:
-        cmd.extend(["--ssl-cert", ssl_cert, "--ssl-key", ssl_key])
-
-    # Set up environment with tool args (null-separated for safe parsing)
-    env = os.environ.copy()
-    if tool_args:
-        env["SYNAPSE_TOOL_ARGS"] = "\x00".join(tool_args)
-
-    protocol = "https" if ssl_cert else "http"
-
-    if foreground:
-        # Run in foreground
-        print(f"Starting {profile} on port {port} (foreground, {protocol.upper()})...")
-        if ssl_cert:
-            print(f"SSL: {ssl_cert}")
-        if tool_args:
-            print(f"Tool args: {' '.join(tool_args)}")
-        try:
-            subprocess.run(cmd, env=env)
-        except KeyboardInterrupt:
-            print("\nStopped.")
-    else:
-        # Run in background
-        print(f"Starting {profile} on port {port} (background, {protocol.upper()})...")
-        if ssl_cert:
-            print(f"SSL: {ssl_cert}")
-        if tool_args:
-            print(f"Tool args: {' '.join(tool_args)}")
-
-        # Create log directory
-        log_dir = os.path.expanduser("~/.synapse/logs")
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, f"{profile}.log")
-
-        with open(log_file, "w") as log:
-            process = subprocess.Popen(
-                cmd, stdout=log, stderr=log, start_new_session=True, env=env
-            )
-
-        # Wait a bit and check if it started
-        time.sleep(2)
-        if process.poll() is None:
-            print(f"Started {profile} (PID: {process.pid})")
-            print(f"Logs: {log_file}")
-        else:
-            print(f"Failed to start {profile}. Check logs: {log_file}")
-            sys.exit(1)
+    _START_COMMAND.run(args)
 
 
 def _stop_agent(registry: AgentRegistry, info: dict) -> None:
@@ -198,101 +119,17 @@ def _clear_screen() -> None:
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def _render_agent_table(registry: AgentRegistry) -> str:
-    """
-    Render the agent table output.
-
-    Args:
-        registry: AgentRegistry instance
-
-    Returns:
-        str: Formatted table output
-    """
-    agents = registry.list_agents()
-
-    if not agents:
-        output = ["No agents running.", ""]
-        output.append("Port ranges:")
-        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            output.append(f"  {agent_type}: {start}-{end}")
-        return "\n".join(output)
-
-    lines = []
-    header = (
-        f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-        f"{'WORKING_DIR':<50} ENDPOINT"
-    )
-    lines.append(header)
-    lines.append("-" * len(header))
-
-    live_agents = False
-    for agent_id, info in agents.items():
-        # Verify agent is still alive (PID check + port check)
-        pid = info.get("pid")
-        port = info.get("port")
-        status = info.get("status", "-")
-
-        # Check 1: PID must be alive
-        if pid and not is_process_alive(pid):
-            registry.unregister(agent_id)
-            continue
-
-        # Check 2: Port must be open (agent server responding)
-        # Skip port check for PROCESSING agents (server may still be starting)
-        if (
-            status != "PROCESSING"
-            and port
-            and not is_port_open("localhost", port, timeout=0.5)
-        ):
-            registry.unregister(agent_id)
-            continue
-
-        live_agents = True
-        lines.append(
-            f"{info.get('agent_type', 'unknown'):<10} "
-            f"{info.get('port', '-'):<8} "
-            f"{status:<12} "
-            f"{pid or '-':<8} "
-            f"{info.get('working_dir', '-'):<50} "
-            f"{info.get('endpoint', '-')}"
-        )
-
-    # If all agents were dead, show empty registry message
-    if not live_agents:
-        output = ["No agents running.", ""]
-        output.append("Port ranges:")
-        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            output.append(f"  {agent_type}: {start}-{end}")
-        return "\n".join(output)
-
-    return "\n".join(lines)
-
-
 def cmd_list(args: argparse.Namespace) -> None:
     """List running agents (with optional watch mode)."""
-    registry = AgentRegistry()
-    watch_mode = getattr(args, "watch", False)
-    interval = getattr(args, "interval", 2.0)
-
-    if not watch_mode:
-        # Normal mode: single output
-        print(_render_agent_table(registry))
-        return
-
-    # Watch mode: continuous refresh
-    print("Watch mode: Press Ctrl+C to exit\n")
-
-    try:
-        while True:
-            _clear_screen()
-            print(f"Synapse Agent List (refreshing every {interval}s)")
-            print(f"Last updated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print()
-            print(_render_agent_table(registry))
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        print("\n\nExiting watch mode...")
-        sys.exit(0)
+    list_command = ListCommand(
+        AgentRegistry,
+        is_process_alive,
+        is_port_open,
+        _clear_screen,
+        time,
+        print,
+    )
+    list_command.run(args)
 
 
 def cmd_logs(args: argparse.Namespace) -> None:

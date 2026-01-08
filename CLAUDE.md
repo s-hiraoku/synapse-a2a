@@ -9,6 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. Proceed to implementation only after confirmation
 4. Adjust implementation until all tests pass
 
+### Branch Management Rules
+
+- **Do NOT change branches during active work** - Stay on the current branch until the task is complete
+- **If branch change is needed**, always ask the user for confirmation first
+- Before switching branches, ensure all changes are committed or stashed
+- When delegating to other agents, they must work on the same branch
+
 ## Project Overview
 
 Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
@@ -238,3 +245,79 @@ pytest tests/test_cmd_list_watch.py::TestSilentFailures -v
 pytest tests/test_cmd_list_watch.py::TestRegistryRaceConditions -v
 pytest tests/test_cmd_list_watch.py::TestPartialJSONRead -v
 ```
+
+## Multi-Agent Management with History
+
+### Enabling History Tracking
+
+```bash
+# Start agents with history enabled
+SYNAPSE_HISTORY_ENABLED=true synapse claude
+SYNAPSE_HISTORY_ENABLED=true synapse gemini
+SYNAPSE_HISTORY_ENABLED=true synapse codex
+```
+
+### Monitoring Delegated Tasks
+
+When orchestrating multiple agents, use these commands to track progress:
+
+```bash
+# Real-time agent status
+python3 synapse/tools/a2a.py list
+
+# Task history by agent
+synapse history list --agent gemini
+synapse history list --agent codex
+
+# Task details
+synapse history show <task_id>
+
+# Statistics
+synapse history stats
+synapse history stats --agent gemini
+```
+
+### Delegation Workflow
+
+1. **Check agent availability**:
+   ```bash
+   synapse list
+   ```
+
+2. **Delegate task**:
+   ```bash
+   python3 synapse/tools/a2a.py send --target gemini --priority 3 "Write tests for X"
+   ```
+
+3. **Monitor progress**:
+   ```bash
+   synapse list --watch
+   git status && git log --oneline -5
+   ```
+
+4. **Send follow-up** (if needed):
+   ```bash
+   python3 synapse/tools/a2a.py send --target gemini --priority 4 "Status update?"
+   ```
+
+5. **Review completion**:
+   ```bash
+   synapse history list --agent gemini --limit 5
+   ```
+
+### Priority Levels
+
+| Priority | Use Case |
+|----------|----------|
+| 1-2 | Low priority, background tasks |
+| 3 | Normal tasks |
+| 4 | Urgent follow-ups |
+| 5 | Critical/emergency tasks |
+
+### Best Practices
+
+- Always check `synapse list` before delegating to ensure agents are READY
+- Use `git log` and `git status` to verify completed work
+- Track task IDs from delegation responses for follow-up
+- Use `--priority 4-5` for urgent status checks
+- Monitor `synapse list --watch` during active orchestration

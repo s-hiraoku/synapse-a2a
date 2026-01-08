@@ -5,8 +5,6 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 
-import requests
-
 from synapse.a2a_client import A2AClient, get_client
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 
@@ -69,6 +67,30 @@ class InputRouter:
         self.self_agent_type = self_agent_type
         self.self_port = self_port
 
+    def parse_at_mention(self, line: str) -> tuple[str, bool, str] | None:
+        """
+        Parse a line for @Agent mention.
+
+        Returns:
+            Tuple of (agent_name, want_response, message) or None.
+        """
+        match = self.A2A_PATTERN.match(line)
+        if not match:
+            return None
+
+        agent = match.group(1).lower()
+        # Default: want response. --non-response opts out.
+        want_response = not bool(match.group(2))
+        message = match.group(3).strip()
+
+        # Remove surrounding quotes if present
+        if (message.startswith("'") and message.endswith("'")) or (
+            message.startswith('"') and message.endswith('"')
+        ):
+            message = message[1:-1]
+
+        return (agent, want_response, message)
+
     def process_char(self, char: str) -> tuple[str, Callable | None]:
         """
         Process a single character of input.
@@ -105,23 +127,14 @@ class InputRouter:
             line = self.line_buffer
             self.line_buffer = ""
 
-            match = self.A2A_PATTERN.match(line)
-            if match:
-                agent = match.group(1).lower()
-                # Default: want response. --non-response opts out.
-                want_response = not bool(match.group(2))
-                message = match.group(3).strip()
-                # Remove surrounding quotes if present
-                if (message.startswith("'") and message.endswith("'")) or (
-                    message.startswith('"') and message.endswith('"')
-                ):
-                    message = message[1:-1]
-
+            result = self.parse_at_mention(line)
+            if result:
+                agent, want_response, message = result
                 self.pending_agent = agent
 
                 # Create action callback
                 def send_action() -> bool:
-                    return self.send_to_agent(agent, message, want_response)
+                    return self.route_to_agent(agent, message, want_response)
 
                 # Return empty string - don't send anything to PTY
                 # The feedback will be shown separately
@@ -141,7 +154,7 @@ class InputRouter:
             results.append(self.process_char(char))
         return results
 
-    def send_to_agent(
+    def route_to_agent(
         self, agent_name: str, message: str, want_response: bool = False
     ) -> bool:
         """Send a message to another agent via A2A."""
@@ -169,8 +182,6 @@ class InputRouter:
 
         # If not found, try match on type-port shorthand (e.g., codex-8120)
         if not target:
-            import re
-
             type_port_match = re.match(r"^(\w+)-(\d+)$", agent_name_lower)
             if type_port_match:
                 target_type = type_port_match.group(1)
@@ -267,6 +278,10 @@ class InputRouter:
                     )
 
             # Send using A2A protocol
+            # Request response if we have sender info (can receive responses)
+            response_required = sender_info is not None and bool(
+                sender_info.get("sender_endpoint")
+            )
             task = self.a2a_client.send_to_local(
                 endpoint=endpoint,
                 message=message,
@@ -274,6 +289,7 @@ class InputRouter:
                 wait_for_completion=want_response,
                 timeout=60,
                 sender_info=sender_info,
+                response_required=response_required,
             )
 
             if task:
@@ -294,6 +310,12 @@ class InputRouter:
             log("ERROR", f"Request failed: {e}")
             self.last_response = None
             return False
+
+    def send_to_agent(
+        self, agent_name: str, message: str, want_response: bool = False
+    ) -> bool:
+        """Alias for route_to_agent (backward compatibility)."""
+        return self.route_to_agent(agent_name, message, want_response)
 
     def _send_to_external_agent(
         self, agent: "object", message: str, want_response: bool = False
@@ -328,45 +350,6 @@ class InputRouter:
             log("ERROR", f"External agent request failed: {e}")
             self.last_response = None
             return False
-
-    def _wait_for_response(
-        self, endpoint: str, agent_name: str, timeout: int = 60
-    ) -> str | None:
-        """Wait for agent to become IDLE and capture response."""
-        import time
-
-        start_time = time.time()
-        initial_context = ""
-
-        # Get initial context
-        try:
-            resp = requests.get(f"{endpoint}/status", timeout=5)
-            initial_context = resp.json().get("context", "")
-        except Exception:
-            pass
-
-        # Poll for IDLE status
-        while time.time() - start_time < timeout:
-            try:
-                resp = requests.get(f"{endpoint}/status", timeout=5)
-                data = resp.json()
-                status = data.get("status", "")
-                context = data.get("context", "")
-
-                if status == "IDLE":
-                    # Extract new content since our message
-                    new_content = (
-                        context[len(initial_context) :] if initial_context else context
-                    )
-                    # Clean ANSI escape codes
-                    clean = re.sub(r"\x1b\[[0-9;]*m", "", new_content)
-                    return clean.strip() if clean.strip() else None
-
-                time.sleep(1)
-            except Exception:
-                time.sleep(1)
-
-        return None
 
     def _extract_text_from_artifacts(self, artifacts: list) -> str | None:
         """Extract text content from A2A artifacts."""
