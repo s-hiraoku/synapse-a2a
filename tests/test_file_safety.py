@@ -103,6 +103,20 @@ class TestFileSafetyManager:
         assert success is False
         assert len(manager.list_locks()) == 1
 
+    def test_check_lock(self, manager):
+        """Should return lock info if file is locked."""
+        manager.acquire_lock("test.py", "claude", task_id="task-1", intent="Test")
+
+        lock_info = manager.check_lock("test.py")
+        assert lock_info is not None
+        assert lock_info["agent_name"] == "claude"
+        assert lock_info["task_id"] == "task-1"
+        assert lock_info["intent"] == "Test"
+
+    def test_check_lock_not_locked(self, manager):
+        """Should return None if file is not locked."""
+        assert manager.check_lock("test.py") is None
+
     def test_record_modification(self, manager):
         """Should record file modification."""
         manager.record_modification(
@@ -120,6 +134,47 @@ class TestFileSafetyManager:
         assert history[0]["agent_name"] == "claude"
         assert history[0]["change_type"] == "MODIFY"
         assert history[0]["intent"] == "Fix bug"
+
+    def test_get_recent_modifications(self, manager):
+        """Should return recent modifications across all files."""
+        manager.record_modification("file1.py", "claude", "t1", ChangeType.CREATE)
+        manager.record_modification("file2.py", "gemini", "t2", ChangeType.MODIFY)
+
+        recent = manager.get_recent_modifications(limit=10)
+        assert len(recent) == 2
+        # Should be ordered by timestamp DESC (newest first)
+        assert recent[0]["file_path"].endswith("file2.py")
+        assert recent[1]["file_path"].endswith("file1.py")
+
+    def test_get_file_context(self, manager):
+        """Should return formatted context string."""
+        manager.acquire_lock("test.py", "claude", intent="Editing")
+        manager.record_modification("test.py", "claude", "t1", ChangeType.CREATE)
+
+        context = manager.get_file_context("test.py")
+        assert "LOCKED by claude" in context
+        assert "Intent: Editing" in context
+        assert "claude [CREATE]" in context
+
+    def test_validate_write_allowed(self, manager):
+        """Should allow write if not locked by others."""
+        # Case 1: Not locked
+        result = manager.validate_write("test.py", "claude")
+        assert result["allowed"] is True
+
+        # Case 2: Locked by self
+        manager.acquire_lock("test.py", "claude")
+        result = manager.validate_write("test.py", "claude")
+        assert result["allowed"] is True
+
+    def test_validate_write_denied(self, manager):
+        """Should deny write if locked by another agent."""
+        manager.acquire_lock("test.py", "gemini", intent="Refactoring")
+
+        result = manager.validate_write("test.py", "claude")
+        assert result["allowed"] is False
+        assert "locked by gemini" in result["reason"]
+        assert "Refactoring" in result["reason"]
 
     def test_get_statistics(self, manager):
         """Should calculate statistics correctly."""
