@@ -18,7 +18,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+**Mission: Enable agents to collaborate on tasks without changing their behavior.**
+
 Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
+
+### Core Principles
+
+1. **Non-Invasive**: Wrap agents transparently without modifying their behavior
+2. **Collaborative**: Enable multiple agents to work together using their strengths
+3. **Transparent**: Maintain existing workflows and user experience
 
 ## Commands
 
