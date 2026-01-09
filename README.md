@@ -47,6 +47,7 @@ flowchart LR
 - [Priority（優先度）](#priority優先度)
 - [Agent Card](#agent-card)
 - [レジストリとポート管理](#レジストリとポート管理)
+- [File Safety（ファイル競合防止）](#file-safetyファイル競合防止)
 - [テスト](#テスト)
 - [設定ファイル (.synapse)](#設定ファイル-synapse)
 - [開発・リリース](#開発リリース)
@@ -65,6 +66,7 @@ flowchart LR
 | **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当）   |
 | **外部連携**           | 他の Google A2A エージェントとの通信                     |
 | **タスク委任**         | 自然言語ルールで他エージェントへ自動タスク転送           |
+| **File Safety**        | ファイルロックと変更追跡でマルチエージェント競合を防止   |
 
 ---
 
@@ -358,6 +360,13 @@ synapse claude -- --resume
 | `synapse delegate`                | 委任設定表示           |
 | `synapse delegate set <mode>`     | 委任モード設定         |
 | `synapse delegate off`            | 委任無効化             |
+| `synapse file-safety status`      | ファイル安全統計表示   |
+| `synapse file-safety locks`       | アクティブロック一覧   |
+| `synapse file-safety lock`        | ファイルをロック       |
+| `synapse file-safety unlock`      | ロック解放             |
+| `synapse file-safety history`     | ファイル変更履歴       |
+| `synapse file-safety recent`      | 最近の変更一覧         |
+| `synapse file-safety cleanup`     | 古いデータ削除         |
 
 ### 外部エージェント管理
 
@@ -813,6 +822,105 @@ PORT_RANGES = {
 
 ---
 
+## File Safety（ファイル競合防止）
+
+マルチエージェント環境で複数のエージェントが同時にファイルを編集する際の競合を防止します。
+
+```mermaid
+sequenceDiagram
+    participant Claude
+    participant FS as File Safety
+    participant Gemini
+
+    Claude->>FS: acquire_lock("auth.py")
+    FS-->>Claude: ACQUIRED
+
+    Gemini->>FS: validate_write("auth.py")
+    FS-->>Gemini: DENIED (locked by claude)
+
+    Claude->>FS: release_lock("auth.py")
+    Gemini->>FS: acquire_lock("auth.py")
+    FS-->>Gemini: ACQUIRED
+```
+
+### 機能
+
+| 機能 | 説明 |
+|------|------|
+| **ファイルロック** | 排他制御で同時編集を防止 |
+| **変更追跡** | 誰がいつ何を変更したか記録 |
+| **コンテキスト注入** | 読み込み時に最近の変更履歴を提供 |
+| **事前バリデーション** | 書き込み前にロック状態をチェック |
+
+### 有効化
+
+```bash
+# 環境変数で有効化
+export SYNAPSE_FILE_SAFETY_ENABLED=true
+synapse claude
+```
+
+### 基本コマンド
+
+```bash
+# 統計表示
+synapse file-safety status
+
+# アクティブロック一覧
+synapse file-safety locks
+
+# ロック取得
+synapse file-safety lock /path/to/file.py claude --intent "Refactoring"
+
+# ロック解放
+synapse file-safety unlock /path/to/file.py claude
+
+# ファイル変更履歴
+synapse file-safety history /path/to/file.py
+
+# 最近の変更一覧
+synapse file-safety recent
+
+# 古いデータ削除
+synapse file-safety cleanup --days 30
+```
+
+### Python API
+
+```python
+from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
+
+manager = FileSafetyManager.from_env()
+
+# ロック取得
+result = manager.acquire_lock("/path/to/file.py", "claude", intent="Refactoring")
+if result["status"] == LockStatus.ACQUIRED:
+    # ファイル編集...
+
+    # 変更記録
+    manager.record_modification(
+        file_path="/path/to/file.py",
+        agent_name="claude",
+        task_id="task-123",
+        change_type=ChangeType.MODIFY,
+        intent="Fix authentication bug"
+    )
+
+    # ロック解放
+    manager.release_lock("/path/to/file.py", "claude")
+
+# 書き込み前バリデーション
+validation = manager.validate_write("/path/to/file.py", "gemini")
+if not validation["allowed"]:
+    print(f"Write blocked: {validation['reason']}")
+```
+
+**ストレージ**: `~/.synapse/file_safety.db` (SQLite)
+
+詳細は [docs/file-safety.md](docs/file-safety.md) を参照してください。
+
+---
+
 ## テスト
 
 218 のテストケースで A2A プロトコル準拠を検証：
@@ -864,6 +972,7 @@ synapse reset
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_AUTH_ENABLED": "false",
     "SYNAPSE_API_KEYS": "",
     "SYNAPSE_ADMIN_KEY": "",
@@ -887,6 +996,7 @@ synapse reset
 | 変数 | 説明 | デフォルト |
 |------|------|-----------|
 | `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | ファイル安全機能を有効化 | `false` |
 | `SYNAPSE_AUTH_ENABLED` | API認証を有効化 | `false` |
 | `SYNAPSE_API_KEYS` | APIキー（カンマ区切り） | - |
 | `SYNAPSE_ADMIN_KEY` | 管理者キー | - |
@@ -1059,6 +1169,7 @@ pip install synapse-a2a[grpc]
 | [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
 | [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
 | [guides/delegation.md](guides/delegation.md)             | タスク委任ガイド       |
+| [docs/file-safety.md](docs/file-safety.md)               | ファイル競合防止機能   |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
 
 ---
