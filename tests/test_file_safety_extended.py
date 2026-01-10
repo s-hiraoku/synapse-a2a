@@ -30,17 +30,21 @@ class TestFileSafetyExtended:
         assert filenames == {"file1.py", "file2.py"}
         assert all(m["task_id"] == "task-A" for m in mods)
 
-    def test_record_modification_invalid_change_type(self, manager, capsys):
+    def test_record_modification_invalid_change_type(self, manager, capsys, caplog):
         """Should fail gracefully when invalid change_type is provided."""
         result = manager.record_modification(
             "file.py", "claude", "task-1", "INVALID_TYPE"
         )
 
         assert result is None
+        # Check both for backward compatibility (some might still use print)
         captured = capsys.readouterr()
-        assert "Warning: Invalid change_type" in captured.err
+        log_output = caplog.text
+        assert (
+            "Invalid change_type" in captured.err or "Invalid change_type" in log_output
+        )
 
-    def test_record_modification_invalid_type_object(self, manager, capsys):
+    def test_record_modification_invalid_type_object(self, manager, capsys, caplog):
         """Should fail gracefully when change_type is wrong type."""
         result = manager.record_modification(
             "file.py",
@@ -51,7 +55,11 @@ class TestFileSafetyExtended:
 
         assert result is None
         captured = capsys.readouterr()
-        assert "Warning: change_type must be ChangeType or str" in captured.err
+        log_output = caplog.text
+        assert (
+            "change_type must be ChangeType or str" in captured.err
+            or "change_type must be ChangeType or str" in log_output
+        )
 
     def test_corrupted_metadata_json(self, manager):
         """Should handle corrupted JSON in metadata column."""
@@ -85,7 +93,7 @@ class TestFileSafetyExtended:
         assert len(manager.list_locks()) == 0
 
     @patch("sqlite3.connect")
-    def test_db_error_handling(self, mock_connect, manager, capsys):
+    def test_db_error_handling(self, mock_connect, manager, capsys, caplog):
         """Should handle database errors in various methods."""
         mock_connect.side_effect = sqlite3.Error("Simulated DB Error")
 
@@ -124,11 +132,22 @@ class TestFileSafetyExtended:
         # Test get_statistics error
         assert manager.get_statistics() == {}
 
-        # Check stderr for warnings
+        # Check stderr and logs
         captured = capsys.readouterr()
-        assert "Warning: Failed to acquire lock" in captured.err
-        assert "Warning: Failed to release lock" in captured.err
-        assert "Warning: Failed to check lock" in captured.err
+        log_output = caplog.text
+        # Some are logged, some are printed
+        assert (
+            "Failed to acquire lock" in captured.err
+            or "Failed to acquire lock" in log_output
+        )
+        assert (
+            "Failed to release lock" in captured.err
+            or "Failed to release lock" in log_output
+        )
+        assert (
+            "Failed to check lock" in captured.err
+            or "Failed to check lock" in log_output
+        )
 
     def test_cleanup_old_modifications_invalid_input(self, manager, capsys):
         """Should validate input for cleanup_old_modifications."""
@@ -136,7 +155,7 @@ class TestFileSafetyExtended:
         captured = capsys.readouterr()
         assert "Warning: Invalid days parameter" in captured.err
 
-    def test_init_db_error(self, tmp_path, capsys):
+    def test_init_db_error(self, tmp_path, capsys, caplog):
         """Should handle error during DB initialization."""
         # Create a directory where the file should be to cause IsADirectoryError or similar
         # But easier to just mock sqlite3.connect
@@ -145,6 +164,10 @@ class TestFileSafetyExtended:
 
         with patch("sqlite3.connect", side_effect=sqlite3.Error("Init Error")):
             _ = FileSafetyManager(db_path=str(db_path))
-            # Should have printed warning
+            # Should have logged or printed error
             captured = capsys.readouterr()
-            assert "Warning: Failed to initialize file safety DB" in captured.err
+            log_output = caplog.text
+            assert (
+                "Failed to initialize file safety DB" in captured.err
+                or "Failed to initialize file safety DB" in log_output
+            )

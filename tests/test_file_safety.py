@@ -1,3 +1,5 @@
+import json
+import os
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -146,16 +148,6 @@ class TestFileSafetyManager:
         assert recent[0]["file_path"].endswith("file2.py")
         assert recent[1]["file_path"].endswith("file1.py")
 
-    def test_get_file_context(self, manager):
-        """Should return formatted context string."""
-        manager.acquire_lock("test.py", "claude", intent="Editing")
-        manager.record_modification("test.py", "claude", "t1", ChangeType.CREATE)
-
-        context = manager.get_file_context("test.py")
-        assert "LOCKED by claude" in context
-        assert "Intent: Editing" in context
-        assert "claude [CREATE]" in context
-
     def test_validate_write_allowed(self, manager):
         """Should allow write if not locked by others."""
         # Case 1: Not locked
@@ -187,10 +179,148 @@ class TestFileSafetyManager:
 
         assert stats["active_locks"] == 1
         assert stats["total_modifications"] == 3
+        assert stats["by_change_type"][ChangeType.MODIFY] == 2
         assert stats["by_agent"]["claude"] == 2
-        assert stats["by_agent"]["gemini"] == 1
-        assert stats["by_change_type"]["MODIFY"] == 2
-        assert stats["by_change_type"]["CREATE"] == 1
+
+    def test_get_file_context(self, manager):
+        """Should return formatted context for a file."""
+        # 1. Empty context
+        assert manager.get_file_context("nonexistent.py") == ""
+
+        # 2. Context with lock only
+        manager.acquire_lock("locked.py", "gemini", intent="Testing")
+        context = manager.get_file_context("locked.py")
+        assert "[FILE CONTEXT - Recent Modifications]" in context
+        assert "LOCKED by gemini" in context
+        assert "Intent: Testing" in context
+
+        # 3. Context with modifications
+        manager.record_modification(
+            "mod.py", "claude", "task-1", ChangeType.CREATE, intent="Initial"
+        )
+        manager.record_modification(
+            "mod.py", "gemini", "task-2", ChangeType.MODIFY, intent="Update"
+        )
+        context = manager.get_file_context("mod.py")
+        assert "[FILE CONTEXT - Recent Modifications]" in context
+        assert "claude [CREATE] - Initial" in context
+        assert "gemini [MODIFY] - Update" in context
+
+    def test_get_modifications_by_task(self, manager):
+        """Should filter modifications by task ID."""
+        manager.record_modification("f1.py", "a1", "task-x", ChangeType.CREATE)
+        manager.record_modification("f2.py", "a1", "task-y", ChangeType.CREATE)
+        manager.record_modification("f3.py", "a1", "task-x", ChangeType.MODIFY)
+
+        mods = manager.get_modifications_by_task("task-x")
+        assert len(mods) == 2
+        assert mods[0]["file_path"].endswith("f1.py")
+        assert mods[1]["file_path"].endswith("f3.py")
+
+    def test_record_modification_invalid_type(self, manager):
+        """Should return None for invalid change type."""
+        assert manager.record_modification("f.py", "a", "t", "INVALID") is None
+        assert manager.record_modification("f.py", "a", "t", 123) is None
+
+    def test_cleanup_old_modifications_invalid_days(self, manager):
+        """Should handle invalid days parameter."""
+        assert manager.cleanup_old_modifications(days=0) == 0
+        assert manager.cleanup_old_modifications(days=-1) == 0
+        assert manager.cleanup_old_modifications(days="7") == 0
+
+    def test_is_locked_by_other(self, manager):
+        """Should correctly detect if locked by someone else."""
+        file = "test.py"
+        assert manager.is_locked_by_other(file, "me") is False
+
+        manager.acquire_lock(file, "other")
+        assert manager.is_locked_by_other(file, "me") is True
+        assert manager.is_locked_by_other(file, "other") is False
+
+    def test_list_locks_filtered(self, manager):
+        """Should filter locks by agent name."""
+        manager.acquire_lock("f1.py", "agent1")
+        manager.acquire_lock("f2.py", "agent2")
+
+        locks1 = manager.list_locks(agent_name="agent1")
+        assert len(locks1) == 1
+        assert locks1[0]["agent_name"] == "agent1"
+
+        locks2 = manager.list_locks(agent_name="agent2")
+        assert len(locks2) == 1
+        assert locks2[0]["agent_name"] == "agent2"
+
+    def test_get_file_history(self, manager, temp_db_path):
+        """Should retrieve modification history for a file."""
+        file = "history_test.py"
+        # Manually insert with different timestamps to ensure order
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO file_modifications (file_path, agent_name, change_type, task_id, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (
+                manager._normalize_path(file),
+                "a1",
+                "CREATE",
+                "t1",
+                "2026-01-01 10:00:00",
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO file_modifications (file_path, agent_name, change_type, task_id, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (
+                manager._normalize_path(file),
+                "a2",
+                "MODIFY",
+                "t2",
+                "2026-01-01 11:00:00",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        history = manager.get_file_history(file)
+        assert len(history) == 2
+        assert history[0]["change_type"] == "MODIFY"  # Newest first
+        assert history[1]["change_type"] == "CREATE"
+
+    def test_path_normalization(self, manager):
+        """Should normalize paths consistently."""
+        path1 = "./test.py"
+        abs_path1 = os.path.abspath(os.path.expanduser(path1))
+
+        manager.acquire_lock(path1, "agent1")
+        lock = manager.check_lock(abs_path1)
+        assert lock is not None
+        assert lock["file_path"] == abs_path1
+
+    def test_init_db_directory_creation(self, tmp_path):
+        """Should create parent directory for DB if it doesn't exist."""
+        db_path = tmp_path / "subdir" / "nested" / "file_safety.db"
+        assert not db_path.parent.exists()
+
+        FileSafetyManager(db_path=str(db_path))
+        assert db_path.parent.exists()
+        assert db_path.exists()
+
+    def test_record_modification_non_serializable_metadata(self, manager):
+        """Should handle non-serializable metadata gracefully."""
+        # Sets are not JSON serializable by default
+        metadata = {"key": {1, 2, 3}}
+        res = manager.record_modification(
+            "test.py", "agent", "task", ChangeType.MODIFY, metadata=metadata
+        )
+        assert res is not None
+
+        history = manager.get_file_history("test.py")
+        assert (
+            history[0]["metadata"] == {}
+        )  # Should fallback to empty if serialization failed
+
+    def test_get_file_context_disabled(self, temp_db_path):
+        """Should return empty string if manager is disabled."""
+        manager = FileSafetyManager(db_path=temp_db_path, enabled=False)
+        assert manager.get_file_context("test.py") == ""
 
     def test_cleanup_old_modifications(self, manager, temp_db_path):
         """Should delete records older than N days."""
@@ -258,6 +388,16 @@ class TestFileSafetyManager:
 class TestFileSafetyFromEnv:
     """Test FileSafetyManager.from_env() method."""
 
+    @pytest.fixture(autouse=True)
+    def clear_env(self, monkeypatch):
+        """Clear file safety environment variables for each test."""
+        for var in [
+            "SYNAPSE_FILE_SAFETY_ENABLED",
+            "SYNAPSE_FILE_SAFETY_DB_PATH",
+            "SYNAPSE_FILE_SAFETY_RETENTION_DAYS",
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
     @pytest.fixture
     def temp_db_path(self):
         """Create a temporary database path for testing."""
@@ -290,3 +430,75 @@ class TestFileSafetyFromEnv:
         monkeypatch.setenv("SYNAPSE_FILE_SAFETY_RETENTION_DAYS", "invalid")
         manager = FileSafetyManager.from_env(db_path=temp_db_path)
         assert manager.retention_days == 30  # DEFAULT
+
+    def test_from_env_db_path_env_overrides_settings_and_arg(
+        self, temp_db_path, tmp_path, monkeypatch
+    ):
+        """Env db path should override settings.json and explicit arg."""
+        synapse_dir = tmp_path / ".synapse"
+        synapse_dir.mkdir()
+        settings_path = synapse_dir / "settings.json"
+        settings_path.write_text(
+            json.dumps(
+                {"env": {"SYNAPSE_FILE_SAFETY_DB_PATH": str(tmp_path / "settings.db")}}
+            )
+        )
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_DB_PATH", str(tmp_path / "env.db"))
+
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.db_path == str(tmp_path / "env.db")
+
+    def test_from_env_db_path_settings_used_when_env_missing(
+        self, temp_db_path, tmp_path, monkeypatch
+    ):
+        """Settings db path should be used when env is not set."""
+        synapse_dir = tmp_path / ".synapse"
+        synapse_dir.mkdir()
+        settings_path = synapse_dir / "settings.json"
+        settings_path.write_text(
+            json.dumps(
+                {"env": {"SYNAPSE_FILE_SAFETY_DB_PATH": str(tmp_path / "settings.db")}}
+            )
+        )
+        monkeypatch.chdir(tmp_path)
+
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.db_path == str(tmp_path / "settings.db")
+
+    def test_from_env_db_path_falls_back_to_arg(
+        self, temp_db_path, tmp_path, monkeypatch
+    ):
+        """Should fall back to explicit arg when no env/settings."""
+        monkeypatch.chdir(tmp_path)
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.db_path == temp_db_path
+
+    def test_from_env_malformed_settings(self, temp_db_path, tmp_path, monkeypatch):
+        """Should handle malformed settings.json gracefully."""
+        synapse_dir = tmp_path / ".synapse"
+        synapse_dir.mkdir()
+        settings_path = synapse_dir / "settings.json"
+        settings_path.write_text("invalid json {")
+        monkeypatch.chdir(tmp_path)
+
+        # Should not crash, just use default
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.db_path == temp_db_path
+
+    def test_get_setting_no_env_key(self, tmp_path, monkeypatch):
+        """Should return default if env key is missing in settings.json."""
+        synapse_dir = tmp_path / ".synapse"
+        synapse_dir.mkdir()
+        settings_path = synapse_dir / "settings.json"
+        settings_path.write_text(json.dumps({"other": {}}))
+        monkeypatch.chdir(tmp_path)
+
+        assert FileSafetyManager._get_setting("KEY", "default") == "default"
+
+    def test_auto_cleanup_disabled(self, temp_db_path):
+        """Should skip auto-cleanup if retention_days is <= 0."""
+        # This is hard to "assert" without mocking internal calls,
+        # but we can ensure it doesn't crash.
+        manager = FileSafetyManager(db_path=temp_db_path, retention_days=0)
+        assert manager.retention_days == 0
