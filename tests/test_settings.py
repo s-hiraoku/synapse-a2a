@@ -477,110 +477,61 @@ class TestOptionalInstructions:
 
 
 class TestSkillInstallation:
-    """Test skill installation functionality."""
+    """Test skill installation functionality.
 
-    def test_install_skills_to_dir(self):
-        """Test _install_skills_to_dir creates skills in .claude and .codex."""
+    Note: Skills are now distributed via Claude Code plugin marketplace.
+    The _install_skills_to_dir function is deprecated and returns an empty list.
+    These tests verify the deprecated behavior.
+    """
+
+    def test_install_skills_to_dir_returns_empty(self):
+        """Test _install_skills_to_dir returns empty list (deprecated)."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            # Install skills
+            # Install skills - should return empty list (deprecated)
             installed = _install_skills_to_dir(base_dir, force=False)
 
-            # Should install synapse-a2a and delegation to both .claude and .codex (4 total)
-            assert len(installed) == 4
+            # Skills are now installed via plugin marketplace
+            assert len(installed) == 0
 
-            # Check .claude skills exist
-            claude_a2a = base_dir / ".claude" / "skills" / "synapse-a2a"
-            assert claude_a2a.exists()
-            assert (claude_a2a / "SKILL.md").exists()
-
-            claude_delegation = base_dir / ".claude" / "skills" / "delegation"
-            assert claude_delegation.exists()
-
-            # Check .codex skills exist
-            codex_a2a = base_dir / ".codex" / "skills" / "synapse-a2a"
-            assert codex_a2a.exists()
-            assert (codex_a2a / "SKILL.md").exists()
-
-            codex_delegation = base_dir / ".codex" / "skills" / "delegation"
-            assert codex_delegation.exists()
-
-    def test_install_skills_skips_existing(self):
-        """Test _install_skills_to_dir skips existing without force."""
+    def test_install_skills_to_dir_with_force_returns_empty(self):
+        """Test _install_skills_to_dir returns empty list even with force=True."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            # Create existing skill directory
-            existing = base_dir / ".claude" / "skills" / "synapse-a2a"
-            existing.mkdir(parents=True)
-            (existing / "custom.txt").write_text("custom content")
-
-            # Install without force
-            installed = _install_skills_to_dir(base_dir, force=False)
-
-            # Should skip existing .claude/synapse-a2a, but install:
-            # - .claude/delegation
-            # - .codex/synapse-a2a
-            # - .codex/delegation
-            assert len(installed) == 3
-
-            # Custom file should still exist
-            assert (existing / "custom.txt").exists()
-
-    def test_install_skills_force_overwrites(self):
-        """Test _install_skills_to_dir overwrites with force=True."""
-        from synapse.cli import _install_skills_to_dir
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_dir = Path(tmpdir)
-
-            # Create existing skill directory with custom file
-            existing = base_dir / ".claude" / "skills" / "synapse-a2a"
-            existing.mkdir(parents=True)
-            (existing / "custom.txt").write_text("custom content")
-
-            # Install with force
+            # Install with force - should still return empty list
             installed = _install_skills_to_dir(base_dir, force=True)
 
-            # Should install all 4 skills (synapse-a2a + delegation for .claude and .codex)
-            assert len(installed) == 4
+            assert len(installed) == 0
 
-            # Custom file should be gone, replaced with SKILL.md
-            assert not (existing / "custom.txt").exists()
-            assert (existing / "SKILL.md").exists()
-
-    def test_install_skills_no_gemini(self):
-        """Test that skills are not installed to .gemini (unsupported)."""
+    def test_install_skills_does_not_create_directories(self):
+        """Test _install_skills_to_dir does not create any directories."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            installed = _install_skills_to_dir(base_dir, force=False)
+            _install_skills_to_dir(base_dir, force=False)
 
-            # Check no .gemini directory was created
-            gemini_skill = base_dir / ".gemini" / "skills" / "synapse-a2a"
-            assert not gemini_skill.exists()
+            # No top-level provider directories should be created
+            claude_dir = base_dir / ".claude"
+            codex_dir = base_dir / ".codex"
+            gemini_dir = base_dir / ".gemini"
 
-            # Only .claude and .codex (paths are like .../base/.claude/skills/synapse-a2a)
-            # Extract the agent dir name (e.g., ".claude", ".codex")
-            installed_agent_dirs = []
-            for p in installed:
-                parts = Path(p).parts
-                # Find the part that starts with "."
-                for part in parts:
-                    if part.startswith(".") and part in [
-                        ".claude",
-                        ".codex",
-                        ".gemini",
-                    ]:
-                        installed_agent_dirs.append(part)
-                        break
-            assert ".claude" in installed_agent_dirs
-            assert ".codex" in installed_agent_dirs
-            assert ".gemini" not in installed_agent_dirs
+            assert not claude_dir.exists()
+            assert not codex_dir.exists()
+            assert not gemini_dir.exists()
+
+            # No skill subdirectories should be created either
+            claude_skills = base_dir / ".claude" / "skills"
+            codex_skills = base_dir / ".codex" / "skills"
+            gemini_skills = base_dir / ".gemini" / "skills"
+
+            assert not claude_skills.exists()
+            assert not codex_skills.exists()
+            assert not gemini_skills.exists()

@@ -1038,45 +1038,22 @@ def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
     """
     Install synapse skills to .claude and .codex directories.
 
+    Note: Skills are now distributed via Claude Code plugin marketplace.
+    This function is deprecated and returns an empty list.
+    Users should install skills via:
+        /plugin marketplace add s-hiraoku/synapse-a2a
+        /plugin install synapse-a2a@s-hiraoku/synapse-a2a
+
     Args:
         base_dir: Base directory (e.g., Path.home() or Path.cwd())
         force: If True, overwrite existing skills
 
     Returns:
-        List of installed paths
+        Empty list (skills are now installed via plugin marketplace)
     """
-    import synapse
-
-    package_dir = Path(synapse.__file__).parent
-    skills_to_install = ["synapse-a2a", "delegation"]
-
-    installed = []
-    # Install to both .claude and .codex (Gemini doesn't support skills)
-    for agent_dir in [".claude", ".codex"]:
-        for skill_name in skills_to_install:
-            source_dir = package_dir / "skills" / skill_name
-
-            if not source_dir.exists():
-                continue
-
-            target_dir = base_dir / agent_dir / "skills" / skill_name
-
-            # Skip if exists and not forcing
-            if target_dir.exists() and not force:
-                continue
-
-            try:
-                # Remove existing if forcing
-                if target_dir.exists() and force:
-                    shutil.rmtree(target_dir)
-
-                target_dir.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(source_dir, target_dir)
-                installed.append(str(target_dir))
-            except OSError:
-                pass  # Silently ignore errors
-
-    return installed
+    # Skills are now distributed via Claude Code plugin marketplace
+    # See: https://github.com/s-hiraoku/synapse-a2a/tree/main/plugins
+    return []
 
 
 def cmd_init(args: argparse.Namespace) -> None:

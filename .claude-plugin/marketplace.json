@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "synapse-a2a",
+  "description": "Plugins for Synapse A2A - Multi-agent communication framework enabling Claude Code, Codex, and Gemini to collaborate via Google A2A Protocol",
+  "owner": {
+    "name": "s-hiraoku",
+    "email": "s.hiraoku@gmail.com"
+  },
+  "metadata": {
+    "version": "0.2.0",
+    "repository": "https://github.com/s-hiraoku/synapse-a2a",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "synapse-a2a",
+      "description": "Complete plugin for Synapse A2A multi-agent framework including inter-agent communication, task delegation, file safety, and history management",
+      "source": "./plugins/synapse-a2a",
+      "strict": false
+    }
+  ]
+}
