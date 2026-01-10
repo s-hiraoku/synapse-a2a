@@ -607,11 +607,20 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         print(f"Lock renewed on {args.file}")
         print(f"New expiration: {result.get('expires_at')}")
     elif status == LockStatus.ALREADY_LOCKED:
-        print(f"File is already locked by {result.get('lock_holder')}")
-        print(f"Expires at: {result.get('expires_at')}")
+        print(
+            f"File is already locked by {result.get('lock_holder')}",
+            file=sys.stderr,
+        )
+        print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
         sys.exit(1)
     elif status == LockStatus.FAILED:
-        print(f"Failed to acquire lock: {result.get('error', 'unknown error')}")
+        print(
+            f"Failed to acquire lock: {result.get('error', 'unknown error')}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    else:
+        print(f"Unexpected lock status: {status}", file=sys.stderr)
         sys.exit(1)
 
 

@@ -173,6 +173,7 @@ class FileSafetyManager:
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
         with self._lock:
+            conn = None
             try:
                 conn = self._get_connection()
                 cursor = conn.cursor()
@@ -230,10 +231,12 @@ class FileSafetyManager:
                 )
 
                 conn.commit()
-                conn.close()
                 logger.debug(f"File safety database initialized: {self.db_path}")
             except sqlite3.Error as e:
                 logger.error(f"Failed to initialize file safety DB: {e}")
+            finally:
+                if conn is not None:
+                    conn.close()
 
     def _auto_cleanup(self) -> None:
         """Automatically clean up old modification records on startup.
