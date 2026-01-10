@@ -31,6 +31,7 @@ pytest                                    # All tests
 pytest tests/test_a2a_compat.py -v        # Specific file
 pytest -k "test_identity" -v              # Pattern match
 pytest tests/test_history.py -v           # History feature tests
+pytest tests/test_file_safety_extended.py -v # File Safety tests
 
 # Run agent (interactive)
 synapse claude
