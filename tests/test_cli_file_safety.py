@@ -321,6 +321,29 @@ class TestCliFileSafetyErrorCases:
         )
         assert "File is already locked by gemini" in printed_output
 
+    # ===== Tests for FAILED status =====
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_failed(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_lock should exit with 1 when lock acquisition fails."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.FAILED,
+            "error": "database is locked",
+        }
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_file_safety_lock(mock_args)
+
+        assert exc_info.value.code == 1
+        printed_output = "\n".join(
+            call.args[0] for call in mock_print.call_args_list if call.args
+        )
+        assert "Failed to acquire lock" in printed_output
+        assert "database is locked" in printed_output
+
     # ===== Tests for unlock failure =====
 
     @patch("synapse.file_safety.FileSafetyManager")

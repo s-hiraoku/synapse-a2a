@@ -35,6 +35,7 @@ class LockStatus(str, Enum):
     ACQUIRED = "ACQUIRED"
     ALREADY_LOCKED = "ALREADY_LOCKED"
     RENEWED = "RENEWED"
+    FAILED = "FAILED"
 
 
 class FileSafetyManager:
@@ -194,6 +195,7 @@ class FileSafetyManager:
         normalized_path = self._normalize_path(file_path)
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -226,14 +228,12 @@ class FileSafetyManager:
                             ),
                         )
                         conn.commit()
-                        conn.close()
                         return {
                             "status": LockStatus.RENEWED,
                             "expires_at": expires_at.isoformat(),
                         }
                     else:
                         # Different agent holds the lock
-                        conn.close()
                         return {
                             "status": LockStatus.ALREADY_LOCKED,
                             "lock_holder": existing_agent,
@@ -255,7 +255,6 @@ class FileSafetyManager:
                     ),
                 )
                 conn.commit()
-                conn.close()
 
                 return {
                     "status": LockStatus.ACQUIRED,
@@ -266,7 +265,10 @@ class FileSafetyManager:
                 import sys
 
                 print(f"Warning: Failed to acquire lock: {e}", file=sys.stderr)
-                return {"status": LockStatus.ACQUIRED, "expires_at": None}
+                return {"status": LockStatus.FAILED, "error": str(e)}
+            finally:
+                if conn:
+                    conn.close()
 
     def release_lock(self, file_path: str, agent_name: str) -> bool:
         """Release a lock on a file.
@@ -284,6 +286,7 @@ class FileSafetyManager:
         normalized_path = self._normalize_path(file_path)
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -295,7 +298,6 @@ class FileSafetyManager:
                 deleted = cursor.rowcount > 0
 
                 conn.commit()
-                conn.close()
                 return deleted
 
             except sqlite3.Error as e:
@@ -303,6 +305,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to release lock: {e}", file=sys.stderr)
                 return False
+            finally:
+                if conn:
+                    conn.close()
 
     def check_lock(self, file_path: str) -> dict[str, Any] | None:
         """Check if a file is locked.
@@ -320,6 +325,7 @@ class FileSafetyManager:
         normalized_path = self._normalize_path(file_path)
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
@@ -334,7 +340,6 @@ class FileSafetyManager:
                     (normalized_path,),
                 )
                 row = cursor.fetchone()
-                conn.close()
 
                 if row:
                     return dict(row)
@@ -345,6 +350,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to check lock: {e}", file=sys.stderr)
                 return None
+            finally:
+                if conn:
+                    conn.close()
 
     def is_locked_by_other(self, file_path: str, agent_name: str) -> bool:
         """Check if a file is locked by another agent.
@@ -374,6 +382,7 @@ class FileSafetyManager:
             return []
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
@@ -392,7 +401,6 @@ class FileSafetyManager:
                     cursor.execute("SELECT * FROM file_locks ORDER BY locked_at DESC")
 
                 rows = cursor.fetchall()
-                conn.close()
 
                 return [dict(row) for row in rows]
 
@@ -401,6 +409,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to list locks: {e}", file=sys.stderr)
                 return []
+            finally:
+                if conn:
+                    conn.close()
 
     def _cleanup_expired_locks_internal(self, cursor: sqlite3.Cursor) -> int:
         """Clean up expired locks (internal, requires cursor).
@@ -428,6 +439,7 @@ class FileSafetyManager:
             return 0
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -435,7 +447,6 @@ class FileSafetyManager:
                 removed = self._cleanup_expired_locks_internal(cursor)
 
                 conn.commit()
-                conn.close()
                 return removed
 
             except sqlite3.Error as e:
@@ -443,6 +454,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to cleanup expired locks: {e}", file=sys.stderr)
                 return 0
+            finally:
+                if conn:
+                    conn.close()
 
     # ========== File Modification Tracking Methods ==========
 
@@ -474,9 +488,30 @@ class FileSafetyManager:
             return None
 
         normalized_path = self._normalize_path(file_path)
-        change_type_str = (
-            change_type.value if isinstance(change_type, ChangeType) else change_type
-        )
+
+        # Validate and normalize change_type
+        if isinstance(change_type, ChangeType):
+            change_type_str = change_type.value
+        elif isinstance(change_type, str):
+            valid_types = {ct.value for ct in ChangeType}
+            if change_type not in valid_types:
+                import sys
+
+                print(
+                    f"Warning: Invalid change_type: {change_type}. "
+                    f"Must be one of {valid_types}",
+                    file=sys.stderr,
+                )
+                return None
+            change_type_str = change_type
+        else:
+            import sys
+
+            print(
+                f"Warning: change_type must be ChangeType or str, got {type(change_type)}",
+                file=sys.stderr,
+            )
+            return None
 
         metadata_json = None
         if metadata:
@@ -484,6 +519,7 @@ class FileSafetyManager:
                 metadata_json = json.dumps(metadata)
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -507,7 +543,6 @@ class FileSafetyManager:
 
                 record_id = cursor.lastrowid
                 conn.commit()
-                conn.close()
                 return record_id
 
             except sqlite3.Error as e:
@@ -515,6 +550,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to record modification: {e}", file=sys.stderr)
                 return None
+            finally:
+                if conn:
+                    conn.close()
 
     def get_file_history(
         self,
@@ -536,6 +574,7 @@ class FileSafetyManager:
         normalized_path = self._normalize_path(file_path)
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
@@ -552,7 +591,6 @@ class FileSafetyManager:
                 )
 
                 rows = cursor.fetchall()
-                conn.close()
 
                 return [self._row_to_dict(row) for row in rows]
 
@@ -561,6 +599,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to get file history: {e}", file=sys.stderr)
                 return []
+            finally:
+                if conn:
+                    conn.close()
 
     def get_recent_modifications(
         self,
@@ -580,6 +621,7 @@ class FileSafetyManager:
             return []
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
@@ -606,7 +648,6 @@ class FileSafetyManager:
                     )
 
                 rows = cursor.fetchall()
-                conn.close()
 
                 return [self._row_to_dict(row) for row in rows]
 
@@ -617,6 +658,9 @@ class FileSafetyManager:
                     f"Warning: Failed to get recent modifications: {e}", file=sys.stderr
                 )
                 return []
+            finally:
+                if conn:
+                    conn.close()
 
     def get_modifications_by_task(self, task_id: str) -> list[dict[str, Any]]:
         """Get all file modifications for a specific task.
@@ -631,6 +675,7 @@ class FileSafetyManager:
             return []
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 conn.row_factory = sqlite3.Row
@@ -646,7 +691,6 @@ class FileSafetyManager:
                 )
 
                 rows = cursor.fetchall()
-                conn.close()
 
                 return [self._row_to_dict(row) for row in rows]
 
@@ -658,6 +702,9 @@ class FileSafetyManager:
                     file=sys.stderr,
                 )
                 return []
+            finally:
+                if conn:
+                    conn.close()
 
     # ========== Context Injection Methods ==========
 
@@ -772,6 +819,7 @@ class FileSafetyManager:
             return 0
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -789,7 +837,6 @@ class FileSafetyManager:
                 deleted = cursor.rowcount
 
                 conn.commit()
-                conn.close()
                 return deleted
 
             except sqlite3.Error as e:
@@ -800,6 +847,9 @@ class FileSafetyManager:
                     file=sys.stderr,
                 )
                 return 0
+            finally:
+                if conn:
+                    conn.close()
 
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about file safety data.
@@ -811,6 +861,7 @@ class FileSafetyManager:
             return {}
 
         with self._lock:
+            conn = None
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
@@ -857,8 +908,6 @@ class FileSafetyManager:
                     {"file_path": row[0], "count": row[1]} for row in cursor.fetchall()
                 ]
 
-                conn.close()
-
                 return {
                     "active_locks": active_locks,
                     "total_modifications": total_modifications,
@@ -872,6 +921,9 @@ class FileSafetyManager:
 
                 print(f"Warning: Failed to get statistics: {e}", file=sys.stderr)
                 return {}
+            finally:
+                if conn:
+                    conn.close()
 
     # ========== Utility Methods ==========
 

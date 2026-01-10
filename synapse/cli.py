@@ -610,6 +610,9 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         print(f"File is already locked by {result.get('lock_holder')}")
         print(f"Expires at: {result.get('expires_at')}")
         sys.exit(1)
+    elif status == LockStatus.FAILED:
+        print(f"Failed to acquire lock: {result.get('error', 'unknown error')}")
+        sys.exit(1)
 
 
 def cmd_file_safety_unlock(args: argparse.Namespace) -> None:
