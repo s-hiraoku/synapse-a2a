@@ -764,16 +764,27 @@ class FileSafetyManager:
         if not self.enabled:
             return 0
 
+        # Validate days is a positive integer to prevent SQL injection
+        if not isinstance(days, int) or days <= 0:
+            import sys
+
+            print(f"Warning: Invalid days parameter: {days}", file=sys.stderr)
+            return 0
+
         with self._lock:
             try:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
 
+                # Calculate cutoff timestamp to avoid SQL injection
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
                 cursor.execute(
-                    f"""
-                    DELETE FROM file_modifications
-                    WHERE timestamp < datetime('now', '-{days} days')
                     """
+                    DELETE FROM file_modifications
+                    WHERE timestamp < ?
+                    """,
+                    (cutoff,),
                 )
                 deleted = cursor.rowcount
 

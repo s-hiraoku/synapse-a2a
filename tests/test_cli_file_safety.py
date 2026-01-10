@@ -186,3 +186,206 @@ class TestCliFileSafetyCommands:
         )
         assert "Deleted 10 modification records older than 30 days" in printed_output
         assert "Cleaned up 5 expired locks" in printed_output
+
+
+class TestCliFileSafetyErrorCases:
+    """Tests for error cases in file-safety CLI commands."""
+
+    @pytest.fixture
+    def mock_args(self):
+        """Create a mock args object."""
+        args = MagicMock(spec=argparse.Namespace)
+        args.file = "test.py"
+        args.agent = "claude"
+        args.limit = 50
+        args.task_id = "task-1"
+        args.duration = 300
+        args.intent = "Refactoring"
+        args.force = False
+        args.days = 30
+        return args
+
+    # ===== Tests for disabled manager state =====
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_status_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_status should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_status(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_locks_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_locks should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_locks(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_lock should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_lock(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_unlock_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_unlock should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_unlock(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_history_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_history should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_history(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_recent_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_recent should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_recent(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_cleanup_disabled(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_cleanup should print disabled message when manager is disabled."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = False
+
+        cmd_file_safety_cleanup(mock_args)
+
+        mock_print.assert_called_with(
+            "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+        )
+
+    # ===== Tests for ALREADY_LOCKED status =====
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_already_locked(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_lock should exit with 1 when file is already locked."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.ALREADY_LOCKED,
+            "lock_holder": "gemini",
+            "expires_at": "2026-01-09 12:00:00",
+        }
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_file_safety_lock(mock_args)
+
+        assert exc_info.value.code == 1
+        printed_output = "\n".join(
+            call.args[0] for call in mock_print.call_args_list if call.args
+        )
+        assert "File is already locked by gemini" in printed_output
+
+    # ===== Tests for unlock failure =====
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_unlock_failure(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_unlock should exit with 1 when lock release fails."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.release_lock.return_value = False
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_file_safety_unlock(mock_args)
+
+        assert exc_info.value.code == 1
+        printed_output = "\n".join(
+            call.args[0] for call in mock_print.call_args_list if call.args
+        )
+        assert "No lock found for test.py by claude" in printed_output
+
+    # ===== Tests for empty data =====
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_status_no_data(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_status should handle empty statistics."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.get_statistics.return_value = {}
+
+        cmd_file_safety_status(mock_args)
+
+        mock_print.assert_called_with("No file safety data found.")
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_locks_no_locks(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_locks should handle no active locks."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.list_locks.return_value = []
+
+        cmd_file_safety_locks(mock_args)
+
+        mock_print.assert_called_with("No active file locks.")
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_history_no_history(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_history should handle no history."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.get_file_history.return_value = []
+
+        cmd_file_safety_history(mock_args)
+
+        mock_print.assert_called_with("No modification history found for test.py")
+
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_recent_no_mods(self, mock_print, mock_fm, mock_args):
+        """cmd_file_safety_recent should handle no recent modifications."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.get_recent_modifications.return_value = []
+
+        cmd_file_safety_recent(mock_args)
+
+        mock_print.assert_called_with("No recent modifications found.")
