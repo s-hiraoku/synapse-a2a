@@ -158,8 +158,6 @@ class FileSafetyManager:
     @staticmethod
     def _get_setting(key: str, default: str = "") -> str:
         """Get a setting value from .synapse/settings.json."""
-        from pathlib import Path
-
         for settings_path in [
             Path.cwd() / ".synapse" / "settings.json",
             Path.home() / ".synapse" / "settings.json",
