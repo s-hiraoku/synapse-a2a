@@ -58,6 +58,7 @@ flowchart LR
 - [ユースケース](#ユースケース)
 - [前提条件](#前提条件)
 - [クイックスタート](#クイックスタート)
+- [Claude Code プラグイン](#claude-code-プラグイン)
 - [ドキュメント](#ドキュメント)
 - [アーキテクチャ](#アーキテクチャ)
 - [CLI コマンド](#cli-コマンド)
@@ -201,46 +202,41 @@ curl -X POST http://localhost:8100/tasks/send \
 
 ## クイックスタート
 
-### 1. インストール
+### 1. Synapse A2A のインストール
 
 ```bash
-# 開発者向け（このリポジトリを編集する場合）
-# uv でインストール（推奨）
-uv sync
-
-# または pip（editable）
-pip install -e .
-```
-
-もし「使うだけ」の場合は、PyPI から通常インストールしてください。
-
-```bash
+# PyPI からインストール（推奨）
 pip install synapse-a2a
 
 # gRPC も使う場合
 pip install "synapse-a2a[grpc]"
 ```
 
-### Claude Code プラグインのインストール
-
-Claude Code でプラグインを使用することで、Synapse A2A の機能をより効率的に活用できます。
+開発者向け（このリポジトリを編集する場合）：
 
 ```bash
-# Marketplace を追加
-/plugin marketplace add s-hiraoku/synapse-a2a
+# uv でインストール
+uv sync
 
-# プラグインをインストール
+# または pip（editable）
+pip install -e .
+```
+
+### 2. Claude Code プラグインのインストール（推奨）
+
+**Synapse A2A を最大限活用するには、Claude Code プラグインのインストールを強く推奨します。**
+
+プラグインをインストールすると、Claude が自動的に Synapse A2A の機能を理解し、@agent パターンでのメッセージ送信、タスク委任、File Safety などを適切に使用できるようになります。
+
+```bash
+# Claude Code 内で実行
+/plugin marketplace add s-hiraoku/synapse-a2a
 /plugin install synapse-a2a@synapse-a2a
 ```
 
-**含まれるスキル:**
+詳細は [Claude Code プラグイン](#claude-code-プラグイン) を参照してください。
 
-| スキル名 | 説明 |
-|----------|------|
-| `synapse-a2a` | エージェント間通信、@agent ルーティング、優先度制御、履歴管理 |
-| `delegation` | 自動タスク委任、orchestrator/passthrough モード、File Safety連携 |
-
-### 2. エージェントを起動
+### 3. エージェントを起動
 
 ```bash
 # Terminal 1: Claude
@@ -297,6 +293,51 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
 ```
+
+---
+
+## Claude Code プラグイン
+
+Synapse A2A を Claude Code で使用する場合、**プラグインのインストールを強く推奨します**。
+
+### なぜプラグインが必要か
+
+プラグインをインストールすると、Claude が以下を自動的に理解・実行できるようになります：
+
+- **@agent パターン**: `@codex ファイルを修正して` のようなエージェント間通信
+- **優先度制御**: Priority 1-5 でのメッセージ送信（5 は緊急停止）
+- **タスク委任**: orchestrator/passthrough モードでの自動タスク振り分け
+- **File Safety**: ファイルロックと変更追跡でマルチエージェント競合を防止
+- **履歴管理**: タスク履歴の検索・エクスポート・統計
+
+### インストール方法
+
+```bash
+# Claude Code 内で実行
+/plugin marketplace add s-hiraoku/synapse-a2a
+/plugin install synapse-a2a@synapse-a2a
+```
+
+### 含まれるスキル
+
+| スキル | 説明 |
+|--------|------|
+| **synapse-a2a** | エージェント間通信の包括的ガイド。@agent ルーティング、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
+| **delegation** | 自動タスク委任の設定。orchestrator/passthrough モード、事前チェック、エラーハンドリング、File Safety 連携 |
+
+### ディレクトリ構造
+
+```
+plugins/
+└── synapse-a2a/
+    ├── .claude-plugin/plugin.json
+    ├── README.md
+    └── skills/
+        ├── synapse-a2a/SKILL.md
+        └── delegation/SKILL.md
+```
+
+詳細は [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照してください。
 
 ---
 
