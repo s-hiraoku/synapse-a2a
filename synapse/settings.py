@@ -294,6 +294,73 @@ class SynapseSettings:
 
         return instruction
 
+    def get_instruction_files(self, agent_type: str) -> list[str]:
+        """
+        Get the list of instruction files to read for a specific agent type.
+
+        Returns paths relative to .synapse/ directory. The agent should read
+        these files in order to get full instructions.
+
+        Resolution order:
+        1. Agent-specific file (if configured and exists)
+        2. Default file (if configured and exists)
+        3. Optional files based on settings (e.g., file-safety.md)
+
+        Args:
+            agent_type: The agent type (claude, gemini, codex).
+
+        Returns:
+            List of file paths relative to .synapse/ (e.g., ["default.md", "file-safety.md"])
+        """
+        import os
+
+        files: list[str] = []
+
+        # Check agent-specific file
+        agent_instruction = self.instructions.get(agent_type, "")
+        if (
+            agent_instruction
+            and isinstance(agent_instruction, str)
+            and agent_instruction.endswith(".md")
+            and self._instruction_file_exists(agent_instruction)
+        ):
+            files.append(agent_instruction)
+
+        # Check default file (only if agent-specific is not set)
+        if not agent_instruction:
+            default_instruction = self.instructions.get("default", "")
+            if (
+                default_instruction
+                and isinstance(default_instruction, str)
+                and default_instruction.endswith(".md")
+                and self._instruction_file_exists(default_instruction)
+            ):
+                files.append(default_instruction)
+
+        # Add optional files based on settings
+        # File safety
+        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
+        if not file_safety_enabled:
+            file_safety_enabled = self.env.get(
+                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
+            ).lower()
+
+        if file_safety_enabled in ("true", "1") and self._instruction_file_exists(
+            "file-safety.md"
+        ):
+            files.append("file-safety.md")
+
+        return files
+
+    def _instruction_file_exists(self, filename: str) -> bool:
+        """Check if an instruction file exists in .synapse directory."""
+        from pathlib import Path
+
+        project_path = Path.cwd() / ".synapse" / filename
+        user_path = Path.home() / ".synapse" / filename
+
+        return project_path.exists() or user_path.exists()
+
     def _append_optional_instructions(self, instruction: str) -> str:
         """
         Append optional instruction files based on environment variables or settings.

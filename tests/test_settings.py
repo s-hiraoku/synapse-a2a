@@ -132,6 +132,12 @@ class TestLoadSettings:
 class TestSynapseSettings:
     """Test SynapseSettings class."""
 
+    def setup_method(self):
+        """Clear environment variables that affect instruction generation."""
+        # Remove file safety env var to avoid it affecting tests
+        if "SYNAPSE_FILE_SAFETY_ENABLED" in os.environ:
+            del os.environ["SYNAPSE_FILE_SAFETY_ENABLED"]
+
     def test_from_defaults(self):
         """Create settings from defaults."""
         settings = SynapseSettings.from_defaults()
@@ -291,6 +297,11 @@ class TestSynapseSettings:
 
 class TestInstructionPlaceholders:
     """Test instruction placeholder replacement."""
+
+    def setup_method(self):
+        """Clear environment variables that affect instruction generation."""
+        if "SYNAPSE_FILE_SAFETY_ENABLED" in os.environ:
+            del os.environ["SYNAPSE_FILE_SAFETY_ENABLED"]
 
     def test_agent_id_placeholder(self):
         """{{agent_id}} is replaced with actual agent ID."""

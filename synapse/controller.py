@@ -347,13 +347,13 @@ class TerminalController:
             f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
         )
 
-        # Get instruction from settings (supports customization via .synapse/settings.json)
+        # Get instruction files to read from settings
         settings = get_settings()
         agent_type = self.agent_type or "unknown"
-        bootstrap = settings.get_instruction(agent_type, self.agent_id, self.port)
+        instruction_files = settings.get_instruction_files(agent_type)
 
-        # Skip if no instruction configured
-        if bootstrap is None:
+        # Skip if no instruction files configured
+        if not instruction_files:
             logging.info(
                 f"[{self.agent_id}] No initial instructions configured, skipping."
             )
@@ -361,9 +361,26 @@ class TerminalController:
             self._identity_sending = False
             return
 
-        # Format as A2A Task: [A2A:<task_id>:synapse-system] <instructions>
+        # Build a short message pointing to the instruction files
+        # This avoids PTY paste buffer issues with large inputs
         task_id = str(uuid.uuid4())[:8]
-        prefixed = format_a2a_message(task_id, "synapse-system", bootstrap)
+
+        file_list = "\n".join(f"  - .synapse/{f}" for f in instruction_files)
+        short_message = (
+            f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
+            f"Agent: {self.agent_id} | Port: {self.port}\n\n"
+            f"IMPORTANT: Read your full instructions from these files:\n"
+            f"{file_list}\n\n"
+            f"Read these files NOW to get your delegation rules, "
+            f"A2A protocol, and other guidelines.\n"
+            f"Replace {{{{agent_id}}}} with {self.agent_id} and "
+            f"{{{{port}}}} with {self.port} when following instructions."
+        )
+        prefixed = format_a2a_message(task_id, "synapse-system", short_message)
+
+        logging.info(
+            f"[{self.agent_id}] Sending file reference instruction: {instruction_files}"
+        )
 
         # Wait for agent to be fully ready
         time.sleep(POST_WRITE_IDLE_DELAY)
