@@ -96,7 +96,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         # Customize per agent in .synapse/settings.json
         "claude": ["--continue", "--resume", "-c", "-r"],
         "codex": ["resume"],  # codex resume [--last | <SESSION_ID>]
-        "gemini": ["--resume"],  # gemini --resume [<index|UUID>]
+        "gemini": ["--resume", "-r"],  # gemini --resume/-r [<index|UUID>]
     },
 }
 

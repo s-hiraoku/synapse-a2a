@@ -558,9 +558,10 @@ class TestResumeFlags:
         assert "resume" in flags
 
     def test_default_resume_flags_for_gemini(self):
-        """Gemini should have --resume flag."""
+        """Gemini should have --resume and -r flags."""
         flags = DEFAULT_SETTINGS["resume_flags"]["gemini"]
         assert "--resume" in flags
+        assert "-r" in flags
 
     def test_get_resume_flags_returns_list(self):
         """get_resume_flags should return a list."""
@@ -600,8 +601,9 @@ class TestResumeFlags:
         # Codex uses "resume" subcommand
         assert settings.is_resume_mode("codex", ["resume", "--last"]) is True
         assert settings.is_resume_mode("codex", ["--help"]) is False
-        # Gemini uses "--resume" flag
+        # Gemini uses "--resume" or "-r" flag
         assert settings.is_resume_mode("gemini", ["--resume"]) is True
+        assert settings.is_resume_mode("gemini", ["-r"]) is True
         assert settings.is_resume_mode("gemini", ["--continue"]) is False
 
     def test_resume_flags_custom_settings(self):
