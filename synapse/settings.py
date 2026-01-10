@@ -338,6 +338,15 @@ class SynapseSettings:
                 files.append(default_instruction)
 
         # Add optional files based on settings
+
+        # Delegation (when mode is orchestrator or passthrough)
+        delegation_mode = self.get_delegation_mode()
+        if delegation_mode in (
+            "orchestrator",
+            "passthrough",
+        ) and self._instruction_file_exists("delegate.md"):
+            files.append("delegate.md")
+
         # File safety
         file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
         if not file_safety_enabled:
