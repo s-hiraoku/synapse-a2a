@@ -654,11 +654,17 @@ class TestFileSafetyFromEnv:
 
     def test_acquire_lock_integrity_error_handling(self, temp_db_path):
         """Should handle IntegrityError from concurrent INSERT gracefully."""
+        import os
+
         # First, create a manager and acquire a lock normally
         manager = FileSafetyManager(db_path=temp_db_path)
 
+        # Use a path that normalizes consistently
+        test_file = "/tmp/test_lock_file.py"
+        normalized_path = os.path.abspath(os.path.expanduser(test_file))
+
         # Acquire lock as agent-1
-        result = manager.acquire_lock("/path/to/file.py", "agent-1")
+        result = manager.acquire_lock(test_file, "agent-1")
         assert result["status"] == LockStatus.ACQUIRED
 
         # Now simulate what happens when IntegrityError occurs during concurrent access
@@ -668,6 +674,7 @@ class TestFileSafetyFromEnv:
         cursor = conn.cursor()
 
         # Try to insert a duplicate - this should fail due to UNIQUE constraint
+        # Use the normalized path since the manager normalizes paths before storing
         try:
             cursor.execute(
                 """
@@ -675,7 +682,7 @@ class TestFileSafetyFromEnv:
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (
-                    "/path/to/file.py",
+                    normalized_path,
                     "agent-2",
                     None,
                     "2099-01-01T00:00:00+00:00",
@@ -688,7 +695,7 @@ class TestFileSafetyFromEnv:
         conn.close()
 
         # Now when agent-2 tries to acquire via the manager, it should see ALREADY_LOCKED
-        result2 = manager.acquire_lock("/path/to/file.py", "agent-2")
+        result2 = manager.acquire_lock(test_file, "agent-2")
         assert result2["status"] == LockStatus.ALREADY_LOCKED
         assert result2["lock_holder"] == "agent-1"
 

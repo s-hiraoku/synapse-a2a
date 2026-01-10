@@ -3,7 +3,12 @@ from unittest.mock import patch
 
 import pytest
 
-from synapse.file_safety import ChangeType, FileSafetyManager, LockStatus
+from synapse.file_safety import (
+    ChangeType,
+    FileLockDBError,
+    FileSafetyManager,
+    LockStatus,
+)
 
 
 class TestFileSafetyExtended:
@@ -105,8 +110,9 @@ class TestFileSafetyExtended:
         # Test release_lock error
         assert manager.release_lock("f", "a") is False
 
-        # Test check_lock error
-        assert manager.check_lock("f") is None
+        # Test check_lock error - now raises FileLockDBError (fail-closed behavior)
+        with pytest.raises(FileLockDBError):
+            manager.check_lock("f")
 
         # Test list_locks error
         assert manager.list_locks() == []
@@ -144,9 +150,10 @@ class TestFileSafetyExtended:
             "Failed to release lock" in captured.err
             or "Failed to release lock" in log_output
         )
+        # check_lock now logs "Database error checking lock" instead of "Failed to check lock"
         assert (
-            "Failed to check lock" in captured.err
-            or "Failed to check lock" in log_output
+            "Database error checking lock" in captured.err
+            or "Database error checking lock" in log_output
         )
 
     def test_cleanup_old_modifications_invalid_input(self, manager, capsys):
