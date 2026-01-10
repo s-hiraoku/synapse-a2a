@@ -1,13 +1,31 @@
 # Synapse A2A
 
-**Google A2A プロトコル準拠の CLI エージェント間通信フレームワーク**
+> **各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-395%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> Claude Code / Codex / Gemini などの CLI エージェントを PTY でラップし、Google A2A プロトコルで相互通信を可能にするフレームワーク
+> Claude Code、Codex、Gemini などの CLI エージェントを**そのままの形で**活用しながら、Google A2A プロトコルによるエージェント間協調を実現するフレームワーク
+
+## プロジェクトの目標
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  ✅ エージェントの挙動を変えない（Non-Invasive）                 │
+│  ✅ エージェント同士を協力させる（Collaborative）                │
+│  ✅ 既存のワークフローを維持する（Transparent）                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Synapse A2A は、各エージェントの入出力を**透過的に**ラップするだけで、エージェント自体の挙動には一切手を加えません。これにより：
+
+- **各エージェントの強みを活かす**: 役割や得意分野はユーザーが自由に設定可能
+- **学習コストゼロ**: 既存の使い方をそのまま継続できる
+- **将来の変更に強い**: エージェントのアップデートに影響されにくい
+
+詳細は [プロジェクト哲学](docs/project-philosophy.md) を参照してください。
 
 ```mermaid
 flowchart LR

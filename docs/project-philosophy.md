@@ -2,11 +2,54 @@
 
 ## ミッション
 
-**A2A（Agent-to-Agent）プロトコルの可能性を探求し、既存の CLI エージェントを A2A エコシステムに参加させるための実験的フレームワークを提供する。**
+**各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する。**
+
+Synapse A2A の最大の目標は、Claude Code、Codex、Gemini などの既存 CLI エージェントを**そのままの形で**活用しながら、エージェント間の協調作業を実現することです。
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                      Synapse A2A の目標                         │
+├─────────────────────────────────────────────────────────────────┤
+│  ✅ エージェントの挙動を変えない（Non-Invasive）                 │
+│  ✅ エージェント同士を協力させる（Collaborative）                │
+│  ✅ 既存のワークフローを維持する（Transparent）                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### なぜこれが重要か
+
+- **各エージェントは独自の強みを持つ**: ユーザーが各エージェントの役割や得意分野を自由に設定できる
+- **ユーザーは既存の使い方を変えたくない**: 学習コストなく協調の恩恵を受けられる
+- **エージェントの進化に追従できる**: 内部実装に依存しないため、アップデートの影響を受けにくい
 
 ## 核心原則
 
-### 1. A2A プロトコル完全準拠（A2A-First）
+### 1. エージェントの挙動を変えない（Non-Invasive Design）
+
+**最重要原則**: Synapse は各エージェントの入出力を透過的にラップするだけで、エージェント自体の挙動には一切手を加えません。
+
+- **PTY ラッピング**: CLI の入出力を透過的にラップ
+- **プロファイルベース**: YAML 設定で異なる CLI に対応
+- **透過的引数パススルー**: `synapse claude -- --resume` のように引数をそのまま渡す
+- **エージェント固有の機能を維持**: 各エージェントのコマンド、ショートカット、設定はすべてそのまま動作
+
+```mermaid
+flowchart LR
+    User["ユーザー入力"]
+    Synapse["Synapse (PTYラッパー)"]
+    Agent["エージェント CLI"]
+    Output["出力"]
+
+    User --> Synapse
+    Synapse -->|"透過的に転送"| Agent
+    Agent --> Synapse
+    Synapse -->|"透過的に転送"| Output
+
+    style Synapse fill:#e1f5fe
+    style Agent fill:#fff3e0
+```
+
+### 2. A2A プロトコル完全準拠（A2A-First）
 
 Synapse A2A は「A2A プロトコルでできること」を最大限に活かすことを最優先とする。
 
@@ -19,15 +62,35 @@ Synapse A2A は「A2A プロトコルでできること」を最大限に活か�
 - ❌ 環境変数 `ANTHROPIC_SYSTEM_PROMPT`
 - ✅ Agent Card の `x-synapse-context` 拡張（A2A 準拠）
 
-### 2. CLI をそのまま活用（Non-Invasive）
+### 3. エージェント間の協調（Collaborative Execution）
 
-既存の CLI ツール（Claude Code, Gemini CLI 等）を改造せずにエージェント化する。
+複数のエージェントが互いの強みを活かして協力し、単独では困難なタスクを達成する。
 
-- **PTY ラッピング**: CLI の入出力を透過的にラップ
-- **プロファイルベース**: YAML 設定で異なる CLI に対応
-- **透過的引数パススルー**: `synapse claude -- --resume` のように引数を渡す
+- **役割分担**: 各エージェントの得意分野を活かした分業
+- **A2A 通信**: Google A2A プロトコルによる標準化されたメッセージング
+- **@Agent 記法**: シンプルな構文でエージェント間メッセージング
+- **タスク委任**: ルールベースの自動タスク振り分け
 
-### 3. 実験と検証（Experimental Validation）
+```mermaid
+flowchart TB
+    subgraph Synapse["Synapse A2A Framework"]
+        Claude["Claude\n(実装担当)"]
+        Codex["Codex\n(設計担当)"]
+        Gemini["Gemini\n(プロジェクト責任者)"]
+    end
+
+    Gemini <-->|"@codex 設計レビューして"| Codex
+    Gemini <-->|"@claude 実装お願い"| Claude
+    Codex <-->|"@claude この設計で実装して"| Claude
+
+    style Claude fill:#a5d6a7
+    style Codex fill:#ffcc80
+    style Gemini fill:#90caf9
+```
+
+> **Note**: 上図の役割分担（実装、設計、プロジェクト責任者）は一例です。各エージェントの役割はユーザーが自由に設定できます。
+
+### 4. 実験と検証（Experimental Validation）
 
 A2A プロトコルの実用性と限界を実際の実装を通じて検証する。
 
@@ -39,7 +102,7 @@ A2A プロトコルの実用性と限界を実際の実装を通じて検証す�
 - **フィードバックループ**:
   - 実装 → 課題発見 → 設計改善 → 再実装
 
-### 4. 最小限の表示（Minimal Visibility）
+### 5. 最小限の表示（Minimal Visibility）
 
 ユーザーの端末は作業空間であり、システムメッセージで汚染しない。
 
