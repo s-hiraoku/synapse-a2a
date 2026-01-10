@@ -18,7 +18,7 @@ Synapse A2A の最大の目標は、Claude Code、Codex、Gemini などの既存
 
 ### なぜこれが重要か
 
-- **各エージェントは独自の強みを持つ**: Claude は対話、Codex はコード生成、Gemini はリサーチに優れている
+- **各エージェントは独自の強みを持つ**: ユーザーが各エージェントの役割や得意分野を自由に設定できる
 - **ユーザーは既存の使い方を変えたくない**: 学習コストなく協調の恩恵を受けられる
 - **エージェントの進化に追従できる**: 内部実装に依存しないため、アップデートの影響を受けにくい
 
@@ -75,18 +75,20 @@ Synapse A2A は「A2A プロトコルでできること」を最大限に活か�
 flowchart TB
     subgraph Synapse["Synapse A2A Framework"]
         Claude["Claude\n(実装担当)"]
-        Gemini["Gemini\n(リサーチ担当)"]
-        Codex["Codex\n(テスト担当)"]
+        Codex["Codex\n(設計担当)"]
+        Gemini["Gemini\n(プロジェクト責任者)"]
     end
 
-    Claude <-->|"@gemini 調査して"| Gemini
-    Claude <-->|"@codex テスト書いて"| Codex
-    Gemini <-->|"@codex 検証して"| Codex
+    Gemini <-->|"@codex 設計レビューして"| Codex
+    Gemini <-->|"@claude 実装お願い"| Claude
+    Codex <-->|"@claude この設計で実装して"| Claude
 
     style Claude fill:#a5d6a7
-    style Gemini fill:#90caf9
     style Codex fill:#ffcc80
+    style Gemini fill:#90caf9
 ```
+
+> **Note**: 上図の役割分担（実装、設計、プロジェクト責任者）は一例です。各エージェントの役割はユーザーが自由に設定できます。
 
 ### 4. 実験と検証（Experimental Validation）
 
