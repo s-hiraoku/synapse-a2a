@@ -23,7 +23,7 @@ Configure automatic task delegation to other agents based on natural language ru
 
 Claude analyzes tasks, delegates to appropriate agent, waits for response, integrates results.
 
-```
+```text
 User → Claude (analyze) → @codex/@gemini → Claude (integrate) → User
 ```
 
@@ -31,7 +31,7 @@ User → Claude (analyze) → @codex/@gemini → Claude (integrate) → User
 
 Direct forwarding without processing.
 
-```
+```text
 User → Claude (route) → @codex/@gemini → User
 ```
 

@@ -15,12 +15,12 @@ Standard Google A2A endpoints:
 
 ### PTY Output Format
 
-```
+```text
 [A2A:<task_id>:<sender_id>] <message_content>
 ```
 
 Example:
-```
+```text
 [A2A:abc12345:synapse-claude-8100] Please review this code
 ```
 
@@ -61,21 +61,21 @@ Example:
 
 ### Agent Not Found
 
-```
+```text
 Error: No agent found matching 'xyz'
 ```
 **Solution:** Use `synapse list` to see available agents.
 
 ### Multiple Agents Found
 
-```
+```text
 Error: Ambiguous target 'codex'. Multiple agents found.
 ```
 **Solution:** Use specific identifier like `@codex-8120`.
 
 ### Agent Not Responding
 
-```
+```text
 Error: Agent 'synapse-claude-8100' server on port 8100 is not responding.
 ```
 **Solution:** Restart the agent with `synapse claude`.

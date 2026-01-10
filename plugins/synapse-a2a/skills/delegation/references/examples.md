@@ -2,7 +2,7 @@
 
 ## Setup Example
 
-```
+```text
 > /delegate orchestrator
 
 Please describe your delegation rules:
@@ -48,7 +48,7 @@ Integrated result:
 
 When `/delegate status` is invoked:
 
-```
+```text
 === Delegation Configuration ===
 Mode: orchestrator
 Rules:
@@ -89,7 +89,7 @@ If agent doesn't respond within reasonable time:
 
 If target agent is not running:
 
-```
+```text
 Target agent (<agent>) not found.
 Solutions:
 1. Start in another terminal: synapse <agent>

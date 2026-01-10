@@ -22,7 +22,7 @@ Inter-agent communication framework via Google A2A Protocol.
 
 Send messages to other agents using the `@agent` pattern:
 
-```
+```text
 @codex Please refactor this file
 @gemini Research this API
 @claude-8100 Review this code

@@ -56,12 +56,12 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 ### @Agent Pattern
 
-```
+```text
 @<agent_name> [--non-response] <message>
 ```
 
 Examples:
-```
+```text
 @codex Please refactor this file
 @gemini --non-response Log this event
 @claude-8100 Review this code
@@ -214,7 +214,7 @@ synapse reset
 
 ## Storage Locations
 
-```
+```text
 ~/.a2a/registry/     # Running agents (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/          # User-level settings and logs

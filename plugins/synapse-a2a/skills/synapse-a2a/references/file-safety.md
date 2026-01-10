@@ -97,7 +97,7 @@ synapse file-safety debug
 
 ### File Locked by Another Agent
 
-```
+```text
 Error: File is locked by gemini (expires: 2026-01-09T12:00:00)
 ```
 

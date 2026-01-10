@@ -19,7 +19,7 @@ synapse list --watch
 
 ### Simple Message
 
-```
+```text
 @codex Please refactor the authentication module
 ```
 
@@ -35,7 +35,7 @@ python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
 
 ### Fire-and-forget (No Response Expected)
 
-```
+```text
 @gemini --non-response Log this completion event
 ```
 
@@ -62,7 +62,7 @@ synapse history list --agent codex --limit 5
 
 If a file is locked:
 
-```
+```text
 File src/auth.py is locked by gemini (expires: 12:30:00)
 
 Options:
@@ -87,7 +87,7 @@ Options:
 
 ### Parallel Research
 
-```bash
+```text
 # Ask multiple agents simultaneously
 @gemini Research best practices for authentication
 @codex Check how other projects implement this pattern
