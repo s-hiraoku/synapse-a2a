@@ -196,7 +196,9 @@ curl -X POST http://localhost:8100/tasks/send \
 - **OS**: macOS / Linux（Windows は WSL2 推奨）
 - **Python**: 3.10+
 - **CLI ツール**: 使用するエージェントの CLI を事前にインストール & 初期設定
-  - 例: `claude`, `codex`, `gemini`
+  - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+  - [Codex CLI](https://github.com/openai/codex)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 ---
 
