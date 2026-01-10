@@ -17,7 +17,7 @@ Synapseでラップされたエージェントにおいて、人間の入力を�
 synapse claude
 
 # Terminal 2: Geminiを起動
-synapse gemini --port 8102
+synapse gemini --port 8110
 
 # Claudeのターミナルで:
 claude> @gemini 明日の天気は？                      # デフォルトで回答を待つ
