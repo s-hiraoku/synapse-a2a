@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "synapse-a2a",
+  "description": "Skills for Synapse A2A multi-agent framework - enables inter-agent communication, task delegation, file safety, and history management",
+  "version": "0.2.0",
+  "author": {
+    "name": "s-hiraoku",
+    "email": "s.hiraoku@gmail.com"
+  },
+  "repository": "https://github.com/s-hiraoku/synapse-a2a",
+  "license": "MIT",
+  "skills": [
+    "./skills/synapse-a2a",
+    "./skills/delegation"
+  ]
+}

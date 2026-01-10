@@ -96,4 +96,4 @@ module = ["grpc", "grpc.*"]
 ignore_missing_imports = true
 
 [tool.setuptools.package-data]
-synapse = ["skills/**/*"]
+synapse = ["profiles/**/*"]
