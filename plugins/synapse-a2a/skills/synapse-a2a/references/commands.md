@@ -70,38 +70,41 @@ Examples:
 ### A2A Tool
 
 ```bash
-python3 synapse/tools/a2a.py send --target <AGENT> [--priority <1-5>] [--non-response] "<MESSAGE>"
+python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] [--non-response] "<MESSAGE>"
 ```
 
 **Parameters:**
 - `--target`: Agent ID (exact) or agent type (fuzzy)
-- `--priority`: 1-4 normal, 5 = emergency interrupt
+- `--priority`: 1-2 low/background, 3 normal, 4 urgent follow-up, 5 critical
 - `--non-response`: Do not require response from receiver
 
 Examples:
 ```bash
 # Normal task (default priority 1)
-python3 synapse/tools/a2a.py send --target claude "Please review this code"
+python -m synapse.tools.a2a send --target claude "Please review this code"
 
-# Elevated priority
-python3 synapse/tools/a2a.py send --target codex --priority 3 "Fix this bug"
+# Normal priority
+python -m synapse.tools.a2a send --target codex --priority 3 "Fix this bug"
 
-# Emergency interrupt (priority 5)
-python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP immediately"
+# Urgent follow-up (priority 4)
+python -m synapse.tools.a2a send --target codex --priority 4 "Status update?"
+
+# Critical interrupt (priority 5)
+python -m synapse.tools.a2a send --target codex --priority 5 "STOP immediately"
 
 # Fire-and-forget (no response expected)
-python3 synapse/tools/a2a.py send --target gemini --non-response "Log this event"
+python -m synapse.tools.a2a send --target gemini --non-response "Log this event"
 ```
 
 ### A2A Tool Utilities
 
 ```bash
 # List agents (with live check)
-python3 synapse/tools/a2a.py list
-python3 synapse/tools/a2a.py list --live
+python -m synapse.tools.a2a list
+python -m synapse.tools.a2a list --live
 
 # Cleanup stale registry entries
-python3 synapse/tools/a2a.py cleanup
+python -m synapse.tools.a2a cleanup
 ```
 
 ## Task History
