@@ -200,88 +200,64 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
 
 ## ユースケース
 
-### 分業・役割分担
-
-複数の AI エージェントに異なる役割を持たせて協調作業：
-
-```
-Claude: コード実装担当
-Gemini: レビュー・指摘担当
-Codex: テスト生成担当
-```
-
-### 自動タスク委任
-
-委任ルールを設定して、タスクを自動的に適切なエージェントへ振り分け：
+### 1. 瞬時の仕様確認 (Simple)
+コーディングに特化した **Claude** で作業中、最新のライブラリ仕様やエラー情報を確認したい場合、Web検索が得意な **Gemini** にその場で問い合わせることで、コンテキストスイッチを防ぎます。
 
 ```bash
-# Step 1: モードを設定
-synapse delegate set orchestrator
-
-# Step 2: ルールを作成
-cat > .synapse/delegate.md << 'EOF'
-# Delegation Rules
-コーディングはCodexに任せる
-リサーチはGeminiに依頼する
-EOF
-
-# Step 3: エージェント起動
-synapse claude
+# Claudeの画面で:
+@gemini Python 3.12の新しいf-stringの仕様を要約して
 ```
 
-**設定の2つの要素:**
-
-| 設定 | ファイル | 役割 |
-|------|----------|------|
-| モード | `settings.json` | 結果の扱い方 |
-| ルール | `delegate.md` | 誰に何を任せるか |
-
-**モードの違い:**
-
-| モード | delegate.md | 動作 |
-|--------|-------------|------|
-| `orchestrator` | ✅ 参照 | 結果をClaudeが統合して報告 |
-| `passthrough` | ✅ 参照 | 結果をそのまま転送 |
-| `off` | ❌ 無視 | 自動委任なし（デフォルト） |
-
-詳細は [guides/delegation.md](guides/delegation.md) を参照してください。
-
-### 複数視点の取得
-
-同じ問題を複数の AI に投げて比較検討：
+### 2. 設計のクロスレビュー (Intermediate)
+自分の考えた設計に対して、異なる視点を持つエージェントからフィードバックをもらいます。
 
 ```bash
-# Claude の見解
-@claude この設計どう思う？
-
-# Gemini の見解
-@gemini 同じ質問
+# Claudeで設計案を出した後に:
+@gemini この設計について、スケーラビリティと保守性の観点から批判的にレビューして
 ```
 
-### CI/CD 連携
-
-GitHub Actions などから HTTP API でタスクを投入：
-
-```yaml
-# .github/workflows/review.yml
-- name: AI Review
-  run: |
-    curl -X POST http://your-server:8100/tasks/send \
-      -H "X-API-Key: ${{ secrets.SYNAPSE_API_KEY }}" \
-      -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "PRをレビューして"}]}}'
-```
-
-### 長時間タスクの非同期実行
-
-バックグラウンドでタスクを走らせて Webhook で完了通知：
+### 3. TDD ペアプログラミング (Intermediate)
+「テストを書く人」と「実装する人」を分けることで、堅牢なコードを作成します。
 
 ```bash
-# タスク投入
-curl -X POST http://localhost:8100/tasks/send \
-  -d '{"message": {...}}'
+# Terminal 1 (Codex):
+auth.py の単体テストを作成して。ケースは正常系と、トークン期限切れの異常系で。
 
-# Webhook で Slack に通知
-# → task.completed イベントを受信
+# Terminal 2 (Claude):
+@codex-8120 が作成したテストに通るように auth.py を実装して
+```
+
+### 4. セキュリティ監査 (Specialized)
+自分の書いたコードをコミットする前に、セキュリティ専門家という役割を与えたエージェントに監査させます。
+
+```bash
+# Gemini に役割を与える
+あなたはセキュリティエンジニアです。脆弱性（SQLi, XSS等）の観点のみでレビューしてください。
+
+# コードを書いてから:
+@gemini 現在の変更内容（git diff）を監査して
+```
+
+### 5. エラーログからの自動修復 (Advanced)
+テスト実行でエラーが出た際、ログファイルをエージェントに渡して修正案を適用させます。
+
+```bash
+# テストが失敗した...
+pytest > error.log
+
+# エージェントに修正を依頼
+@claude error.log を読んで、原因となっている synapse/server.py の箇所を修正して
+```
+
+### 6. 言語・フレームワークの移行 (Advanced)
+大規模なリファクタリングで、古い構文を新しい構文に置換する作業を分担します。
+
+```bash
+# Terminal 1 (Claude):
+legacy_api.js を読み込んで、TypeScriptの型定義を作成して
+
+# Terminal 2 (Codex):
+@claude が作成した型定義を使って、legacy_api.js を src/new_api.ts に書き換えて
 ```
 
 ### SSHリモート環境との違い
