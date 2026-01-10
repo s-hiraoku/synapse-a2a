@@ -20,11 +20,15 @@
 - Creating test fixtures and mocks
 - Adding test coverage
 
+Command: `python3 synapse/tools/a2a.py send --target gemini "YOUR_TASK"`
+
 ## When to delegate to @codex
 - Difficult/complex problems that require deep analysis
 - Debugging and fixing bugs
 - Code refactoring and optimization
 - Performance improvements
+
+Command: `python3 synapse/tools/a2a.py send --target codex "YOUR_TASK"`
 
 ## Examples
 
