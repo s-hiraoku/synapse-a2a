@@ -329,7 +329,7 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 
 ### ディレクトリ構造
 
-```
+```text
 plugins/
 └── synapse-a2a/
     ├── .claude-plugin/plugin.json
