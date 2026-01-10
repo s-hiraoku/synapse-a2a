@@ -45,12 +45,12 @@ Example:
 
 ## Priority Levels
 
-| Priority | Description | Behavior |
-|----------|-------------|----------|
-| 1 | Normal | Standard message delivery |
-| 2-3 | Elevated | Higher priority in queue |
-| 4 | Urgent | Prioritized delivery |
-| 5 | Interrupt | Sends SIGINT first, then message |
+| Priority | Use Case | Behavior |
+|----------|----------|----------|
+| 1-2 | Low priority, background tasks | Standard message delivery |
+| 3 | Normal tasks | Default priority |
+| 4 | Urgent follow-ups | Prioritized delivery |
+| 5 | Critical/emergency tasks | Sends SIGINT first, then message |
 
 **Priority 5 sequence:**
 1. Sends SIGINT to target agent (interrupts current task)
