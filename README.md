@@ -221,6 +221,30 @@ pip install synapse-a2a
 pip install "synapse-a2a[grpc]"
 ```
 
+### Claude Code スキルのインストール
+
+Claude Code でスキルを使用することで、Synapse A2A の機能をより効率的に活用できます。
+
+```bash
+# Marketplace を追加
+/plugin marketplace add s-hiraoku/synapse-a2a
+
+# 全スキルをインストール（推奨）
+/plugin install synapse-a2a-skills@synapse-a2a
+
+# または個別にインストール
+/plugin install synapse-communication@synapse-a2a  # エージェント間通信
+/plugin install synapse-delegation@synapse-a2a     # タスク委任
+```
+
+**利用可能なスキル:**
+
+| スキル名 | 説明 |
+|----------|------|
+| `synapse-a2a-skills` | 全スキルセット（通信 + 委任） |
+| `synapse-communication` | エージェント間通信、@agent ルーティング、優先度制御 |
+| `synapse-delegation` | 自動タスク委任、orchestrator/passthrough モード |
+
 ### 2. エージェントを起動
 
 ```bash

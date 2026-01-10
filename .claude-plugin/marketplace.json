@@ -1,0 +1,44 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "synapse-a2a",
+  "description": "Skills for Synapse A2A - Multi-agent communication framework enabling Claude Code, Codex, and Gemini to collaborate via Google A2A Protocol",
+  "owner": {
+    "name": "s-hiraoku",
+    "email": "s.hiraoku@gmail.com"
+  },
+  "metadata": {
+    "version": "0.2.0",
+    "repository": "https://github.com/s-hiraoku/synapse-a2a",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "synapse-a2a-skills",
+      "description": "Complete skill set for Synapse A2A multi-agent framework including inter-agent communication, task delegation, file safety, and history management",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./synapse/skills/synapse-a2a",
+        "./synapse/skills/delegation"
+      ]
+    },
+    {
+      "name": "synapse-communication",
+      "description": "Inter-agent communication skill for sending messages, @agent routing, priority levels, and A2A protocol operations",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./synapse/skills/synapse-a2a"
+      ]
+    },
+    {
+      "name": "synapse-delegation",
+      "description": "Task delegation skill for automatic routing of tasks between agents with orchestrator/passthrough modes and file safety integration",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./synapse/skills/delegation"
+      ]
+    }
+  ]
+}
