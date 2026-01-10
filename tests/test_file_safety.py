@@ -652,49 +652,17 @@ class TestFileSafetyFromEnv:
 
         assert row[0] == iso_timestamp
 
-    def test_acquire_lock_integrity_error_handling(self, temp_db_path):
-        """Should handle IntegrityError from concurrent INSERT gracefully."""
-        import os
-
-        # First, create a manager and acquire a lock normally
+    def test_acquire_lock_already_locked_by_another_agent(self, temp_db_path):
+        """Should return ALREADY_LOCKED when another agent holds the lock."""
         manager = FileSafetyManager(db_path=temp_db_path)
 
-        # Use a path that normalizes consistently
         test_file = "/tmp/test_lock_file.py"
-        normalized_path = os.path.abspath(os.path.expanduser(test_file))
 
         # Acquire lock as agent-1
         result = manager.acquire_lock(test_file, "agent-1")
         assert result["status"] == LockStatus.ACQUIRED
 
-        # Now simulate what happens when IntegrityError occurs during concurrent access
-        # by directly inserting into the database to trigger the constraint
-        # (This tests the recovery path when SELECT showed no lock but INSERT fails)
-        conn = sqlite3.connect(temp_db_path)
-        cursor = conn.cursor()
-
-        # Try to insert a duplicate - this should fail due to UNIQUE constraint
-        # Use the normalized path since the manager normalizes paths before storing
-        try:
-            cursor.execute(
-                """
-                INSERT INTO file_locks (file_path, agent_name, task_id, expires_at, intent)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    normalized_path,
-                    "agent-2",
-                    None,
-                    "2099-01-01T00:00:00+00:00",
-                    None,
-                ),
-            )
-            conn.commit()
-        except sqlite3.IntegrityError:
-            pass  # Expected - UNIQUE constraint violation
-        conn.close()
-
-        # Now when agent-2 tries to acquire via the manager, it should see ALREADY_LOCKED
+        # agent-2 tries to acquire - should see ALREADY_LOCKED
         result2 = manager.acquire_lock(test_file, "agent-2")
         assert result2["status"] == LockStatus.ALREADY_LOCKED
         assert result2["lock_holder"] == "agent-1"
