@@ -407,6 +407,63 @@ class TestOptionalInstructions:
                 else:
                     os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
 
+    def test_file_safety_enabled_via_settings_env(self):
+        """File safety can be enabled via settings.json env section."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            file_safety = synapse_dir / "file-safety.md"
+            file_safety.write_text("FILE SAFETY FROM SETTINGS")
+
+            # Enable via settings env, not environment variable
+            settings = SynapseSettings(
+                env={"SYNAPSE_FILE_SAFETY_ENABLED": "true"},
+                instructions={"default": "Base instruction"},
+            )
+
+            original_cwd = os.getcwd()
+            original_env = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED")
+            try:
+                os.chdir(tmpdir)
+                # Make sure env var is NOT set
+                os.environ.pop("SYNAPSE_FILE_SAFETY_ENABLED", None)
+                result = settings.get_instruction("claude", "agent", 8100)
+                assert "Base instruction" in result
+                assert "FILE SAFETY FROM SETTINGS" in result
+            finally:
+                os.chdir(original_cwd)
+                if original_env is not None:
+                    os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
+
+    def test_env_var_takes_priority_over_settings(self):
+        """Environment variable takes priority over settings.json."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            file_safety = synapse_dir / "file-safety.md"
+            file_safety.write_text("FILE SAFETY CONTENT")
+
+            # Settings says disabled
+            settings = SynapseSettings(
+                env={"SYNAPSE_FILE_SAFETY_ENABLED": "false"},
+                instructions={"default": "Base"},
+            )
+
+            original_cwd = os.getcwd()
+            original_env = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED")
+            try:
+                os.chdir(tmpdir)
+                # But env var says enabled - should win
+                os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = "true"
+                result = settings.get_instruction("claude", "agent", 8100)
+                assert "FILE SAFETY CONTENT" in result
+            finally:
+                os.chdir(original_cwd)
+                if original_env is None:
+                    os.environ.pop("SYNAPSE_FILE_SAFETY_ENABLED", None)
+                else:
+                    os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
+
 
 class TestSkillInstallation:
     """Test skill installation functionality."""

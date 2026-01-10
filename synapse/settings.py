@@ -71,6 +71,7 @@ TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
 DEFAULT_SETTINGS: dict[str, Any] = {
     "env": {
         "SYNAPSE_HISTORY_ENABLED": "false",
+        "SYNAPSE_FILE_SAFETY_ENABLED": "false",
         "SYNAPSE_AUTH_ENABLED": "false",
         "SYNAPSE_API_KEYS": "",
         "SYNAPSE_ADMIN_KEY": "",
@@ -295,10 +296,12 @@ class SynapseSettings:
 
     def _append_optional_instructions(self, instruction: str) -> str:
         """
-        Append optional instruction files based on environment variables.
+        Append optional instruction files based on environment variables or settings.
 
         Currently supports:
         - SYNAPSE_FILE_SAFETY_ENABLED=true: appends .synapse/file-safety.md
+
+        Priority: Environment variable > settings.json > default (false)
 
         Args:
             instruction: The base instruction string.
@@ -308,8 +311,15 @@ class SynapseSettings:
         """
         import os
 
-        # Append file-safety instructions if enabled
-        if os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower() in ("true", "1"):
+        # Check file safety enabled (env var takes priority over settings)
+        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
+        if not file_safety_enabled:
+            # Fall back to settings.json
+            file_safety_enabled = self.env.get(
+                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
+            ).lower()
+
+        if file_safety_enabled in ("true", "1"):
             file_safety_content = self._load_instruction_file("file-safety.md")
             if file_safety_content:
                 instruction = instruction + "\n\n" + file_safety_content
