@@ -692,6 +692,35 @@ def cmd_file_safety_recent(args: argparse.Namespace) -> None:
     print(f"\nShowing {len(mods)} recent modifications")
 
 
+def cmd_file_safety_record(args: argparse.Namespace) -> None:
+    """Record a file modification."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    record_id = manager.record_modification(
+        file_path=args.file_path,
+        agent_name=args.agent,
+        task_id=args.task_id,
+        change_type=args.type,
+        intent=args.intent,
+    )
+
+    if record_id:
+        print(f"Recorded modification (ID: {record_id})")
+        print(f"  File: {args.file_path}")
+        print(f"  Agent: {args.agent}")
+        print(f"  Type: {args.type}")
+        if args.intent:
+            print(f"  Intent: {args.intent}")
+    else:
+        print("Failed to record modification")
+
+
 def cmd_file_safety_cleanup(args: argparse.Namespace) -> None:
     """Clean up old modification records."""
     from synapse.file_safety import FileSafetyManager
@@ -1767,6 +1796,25 @@ def main() -> None:
         "--limit", "-n", type=int, default=50, help="Maximum number of entries"
     )
     p_fs_recent.set_defaults(func=cmd_file_safety_recent)
+
+    # file-safety record
+    p_fs_record = file_safety_subparsers.add_parser(
+        "record", help="Record a file modification"
+    )
+    p_fs_record.add_argument("file_path", help="Path to the modified file")
+    p_fs_record.add_argument("agent", help="Agent name that made the change")
+    p_fs_record.add_argument("task_id", help="Task ID for this modification")
+    p_fs_record.add_argument(
+        "--type",
+        "-t",
+        choices=["CREATE", "MODIFY", "DELETE"],
+        default="MODIFY",
+        help="Type of change (default: MODIFY)",
+    )
+    p_fs_record.add_argument(
+        "--intent", "-i", help="Description of why the change was made"
+    )
+    p_fs_record.set_defaults(func=cmd_file_safety_record)
 
     # file-safety cleanup
     p_fs_cleanup = file_safety_subparsers.add_parser(

@@ -45,6 +45,7 @@ class FileSafetyManager:
     - File locking with automatic expiration to prevent race conditions
     - Modification tracking to maintain history of file changes
     - Context injection to provide modification history during file reads
+    - Auto-cleanup of old modification records
 
     The database schema includes:
     - file_locks: Active locks on files with expiration
@@ -53,38 +54,86 @@ class FileSafetyManager:
 
     DEFAULT_LOCK_DURATION_SECONDS = 300  # 5 minutes
     DEFAULT_DB_PATH = "~/.synapse/file_safety.db"
+    DEFAULT_RETENTION_DAYS = 30  # Default retention period for modification records
 
-    def __init__(self, db_path: str | None = None, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        db_path: str | None = None,
+        enabled: bool = True,
+        retention_days: int | None = None,
+    ) -> None:
         """Initialize FileSafetyManager.
 
         Args:
             db_path: Path to SQLite database file. Defaults to ~/.synapse/file_safety.db
             enabled: Whether file safety features are enabled
+            retention_days: Number of days to keep modification records (auto-cleanup)
         """
         self.enabled = enabled
         self.db_path = os.path.expanduser(db_path or self.DEFAULT_DB_PATH)
+        self.retention_days = retention_days or self.DEFAULT_RETENTION_DAYS
         self._lock = threading.RLock()
 
         if self.enabled:
             self._init_db()
+            # Run auto-cleanup on startup
+            self._auto_cleanup()
 
     @classmethod
     def from_env(cls, db_path: str | None = None) -> "FileSafetyManager":
-        """Create FileSafetyManager from environment variables.
+        """Create FileSafetyManager from environment variables and settings.
 
-        Respects SYNAPSE_FILE_SAFETY_ENABLED environment variable.
-        - "true", "1": enabled
-        - "false", "0", not set: disabled
+        Environment variables (higher priority):
+        - SYNAPSE_FILE_SAFETY_ENABLED: "true"/"1" to enable
+        - SYNAPSE_FILE_SAFETY_RETENTION_DAYS: Number of days to keep records
+
+        Falls back to .synapse/settings.json if env vars not set.
 
         Args:
             db_path: Optional path to SQLite database file
 
         Returns:
-            FileSafetyManager instance with enabled status from env var
+            FileSafetyManager instance with settings from env/config
         """
-        env_val = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "false").lower()
-        enabled = env_val in ("true", "1")
-        return cls(db_path=db_path, enabled=enabled)
+        # Check enabled status
+        env_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
+        if not env_enabled:
+            # Fall back to settings.json
+            env_enabled = cls._get_setting(
+                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
+            ).lower()
+        enabled = env_enabled in ("true", "1")
+
+        # Check retention days
+        env_retention = os.environ.get("SYNAPSE_FILE_SAFETY_RETENTION_DAYS", "")
+        if not env_retention:
+            env_retention = cls._get_setting("SYNAPSE_FILE_SAFETY_RETENTION_DAYS", "")
+
+        retention_days = None
+        if env_retention:
+            with contextlib.suppress(ValueError):
+                retention_days = int(env_retention)
+
+        return cls(db_path=db_path, enabled=enabled, retention_days=retention_days)
+
+    @staticmethod
+    def _get_setting(key: str, default: str = "") -> str:
+        """Get a setting value from .synapse/settings.json."""
+        from pathlib import Path
+
+        for settings_path in [
+            Path.cwd() / ".synapse" / "settings.json",
+            Path.home() / ".synapse" / "settings.json",
+        ]:
+            if settings_path.exists():
+                try:
+                    with open(settings_path, encoding="utf-8") as f:
+                        data = json.load(f)
+                        if "env" in data and key in data["env"]:
+                            return str(data["env"][key])
+                except (json.JSONDecodeError, OSError):
+                    continue
+        return default
 
     def _init_db(self) -> None:
         """Initialize database and create schema if needed."""
@@ -161,6 +210,32 @@ class FileSafetyManager:
                     f"Warning: Failed to initialize file safety DB: {e}",
                     file=sys.stderr,
                 )
+
+    def _auto_cleanup(self) -> None:
+        """Automatically clean up old modification records on startup.
+
+        Uses retention_days to determine how old records need to be before deletion.
+        This runs silently on startup to keep the database size manageable.
+        """
+        if not self.enabled or self.retention_days <= 0:
+            return
+
+        try:
+            deleted = self.cleanup_old_modifications(days=self.retention_days)
+            if deleted > 0:
+                import sys
+
+                print(
+                    f"[File Safety] Auto-cleaned {deleted} modification records "
+                    f"older than {self.retention_days} days",
+                    file=sys.stderr,
+                )
+
+            # Also cleanup expired locks
+            self.cleanup_expired_locks()
+        except Exception:
+            # Silently ignore cleanup errors on startup
+            pass
 
     # ========== File Locking Methods ==========
 

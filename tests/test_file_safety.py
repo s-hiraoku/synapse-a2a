@@ -222,3 +222,71 @@ class TestFileSafetyManager:
 
         # Should not create database file
         assert not Path(temp_db_path).exists()
+
+    def test_retention_days_setting(self, temp_db_path):
+        """Should use custom retention days."""
+        manager = FileSafetyManager(db_path=temp_db_path, retention_days=7)
+        assert manager.retention_days == 7
+
+    def test_default_retention_days(self, temp_db_path):
+        """Should use default retention days when not specified."""
+        manager = FileSafetyManager(db_path=temp_db_path)
+        assert manager.retention_days == 30  # DEFAULT_RETENTION_DAYS
+
+    def test_auto_cleanup_on_init(self, temp_db_path):
+        """Should auto-cleanup old records on initialization."""
+        # First, create manager and add old record
+        manager1 = FileSafetyManager(db_path=temp_db_path)
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO file_modifications
+               (file_path, agent_name, change_type, task_id, timestamp)
+               VALUES (?, ?, ?, ?, datetime('now', '-40 days'))""",
+            ("old.py", "claude", "MODIFY", "old-task"),
+        )
+        conn.commit()
+        conn.close()
+
+        assert manager1.get_statistics()["total_modifications"] == 1
+
+        # Create new manager with short retention - should auto-cleanup
+        manager2 = FileSafetyManager(db_path=temp_db_path, retention_days=30)
+        assert manager2.get_statistics()["total_modifications"] == 0
+
+
+class TestFileSafetyFromEnv:
+    """Test FileSafetyManager.from_env() method."""
+
+    @pytest.fixture
+    def temp_db_path(self):
+        """Create a temporary database path for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "file_safety.db"
+            yield str(db_path)
+
+    def test_from_env_enabled(self, temp_db_path, monkeypatch):
+        """Should create enabled manager when env var is true."""
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_ENABLED", "true")
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.enabled is True
+
+    def test_from_env_disabled(self, temp_db_path, monkeypatch):
+        """Should create disabled manager when env var is false."""
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_ENABLED", "false")
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.enabled is False
+
+    def test_from_env_retention_days(self, temp_db_path, monkeypatch):
+        """Should use retention days from env var."""
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_ENABLED", "true")
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_RETENTION_DAYS", "14")
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.retention_days == 14
+
+    def test_from_env_invalid_retention_days(self, temp_db_path, monkeypatch):
+        """Should use default when retention days is invalid."""
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_ENABLED", "true")
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_RETENTION_DAYS", "invalid")
+        manager = FileSafetyManager.from_env(db_path=temp_db_path)
+        assert manager.retention_days == 30  # DEFAULT

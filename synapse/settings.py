@@ -72,6 +72,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "env": {
         "SYNAPSE_HISTORY_ENABLED": "false",
         "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+        "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
         "SYNAPSE_AUTH_ENABLED": "false",
         "SYNAPSE_API_KEYS": "",
         "SYNAPSE_ADMIN_KEY": "",
