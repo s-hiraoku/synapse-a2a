@@ -593,8 +593,7 @@ class FileSafetyManager:
             valid_types = {ct.value for ct in ChangeType}
             if change_type not in valid_types:
                 logger.warning(
-                    f"Invalid change_type: {change_type}. "
-                    f"Must be one of {valid_types}"
+                    f"Invalid change_type: {change_type}. Must be one of {valid_types}"
                 )
                 return None
             change_type_str = change_type
