@@ -535,3 +535,95 @@ class TestSkillInstallation:
             assert not claude_skills.exists()
             assert not codex_skills.exists()
             assert not gemini_skills.exists()
+
+
+class TestResumeFlags:
+    """Test resume flags functionality."""
+
+    def test_default_settings_has_resume_flags(self):
+        """Default settings should have resume_flags section."""
+        assert "resume_flags" in DEFAULT_SETTINGS
+        assert isinstance(DEFAULT_SETTINGS["resume_flags"], dict)
+
+    def test_default_resume_flags_for_claude(self):
+        """Claude should have default resume flags."""
+        flags = DEFAULT_SETTINGS["resume_flags"]["claude"]
+        assert "--continue" in flags
+        assert "--resume" in flags
+        assert "-c" in flags
+
+    def test_default_resume_flags_for_codex_gemini(self):
+        """Codex and Gemini should have empty default resume flags."""
+        assert DEFAULT_SETTINGS["resume_flags"]["codex"] == []
+        assert DEFAULT_SETTINGS["resume_flags"]["gemini"] == []
+
+    def test_get_resume_flags_returns_list(self):
+        """get_resume_flags should return a list."""
+        settings = SynapseSettings.from_defaults()
+        flags = settings.get_resume_flags("claude")
+        assert isinstance(flags, list)
+        assert "--continue" in flags
+
+    def test_get_resume_flags_unknown_agent(self):
+        """get_resume_flags should return empty list for unknown agent."""
+        settings = SynapseSettings.from_defaults()
+        flags = settings.get_resume_flags("unknown")
+        assert flags == []
+
+    def test_is_resume_mode_with_continue_flag(self):
+        """is_resume_mode should return True when --continue is in args."""
+        settings = SynapseSettings.from_defaults()
+        assert settings.is_resume_mode("claude", ["--continue"]) is True
+        assert settings.is_resume_mode("claude", ["-c"]) is True
+        assert settings.is_resume_mode("claude", ["--resume"]) is True
+
+    def test_is_resume_mode_without_flags(self):
+        """is_resume_mode should return False when no resume flags."""
+        settings = SynapseSettings.from_defaults()
+        assert settings.is_resume_mode("claude", []) is False
+        assert settings.is_resume_mode("claude", ["--help"]) is False
+
+    def test_is_resume_mode_with_other_args(self):
+        """is_resume_mode should work with mixed arguments."""
+        settings = SynapseSettings.from_defaults()
+        assert settings.is_resume_mode("claude", ["--continue", "--verbose"]) is True
+        assert settings.is_resume_mode("claude", ["-p", "prompt", "-c"]) is True
+
+    def test_is_resume_mode_empty_flags_agent(self):
+        """is_resume_mode should return False for agents with empty flags."""
+        settings = SynapseSettings.from_defaults()
+        assert settings.is_resume_mode("codex", ["--resume"]) is False
+        assert settings.is_resume_mode("gemini", ["--continue"]) is False
+
+    def test_resume_flags_custom_settings(self):
+        """Custom settings should override default resume flags."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir) / ".synapse"
+            project_dir.mkdir(parents=True)
+
+            # Custom settings with different flags
+            custom_settings = {
+                "resume_flags": {
+                    "claude": ["--custom-resume"],
+                    "codex": ["--resume", "-r"],
+                }
+            }
+            (project_dir / "settings.json").write_text(json.dumps(custom_settings))
+
+            settings = SynapseSettings.load(
+                project_path=project_dir / "settings.json",
+            )
+
+            # Claude should use custom flags
+            assert settings.is_resume_mode("claude", ["--custom-resume"]) is True
+            assert settings.is_resume_mode("claude", ["--continue"]) is False
+
+            # Codex should now have resume flags
+            assert settings.is_resume_mode("codex", ["--resume"]) is True
+            assert settings.is_resume_mode("codex", ["-r"]) is True
+
+    def test_from_defaults_includes_resume_flags(self):
+        """from_defaults should include resume_flags."""
+        settings = SynapseSettings.from_defaults()
+        assert settings.resume_flags is not None
+        assert "claude" in settings.resume_flags
