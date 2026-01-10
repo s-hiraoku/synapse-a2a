@@ -55,9 +55,9 @@ flowchart LR
 ## 目次
 
 - [主な特徴](#主な特徴)
-- [ユースケース](#ユースケース)
 - [前提条件](#前提条件)
 - [クイックスタート](#クイックスタート)
+- [ユースケース](#ユースケース)
 - [Claude Code プラグイン](#claude-code-プラグイン)
 - [ドキュメント](#ドキュメント)
 - [アーキテクチャ](#アーキテクチャ)
@@ -88,106 +88,6 @@ flowchart LR
 | **外部連携**           | 他の Google A2A エージェントとの通信                     |
 | **タスク委任**         | 自然言語ルールで他エージェントへ自動タスク転送           |
 | **File Safety**        | ファイルロックと変更追跡でマルチエージェント競合を防止   |
-
----
-
-## ユースケース
-
-### 分業・役割分担
-
-複数の AI エージェントに異なる役割を持たせて協調作業：
-
-```
-Claude: コード実装担当
-Gemini: レビュー・指摘担当
-Codex: テスト生成担当
-```
-
-### 自動タスク委任
-
-委任ルールを設定して、タスクを自動的に適切なエージェントへ振り分け：
-
-```bash
-# Step 1: モードを設定
-synapse delegate set orchestrator
-
-# Step 2: ルールを作成
-cat > .synapse/delegate.md << 'EOF'
-# Delegation Rules
-コーディングはCodexに任せる
-リサーチはGeminiに依頼する
-EOF
-
-# Step 3: エージェント起動
-synapse claude
-```
-
-**設定の2つの要素:**
-
-| 設定 | ファイル | 役割 |
-|------|----------|------|
-| モード | `settings.json` | 結果の扱い方 |
-| ルール | `delegate.md` | 誰に何を任せるか |
-
-**モードの違い:**
-
-| モード | delegate.md | 動作 |
-|--------|-------------|------|
-| `orchestrator` | ✅ 参照 | 結果をClaudeが統合して報告 |
-| `passthrough` | ✅ 参照 | 結果をそのまま転送 |
-| `off` | ❌ 無視 | 自動委任なし（デフォルト） |
-
-詳細は [guides/delegation.md](guides/delegation.md) を参照。
-
-### 複数視点の取得
-
-同じ問題を複数の AI に投げて比較検討：
-
-```bash
-# Claude の見解
-@claude この設計どう思う？
-
-# Gemini の見解
-@gemini 同じ質問
-```
-
-### CI/CD 連携
-
-GitHub Actions などから HTTP API でタスクを投入：
-
-```yaml
-# .github/workflows/review.yml
-- name: AI Review
-  run: |
-    curl -X POST http://your-server:8100/tasks/send \
-      -H "X-API-Key: ${{ secrets.SYNAPSE_API_KEY }}" \
-      -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "PRをレビューして"}]}}'
-```
-
-### 長時間タスクの非同期実行
-
-バックグラウンドでタスクを走らせて Webhook で完了通知：
-
-```bash
-# タスク投入
-curl -X POST http://localhost:8100/tasks/send \
-  -d '{"message": {...}}'
-
-# Webhook で Slack に通知
-# → task.completed イベントを受信
-```
-
-### SSHリモート環境との違い
-
-| 操作 | SSH | Synapse |
-|-----|-----|---------|
-| 手動でCLI操作 | ◎ | ◎ |
-| プログラムからタスク投入 | △ expect等が必要 | ◎ HTTP API |
-| 複数クライアント同時接続 | △ 複数セッション | ◎ 単一エンドポイント |
-| 進捗のリアルタイム通知 | ✗ | ◎ SSE/Webhook |
-| エージェント間の自動連携 | ✗ | ◎ @Agent記法 |
-
-> **Note**: 個人でCLI操作するだけなら SSH で十分なケースも多いです。Synapse は「自動化」「連携」「マルチエージェント」が必要な場面で真価を発揮します。
 
 ---
 
@@ -266,7 +166,7 @@ synapse gemini
 | Gemini       | 8110-8119  |
 | Codex        | 8120-8129  |
 
-### 3. エージェント間通信
+### 4. エージェント間通信
 
 端末内で `@Agent` を使ってメッセージ送信：
 
@@ -282,7 +182,7 @@ synapse gemini
 @codex-8121 こちらを担当して
 ```
 
-### 4. HTTP API
+### 5. HTTP API
 
 ```bash
 # メッセージ送信
@@ -295,6 +195,106 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
 ```
+
+---
+
+## ユースケース
+
+### 分業・役割分担
+
+複数の AI エージェントに異なる役割を持たせて協調作業：
+
+```
+Claude: コード実装担当
+Gemini: レビュー・指摘担当
+Codex: テスト生成担当
+```
+
+### 自動タスク委任
+
+委任ルールを設定して、タスクを自動的に適切なエージェントへ振り分け：
+
+```bash
+# Step 1: モードを設定
+synapse delegate set orchestrator
+
+# Step 2: ルールを作成
+cat > .synapse/delegate.md << 'EOF'
+# Delegation Rules
+コーディングはCodexに任せる
+リサーチはGeminiに依頼する
+EOF
+
+# Step 3: エージェント起動
+synapse claude
+```
+
+**設定の2つの要素:**
+
+| 設定 | ファイル | 役割 |
+|------|----------|------|
+| モード | `settings.json` | 結果の扱い方 |
+| ルール | `delegate.md` | 誰に何を任せるか |
+
+**モードの違い:**
+
+| モード | delegate.md | 動作 |
+|--------|-------------|------|
+| `orchestrator` | ✅ 参照 | 結果をClaudeが統合して報告 |
+| `passthrough` | ✅ 参照 | 結果をそのまま転送 |
+| `off` | ❌ 無視 | 自動委任なし（デフォルト） |
+
+詳細は [guides/delegation.md](guides/delegation.md) を参照してください。
+
+### 複数視点の取得
+
+同じ問題を複数の AI に投げて比較検討：
+
+```bash
+# Claude の見解
+@claude この設計どう思う？
+
+# Gemini の見解
+@gemini 同じ質問
+```
+
+### CI/CD 連携
+
+GitHub Actions などから HTTP API でタスクを投入：
+
+```yaml
+# .github/workflows/review.yml
+- name: AI Review
+  run: |
+    curl -X POST http://your-server:8100/tasks/send \
+      -H "X-API-Key: ${{ secrets.SYNAPSE_API_KEY }}" \
+      -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "PRをレビューして"}]}}'
+```
+
+### 長時間タスクの非同期実行
+
+バックグラウンドでタスクを走らせて Webhook で完了通知：
+
+```bash
+# タスク投入
+curl -X POST http://localhost:8100/tasks/send \
+  -d '{"message": {...}}'
+
+# Webhook で Slack に通知
+# → task.completed イベントを受信
+```
+
+### SSHリモート環境との違い
+
+| 操作 | SSH | Synapse |
+|-----|-----|---------|
+| 手動でCLI操作 | ◎ | ◎ |
+| プログラムからタスク投入 | △ expect等が必要 | ◎ HTTP API |
+| 複数クライアント同時接続 | △ 複数セッション | ◎ 単一エンドポイント |
+| 進捗のリアルタイム通知 | ✗ | ◎ SSE/Webhook |
+| エージェント間の自動連携 | ✗ | ◎ @Agent記法 |
+
+> **Note**: 個人でCLI操作するだけなら SSH で十分なケースも多いです。Synapse は「自動化」「連携」「マルチエージェント」が必要な場面で真価を発揮します。
 
 ---
 
@@ -1129,7 +1129,7 @@ synapse reset
 **優先順位**:
 1. エージェント固有の設定（`claude`, `gemini`, `codex`）があればそれを使用
 2. なければ `default` を使用
-3. 両方とも空なら初期インストラクションは送信しない
+3.両方とも空なら初期インストラクションは送信しない
 
 **プレースホルダー**:
 - `{{agent_id}}` - エージェントID（例: `synapse-claude-8100`）
