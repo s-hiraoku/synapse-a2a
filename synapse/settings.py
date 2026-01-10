@@ -284,9 +284,35 @@ class SynapseSettings:
         if not instruction:
             return None
 
+        # Append file-safety instructions if enabled
+        instruction = self._append_optional_instructions(instruction)
+
         # Replace placeholders
         instruction = instruction.replace("{{agent_id}}", agent_id)
         instruction = instruction.replace("{{port}}", str(port))
+
+        return instruction
+
+    def _append_optional_instructions(self, instruction: str) -> str:
+        """
+        Append optional instruction files based on environment variables.
+
+        Currently supports:
+        - SYNAPSE_FILE_SAFETY_ENABLED=true: appends .synapse/file-safety.md
+
+        Args:
+            instruction: The base instruction string.
+
+        Returns:
+            Instruction with optional content appended.
+        """
+        import os
+
+        # Append file-safety instructions if enabled
+        if os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower() in ("true", "1"):
+            file_safety_content = self._load_instruction_file("file-safety.md")
+            if file_safety_content:
+                instruction = instruction + "\n\n" + file_safety_content
 
         return instruction
 

@@ -320,6 +320,94 @@ class TestInstructionPlaceholders:
         assert result == "my-agent on 1234, again my-agent"
 
 
+class TestOptionalInstructions:
+    """Test optional instruction file loading based on environment."""
+
+    def test_file_safety_instruction_appended_when_enabled(self):
+        """File safety instructions are appended when SYNAPSE_FILE_SAFETY_ENABLED=true."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create .synapse directory with file-safety.md
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            file_safety = synapse_dir / "file-safety.md"
+            file_safety.write_text("FILE SAFETY RULES\nLock before editing")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "Base instruction"},
+            )
+
+            original_cwd = os.getcwd()
+            original_env = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED")
+            try:
+                os.chdir(tmpdir)
+                os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = "true"
+                result = settings.get_instruction("claude", "agent", 8100)
+                assert "Base instruction" in result
+                assert "FILE SAFETY RULES" in result
+                assert "Lock before editing" in result
+            finally:
+                os.chdir(original_cwd)
+                if original_env is None:
+                    os.environ.pop("SYNAPSE_FILE_SAFETY_ENABLED", None)
+                else:
+                    os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
+
+    def test_file_safety_instruction_not_appended_when_disabled(self):
+        """File safety instructions are NOT appended when disabled."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create .synapse directory with file-safety.md
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            file_safety = synapse_dir / "file-safety.md"
+            file_safety.write_text("FILE SAFETY RULES")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "Base instruction"},
+            )
+
+            original_cwd = os.getcwd()
+            original_env = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED")
+            try:
+                os.chdir(tmpdir)
+                os.environ.pop("SYNAPSE_FILE_SAFETY_ENABLED", None)
+                result = settings.get_instruction("claude", "agent", 8100)
+                assert result == "Base instruction"
+                assert "FILE SAFETY RULES" not in result
+            finally:
+                os.chdir(original_cwd)
+                if original_env is not None:
+                    os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
+
+    def test_file_safety_placeholders_replaced(self):
+        """Placeholders in file-safety.md are replaced."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            file_safety = synapse_dir / "file-safety.md"
+            file_safety.write_text("Agent {{agent_id}} should lock files")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "Base"},
+            )
+
+            original_cwd = os.getcwd()
+            original_env = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED")
+            try:
+                os.chdir(tmpdir)
+                os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = "true"
+                result = settings.get_instruction("claude", "synapse-claude-8100", 8100)
+                assert "Agent synapse-claude-8100 should lock files" in result
+            finally:
+                os.chdir(original_cwd)
+                if original_env is None:
+                    os.environ.pop("SYNAPSE_FILE_SAFETY_ENABLED", None)
+                else:
+                    os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
+
+
 class TestSkillInstallation:
     """Test skill installation functionality."""
 
