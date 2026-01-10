@@ -1,0 +1,20 @@
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "false"
+  },
+  "instructions": {
+    "default": "default.md",
+    "claude": "",
+    "gemini": "gemini.md",
+    "codex": ""
+  },
+  "delegation": {
+    "mode": "off"
+  },
+  "resume_flags": {
+    "claude": ["--continue", "--resume", "-c", "-r"],
+    "codex": ["resume"],
+    "gemini": ["--resume"]
+  }
+}
