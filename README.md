@@ -1,6 +1,6 @@
 # Synapse A2A
 
-**各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する**
+> **各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
