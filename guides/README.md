@@ -26,6 +26,7 @@
 ```mermaid
 flowchart TD
     README["README.md<br/>このファイル"]
+    Overview["overview.md<br/>全体概要"]
 
     subgraph Getting_Started["入門"]
         Setup["multi-agent-setup.md<br/>セットアップガイド"]
@@ -53,12 +54,31 @@ flowchart TD
         Trouble["troubleshooting.md<br/>トラブルシューティング"]
     end
 
-    README --> Getting_Started
-    README --> Configuration
-    README --> Technical
-    README --> External
-    README --> Support
+    README --> Overview
+    Overview --> Getting_Started
+    Overview --> Configuration
+    Overview --> Technical
+    Overview --> External
+    Overview --> Support
 ```
+
+---
+
+## 0. 全体概要
+
+### [overview.md](overview.md)
+**Synapse A2A 全体概要（この文書から読み始めてください）**
+
+- コンセプトと設計原則
+- システム構成とコンポーネント一覧
+- 主要機能マトリクス
+- データフロー（起動、通信、ファイルロック）
+- ストレージとデータベーススキーマ
+- 設定体系と環境変数
+- CLI コマンド体系
+- API エンドポイント一覧
+
+> 初めての方や全体像を把握したい方はこちらから
 
 ---
 
@@ -73,7 +93,7 @@ flowchart TD
 - @Agent 記法の基本的な使い方
 - 外部からの API/CLI 操作
 
-> 初めての方はこちらから始めてください
+> セットアップを始める方はこちら
 
 ### [usage.md](usage.md)
 **使い方詳細**
@@ -274,11 +294,15 @@ curl http://localhost:8100/.well-known/agent.json
 ```
 guides/
 ├── README.md              # このファイル（ドキュメントインデックス）
+├── overview.md            # 全体概要（最初に読むドキュメント）
 ├── multi-agent-setup.md   # セットアップガイド
 ├── usage.md               # 使い方詳細
+├── settings.md            # .synapse 設定ガイド
 ├── profiles.md            # プロファイル設定
+├── delegation.md          # 委任ルールとモード
 ├── enterprise.md          # エンタープライズ機能（認証・Webhook・gRPC）
 ├── architecture.md        # アーキテクチャ
+├── agent-identity.md      # エージェント識別とルーティング
 ├── references.md          # API/CLI リファレンス
 ├── troubleshooting.md     # トラブルシューティング
 └── google-a2a-spec.md     # Google A2A 互換性
