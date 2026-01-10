@@ -518,7 +518,16 @@ class TestSkillInstallation:
 
             _install_skills_to_dir(base_dir, force=False)
 
-            # No skill directories should be created
+            # No top-level provider directories should be created
+            claude_dir = base_dir / ".claude"
+            codex_dir = base_dir / ".codex"
+            gemini_dir = base_dir / ".gemini"
+
+            assert not claude_dir.exists()
+            assert not codex_dir.exists()
+            assert not gemini_dir.exists()
+
+            # No skill subdirectories should be created either
             claude_skills = base_dir / ".claude" / "skills"
             codex_skills = base_dir / ".codex" / "skills"
             gemini_skills = base_dir / ".gemini" / "skills"
