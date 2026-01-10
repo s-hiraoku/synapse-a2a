@@ -404,6 +404,39 @@ classDiagram
 
 ---
 
+### 2.6 FileSafetyManager
+
+**ファイル**: `synapse/file_safety.py`
+
+マルチエージェント環境でのファイル競合を防止するためのコンポーネントです。
+SQLite を使用してファイルロックと変更履歴を管理します。
+
+```mermaid
+classDiagram
+    class FileSafetyManager {
+        -db_path: Path
+        -enabled: bool
+        +acquire_lock(file_path, agent_name): LockStatus
+        +release_lock(file_path, agent_name): bool
+        +record_modification(file_path, agent_name, ...): int
+        +validate_write(file_path, agent_name): Dict
+        +get_file_context(file_path): str
+    }
+```
+
+**主な機能**:
+
+| メソッド | 説明 |
+|---------|------|
+| `acquire_lock()` | ファイルの排他ロックを取得 |
+| `validate_write()` | 書き込み前にロック状態を確認 |
+| `record_modification()` | 誰が何を変更したか履歴を記録 |
+| `get_file_context()` | 最近の変更履歴を取得してコンテキスト注入 |
+
+**データベース**: デフォルトは `~/.synapse/file_safety.db`（`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能）
+
+---
+
 ## 3. 起動フロー
 
 ### 3.1 インタラクティブモード
@@ -456,7 +489,7 @@ sequenceDiagram
     participant IR as InputRouter
     participant A2AClient as A2AClient
     participant Registry as AgentRegistry
-    participant Codex as Codex (8101)
+    participant Codex as Codex (8120)
 
     User->>Claude: @codex 設計をレビューして
     Claude->>IR: process_char() (1文字ずつ)
@@ -488,7 +521,7 @@ sequenceDiagram
     participant Claude as Claude (8100)
     participant IR as InputRouter
     participant A2AClient as A2AClient
-    participant Codex as Codex (8101)
+    participant Codex as Codex (8120)
 
     User->>Claude: @codex "設計を書いて"
     Claude->>IR: パターン検出
@@ -741,6 +774,7 @@ synapse-a2a/
 │   ├── shell.py            # インタラクティブシェル (~190行)
 │   ├── a2a_compat.py       # Google A2A 互換レイヤー (~570行)
 │   ├── a2a_client.py       # 外部エージェントクライアント (~330行)
+│   ├── file_safety.py      # ファイル競合防止 (~450行)
 │   ├── profiles/           # エージェントプロファイル
 │   │   ├── claude.yaml
 │   │   ├── codex.yaml
@@ -763,9 +797,10 @@ synapse-a2a/
     └── <alias>.json
 
 ~/.synapse/
-└── logs/
-    ├── <profile>.log
-    └── input_router.log
+├── logs/
+│   ├── <profile>.log
+│   └── input_router.log
+└── file_safety.db          # ファイル競合防止用DB（SYNAPSE_FILE_SAFETY_DB_PATH で変更可）
 ```
 
 ---

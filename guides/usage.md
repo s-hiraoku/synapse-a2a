@@ -168,8 +168,8 @@ synapse list
 TYPE       PORT     STATUS     PID      ENDPOINT
 ------------------------------------------------------------
 claude     8100     READY      12345    http://localhost:8100
-codex      8101     PROCESSING 12346    http://localhost:8101
-gemini     8102     PROCESSING 12347    http://localhost:8102
+codex      8120     PROCESSING 12346    http://localhost:8120
+gemini     8110     PROCESSING 12347    http://localhost:8110
 ```
 
 <!-- CodeRabbit fix: Updated example output to show actual status transitions instead of static values -->
@@ -622,7 +622,7 @@ done
 
 ```bash
 # ステータス確認
-curl http://localhost:8101/status
+curl http://localhost:8120/status
 
 # CodeRabbit fix: Updated IDLE to READY status terminology
 # READY なのに作業が終わっていない場合に nudge

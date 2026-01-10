@@ -26,6 +26,7 @@
 ```mermaid
 flowchart TD
     README["README.md<br/>このファイル"]
+    Overview["overview.md<br/>全体概要"]
 
     subgraph Getting_Started["入門"]
         Setup["multi-agent-setup.md<br/>セットアップガイド"]
@@ -33,12 +34,15 @@ flowchart TD
     end
 
     subgraph Configuration["設定"]
+        Settings["settings.md<br/>.synapse 設定"]
         Profiles["profiles.md<br/>プロファイル設定"]
+        Delegation["delegation.md<br/>委任ルール"]
         Enterprise["enterprise.md<br/>エンタープライズ機能"]
     end
 
     subgraph Technical["技術詳細"]
         Arch["architecture.md<br/>アーキテクチャ"]
+        Identity["agent-identity.md<br/>エージェント識別"]
         Refs["references.md<br/>API/CLI リファレンス"]
     end
 
@@ -50,12 +54,31 @@ flowchart TD
         Trouble["troubleshooting.md<br/>トラブルシューティング"]
     end
 
-    README --> Getting_Started
-    README --> Configuration
-    README --> Technical
-    README --> External
-    README --> Support
+    README --> Overview
+    Overview --> Getting_Started
+    Overview --> Configuration
+    Overview --> Technical
+    Overview --> External
+    Overview --> Support
 ```
+
+---
+
+## 0. 全体概要
+
+### [overview.md](overview.md)
+**Synapse A2A 全体概要（この文書から読み始めてください）**
+
+- コンセプトと設計原則
+- システム構成とコンポーネント一覧
+- 主要機能マトリクス
+- データフロー（起動、通信、ファイルロック）
+- ストレージとデータベーススキーマ
+- 設定体系と環境変数
+- CLI コマンド体系
+- API エンドポイント一覧
+
+> 初めての方や全体像を把握したい方はこちらから
 
 ---
 
@@ -70,7 +93,7 @@ flowchart TD
 - @Agent 記法の基本的な使い方
 - 外部からの API/CLI 操作
 
-> 初めての方はこちらから始めてください
+> セットアップを始める方はこちら
 
 ### [usage.md](usage.md)
 **使い方詳細**
@@ -86,6 +109,13 @@ flowchart TD
 
 ## 2. 設定リファレンス
 
+### [settings.md](settings.md)
+**.synapse 設定ガイド**
+
+- settings.json のスコープと優先順位
+- 環境変数と初期インストラクション
+- スキルのインストール先と再インストール
+
 ### [profiles.md](profiles.md)
 **プロファイル設定ガイド**
 
@@ -97,6 +127,13 @@ flowchart TD
   - `env`: 環境変数
 - デフォルトプロファイル（claude, codex, gemini, dummy）
 - カスタムプロファイルの作成方法
+
+### [delegation.md](delegation.md)
+**委任ルールとモード**
+
+- orchestrator / passthrough / off の違い
+- ルール記述の書き方と例
+- 委任結果の取り扱い
 
 ### [enterprise.md](enterprise.md)
 **エンタープライズ機能ガイド**
@@ -116,6 +153,13 @@ flowchart TD
 ---
 
 ## 3. 技術ドキュメント
+
+### [agent-identity.md](agent-identity.md)
+**エージェント識別とルーティング設計**
+
+- ID 形式とルーティングの基本
+- @Agent の誤判定を防ぐ設計方針
+- Agent Card の拡張と addressable_as
 
 ### [architecture.md](architecture.md)
 **内部アーキテクチャ**
@@ -170,12 +214,12 @@ flowchart TD
 
 ### デフォルトポート
 
-| エージェント | ポート | プロファイル |
-|-------------|--------|-------------|
-| Claude | 8100 | `claude.yaml` |
-| Codex | 8101 | `codex.yaml` |
-| Gemini | 8102 | `gemini.yaml` |
-| Dummy | 8199 | `dummy.yaml` |
+| エージェント | ポート範囲 | プロファイル |
+|-------------|-----------|-------------|
+| Claude | 8100-8109 | `claude.yaml` |
+| Gemini | 8110-8119 | `gemini.yaml` |
+| Codex | 8120-8129 | `codex.yaml` |
+| Dummy | 8190-8199 | `dummy.yaml` |
 
 ### 主要コマンド
 
@@ -250,11 +294,15 @@ curl http://localhost:8100/.well-known/agent.json
 ```
 guides/
 ├── README.md              # このファイル（ドキュメントインデックス）
+├── overview.md            # 全体概要（最初に読むドキュメント）
 ├── multi-agent-setup.md   # セットアップガイド
 ├── usage.md               # 使い方詳細
+├── settings.md            # .synapse 設定ガイド
 ├── profiles.md            # プロファイル設定
+├── delegation.md          # 委任ルールとモード
 ├── enterprise.md          # エンタープライズ機能（認証・Webhook・gRPC）
 ├── architecture.md        # アーキテクチャ
+├── agent-identity.md      # エージェント識別とルーティング
 ├── references.md          # API/CLI リファレンス
 ├── troubleshooting.md     # トラブルシューティング
 └── google-a2a-spec.md     # Google A2A 互換性

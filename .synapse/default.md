@@ -2,33 +2,13 @@
 Agent: {{agent_id}} | Port: {{port}}
 
 ================================================================================
-MANDATORY DELEGATION RULES - YOU MUST FOLLOW THESE
+BRANCH MANAGEMENT - CRITICAL
 ================================================================================
 
-IMPORTANT: Before starting ANY task, check if it matches a delegation rule below.
-If it matches, you MUST delegate. Do NOT process delegatable tasks yourself.
-
-### ALWAYS delegate to @gemini:
-- Writing tests (unit tests, integration tests, test cases)
-- Test-first development (TDD)
-- Creating test fixtures and mocks
-- Adding test coverage
-
-Command: python3 synapse/tools/a2a.py send --target gemini "YOUR_TASK"
-
-### ALWAYS delegate to @codex:
-- Difficult/complex problems requiring deep analysis
-- Debugging and fixing bugs
-- Code refactoring and optimization
-- Performance improvements
-
-Command: python3 synapse/tools/a2a.py send --target codex "YOUR_TASK"
-
-### Your responsibility (do NOT delegate):
-- Simple questions and explanations
-- Code review feedback
-- Documentation
-- Tasks not matching above rules
+- **Do NOT change branches during active work** - Stay on the current branch
+- **If branch change is needed**, ask the user for confirmation first
+- Before switching, ensure all changes are committed or stashed
+- When receiving delegated tasks, work on the same branch as the delegating agent
 
 ================================================================================
 A2A COMMUNICATION PROTOCOL

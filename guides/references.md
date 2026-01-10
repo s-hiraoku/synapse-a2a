@@ -60,8 +60,8 @@ synapse <profile> [--port PORT]
 
 ```bash
 synapse claude
-synapse codex --port 8101
-synapse gemini --port 8102
+synapse codex --port 8120
+synapse gemini --port 8110
 ```
 
 **デフォルトポート**:
@@ -69,9 +69,9 @@ synapse gemini --port 8102
 | プロファイル | ポート |
 |-------------|--------|
 | claude | 8100 |
-| codex | 8101 |
-| gemini | 8102 |
-| dummy | 8199 |
+| codex | 8120 |
+| gemini | 8110 |
+| dummy | 8190 |
 
 ---
 
@@ -133,7 +133,7 @@ synapse list
 TYPE       PORT     STATUS     PID      ENDPOINT
 ------------------------------------------------------------
 claude     8100     READY      12345    http://localhost:8100
-codex      8101     PROCESSING 12346    http://localhost:8101
+codex      8120     PROCESSING 12346    http://localhost:8120
 ```
 
 | 列 | 説明 |

@@ -503,12 +503,13 @@ class TestRegistryRaceConditions:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
         read_started = threading.Event()
-        read_complete = threading.Event()
+        update_complete = threading.Event()
         status_reads = []
 
         def watch_reader():
             """Simulates watch mode reading registry."""
-            for _ in range(3):
+            # Keep reading until update is complete, plus one more time to catch final state
+            while not update_complete.is_set():
                 read_started.set()
 
                 # Read registry (simulates _render_agent_table)
@@ -516,9 +517,12 @@ class TestRegistryRaceConditions:
                 if agent_id in agents:
                     status_reads.append(agents[agent_id]["status"])
 
-                read_started.clear()
-                read_complete.set()
                 time.sleep(0.01)
+
+            # Final read to ensure we catch the update
+            agents = temp_registry.list_agents()
+            if agent_id in agents:
+                status_reads.append(agents[agent_id]["status"])
 
         def status_updater():
             """Simulates controller updating status."""
@@ -536,6 +540,8 @@ class TestRegistryRaceConditions:
             data["status"] = "READY"
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=2)
+
+            update_complete.set()
 
         watch_thread = threading.Thread(target=watch_reader)
         update_thread = threading.Thread(target=status_updater)

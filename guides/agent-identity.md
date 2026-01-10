@@ -27,8 +27,8 @@ synapse-{モデル名}-{ポート番号}
 
 例：
 - `synapse-claude-8100`
-- `synapse-gemini-8101`
-- `synapse-codex-8102`
+- `synapse-gemini-8110`
+- `synapse-codex-8120`
 
 ### 特徴
 
@@ -76,7 +76,7 @@ synapse-{モデル名}-{ポート番号}
 │                                                  │
 │  ルーティングルール:                              │
 │  - @synapse-claude-8100 → 自分宛て。実行する      │
-│  - @synapse-gemini-8101 → 他のエージェント宛て。   │
+│  - @synapse-gemini-8110 → 他のエージェント宛て。   │
 │    A2Aで転送のみ。自分では実行しない              │
 └──────────────────────────────────────────────────┘
 ```

@@ -57,7 +57,7 @@
 synapse start gemini
 
 # ポート指定
-synapse start gemini --port 8102
+synapse start gemini --port 8110
 
 # フォアグラウンド（出力を見る）
 synapse start gemini --foreground
@@ -188,7 +188,7 @@ shell_prompt: "synapse> "
 
 agents:
   gemini:
-    port: 8102
+    port: 8110
     auto_start: true
   claude:
     port: 8100
