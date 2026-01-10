@@ -9,7 +9,7 @@ Claude Code plugin for [Synapse A2A](https://github.com/s-hiraoku/synapse-a2a) -
 /plugin marketplace add s-hiraoku/synapse-a2a
 
 # Install the plugin
-/plugin install synapse-a2a@synapse-a2a
+/plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
 ## Skills Included

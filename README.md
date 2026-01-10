@@ -233,7 +233,7 @@ pip install -e .
 ```bash
 # Claude Code 内で実行
 /plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@synapse-a2a
+/plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
 詳細は [Claude Code プラグイン](#claude-code-プラグイン) を参照してください。
@@ -317,7 +317,7 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 ```bash
 # Claude Code 内で実行
 /plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@synapse-a2a
+/plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
 ### 含まれるスキル
