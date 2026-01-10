@@ -41,6 +41,17 @@ class LockStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class FileLockDBError(Exception):
+    """Raised when a database error occurs during file lock operations.
+
+    This exception is used to implement fail-closed behavior: when the
+    database is unavailable or returns an error, operations that depend
+    on lock state should deny access rather than assume no lock exists.
+    """
+
+    pass
+
+
 class FileSafetyManager:
     """Manages file locking and modification tracking for multi-agent safety.
 
@@ -501,6 +512,9 @@ class FileSafetyManager:
         Returns:
             Lock info dict if locked, None if not locked.
             Dict contains: agent_name, task_id, locked_at, expires_at, intent
+
+        Raises:
+            FileLockDBError: If database error occurs (fail-closed behavior)
         """
         if not self.enabled:
             return None
@@ -529,10 +543,9 @@ class FileSafetyManager:
                 return None
 
             except sqlite3.Error as e:
-                import sys
-
-                print(f"Warning: Failed to check lock: {e}", file=sys.stderr)
-                return None
+                # Fail-closed: raise exception so callers can deny access
+                logger.error(f"Database error checking lock for {normalized_path}: {e}")
+                raise FileLockDBError(f"Failed to check lock: {e}") from e
             finally:
                 if conn:
                     conn.close()
@@ -540,14 +553,24 @@ class FileSafetyManager:
     def is_locked_by_other(self, file_path: str, agent_name: str) -> bool:
         """Check if a file is locked by another agent.
 
+        Uses fail-closed behavior: returns True (locked) if database
+        error occurs, to prevent potential conflicts.
+
         Args:
             file_path: Absolute path to the file
             agent_name: Current agent's name
 
         Returns:
-            True if locked by another agent, False otherwise
+            True if locked by another agent or if database error occurs,
+            False only if confirmed not locked by another agent
         """
-        lock_info = self.check_lock(file_path)
+        try:
+            lock_info = self.check_lock(file_path)
+        except FileLockDBError:
+            # Fail-closed: assume locked if we can't check
+            logger.warning(f"Assuming file locked due to database error: {file_path}")
+            return True
+
         if lock_info is None:
             return False
         return bool(lock_info["agent_name"] != agent_name)
@@ -899,13 +922,24 @@ class FileSafetyManager:
             limit: Maximum number of recent modifications to include
 
         Returns:
-            Formatted context string, empty if no history
+            Formatted context string, empty if no history.
+            Returns warning message if database error occurs.
         """
         if not self.enabled:
             return ""
 
         history = self.get_file_history(file_path, limit=limit)
-        lock_info = self.check_lock(file_path)
+
+        try:
+            lock_info = self.check_lock(file_path)
+        except FileLockDBError:
+            # Include warning in context so agents are aware of DB issues
+            return (
+                "[FILE CONTEXT - WARNING]\n"
+                "Database error: cannot determine lock status.\n"
+                "Proceed with caution - file may be locked by another agent.\n"
+                "[END FILE CONTEXT]"
+            )
 
         if not history and not lock_info:
             return ""
@@ -947,6 +981,9 @@ class FileSafetyManager:
         - File is not locked by another agent
         - Returns recent modification context for awareness
 
+        Uses fail-closed behavior: if the database is unavailable,
+        write access is denied to prevent potential conflicts.
+
         Args:
             file_path: Absolute path to the file
             agent_name: Name of the agent attempting to write
@@ -960,7 +997,17 @@ class FileSafetyManager:
         if not self.enabled:
             return {"allowed": True, "reason": "", "context": ""}
 
-        lock_info = self.check_lock(file_path)
+        try:
+            lock_info = self.check_lock(file_path)
+        except FileLockDBError as e:
+            # Fail-closed: deny write when database is unavailable
+            logger.warning(f"Denying write due to database error: {e}")
+            return {
+                "allowed": False,
+                "reason": "Cannot verify lock status due to database error. "
+                "Write denied for safety.",
+                "context": "",
+            }
 
         if lock_info and lock_info["agent_name"] != agent_name:
             return {

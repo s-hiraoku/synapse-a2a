@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from synapse.file_safety import ChangeType, FileSafetyManager, LockStatus
+from synapse.file_safety import (
+    ChangeType,
+    FileLockDBError,
+    FileSafetyManager,
+    LockStatus,
+)
 
 
 class TestFileSafetyManager:
@@ -684,3 +689,70 @@ class TestFileSafetyFromEnv:
         result2 = manager.acquire_lock("/path/to/file.py", "agent-2")
         assert result2["status"] == LockStatus.ALREADY_LOCKED
         assert result2["lock_holder"] == "agent-1"
+
+
+class TestFailClosedBehavior:
+    """Test fail-closed behavior when database errors occur."""
+
+    @pytest.fixture
+    def temp_db_path(self):
+        """Create a temporary database path for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "file_safety.db"
+            yield str(db_path)
+
+    def test_check_lock_raises_on_db_error(self, temp_db_path):
+        """check_lock should raise FileLockDBError on database errors."""
+        manager = FileSafetyManager(db_path=temp_db_path)
+
+        # Corrupt the database by removing the table
+        conn = sqlite3.connect(temp_db_path)
+        conn.execute("DROP TABLE file_locks")
+        conn.commit()
+        conn.close()
+
+        with pytest.raises(FileLockDBError):
+            manager.check_lock("/path/to/file.py")
+
+    def test_validate_write_denies_on_db_error(self, temp_db_path):
+        """validate_write should deny write when database error occurs."""
+        manager = FileSafetyManager(db_path=temp_db_path)
+
+        # Corrupt the database by removing the table
+        conn = sqlite3.connect(temp_db_path)
+        conn.execute("DROP TABLE file_locks")
+        conn.commit()
+        conn.close()
+
+        result = manager.validate_write("/path/to/file.py", "agent-1")
+        assert result["allowed"] is False
+        assert "database error" in result["reason"].lower()
+
+    def test_is_locked_by_other_returns_true_on_db_error(self, temp_db_path):
+        """is_locked_by_other should return True (fail-closed) on DB error."""
+        manager = FileSafetyManager(db_path=temp_db_path)
+
+        # Corrupt the database by removing the table
+        conn = sqlite3.connect(temp_db_path)
+        conn.execute("DROP TABLE file_locks")
+        conn.commit()
+        conn.close()
+
+        # Should return True (locked) when DB is unavailable
+        result = manager.is_locked_by_other("/path/to/file.py", "agent-1")
+        assert result is True
+
+    def test_get_file_context_returns_warning_on_db_error(self, temp_db_path):
+        """get_file_context should return warning message on DB error."""
+        manager = FileSafetyManager(db_path=temp_db_path)
+
+        # Corrupt the database by removing the table
+        conn = sqlite3.connect(temp_db_path)
+        conn.execute("DROP TABLE file_locks")
+        conn.commit()
+        conn.close()
+
+        context = manager.get_file_context("/path/to/file.py")
+        assert "WARNING" in context
+        assert "Database error" in context
+        assert "cannot determine lock status" in context
