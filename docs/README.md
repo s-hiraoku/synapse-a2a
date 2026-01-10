@@ -39,6 +39,13 @@ For user guides, see the [`/guides`](../guides/) directory.
 - `universal-agent-communication-spec.md` - Universal agent communication specification
 - `input-routing-spec.md` - Input routing specification
 
+### リリース
+
+- `release.md` - **リリースガイド**
+  - PyPIへのリリース手順
+  - GitHub Actions による自動 Publish
+  - バージョニングとトラブルシューティング
+
 ### 実装ドキュメント
 
 - `file-safety.md` - **File Safety（ファイル競合防止）ユーザーガイド**
