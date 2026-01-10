@@ -38,7 +38,9 @@ flowchart LR
 
 - [主な特徴](#主な特徴)
 - [ユースケース](#ユースケース)
+- [前提条件](#前提条件)
 - [クイックスタート](#クイックスタート)
+- [ドキュメント](#ドキュメント)
 - [アーキテクチャ](#アーキテクチャ)
 - [CLI コマンド](#cli-コマンド)
 - [API エンドポイント](#api-エンドポイント)
@@ -170,6 +172,15 @@ curl -X POST http://localhost:8100/tasks/send \
 
 ---
 
+## 前提条件
+
+- **OS**: macOS / Linux（Windows は WSL2 推奨）
+- **Python**: 3.10+
+- **CLI ツール**: 使用するエージェントの CLI を事前にインストール & 初期設定
+  - 例: `claude`, `codex`, `gemini`
+
+---
+
 ## クイックスタート
 
 ### 1. インストール
@@ -249,6 +260,16 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
 ```
+
+---
+
+## ドキュメント
+
+- [guides/README.md](guides/README.md) - ドキュメント全体の見取り図
+- [guides/multi-agent-setup.md](guides/multi-agent-setup.md) - セットアップ手順
+- [guides/usage.md](guides/usage.md) - コマンドと運用パターン
+- [guides/settings.md](guides/settings.md) - `.synapse` 設定の詳細
+- [guides/troubleshooting.md](guides/troubleshooting.md) - よくある問題と対処
 
 ---
 
@@ -366,7 +387,9 @@ synapse claude -- --resume
 | `synapse file-safety unlock`      | ロック解放             |
 | `synapse file-safety history`     | ファイル変更履歴       |
 | `synapse file-safety recent`      | 最近の変更一覧         |
+| `synapse file-safety record`      | 変更を手動記録         |
 | `synapse file-safety cleanup`     | 古いデータ削除         |
+| `synapse file-safety debug`       | デバッグ情報表示       |
 
 ### 外部エージェント管理
 
@@ -915,7 +938,7 @@ if not validation["allowed"]:
     print(f"Write blocked: {validation['reason']}")
 ```
 
-**ストレージ**: `~/.synapse/file_safety.db` (SQLite)
+**ストレージ**: デフォルトは `~/.synapse/file_safety.db` (SQLite)。`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能（例: `./.synapse/file_safety.db` でプロジェクト単位）。
 
 詳細は [docs/file-safety.md](docs/file-safety.md) を参照してください。
 
@@ -973,6 +996,7 @@ synapse reset
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
     "SYNAPSE_AUTH_ENABLED": "false",
     "SYNAPSE_API_KEYS": "",
     "SYNAPSE_ADMIN_KEY": "",
@@ -997,6 +1021,7 @@ synapse reset
 |------|------|-----------|
 | `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | ファイル安全機能を有効化 | `false` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | file-safety DB パス | `~/.synapse/file_safety.db` |
 | `SYNAPSE_AUTH_ENABLED` | API認証を有効化 | `false` |
 | `SYNAPSE_API_KEYS` | APIキー（カンマ区切り） | - |
 | `SYNAPSE_ADMIN_KEY` | 管理者キー | - |

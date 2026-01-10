@@ -75,14 +75,17 @@ synapse claude
 ```json
 {
   "env": {
-    "SYNAPSE_FILE_SAFETY_ENABLED": "true"
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   }
 }
 ```
 
 ### ストレージ
 
-- **データベース**: `~/.synapse/file_safety.db` (SQLite)
+- **データベース**: デフォルトは `~/.synapse/file_safety.db` (SQLite)
+- `SYNAPSE_FILE_SAFETY_DB_PATH`（環境変数または settings.json）で変更可能
+  - 例: `./.synapse/file_safety.db` でプロジェクト単位の管理
 - 初回実行時に自動作成されます
 
 ---
@@ -105,7 +108,9 @@ synapse file-safety <subcommand> [options]
 | `unlock` | ファイルのロックを解放 |
 | `history` | 特定ファイルの変更履歴を表示 |
 | `recent` | 最近の変更一覧を表示 |
+| `record` | ファイル変更を手動で記録 |
 | `cleanup` | 古いデータを削除 |
+| `debug` | トラブルシューティング用デバッグ情報を表示 |
 
 ---
 
@@ -289,6 +294,32 @@ Showing 3 recent modifications
 
 ---
 
+### synapse file-safety record
+
+ファイル変更を手動で記録します。
+通常はエージェントが自動的に記録しますが、スクリプトや手動操作の結果を記録する場合に使用します。
+
+```bash
+synapse file-safety record /path/to/file.py claude task-123 \
+  --type MODIFY \
+  --intent "Manual fix"
+```
+
+**オプション:**
+
+| オプション | 説明 | デフォルト |
+|------------|------|-----------|
+| `--type` | 変更タイプ (CREATE, MODIFY, DELETE) | MODIFY |
+| `--intent` | 変更の意図 | なし |
+
+**出力例:**
+
+```text
+Recorded modification for /path/to/file.py
+```
+
+---
+
 ### synapse file-safety cleanup
 
 古い変更履歴を削除します。
@@ -310,6 +341,35 @@ Cleaned up 5 expired locks
 
 ---
 
+### synapse file-safety debug
+
+トラブルシューティング用のデバッグ情報を表示します。
+データベースのパス、サイズ、テーブルの状態などを確認できます。
+
+```bash
+synapse file-safety debug
+```
+
+**出力例:**
+
+```text
+File Safety Debug Info
+============================================================
+Enabled: True
+DB Path: /Users/user/.synapse/file_safety.db
+DB Exists: True
+DB Size: 12 KB
+Retention Days: 30
+
+Tables:
+- file_locks: 2 rows
+- file_modifications: 42 rows
+
+Schema Version: ...
+```
+
+---
+
 ## Python API
 
 ### 基本的な使い方
@@ -321,7 +381,7 @@ from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
 manager = FileSafetyManager.from_env()
 
 # 直接インスタンス作成
-manager = FileSafetyManager(db_path="~/.synapse/file_safety.db", enabled=True)
+manager = FileSafetyManager(db_path="./.synapse/file_safety.db", enabled=True)
 ```
 
 ### ファイルロック
@@ -653,12 +713,12 @@ synapse file-safety cleanup --force
 
 # または手動で解放（管理者として）
 # データベースに直接アクセスする場合のみ
-sqlite3 ~/.synapse/file_safety.db "DELETE FROM file_locks WHERE file_path = '/path/to/file.py'"
+sqlite3 ./.synapse/file_safety.db "DELETE FROM file_locks WHERE file_path = '/path/to/file.py'"
 ```
 
 ### データベースファイルが見つからない
 
-**症状:** `~/.synapse/file_safety.db` が存在しない
+**症状:** 設定した DB パス（例: `./.synapse/file_safety.db`）が存在しない
 
 **原因:** File Safety が有効化されていないか、まだ使用されていない
 
