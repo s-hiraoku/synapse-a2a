@@ -65,10 +65,10 @@ pip install -e .
 synapse claude --port 8100
 
 # Terminal 2
-synapse codex --port 8101
+synapse codex --port 8120
 
 # Terminal 3
-synapse gemini --port 8102
+synapse gemini --port 8110
 ```
 
 起動後の挙動:
@@ -119,12 +119,12 @@ CLI は内部で A2A 形式のメッセージを送信します（`/tasks/send-p
 
 ```bash
 # Task ベースでメッセージ送信（推奨）
-curl -X POST http://localhost:8101/tasks/send \
+curl -X POST http://localhost:8120/tasks/send \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "設計を書いて"}]}}'
 
 # Priority 付きで送信（Synapse 拡張）
-curl -X POST "http://localhost:8101/tasks/send-priority?priority=1" \
+curl -X POST "http://localhost:8120/tasks/send-priority?priority=1" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "設計を書いて"}]}}'
 ```

@@ -277,14 +277,14 @@ idle_regex: "(> |>>> )$"
 1. 相手エージェントの状態を確認
 
 ```bash
-curl http://localhost:8101/status
+curl http://localhost:8120/status
 ```
 
 2. 長時間の処理は手動でポーリング
 
 ```bash
 # ステータスを監視
-watch -n 1 'curl -s http://localhost:8101/status | jq .'
+watch -n 1 'curl -s http://localhost:8120/status | jq .'
 ```
 
 ---

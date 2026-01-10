@@ -33,12 +33,15 @@ flowchart TD
     end
 
     subgraph Configuration["設定"]
+        Settings["settings.md<br/>.synapse 設定"]
         Profiles["profiles.md<br/>プロファイル設定"]
+        Delegation["delegation.md<br/>委任ルール"]
         Enterprise["enterprise.md<br/>エンタープライズ機能"]
     end
 
     subgraph Technical["技術詳細"]
         Arch["architecture.md<br/>アーキテクチャ"]
+        Identity["agent-identity.md<br/>エージェント識別"]
         Refs["references.md<br/>API/CLI リファレンス"]
     end
 
@@ -86,6 +89,13 @@ flowchart TD
 
 ## 2. 設定リファレンス
 
+### [settings.md](settings.md)
+**.synapse 設定ガイド**
+
+- settings.json のスコープと優先順位
+- 環境変数と初期インストラクション
+- スキルのインストール先と再インストール
+
 ### [profiles.md](profiles.md)
 **プロファイル設定ガイド**
 
@@ -97,6 +107,13 @@ flowchart TD
   - `env`: 環境変数
 - デフォルトプロファイル（claude, codex, gemini, dummy）
 - カスタムプロファイルの作成方法
+
+### [delegation.md](delegation.md)
+**委任ルールとモード**
+
+- orchestrator / passthrough / off の違い
+- ルール記述の書き方と例
+- 委任結果の取り扱い
 
 ### [enterprise.md](enterprise.md)
 **エンタープライズ機能ガイド**
@@ -116,6 +133,13 @@ flowchart TD
 ---
 
 ## 3. 技術ドキュメント
+
+### [agent-identity.md](agent-identity.md)
+**エージェント識別とルーティング設計**
+
+- ID 形式とルーティングの基本
+- @Agent の誤判定を防ぐ設計方針
+- Agent Card の拡張と addressable_as
 
 ### [architecture.md](architecture.md)
 **内部アーキテクチャ**
@@ -170,12 +194,12 @@ flowchart TD
 
 ### デフォルトポート
 
-| エージェント | ポート | プロファイル |
-|-------------|--------|-------------|
-| Claude | 8100 | `claude.yaml` |
-| Codex | 8101 | `codex.yaml` |
-| Gemini | 8102 | `gemini.yaml` |
-| Dummy | 8199 | `dummy.yaml` |
+| エージェント | ポート範囲 | プロファイル |
+|-------------|-----------|-------------|
+| Claude | 8100-8109 | `claude.yaml` |
+| Gemini | 8110-8119 | `gemini.yaml` |
+| Codex | 8120-8129 | `codex.yaml` |
+| Dummy | 8190-8199 | `dummy.yaml` |
 
 ### 主要コマンド
 
