@@ -184,7 +184,9 @@ class TestFileSafetyManager:
 
         assert stats["active_locks"] == 1
         assert stats["total_modifications"] == 3
-        assert stats["by_change_type"][ChangeType.MODIFY] == 2
+        # by_change_type uses string keys (from SQLite), not ChangeType enum
+        assert stats["by_change_type"]["MODIFY"] == 2
+        assert stats["by_change_type"]["CREATE"] == 1
         assert stats["by_agent"]["claude"] == 2
 
     def test_get_file_context(self, manager):
