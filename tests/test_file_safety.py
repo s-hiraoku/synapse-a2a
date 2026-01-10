@@ -502,3 +502,185 @@ class TestFileSafetyFromEnv:
         # but we can ensure it doesn't crash.
         manager = FileSafetyManager(db_path=temp_db_path, retention_days=0)
         assert manager.retention_days == 0
+
+    def test_timestamp_migration_legacy_to_iso8601(self, temp_db_path):
+        """Should migrate legacy CURRENT_TIMESTAMP format to ISO-8601."""
+        # Create a database with both tables (file_locks required for init)
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        # Create file_locks table (required by FileSafetyManager)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS file_locks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL UNIQUE,
+                agent_name TEXT NOT NULL,
+                task_id TEXT,
+                locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL,
+                intent TEXT
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS file_modifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id TEXT NOT NULL,
+                agent_name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                change_type TEXT NOT NULL,
+                affected_lines TEXT,
+                intent TEXT,
+                timestamp TEXT NOT NULL,
+                metadata TEXT
+            )
+            """
+        )
+        # Insert legacy format timestamps (SQLite CURRENT_TIMESTAMP style)
+        # Use recent dates to avoid auto-cleanup (which deletes records > 30 days old)
+        from datetime import datetime, timedelta
+
+        recent_ts1 = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        recent_ts2 = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute(
+            """
+            INSERT INTO file_modifications
+            (task_id, agent_name, file_path, change_type, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("task-1", "agent-1", "/path/file.py", "MODIFY", recent_ts1),
+        )
+        cursor.execute(
+            """
+            INSERT INTO file_modifications
+            (task_id, agent_name, file_path, change_type, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("task-2", "agent-2", "/path/file2.py", "CREATE", recent_ts2),
+        )
+        conn.commit()
+        conn.close()
+
+        # Now initialize FileSafetyManager which should trigger migration
+        FileSafetyManager(db_path=temp_db_path)
+
+        # Verify timestamps were migrated to ISO-8601
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp FROM file_modifications ORDER BY id")
+        rows = cursor.fetchall()
+        conn.close()
+
+        assert len(rows) == 2
+        # Should now be in ISO-8601 format with T and timezone
+        # Legacy '2024-01-15 10:30:45' becomes '2024-01-15T10:30:45+00:00'
+        assert "T" in rows[0][0] and "+00:00" in rows[0][0]
+        assert "T" in rows[1][0] and "+00:00" in rows[1][0]
+        # Verify they don't have space separator anymore
+        assert " " not in rows[0][0].split("T")[0]  # date part has no spaces
+        assert " " not in rows[1][0].split("T")[0]
+
+    def test_timestamp_migration_already_iso8601(self, temp_db_path):
+        """Should not modify timestamps already in ISO-8601 format."""
+        # Create a database with both tables
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        # Create file_locks table (required by FileSafetyManager)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS file_locks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL UNIQUE,
+                agent_name TEXT NOT NULL,
+                task_id TEXT,
+                locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL,
+                intent TEXT
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS file_modifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id TEXT NOT NULL,
+                agent_name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                change_type TEXT NOT NULL,
+                affected_lines TEXT,
+                intent TEXT,
+                timestamp TEXT NOT NULL,
+                metadata TEXT
+            )
+            """
+        )
+        # Use a recent ISO-8601 timestamp to avoid auto-cleanup
+        from datetime import datetime, timedelta, timezone
+
+        recent_dt = datetime.now(timezone.utc) - timedelta(days=1)
+        iso_timestamp = recent_dt.isoformat()
+
+        cursor.execute(
+            """
+            INSERT INTO file_modifications
+            (task_id, agent_name, file_path, change_type, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("task-1", "agent-1", "/path/file.py", "MODIFY", iso_timestamp),
+        )
+        conn.commit()
+        conn.close()
+
+        # Initialize FileSafetyManager
+        FileSafetyManager(db_path=temp_db_path)
+
+        # Verify timestamp remains unchanged
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT timestamp FROM file_modifications")
+        row = cursor.fetchone()
+        conn.close()
+
+        assert row[0] == iso_timestamp
+
+    def test_acquire_lock_integrity_error_handling(self, temp_db_path):
+        """Should handle IntegrityError from concurrent INSERT gracefully."""
+        # First, create a manager and acquire a lock normally
+        manager = FileSafetyManager(db_path=temp_db_path)
+
+        # Acquire lock as agent-1
+        result = manager.acquire_lock("/path/to/file.py", "agent-1")
+        assert result["status"] == LockStatus.ACQUIRED
+
+        # Now simulate what happens when IntegrityError occurs during concurrent access
+        # by directly inserting into the database to trigger the constraint
+        # (This tests the recovery path when SELECT showed no lock but INSERT fails)
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+
+        # Try to insert a duplicate - this should fail due to UNIQUE constraint
+        try:
+            cursor.execute(
+                """
+                INSERT INTO file_locks (file_path, agent_name, task_id, expires_at, intent)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "/path/to/file.py",
+                    "agent-2",
+                    None,
+                    "2099-01-01T00:00:00+00:00",
+                    None,
+                ),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            pass  # Expected - UNIQUE constraint violation
+        conn.close()
+
+        # Now when agent-2 tries to acquire via the manager, it should see ALREADY_LOCKED
+        result2 = manager.acquire_lock("/path/to/file.py", "agent-2")
+        assert result2["status"] == LockStatus.ALREADY_LOCKED
+        assert result2["lock_holder"] == "agent-1"

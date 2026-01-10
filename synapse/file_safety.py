@@ -194,6 +194,8 @@ class FileSafetyManager:
                 )
 
                 # Create file_modifications table
+                # Note: timestamp column uses TEXT for ISO-8601 UTC strings
+                # (no DEFAULT - must be provided explicitly for consistency)
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS file_modifications (
@@ -204,7 +206,7 @@ class FileSafetyManager:
                         change_type TEXT NOT NULL,
                         affected_lines TEXT,
                         intent TEXT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        timestamp TEXT NOT NULL,
                         metadata TEXT
                     )
                     """
@@ -231,12 +233,60 @@ class FileSafetyManager:
                 )
 
                 conn.commit()
+
+                # Migrate legacy timestamps to ISO-8601 format
+                self._migrate_timestamps_to_iso8601(cursor, conn)
+
                 logger.debug(f"File safety database initialized: {self.db_path}")
             except sqlite3.Error as e:
                 logger.error(f"Failed to initialize file safety DB: {e}")
             finally:
                 if conn is not None:
                     conn.close()
+
+    def _migrate_timestamps_to_iso8601(
+        self, cursor: sqlite3.Cursor, conn: sqlite3.Connection
+    ) -> None:
+        """Migrate legacy CURRENT_TIMESTAMP format to ISO-8601 UTC strings.
+
+        Legacy format: 'YYYY-MM-DD HH:MM:SS' (SQLite CURRENT_TIMESTAMP)
+        Target format: 'YYYY-MM-DDTHH:MM:SS+00:00' (ISO-8601 with timezone)
+
+        This migration runs on every init but only updates rows that need it.
+        """
+        try:
+            # Find rows with legacy timestamp format (contains space, no 'T')
+            # Legacy: '2024-01-15 10:30:00'
+            # ISO-8601: '2024-01-15T10:30:00+00:00'
+            cursor.execute(
+                """
+                SELECT id, timestamp FROM file_modifications
+                WHERE timestamp LIKE '____-__-__ __:__:%'
+                  AND timestamp NOT LIKE '%T%'
+                """
+            )
+            legacy_rows = cursor.fetchall()
+
+            if not legacy_rows:
+                return
+
+            logger.info(
+                f"Migrating {len(legacy_rows)} legacy timestamps to ISO-8601 format"
+            )
+
+            for row_id, legacy_ts in legacy_rows:
+                # Convert 'YYYY-MM-DD HH:MM:SS' to 'YYYY-MM-DDTHH:MM:SS+00:00'
+                # Assume legacy timestamps are UTC
+                iso_ts = legacy_ts.replace(" ", "T") + "+00:00"
+                cursor.execute(
+                    "UPDATE file_modifications SET timestamp = ? WHERE id = ?",
+                    (iso_ts, row_id),
+                )
+
+            conn.commit()
+            logger.info(f"Successfully migrated {len(legacy_rows)} timestamps")
+        except sqlite3.Error as e:
+            logger.warning(f"Timestamp migration failed (non-fatal): {e}")
 
     def _auto_cleanup(self) -> None:
         """Automatically clean up old modification records on startup.
@@ -365,6 +415,37 @@ class FileSafetyManager:
                     "expires_at": expires_at.isoformat(),
                 }
 
+            except sqlite3.IntegrityError:
+                # Concurrent INSERT due to UNIQUE constraint on file_path
+                # Another agent acquired the lock between our SELECT and INSERT
+                if conn:
+                    conn.rollback()
+                try:
+                    cursor.execute(
+                        "SELECT agent_name, expires_at FROM file_locks WHERE file_path = ?",
+                        (normalized_path,),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        return {
+                            "status": LockStatus.ALREADY_LOCKED,
+                            "lock_holder": row[0],
+                            "expires_at": row[1],
+                        }
+                    # Lock was released between our INSERT attempt and this SELECT
+                    # Return generic ALREADY_LOCKED since we can't safely retry
+                    return {
+                        "status": LockStatus.ALREADY_LOCKED,
+                        "lock_holder": "unknown",
+                        "expires_at": None,
+                    }
+                except sqlite3.Error:
+                    # Fall back to generic ALREADY_LOCKED if SELECT fails
+                    return {
+                        "status": LockStatus.ALREADY_LOCKED,
+                        "lock_holder": "unknown",
+                        "expires_at": None,
+                    }
             except sqlite3.Error as e:
                 logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
                 return {"status": LockStatus.FAILED, "error": str(e)}
@@ -611,6 +692,9 @@ class FileSafetyManager:
             with contextlib.suppress(TypeError, ValueError):
                 metadata_json = json.dumps(metadata)
 
+        # Use ISO-8601 UTC timestamp for consistent sorting and comparison
+        timestamp = datetime.now(timezone.utc).isoformat()
+
         with self._lock:
             conn = None
             try:
@@ -620,8 +704,8 @@ class FileSafetyManager:
                 cursor.execute(
                     """
                     INSERT INTO file_modifications
-                    (task_id, agent_name, file_path, change_type, intent, affected_lines, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (task_id, agent_name, file_path, change_type, intent, affected_lines, metadata, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task_id,
@@ -631,6 +715,7 @@ class FileSafetyManager:
                         intent,
                         affected_lines,
                         metadata_json,
+                        timestamp,
                     ),
                 )
 
