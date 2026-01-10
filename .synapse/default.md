@@ -2,6 +2,15 @@
 Agent: {{agent_id}} | Port: {{port}}
 
 ================================================================================
+BRANCH MANAGEMENT - CRITICAL
+================================================================================
+
+- **Do NOT change branches during active work** - Stay on the current branch
+- **If branch change is needed**, ask the user for confirmation first
+- Before switching, ensure all changes are committed or stashed
+- When receiving delegated tasks, work on the same branch as the delegating agent
+
+================================================================================
 MANDATORY DELEGATION RULES - YOU MUST FOLLOW THESE
 ================================================================================
 

@@ -1,6 +1,17 @@
 [SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
 Agent: {{agent_id}} | Port: {{port}}
 
+================================================================================
+BRANCH MANAGEMENT - CRITICAL
+================================================================================
+
+- **Do NOT change branches during active work** - Stay on the current branch
+- **If branch change is needed**, ask the user for confirmation first
+- Before switching, ensure all changes are committed or stashed
+- When receiving delegated tasks, work on the same branch as the delegating agent
+
+================================================================================
+
 HOW TO RECEIVE A2A MESSAGES:
 Input format: [A2A:task_id:sender_id] message
 Response command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE
