@@ -12,6 +12,7 @@ Features:
 
 import contextlib
 import json
+import logging
 import os
 import sqlite3
 import threading
@@ -19,6 +20,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class ChangeType(str, Enum):
@@ -53,7 +56,7 @@ class FileSafetyManager:
     """
 
     DEFAULT_LOCK_DURATION_SECONDS = 300  # 5 minutes
-    DEFAULT_DB_PATH = "~/.synapse/file_safety.db"
+    DEFAULT_DB_PATH = ".synapse/file_safety.db"  # Project-local database
     DEFAULT_RETENTION_DAYS = 30  # Default retention period for modification records
 
     def __init__(
@@ -65,13 +68,19 @@ class FileSafetyManager:
         """Initialize FileSafetyManager.
 
         Args:
-            db_path: Path to SQLite database file. Defaults to ~/.synapse/file_safety.db
+            db_path: Path to SQLite database file. Defaults to .synapse/file_safety.db
             enabled: Whether file safety features are enabled
             retention_days: Number of days to keep modification records (auto-cleanup)
         """
         self.enabled = enabled
-        self.db_path = os.path.expanduser(db_path or self.DEFAULT_DB_PATH)
-        self.retention_days = retention_days or self.DEFAULT_RETENTION_DAYS
+        self.db_path = os.path.abspath(
+            os.path.expanduser(db_path or self.DEFAULT_DB_PATH)
+        )
+        self.retention_days = (
+            retention_days
+            if retention_days is not None
+            else self.DEFAULT_RETENTION_DAYS
+        )
         self._lock = threading.RLock()
 
         if self.enabled:
@@ -79,12 +88,23 @@ class FileSafetyManager:
             # Run auto-cleanup on startup
             self._auto_cleanup()
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get a SQLite connection with WAL mode and timeout for better concurrency.
+
+        Returns:
+            sqlite3.Connection configured for multi-agent access
+        """
+        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
+
     @classmethod
     def from_env(cls, db_path: str | None = None) -> "FileSafetyManager":
         """Create FileSafetyManager from environment variables and settings.
 
         Environment variables (higher priority):
         - SYNAPSE_FILE_SAFETY_ENABLED: "true"/"1" to enable
+        - SYNAPSE_FILE_SAFETY_DB_PATH: Path to SQLite database file
         - SYNAPSE_FILE_SAFETY_RETENTION_DAYS: Number of days to keep records
 
         Falls back to .synapse/settings.json if env vars not set.
@@ -95,6 +115,12 @@ class FileSafetyManager:
         Returns:
             FileSafetyManager instance with settings from env/config
         """
+        # Resolve DB path (env > settings > arg > default)
+        env_db_path = os.environ.get("SYNAPSE_FILE_SAFETY_DB_PATH", "").strip()
+        if not env_db_path:
+            env_db_path = cls._get_setting("SYNAPSE_FILE_SAFETY_DB_PATH", "").strip()
+        resolved_db_path = env_db_path or db_path
+
         # Check enabled status
         env_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
         if not env_enabled:
@@ -114,7 +140,9 @@ class FileSafetyManager:
             with contextlib.suppress(ValueError):
                 retention_days = int(env_retention)
 
-        return cls(db_path=db_path, enabled=enabled, retention_days=retention_days)
+        return cls(
+            db_path=resolved_db_path, enabled=enabled, retention_days=retention_days
+        )
 
     @staticmethod
     def _get_setting(key: str, default: str = "") -> str:
@@ -146,7 +174,7 @@ class FileSafetyManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 # Create file_locks table
@@ -203,13 +231,9 @@ class FileSafetyManager:
 
                 conn.commit()
                 conn.close()
+                logger.debug(f"File safety database initialized: {self.db_path}")
             except sqlite3.Error as e:
-                import sys
-
-                print(
-                    f"Warning: Failed to initialize file safety DB: {e}",
-                    file=sys.stderr,
-                )
+                logger.error(f"Failed to initialize file safety DB: {e}")
 
     def _auto_cleanup(self) -> None:
         """Automatically clean up old modification records on startup.
@@ -223,19 +247,17 @@ class FileSafetyManager:
         try:
             deleted = self.cleanup_old_modifications(days=self.retention_days)
             if deleted > 0:
-                import sys
-
-                print(
-                    f"[File Safety] Auto-cleaned {deleted} modification records "
-                    f"older than {self.retention_days} days",
-                    file=sys.stderr,
+                logger.info(
+                    f"Auto-cleaned {deleted} modification records "
+                    f"older than {self.retention_days} days"
                 )
 
             # Also cleanup expired locks
-            self.cleanup_expired_locks()
-        except Exception:
-            # Silently ignore cleanup errors on startup
-            pass
+            expired = self.cleanup_expired_locks()
+            if expired > 0:
+                logger.debug(f"Cleaned up {expired} expired locks")
+        except Exception as e:
+            logger.debug(f"Auto-cleanup error (ignored): {e}")
 
     # ========== File Locking Methods ==========
 
@@ -272,7 +294,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 # First, clean up expired locks
@@ -331,15 +353,17 @@ class FileSafetyManager:
                 )
                 conn.commit()
 
+                logger.debug(
+                    f"Lock acquired: {normalized_path} by {agent_name} "
+                    f"(expires: {expires_at.isoformat()})"
+                )
                 return {
                     "status": LockStatus.ACQUIRED,
                     "expires_at": expires_at.isoformat(),
                 }
 
             except sqlite3.Error as e:
-                import sys
-
-                print(f"Warning: Failed to acquire lock: {e}", file=sys.stderr)
+                logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
                 return {"status": LockStatus.FAILED, "error": str(e)}
             finally:
                 if conn:
@@ -363,7 +387,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 cursor.execute(
@@ -373,12 +397,12 @@ class FileSafetyManager:
                 deleted = cursor.rowcount > 0
 
                 conn.commit()
+                if deleted:
+                    logger.debug(f"Lock released: {normalized_path} by {agent_name}")
                 return deleted
 
             except sqlite3.Error as e:
-                import sys
-
-                print(f"Warning: Failed to release lock: {e}", file=sys.stderr)
+                logger.error(f"Failed to release lock on {normalized_path}: {e}")
                 return False
             finally:
                 if conn:
@@ -402,7 +426,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -459,7 +483,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -516,7 +540,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 removed = self._cleanup_expired_locks_internal(cursor)
@@ -525,9 +549,7 @@ class FileSafetyManager:
                 return removed
 
             except sqlite3.Error as e:
-                import sys
-
-                print(f"Warning: Failed to cleanup expired locks: {e}", file=sys.stderr)
+                logger.error(f"Failed to cleanup expired locks: {e}")
                 return 0
             finally:
                 if conn:
@@ -570,21 +592,15 @@ class FileSafetyManager:
         elif isinstance(change_type, str):
             valid_types = {ct.value for ct in ChangeType}
             if change_type not in valid_types:
-                import sys
-
-                print(
-                    f"Warning: Invalid change_type: {change_type}. "
-                    f"Must be one of {valid_types}",
-                    file=sys.stderr,
+                logger.warning(
+                    f"Invalid change_type: {change_type}. "
+                    f"Must be one of {valid_types}"
                 )
                 return None
             change_type_str = change_type
         else:
-            import sys
-
-            print(
-                f"Warning: change_type must be ChangeType or str, got {type(change_type)}",
-                file=sys.stderr,
+            logger.warning(
+                f"change_type must be ChangeType or str, got {type(change_type)}"
             )
             return None
 
@@ -596,7 +612,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 cursor.execute(
@@ -618,12 +634,14 @@ class FileSafetyManager:
 
                 record_id = cursor.lastrowid
                 conn.commit()
+                logger.debug(
+                    f"Recorded modification: {normalized_path} by {agent_name} "
+                    f"({change_type_str})"
+                )
                 return record_id
 
             except sqlite3.Error as e:
-                import sys
-
-                print(f"Warning: Failed to record modification: {e}", file=sys.stderr)
+                logger.error(f"Failed to record modification: {e}")
                 return None
             finally:
                 if conn:
@@ -651,7 +669,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -698,7 +716,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -752,7 +770,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
 
@@ -896,7 +914,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 # Calculate cutoff timestamp to avoid SQL injection
@@ -938,7 +956,7 @@ class FileSafetyManager:
         with self._lock:
             conn = None
             try:
-                conn = sqlite3.connect(self.db_path)
+                conn = self._get_connection()
                 cursor = conn.cursor()
 
                 # Active locks count
@@ -1030,5 +1048,7 @@ class FileSafetyManager:
                 data["metadata"] = json.loads(data["metadata"])
             except (json.JSONDecodeError, TypeError):
                 data["metadata"] = {}
+        else:
+            data["metadata"] = {}
 
         return data

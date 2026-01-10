@@ -433,7 +433,7 @@ classDiagram
 | `record_modification()` | 誰が何を変更したか履歴を記録 |
 | `get_file_context()` | 最近の変更履歴を取得してコンテキスト注入 |
 
-**データベース**: `~/.synapse/file_safety.db`
+**データベース**: デフォルトは `~/.synapse/file_safety.db`（`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能）
 
 ---
 
@@ -489,7 +489,7 @@ sequenceDiagram
     participant IR as InputRouter
     participant A2AClient as A2AClient
     participant Registry as AgentRegistry
-    participant Codex as Codex (8101)
+    participant Codex as Codex (8120)
 
     User->>Claude: @codex 設計をレビューして
     Claude->>IR: process_char() (1文字ずつ)
@@ -521,7 +521,7 @@ sequenceDiagram
     participant Claude as Claude (8100)
     participant IR as InputRouter
     participant A2AClient as A2AClient
-    participant Codex as Codex (8101)
+    participant Codex as Codex (8120)
 
     User->>Claude: @codex "設計を書いて"
     Claude->>IR: パターン検出
@@ -800,7 +800,7 @@ synapse-a2a/
 ├── logs/
 │   ├── <profile>.log
 │   └── input_router.log
-└── file_safety.db          # ファイル競合防止用DB
+└── file_safety.db          # ファイル競合防止用DB（SYNAPSE_FILE_SAFETY_DB_PATH で変更可）
 ```
 
 ---

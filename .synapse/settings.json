@@ -8,7 +8,9 @@
     "SYNAPSE_USE_HTTPS": "false",
     "SYNAPSE_WEBHOOK_SECRET": "",
     "SYNAPSE_WEBHOOK_TIMEOUT": "10",
-    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
   "instructions": {
     "default": "default.md",

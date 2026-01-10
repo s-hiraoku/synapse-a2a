@@ -17,8 +17,11 @@ files simultaneously. To prevent conflicts, you MUST follow these rules:
    ```
 
 3. **If lock fails** (file is locked by another agent):
-   - DO NOT proceed with editing
-   - Wait or notify the user
+   - DO NOT proceed with editing that file
+   - **Skip and continue**: Move on to other tasks that don't require this file
+   - **Come back later**: After completing other work, check if the lock is released
+   - Keep track of skipped files and retry when available
+   - This ensures your work continues and files are eventually updated
 
 ## After Editing
 
@@ -68,4 +71,6 @@ synapse file-safety recent
 - Lock duration is 5 minutes (auto-expires)
 - Always release locks immediately after editing
 - Always record modifications for audit trail
-- If locked by another agent, wait or notify user
+- **Never skip a file permanently** - always come back to retry locked files
+- If multiple files are locked, complete other work first, then retry
+- Use `synapse file-safety locks` periodically to check if locks are released

@@ -749,6 +749,78 @@ def cmd_file_safety_cleanup(args: argparse.Namespace) -> None:
         print(f"Cleaned up {expired_locks} expired locks")
 
 
+def cmd_file_safety_debug(args: argparse.Namespace) -> None:
+    """Show debug information for file safety troubleshooting."""
+    from synapse.file_safety import FileSafetyManager
+
+    print("=" * 60)
+    print("FILE SAFETY DEBUG INFORMATION")
+    print("=" * 60)
+
+    # Environment variables
+    print("\n[Environment Variables]")
+    env_vars = [
+        "SYNAPSE_FILE_SAFETY_ENABLED",
+        "SYNAPSE_FILE_SAFETY_RETENTION_DAYS",
+        "SYNAPSE_LOG_LEVEL",
+    ]
+    for var in env_vars:
+        value = os.environ.get(var, "(not set)")
+        print(f"  {var}: {value}")
+
+    # Settings file locations
+    print("\n[Settings Files]")
+    settings_paths = [
+        Path.cwd() / ".synapse" / "settings.json",
+        Path.home() / ".synapse" / "settings.json",
+    ]
+    for path in settings_paths:
+        status = "exists" if path.exists() else "not found"
+        print(f"  {path}: {status}")
+
+    # Database info
+    print("\n[Database]")
+    manager = FileSafetyManager.from_env()
+    print(f"  Enabled: {manager.enabled}")
+    print(f"  DB Path: {manager.db_path}")
+    print(f"  DB Exists: {Path(manager.db_path).exists()}")
+    print(f"  Retention Days: {manager.retention_days}")
+
+    if manager.enabled:
+        stats = manager.get_statistics()
+        print(f"  Active Locks: {stats['active_locks']}")
+        print(f"  Total Modifications: {stats['total_modifications']}")
+
+    # Instruction files
+    print("\n[Instruction Files]")
+    instruction_files = [
+        Path.cwd() / ".synapse" / "file-safety.md",
+        Path.home() / ".synapse" / "file-safety.md",
+    ]
+    for path in instruction_files:
+        status = "exists" if path.exists() else "not found"
+        print(f"  {path}: {status}")
+
+    # Log file locations
+    print("\n[Log Files]")
+    log_dir = Path.home() / ".synapse" / "logs"
+    if log_dir.exists():
+        log_files = list(log_dir.glob("*.log"))
+        if log_files:
+            for lf in sorted(log_files)[-5:]:  # Show last 5
+                print(f"  {lf}")
+        else:
+            print("  (no log files)")
+    else:
+        print(f"  Log directory not found: {log_dir}")
+
+    print("\n[Debug Tips]")
+    print("  - Enable debug logging: SYNAPSE_LOG_LEVEL=DEBUG synapse ...")
+    print("  - Enable file logging: SYNAPSE_LOG_FILE=true synapse ...")
+    print("  - View active locks: synapse file-safety locks")
+    print("  - View recent mods: synapse file-safety recent")
+
+
 # ============================================================
 # External Agent Management Commands
 # ============================================================
@@ -1830,6 +1902,12 @@ def main() -> None:
         "--force", "-f", action="store_true", help="Skip confirmation prompt"
     )
     p_fs_cleanup.set_defaults(func=cmd_file_safety_cleanup)
+
+    # file-safety debug
+    p_fs_debug = file_safety_subparsers.add_parser(
+        "debug", help="Show debug information for troubleshooting"
+    )
+    p_fs_debug.set_defaults(func=cmd_file_safety_debug)
 
     args = parser.parse_args()
 
