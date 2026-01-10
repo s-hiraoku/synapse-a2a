@@ -94,9 +94,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "resume_flags": {
         # Flags that indicate context resume (skip initial instructions)
         # Customize per agent in .synapse/settings.json
-        "claude": ["--continue", "--resume", "-c"],
-        "codex": [],  # Add flags when confirmed
-        "gemini": [],  # Add flags when confirmed
+        "claude": ["--continue", "--resume", "-c", "-r"],
+        "codex": ["resume"],  # codex resume [--last | <SESSION_ID>]
+        "gemini": ["--resume"],  # gemini --resume [<index|UUID>]
     },
 }
 

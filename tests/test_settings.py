@@ -552,10 +552,15 @@ class TestResumeFlags:
         assert "--resume" in flags
         assert "-c" in flags
 
-    def test_default_resume_flags_for_codex_gemini(self):
-        """Codex and Gemini should have empty default resume flags."""
-        assert DEFAULT_SETTINGS["resume_flags"]["codex"] == []
-        assert DEFAULT_SETTINGS["resume_flags"]["gemini"] == []
+    def test_default_resume_flags_for_codex(self):
+        """Codex should have resume flag."""
+        flags = DEFAULT_SETTINGS["resume_flags"]["codex"]
+        assert "resume" in flags
+
+    def test_default_resume_flags_for_gemini(self):
+        """Gemini should have --resume flag."""
+        flags = DEFAULT_SETTINGS["resume_flags"]["gemini"]
+        assert "--resume" in flags
 
     def test_get_resume_flags_returns_list(self):
         """get_resume_flags should return a list."""
@@ -589,10 +594,14 @@ class TestResumeFlags:
         assert settings.is_resume_mode("claude", ["--continue", "--verbose"]) is True
         assert settings.is_resume_mode("claude", ["-p", "prompt", "-c"]) is True
 
-    def test_is_resume_mode_empty_flags_agent(self):
-        """is_resume_mode should return False for agents with empty flags."""
+    def test_is_resume_mode_codex_gemini(self):
+        """is_resume_mode should work for codex and gemini."""
         settings = SynapseSettings.from_defaults()
-        assert settings.is_resume_mode("codex", ["--resume"]) is False
+        # Codex uses "resume" subcommand
+        assert settings.is_resume_mode("codex", ["resume", "--last"]) is True
+        assert settings.is_resume_mode("codex", ["--help"]) is False
+        # Gemini uses "--resume" flag
+        assert settings.is_resume_mode("gemini", ["--resume"]) is True
         assert settings.is_resume_mode("gemini", ["--continue"]) is False
 
     def test_resume_flags_custom_settings(self):
