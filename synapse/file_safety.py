@@ -1030,7 +1030,9 @@ class FileSafetyManager:
         """Delete modification records older than specified days.
 
         Args:
-            days: Delete records older than this many days
+            days: Delete records older than this many days.
+                  Use 0 to skip cleanup (no records deleted).
+                  Negative values are invalid and will be rejected.
 
         Returns:
             Number of records deleted
@@ -1038,11 +1040,15 @@ class FileSafetyManager:
         if not self.enabled:
             return 0
 
-        # Validate days is a positive integer to prevent SQL injection
-        if not isinstance(days, int) or days <= 0:
+        # Validate days is a non-negative integer
+        if not isinstance(days, int) or days < 0:
             import sys
 
             print(f"Warning: Invalid days parameter: {days}", file=sys.stderr)
+            return 0
+
+        # days=0 means skip cleanup (consistent with _auto_cleanup behavior)
+        if days == 0:
             return 0
 
         with self._lock:
