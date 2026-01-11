@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
 
@@ -55,11 +57,20 @@ class ListCommand:
                 output.append(f"  {agent_type}: {start}-{end}")
             return "\n".join(output)
 
+        file_safety = FileSafetyManager.from_env()
+        show_file_safety = file_safety.enabled
+
         lines = []
-        header = (
-            f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-            f"{'WORKING_DIR':<50} ENDPOINT"
-        )
+        if show_file_safety:
+            header = (
+                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+                f"{'WORKING_DIR':<50} {'EDITING FILE':<30} ENDPOINT"
+            )
+        else:
+            header = (
+                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+                f"{'WORKING_DIR':<50} ENDPOINT"
+            )
         lines.append(header)
         lines.append("-" * len(header))
 
@@ -86,14 +97,29 @@ class ListCommand:
                 continue
 
             live_agents = True
-            lines.append(
-                f"{info.get('agent_type', 'unknown'):<10} "
-                f"{info.get('port', '-'):<8} "
-                f"{status:<12} "
-                f"{pid or '-':<8} "
-                f"{info.get('working_dir', '-'):<50} "
-                f"{info.get('endpoint', '-')}"
-            )
+            if show_file_safety:
+                locks = file_safety.list_locks(agent_id)
+                editing_file = "-"
+                if locks:
+                    editing_file = os.path.basename(locks[0].get("file_path", "-"))
+                lines.append(
+                    f"{info.get('agent_type', 'unknown'):<10} "
+                    f"{info.get('port', '-'):<8} "
+                    f"{status:<12} "
+                    f"{pid or '-':<8} "
+                    f"{info.get('working_dir', '-'):<50} "
+                    f"{editing_file:<30} "
+                    f"{info.get('endpoint', '-')}"
+                )
+            else:
+                lines.append(
+                    f"{info.get('agent_type', 'unknown'):<10} "
+                    f"{info.get('port', '-'):<8} "
+                    f"{status:<12} "
+                    f"{pid or '-':<8} "
+                    f"{info.get('working_dir', '-'):<50} "
+                    f"{info.get('endpoint', '-')}"
+                )
 
         # If all agents were dead, show empty registry message
         if not live_agents:
