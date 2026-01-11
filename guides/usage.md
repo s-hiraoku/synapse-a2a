@@ -204,14 +204,24 @@ synapse list
 **出力例**:
 
 ```
-TYPE       PORT     STATUS     PID      EDITING FILE        ENDPOINT
---------------------------------------------------------------------------------------
-claude     8100     READY      12345    auth.py             http://localhost:8100
-codex      8120     PROCESSING 12346    -                   http://localhost:8120
-gemini     8110     READY      12347    -                   http://localhost:8110
+TYPE       PORT     STATUS     PID      WORKING_DIR                                        ENDPOINT
+--------------------------------------------------------------------------------------------------------------
+claude     8100     READY      12345    /home/user/projects/myapp                          http://localhost:8100
+codex      8120     PROCESSING 12346    /home/user/projects/myapp                          http://localhost:8120
+gemini     8110     READY      12347    -                                                  http://localhost:8110
 ```
 
-> **Note**: File Safety 機能が有効な場合、`EDITING FILE` 列に現在編集中のファイル名が表示されます。
+**File Safety 機能が有効な場合の出力例**:
+
+```
+TYPE       PORT     STATUS     PID      WORKING_DIR                                        EDITING FILE                   ENDPOINT
+------------------------------------------------------------------------------------------------------------------------------------------
+claude     8100     READY      12345    /home/user/projects/myapp                          auth.py                        http://localhost:8100
+codex      8120     PROCESSING 12346    /home/user/projects/myapp                          -                              http://localhost:8120
+gemini     8110     READY      12347    -                                                  -                              http://localhost:8110
+```
+
+> **Note**: `WORKING_DIR` 列には各エージェントの作業ディレクトリが表示されます。File Safety 機能が有効な場合は、`EDITING FILE` 列に現在編集中のファイル名が追加で表示されます。
 
 ---
 

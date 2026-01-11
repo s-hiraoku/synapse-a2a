@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -10,6 +11,8 @@ import requests
 
 from synapse.history import HistoryManager
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
+
+logger = logging.getLogger(__name__)
 
 
 def _get_history_manager() -> HistoryManager:
@@ -161,8 +164,9 @@ def _record_sent_message(
             metadata["sender"] = sender_info
 
         # Save to history
+        # Use task_id as-is; direction is already recorded in metadata
         history.save_observation(
-            task_id=f"sent-{task_id}",
+            task_id=task_id,
             agent_name=sender_name,
             session_id="a2a-send",
             input_text=f"@{target_agent.get('agent_type')} {message}",
@@ -171,8 +175,8 @@ def _record_sent_message(
             metadata=metadata,
         )
     except Exception:
-        # Non-critical error - silently ignore
-        pass
+        # Non-critical error - log at debug level for troubleshooting
+        logger.debug("Failed to record sent message to history", exc_info=True)
 
 
 def cmd_send(args: argparse.Namespace) -> None:

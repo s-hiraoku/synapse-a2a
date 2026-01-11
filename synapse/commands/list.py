@@ -103,7 +103,9 @@ class ListCommand:
                 locks = file_safety.list_locks(agent_type)
                 editing_file = "-"
                 if locks:
-                    editing_file = os.path.basename(locks[0].get("file_path", "-"))
+                    file_path = locks[0].get("file_path")
+                    if file_path:
+                        editing_file = os.path.basename(file_path)
                 lines.append(
                     f"{info.get('agent_type', 'unknown'):<10} "
                     f"{info.get('port', '-'):<8} "
