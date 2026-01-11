@@ -10,7 +10,7 @@ You are operating in a shared multi-agent environment.
 2. **NEVER** ignore a lock failure. If locked by another agent, YOU MUST WAIT.
 3. **ALWAYS** release the lock immediately after editing.
 
-## Mandatory Workflow (Do NOT deviation)
+## Mandatory Workflow (Do NOT deviate)
 
 ### 1. ACQUIRE LOCK (Required)
 Before ANY `write_file`, `replace`, or shell command that modifies files:
