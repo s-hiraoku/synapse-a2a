@@ -105,15 +105,16 @@ synapse start codex --foreground
 実行中のエージェントを停止します。
 
 ```bash
-synapse stop <profile>
+synapse stop <profile|id>
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `profile` | Yes | 停止するプロファイル名 |
+| `profile` または `id` | Yes | 停止するプロファイル名、またはエージェントID |
+| `--all`, `-a` | No | 指定したプロファイルの全インスタンスを停止（ID指定時は無視） |
 
 **動作**:
-1. Registry からエージェントを検索
+1. Registry からエージェントを検索（ID完全一致またはプロファイル名）
 2. PID に SIGTERM を送信
 3. Registry から登録解除
 
@@ -124,8 +125,13 @@ synapse stop <profile>
 実行中のエージェント一覧を表示します。
 
 ```bash
-synapse list
+synapse list [--watch] [--interval SECONDS]
 ```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--watch`, `-w` | No | ウォッチモード（リアルタイム更新） |
+| `--interval`, `-i` | No | 更新間隔（秒）（デフォルト: 2.0） |
 
 **出力形式**:
 

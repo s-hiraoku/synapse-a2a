@@ -426,7 +426,8 @@ synapse claude -- --resume
 | --------------------------------- | ---------------------- |
 | `synapse <profile>`               | フォアグラウンドで起動 |
 | `synapse start <profile>`         | バックグラウンドで起動 |
-| `synapse stop <profile>`          | エージェント停止       |
+| `synapse stop <profile\|id>`      | エージェント停止（ID指定も可） |
+| `synapse --version`             | バージョン情報表示     |
 | `synapse list`                    | 実行中エージェント一覧 |
 | `synapse logs <profile>`          | ログ表示               |
 | `synapse send <target> <message>` | メッセージ送信         |
