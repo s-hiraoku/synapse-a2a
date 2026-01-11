@@ -204,14 +204,14 @@ synapse list
 **出力例**:
 
 ```
-TYPE       PORT     STATUS     PID      LOCKED FILE         ENDPOINT
+TYPE       PORT     STATUS     PID      EDITING FILE        ENDPOINT
 --------------------------------------------------------------------------------------
 claude     8100     READY      12345    auth.py             http://localhost:8100
 codex      8120     PROCESSING 12346    -                   http://localhost:8120
 gemini     8110     READY      12347    -                   http://localhost:8110
 ```
 
-> **Note**: File Safety 機能が有効な場合、`LOCKED FILE` 列に現在ロック中のファイル名が表示されます。
+> **Note**: File Safety 機能が有効な場合、`EDITING FILE` 列に現在編集中のファイル名が表示されます。
 
 ---
 
@@ -663,7 +663,6 @@ done
 # ステータス確認
 curl http://localhost:8120/status
 
-# CodeRabbit fix: Updated IDLE to READY status terminology
 # READY なのに作業が終わっていない場合に nudge
 synapse send --target codex --priority 1 "進捗を報告して"
 
