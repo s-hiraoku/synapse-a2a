@@ -1549,6 +1549,13 @@ def main() -> None:
         cmd_run_interactive(profile, port, tool_args)
         return
 
+    from importlib.metadata import version
+
+    try:
+        pkg_version = version("synapse-a2a")
+    except Exception:
+        pkg_version = "unknown"
+
     parser = argparse.ArgumentParser(
         description="""Synapse A2A - Multi-Agent Collaboration Framework
 
@@ -1570,6 +1577,9 @@ Environment Variables:
   SYNAPSE_AUTH_ENABLED=true         Enable API key authentication
 
 Documentation: https://github.com/s-hiraoku/synapse-a2a""",
+    )
+    parser.add_argument(
+        "--version", "-V", action="version", version=f"%(prog)s {pkg_version}"
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
