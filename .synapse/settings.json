@@ -19,7 +19,7 @@
     "codex": ""
   },
   "delegation": {
-    "mode": "orchestrator"
+    "mode": "off"
   },
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],

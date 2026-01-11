@@ -5,7 +5,7 @@ import time
 sigint_count = 0
 
 
-def handle_sigint(signum, frame):
+def handle_sigint(signum: int, frame: object) -> None:
     global sigint_count
     sigint_count += 1
     if sigint_count >= 2:
