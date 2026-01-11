@@ -11,16 +11,16 @@ hooks:
   post_create:
     # Example: Copy gitignored files from MAIN worktree to new worktree
     # Note: 'from' is relative to main worktree, 'to' is relative to new worktree
-     - type: copy
-       from: .env        # Copy actual .env file (gitignored)
-       to: .env
+    - type: copy
+      from: .env # Copy actual .env file (gitignored)
+      to: .env
 
     # Example: Run a command to show all worktrees
     - type: command
       command: wtp list
 
     # More examples (commented out):
-    
+
     # Copy AI context files (typically gitignored):
     # - type: copy
     #   from: .claude     # Claude AI context
@@ -28,7 +28,7 @@ hooks:
     # - type: copy
     #   from: .cursor/    # Cursor IDE settings
     #   to: .cursor/
-    
+
     # Run setup commands:
     # - type: command
     #   command: npm install
