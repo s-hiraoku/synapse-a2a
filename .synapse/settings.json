@@ -20,5 +20,10 @@
   },
   "delegation": {
     "mode": "orchestrator"
+  },
+  "resume_flags": {
+    "claude": ["--continue", "--resume", "-c", "-r"],
+    "codex": ["resume"],
+    "gemini": ["--resume"]
   }
 }
