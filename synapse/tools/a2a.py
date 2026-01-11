@@ -3,10 +3,19 @@ import json
 import os
 import subprocess
 import sys
+import uuid
+from pathlib import Path
 
 import requests
 
+from synapse.history import HistoryManager
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
+
+
+def _get_history_manager() -> HistoryManager:
+    """Get history manager instance from environment."""
+    db_path = str(Path.home() / ".synapse" / "history.db")
+    return HistoryManager.from_env(db_path)
 
 
 def get_parent_pid(pid: int) -> int:
@@ -108,6 +117,62 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
         print("No stale entries found.")
 
 
+def _record_sent_message(
+    task_id: str,
+    target_agent: dict[str, object],
+    message: str,
+    priority: int,
+    sender_info: dict[str, str] | None,
+) -> None:
+    """Record sent message to history database.
+
+    Args:
+        task_id: The task ID returned from the target agent
+        target_agent: Target agent information dict
+        message: The message that was sent
+        priority: Priority level (1-5)
+        sender_info: Sender information dict (optional)
+    """
+    history = _get_history_manager()
+    if not history.enabled:
+        return
+
+    try:
+        # Determine sender agent name
+        sender_name = "user"
+        if sender_info:
+            sender_id = sender_info.get("sender_id", "")
+            if sender_id:
+                # Extract agent type from sender_id (e.g., "synapse-claude-8100" -> "claude")
+                parts = sender_id.split("-")
+                if len(parts) >= 2:
+                    sender_name = parts[1]
+
+        # Build metadata
+        metadata = {
+            "direction": "sent",
+            "target_agent_id": target_agent.get("agent_id"),
+            "target_agent_type": target_agent.get("agent_type"),
+            "priority": priority,
+        }
+        if sender_info:
+            metadata["sender"] = sender_info
+
+        # Save to history
+        history.save_observation(
+            task_id=f"sent-{task_id}",
+            agent_name=sender_name,
+            session_id="a2a-send",
+            input_text=f"@{target_agent.get('agent_type')} {message}",
+            output_text=f"Task sent to {target_agent.get('agent_id')}",
+            status="sent",
+            metadata=metadata,
+        )
+    except Exception:
+        # Non-critical error - silently ignore
+        pass
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
@@ -194,11 +259,21 @@ def cmd_send(args: argparse.Namespace) -> None:
         resp.raise_for_status()
         result = resp.json()
         task = result.get("task", result)
+        task_id = task.get("id", str(uuid.uuid4()))
         print(
             f"Success: Task created for {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)"
         )
-        print(f"  Task ID: {task.get('id', 'N/A')}")
+        print(f"  Task ID: {task_id}")
         print(f"  Status: {task.get('status', 'N/A')}")
+
+        # Record sent message to history
+        _record_sent_message(
+            task_id=task_id,
+            target_agent=target_agent,
+            message=args.message,
+            priority=args.priority,
+            sender_info=sender_info,
+        )
 
     except requests.RequestException as e:
         print(f"Error sending message: {e}", file=sys.stderr)
