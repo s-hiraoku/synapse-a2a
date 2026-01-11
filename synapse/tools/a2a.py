@@ -133,19 +133,21 @@ def _record_sent_message(
         priority: Priority level (1-5)
         sender_info: Sender information dict (optional)
     """
-    history = _get_history_manager()
-    if not history.enabled:
-        return
-
     try:
+        history = _get_history_manager()
+        if not history.enabled:
+            return
+
         # Determine sender agent name
         sender_name = "user"
         if sender_info:
-            sender_id = sender_info.get("sender_id", "")
-            if sender_id:
-                # Extract agent type from sender_id (e.g., "synapse-claude-8100" -> "claude")
-                parts = sender_id.split("-")
-                if len(parts) >= 2:
+            # Prefer explicit sender_type if available
+            sender_name = sender_info.get("sender_type") or sender_name
+            # Fallback: extract from sender_id (e.g., "synapse-claude-8100" -> "claude")
+            if sender_name == "user":
+                sender_id = sender_info.get("sender_id", "")
+                parts = sender_id.split("-") if sender_id else []
+                if len(parts) >= 3 and parts[0] == "synapse":
                     sender_name = parts[1]
 
         # Build metadata
