@@ -40,6 +40,10 @@
 
 ## Commit & Pull Request Guidelines
 
+- **Branch Management (Mandatory):**
+  - **Do NOT commit directly to the `main` branch.**
+  - **Always create a separate branch for your changes.**
+  - **Submit a Pull Request (PR) for all modifications.**
 - Commit messages follow Conventional Commits (examples in history):
   `feat:`, `fix:`, `refactor:`, `docs:`, `test:` + concise subject.
 - PRs should include: a short summary, rationale, and tests run (e.g., `pytest -v`).
