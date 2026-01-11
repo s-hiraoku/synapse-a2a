@@ -105,15 +105,15 @@ synapse start codex --foreground
 実行中のエージェントを停止します。
 
 ```bash
-synapse stop <profile>
+synapse stop <profile|id>
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `profile` | Yes | 停止するプロファイル名 |
+| `profile` または `id` | Yes | 停止するプロファイル名、またはエージェントID |
 
 **動作**:
-1. Registry からエージェントを検索
+1. Registry からエージェントを検索（ID完全一致またはプロファイル名）
 2. PID に SIGTERM を送信
 3. Registry から登録解除
 

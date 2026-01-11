@@ -169,7 +169,8 @@ flowchart TB
 |---------|------|
 | `synapse <profile>` | インタラクティブ起動（ショートカット） |
 | `synapse start <profile>` | バックグラウンド起動 |
-| `synapse stop <profile>` | エージェント停止 |
+| `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
+| `synapse --version` | バージョン情報表示 |
 | `synapse list` | 実行中エージェント一覧 |
 | `synapse send` | メッセージ送信 |
 | `synapse logs <profile>` | ログ表示 |
@@ -191,6 +192,9 @@ synapse start claude --port 8100 --foreground
 
 # 停止
 synapse stop claude
+
+# IDを指定して停止（推奨：より確実です）
+synapse stop synapse-claude-8100
 ```
 
 ---
