@@ -781,7 +781,8 @@ class TestSentMessageHistory:
         # Verify history was recorded
         mock_history.save_observation.assert_called_once()
         call_kwargs = mock_history.save_observation.call_args[1]
-        assert call_kwargs["task_id"] == "sent-task-456"
+        # task_id is stored without prefix; direction is tracked in metadata
+        assert call_kwargs["task_id"] == "task-456"
         assert call_kwargs["status"] == "sent"
         assert "@codex test message" in call_kwargs["input_text"]
         assert "direction" in call_kwargs["metadata"]
