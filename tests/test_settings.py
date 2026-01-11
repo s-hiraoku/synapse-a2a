@@ -479,38 +479,96 @@ class TestOptionalInstructions:
 class TestSkillInstallation:
     """Test skill installation functionality.
 
-    Note: Skills are now distributed via Claude Code plugin marketplace.
-    The _install_skills_to_dir function is deprecated and returns an empty list.
-    These tests verify the deprecated behavior.
+    Skills are distributed via Claude Code plugin marketplace for Claude.
+    Codex does not support plugins, so skills are copied from .claude to .codex.
     """
 
-    def test_install_skills_to_dir_returns_empty(self):
-        """Test _install_skills_to_dir returns empty list (deprecated)."""
+    def test_install_skills_returns_empty_when_no_source(self):
+        """Test _install_skills_to_dir returns empty when .claude/skills doesn't exist."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            # Install skills - should return empty list (deprecated)
+            # No .claude/skills/synapse-a2a exists
             installed = _install_skills_to_dir(base_dir, force=False)
 
-            # Skills are now installed via plugin marketplace
             assert len(installed) == 0
 
-    def test_install_skills_to_dir_with_force_returns_empty(self):
-        """Test _install_skills_to_dir returns empty list even with force=True."""
+    def test_install_skills_copies_to_codex(self):
+        """Test _install_skills_to_dir copies skills from .claude to .codex."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            # Install with force - should still return empty list
+            # Create source .claude/skills/synapse-a2a
+            claude_skills = base_dir / ".claude" / "skills" / "synapse-a2a"
+            claude_skills.mkdir(parents=True)
+            (claude_skills / "SKILL.md").write_text("# Test Skill")
+            (claude_skills / "references").mkdir()
+            (claude_skills / "references" / "api.md").write_text("# API")
+
+            # Install skills
+            installed = _install_skills_to_dir(base_dir, force=False)
+
+            # Should copy to .codex
+            assert len(installed) == 1
+            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
+            assert codex_skills.exists()
+            assert (codex_skills / "SKILL.md").read_text() == "# Test Skill"
+            assert (codex_skills / "references" / "api.md").read_text() == "# API"
+
+    def test_install_skills_skips_existing_codex(self):
+        """Test _install_skills_to_dir skips if .codex/skills already exists."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            # Create source
+            claude_skills = base_dir / ".claude" / "skills" / "synapse-a2a"
+            claude_skills.mkdir(parents=True)
+            (claude_skills / "SKILL.md").write_text("# New Skill")
+
+            # Create existing destination
+            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
+            codex_skills.mkdir(parents=True)
+            (codex_skills / "SKILL.md").write_text("# Old Skill")
+
+            # Install without force
+            installed = _install_skills_to_dir(base_dir, force=False)
+
+            # Should not overwrite
+            assert len(installed) == 0
+            assert (codex_skills / "SKILL.md").read_text() == "# Old Skill"
+
+    def test_install_skills_overwrites_with_force(self):
+        """Test _install_skills_to_dir overwrites .codex/skills with force=True."""
+        from synapse.cli import _install_skills_to_dir
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+
+            # Create source
+            claude_skills = base_dir / ".claude" / "skills" / "synapse-a2a"
+            claude_skills.mkdir(parents=True)
+            (claude_skills / "SKILL.md").write_text("# New Skill")
+
+            # Create existing destination
+            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
+            codex_skills.mkdir(parents=True)
+            (codex_skills / "SKILL.md").write_text("# Old Skill")
+
+            # Install with force
             installed = _install_skills_to_dir(base_dir, force=True)
 
-            assert len(installed) == 0
+            # Should overwrite
+            assert len(installed) == 1
+            assert (codex_skills / "SKILL.md").read_text() == "# New Skill"
 
-    def test_install_skills_does_not_create_directories(self):
-        """Test _install_skills_to_dir does not create any directories."""
+    def test_install_skills_no_directories_without_source(self):
+        """Test _install_skills_to_dir does not create directories without source."""
         from synapse.cli import _install_skills_to_dir
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -518,23 +576,9 @@ class TestSkillInstallation:
 
             _install_skills_to_dir(base_dir, force=False)
 
-            # No top-level provider directories should be created
-            claude_dir = base_dir / ".claude"
+            # No directories should be created when source doesn't exist
             codex_dir = base_dir / ".codex"
-            gemini_dir = base_dir / ".gemini"
-
-            assert not claude_dir.exists()
             assert not codex_dir.exists()
-            assert not gemini_dir.exists()
-
-            # No skill subdirectories should be created either
-            claude_skills = base_dir / ".claude" / "skills"
-            codex_skills = base_dir / ".codex" / "skills"
-            gemini_skills = base_dir / ".gemini" / "skills"
-
-            assert not claude_skills.exists()
-            assert not codex_skills.exists()
-            assert not gemini_skills.exists()
 
 
 class TestResumeFlags:

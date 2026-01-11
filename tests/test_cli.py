@@ -1267,10 +1267,12 @@ class TestInstallSkills:
     """Tests for install_skills function."""
 
     def test_install_skills_skips_existing(self, temp_synapse_dir, monkeypatch):
-        """Should skip installation when skills already exist."""
-        # Create existing skill directory
-        skill_dir = temp_synapse_dir / ".claude" / "skills" / "synapse-a2a"
-        skill_dir.mkdir(parents=True)
+        """Should skip installation when skills already exist in both .claude and .codex."""
+        # Create existing skill directories in both .claude and .codex
+        claude_skill_dir = temp_synapse_dir / ".claude" / "skills" / "synapse-a2a"
+        claude_skill_dir.mkdir(parents=True)
+        codex_skill_dir = temp_synapse_dir / ".codex" / "skills" / "synapse-a2a"
+        codex_skill_dir.mkdir(parents=True)
 
         monkeypatch.setattr(Path, "home", lambda: temp_synapse_dir)
 

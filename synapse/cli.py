@@ -29,7 +29,7 @@ KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 
 def install_skills() -> None:
-    """Install Synapse A2A skills to ~/.claude/skills/ if not present."""
+    """Install Synapse A2A skills to ~/.claude/skills/ and copy to ~/.codex/skills/."""
     try:
         import synapse
 
@@ -37,22 +37,40 @@ def install_skills() -> None:
         skills_to_install = ["synapse-a2a", "delegation"]
 
         for skill_name in skills_to_install:
-            target_dir = Path.home() / ".claude" / "skills" / skill_name
+            claude_target = Path.home() / ".claude" / "skills" / skill_name
 
-            # Skip if already installed
-            if target_dir.exists():
+            # Skip if already installed in .claude
+            if claude_target.exists():
+                # Still try to copy to .codex if not present
+                _copy_skill_to_codex(claude_target, skill_name)
                 continue
 
             source_dir = package_dir / "skills" / skill_name
 
             if source_dir.exists():
-                target_dir.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(source_dir, target_dir)
+                claude_target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_dir, claude_target)
                 print(
-                    f"\x1b[32m[Synapse]\x1b[0m Installed {skill_name} skill to {target_dir}"
+                    f"\x1b[32m[Synapse]\x1b[0m Installed {skill_name} skill to {claude_target}"
                 )
+                # Copy to .codex as well
+                _copy_skill_to_codex(claude_target, skill_name)
     except Exception:
         # Silently ignore installation errors
+        pass
+
+
+def _copy_skill_to_codex(source_dir: Path, skill_name: str) -> None:
+    """Copy a skill from .claude to .codex (Codex doesn't support plugins)."""
+    try:
+        codex_target = Path.home() / ".codex" / "skills" / skill_name
+        if codex_target.exists():
+            return
+        codex_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_dir, codex_target)
+        print(f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {codex_target}")
+    except Exception:
+        # Silently ignore copy errors
         pass
 
 
@@ -1036,24 +1054,57 @@ def _write_default_settings(path: Path) -> bool:
 
 def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
     """
-    Install synapse skills to .claude and .codex directories.
+    Copy synapse-a2a skills from .claude to .codex directory.
 
-    Note: Skills are now distributed via Claude Code plugin marketplace.
-    This function is deprecated and returns an empty list.
-    Users should install skills via:
+    Claude Code supports plugins, so skills are installed via:
         /plugin marketplace add s-hiraoku/synapse-a2a
         /plugin install synapse-a2a@s-hiraoku/synapse-a2a
 
+    Codex does not support plugins, so this function copies the skills
+    from .claude/skills/synapse-a2a to .codex/skills/synapse-a2a.
+
     Args:
         base_dir: Base directory (e.g., Path.home() or Path.cwd())
-        force: If True, overwrite existing skills
+        force: If True, overwrite existing skills in .codex
 
     Returns:
-        Empty list (skills are now installed via plugin marketplace)
+        List of paths where skills were installed
     """
-    # Skills are now distributed via Claude Code plugin marketplace
-    # See: https://github.com/s-hiraoku/synapse-a2a/tree/main/plugins
-    return []
+    installed: list[str] = []
+
+    # Source: .claude/skills/synapse-a2a (installed via plugin marketplace)
+    claude_skills_path = base_dir / ".claude" / "skills" / "synapse-a2a"
+
+    # Destination: .codex/skills/synapse-a2a
+    codex_skills_path = base_dir / ".codex" / "skills" / "synapse-a2a"
+
+    # Only copy if source exists
+    if not claude_skills_path.exists():
+        return installed
+
+    # Check if destination already exists
+    if codex_skills_path.exists() and not force:
+        return installed
+
+    # Copy skills to .codex
+    try:
+        import shutil
+
+        # Create parent directories
+        codex_skills_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Remove existing if force
+        if codex_skills_path.exists() and force:
+            shutil.rmtree(codex_skills_path)
+
+        # Copy directory tree
+        shutil.copytree(claude_skills_path, codex_skills_path)
+        installed.append(str(codex_skills_path))
+    except OSError:
+        # Silently ignore copy errors
+        pass
+
+    return installed
 
 
 def cmd_init(args: argparse.Namespace) -> None:
