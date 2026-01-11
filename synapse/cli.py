@@ -1550,38 +1550,93 @@ def main() -> None:
         return
 
     parser = argparse.ArgumentParser(
-        description="Synapse A2A - Agent-to-Agent Communication",
+        description="""Synapse A2A - Multi-Agent Collaboration Framework
+
+Synapse wraps CLI agents (Claude Code, Codex, Gemini) with Google A2A Protocol,
+enabling seamless inter-agent communication and task delegation.""",
         prog="synapse",
-        epilog="Shortcuts: synapse claude, synapse gemini --port 8102",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse claude                    Start Claude agent (interactive mode)
+  synapse gemini --port 8111        Start Gemini on specific port
+  synapse claude -- --continue      Pass --continue flag to Claude Code
+  synapse list -w                   Watch running agents in real-time
+  synapse send codex "Review this"  Send message to Codex agent
+  synapse history list              View task history
+
+Environment Variables:
+  SYNAPSE_HISTORY_ENABLED=true      Enable task history tracking
+  SYNAPSE_FILE_SAFETY_ENABLED=true  Enable file locking for multi-agent safety
+  SYNAPSE_AUTH_ENABLED=true         Enable API key authentication
+
+Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     )
-    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     # start (background)
-    p_start = subparsers.add_parser("start", help="Start an agent in background")
-    p_start.add_argument("profile", help="Agent profile (claude, codex, gemini, dummy)")
-    p_start.add_argument("--port", type=int, help="Server port (default: auto)")
-    p_start.add_argument(
-        "--foreground", "-f", action="store_true", help="Run in foreground"
+    p_start = subparsers.add_parser(
+        "start",
+        help="Start an agent in background mode",
+        description="Start an agent as a background daemon process with A2A server.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse start claude              Start Claude in background
+  synapse start gemini --port 8111  Start Gemini on specific port
+  synapse start claude -f           Start in foreground (attached)
+  synapse start claude -- --resume  Pass --resume to Claude Code""",
     )
-    p_start.add_argument("--ssl-cert", help="SSL certificate file path (enables HTTPS)")
-    p_start.add_argument("--ssl-key", help="SSL private key file path")
+    p_start.add_argument(
+        "profile",
+        help="Agent profile to start (claude, codex, gemini, dummy)",
+    )
+    p_start.add_argument(
+        "--port",
+        type=int,
+        help="A2A server port (default: auto-assigned from profile range)",
+    )
+    p_start.add_argument(
+        "--foreground", "-f", action="store_true", help="Run in foreground (attached)"
+    )
+    p_start.add_argument("--ssl-cert", help="SSL certificate file for HTTPS")
+    p_start.add_argument("--ssl-key", help="SSL private key file for HTTPS")
     p_start.add_argument(
         "tool_args",
         nargs=argparse.REMAINDER,
-        help="Arguments after -- are passed to the CLI tool",
+        help="Arguments after -- are passed to the underlying CLI tool",
     )
     p_start.set_defaults(func=cmd_start)
 
     # stop
-    p_stop = subparsers.add_parser("stop", help="Stop an agent")
-    p_stop.add_argument("profile", help="Agent profile to stop")
+    p_stop = subparsers.add_parser(
+        "stop",
+        help="Stop a running agent",
+        description="Stop a running agent by profile name.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse stop claude      Stop the oldest Claude instance
+  synapse stop gemini -a   Stop all Gemini instances""",
+    )
+    p_stop.add_argument("profile", help="Agent profile to stop (claude, codex, gemini)")
     p_stop.add_argument(
         "--all", "-a", action="store_true", help="Stop all instances of this profile"
     )
     p_stop.set_defaults(func=cmd_stop)
 
     # list
-    p_list = subparsers.add_parser("list", help="List running agents")
+    p_list = subparsers.add_parser(
+        "list",
+        help="List running agents",
+        description="Show all running Synapse agents with their status and ports.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse list           Show all running agents
+  synapse list -w        Watch mode (auto-refresh every 2s)
+  synapse list -w -i 1   Watch mode with 1s refresh interval
+
+Status meanings:
+  READY       Agent is idle and waiting for input
+  PROCESSING  Agent is actively processing a task""",
+    )
     p_list.add_argument(
         "--watch",
         "-w",
@@ -1593,33 +1648,81 @@ def main() -> None:
         "-i",
         type=float,
         default=2.0,
-        help="Refresh interval in seconds (default: 2.0, only used with --watch)",
+        help="Refresh interval in seconds (default: 2.0)",
     )
     p_list.set_defaults(func=cmd_list)
 
     # logs
-    p_logs = subparsers.add_parser("logs", help="Show agent logs")
-    p_logs.add_argument("profile", help="Agent profile")
-    p_logs.add_argument("-f", "--follow", action="store_true", help="Follow log output")
+    p_logs = subparsers.add_parser(
+        "logs",
+        help="Show agent logs",
+        description="View log output for a specific agent profile.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse logs claude        Show last 50 lines of Claude logs
+  synapse logs gemini -f     Follow Gemini logs in real-time
+  synapse logs codex -n 100  Show last 100 lines
+
+Log files are stored in: ~/.synapse/logs/""",
+    )
+    p_logs.add_argument("profile", help="Agent profile (claude, codex, gemini)")
     p_logs.add_argument(
-        "-n", "--lines", type=int, default=50, help="Number of lines to show"
+        "-f", "--follow", action="store_true", help="Follow log output (like tail -f)"
+    )
+    p_logs.add_argument(
+        "-n",
+        "--lines",
+        type=int,
+        default=50,
+        help="Number of lines to show (default: 50)",
     )
     p_logs.set_defaults(func=cmd_logs)
 
     # send
-    p_send = subparsers.add_parser("send", help="Send a message to an agent")
+    p_send = subparsers.add_parser(
+        "send",
+        help="Send a message to an agent",
+        description="Send an A2A message to a running agent.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse send claude "Hello"            Send message to Claude
+  synapse send codex "Review this" -p 3  Send with normal priority
+  synapse send gemini "Write tests" -p 5 Send with critical priority
+
+Priority levels:
+  1-2  Low priority, background tasks
+  3    Normal tasks (default: 1)
+  4    Urgent follow-ups
+  5    Critical/emergency tasks""",
+    )
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
     p_send.add_argument("message", help="Message to send")
-    p_send.add_argument("--priority", "-p", type=int, default=1, help="Priority (1-5)")
+    p_send.add_argument(
+        "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
+    )
     p_send.add_argument(
         "--return", "-r", dest="wait", action="store_true", help="Wait for response"
     )
     p_send.set_defaults(func=cmd_send)
 
     # history - Task history management
-    p_history = subparsers.add_parser("history", help="View and manage task history")
+    p_history = subparsers.add_parser(
+        "history",
+        help="View and manage task history",
+        description="""View and manage A2A task history.
+
+Requires SYNAPSE_HISTORY_ENABLED=true to be set.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse history list                  List recent tasks
+  synapse history list -a claude -n 20  List 20 Claude tasks
+  synapse history show <task_id>        Show task details
+  synapse history search "test"         Search for tasks
+  synapse history stats                 Show usage statistics
+  synapse history export -f csv -o tasks.csv  Export to CSV""",
+    )
     history_subparsers = p_history.add_subparsers(
-        dest="history_command", help="History commands"
+        dest="history_command", metavar="SUBCOMMAND"
     )
 
     # history list
@@ -1738,9 +1841,22 @@ def main() -> None:
     p_hist_export.set_defaults(func=cmd_history_export)
 
     # external - External A2A agent management
-    p_external = subparsers.add_parser("external", help="Manage external A2A agents")
+    p_external = subparsers.add_parser(
+        "external",
+        help="Manage external A2A agents",
+        description="""Connect to and manage external A2A-compatible agents.
+
+External agents are non-local agents accessible via HTTP/HTTPS.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse external add https://agent.example.com -a myagent
+  synapse external list
+  synapse external send myagent "Hello"
+  synapse external info myagent
+  synapse external remove myagent""",
+    )
     external_subparsers = p_external.add_subparsers(
-        dest="external_command", help="External agent commands"
+        dest="external_command", metavar="SUBCOMMAND"
     )
 
     # external add
@@ -1775,8 +1891,19 @@ def main() -> None:
     p_ext_info.set_defaults(func=cmd_external_info)
 
     # auth - Authentication management
-    p_auth = subparsers.add_parser("auth", help="Manage API key authentication")
-    auth_subparsers = p_auth.add_subparsers(dest="auth_command", help="Auth commands")
+    p_auth = subparsers.add_parser(
+        "auth",
+        help="Manage API key authentication",
+        description="""Generate and manage API keys for secure A2A communication.
+
+Enable authentication with SYNAPSE_AUTH_ENABLED=true.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse auth setup         Generate keys and show setup instructions
+  synapse auth generate-key  Generate a single API key
+  synapse auth generate-key -n 3 -e  Generate 3 keys in export format""",
+    )
+    auth_subparsers = p_auth.add_subparsers(dest="auth_command", metavar="SUBCOMMAND")
 
     # auth generate-key
     p_auth_gen = auth_subparsers.add_parser(
@@ -1798,18 +1925,37 @@ def main() -> None:
 
     # init - Initialize settings
     p_init = subparsers.add_parser(
-        "init", help="Initialize .synapse/settings.json with defaults"
+        "init",
+        help="Initialize Synapse configuration",
+        description="""Initialize .synapse/settings.json with default configuration.
+
+Creates settings file and copies skills to .codex (if .claude skills exist).""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse init              Interactive scope selection
+  synapse init --scope user     Create ~/.synapse/settings.json
+  synapse init --scope project  Create ./.synapse/settings.json""",
     )
     p_init.add_argument(
         "--scope",
         choices=["user", "project"],
-        help="Scope for settings file (user: ~/.synapse, project: ./.synapse)",
+        help="Scope: user (~/.synapse) or project (./.synapse)",
     )
     p_init.set_defaults(func=cmd_init)
 
     # reset - Reset settings to defaults
     p_reset = subparsers.add_parser(
-        "reset", help="Reset .synapse/settings.json to defaults"
+        "reset",
+        help="Reset Synapse configuration to defaults",
+        description="""Reset .synapse/settings.json to default values.
+
+Also re-copies skills from .claude to .codex.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse reset                  Interactive scope selection
+  synapse reset --scope user     Reset ~/.synapse/settings.json
+  synapse reset --scope project  Reset ./.synapse/settings.json
+  synapse reset --scope both -f  Reset both without confirmation""",
     )
     p_reset.add_argument(
         "--scope",
@@ -1826,10 +1972,25 @@ def main() -> None:
 
     # delegate - Delegation management
     p_delegate = subparsers.add_parser(
-        "delegate", help="Configure automatic task delegation between agents"
+        "delegate",
+        help="Configure automatic task delegation",
+        description="""Configure automatic task delegation between agents.
+
+Modes:
+  orchestrator  Analyze tasks, delegate, and integrate results
+  passthrough   Forward tasks directly without analysis
+  off           Disable delegation
+
+Delegation rules are defined in .synapse/delegate.md""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse delegate              Show current configuration
+  synapse delegate status       Show detailed status
+  synapse delegate set orchestrator  Enable orchestrator mode
+  synapse delegate off          Disable delegation""",
     )
     delegate_subparsers = p_delegate.add_subparsers(
-        dest="delegate_command", help="Delegation commands"
+        dest="delegate_command", metavar="SUBCOMMAND"
     )
 
     # delegate status
@@ -1862,10 +2023,23 @@ def main() -> None:
     # file-safety - File locking and modification tracking
     p_file_safety = subparsers.add_parser(
         "file-safety",
-        help="File locking and modification tracking for multi-agent safety",
+        help="File locking and modification tracking",
+        description="""File locking and modification tracking for multi-agent safety.
+
+Prevents file conflicts when multiple agents edit files simultaneously.
+Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse file-safety              Show status (default)
+  synapse file-safety locks        List active file locks
+  synapse file-safety lock src/main.py myagent  Acquire lock
+  synapse file-safety unlock src/main.py myagent  Release lock
+  synapse file-safety recent       Show recent modifications
+  synapse file-safety history src/main.py  Show file history
+  synapse file-safety debug        Show troubleshooting info""",
     )
     file_safety_subparsers = p_file_safety.add_subparsers(
-        dest="file_safety_command", help="File safety commands"
+        dest="file_safety_command", metavar="SUBCOMMAND"
     )
 
     # file-safety status
