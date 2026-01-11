@@ -97,15 +97,20 @@ synapse start claude --port 8100 --foreground
 Resume Mode（再開モード）を使用すると、**初期インストラクションの送信をスキップ** し、スムーズに作業を継続できます。
 
 ```bash
-# Claude Code のセッション再開
+# Claude: --continue / --resume / -c / -r
 synapse claude -- --resume
 
-# 省略形
-synapse claude -- -r
+# Gemini: --resume / -r
+synapse gemini -- --resume
 
-# セッションID指定
+# Codex: resume サブコマンド
+synapse codex -- resume
+
+# セッションID指定（Claude）
 synapse claude -- --resume=SESSION_ID
 ```
+
+> **Note**: `synapse <agent> --` の後の引数は、エージェントの CLI ツールに直接渡されます。
 
 **動作**:
 - 指定されたフラグ（`--resume` 等）を検知すると、Synapse は「これは再開である」と判断します。
@@ -199,14 +204,24 @@ synapse list
 **出力例**:
 
 ```
-TYPE       PORT     STATUS     PID      ENDPOINT
-------------------------------------------------------------
-claude     8100     READY      12345    http://localhost:8100
-codex      8120     PROCESSING 12346    http://localhost:8120
-gemini     8110     PROCESSING 12347    http://localhost:8110
+TYPE       PORT     STATUS     PID      WORKING_DIR                                        ENDPOINT
+--------------------------------------------------------------------------------------------------------------
+claude     8100     READY      12345    /home/user/projects/myapp                          http://localhost:8100
+codex      8120     PROCESSING 12346    /home/user/projects/myapp                          http://localhost:8120
+gemini     8110     READY      12347    -                                                  http://localhost:8110
 ```
 
-<!-- CodeRabbit fix: Updated example output to show actual status transitions instead of static values -->
+**File Safety 機能が有効な場合の出力例**:
+
+```
+TYPE       PORT     STATUS     PID      WORKING_DIR                                        EDITING FILE                   ENDPOINT
+------------------------------------------------------------------------------------------------------------------------------------------
+claude     8100     READY      12345    /home/user/projects/myapp                          auth.py                        http://localhost:8100
+codex      8120     PROCESSING 12346    /home/user/projects/myapp                          -                              http://localhost:8120
+gemini     8110     READY      12347    -                                                  -                              http://localhost:8110
+```
+
+> **Note**: `WORKING_DIR` 列には各エージェントの作業ディレクトリが表示されます。File Safety 機能が有効な場合は、`EDITING FILE` 列に現在編集中のファイル名が追加で表示されます。
 
 ---
 
@@ -658,7 +673,6 @@ done
 # ステータス確認
 curl http://localhost:8120/status
 
-# CodeRabbit fix: Updated IDLE to READY status terminology
 # READY なのに作業が終わっていない場合に nudge
 synapse send --target codex --priority 1 "進捗を報告して"
 

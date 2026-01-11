@@ -87,7 +87,7 @@ flowchart LR
 | **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当）   |
 | **外部連携**           | 他の Google A2A エージェントとの通信                     |
 | **タスク委任**         | 自然言語ルールで他エージェントへ自動タスク転送           |
-| **File Safety**        | ファイルロックと変更追跡でマルチエージェント競合を防止   |
+| **File Safety**        | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` でロック状態を確認可能） |
 
 ---
 
@@ -1074,7 +1074,7 @@ synapse reset
 /plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
-> **Note**: `synapse init` は設定ファイルの初期化（`env`, `instructions`, `resume_flags`, `delegation`）を行います。Gemini などプラグインに対応していないエージェントは主にこれらの設定を介して機能を実現しますが、**Codex** に関しては、展開された skills を `.codex/skills/` ディレクトリに配置することでも機能を拡張できます。
+> **Note**: `synapse init` は設定ファイルの初期化（`env`, `instructions`, `resume_flags`, `delegation`）を行います。Codex はプラグインに対応していないため、`synapse init` は `.claude/skills/synapse-a2a/` から `.codex/skills/synapse-a2a/` へスキルを自動コピーします。（Gemini は Skills 非対応のためスキップ）
 
 ### settings.json の構造
 

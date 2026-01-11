@@ -723,3 +723,178 @@ class TestExactAgentIdMatch:
         mock_post.assert_called_once()
         call_url = mock_post.call_args[0][0]
         assert "8100" in call_url
+
+
+class TestSentMessageHistory:
+    """Test sent message history recording."""
+
+    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value=None)
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_sent_message_recorded_to_history(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_post,
+        mock_history_manager,
+    ):
+        """Should record sent message to history when enabled."""
+        # Setup mock registry
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-codex-8120": {
+                "agent_id": "synapse-codex-8120",
+                "agent_type": "codex",
+                "port": 8120,
+                "pid": 1234,
+                "endpoint": "http://localhost:8120",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "task": {"id": "task-456", "status": "working"}
+        }
+        mock_post.return_value = mock_response
+
+        # Setup mock history manager
+        mock_history = MagicMock()
+        mock_history.enabled = True
+        mock_history_manager.return_value = mock_history
+
+        args = argparse.Namespace(
+            target="codex",
+            message="test message",
+            priority=3,
+            sender=None,
+            non_response=False,
+        )
+        cmd_send(args)
+
+        # Verify history was recorded
+        mock_history.save_observation.assert_called_once()
+        call_kwargs = mock_history.save_observation.call_args[1]
+        # task_id is stored without prefix; direction is tracked in metadata
+        assert call_kwargs["task_id"] == "task-456"
+        assert call_kwargs["status"] == "sent"
+        assert "@codex test message" in call_kwargs["input_text"]
+        assert "direction" in call_kwargs["metadata"]
+        assert call_kwargs["metadata"]["direction"] == "sent"
+        assert call_kwargs["metadata"]["priority"] == 3
+
+    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value=None)
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_sent_message_not_recorded_when_disabled(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_post,
+        mock_history_manager,
+    ):
+        """Should not record sent message when history is disabled."""
+        # Setup mock registry
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"task": {"id": "task-789"}}
+        mock_post.return_value = mock_response
+
+        # Setup mock history manager (disabled)
+        mock_history = MagicMock()
+        mock_history.enabled = False
+        mock_history_manager.return_value = mock_history
+
+        args = argparse.Namespace(
+            target="claude",
+            message="test message",
+            priority=1,
+            sender=None,
+            non_response=False,
+        )
+        cmd_send(args)
+
+        # Verify history was NOT recorded
+        mock_history.save_observation.assert_not_called()
+
+    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_sent_message_includes_sender_info(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_post,
+        mock_history_manager,
+    ):
+        """Should include sender info in history metadata."""
+        # Setup mock registry
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "port": 8110,
+                "pid": 1234,
+                "endpoint": "http://localhost:8110",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        # Setup mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"task": {"id": "task-abc"}}
+        mock_post.return_value = mock_response
+
+        # Setup sender info (simulating message from Claude)
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Setup mock history manager
+        mock_history = MagicMock()
+        mock_history.enabled = True
+        mock_history_manager.return_value = mock_history
+
+        args = argparse.Namespace(
+            target="gemini",
+            message="hello from claude",
+            priority=2,
+            sender="synapse-claude-8100",
+            non_response=False,
+        )
+        cmd_send(args)
+
+        # Verify sender info in metadata
+        call_kwargs = mock_history.save_observation.call_args[1]
+        assert call_kwargs["agent_name"] == "claude"
+        assert "sender" in call_kwargs["metadata"]

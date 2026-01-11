@@ -12,13 +12,15 @@ class TestCliCoverage:
     """Tests for missing coverage in cli.py."""
 
     def test_install_skills_existing_dir(self, tmp_path):
-        """Test skipping skill installation if directory exists (Lines 47-49)."""
+        """Test skipping skill installation if directory exists."""
         home = tmp_path / "home"
         home.mkdir()
-        # Create all skill directories to avoid any copy calls
+        # Create all skill directories in both .claude and .codex to avoid any copy calls
         for skill in ["synapse-a2a", "delegation"]:
-            skill_dir = home / ".claude" / "skills" / skill
-            skill_dir.mkdir(parents=True)
+            claude_skill_dir = home / ".claude" / "skills" / skill
+            claude_skill_dir.mkdir(parents=True)
+            codex_skill_dir = home / ".codex" / "skills" / skill
+            codex_skill_dir.mkdir(parents=True)
 
         with (
             patch("pathlib.Path.home", return_value=home),

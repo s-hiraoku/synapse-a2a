@@ -1,76 +1,57 @@
-FILE SAFETY RULES - MANDATORY FOR MULTI-AGENT COORDINATION
+FILE SAFETY RULES - STRICTLY MANDATORY
 ================================================================================
 
-You are operating in a multi-agent environment where other agents may edit
-files simultaneously. To prevent conflicts, you MUST follow these rules:
+You are operating in a shared multi-agent environment.
+**IT IS A PROTOCOL VIOLATION TO EDIT ANY FILE WITHOUT LOCKING IT FIRST.**
 
-## Before Editing Any File
+## ⚠️ CRITICAL: NO LOCK = NO EDIT ⚠️
 
-1. **Check current locks** to see if the file is being edited:
-   ```
-   synapse file-safety locks
-   ```
+1. **NEVER** modify a file without acquiring a lock first.
+2. **NEVER** ignore a lock failure. If locked by another agent, YOU MUST WAIT.
+3. **ALWAYS** release the lock immediately after editing.
 
-2. **Acquire a lock** BEFORE making changes:
-   ```
-   synapse file-safety lock <file_path> {{agent_id}} --intent "description"
-   ```
+## Mandatory Workflow (Do NOT deviate)
 
-3. **If lock fails** (file is locked by another agent):
-   - DO NOT proceed with editing that file
-   - **Skip and continue**: Move on to other tasks that don't require this file
-   - **Come back later**: After completing other work, check if the lock is released
-   - Keep track of skipped files and retry when available
-   - This ensures your work continues and files are eventually updated
-
-## After Editing
-
-4. **Record the modification** for tracking:
-   ```
-   synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "what you changed"
-   ```
-
-   Change types: `CREATE`, `MODIFY`, `DELETE`
-
-5. **Release the lock** immediately:
-   ```
-   synapse file-safety unlock <file_path> {{agent_id}}
-   ```
-
-## Complete Workflow Example
+### 1. ACQUIRE LOCK (Required)
+Before ANY `write_file`, `replace`, or shell command that modifies files:
 
 ```bash
-# Step 1: Check locks
-synapse file-safety locks
-
-# Step 2: Acquire lock
-synapse file-safety lock /path/to/file.py {{agent_id}} --intent "Adding auth"
-
-# Step 3: Edit the file
-# ... make your changes ...
-
-# Step 4: Record modification
-synapse file-safety record /path/to/file.py {{agent_id}} task-123 --type MODIFY --intent "Added auth middleware"
-
-# Step 5: Release lock
-synapse file-safety unlock /path/to/file.py {{agent_id}}
+synapse file-safety lock <file_path> {{agent_id}} --intent "Short description"
 ```
 
-## Checking History
+> **IF LOCK FAILS:**
+> - 🛑 **STOP**. Do NOT edit the file.
+> - Move to other tasks or wait.
+> - Retry lock later.
+
+### 2. EDIT FILE
+Perform your edits only after seeing "Lock acquired".
+
+### 3. RECORD & UNLOCK (Required)
+Immediately after the edit is complete:
 
 ```bash
-# View modification history for a file
-synapse file-safety history <file_path>
+# 1. Record the change
+synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "What changed"
 
-# View recent modifications across all files
-synapse file-safety recent
+# 2. Release the lock
+synapse file-safety unlock <file_path> {{agent_id}}
 ```
 
-## Important Notes
+## Example
 
-- Lock duration is 5 minutes (auto-expires)
-- Always release locks immediately after editing
-- Always record modifications for audit trail
-- **Never skip a file permanently** - always come back to retry locked files
-- If multiple files are locked, complete other work first, then retry
-- Use `synapse file-safety locks` periodically to check if locks are released
+```bash
+# CORRECT WAY
+synapse file-safety lock src/main.py {{agent_id}} --intent "Fix bug"
+# ... (wait for success) ...
+# ... (edit file) ...
+synapse file-safety record src/main.py {{agent_id}} task-123 --type MODIFY --intent "Fixed NPE"
+synapse file-safety unlock src/main.py {{agent_id}}
+```
+
+## Checking Status
+
+- `synapse file-safety locks` : See who is holding locks
+- `synapse file-safety history <file>` : See past changes
+
+**VIOLATING THESE RULES WILL CAUSE DATA CORRUPTION AND AGENT CONFLICTS.**

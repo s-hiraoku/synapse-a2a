@@ -175,6 +175,9 @@ File                                              Agent           Expires
 Total: 2 active locks
 ```
 
+> [!TIP]
+> `synapse list` コマンドでも、各エージェントが現在ロックしているファイル（1つのみ）を素早く確認できます。
+
 ---
 
 ### synapse file-safety lock
