@@ -17,8 +17,7 @@ dependencies = [
     "uvicorn>=0.23.0",
     "pyyaml>=6.0",
     "requests>=2.31.0",
-    "types-pyyaml>=6.0.12.20250915",
-    "types-requests>=2.32.4.20250913",
+    "httpx>=0.24.0",
 ]
 
 [dependency-groups]
