@@ -46,6 +46,7 @@ class TerminalController:
         startup_delay: int | None = None,
         args: list | None = None,
         port: int | None = None,
+        skip_initial_instructions: bool = False,
     ):
         self.command = command
         self.args = args or []
@@ -120,6 +121,7 @@ class TerminalController:
         self._last_output_time: float | None = (
             None  # Track last output for idle detection
         )
+        self._skip_initial_instructions = skip_initial_instructions
 
         # InputRouter for parsing agent output and routing @Agent commands
         self.input_router = InputRouter(
@@ -314,8 +316,19 @@ class TerminalController:
         Falls back to default if no settings found.
 
         Format: [A2A:<task_id>:synapse-system] <full_instructions>
+
+        If skip_initial_instructions is True (resume mode), this method
+        marks instructions as sent without actually sending them.
         """
         if not self.agent_id:
+            return
+
+        # Skip if in resume mode (e.g., --continue, --resume flags)
+        if self._skip_initial_instructions:
+            logger.info(
+                f"[{self.agent_id}] Skipping initial instructions (resume mode)"
+            )
+            self._identity_sent = True
             return
 
         logging.debug(

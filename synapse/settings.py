@@ -91,6 +91,13 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "delegation": {
         "mode": "off",  # "orchestrator" | "passthrough" | "off"
     },
+    "resume_flags": {
+        # Flags that indicate context resume (skip initial instructions)
+        # Customize per agent in .synapse/settings.json
+        "claude": ["--continue", "--resume", "-c", "-r"],
+        "codex": ["resume"],  # codex resume [--last | <SESSION_ID>]
+        "gemini": ["--resume", "-r"],  # gemini --resume/-r [<index|UUID>]
+    },
 }
 
 
@@ -166,6 +173,7 @@ class SynapseSettings:
     env: dict[str, str] = field(default_factory=dict)
     instructions: dict[str, str] = field(default_factory=dict)
     delegation: dict[str, str] = field(default_factory=dict)
+    resume_flags: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -174,6 +182,7 @@ class SynapseSettings:
             env=dict(DEFAULT_SETTINGS["env"]),
             instructions=dict(DEFAULT_SETTINGS["instructions"]),
             delegation=dict(DEFAULT_SETTINGS["delegation"]),
+            resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
         )
 
     @classmethod
@@ -233,6 +242,7 @@ class SynapseSettings:
             env=merged.get("env", {}),
             instructions=merged.get("instructions", {}),
             delegation=merged.get("delegation", {}),
+            resume_flags=merged.get("resume_flags", {}),
         )
 
     def get_instruction(self, agent_type: str, agent_id: str, port: int) -> str | None:
@@ -457,6 +467,53 @@ class SynapseSettings:
             Delegation mode: "orchestrator", "passthrough", or "off"
         """
         return self.delegation.get("mode", "off")
+
+    def get_resume_flags(self, agent_type: str) -> list[str]:
+        """
+        Get resume flags for a specific agent type.
+
+        These flags indicate that the agent is resuming a previous session
+        and should skip initial instructions.
+
+        Args:
+            agent_type: The agent type (claude, gemini, codex).
+
+        Returns:
+            List of CLI flags that indicate resume mode.
+        """
+        flags = self.resume_flags.get(agent_type, [])
+        if isinstance(flags, list):
+            return flags
+        return []
+
+    def is_resume_mode(self, agent_type: str, tool_args: list[str]) -> bool:
+        """
+        Check if tool arguments contain any resume flag for the agent type.
+
+        Supports both exact matches (e.g., "--resume") and value forms
+        (e.g., "--resume=<id>", "--resume=abc123").
+
+        Args:
+            agent_type: The agent type (claude, gemini, codex).
+            tool_args: List of arguments passed to the CLI tool.
+
+        Returns:
+            True if any resume flag is present in tool_args.
+        """
+        flags = self.get_resume_flags(agent_type)
+        if not flags:
+            return False
+
+        for arg in tool_args:
+            for flag in flags:
+                # Exact match (e.g., "--resume" matches "--resume")
+                if arg == flag:
+                    return True
+                # Value form match (e.g., "--resume=abc" matches "--resume")
+                # Only for flags starting with "-" (not positional like "resume")
+                if flag.startswith("-") and arg.startswith(flag + "="):
+                    return True
+        return False
 
 
 def get_settings() -> SynapseSettings:

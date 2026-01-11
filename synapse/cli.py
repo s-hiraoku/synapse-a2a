@@ -1342,6 +1342,15 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     synapse_settings = get_settings()
     synapse_settings.apply_env(env)
 
+    # Check if resume mode (--continue, --resume, etc.)
+    # Skip initial instructions if resuming a previous session
+    is_resume = synapse_settings.is_resume_mode(profile, all_args)
+    if is_resume:
+        print(
+            "\x1b[32m[Synapse]\x1b[0m Resume mode detected, "
+            "skipping initial instructions"
+        )
+
     # Create registry and register this agent
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
@@ -1351,7 +1360,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     env["SYNAPSE_AGENT_TYPE"] = profile
     env["SYNAPSE_PORT"] = str(port)
 
-    # Create controller - initial instructions sent on IDLE
+    # Create controller - initial instructions sent on IDLE (unless resume mode)
     controller = TerminalController(
         command=config["command"],
         args=all_args,
@@ -1366,6 +1375,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
         submit_seq=submit_seq,
         startup_delay=startup_delay,
         port=port,
+        skip_initial_instructions=is_resume,
     )
 
     # Register agent
