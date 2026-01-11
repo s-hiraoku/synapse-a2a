@@ -195,6 +195,9 @@ synapse stop claude
 
 # IDを指定して停止（推奨：より確実です）
 synapse stop synapse-claude-8100
+
+# 全インスタンスを停止
+synapse stop claude --all
 ```
 
 ---
