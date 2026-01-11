@@ -1042,14 +1042,13 @@ wheels = [
 
 [[package]]
 name = "synapse-a2a"
-version = "0.2.0"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pyyaml" },
     { name = "requests" },
-    { name = "types-pyyaml" },
-    { name = "types-requests" },
     { name = "uvicorn" },
 ]
 
@@ -1076,10 +1075,9 @@ grpc = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.100.0" },
+    { name = "httpx", specifier = ">=0.24.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31.0" },
-    { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
-    { name = "types-requests", specifier = ">=2.32.4.20250913" },
     { name = "uvicorn", specifier = ">=0.23.0" },
 ]
 

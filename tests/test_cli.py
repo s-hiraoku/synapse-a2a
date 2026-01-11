@@ -233,7 +233,7 @@ class TestCmdStop:
 
     def test_no_running_agent(self, mock_args, temp_registry, capsys):
         """Should exit with error when no agent running."""
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = False
 
         with (
@@ -252,7 +252,7 @@ class TestCmdStop:
 
     def test_stop_single_agent(self, mock_args, temp_registry, capsys):
         """Should stop single running agent."""
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = False
 
         running_info = {
@@ -277,7 +277,7 @@ class TestCmdStop:
 
     def test_stop_all_agents(self, mock_args, temp_registry, capsys):
         """Should stop all agents with --all flag."""
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = True
 
         running_infos = [
@@ -299,7 +299,7 @@ class TestCmdStop:
 
     def test_stop_process_not_found(self, mock_args, temp_registry, capsys):
         """Should handle ProcessLookupError gracefully."""
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = False
 
         running_info = {
@@ -319,6 +319,48 @@ class TestCmdStop:
 
         captured = capsys.readouterr()
         assert "Process 99999 not found" in captured.out
+
+    def test_stop_by_agent_id(self, mock_args, temp_registry, capsys):
+        """Should stop agent by specific agent ID."""
+        mock_args.target = "synapse-claude-8100"
+        mock_args.all = False
+
+        agent_info = {
+            "agent_id": "synapse-claude-8100",
+            "pid": 12345,
+        }
+
+        with (
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.cli.os.kill") as mock_kill,
+        ):
+            mock_registry = mock_registry_cls.return_value
+            mock_registry.get_agent.return_value = agent_info
+
+            cmd_stop(mock_args)
+
+            mock_registry.get_agent.assert_called_once_with("synapse-claude-8100")
+            mock_kill.assert_called_once_with(12345, 15)
+
+        captured = capsys.readouterr()
+        assert "Stopped synapse-claude-8100" in captured.out
+
+    def test_stop_by_agent_id_not_found(self, mock_args, capsys):
+        """Should exit with error when agent ID not found."""
+        mock_args.target = "synapse-claude-9999"
+        mock_args.all = False
+
+        with patch("synapse.cli.AgentRegistry") as mock_registry_cls:
+            mock_registry = mock_registry_cls.return_value
+            mock_registry.get_agent.return_value = None
+
+            with pytest.raises(SystemExit) as exc_info:
+                cmd_stop(mock_args)
+
+            assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "Agent not found" in captured.out
 
 
 class TestStopAgent:
