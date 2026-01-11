@@ -1,57 +1,56 @@
-FILE SAFETY RULES - STRICTLY MANDATORY
+================================================================================
+STOP! READ THIS BEFORE EVERY FILE EDIT
 ================================================================================
 
-You are operating in a shared multi-agent environment.
-**IT IS A PROTOCOL VIOLATION TO EDIT ANY FILE WITHOUT LOCKING IT FIRST.**
+You are {{agent_id}} in a multi-agent environment.
+Other agents may be editing files at the same time.
 
-## ⚠️ CRITICAL: NO LOCK = NO EDIT ⚠️
+================================================================================
+BEFORE YOU USE: Edit, Write, sed, awk, or ANY file modification
+================================================================================
 
-1. **NEVER** modify a file without acquiring a lock first.
-2. **NEVER** ignore a lock failure. If locked by another agent, YOU MUST WAIT.
-3. **ALWAYS** release the lock immediately after editing.
+ASK YOURSELF: "Did I run synapse file-safety lock?"
 
-## Mandatory Workflow (Do NOT deviate)
-
-### 1. ACQUIRE LOCK (Required)
-Before ANY `write_file`, `replace`, or shell command that modifies files:
-
+If NO --> Run this FIRST:
 ```bash
-synapse file-safety lock <file_path> {{agent_id}} --intent "Short description"
+synapse file-safety lock <file_path> {{agent_id}} --intent "what you plan to do"
 ```
 
-> **IF LOCK FAILS:**
-> - 🛑 **STOP**. Do NOT edit the file.
-> - Move to other tasks or wait.
-> - Retry lock later.
+If lock fails (another agent has it):
+  - DO NOT edit the file
+  - Work on something else
+  - Try again later
 
-### 2. EDIT FILE
-Perform your edits only after seeing "Lock acquired".
+================================================================================
+AFTER YOUR EDIT IS COMPLETE
+================================================================================
 
-### 3. RECORD & UNLOCK (Required)
-Immediately after the edit is complete:
-
+Run BOTH commands:
 ```bash
-# 1. Record the change
-synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "What changed"
-
-# 2. Release the lock
+synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "what you changed"
 synapse file-safety unlock <file_path> {{agent_id}}
 ```
 
-## Example
+================================================================================
+QUICK REFERENCE
+================================================================================
 
-```bash
-# CORRECT WAY
-synapse file-safety lock src/main.py {{agent_id}} --intent "Fix bug"
-# ... (wait for success) ...
-# ... (edit file) ...
-synapse file-safety record src/main.py {{agent_id}} task-123 --type MODIFY --intent "Fixed NPE"
-synapse file-safety unlock src/main.py {{agent_id}}
-```
+BEFORE EDIT:
+  synapse file-safety lock src/foo.py {{agent_id}} --intent "Fix bug"
 
-## Checking Status
+AFTER EDIT:
+  synapse file-safety record src/foo.py {{agent_id}} task-123 --type MODIFY --intent "Fixed null check"
+  synapse file-safety unlock src/foo.py {{agent_id}}
 
-- `synapse file-safety locks` : See who is holding locks
-- `synapse file-safety history <file>` : See past changes
+CHECK WHO HAS LOCKS:
+  synapse file-safety locks
 
-**VIOLATING THESE RULES WILL CAUSE DATA CORRUPTION AND AGENT CONFLICTS.**
+================================================================================
+WHY THIS MATTERS
+================================================================================
+
+- Without locks, two agents editing the same file = DATA LOSS
+- Your changes may be overwritten without warning
+- Other agents' work may be destroyed
+
+EVERY EDIT NEEDS A LOCK. NO EXCEPTIONS.

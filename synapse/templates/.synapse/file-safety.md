@@ -1,76 +1,56 @@
-FILE SAFETY RULES - MANDATORY FOR MULTI-AGENT COORDINATION
+================================================================================
+STOP! READ THIS BEFORE EVERY FILE EDIT
 ================================================================================
 
-You are operating in a multi-agent environment where other agents may edit
-files simultaneously. To prevent conflicts, you MUST follow these rules:
+You are {{agent_id}} in a multi-agent environment.
+Other agents may be editing files at the same time.
 
-## Before Editing Any File
+================================================================================
+BEFORE YOU USE: Edit, Write, sed, awk, or ANY file modification
+================================================================================
 
-1. **Check current locks** to see if the file is being edited:
-   ```
-   synapse file-safety locks
-   ```
+ASK YOURSELF: "Did I run synapse file-safety lock?"
 
-2. **Acquire a lock** BEFORE making changes:
-   ```
-   synapse file-safety lock <file_path> {{agent_id}} --intent "description"
-   ```
-
-3. **If lock fails** (file is locked by another agent):
-   - DO NOT proceed with editing that file
-   - **Skip and continue**: Move on to other tasks that don't require this file
-   - **Come back later**: After completing other work, check if the lock is released
-   - Keep track of skipped files and retry when available
-   - This ensures your work continues and files are eventually updated
-
-## After Editing
-
-4. **Record the modification** for tracking:
-   ```
-   synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "what you changed"
-   ```
-
-   Change types: `CREATE`, `MODIFY`, `DELETE`
-
-5. **Release the lock** immediately:
-   ```
-   synapse file-safety unlock <file_path> {{agent_id}}
-   ```
-
-## Complete Workflow Example
-
+If NO --> Run this FIRST:
 ```bash
-# Step 1: Check locks
-synapse file-safety locks
-
-# Step 2: Acquire lock
-synapse file-safety lock /path/to/file.py {{agent_id}} --intent "Adding auth"
-
-# Step 3: Edit the file
-# ... make your changes ...
-
-# Step 4: Record modification
-synapse file-safety record /path/to/file.py {{agent_id}} task-123 --type MODIFY --intent "Added auth middleware"
-
-# Step 5: Release lock
-synapse file-safety unlock /path/to/file.py {{agent_id}}
+synapse file-safety lock <file_path> {{agent_id}} --intent "what you plan to do"
 ```
 
-## Checking History
+If lock fails (another agent has it):
+  - DO NOT edit the file
+  - Work on something else
+  - Try again later
 
+================================================================================
+AFTER YOUR EDIT IS COMPLETE
+================================================================================
+
+Run BOTH commands:
 ```bash
-# View modification history for a file
-synapse file-safety history <file_path>
-
-# View recent modifications across all files
-synapse file-safety recent
+synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "what you changed"
+synapse file-safety unlock <file_path> {{agent_id}}
 ```
 
-## Important Notes
+================================================================================
+QUICK REFERENCE
+================================================================================
 
-- Lock duration is 5 minutes (auto-expires)
-- Always release locks immediately after editing
-- Always record modifications for audit trail
-- **Never skip a file permanently** - always come back to retry locked files
-- If multiple files are locked, complete other work first, then retry
-- Use `synapse file-safety locks` periodically to check if locks are released
+BEFORE EDIT:
+  synapse file-safety lock src/foo.py {{agent_id}} --intent "Fix bug"
+
+AFTER EDIT:
+  synapse file-safety record src/foo.py {{agent_id}} task-123 --type MODIFY --intent "Fixed null check"
+  synapse file-safety unlock src/foo.py {{agent_id}}
+
+CHECK WHO HAS LOCKS:
+  synapse file-safety locks
+
+================================================================================
+WHY THIS MATTERS
+================================================================================
+
+- Without locks, two agents editing the same file = DATA LOSS
+- Your changes may be overwritten without warning
+- Other agents' work may be destroyed
+
+EVERY EDIT NEEDS A LOCK. NO EXCEPTIONS.
