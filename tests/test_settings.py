@@ -638,3 +638,43 @@ class TestResumeFlags:
         settings = SynapseSettings.from_defaults()
         assert settings.resume_flags is not None
         assert "claude" in settings.resume_flags
+
+    def test_is_resume_mode_with_flag_equals_value(self):
+        """is_resume_mode should match --flag=value forms."""
+        settings = SynapseSettings.from_defaults()
+
+        # Claude: --resume=<session_id>
+        assert settings.is_resume_mode("claude", ["--resume=abc123"]) is True
+        assert settings.is_resume_mode("claude", ["--continue=session"]) is True
+        assert settings.is_resume_mode("claude", ["-c=xyz"]) is True
+        assert settings.is_resume_mode("claude", ["-r=123"]) is True
+
+        # Gemini: --resume=<index|UUID>
+        assert settings.is_resume_mode("gemini", ["--resume=5"]) is True
+        assert settings.is_resume_mode("gemini", ["--resume=abc-def-123"]) is True
+        assert settings.is_resume_mode("gemini", ["-r=2"]) is True
+
+        # Mixed with other args
+        assert settings.is_resume_mode("claude", ["--verbose", "--resume=abc"]) is True
+        assert settings.is_resume_mode("gemini", ["-r=1", "--model", "gemini"]) is True
+
+    def test_is_resume_mode_positional_no_equals(self):
+        """Positional flags (like 'resume') should not match 'resume=value'."""
+        settings = SynapseSettings.from_defaults()
+
+        # Codex uses positional "resume" subcommand - should NOT match "resume=xxx"
+        # because "resume" doesn't start with "-"
+        assert settings.is_resume_mode("codex", ["resume"]) is True
+        assert settings.is_resume_mode("codex", ["resume=xxx"]) is False
+        assert settings.is_resume_mode("codex", ["resume", "--last"]) is True
+
+    def test_is_resume_mode_partial_match_rejected(self):
+        """is_resume_mode should not match partial flag names."""
+        settings = SynapseSettings.from_defaults()
+
+        # "--resumeXXX" should not match "--resume"
+        assert settings.is_resume_mode("claude", ["--resumeXXX"]) is False
+        assert settings.is_resume_mode("gemini", ["--resume-all"]) is False
+
+        # But "--resume=XXX" should match "--resume"
+        assert settings.is_resume_mode("claude", ["--resume=XXX"]) is True

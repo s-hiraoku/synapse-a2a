@@ -490,6 +490,9 @@ class SynapseSettings:
         """
         Check if tool arguments contain any resume flag for the agent type.
 
+        Supports both exact matches (e.g., "--resume") and value forms
+        (e.g., "--resume=<id>", "--resume=abc123").
+
         Args:
             agent_type: The agent type (claude, gemini, codex).
             tool_args: List of arguments passed to the CLI tool.
@@ -497,10 +500,20 @@ class SynapseSettings:
         Returns:
             True if any resume flag is present in tool_args.
         """
-        flags = set(self.get_resume_flags(agent_type))
+        flags = self.get_resume_flags(agent_type)
         if not flags:
             return False
-        return bool(flags & set(tool_args))
+
+        for arg in tool_args:
+            for flag in flags:
+                # Exact match (e.g., "--resume" matches "--resume")
+                if arg == flag:
+                    return True
+                # Value form match (e.g., "--resume=abc" matches "--resume")
+                # Only for flags starting with "-" (not positional like "resume")
+                if flag.startswith("-") and arg.startswith(flag + "="):
+                    return True
+        return False
 
 
 def get_settings() -> SynapseSettings:
