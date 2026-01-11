@@ -317,6 +317,8 @@ plugins/
 
 詳細は [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照してください。
 
+> **Note**: Codex もプラグインには対応していませんが、展開された skills を `.codex/` ディレクトリ（具体的には `.codex/skills/`）に配置することで、これらの機能を活用することが可能です。
+
 ---
 
 ## ドキュメント
@@ -1064,7 +1066,15 @@ synapse init
 synapse reset
 ```
 
-**スキル自動インストール**: `synapse init` および `synapse reset` は、設定ファイルの作成に加えて、`.claude/skills/synapse-a2a/` と `.codex/skills/synapse-a2a/` にスキルを自動インストールします。（Gemini は Skills 非対応のためスキップ）
+**Skills のインストール**: Claude Code を使用する場合、**プラグイン marketplace からのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が適用されます。
+
+```bash
+# Claude Code 内で実行
+/plugin marketplace add s-hiraoku/synapse-a2a
+/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+```
+
+> **Note**: `synapse init` は設定ファイルの初期化（`env`, `instructions`, `resume_flags`, `delegation`）を行います。Gemini などプラグインに対応していないエージェントは主にこれらの設定を介して機能を実現しますが、**Codex** に関しては、展開された skills を `.codex/skills/` ディレクトリに配置することでも機能を拡張できます。
 
 ### settings.json の構造
 
