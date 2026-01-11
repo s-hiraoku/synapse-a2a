@@ -55,7 +55,7 @@ def test_render_table_file_safety_disabled(list_command, mock_registry):
 
         output = list_command._render_agent_table(mock_registry)
 
-        # Verify header does NOT contain LOCKED FILE column
+        # Verify header does NOT contain EDITING FILE column
         header_line = output.split("\n")[0]
         assert "EDITING FILE" not in header_line
         assert "TYPE" in header_line
