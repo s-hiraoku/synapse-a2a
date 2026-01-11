@@ -90,6 +90,40 @@ synapse start claude --port 8100 --foreground
 
 ---
 
+### 1.3 コンテキストの再開（Resume Mode）
+
+エージェントがクラッシュした場合や、既存のセッション（会話履歴）を引き継いで再起動する場合、通常起動すると A2A プロトコルの初期説明が再度送信され、コンテキストが無駄に長くなってしまいます。
+
+Resume Mode（再開モード）を使用すると、**初期インストラクションの送信をスキップ** し、スムーズに作業を継続できます。
+
+```bash
+# Claude Code のセッション再開
+synapse claude -- --resume
+
+# 省略形
+synapse claude -- -r
+
+# セッションID指定
+synapse claude -- --resume=SESSION_ID
+```
+
+**動作**:
+- 指定されたフラグ（`--resume` 等）を検知すると、Synapse は「これは再開である」と判断します。
+- A2A プロトコルの初期説明（Available Agents や使い方の説明）を送信しません。
+- エージェントは前回の続きとして即座に待機状態に入ります。
+
+**対応フラグ（デフォルト）**:
+
+| エージェント | フラグ |
+|--------------|--------|
+| **Claude** | `--resume`, `--continue`, `-r`, `-c` |
+| **Gemini** | `--resume`, `-r` |
+| **Codex** | `resume` |
+
+これらのフラグは `.synapse/settings.json` でカスタマイズ可能です。
+
+---
+
 ## 2. CLI コマンド
 
 ### 2.1 コマンド一覧

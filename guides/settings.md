@@ -57,6 +57,12 @@ $ synapse init
 ✔ Created ~/.synapse/settings.json
 ```
 
+**初期化される内容**:
+- 標準的な環境変数（`env`）
+- デフォルトの A2A プロトコル指示（`instructions`）
+- コンテキスト再開フラグ（`resume_flags`）
+- 委任設定（`delegation`）
+
 ### synapse reset
 
 設定ファイルをデフォルトに戻します。
@@ -76,41 +82,31 @@ $ synapse reset
 
 ## Skills のインストール
 
-`synapse init` と `synapse reset` は、設定ファイルの作成に加えて、Synapse A2A スキルを `.claude/skills/` と `.codex/skills/` にインストールします。
+Synapse A2A の機能をエージェントに教え込むための「スキル」の導入方法は、エージェントによって異なります。
 
-### インストール先
+### Claude Code
 
-```
-~/.claude/skills/synapse-a2a/      # User スコープ
-~/.codex/skills/synapse-a2a/
-
-./.claude/skills/synapse-a2a/      # Project スコープ
-./.codex/skills/synapse-a2a/
-```
-
-### 注意事項
-
-- **Gemini**: スキル機能に対応していないため、`.gemini/skills/` にはインストールされません
-- **既存スキル**: `synapse init` は既存のスキルディレクトリを上書きしません（`synapse reset` は上書きします）
-- **スキル内容**: `SKILL.md` ファイルがインストールされ、A2A プロトコルの使用方法が記載されています
-
-### スキルの再インストール
-
-スキルを最新版に更新するには：
+Claude Code の場合、**プラグイン marketplace からのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が自動的に適用されます。
 
 ```bash
-$ synapse reset
-
-? Which settings do you want to reset?
-  ❯ Project scope (./.synapse/settings.json)
-
-? This will overwrite existing settings. Continue? (y/N) y
-
-✔ Reset ./.synapse/settings.json to defaults
-✔ Installed skills to:
-  - .claude/skills/synapse-a2a
-  - .codex/skills/synapse-a2a
+# Claude Code 内で実行
+/plugin marketplace add s-hiraoku/synapse-a2a
+/plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
+
+### Legacy Skills (手動インストール)
+
+`synapse` コマンド起動時に、`~/.claude/skills/` に基本的なスキルファイルが自動的に配置される場合があります。これは旧バージョンとの互換性のための動作です。
+
+> **Note**: `synapse init` は現在、個別のプロジェクトディレクトリへのスキルファイルのコピーは行いません。プロジェクト単位でスキルを管理したい場合は、プラグイン機能を使用してください。
+
+### Gemini
+
+Gemini はエージェント側のスキル機能に対応していないため、起動時に Synapse が直接 A2A プロトコルの指示（Initial Instructions）を送信することで機能を実現します。
+
+### Codex
+
+Codex もプラグインには対応していませんが、展開された skills（`SKILL.md` など）をプロジェクトの `.codex/skills/` ディレクトリに配置することで、Claude Code と同様に高度な機能を教え込むことが可能です。
 
 ## settings.json の構造
 
@@ -120,6 +116,8 @@ $ synapse reset
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
     "SYNAPSE_AUTH_ENABLED": "false",
     "SYNAPSE_API_KEYS": "",
     "SYNAPSE_ADMIN_KEY": "",
@@ -130,13 +128,22 @@ $ synapse reset
     "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
   },
   "instructions": {
-    "default": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nSKILL: For advanced A2A features, use synapse-a2a skill\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "default": "[SYNAPSE INSTRUCTIONS...]",
     "claude": "",
-    "gemini": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\nAgent: {{agent_id}} | Port: {{port}}\n\nHOW TO RECEIVE A2A MESSAGES:\nInput format: [A2A:task_id:sender_id] message\nResponse command: python3 synapse/tools/a2a.py send --target SENDER_ID YOUR_RESPONSE\n\nHOW TO SEND MESSAGES TO OTHER AGENTS:\nWhen user types @agent message, use: python3 synapse/tools/a2a.py send --target AGENT MESSAGE\n\nAVAILABLE AGENTS: claude, gemini, codex\nLIST COMMAND: python3 synapse/tools/a2a.py list\n\nTASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):\n  synapse history list [--agent <name>] [--limit <n>]    - List tasks\n  synapse history search <keywords>                       - Search by keywords\n  synapse history stats [--agent <name>]                  - View statistics\n  synapse history export --format [json|csv] [--output <file>]  - Export data\n  synapse history cleanup --days <n> [--force]            - Delete old tasks",
+    "gemini": "[SYNAPSE INSTRUCTIONS...]",
     "codex": ""
+  },
+  "resume_flags": {
+    "claude": ["--continue", "--resume", "-c", "-r"],
+    "codex": ["resume"],
+    "gemini": ["--resume", "-r"]
+  },
+  "delegation": {
+    "mode": "off"
   }
 }
 ```
+
 
 ## 環境変数 (env)
 
@@ -177,6 +184,38 @@ $ synapse reset
   }
 }
 ```
+
+## コンテキスト再開フラグ (resume_flags)
+
+エージェント起動時に、これらのフラグが引数に含まれている場合、Synapse は「セッション再開」と判断し、初期インストラクションの送信をスキップします。
+
+### デフォルト設定
+
+```json
+{
+  "resume_flags": {
+    "claude": ["--continue", "--resume", "-c", "-r"],
+    "codex": ["resume"],
+    "gemini": ["--resume", "-r"]
+  }
+}
+```
+
+### カスタマイズ例
+
+独自のエイリアスや新しいフラグを追加する場合：
+
+```json
+{
+  "resume_flags": {
+    "claude": ["--my-resume-flag", "-z"]
+  }
+}
+```
+
+**仕様**:
+- **完全一致**: リスト内の文字列と完全に一致する引数を検知します。
+- **値付きフラグ**: ハイフンで始まるフラグ（例: `--resume`）の場合、`--resume=123` のような形式も自動的に検知します。
 
 ## 初期インストラクション (instructions)
 
