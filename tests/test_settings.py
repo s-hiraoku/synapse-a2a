@@ -484,20 +484,20 @@ class TestSkillInstallation:
     """
 
     def test_install_skills_returns_empty_when_no_source(self):
-        """Test _install_skills_to_dir returns empty when .claude/skills doesn't exist."""
-        from synapse.cli import _install_skills_to_dir
+        """Test _copy_claude_skills_to_codex returns empty when .claude/skills doesn't exist."""
+        from synapse.cli import _copy_claude_skills_to_codex
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
             # No .claude/skills/synapse-a2a exists
-            installed = _install_skills_to_dir(base_dir, force=False)
+            installed = _copy_claude_skills_to_codex(base_dir, force=False)
 
             assert len(installed) == 0
 
     def test_install_skills_copies_to_codex(self):
-        """Test _install_skills_to_dir copies skills from .claude to .codex."""
-        from synapse.cli import _install_skills_to_dir
+        """Test _copy_claude_skills_to_codex copies skills from .claude to .codex."""
+        from synapse.cli import _copy_claude_skills_to_codex
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -510,7 +510,7 @@ class TestSkillInstallation:
             (claude_skills / "references" / "api.md").write_text("# API")
 
             # Install skills
-            installed = _install_skills_to_dir(base_dir, force=False)
+            installed = _copy_claude_skills_to_codex(base_dir, force=False)
 
             # Should copy to .codex
             assert len(installed) == 1
@@ -520,8 +520,8 @@ class TestSkillInstallation:
             assert (codex_skills / "references" / "api.md").read_text() == "# API"
 
     def test_install_skills_skips_existing_codex(self):
-        """Test _install_skills_to_dir skips if .codex/skills already exists."""
-        from synapse.cli import _install_skills_to_dir
+        """Test _copy_claude_skills_to_codex skips if .codex/skills already exists."""
+        from synapse.cli import _copy_claude_skills_to_codex
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -537,15 +537,15 @@ class TestSkillInstallation:
             (codex_skills / "SKILL.md").write_text("# Old Skill")
 
             # Install without force
-            installed = _install_skills_to_dir(base_dir, force=False)
+            installed = _copy_claude_skills_to_codex(base_dir, force=False)
 
             # Should not overwrite
             assert len(installed) == 0
             assert (codex_skills / "SKILL.md").read_text() == "# Old Skill"
 
     def test_install_skills_overwrites_with_force(self):
-        """Test _install_skills_to_dir overwrites .codex/skills with force=True."""
-        from synapse.cli import _install_skills_to_dir
+        """Test _copy_claude_skills_to_codex overwrites .codex/skills with force=True."""
+        from synapse.cli import _copy_claude_skills_to_codex
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -561,20 +561,20 @@ class TestSkillInstallation:
             (codex_skills / "SKILL.md").write_text("# Old Skill")
 
             # Install with force
-            installed = _install_skills_to_dir(base_dir, force=True)
+            installed = _copy_claude_skills_to_codex(base_dir, force=True)
 
             # Should overwrite
             assert len(installed) == 1
             assert (codex_skills / "SKILL.md").read_text() == "# New Skill"
 
     def test_install_skills_no_directories_without_source(self):
-        """Test _install_skills_to_dir does not create directories without source."""
-        from synapse.cli import _install_skills_to_dir
+        """Test _copy_claude_skills_to_codex does not create directories without source."""
+        from synapse.cli import _copy_claude_skills_to_codex
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            _install_skills_to_dir(base_dir, force=False)
+            _copy_claude_skills_to_codex(base_dir, force=False)
 
             # No directories should be created when source doesn't exist
             codex_dir = base_dir / ".codex"

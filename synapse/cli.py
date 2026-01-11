@@ -1052,7 +1052,7 @@ def _write_default_settings(path: Path) -> bool:
         return False
 
 
-def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
+def _copy_claude_skills_to_codex(base_dir: Path, force: bool = False) -> list[str]:
     """
     Copy synapse-a2a skills from .claude to .codex directory.
 
@@ -1068,7 +1068,7 @@ def _install_skills_to_dir(base_dir: Path, force: bool = False) -> list[str]:
         force: If True, overwrite existing skills in .codex
 
     Returns:
-        List of paths where skills were installed
+        List of paths where skills were copied to
     """
     installed: list[str] = []
 
@@ -1144,10 +1144,10 @@ def cmd_init(args: argparse.Namespace) -> None:
     else:
         sys.exit(1)
 
-    # Install skills to .claude and .codex
-    installed = _install_skills_to_dir(skills_base, force=False)
+    # Copy skills from .claude to .codex (Codex doesn't support plugins)
+    installed = _copy_claude_skills_to_codex(skills_base, force=False)
     for path in installed:
-        print(f"✔ Installed skill to {path}")
+        print(f"✔ Copied skill to {path}")
 
 
 def cmd_reset(args: argparse.Namespace) -> None:
@@ -1204,11 +1204,11 @@ def cmd_reset(args: argparse.Namespace) -> None:
         else:
             print(f"✗ Failed to reset {path}")
 
-    # Reinstall skills (force=True to overwrite)
+    # Re-copy skills from .claude to .codex (force=True to overwrite)
     for base in skill_bases:
-        installed = _install_skills_to_dir(base, force=True)
+        installed = _copy_claude_skills_to_codex(base, force=True)
         for installed_path in installed:
-            print(f"✔ Reinstalled skill to {installed_path}")
+            print(f"✔ Re-copied skill to {installed_path}")
 
 
 # ============================================================
