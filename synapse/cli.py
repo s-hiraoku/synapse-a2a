@@ -23,10 +23,6 @@ from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
-from synapse.delegation import (
-    get_delegate_instructions_path,
-    load_delegate_instructions,
-)
 from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
 from synapse.registry import AgentRegistry, is_port_open
 
@@ -1233,107 +1229,6 @@ def cmd_reset(args: argparse.Namespace) -> None:
             print(f"✔ Re-copied skill to {installed_path}")
 
 
-# ============================================================
-# Delegation Commands
-# ============================================================
-
-
-def cmd_delegate_status(args: argparse.Namespace) -> None:
-    """Show current delegation configuration."""
-    from synapse.settings import get_settings
-
-    settings = get_settings()
-    mode = settings.get_delegation_mode()
-    instructions_path = get_delegate_instructions_path()
-    instructions = load_delegate_instructions()
-
-    print("=== Delegation Configuration ===")
-    print(f"Mode: {mode}")
-
-    if instructions_path:
-        print(f"Instructions: {instructions_path}")
-    else:
-        print("Instructions: (not found)")
-
-    is_active = mode in ("orchestrator", "passthrough") and instructions is not None
-    print(f"Status: {'active' if is_active else 'inactive'}")
-    print()
-
-    if instructions:
-        print("Rules:")
-        for line in instructions.strip().split("\n")[:10]:  # Show first 10 lines
-            print(f"  {line}")
-        lines = instructions.strip().split("\n")
-        if len(lines) > 10:
-            print(f"  ... ({len(lines) - 10} more lines)")
-    else:
-        print("No delegation instructions found.")
-        print()
-        print("To set up delegation:")
-        print("  1. Set mode in .synapse/settings.json:")
-        print('     {"delegation": {"mode": "orchestrator"}}')
-        print("  2. Create .synapse/delegate.md with your rules")
-
-    print("================================")
-
-
-def cmd_delegate_set(args: argparse.Namespace) -> None:
-    """Set delegation mode in settings.json."""
-    import json
-
-    mode = args.mode
-    scope = getattr(args, "scope", "project")
-
-    # Determine settings path
-    if scope == "user":
-        settings_path = Path.home() / ".synapse" / "settings.json"
-    else:
-        settings_path = Path.cwd() / ".synapse" / "settings.json"
-
-    # Load existing settings
-    settings_data: dict = {}
-    if settings_path.exists():
-        try:
-            with open(settings_path, encoding="utf-8") as f:
-                settings_data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
-
-    # Update delegation mode
-    if "delegation" not in settings_data:
-        settings_data["delegation"] = {}
-    settings_data["delegation"]["mode"] = mode
-
-    # Save settings
-    try:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(settings_path, "w", encoding="utf-8") as f:
-            json.dump(settings_data, f, indent=2, ensure_ascii=False)
-        print(f"Delegation mode set to '{mode}' in {settings_path}")
-
-        if mode != "off":
-            instructions_path = get_delegate_instructions_path()
-            if instructions_path:
-                print(f"Instructions will be loaded from: {instructions_path}")
-            else:
-                print()
-                print("Note: Create .synapse/delegate.md with your delegation rules.")
-                print("Example:")
-                print("  # Delegation Rules")
-                print("  コーディングはCodexに任せる")
-                print("  リサーチはGeminiに依頼する")
-    except OSError as e:
-        print(f"Failed to save settings: {e}")
-        sys.exit(1)
-
-
-def cmd_delegate_off(args: argparse.Namespace) -> None:
-    """Disable delegation."""
-    args.mode = "off"
-    args.scope = getattr(args, "scope", "project")
-    cmd_delegate_set(args)
-
-
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -2010,56 +1905,6 @@ Also re-copies skills from .claude to .codex.""",
     )
     p_reset.set_defaults(func=cmd_reset)
 
-    # delegate - Delegation management
-    p_delegate = subparsers.add_parser(
-        "delegate",
-        help="Configure automatic task delegation",
-        description="""Configure automatic task delegation between agents.
-
-Modes:
-  orchestrator  Analyze tasks, delegate, and integrate results
-  passthrough   Forward tasks directly without analysis
-  off           Disable delegation
-
-Delegation rules are defined in .synapse/delegate.md""",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""Examples:
-  synapse delegate              Show current configuration
-  synapse delegate status       Show detailed status
-  synapse delegate set orchestrator  Enable orchestrator mode
-  synapse delegate off          Disable delegation""",
-    )
-    delegate_subparsers = p_delegate.add_subparsers(
-        dest="delegate_command", metavar="SUBCOMMAND"
-    )
-
-    # delegate status
-    p_del_status = delegate_subparsers.add_parser(
-        "status", help="Show current delegation configuration"
-    )
-    p_del_status.set_defaults(func=cmd_delegate_status)
-
-    # delegate set
-    p_del_set = delegate_subparsers.add_parser(
-        "set", help="Set delegation mode in settings.json"
-    )
-    p_del_set.add_argument(
-        "mode",
-        choices=["orchestrator", "passthrough", "off"],
-        help="Delegation mode: orchestrator (analyze & integrate), passthrough (direct forward), off (disable)",
-    )
-    p_del_set.add_argument(
-        "--scope",
-        choices=["user", "project"],
-        default="project",
-        help="Settings scope: user (~/.synapse) or project (./.synapse)",
-    )
-    p_del_set.set_defaults(func=cmd_delegate_set)
-
-    # delegate off
-    p_del_off = delegate_subparsers.add_parser("off", help="Disable delegation")
-    p_del_off.set_defaults(func=cmd_delegate_off)
-
     # file-safety - File locking and modification tracking
     p_file_safety = subparsers.add_parser(
         "file-safety",
@@ -2205,13 +2050,6 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
     ):
         p_auth.print_help()
         sys.exit(1)
-
-    # Handle delegate subcommand without action (show status by default)
-    if args.command == "delegate" and (
-        not hasattr(args, "delegate_command") or args.delegate_command is None
-    ):
-        cmd_delegate_status(args)
-        return
 
     # Handle file-safety subcommand without action (show status by default)
     if args.command == "file-safety" and (

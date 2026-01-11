@@ -175,6 +175,17 @@ synapse gemini
 @gemini APIの改善案を出して
 ```
 
+#### 応答制御フラグ
+
+```text
+@gemini --response 分析結果を教えて   # 結果を待って受け取る（roundtrip）
+@codex --no-response ビルドして        # 転送のみ、結果を待たない（oneway）
+```
+
+- `--response`: 結果を待って受け取る
+- `--no-response`: 転送のみ（fire and forget）
+- フラグなし: `a2a.flow` 設定に従う（デフォルトは結果を待つ）
+
 複数インスタンスがある場合は `@type-port` 形式で指定：
 
 ```text
@@ -283,8 +294,9 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 プラグインをインストールすると、Claude が以下を自動的に理解・実行できるようになります：
 
 - **@agent パターン**: `@codex ファイルを修正して` のようなエージェント間通信
+- **応答制御**: `--response` / `--no-response` フラグでの応答制御
 - **優先度制御**: Priority 1-5 でのメッセージ送信（5 は緊急停止）
-- **タスク委任**: orchestrator/passthrough モードでの自動タスク振り分け
+- **タスク委任**: `delegation.enabled` での自動タスク振り分け
 - **File Safety**: ファイルロックと変更追跡でマルチエージェント競合を防止
 - **履歴管理**: タスク履歴の検索・エクスポート・統計
 
@@ -300,8 +312,8 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 
 | スキル | 説明 |
 |--------|------|
-| **synapse-a2a** | エージェント間通信の包括的ガイド。@agent ルーティング、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
-| **delegation** | 自動タスク委任の設定。orchestrator/passthrough モード、事前チェック、エラーハンドリング、File Safety 連携 |
+| **synapse-a2a** | エージェント間通信の包括的ガイド。@agent ルーティング、`--response`/`--no-response` フラグ、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
+| **delegation** | 自動タスク委任の設定。`delegation.enabled` での有効化、事前チェック、エラーハンドリング、File Safety 連携 |
 
 ### ディレクトリ構造
 
@@ -437,9 +449,6 @@ synapse claude -- --resume
 | `synapse history cleanup`         | 古いデータ削除         |
 | `synapse history stats`           | 統計情報表示           |
 | `synapse history export`          | JSON/CSV エクスポート  |
-| `synapse delegate`                | 委任設定表示           |
-| `synapse delegate set <mode>`     | 委任モード設定         |
-| `synapse delegate off`            | 委任無効化             |
 | `synapse file-safety status`      | ファイル安全統計表示   |
 | `synapse file-safety locks`       | アクティブロック一覧   |
 | `synapse file-safety lock`        | ファイルをロック       |
@@ -1099,6 +1108,12 @@ synapse reset
     "claude": "",
     "gemini": "",
     "codex": ""
+  },
+  "a2a": {
+    "flow": "auto"
+  },
+  "delegation": {
+    "enabled": false
   }
 }
 ```
@@ -1118,6 +1133,43 @@ synapse reset
 | `SYNAPSE_WEBHOOK_SECRET` | Webhookシークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhookタイムアウト(秒) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhookリトライ数 | `3` |
+
+### A2A 通信設定 (a2a)
+
+エージェント間通信の動作を制御します。
+
+| 設定 | 値 | 説明 |
+|------|-----|------|
+| `flow` | `roundtrip` | 常に結果を待つ |
+| `flow` | `oneway` | 常に転送のみ（結果を待たない） |
+| `flow` | `auto` | メッセージごとに `--response`/`--no-response` フラグで制御（デフォルト） |
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
+  }
+}
+```
+
+### 委任設定 (delegation)
+
+自動タスク委任を制御します。
+
+| 設定 | 値 | 説明 |
+|------|-----|------|
+| `enabled` | `true` | `.synapse/delegate.md` を読み込み、委任ルールを有効化 |
+| `enabled` | `false` | 委任を無効化（デフォルト） |
+
+```json
+{
+  "delegation": {
+    "enabled": true
+  }
+}
+```
+
+委任を有効にするには、`.synapse/delegate.md` に委任ルールを記述してください。
 
 ### 初期インストラクション (instructions)
 

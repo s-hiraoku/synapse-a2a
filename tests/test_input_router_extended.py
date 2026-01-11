@@ -29,20 +29,18 @@ class TestInputRouterRefactorSpec:
 
     def test_parse_at_mention_basic(self, router):
         """Spec: parse_at_mention should extract agent name, response flag, and message."""
-        # Using the expected new method parse_at_mention
-        # Note: This will fail until implemented
         line = "@claude hello world"
         result = router.parse_at_mention(line)
 
         assert result is not None
         agent, want_response, message = result
         assert agent == "claude"
-        assert want_response is True
+        assert want_response is None  # No flag = use settings
         assert message == "hello world"
 
-    def test_parse_at_mention_non_response(self, router):
-        """Spec: parse_at_mention should detect --non-response flag."""
-        line = "@gemini --non-response analyze logs"
+    def test_parse_at_mention_no_response(self, router):
+        """Spec: parse_at_mention should detect --no-response flag."""
+        line = "@gemini --no-response analyze logs"
         result = router.parse_at_mention(line)
 
         assert result is not None
@@ -50,6 +48,17 @@ class TestInputRouterRefactorSpec:
         assert agent == "gemini"
         assert want_response is False
         assert message == "analyze logs"
+
+    def test_parse_at_mention_response(self, router):
+        """Spec: parse_at_mention should detect --response flag."""
+        line = "@codex --response review code"
+        result = router.parse_at_mention(line)
+
+        assert result is not None
+        agent, want_response, message = result
+        assert agent == "codex"
+        assert want_response is True
+        assert message == "review code"
 
     def test_parse_at_mention_quoted(self, router):
         """Spec: parse_at_mention should strip quotes from message."""

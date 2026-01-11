@@ -130,10 +130,11 @@ flowchart TB
 | カテゴリ | 機能 | 説明 | 有効化 |
 |---------|------|------|--------|
 | **通信** | @Agent記法 | `@gemini メッセージ` で直接送信 | 常時 |
+| | 応答制御フラグ | `--response` / `--no-response` で応答を制御 | 常時 |
+| | A2A Flow設定 | roundtrip/oneway/auto で通信方式を制御 | `settings.json` |
 | | Priority Interrupt | Priority 5 で SIGINT 送信（緊急停止） | 常時 |
 | | 外部エージェント連携 | 他の A2A エージェントと通信 | 常時 |
-| **委任** | orchestrator モード | 結果を統合して報告 | `settings.json` |
-| | passthrough モード | 結果をそのまま転送 | `settings.json` |
+| **委任** | 自動委任 | delegate.md に基づくタスク自動振り分け | `delegation.enabled: true` |
 | **履歴** | タスク履歴 | 過去の実行結果を保存・検索 | `SYNAPSE_HISTORY_ENABLED=true` |
 | **安全** | ファイルロック | 排他制御で競合防止 | `SYNAPSE_FILE_SAFETY_ENABLED=true` |
 | | 変更追跡 | 誰が何を変更したか記録 | 同上 |
@@ -317,11 +318,22 @@ CREATE TABLE file_modifications (
     "gemini": "gemini.md",
     "codex": ""
   },
+  "a2a": {
+    "flow": "auto"
+  },
   "delegation": {
-    "mode": "off"
+    "enabled": false
   }
 }
 ```
+
+### A2A Flow 設定
+
+| 設定値 | 動作 |
+|--------|------|
+| `roundtrip` | 常に結果を待つ |
+| `oneway` | 常に転送のみ（結果を待たない） |
+| `auto` | メッセージごとにフラグで制御（デフォルト） |
 
 ### 環境変数一覧
 
@@ -342,7 +354,7 @@ CREATE TABLE file_modifications (
 |----------|-------------|------|
 | `default.md` | `instructions.default` が `default.md` の場合 | 全エージェント共通の指示 |
 | `gemini.md` | `instructions.gemini` が `gemini.md` の場合 | Gemini専用の指示 |
-| `delegate.md` | `delegation.mode` が `orchestrator` or `passthrough` | 委任ルール |
+| `delegate.md` | `delegation.enabled` が `true` の場合 | 委任ルール |
 | `file-safety.md` | `SYNAPSE_FILE_SAFETY_ENABLED=true` | ファイル安全ルール |
 
 ---
@@ -352,16 +364,26 @@ CREATE TABLE file_modifications (
 ### @Agent 記法
 
 ```
-@<agent_name> <message>
-@<agent_type>-<port> <message>
+@<agent_name> [--response|--no-response] <message>
+@<agent_type>-<port> [--response|--no-response] <message>
 ```
 
 **例:**
 ```
 @gemini このコードをレビューして
+@gemini --response 分析結果を教えて    # 結果を待って受け取る
+@gemini --no-response 調査を開始して   # 転送のみ、結果を待たない
 @claude-8101 このタスクを処理して
 @codex テストを書いて
 ```
+
+#### 応答制御
+
+| `a2a.flow` 設定 | フラグなし | `--response` | `--no-response` |
+|----------------|-----------|--------------|-----------------|
+| `roundtrip` | 待つ | 待つ | 待たない |
+| `oneway` | 待たない | 待つ | 待たない |
+| `auto` | 待つ（デフォルト） | 待つ | 待たない |
 
 ### Priority レベル
 
@@ -451,11 +473,6 @@ synapse
 │   ├── record                   # 手動記録
 │   ├── cleanup                  # クリーンアップ
 │   └── debug                    # デバッグ情報
-│
-├── delegate                     # 委任設定
-│   ├── (表示)                   # 現在の設定表示
-│   ├── set <mode>               # モード設定
-│   └── off                      # 無効化
 │
 └── external                     # 外部エージェント
     ├── add <url>                # 登録

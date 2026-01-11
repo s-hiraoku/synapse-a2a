@@ -91,34 +91,21 @@ class TestLoadDelegateInstructions:
 class TestBuildDelegationInstructions:
     """Tests for building delegation instructions."""
 
-    def test_off_mode_returns_empty(self) -> None:
-        """Off mode should return empty string."""
-        result = build_delegation_instructions("off", "some rules")
-        assert result == ""
-
     def test_empty_rules_returns_empty(self) -> None:
         """Empty rules should return empty string."""
-        result = build_delegation_instructions("orchestrator", "")
+        result = build_delegation_instructions("")
         assert result == ""
 
-    def test_orchestrator_mode(self) -> None:
-        """Orchestrator mode should include proper instructions."""
+    def test_with_rules(self) -> None:
+        """Should include rules and action instructions."""
         rules = "コーディングはCodexに任せる"
-        result = build_delegation_instructions("orchestrator", rules)
+        result = build_delegation_instructions(rules)
 
-        assert "orchestrator" in result
+        assert "Delegation Rules" in result
         assert "コーディングはCodexに任せる" in result
-        assert "分析・統合型" in result
         assert "@agent pattern" in result
-
-    def test_passthrough_mode(self) -> None:
-        """Passthrough mode should include proper instructions."""
-        rules = "リサーチはGeminiに依頼"
-        result = build_delegation_instructions("passthrough", rules)
-
-        assert "passthrough" in result
-        assert "リサーチはGeminiに依頼" in result
-        assert "単純転送型" in result
+        assert "--response" in result
+        assert "--no-response" in result
 
 
 class TestGetDelegateInstructionsPath:

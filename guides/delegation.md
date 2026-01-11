@@ -10,89 +10,51 @@ Delegation（委任）は、Claudeが受け取ったタスクを自動的に他�
 
 | 設定 | 保存場所 | 役割 |
 |------|----------|------|
-| **モード** | `.synapse/settings.json` | 結果の扱い方（orchestrator/passthrough/off） |
+| **有効化** | `.synapse/settings.json` | `delegation.enabled: true` で有効化 |
 | **ルール** | `.synapse/delegate.md` | 誰に何を任せるか（自然言語で記述） |
 
-> **重要**: モードが `orchestrator` または `passthrough` の場合のみ、`delegate.md` のルールが適用されます。
+> **重要**: `delegation.enabled: true` の場合のみ、`delegate.md` のルールが初期インストラクションに含まれます。
 
 ---
 
-## モードとルールの関係
+## 関連設定: A2A Flow
 
+委任とは独立して、エージェント間通信の応答動作を `a2a.flow` で制御できます。
+
+| 設定 | 説明 |
+|------|------|
+| `a2a.flow: roundtrip` | 常に結果を待つ |
+| `a2a.flow: oneway` | 常に転送のみ（結果を待たない） |
+| `a2a.flow: auto` | メッセージごとに `--response`/`--no-response` フラグで制御 |
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
+  },
+  "delegation": {
+    "enabled": true
+  }
+}
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    delegate.md (ルール)                          │
-│  「コーディングはCodexに、リサーチはGeminiに」                    │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-              settings.json の mode で動作が決まる
-                              ↓
-        ┌─────────────────────┼─────────────────────┐
-        ↓                     ↓                     ↓
-   orchestrator          passthrough              off
-   (結果を統合)          (そのまま転送)        (ルール無視)
-```
-
-### モード比較
-
-| モード | delegate.md | 動作 |
-|--------|-------------|------|
-| `orchestrator` | ✅ 参照する | Claudeが結果を確認・統合して報告 |
-| `passthrough` | ✅ 参照する | 結果をそのまま転送 |
-| `off` | ❌ 参照しない | 自動委任なし（デフォルト） |
-
----
-
-## orchestrator vs passthrough
-
-### orchestrator モード（推奨）
-
-Claudeが結果を**確認・統合**してからユーザーに報告します。
-
-```
-ユーザー: 「この関数を修正して」
-    ↓
-Claude: タスクを分析 → delegate.md のルールに従ってCodexに委任
-    ↓
-Codex: 修正を実行
-    ↓
-Claude: 結果を確認・統合して報告  ← Claudeが加工
-    ↓
-ユーザー: Claudeからの統合レポートを受け取る
-```
-
-**向いているケース:**
-- 複雑なタスク（結果の確認が必要）
-- マルチステップのワークフロー
-- 結果をまとめて報告してほしい場合
-
-### passthrough モード
-
-結果を**そのまま**ユーザーに返します。
-
-```
-ユーザー: 「この関数を修正して」
-    ↓
-Claude: delegate.md のルールに従ってCodexに転送
-    ↓
-Codex: 修正を実行
-    ↓
-ユーザー: Codexの出力をそのまま受け取る  ← 加工なし
-```
-
-**向いているケース:**
-- シンプルな転送
-- Codex/Geminiの生の出力が欲しい場合
-- 高スループットが必要な場合
 
 ---
 
 ## クイックスタート
 
-### Step 1: モードを設定
+### Step 1: 設定ファイルを編集
 
-```bash
-synapse delegate set orchestrator
+`.synapse/settings.json`:
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
+  },
+  "delegation": {
+    "enabled": true
+  }
+}
 ```
 
 ### Step 2: ルールを作成
@@ -121,43 +83,36 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 
 ---
 
-## コマンド一覧
+## @agent パターンでの応答制御
 
-| コマンド | 説明 |
-|---------|------|
-| `synapse delegate` | 現在の設定を表示 |
-| `synapse delegate status` | 同上 |
-| `synapse delegate set <mode>` | モードを設定 |
-| `synapse delegate off` | 委任を無効化 |
+委任時に応答を待つかどうかを制御できます：
 
-### 例
-
-```bash
-# 現在の設定を確認
-synapse delegate
-
-# orchestrator モードに設定（プロジェクト）
-synapse delegate set orchestrator
-
-# orchestrator モードに設定（ユーザー全体）
-synapse delegate set orchestrator --scope user
-
-# 委任を無効化
-synapse delegate off
+```text
+@codex --response ファイルを修正して     # 結果を待って受け取る
+@gemini --no-response 調査を開始して      # 転送のみ（結果を待たない）
+@codex ビルドして                          # a2a.flow 設定に従う
 ```
+
+### Flow 設定との組み合わせ
+
+| `a2a.flow` | フラグなし | `--response` | `--no-response` |
+|------------|-----------|--------------|-----------------|
+| `roundtrip` | 待つ | 待つ | 待たない |
+| `oneway` | 待たない | 待つ | 待たない |
+| `auto` | 待つ（デフォルト） | 待つ | 待たない |
 
 ---
 
 ## 設定ファイル
 
-### モード設定 (settings.json)
+### 有効化設定 (settings.json)
 
 `.synapse/settings.json`:
 
 ```json
 {
   "delegation": {
-    "mode": "orchestrator"
+    "enabled": true
   }
 }
 ```
@@ -214,39 +169,25 @@ synapse delegate off
 上記に該当しない場合は自分で処理する
 ```
 
+### 応答制御の指示を含める
+
+```markdown
+# 結果の統合が必要な場合
+コーディングはCodexに依頼し、結果を待って確認する（--response）
+
+# 並列実行する場合
+複数の調査タスクはGeminiに順次転送する（--no-response）
+```
+
 ---
 
 ## 動作の仕組み
 
 1. **起動時**: Synapseがsettings.jsonとdelegate.mdを読み込む
-2. **ルール注入**: 委任ルールがClaudeの初期インストラクションに追加される
+2. **ルール注入**: `delegation.enabled: true` の場合、委任ルールがClaudeの初期インストラクションに追加される
 3. **タスク分析**: Claudeが受け取ったタスクをルールと照合
 4. **委任実行**: ルールにマッチしたら `@agent` パターンで転送
-5. **結果処理**:
-   - orchestrator: 結果を統合して報告
-   - passthrough: 結果をそのまま返す
-
----
-
-## ステータス表示
-
-```bash
-synapse delegate
-```
-
-出力例:
-```
-=== Delegation Configuration ===
-Mode: orchestrator
-Instructions: .synapse/delegate.md
-Status: active
-
-Rules:
-  # Delegation Rules
-  コーディングはCodexに任せる
-  リサーチはGeminiに依頼する
-================================
-```
+5. **応答制御**: `a2a.flow` 設定または `--response`/`--no-response` フラグに従う
 
 ---
 
@@ -254,9 +195,9 @@ Rules:
 
 ### 委任が動作しない
 
-1. モードを確認:
+1. 設定を確認:
    ```bash
-   synapse delegate status
+   cat .synapse/settings.json | grep -A2 delegation
    ```
 
 2. delegate.md の存在確認:
@@ -275,6 +216,11 @@ Rules:
 - delegate.md に明示的な例を追加
 - タスクカテゴリを明確化
 
+### 応答が返ってこない
+
+- `a2a.flow` 設定を確認（`oneway` だと結果を待たない）
+- `--response` フラグを明示的に使用
+
 ---
 
 ## 設定例
@@ -284,8 +230,11 @@ Rules:
 `.synapse/settings.json`:
 ```json
 {
+  "a2a": {
+    "flow": "auto"
+  },
   "delegation": {
-    "mode": "orchestrator"
+    "enabled": true
   }
 }
 ```
@@ -295,7 +244,7 @@ Rules:
 # Development Delegation
 
 設計とコードレビューは自分で行う。
-実装（ファイル編集、新規作成）はCodexに依頼する。
+実装（ファイル編集、新規作成）はCodexに依頼する（--response で結果を確認）。
 技術調査やドキュメント作成はGeminiに依頼する。
 ```
 
@@ -305,6 +254,7 @@ Rules:
 # Research Delegation
 
 Web検索や調査タスクはGeminiに転送する。
+複数の調査を並列で実行する場合は --no-response を使う。
 それ以外は自分で処理する。
 ```
 
@@ -314,5 +264,5 @@ Web検索や調査タスクはGeminiに転送する。
 # Coding Delegation
 
 コーディング作業（Edit, Write, Bash）はすべてCodexに任せる。
-結果を確認してからユーザーに報告する。
+結果を確認してからユーザーに報告する（--response を使用）。
 ```
