@@ -447,6 +447,27 @@ synapse claude -- --resume
 | `synapse file-safety cleanup`     | 古いデータ削除         |
 | `synapse file-safety debug`       | デバッグ情報表示       |
 
+### コンテキストの再開 (Resume Mode)
+
+既存のセッションを再開する場合、以下のフラグを使用すると **初期インストラクション（A2A プロトコル説明）の送信をスキップ** できます。これにより、コンテキストを汚さずにスムーズに作業を継続できます。
+
+```bash
+# Claude Code のセッション再開
+synapse claude -- --resume
+
+# Gemini の履歴指定再開
+synapse gemini -- --resume=5
+
+# フラグは settings.json でカスタマイズ可能
+synapse codex -- resume --last
+```
+
+デフォルトの対応フラグ（`settings.json` で変更可能）:
+- **Claude**: `--resume`, `--continue`, `-r`, `-c`
+- **Gemini**: `--resume`, `-r`
+- **Codex**: `resume`
+
+
 ### 外部エージェント管理
 
 ```bash
