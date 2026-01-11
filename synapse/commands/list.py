@@ -98,7 +98,9 @@ class ListCommand:
 
             live_agents = True
             if show_file_safety:
-                locks = file_safety.list_locks(agent_id)
+                # list_locks expects agent_type (e.g., "claude"), not agent_id
+                agent_type = info.get("agent_type", "")
+                locks = file_safety.list_locks(agent_type)
                 editing_file = "-"
                 if locks:
                     editing_file = os.path.basename(locks[0].get("file_path", "-"))

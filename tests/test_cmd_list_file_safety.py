@@ -94,8 +94,9 @@ def test_render_table_file_safety_shows_locked_file(list_command, mock_registry)
         fsm_instance.enabled = True
 
         # Setup locks: claude locks a file
+        # list_locks receives agent_type (e.g., "claude"), not agent_id
         def mock_list_locks(agent_name=None):
-            if agent_name == "synapse-claude-8100":
+            if agent_name == "claude":
                 return [{"file_path": "/path/to/important_file.py"}]
             return []
 
@@ -121,8 +122,9 @@ def test_render_table_shows_only_one_locked_file(list_command, mock_registry):
         fsm_instance.enabled = True
 
         # Setup locks: claude locks multiple files
+        # list_locks receives agent_type (e.g., "claude"), not agent_id
         def mock_list_locks(agent_name=None):
-            if agent_name == "synapse-claude-8100":
+            if agent_name == "claude":
                 return [
                     {"file_path": "/path/to/file1.py"},
                     {"file_path": "/path/to/file2.py"},
