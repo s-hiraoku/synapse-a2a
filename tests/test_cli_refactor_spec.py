@@ -142,7 +142,7 @@ class TestCliRefactorSpec:
         Spec: 'stop' command must locate running agent via PortManager and kill PID.
         """
         # Arrange
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = False
 
         mock_registry = MagicMock()

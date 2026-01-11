@@ -18,7 +18,7 @@ class TestCliExtra:
 
     def test_cmd_stop_all(self, mock_args):
         """Test stopping all agents with --all flag."""
-        mock_args.profile = "claude"
+        mock_args.target = "claude"
         mock_args.all = True
 
         running_infos = [

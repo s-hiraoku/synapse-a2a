@@ -125,7 +125,7 @@ class TestCliMain:
 
         mock_cmd_stop.assert_called_once()
         args = mock_cmd_stop.call_args[0][0]
-        assert args.profile == "claude"
+        assert args.target == "claude"
 
     @patch("synapse.cli.cmd_logs")
     @patch("synapse.cli.install_skills")

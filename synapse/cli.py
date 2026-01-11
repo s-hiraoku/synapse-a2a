@@ -109,10 +109,23 @@ def _stop_agent(registry: AgentRegistry, info: dict) -> None:
 
 def cmd_stop(args: argparse.Namespace) -> None:
     """Stop a running agent."""
-    profile = args.profile
+    target_id = args.target
     registry = AgentRegistry()
     port_manager = PortManager(registry)
 
+    # Check if target is an agent ID (e.g., synapse-claude-8100)
+    if target_id.startswith("synapse-"):
+        # Direct agent ID lookup
+        agent_info = registry.get_agent(target_id)
+        if agent_info:
+            _stop_agent(registry, agent_info)
+            return
+        else:
+            print(f"Agent not found: {target_id}")
+            sys.exit(1)
+
+    # Otherwise, treat as profile name
+    profile = target_id
     running = port_manager.get_running_instances(profile)
 
     if not running:
@@ -1610,15 +1623,32 @@ Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     p_stop = subparsers.add_parser(
         "stop",
         help="Stop a running agent",
-        description="Stop a running agent by profile name.",
+        description="""Stop a running agent by profile name or specific agent ID.
+
+You can specify either:
+  - Profile name (claude, codex, gemini): Stops instances of that profile
+  - Agent ID (synapse-claude-8100): Stops the specific agent instance
+
+Use 'synapse list' to see running agents and their IDs.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  synapse stop claude      Stop the oldest Claude instance
-  synapse stop gemini -a   Stop all Gemini instances""",
+  synapse stop claude                  Stop the oldest Claude instance
+  synapse stop gemini -a               Stop all Gemini instances
+  synapse stop synapse-claude-8100     Stop specific agent by ID
+  synapse stop synapse-codex-8120      Stop specific Codex instance
+
+Tip: Copy the agent ID from 'synapse list' output for precise control.""",
     )
-    p_stop.add_argument("profile", help="Agent profile to stop (claude, codex, gemini)")
     p_stop.add_argument(
-        "--all", "-a", action="store_true", help="Stop all instances of this profile"
+        "target",
+        metavar="TARGET",
+        help="Profile name (claude, codex, gemini) or agent ID (synapse-claude-8100)",
+    )
+    p_stop.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="Stop all instances of the specified profile (ignored for agent IDs)",
     )
     p_stop.set_defaults(func=cmd_stop)
 
