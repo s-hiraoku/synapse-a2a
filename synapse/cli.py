@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Synapse A2A CLI - Main entry point for agent management."""
 
+from __future__ import annotations
+
 import argparse
 import os
 import shutil
@@ -9,8 +11,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from synapse.history import HistoryManager
 
 from synapse.a2a_client import get_client
 from synapse.auth import generate_api_key
@@ -154,12 +160,28 @@ def cmd_logs(args: argparse.Namespace) -> None:
 # ============================================================
 
 
-def cmd_history_list(args: argparse.Namespace) -> None:
-    """List task history."""
+def _get_history_manager() -> HistoryManager:
+    """Get HistoryManager with settings env applied.
+
+    Applies env settings from .synapse/settings.json before checking
+    SYNAPSE_HISTORY_ENABLED environment variable.
+    """
     from synapse.history import HistoryManager
+    from synapse.settings import get_settings
+
+    # Apply settings env to os.environ
+    settings = get_settings()
+    env_dict = dict(os.environ)
+    settings.apply_env(env_dict)
+    os.environ.update(env_dict)
 
     db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    return HistoryManager.from_env(db_path=db_path)
+
+
+def cmd_history_list(args: argparse.Namespace) -> None:
+    """List task history."""
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
@@ -201,10 +223,7 @@ def cmd_history_show(args: argparse.Namespace) -> None:
     """Show detailed task information."""
     import json
 
-    from synapse.history import HistoryManager
-
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
@@ -242,10 +261,7 @@ def cmd_history_show(args: argparse.Namespace) -> None:
 
 def cmd_history_search(args: argparse.Namespace) -> None:
     """Search task history by keywords."""
-    from synapse.history import HistoryManager
-
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
@@ -292,10 +308,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
     """Clean up old task history."""
     import sqlite3
 
-    from synapse.history import HistoryManager
-
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
@@ -309,6 +322,8 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
     if args.days is not None and args.max_size is not None:
         print("Error: Specify only one of --days or --max-size")
         sys.exit(1)
+
+    db_path = manager.db_path
 
     # Dry-run mode: Show what would be deleted
     if args.dry_run:
@@ -372,10 +387,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
 
 def cmd_history_stats(args: argparse.Namespace) -> None:
     """Show task history statistics."""
-    from synapse.history import HistoryManager
-
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
@@ -433,10 +445,7 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
 
 def cmd_history_export(args: argparse.Namespace) -> None:
     """Export task history in specified format."""
-    from synapse.history import HistoryManager
-
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
-    manager = HistoryManager.from_env(db_path=db_path)
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
