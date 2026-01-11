@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-01-11
+
+### Fixed
+
+- Add `httpx` to runtime dependencies (was causing ModuleNotFoundError) (#64)
+- Remove `$schema` key from plugin.json (was causing installation error) (#62)
+- Move type stubs (`types-pyyaml`, `types-requests`) from runtime to dev dependencies
+
+### Documentation
+
+- Improve CLI `--help` with detailed descriptions and examples (#63)
+
 ## [0.2.1] - 2025-01-11
 
 ### Added
@@ -96,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/s-hiraoku/synapse-a2a/releases/tag/v0.1.0
