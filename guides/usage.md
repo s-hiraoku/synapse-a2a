@@ -97,15 +97,20 @@ synapse start claude --port 8100 --foreground
 Resume Mode（再開モード）を使用すると、**初期インストラクションの送信をスキップ** し、スムーズに作業を継続できます。
 
 ```bash
-# Claude Code のセッション再開
+# Claude: --continue / --resume / -c / -r
 synapse claude -- --resume
 
-# 省略形
-synapse claude -- -r
+# Gemini: --resume / -r
+synapse gemini -- --resume
 
-# セッションID指定
+# Codex: resume サブコマンド
+synapse codex -- resume
+
+# セッションID指定（Claude）
 synapse claude -- --resume=SESSION_ID
 ```
+
+> **Note**: `synapse <agent> --` の後の引数は、エージェントの CLI ツールに直接渡されます。
 
 **動作**:
 - 指定されたフラグ（`--resume` 等）を検知すると、Synapse は「これは再開である」と判断します。
@@ -199,14 +204,14 @@ synapse list
 **出力例**:
 
 ```
-TYPE       PORT     STATUS     PID      ENDPOINT
-------------------------------------------------------------
-claude     8100     READY      12345    http://localhost:8100
-codex      8120     PROCESSING 12346    http://localhost:8120
-gemini     8110     PROCESSING 12347    http://localhost:8110
+TYPE       PORT     STATUS     PID      LOCKED FILE         ENDPOINT
+--------------------------------------------------------------------------------------
+claude     8100     READY      12345    auth.py             http://localhost:8100
+codex      8120     PROCESSING 12346    -                   http://localhost:8120
+gemini     8110     READY      12347    -                   http://localhost:8110
 ```
 
-<!-- CodeRabbit fix: Updated example output to show actual status transitions instead of static values -->
+> **Note**: File Safety 機能が有効な場合、`LOCKED FILE` 列に現在ロック中のファイル名が表示されます。
 
 ---
 
