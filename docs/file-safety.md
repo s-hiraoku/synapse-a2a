@@ -106,6 +106,7 @@ synapse file-safety <subcommand> [options]
 | `locks` | アクティブなロック一覧を表示 |
 | `lock` | ファイルにロックを取得 |
 | `unlock` | ファイルのロックを解放 |
+| `cleanup-locks` | 死んだプロセスからの古いロックをクリーンアップ |
 | `history` | 特定ファイルの変更履歴を表示 |
 | `recent` | 最近の変更一覧を表示 |
 | `record` | ファイル変更を手動で記録 |
@@ -152,7 +153,7 @@ Most Modified Files:
 
 ### synapse file-safety locks
 
-アクティブなファイルロック一覧を表示します。
+アクティブなファイルロック一覧を表示します。PID とプロセス状態（LIVE/STALE）も表示されます。
 
 ```bash
 # 全ロック表示
@@ -160,23 +161,34 @@ synapse file-safety locks
 
 # 特定エージェントのみ
 synapse file-safety locks --agent claude
+
+# エージェントタイプでフィルタ
+synapse file-safety locks --type claude
 ```
+
+**オプション:**
+
+| オプション | 説明 |
+|------------|------|
+| `--agent`, `-a` | エージェント名でフィルタ |
+| `--type`, `-t` | エージェントタイプでフィルタ（claude, gemini, codex） |
 
 **出力例:**
 
 ```text
-Active File Locks
-============================================================
-File                                              Agent           Expires
-------------------------------------------------------------
-/path/to/src/auth.py                              claude          2026-01-09T12:00:00
-/path/to/src/api.py                               gemini          2026-01-09T11:30:00
+File Path                                Agent                PID      Status   Expires At
+----------------------------------------------------------------------------------------------------
+auth.py                                  synapse-claude-8100  12345    LIVE     2026-01-09T12:00:00
+api.py                                   synapse-gemini-8110  12346    STALE    2026-01-09T11:30:00
 
-Total: 2 active locks
+Total: 2 locks (1 live, 1 stale)
+
+Warning: 1 stale lock(s) from dead processes detected.
+Run 'synapse file-safety cleanup-locks' to clean them up.
 ```
 
 > [!TIP]
-> `synapse list` コマンドでも、各エージェントが現在ロックしているファイル（1つのみ）を素早く確認できます。
+> `synapse list --watch` コマンドでも、各エージェントが現在ロックしているファイル（1つのみ）と stale ロックの警告を素早く確認できます。
 
 ---
 
@@ -217,8 +229,18 @@ Expires at: 2026-01-09T12:00:00
 ファイルのロックを解放します。
 
 ```bash
+# 通常の解放（自分のロックのみ）
 synapse file-safety unlock /path/to/file.py claude
+
+# 強制解放（所有者に関係なく解放）
+synapse file-safety unlock /path/to/file.py --force
 ```
+
+**オプション:**
+
+| オプション | 説明 |
+|------------|------|
+| `--force`, `-f` | 所有者に関係なく強制的にロックを解放 |
 
 **出力例:**
 
@@ -227,7 +249,42 @@ Lock released on /path/to/file.py
 ```
 
 > [!NOTE]
-> ロックは自分が取得したものだけ解放できます。他のエージェントのロックは解放できません。
+> 通常、ロックは自分が取得したものだけ解放できます。`--force` オプションを使用すると、所有者に関係なくロックを強制的に解放できます。
+
+---
+
+### synapse file-safety cleanup-locks
+
+死んだプロセス（stale）からの古いロックをクリーンアップします。エージェントがクラッシュした場合など、ロックが残ってしまった場合に使用します。
+
+```bash
+# 確認付きでクリーンアップ
+synapse file-safety cleanup-locks
+
+# 確認なしで実行
+synapse file-safety cleanup-locks --force
+```
+
+**オプション:**
+
+| オプション | 説明 |
+|------------|------|
+| `--force`, `-f` | 確認プロンプトをスキップ |
+
+**出力例:**
+
+```text
+Found 2 stale lock(s) from dead processes:
+  - /path/to/auth.py (pid=12345, agent=synapse-claude-8100)
+  - /path/to/api.py (pid=12346, agent=synapse-gemini-8110)
+
+Clean up these locks? [y/N]: y
+
+Cleaned up 2 stale lock(s).
+```
+
+> [!TIP]
+> `synapse list --watch` コマンドで stale ロックが検出されると警告が表示されます。その場合、このコマンドでクリーンアップできます。
 
 ---
 
@@ -657,10 +714,16 @@ finally:
 | `id` | INTEGER | 主キー（自動採番） |
 | `file_path` | TEXT UNIQUE | ファイルパス（正規化済み） |
 | `agent_name` | TEXT | ロックを保持するエージェント名 |
+| `agent_id` | TEXT | 完全なエージェントID（例: synapse-claude-8100） |
+| `agent_type` | TEXT | エージェントタイプ（claude, gemini, codex） |
+| `pid` | INTEGER | ロックを取得したプロセスのPID |
 | `task_id` | TEXT | 関連するタスク ID |
 | `locked_at` | DATETIME | ロック取得日時 |
 | `expires_at` | DATETIME | ロック有効期限 |
 | `intent` | TEXT | 変更の意図 |
+
+> [!NOTE]
+> `agent_id`, `agent_type`, `pid` カラムはバージョン 0.2.6 で追加されました。既存のデータベースは自動的にマイグレーションされます。`pid` は stale ロック（死んだプロセスからのロック）の検出に使用されます。
 
 ### file_modifications テーブル
 
@@ -705,19 +768,28 @@ export SYNAPSE_FILE_SAFETY_ENABLED=true
 synapse file-safety status
 ```
 
-### ロックが解放されない
+### ロックが解放されない（stale ロック）
 
 **症状:** エージェントがクラッシュしてロックが残っている
 
 **解決策:**
-```bash
-# 期限切れロックをクリーンアップ
-synapse file-safety cleanup --force
 
-# または手動で解放（管理者として）
-# データベースに直接アクセスする場合のみ
-sqlite3 ./.synapse/file_safety.db "DELETE FROM file_locks WHERE file_path = '/path/to/file.py'"
+```bash
+# stale ロックを確認
+synapse file-safety locks
+
+# stale ロック（死んだプロセスからのロック）をクリーンアップ
+synapse file-safety cleanup-locks
+
+# 特定のファイルを強制的にアンロック
+synapse file-safety unlock /path/to/file.py --force
+
+# または期限切れロックを含めてクリーンアップ
+synapse file-safety cleanup --force
 ```
+
+> [!TIP]
+> `synapse list --watch` で stale ロックの警告が表示された場合は、`cleanup-locks` コマンドで自動的にクリーンアップできます。
 
 ### データベースファイルが見つからない
 
