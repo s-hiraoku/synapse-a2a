@@ -1,7 +1,7 @@
 """Tests for synapse/utils.py utility functions."""
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
@@ -187,9 +187,9 @@ class TestGetIsoTimestamp:
 
     def test_timestamp_is_recent(self):
         """Generated timestamp should be close to current time."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc).replace(tzinfo=None)
         result = get_iso_timestamp()
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Parse result
         timestamp_str = result[:-1]  # Remove Z

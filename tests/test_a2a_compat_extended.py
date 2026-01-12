@@ -95,7 +95,11 @@ class TestResponseSender:
 
         with patch("synapse.a2a_compat.httpx.AsyncClient") as mock_client:
             mock_post = AsyncMock()
-            mock_post.return_value.status_code = 200
+            # Ensure return value is a MagicMock (sync), not AsyncMock
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_post.return_value = mock_response
+
             mock_client.return_value.__aenter__.return_value.post = mock_post
 
             result = await _send_response_to_sender(task, "http://sender", "me")

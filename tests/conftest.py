@@ -27,16 +27,14 @@ def reset_global_state() -> Generator[None, None, None]:
     # Clean up event loop created by asyncio.run() in tests
     # This is critical for preventing event loop accumulation
     try:
-        # asyncio.run() sets the event loop but doesn't always clean it up
-        # Get the current event loop without creating a new one
-        loop = asyncio.get_event_loop_policy().get_event_loop()
+        # Get the current running event loop if it exists
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        # No event loop in current thread
+        # No event loop running in current thread
         loop = None
 
-    # Explicitly handle three cases: None/closed, running, or open
-    if loop is None or loop.is_closed():
-        # No event loop to clean up
+    # Explicitly handle three cases: None, running, or closed
+    if loop is None:
         pass
     elif loop.is_running():
         # Loop is still running - don't close it
@@ -48,7 +46,7 @@ def reset_global_state() -> Generator[None, None, None]:
             f"[DEBUG] Event loop still running at cleanup for {sys.argv[0]}",
             file=sys.stderr,
         )
-    else:
+    elif not loop.is_closed():
         # Loop exists, is not running, and is not closed - properly close it
         loop.close()
 
