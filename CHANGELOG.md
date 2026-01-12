@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2025-01-12
+
+### Added
+
+- Unix Domain Socket (UDS) transport for local A2A communication (#81)
+  - Lower latency and overhead for same-machine agent communication
+  - Automatic fallback to HTTP when UDS unavailable
+
+### Fixed
+
+- PID-based lock management for stale lock detection (#80)
+  - Detect and clean up stale locks from crashed processes
+  - Improve file safety reliability in multi-agent scenarios
+- Enable history and file safety in default settings.json
+- Add httpx to requirements (#83)
+- Resolve AsyncMock RuntimeWarning in test_a2a_compat_extended (#84)
+- Fix deprecated `asyncio.get_event_loop_policy` usage in conftest (#84)
+- Fix deprecated `datetime.utcnow` usage in test_utils (#84)
+
+### Changed
+
+- Install gRPC dependency group to enable previously skipped tests (#84)
+- Achieve 100% test pass rate (985 tests)
+
+### Documentation
+
+- Update file-safety guide with PID-based lock management (#82)
+
 ## [0.2.5] - 2025-01-12
 
 ### Fixed
@@ -155,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.2...v0.2.3
