@@ -11,6 +11,7 @@ import requests
 
 from synapse.history import HistoryManager
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
+from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -251,12 +252,25 @@ def cmd_send(args: argparse.Namespace) -> None:
         "message": {"role": "user", "parts": [{"type": "text", "text": args.message}]}
     }
 
-    # Add metadata (sender info and response_required)
+    # Determine response_expected based on a2a.flow setting and flags
+    settings = get_settings()
+    flow = settings.get_a2a_flow()
+    want_response = getattr(args, "want_response", None)
+
+    if flow == "roundtrip":
+        # Force response expected
+        response_expected = True
+    elif flow == "oneway":
+        # Force no response
+        response_expected = False
+    else:  # auto - AI decides via flag, default to True
+        response_expected = want_response if want_response is not None else True
+
+    # Add metadata (sender info and response_expected)
     metadata: dict[str, object] = {}
     if sender_info:
         metadata["sender"] = sender_info
-    # Default: response_required is True, --non-response sets it to False
-    metadata["response_required"] = not getattr(args, "non_response", False)
+    metadata["response_expected"] = response_expected
     payload["metadata"] = metadata
 
     try:
@@ -313,11 +327,20 @@ def main() -> None:
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
     )
-    p_send.add_argument(
-        "--non-response",
-        dest="non_response",
+    # Response control: mutually exclusive group
+    response_group = p_send.add_mutually_exclusive_group()
+    response_group.add_argument(
+        "--response",
+        dest="want_response",
         action="store_true",
-        help="Do not require response from receiver (default: response required)",
+        default=None,
+        help="Wait for and receive response from target agent",
+    )
+    response_group.add_argument(
+        "--no-response",
+        dest="want_response",
+        action="store_false",
+        help="Do not wait for response (fire and forget)",
     )
     p_send.add_argument("message", help="Content of the message")
 

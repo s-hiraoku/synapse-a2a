@@ -18,8 +18,11 @@
     "gemini": "gemini.md",
     "codex": ""
   },
+  "a2a": {
+    "flow": "auto"
+  },
   "delegation": {
-    "mode": "off"
+    "enabled": false
   },
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],

@@ -38,7 +38,7 @@ Example:
       "sender_type": "claude",
       "sender_endpoint": "http://localhost:8100"
     },
-    "response_required": true
+    "response_expected": true
   }
 }
 ```

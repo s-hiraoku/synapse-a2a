@@ -386,7 +386,7 @@ async def _send_response_to_sender(
             "sender": {
                 "sender_id": self_agent_id,
             },
-            "response_required": False,  # Response to response not needed
+            "response_expected": False,  # Response to response not needed
             "in_reply_to": task.id,  # Reference to original task
         },
     }
@@ -693,13 +693,13 @@ def create_a2a_router(
                         task_status=updated_task.status,
                     )
 
-                    # Send response back to sender if response_required
+                    # Send response back to sender if response_expected
                     metadata = updated_task.metadata or {}
-                    response_required = metadata.get("response_required", False)
+                    response_expected = metadata.get("response_expected", False)
                     sender_info = metadata.get("sender", {})
                     sender_endpoint = sender_info.get("sender_endpoint")
 
-                    if response_required and sender_endpoint:
+                    if response_expected and sender_endpoint:
                         # Send response asynchronously
                         asyncio.create_task(
                             _send_response_to_sender(

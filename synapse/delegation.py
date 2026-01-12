@@ -5,14 +5,11 @@ This module manages delegation settings for automatic task routing
 between agents (Claude, Codex, Gemini).
 
 Configuration:
-- Mode: Stored in .synapse/settings.json under "delegation" section
+- Enabled: Stored in .synapse/settings.json under "delegation.enabled" (boolean)
 - Instructions: Read from .synapse/delegate.md (project) or ~/.synapse/delegate.md (user)
 """
 
 from pathlib import Path
-from typing import Literal
-
-DelegationMode = Literal["orchestrator", "passthrough", "off"]
 
 # Delegate instruction file name
 DELEGATE_MD_NAME = "delegate.md"
@@ -73,36 +70,30 @@ def get_delegate_instructions_path() -> str | None:
     return None
 
 
-def build_delegation_instructions(mode: DelegationMode, rules: str) -> str:
+def build_delegation_instructions(rules: str) -> str:
     """
     Build delegation instructions to inject into agent context.
 
+    Note: This function is called only when delegation is enabled
+    (delegation.enabled = true in settings.json).
+
     Args:
-        mode: Delegation mode (orchestrator/passthrough)
         rules: Delegation rules from delegate.md
 
     Returns:
         Formatted instructions string
     """
-    if mode == "off" or not rules:
+    if not rules:
         return ""
 
-    mode_desc = {
-        "orchestrator": "分析・統合型 - タスクを分析し、適切なエージェントに委任し、結果を統合して報告",
-        "passthrough": "単純転送型 - ルールに従って直接転送し、結果をそのまま返す",
-    }
-
-    return f"""## Delegation Rules (Mode: {mode})
+    return f"""## Delegation Rules
 
 {rules}
-
-### Mode Description
-{mode_desc.get(mode, "")}
 
 ### Action Instructions
 - Analyze each incoming task against the rules above
 - For tasks matching a delegation rule, use @agent pattern to send
-- For orchestrator mode: wait for response, integrate results, then report to user
-- For passthrough mode: forward directly and relay response as-is
+- Use --response flag when you need to integrate results
+- Use --no-response flag for fire-and-forget delegation
 - For tasks not matching any rule: process directly yourself
 """

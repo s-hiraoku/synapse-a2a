@@ -130,10 +130,11 @@ flowchart TB
 | カテゴリ | 機能 | 説明 | 有効化 |
 |---------|------|------|--------|
 | **通信** | @Agent記法 | `@gemini メッセージ` で直接送信 | 常時 |
+| | 応答制御フラグ | `--response` / `--no-response` で応答を制御 | 常時 |
+| | A2A Flow設定 | roundtrip/oneway/auto で通信方式を制御 | `settings.json` |
 | | Priority Interrupt | Priority 5 で SIGINT 送信（緊急停止） | 常時 |
 | | 外部エージェント連携 | 他の A2A エージェントと通信 | 常時 |
-| **委任** | orchestrator モード | 結果を統合して報告 | `settings.json` |
-| | passthrough モード | 結果をそのまま転送 | `settings.json` |
+| **委任** | 自動委任 | delegate.md に基づくタスク自動振り分け | `delegation.enabled: true` |
 | **履歴** | タスク履歴 | 過去の実行結果を保存・検索 | `SYNAPSE_HISTORY_ENABLED=true` |
 | **安全** | ファイルロック | 排他制御で競合防止 | `SYNAPSE_FILE_SAFETY_ENABLED=true` |
 | | 変更追跡 | 誰が何を変更したか記録 | 同上 |
@@ -317,11 +318,22 @@ CREATE TABLE file_modifications (
     "gemini": "gemini.md",
     "codex": ""
   },
+  "a2a": {
+    "flow": "auto"
+  },
   "delegation": {
-    "mode": "off"
+    "enabled": false
   }
 }
 ```
+
+### A2A Flow 設定
+
+| 設定値 | 動作 |
+|--------|------|
+| `roundtrip` | 常に結果を待つ |
+| `oneway` | 常に転送のみ（結果を待たない） |
+| `auto` | AIエージェントがタスクに応じて判断（デフォルト） |
 
 ### 環境変数一覧
 
@@ -342,14 +354,16 @@ CREATE TABLE file_modifications (
 |----------|-------------|------|
 | `default.md` | `instructions.default` が `default.md` の場合 | 全エージェント共通の指示 |
 | `gemini.md` | `instructions.gemini` が `gemini.md` の場合 | Gemini専用の指示 |
-| `delegate.md` | `delegation.mode` が `orchestrator` or `passthrough` | 委任ルール |
+| `delegate.md` | `delegation.enabled` が `true` の場合 | 委任ルール |
 | `file-safety.md` | `SYNAPSE_FILE_SAFETY_ENABLED=true` | ファイル安全ルール |
 
 ---
 
 ## エージェント間通信
 
-### @Agent 記法
+### @Agent パターン（ユーザー用）
+
+PTYでユーザーが他のエージェントにメッセージを送信する際に使用します。
 
 ```
 @<agent_name> <message>
@@ -362,6 +376,30 @@ CREATE TABLE file_modifications (
 @claude-8101 このタスクを処理して
 @codex テストを書いて
 ```
+
+応答動作は `a2a.flow` 設定に従います。
+
+### a2a.py send コマンド（AIエージェント用）
+
+AIエージェントが他のエージェントにメッセージを送信する際に使用します。
+
+```bash
+python3 synapse/tools/a2a.py send --target <AGENT> [--response|--no-response] "<MESSAGE>"
+```
+
+**例:**
+```bash
+python3 synapse/tools/a2a.py send --target gemini --response "分析結果を教えて"
+python3 synapse/tools/a2a.py send --target codex --no-response "テストを実行して"
+```
+
+### 応答制御（a2a.flow 設定）
+
+| `a2a.flow` 設定 | 動作 | フラグの扱い |
+|----------------|------|-------------|
+| `roundtrip` | 常に待つ | 無視 |
+| `oneway` | 常に待たない | 無視 |
+| `auto` | フラグで制御 | `--response`=待つ、`--no-response`=待たない、なし=待つ |
 
 ### Priority レベル
 
@@ -452,11 +490,6 @@ synapse
 │   ├── cleanup                  # クリーンアップ
 │   └── debug                    # デバッグ情報
 │
-├── delegate                     # 委任設定
-│   ├── (表示)                   # 現在の設定表示
-│   ├── set <mode>               # モード設定
-│   └── off                      # 無効化
-│
 └── external                     # 外部エージェント
     ├── add <url>                # 登録
     ├── list                     # 一覧
@@ -514,6 +547,7 @@ synapse
 | [usage.md](usage.md) | 使い方詳細 |
 | [settings.md](settings.md) | 設定詳細 |
 | [architecture.md](architecture.md) | アーキテクチャ詳細 |
+| [a2a-communication.md](a2a-communication.md) | A2A通信と応答制御 |
 | [delegation.md](delegation.md) | 委任ガイド |
 | [../docs/file-safety.md](../docs/file-safety.md) | File Safety 詳細 |
 | [troubleshooting.md](troubleshooting.md) | トラブルシューティング |

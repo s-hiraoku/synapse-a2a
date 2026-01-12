@@ -88,8 +88,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "gemini": get_gemini_instructions(),
         "codex": "",
     },
+    "a2a": {
+        "flow": "auto",  # "roundtrip" | "oneway" | "auto"
+    },
     "delegation": {
-        "mode": "off",  # "orchestrator" | "passthrough" | "off"
+        "enabled": False,
     },
     "resume_flags": {
         # Flags that indicate context resume (skip initial instructions)
@@ -172,7 +175,8 @@ class SynapseSettings:
 
     env: dict[str, str] = field(default_factory=dict)
     instructions: dict[str, str] = field(default_factory=dict)
-    delegation: dict[str, str] = field(default_factory=dict)
+    a2a: dict[str, str] = field(default_factory=dict)
+    delegation: dict[str, Any] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
 
     @classmethod
@@ -181,6 +185,7 @@ class SynapseSettings:
         return cls(
             env=dict(DEFAULT_SETTINGS["env"]),
             instructions=dict(DEFAULT_SETTINGS["instructions"]),
+            a2a=dict(DEFAULT_SETTINGS["a2a"]),
             delegation=dict(DEFAULT_SETTINGS["delegation"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
         )
@@ -241,6 +246,7 @@ class SynapseSettings:
         return cls(
             env=merged.get("env", {}),
             instructions=merged.get("instructions", {}),
+            a2a=merged.get("a2a", {}),
             delegation=merged.get("delegation", {}),
             resume_flags=merged.get("resume_flags", {}),
         )
@@ -267,9 +273,8 @@ class SynapseSettings:
             section of .synapse/settings.json if needed. This function only
             handles placeholder replacement ({{agent_id}}, {{port}}).
 
-            To enable delegation, configure both:
-            1. .synapse/settings.json: {"delegation": {"mode": "orchestrator"}}
-            2. Include delegation rules in the "instructions" section
+            To enable delegation, configure:
+            .synapse/settings.json: {"delegation": {"enabled": true}}
 
         Supported instruction formats:
             - String: "line1\\nline2" (escaped newlines)
@@ -350,12 +355,10 @@ class SynapseSettings:
 
         # Add optional files based on settings
 
-        # Delegation (when mode is orchestrator or passthrough)
-        delegation_mode = self.get_delegation_mode()
-        if delegation_mode in (
-            "orchestrator",
-            "passthrough",
-        ) and self._instruction_file_exists("delegate.md"):
+        # Delegation (when enabled)
+        if self.is_delegation_enabled() and self._instruction_file_exists(
+            "delegate.md"
+        ):
             files.append("delegate.md")
 
         # File safety
@@ -459,14 +462,23 @@ class SynapseSettings:
                 env[key] = value
         return env
 
-    def get_delegation_mode(self) -> str:
+    def get_a2a_flow(self) -> str:
         """
-        Get the delegation mode.
+        Get the A2A communication flow mode.
 
         Returns:
-            Delegation mode: "orchestrator", "passthrough", or "off"
+            Flow mode: "roundtrip", "oneway", or "auto"
         """
-        return self.delegation.get("mode", "off")
+        return self.a2a.get("flow", "auto")
+
+    def is_delegation_enabled(self) -> bool:
+        """
+        Check if delegation is enabled.
+
+        Returns:
+            True if delegation is enabled, False otherwise.
+        """
+        return bool(self.delegation.get("enabled", False))
 
     def get_resume_flags(self, agent_type: str) -> list[str]:
         """

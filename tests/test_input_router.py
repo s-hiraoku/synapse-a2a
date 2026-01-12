@@ -171,8 +171,13 @@ class TestResponseHandling:
         }
         return registry
 
-    def test_extract_text_from_artifacts(self, mock_registry):
+    @patch("synapse.input_router.get_settings")
+    def test_extract_text_from_artifacts(self, mock_get_settings, mock_registry):
         """Should extract text from artifacts."""
+        mock_settings = MagicMock()
+        mock_settings.get_a2a_flow.return_value = "roundtrip"
+        mock_get_settings.return_value = mock_settings
+
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
@@ -186,14 +191,19 @@ class TestResponseHandling:
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
 
-        # Send with want_response=True
-        result = router.send_to_agent("claude", "hello", want_response=True)
+        # Send - flow=roundtrip will wait for response
+        result = router.send_to_agent("claude", "hello")
 
         assert result is True
         assert router.last_response == "First response\nSecond response"
 
-    def test_no_artifacts_returns_none(self, mock_registry):
+    @patch("synapse.input_router.get_settings")
+    def test_no_artifacts_returns_none(self, mock_get_settings, mock_registry):
         """Should return None when no artifacts."""
+        mock_settings = MagicMock()
+        mock_settings.get_a2a_flow.return_value = "roundtrip"
+        mock_get_settings.return_value = mock_settings
+
         mock_client = MagicMock()
         mock_client.registry.get.return_value = None
         mock_client.send_to_local.return_value = A2ATask(
@@ -201,7 +211,7 @@ class TestResponseHandling:
         )
 
         router = InputRouter(registry=mock_registry, a2a_client=mock_client)
-        router.send_to_agent("claude", "hello", want_response=True)
+        router.send_to_agent("claude", "hello")
 
         assert router.last_response is None
 

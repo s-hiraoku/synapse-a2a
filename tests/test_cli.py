@@ -14,9 +14,6 @@ from synapse.cli import (
     _write_default_settings,
     cmd_auth_generate_key,
     cmd_auth_setup,
-    cmd_delegate_off,
-    cmd_delegate_set,
-    cmd_delegate_status,
     cmd_external_add,
     cmd_external_info,
     cmd_external_list,
@@ -1181,123 +1178,6 @@ class TestCmdReset:
         with open(settings_path) as f:
             data = json.load(f)
             assert "env" in data
-
-
-# ==============================================================================
-# Tests for delegate commands
-# ==============================================================================
-
-
-class TestCmdDelegateStatus:
-    """Tests for cmd_delegate_status command."""
-
-    def test_delegate_status_displays_config(self, mock_args, capsys):
-        """Should display delegation configuration."""
-        mock_settings = MagicMock()
-        mock_settings.get_delegation_mode.return_value = "orchestrator"
-
-        with (
-            patch("synapse.settings.get_settings", return_value=mock_settings),
-            patch(
-                "synapse.delegation.get_delegate_instructions_path", return_value=None
-            ),
-            patch("synapse.delegation.load_delegate_instructions", return_value=None),
-        ):
-            cmd_delegate_status(mock_args)
-
-        captured = capsys.readouterr()
-        assert "Delegation Configuration" in captured.out
-        assert "Mode: orchestrator" in captured.out
-
-    def test_delegate_status_with_instructions(self, mock_args, capsys):
-        """Should display instructions when available."""
-        mock_settings = MagicMock()
-        mock_settings.get_delegation_mode.return_value = "orchestrator"
-
-        instructions = "# Rules\nDelegate coding to Codex"
-
-        # Patch in synapse.settings since get_settings is imported inside the function
-        # And synapse.cli for get_delegate_instructions_path and load_delegate_instructions
-        # which are imported at module level
-        with (
-            patch("synapse.settings.get_settings", return_value=mock_settings),
-            patch(
-                "synapse.cli.get_delegate_instructions_path",
-                return_value="/path/to/delegate.md",
-            ),
-            patch("synapse.cli.load_delegate_instructions", return_value=instructions),
-        ):
-            cmd_delegate_status(mock_args)
-
-        captured = capsys.readouterr()
-        assert "Rules:" in captured.out
-        assert "Delegate coding to Codex" in captured.out
-
-
-class TestCmdDelegateSet:
-    """Tests for cmd_delegate_set command."""
-
-    def test_delegate_set_mode(self, mock_args, temp_synapse_dir, capsys, monkeypatch):
-        """Should set delegation mode in settings."""
-        mock_args.mode = "orchestrator"
-        mock_args.scope = "project"
-
-        monkeypatch.setattr(Path, "cwd", lambda: temp_synapse_dir)
-
-        with patch("synapse.cli.get_delegate_instructions_path", return_value=None):
-            cmd_delegate_set(mock_args)
-
-        captured = capsys.readouterr()
-        assert "Delegation mode set to 'orchestrator'" in captured.out
-
-        # Verify settings file
-        settings_path = temp_synapse_dir / ".synapse" / "settings.json"
-        with open(settings_path) as f:
-            data = json.load(f)
-            assert data["delegation"]["mode"] == "orchestrator"
-
-    def test_delegate_set_updates_existing(
-        self, mock_args, temp_synapse_dir, capsys, monkeypatch
-    ):
-        """Should update existing settings file."""
-        mock_args.mode = "passthrough"
-        mock_args.scope = "project"
-
-        monkeypatch.setattr(Path, "cwd", lambda: temp_synapse_dir)
-
-        # Create existing settings
-        settings_path = temp_synapse_dir / ".synapse" / "settings.json"
-        settings_path.write_text('{"env": {"TEST": "value"}}')
-
-        with patch("synapse.cli.get_delegate_instructions_path", return_value=None):
-            cmd_delegate_set(mock_args)
-
-        # Verify settings preserved
-        with open(settings_path) as f:
-            data = json.load(f)
-            assert data["env"]["TEST"] == "value"
-            assert data["delegation"]["mode"] == "passthrough"
-
-
-class TestCmdDelegateOff:
-    """Tests for cmd_delegate_off command."""
-
-    def test_delegate_off_sets_mode_off(
-        self, mock_args, temp_synapse_dir, capsys, monkeypatch
-    ):
-        """Should set delegation mode to off."""
-        mock_args.scope = "project"
-
-        monkeypatch.setattr(Path, "cwd", lambda: temp_synapse_dir)
-
-        with patch("synapse.cli.get_delegate_instructions_path", return_value=None):
-            cmd_delegate_off(mock_args)
-
-        # Verify mode is off
-        settings_path = temp_synapse_dir / ".synapse" / "settings.json"
-        with open(settings_path) as f:
-            data = json.load(f)
-            assert data["delegation"]["mode"] == "off"
 
 
 # ==============================================================================

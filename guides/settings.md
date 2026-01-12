@@ -138,8 +138,11 @@ Codex もプラグインには対応していませんが、展開された skil
     "codex": ["resume"],
     "gemini": ["--resume", "-r"]
   },
+  "a2a": {
+    "flow": "auto"
+  },
   "delegation": {
-    "mode": "off"
+    "enabled": false
   }
 }
 ```
@@ -267,6 +270,55 @@ else:
 ### Gemini の注意点
 
 Gemini は Claude Code の Skills に対応していないため、デフォルトでは SKILL 行を除いた指示が設定されています。
+
+## A2A 通信設定 (a2a)
+
+エージェント間通信の応答動作を制御します。
+
+### 設定値
+
+| 設定 | 説明 |
+|------|------|
+| `flow: roundtrip` | 常に結果を待つ |
+| `flow: oneway` | 常に転送のみ（結果を待たない） |
+| `flow: auto` | AIエージェントがタスクに応じて判断、またはフラグで明示的に制御（デフォルト） |
+
+### 例
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
+  }
+}
+```
+
+詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+
+## 委任設定 (delegation)
+
+自動タスク委任を制御します。
+
+### 設定値
+
+| 設定 | 説明 |
+|------|------|
+| `enabled: true` | `.synapse/delegate.md` を読み込み、委任ルールを有効化 |
+| `enabled: false` | 委任を無効化（デフォルト） |
+
+### 例
+
+```json
+{
+  "delegation": {
+    "enabled": true
+  }
+}
+```
+
+委任を有効にするには、`.synapse/delegate.md` に委任ルールを記述してください。
+
+詳細は [delegation.md](delegation.md) を参照してください。
 
 ## ユースケース
 

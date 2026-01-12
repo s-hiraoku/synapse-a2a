@@ -263,8 +263,8 @@ class TestA2AClientSenderInfo:
             assert "sender" in payload["metadata"]
             assert payload["metadata"]["sender"]["sender_id"] == "synapse-claude-8100"
 
-    def test_send_to_local_no_sender_includes_response_required(self):
-        """send_to_local should include response_required even without sender_info."""
+    def test_send_to_local_no_sender_includes_response_expected(self):
+        """send_to_local should include response_expected even without sender_info."""
         import requests
 
         from synapse.a2a_client import A2AClient
@@ -285,10 +285,10 @@ class TestA2AClientSenderInfo:
                 # No sender_info
             )
 
-            # Verify metadata includes response_required but no sender
+            # Verify metadata includes response_expected but no sender
             call_args = mock_post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
 
             assert "metadata" in payload
-            assert payload["metadata"]["response_required"] is True
+            assert payload["metadata"]["response_expected"] is True
             assert "sender" not in payload["metadata"]

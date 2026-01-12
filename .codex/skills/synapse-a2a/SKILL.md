@@ -1,6 +1,6 @@
 ---
 name: synapse-a2a
-description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, or handling A2A protocol operations. Also covers task history management including search, statistics, export, and cleanup operations. Automatically triggered when agent communication, A2A protocol tasks, or history operations are detected.
+description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, or handling A2A protocol operations. Automatically triggered when agent communication or A2A protocol tasks are detected.
 ---
 
 # Synapse A2A Communication
@@ -9,78 +9,51 @@ description: This skill provides comprehensive guidance for inter-agent communic
 
 Synapse A2A enables inter-agent communication via Google A2A Protocol. All communication uses Message/Part + Task format. Messages are prefixed with `[A2A:<task_id>:<sender_id>]` for identification.
 
-Additionally, Synapse A2A provides comprehensive task history management capabilities:
-- **Search**: Find tasks by keywords with flexible logic (OR/AND)
-- **Statistics**: View task counts, success rates, and per-agent metrics
-- **Export**: Extract data in JSON or CSV formats
-- **Cleanup**: Manage database size with retention policies (days-based or size-based)
-
 ## Core Commands
-
-### Task History Management
-
-View, search, and analyze task execution history with these commands:
-
-```bash
-# List task history (default: 50 entries)
-synapse history list
-synapse history list --agent claude --limit 100
-
-# Show task details
-synapse history show <task_id>
-
-# Search by keywords
-synapse history search "Python" "Docker" --logic OR
-synapse history search "error" --agent claude --limit 20
-
-# View statistics
-synapse history stats
-synapse history stats --agent gemini
-
-# Export data
-synapse history export --format json > history.json
-synapse history export --format csv --agent claude > claude_tasks.csv
-synapse history export --format json --output export.json
-
-# Cleanup old data
-synapse history cleanup --days 30
-synapse history cleanup --max-size 100
-```
-
-**Parameters:**
-- `--agent`: Filter by agent name (e.g., `claude`, `gemini`, `codex`)
-- `--limit`: Maximum number of results (default: 50)
-- `--logic`: Search logic - `OR` (any keyword) or `AND` (all keywords)
-- `--format`: Export format - `json` or `csv`
-- `--output`: Output file path (default: stdout)
-- `--days`: Delete observations older than N days
-- `--max-size`: Keep database under N megabytes
-
-**Enable History:**
-```bash
-export SYNAPSE_HISTORY_ENABLED=true
-synapse claude  # Start with history enabled
-```
 
 ### Send Message to Agent
 
 ```bash
-python3 synapse/tools/a2a.py send --target <AGENT> [--priority <1-5>] [--non-response] "<MESSAGE>"
+python3 synapse/tools/a2a.py send --target <AGENT> [--priority <1-5>] [--response|--no-response] "<MESSAGE>"
 ```
 
 **Parameters:**
 - `--target`: Agent ID (exact, e.g., `synapse-claude-8100`) or agent type (fuzzy, e.g., `claude`)
 - `--priority`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--non-response`: Do not require response from receiver (default: response required)
+- `--response`: Wait for and receive response from target agent
+- `--no-response`: Do not wait for response (fire and forget)
 - `<MESSAGE>`: Content to send
+
+**Response Control:**
+- When `a2a.flow` is `roundtrip`: Always waits for response (flags ignored)
+- When `a2a.flow` is `oneway`: Never waits for response (flags ignored)
+- When `a2a.flow` is `auto` (default): **You decide** using `--response` or `--no-response`
+
+### Deciding When to Use --response vs --no-response
+
+**Use `--response` when:**
+- You need the result to continue your work
+- The task is a question that requires an answer
+- You need to verify the task was completed correctly
+- The result will be integrated into your response to the user
+
+**Use `--no-response` when:**
+- The task is a background/fire-and-forget operation
+- You're delegating work that doesn't need immediate feedback
+- The other agent will report results through other means
+- You're sending multiple parallel tasks
 
 **Examples:**
 ```bash
-# Send with response expected (default)
-python3 synapse/tools/a2a.py send --target claude "Please review this code"
+# Need the answer - use --response
+python3 synapse/tools/a2a.py send --target gemini --response "What is the best practice for error handling in Python?"
 
-# Send without expecting response
-python3 synapse/tools/a2a.py send --target gemini --non-response "Log this event"
+# Background task - use --no-response
+python3 synapse/tools/a2a.py send --target codex --no-response "Run the test suite and commit if all tests pass"
+
+# Parallel delegation - use --no-response
+python3 synapse/tools/a2a.py send --target gemini --no-response "Research React best practices"
+python3 synapse/tools/a2a.py send --target codex --no-response "Refactor the auth module"
 
 # Emergency interrupt (priority 5)
 python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
@@ -102,17 +75,17 @@ python3 synapse/tools/a2a.py cleanup
 
 Removes registry entries for agents that are no longer running.
 
-## @Agent Routing Pattern
+## @Agent Routing Pattern (User Input)
 
-When typing in an agent terminal, use:
+When users type in the agent terminal, they can use:
 
 ```
-@<agent_name> [--non-response] <message>
+@<agent_name> <message>
 ```
 
-**Behavior:**
-- **Default**: Response is expected from receiver
-- **`--non-response`**: Receiver processes the task and does not send response back
+This is for **user-initiated** communication. Response behavior is controlled by the `a2a.flow` setting.
+
+**Note:** AI agents should use `synapse/tools/a2a.py send` instead, which allows explicit control over response behavior.
 
 ### Target Resolution
 
@@ -147,15 +120,17 @@ All A2A messages use this format in PTY output:
 
 ## Response Handling
 
-### Default (response required)
+### With --response
 1. Message is sent to target
 2. Target processes the message
 3. Target sends response back to sender
+4. Sender receives and can use the response
 
-### With --non-response
+### With --no-response
 1. Message is sent to target
 2. Target processes the message
 3. No response is sent back
+4. Sender continues immediately
 
 ## Port Ranges
 
@@ -210,7 +185,25 @@ Messages include metadata:
       "sender_type": "claude",
       "sender_endpoint": "http://localhost:8100"
     },
-    "response_required": true
+    "response_expected": true
+  }
+}
+```
+
+## a2a.flow Settings
+
+The `a2a.flow` setting in `.synapse/settings.json` controls response behavior:
+
+| Setting | Behavior |
+|---------|----------|
+| `roundtrip` | Always wait for response (flags ignored) |
+| `oneway` | Never wait for response (flags ignored) |
+| `auto` | AI decides per-message using `--response`/`--no-response` flags |
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
   }
 }
 ```
