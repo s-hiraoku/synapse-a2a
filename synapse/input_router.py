@@ -36,14 +36,10 @@ class InputRouter:
                 pty.write(output)
     """
 
-    # Pattern: @AgentName [--response|--no-response] message
-    # Default behavior depends on a2a.flow setting
-    # --response: explicitly request response
-    # --no-response: explicitly skip response (just send and forget)
+    # Pattern: @AgentName message
+    # Response behavior is controlled by a2a.flow setting
     # Agent name can include hyphens, numbers, and colons (e.g., gemini:8110)
-    A2A_PATTERN = re.compile(
-        r"^@([\w:-]+)(\s+--(?:response|no-response))?\s+(.+)$", re.IGNORECASE
-    )
+    A2A_PATTERN = re.compile(r"^@([\w:-]+)\s+(.+)$", re.IGNORECASE)
 
     # Control characters that should clear the buffer
     CONTROL_CHARS = {"\x03", "\x04", "\x1a"}  # Ctrl+C, Ctrl+D, Ctrl+Z
@@ -71,33 +67,19 @@ class InputRouter:
         self.self_agent_type = self_agent_type
         self.self_port = self_port
 
-    def parse_at_mention(self, line: str) -> tuple[str, bool | None, str] | None:
+    def parse_at_mention(self, line: str) -> tuple[str, str] | None:
         """
         Parse a line for @Agent mention.
 
         Returns:
-            Tuple of (agent_name, want_response, message) or None.
-            want_response: True=request response, False=no response, None=use setting
+            Tuple of (agent_name, message) or None.
         """
         match = self.A2A_PATTERN.match(line)
         if not match:
             return None
 
         agent = match.group(1).lower()
-        flag = match.group(2)
-        message = match.group(3).strip()
-
-        # Determine want_response based on explicit flag
-        if flag:
-            flag = flag.strip().lower()
-            if flag == "--response":
-                want_response: bool | None = True
-            elif flag == "--no-response":
-                want_response = False
-            else:
-                want_response = None
-        else:
-            want_response = None  # Use a2a.flow setting
+        message = match.group(2).strip()
 
         # Remove surrounding quotes if present
         if (message.startswith("'") and message.endswith("'")) or (
@@ -105,7 +87,7 @@ class InputRouter:
         ):
             message = message[1:-1]
 
-        return (agent, want_response, message)
+        return (agent, message)
 
     def process_char(self, char: str) -> tuple[str, Callable | None]:
         """
@@ -145,12 +127,12 @@ class InputRouter:
 
             result = self.parse_at_mention(line)
             if result:
-                agent, want_response, message = result
+                agent, message = result
                 self.pending_agent = agent
 
                 # Create action callback
                 def send_action() -> bool:
-                    return self.route_to_agent(agent, message, want_response)
+                    return self.route_to_agent(agent, message)
 
                 # Return empty string - don't send anything to PTY
                 # The feedback will be shown separately
@@ -170,31 +152,23 @@ class InputRouter:
             results.append(self.process_char(char))
         return results
 
-    def route_to_agent(
-        self, agent_name: str, message: str, want_response: bool | None = None
-    ) -> bool:
+    def route_to_agent(self, agent_name: str, message: str) -> bool:
         """Send a message to another agent via A2A."""
         log("INFO", f"Sending to {agent_name}: {message}")
         self.is_external_agent = False
 
-        # Determine response_expected based on flag and flow setting
+        # Determine response_expected based on a2a.flow setting
         settings = get_settings()
         flow = settings.get_a2a_flow()
 
-        if want_response is not None:
-            # Explicit flag takes precedence
-            response_expected = want_response
-        elif flow == "roundtrip":
+        if flow == "roundtrip":
             response_expected = True
         elif flow == "oneway":
             response_expected = False
         else:  # auto - default to waiting for response
             response_expected = True
 
-        log(
-            "DEBUG",
-            f"flow={flow}, want_response={want_response}, response_expected={response_expected}",
-        )
+        log("DEBUG", f"flow={flow}, response_expected={response_expected}")
 
         # First, try local agents
         agents = self.registry.list_agents()
@@ -262,9 +236,7 @@ class InputRouter:
                     "INFO",
                     f"Found external agent: {agent_name} at {external_agent.url}",
                 )
-                return self._send_to_external_agent(
-                    external_agent, message, want_response
-                )
+                return self._send_to_external_agent(external_agent, message)
 
         if not target:
             log("ERROR", f"Agent '{agent_name}' not found (local or external)")
@@ -342,20 +314,24 @@ class InputRouter:
             self.last_response = None
             return False
 
-    def send_to_agent(
-        self, agent_name: str, message: str, want_response: bool | None = None
-    ) -> bool:
+    def send_to_agent(self, agent_name: str, message: str) -> bool:
         """Alias for route_to_agent."""
-        return self.route_to_agent(agent_name, message, want_response)
+        return self.route_to_agent(agent_name, message)
 
-    def _send_to_external_agent(
-        self, agent: "object", message: str, want_response: bool | None = None
-    ) -> bool:
+    def _send_to_external_agent(self, agent: "object", message: str) -> bool:
         """Send a message to an external Google A2A agent."""
         self.is_external_agent = True
 
-        # Resolve want_response: None means use default (True)
-        should_wait = want_response if want_response is not None else True
+        # Determine response_expected based on a2a.flow setting
+        settings = get_settings()
+        flow = settings.get_a2a_flow()
+
+        if flow == "roundtrip":
+            should_wait = True
+        elif flow == "oneway":
+            should_wait = False
+        else:  # auto - default to waiting for response
+            should_wait = True
 
         try:
             task = self.a2a_client.send_message(

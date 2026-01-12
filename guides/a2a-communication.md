@@ -4,28 +4,88 @@
 
 ## 概要
 
-Synapse A2A では、`@agent` パターンを使って他のエージェントにメッセージを送信できます。通信の応答動作は `a2a.flow` 設定と `--response`/`--no-response` フラグで制御します。
+Synapse A2A では、2つの方法でエージェント間通信ができます：
+
+1. **@agent パターン（ユーザー用）** - PTY での対話的入力
+2. **a2a.py send コマンド（AIエージェント用）** - 明示的なフラグ制御
+
+通信の応答動作は `a2a.flow` 設定で制御します。
 
 ---
 
-## @agent パターン
+## @agent パターン（ユーザー用）
+
+PTY でユーザーが他のエージェントにメッセージを送信する際に使用します。
 
 ### 基本構文
 
 ```text
-@<agent_name> [--response|--no-response] <message>
-@<agent_type>-<port> [--response|--no-response] <message>
+@<agent_name> <message>
+@<agent_type>-<port> <message>
 ```
 
 ### 例
 
 ```text
 @gemini このコードをレビューして
-@gemini --response 分析結果を教えて    # 結果を待って受け取る
-@gemini --no-response 調査を開始して   # 転送のみ、結果を待たない
 @claude-8101 このタスクを処理して
 @codex テストを書いて
 ```
+
+### ターゲット解決
+
+1. **完全ID一致**: `@synapse-claude-8100` で正確にマッチ
+2. **タイプ-ポート短縮**: `@claude-8100` でタイプとポートでマッチ
+3. **タイプマッチ（単一）**: `@claude` で該当タイプが1つの場合にマッチ
+4. **タイプマッチ（複数）**: 複数ある場合は `@type-port` 形式を使うよう提案
+
+---
+
+## a2a.py send コマンド（AIエージェント用）
+
+AIエージェントが他のエージェントにメッセージを送信する際に使用します。
+`--response` / `--no-response` フラグで応答を待つかどうかを制御できます。
+
+### 基本構文
+
+```bash
+python3 synapse/tools/a2a.py send --target <AGENT> [--priority <1-5>] [--response|--no-response] "<MESSAGE>"
+```
+
+### パラメータ
+
+| パラメータ | 説明 |
+|-----------|------|
+| `--target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
+| `--priority` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
+| `--response` | 結果を待って受け取る |
+| `--no-response` | 転送のみ（結果を待たない） |
+
+### 例
+
+```bash
+# 結果を待つ
+python3 synapse/tools/a2a.py send --target gemini --response "分析結果を教えて"
+
+# 転送のみ（fire-and-forget）
+python3 synapse/tools/a2a.py send --target codex --no-response "テストを実行して"
+
+# 緊急割り込み（Priority 5）
+python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
+```
+
+### いつ --response / --no-response を使うか
+
+**--response を使う場合：**
+- 結果が必要で続きの作業に使う
+- 質問をして答えが必要
+- タスク完了を確認したい
+- ユーザーへの報告に結果を統合する
+
+**--no-response を使う場合：**
+- バックグラウンドで実行するタスク
+- 別の手段で結果を受け取る
+- 並列で複数タスクを委譲する
 
 ---
 
@@ -37,11 +97,9 @@ Synapse A2A では、`@agent` パターンを使って他のエージェント�
 
 | 設定値 | 動作 |
 |--------|------|
-| `roundtrip` | 常に結果を待つ |
-| `oneway` | 常に転送のみ（結果を待たない） |
-| `auto` | AIエージェントがタスクに応じて判断、またはフラグで明示的に制御（デフォルト） |
-
-> **Note**: `auto` モードでは、AIエージェントが `delegate.md` のルールやタスクの性質に基づいて `--response`（結果を待つ）か `--no-response`（待たない）を自動的に選択します。フラグを明示的に指定しない場合、デフォルトでは結果を待ちます。
+| `roundtrip` | 常に結果を待つ（フラグは無視） |
+| `oneway` | 常に転送のみ（フラグは無視） |
+| `auto` | AIエージェントがフラグで制御（デフォルト） |
 
 ### 設定例
 
@@ -53,58 +111,15 @@ Synapse A2A では、`@agent` パターンを使って他のエージェント�
 }
 ```
 
----
-
-## 応答制御フラグ
-
-`@agent` パターンで応答を待つかどうかを個別に制御できます。
-
-| フラグ | 動作 |
-|--------|------|
-| `--response` | 結果を待って受け取る |
-| `--no-response` | 転送のみ（結果を待たない） |
-| （フラグなし） | `a2a.flow` 設定に従う |
-
-### Flow 設定との組み合わせ
+### Flow 設定とフラグの組み合わせ
 
 | `a2a.flow` | フラグなし | `--response` | `--no-response` |
 |------------|-----------|--------------|-----------------|
-| `roundtrip` | 待つ | 待つ | 待たない |
-| `oneway` | 待たない | 待つ | 待たない |
+| `roundtrip` | 待つ | 待つ | 待つ（上書き） |
+| `oneway` | 待たない | 待たない（上書き） | 待たない |
 | `auto` | 待つ（デフォルト） | 待つ | 待たない |
 
----
-
-## ユースケース
-
-### 結果を統合して報告
-
-```text
-@codex --response ファイルを修正して
-```
-
-結果を待ち、完了後に統合して報告できます。
-
-### 並列タスク実行
-
-```text
-@gemini --no-response APIドキュメントを調査して
-@codex --no-response テストを書いて
-```
-
-複数のタスクを並列で実行し、各エージェントが独立して作業を進めます。
-
-### 設定で一括制御
-
-```json
-{
-  "a2a": {
-    "flow": "roundtrip"
-  }
-}
-```
-
-すべての通信で結果を待つようにして、確実に結果を受け取ります。
+> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではAIエージェントがフラグで明示的に制御します。
 
 ---
 
@@ -115,12 +130,11 @@ Synapse A2A では、`@agent` パターンを使って他のエージェント�
 | 1-4 | 通常の stdin 書き込み | 通常メッセージ |
 | 5 | SIGINT 送信後に書き込み | 緊急停止 |
 
-CLI ツールでの Priority 指定：
+### Priority 5 の動作
 
-```bash
-python3 synapse/tools/a2a.py send --target gemini --priority 3 "メッセージ"
-python3 synapse/tools/a2a.py send --target claude --priority 5 "緊急停止"
-```
+1. 対象エージェントに SIGINT を送信
+2. 短時間待機
+3. メッセージを送信
 
 ---
 
@@ -158,6 +172,39 @@ A2A メッセージには送信元情報が自動的に付与されます。
   }
 }
 ```
+
+---
+
+## ユースケース
+
+### 結果を統合して報告
+
+```bash
+python3 synapse/tools/a2a.py send --target codex --response "ファイルを修正して"
+```
+
+結果を待ち、完了後に統合して報告できます。
+
+### 並列タスク実行
+
+```bash
+python3 synapse/tools/a2a.py send --target gemini --no-response "APIドキュメントを調査して"
+python3 synapse/tools/a2a.py send --target codex --no-response "テストを書いて"
+```
+
+複数のタスクを並列で実行し、各エージェントが独立して作業を進めます。
+
+### 設定で一括制御
+
+```json
+{
+  "a2a": {
+    "flow": "roundtrip"
+  }
+}
+```
+
+すべての通信で結果を待つようにして、確実に結果を受け取ります。
 
 ---
 

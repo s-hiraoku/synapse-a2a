@@ -28,37 +28,14 @@ class TestInputRouterRefactorSpec:
     # =========================================================================
 
     def test_parse_at_mention_basic(self, router):
-        """Spec: parse_at_mention should extract agent name, response flag, and message."""
+        """Spec: parse_at_mention should extract agent name and message."""
         line = "@claude hello world"
         result = router.parse_at_mention(line)
 
         assert result is not None
-        agent, want_response, message = result
+        agent, message = result
         assert agent == "claude"
-        assert want_response is None  # No flag = use settings
         assert message == "hello world"
-
-    def test_parse_at_mention_no_response(self, router):
-        """Spec: parse_at_mention should detect --no-response flag."""
-        line = "@gemini --no-response analyze logs"
-        result = router.parse_at_mention(line)
-
-        assert result is not None
-        agent, want_response, message = result
-        assert agent == "gemini"
-        assert want_response is False
-        assert message == "analyze logs"
-
-    def test_parse_at_mention_response(self, router):
-        """Spec: parse_at_mention should detect --response flag."""
-        line = "@codex --response review code"
-        result = router.parse_at_mention(line)
-
-        assert result is not None
-        agent, want_response, message = result
-        assert agent == "codex"
-        assert want_response is True
-        assert message == "review code"
 
     def test_parse_at_mention_quoted(self, router):
         """Spec: parse_at_mention should strip quotes from message."""
@@ -66,8 +43,18 @@ class TestInputRouterRefactorSpec:
         result = router.parse_at_mention(line)
 
         assert result is not None
-        _, _, message = result
+        _, message = result
         assert message == "run tests"
+
+    def test_parse_at_mention_with_hyphen(self, router):
+        """Spec: parse_at_mention should handle agent names with hyphens."""
+        line = "@claude-8100 check status"
+        result = router.parse_at_mention(line)
+
+        assert result is not None
+        agent, message = result
+        assert agent == "claude-8100"
+        assert message == "check status"
 
     # =========================================================================
     # 2. Routing Logic (route_to_agent)
@@ -237,7 +224,7 @@ class TestInputRouterRefactorSpec:
         assert router.is_external_agent is True
 
     def test_route_to_agent_success_full(self, router):
-        """Covers successful A2A send path (Lines 357-390)."""
+        """Covers successful A2A send path with response."""
         router.registry.list_agents.return_value = {
             "target": {"agent_id": "target", "port": 8100, "endpoint": "http://target"}
         }
@@ -251,8 +238,10 @@ class TestInputRouterRefactorSpec:
         with (
             patch("synapse.input_router.is_process_running", return_value=True),
             patch("synapse.input_router.is_port_open", return_value=True),
+            patch("synapse.input_router.get_settings") as mock_settings,
         ):
-            success = router.route_to_agent("target", "msg", want_response=True)
+            mock_settings.return_value.get_a2a_flow.return_value = "roundtrip"
+            success = router.route_to_agent("target", "msg")
             assert success is True
             assert router.last_response == "response"
 

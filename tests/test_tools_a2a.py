@@ -312,7 +312,7 @@ class TestCmdSend:
             message="hello world",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
@@ -337,7 +337,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -368,7 +368,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -399,7 +399,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -434,7 +434,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -479,7 +479,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
@@ -492,7 +492,7 @@ class TestCmdSend:
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
     @patch("synapse.tools.a2a.AgentRegistry")
-    def test_cmd_send_non_response_flag(
+    def test_cmd_send_no_response_flag(
         self,
         mock_registry_cls,
         mock_sender,
@@ -500,7 +500,7 @@ class TestCmdSend:
         mock_port,
         mock_post,
     ):
-        """Should set response_expected=False with --non-response flag."""
+        """Should set response_expected=False with --no-response flag in auto mode."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-claude-8100": {
@@ -522,9 +522,12 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=True,
+            want_response=False,  # --no-response sets this to False
         )
-        cmd_send(args)
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_send(args)
 
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
@@ -568,7 +571,7 @@ class TestCmdSend:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
 
         with pytest.raises(SystemExit) as exc_info:
@@ -649,13 +652,13 @@ class TestMainFunction:
     @patch("synapse.tools.a2a.cmd_send")
     @patch(
         "sys.argv",
-        ["a2a.py", "send", "--target", "claude", "--non-response", "message"],
+        ["a2a.py", "send", "--target", "claude", "--no-response", "message"],
     )
-    def test_main_send_with_non_response(self, mock_cmd):
-        """main() should parse --non-response flag."""
+    def test_main_send_with_no_response(self, mock_cmd):
+        """main() should parse --no-response flag."""
         main()
         args = mock_cmd.call_args[0][0]
-        assert args.non_response is True
+        assert args.want_response is False
 
     @patch("sys.argv", ["a2a.py"])
     def test_main_no_command_exits(self):
@@ -715,7 +718,7 @@ class TestExactAgentIdMatch:
             message="hello",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
@@ -774,7 +777,7 @@ class TestSentMessageHistory:
             message="test message",
             priority=3,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
@@ -833,7 +836,7 @@ class TestSentMessageHistory:
             message="test message",
             priority=1,
             sender=None,
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
@@ -890,7 +893,7 @@ class TestSentMessageHistory:
             message="hello from claude",
             priority=2,
             sender="synapse-claude-8100",
-            non_response=False,
+            want_response=None,
         )
         cmd_send(args)
 
