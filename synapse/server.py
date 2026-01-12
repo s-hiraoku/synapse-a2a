@@ -303,7 +303,9 @@ def run_dual_server(
     if agent_id:
         uds_path = resolve_uds_path(agent_id)
         # Ensure directory exists and stale socket is removed
-        uds_path.parent.mkdir(parents=True, exist_ok=True)
+        uds_path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+        # Ensure directory is accessible by other processes (for sandboxed apps)
+        uds_path.parent.chmod(0o755)
         if uds_path.exists():
             uds_path.unlink()
 
