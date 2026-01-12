@@ -361,29 +361,45 @@ CREATE TABLE file_modifications (
 
 ## エージェント間通信
 
-### @Agent 記法
+### @Agent パターン（ユーザー用）
+
+PTYでユーザーが他のエージェントにメッセージを送信する際に使用します。
 
 ```
-@<agent_name> [--response|--no-response] <message>
-@<agent_type>-<port> [--response|--no-response] <message>
+@<agent_name> <message>
+@<agent_type>-<port> <message>
 ```
 
 **例:**
 ```
 @gemini このコードをレビューして
-@gemini --response 分析結果を教えて    # 結果を待って受け取る
-@gemini --no-response 調査を開始して   # 転送のみ、結果を待たない
 @claude-8101 このタスクを処理して
 @codex テストを書いて
 ```
 
-#### 応答制御
+応答動作は `a2a.flow` 設定に従います。
 
-| `a2a.flow` 設定 | フラグなし | `--response` | `--no-response` |
-|----------------|-----------|--------------|-----------------|
-| `roundtrip` | 待つ | 待つ | 待たない |
-| `oneway` | 待たない | 待つ | 待たない |
-| `auto` | 待つ（デフォルト） | 待つ | 待たない |
+### a2a.py send コマンド（AIエージェント用）
+
+AIエージェントが他のエージェントにメッセージを送信する際に使用します。
+
+```bash
+python3 synapse/tools/a2a.py send --target <AGENT> [--response|--no-response] "<MESSAGE>"
+```
+
+**例:**
+```bash
+python3 synapse/tools/a2a.py send --target gemini --response "分析結果を教えて"
+python3 synapse/tools/a2a.py send --target codex --no-response "テストを実行して"
+```
+
+### 応答制御（a2a.flow 設定）
+
+| `a2a.flow` 設定 | 動作 | フラグの扱い |
+|----------------|------|-------------|
+| `roundtrip` | 常に待つ | 無視 |
+| `oneway` | 常に待たない | 無視 |
+| `auto` | フラグで制御 | `--response`=待つ、`--no-response`=待たない、なし=待つ |
 
 ### Priority レベル
 
