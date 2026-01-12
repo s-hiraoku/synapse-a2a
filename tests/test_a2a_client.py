@@ -3,6 +3,7 @@
 import json
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import responses
@@ -241,6 +242,112 @@ class TestA2AClientSendToLocal:
         )
 
         assert task is None
+
+    def test_send_to_local_prefers_uds_when_available(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Should prefer UDS when uds_path exists and avoid TCP."""
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+
+        calls: dict[str, object] = {}
+
+        class DummyResponse:
+            def json(self):
+                return {"task": {"id": "t-uds", "status": "working"}}
+
+            def raise_for_status(self):
+                return None
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                calls["init"] = kwargs
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                calls["post"] = {"url": url, "json": json, "timeout": timeout}
+                return DummyResponse()
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with patch("synapse.a2a_client.requests.post") as mock_post:
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+            assert task is not None
+            assert task.id == "t-uds"
+            mock_post.assert_not_called()
+            assert "post" in calls
+
+    def test_send_to_local_local_uds_missing_fails_fast(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Local target should fail fast when uds_path is missing."""
+        sock_path = tmp_path / "missing.sock"
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                raise AssertionError("UDS client should not be constructed")
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with patch("synapse.a2a_client.requests.post") as mock_post:
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+            assert task is None
+            mock_post.assert_not_called()
+
+    def test_send_to_local_local_uds_unavailable_retries_then_fails(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Local target should retry UDS briefly, then fail if unavailable."""
+        import httpx
+
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+        attempts = {"count": 0}
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                attempts["count"] += 1
+                raise httpx.ConnectError(
+                    "uds unavailable",
+                    request=httpx.Request("POST", "http://localhost"),
+                )
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with patch("synapse.a2a_client.requests.post") as mock_post:
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+            assert task is None
+            assert attempts["count"] == 3
+            mock_post.assert_not_called()
 
 
 class TestA2AClientSendMessage:

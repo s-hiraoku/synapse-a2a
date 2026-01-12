@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
+import httpx
 import requests
 
 from synapse.config import (
@@ -207,6 +208,8 @@ class A2AClient:
         timeout: int = 60,
         sender_info: dict[str, str] | None = None,
         response_expected: bool = True,
+        uds_path: str | None = None,
+        local_only: bool = False,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -226,6 +229,9 @@ class A2AClient:
         Returns:
             A2ATask if successful, None otherwise
         """
+        if local_only and not uds_path:
+            return None
+
         try:
             # Create A2A message
             a2a_message = A2AMessage.from_text(message)
@@ -239,13 +245,55 @@ class A2AClient:
                 metadata["sender"] = sender_info
             payload["metadata"] = metadata
 
-            # Use /tasks/send-priority for priority support
-            url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
-            response = requests.post(url, json=payload, timeout=self.timeout)
-            response.raise_for_status()
+            task_data = None
+            used_uds = False
 
-            result = response.json()
-            task_data = result.get("task", result)
+            if uds_path:
+                uds_file = Path(uds_path)
+                if uds_file.exists():
+                    timeout_seconds = (
+                        self.timeout[1]
+                        if isinstance(self.timeout, tuple)
+                        else self.timeout
+                    )
+                    retries = [0.05, 0.1, 0.2]
+                    for idx, delay in enumerate(retries, start=1):
+                        try:
+                            uds_url = (
+                                f"http://localhost/tasks/send-priority?priority="
+                                f"{priority}"
+                            )
+                            transport = httpx.HTTPTransport(uds=uds_path)
+                            timeout_cfg = httpx.Timeout(timeout_seconds, connect=0.2)
+                            with httpx.Client(
+                                transport=transport, timeout=timeout_cfg
+                            ) as client:
+                                uds_response = client.post(uds_url, json=payload)
+                                uds_response.raise_for_status()
+                                result = uds_response.json()
+                                task_data = result.get("task", result)
+                                used_uds = True
+                                break
+                        except httpx.TransportError:
+                            if idx == len(retries):
+                                if local_only:
+                                    return None
+                                break
+                            time.sleep(delay)
+                        except httpx.HTTPStatusError:
+                            return None
+                else:
+                    if local_only:
+                        return None
+
+            if task_data is None:
+                # Use /tasks/send-priority for priority support
+                url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
+                http_response = requests.post(url, json=payload, timeout=self.timeout)
+                http_response.raise_for_status()
+
+                result = http_response.json()
+                task_data = result.get("task", result)
 
             task = A2ATask(
                 id=task_data.get("id", ""),
@@ -258,7 +306,7 @@ class A2AClient:
 
             if wait_for_completion:
                 completed_task = self._wait_for_local_completion(
-                    endpoint, task.id, timeout
+                    endpoint, task.id, timeout, uds_path=uds_path if used_uds else None
                 )
                 if completed_task is not None:
                     task = completed_task
@@ -274,6 +322,7 @@ class A2AClient:
         get_task_url: Callable[[], str],
         task_id: str,
         timeout: int,
+        uds_path: str | None = None,
     ) -> A2ATask | None:
         """
         Wait for a task to complete (unified wait logic).
@@ -291,10 +340,24 @@ class A2AClient:
         while time.time() - start_time < timeout:
             try:
                 url = get_task_url()
-                response = requests.get(url, timeout=self.timeout)
-                response.raise_for_status()
-
-                data = response.json()
+                if uds_path:
+                    transport = httpx.HTTPTransport(uds=uds_path)
+                    timeout_seconds = (
+                        self.timeout[1]
+                        if isinstance(self.timeout, tuple)
+                        else self.timeout
+                    )
+                    timeout_cfg = httpx.Timeout(timeout_seconds, connect=0.2)
+                    with httpx.Client(
+                        transport=transport, timeout=timeout_cfg
+                    ) as client:
+                        uds_response = client.get(url)
+                        uds_response.raise_for_status()
+                        data = uds_response.json()
+                else:
+                    http_response = requests.get(url, timeout=self.timeout)
+                    http_response.raise_for_status()
+                    data = http_response.json()
                 task = A2ATask(
                     id=data.get("id", task_id),
                     status=data.get("status", "unknown"),
@@ -307,7 +370,7 @@ class A2AClient:
                 if task.status in COMPLETED_TASK_STATES:
                     return task
 
-            except requests.exceptions.RequestException:
+            except (requests.exceptions.RequestException, httpx.HTTPError):
                 pass
 
             time.sleep(TASK_POLL_INTERVAL)
@@ -315,13 +378,14 @@ class A2AClient:
         return None
 
     def _wait_for_local_completion(
-        self, endpoint: str, task_id: str, timeout: int
+        self, endpoint: str, task_id: str, timeout: int, uds_path: str | None = None
     ) -> A2ATask | None:
         """Wait for a local task to complete."""
         return self._wait_for_task_completion(
             get_task_url=lambda: f"{endpoint.rstrip('/')}/tasks/{task_id}",
             task_id=task_id,
             timeout=timeout,
+            uds_path=uds_path,
         )
 
     def send_message(

@@ -9,6 +9,27 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _ensure_private_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    # Best effort; permissions may be managed externally.
+    with contextlib.suppress(OSError):
+        path.chmod(0o700)
+
+
+def resolve_uds_path(agent_id: str) -> Path:
+    """Resolve UDS path for a local agent."""
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime_dir:
+        base_dir = Path(runtime_dir) / "synapse-a2a"
+    else:
+        base_dir = Path.home() / ".a2a" / "uds"
+
+    _ensure_private_dir(base_dir)
+    if base_dir.parent.name == ".a2a":
+        _ensure_private_dir(base_dir.parent)
+    return base_dir / f"{agent_id}.sock"
+
+
 def is_process_running(pid: int) -> bool:
     """Check if a process is still running."""
     try:
@@ -51,6 +72,7 @@ class AgentRegistry:
             "pid": os.getpid(),
             "working_dir": os.getcwd(),
             "endpoint": f"http://localhost:{port}",
+            "uds_path": str(resolve_uds_path(agent_id)),
         }
 
         file_path = self.registry_dir / f"{agent_id}.json"

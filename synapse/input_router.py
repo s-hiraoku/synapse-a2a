@@ -247,6 +247,8 @@ class InputRouter:
         pid = target.get("pid")
         port = target.get("port")
         agent_id = target.get("agent_id", agent_name)
+        uds_path = target.get("uds_path")
+        local_only = bool(uds_path)
 
         # Check if process is still alive
         if pid and not is_process_running(pid):
@@ -257,7 +259,7 @@ class InputRouter:
             return False
 
         # Check if port is reachable (fast 1-second check)
-        if port and not is_port_open("localhost", port, timeout=1.0):
+        if not uds_path and port and not is_port_open("localhost", port, timeout=1.0):
             log("ERROR", f"Agent '{agent_id}' server on port {port} is not responding")
             self.last_response = None
             return False
@@ -293,6 +295,8 @@ class InputRouter:
                 timeout=60,
                 sender_info=sender_info,
                 response_expected=response_expected,
+                uds_path=uds_path if isinstance(uds_path, str) else None,
+                local_only=local_only,
             )
 
             if task:
