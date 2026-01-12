@@ -187,13 +187,16 @@ class FileSafetyManager:
                 conn = self._get_connection()
                 cursor = conn.cursor()
 
-                # Create file_locks table
+                # Create file_locks table with PID-based session tracking
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS file_locks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         file_path TEXT NOT NULL UNIQUE,
                         agent_name TEXT NOT NULL,
+                        agent_id TEXT,
+                        agent_type TEXT,
+                        pid INTEGER,
                         task_id TEXT,
                         locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         expires_at DATETIME NOT NULL,
@@ -243,6 +246,22 @@ class FileSafetyManager:
 
                 conn.commit()
 
+                # Migrate schema: add new columns if they don't exist
+                # (must be done before creating indexes on new columns)
+                self._migrate_locks_schema(cursor, conn)
+
+                # Add indexes for new columns (after migration)
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_type ON file_locks(agent_type)"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_locks_pid ON file_locks(pid)"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_id ON file_locks(agent_id)"
+                )
+                conn.commit()
+
                 # Migrate legacy timestamps to ISO-8601 format
                 self._migrate_timestamps_to_iso8601(cursor, conn)
 
@@ -252,6 +271,42 @@ class FileSafetyManager:
             finally:
                 if conn is not None:
                     conn.close()
+
+    def _migrate_locks_schema(
+        self, cursor: sqlite3.Cursor, conn: sqlite3.Connection
+    ) -> None:
+        """Migrate file_locks schema to add new columns for PID-based tracking.
+
+        Adds columns if they don't exist:
+        - agent_id: Full agent identifier (e.g., "synapse-claude-8100")
+        - agent_type: Short agent type (e.g., "claude")
+        - pid: Process ID for session tracking
+        """
+        try:
+            # Check existing columns
+            cursor.execute("PRAGMA table_info(file_locks)")
+            existing_columns = {row[1] for row in cursor.fetchall()}
+
+            # Add missing columns
+            if "agent_id" not in existing_columns:
+                cursor.execute("ALTER TABLE file_locks ADD COLUMN agent_id TEXT")
+                # Migrate existing data: copy agent_name to agent_id
+                cursor.execute(
+                    "UPDATE file_locks SET agent_id = agent_name WHERE agent_id IS NULL"
+                )
+                logger.info("Migrated file_locks: added agent_id column")
+
+            if "agent_type" not in existing_columns:
+                cursor.execute("ALTER TABLE file_locks ADD COLUMN agent_type TEXT")
+                logger.info("Migrated file_locks: added agent_type column")
+
+            if "pid" not in existing_columns:
+                cursor.execute("ALTER TABLE file_locks ADD COLUMN pid INTEGER")
+                logger.info("Migrated file_locks: added pid column")
+
+            conn.commit()
+        except sqlite3.Error as e:
+            logger.warning(f"Schema migration failed (non-fatal): {e}")
 
     def _migrate_timestamps_to_iso8601(
         self, cursor: sqlite3.Cursor, conn: sqlite3.Connection
@@ -326,19 +381,26 @@ class FileSafetyManager:
     def acquire_lock(
         self,
         file_path: str,
-        agent_name: str,
+        agent_name: str | None = None,
         task_id: str | None = None,
         duration_seconds: int | None = None,
         intent: str | None = None,
+        *,
+        agent_id: str | None = None,
+        agent_type: str | None = None,
+        pid: int | None = None,
     ) -> dict[str, Any]:
         """Attempt to acquire a lock on a file.
 
         Args:
             file_path: Absolute path to the file to lock
-            agent_name: Name of the agent requesting the lock
+            agent_name: Name of the agent requesting the lock (deprecated, use agent_id)
             task_id: Optional task identifier
             duration_seconds: Lock duration in seconds (default: 300)
             intent: Optional description of intended changes
+            agent_id: Full agent identifier (e.g., "synapse-claude-8100")
+            agent_type: Short agent type (e.g., "claude") for filtering
+            pid: Process ID for session tracking (default: current process)
 
         Returns:
             Dict with keys:
@@ -348,6 +410,14 @@ class FileSafetyManager:
         """
         if not self.enabled:
             return {"status": LockStatus.ACQUIRED, "expires_at": None}
+
+        # Handle backward compatibility: agent_name -> agent_id
+        effective_agent_id = agent_id or agent_name
+        if not effective_agent_id:
+            raise ValueError("Either agent_id or agent_name must be provided")
+
+        # Use current process PID if not specified
+        effective_pid = pid if pid is not None else os.getpid()
 
         duration = duration_seconds or self.DEFAULT_LOCK_DURATION_SECONDS
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=duration)
@@ -359,30 +429,43 @@ class FileSafetyManager:
                 conn = self._get_connection()
                 cursor = conn.cursor()
 
-                # First, clean up expired locks
+                # First, clean up expired locks and stale locks (dead processes)
                 self._cleanup_expired_locks_internal(cursor)
+                self._cleanup_stale_locks_internal(cursor)
 
                 # Check for existing lock
                 cursor.execute(
-                    "SELECT agent_name, expires_at FROM file_locks WHERE file_path = ?",
+                    "SELECT agent_id, agent_name, expires_at, pid FROM file_locks WHERE file_path = ?",
                     (normalized_path,),
                 )
                 existing = cursor.fetchone()
 
                 if existing:
-                    existing_agent, existing_expires = existing
-                    if existing_agent == agent_name:
+                    (
+                        existing_agent_id,
+                        existing_agent_name,
+                        existing_expires,
+                        existing_pid,
+                    ) = existing
+                    # Use agent_id if available, fall back to agent_name for old records
+                    existing_identifier = existing_agent_id or existing_agent_name
+
+                    if existing_identifier == effective_agent_id:
                         # Same agent - renew the lock
                         cursor.execute(
                             """
                             UPDATE file_locks
-                            SET expires_at = ?, intent = ?, task_id = ?
+                            SET expires_at = ?, intent = ?, task_id = ?, pid = ?,
+                                agent_id = ?, agent_type = ?
                             WHERE file_path = ?
                             """,
                             (
                                 expires_at.isoformat(),
                                 intent,
                                 task_id,
+                                effective_pid,
+                                effective_agent_id,
+                                agent_type,
                                 normalized_path,
                             ),
                         )
@@ -395,19 +478,23 @@ class FileSafetyManager:
                         # Different agent holds the lock
                         return {
                             "status": LockStatus.ALREADY_LOCKED,
-                            "lock_holder": existing_agent,
+                            "lock_holder": existing_identifier,
                             "expires_at": existing_expires,
                         }
 
                 # No existing lock - acquire it
                 cursor.execute(
                     """
-                    INSERT INTO file_locks (file_path, agent_name, task_id, expires_at, intent)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO file_locks
+                    (file_path, agent_name, agent_id, agent_type, pid, task_id, expires_at, intent)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         normalized_path,
-                        agent_name,
+                        effective_agent_id,  # Keep agent_name for backward compatibility
+                        effective_agent_id,
+                        agent_type,
+                        effective_pid,
                         task_id,
                         expires_at.isoformat(),
                         intent,
@@ -416,8 +503,8 @@ class FileSafetyManager:
                 conn.commit()
 
                 logger.debug(
-                    f"Lock acquired: {normalized_path} by {agent_name} "
-                    f"(expires: {expires_at.isoformat()})"
+                    f"Lock acquired: {normalized_path} by {effective_agent_id} "
+                    f"(pid={effective_pid}, expires: {expires_at.isoformat()})"
                 )
                 return {
                     "status": LockStatus.ACQUIRED,
@@ -501,15 +588,18 @@ class FileSafetyManager:
                 if conn:
                     conn.close()
 
-    def check_lock(self, file_path: str) -> dict[str, Any] | None:
+    def check_lock(
+        self, file_path: str, *, cleanup_stale: bool = True
+    ) -> dict[str, Any] | None:
         """Check if a file is locked.
 
         Args:
             file_path: Absolute path to the file
+            cleanup_stale: If True, automatically clean up locks from dead processes
 
         Returns:
             Lock info dict if locked, None if not locked.
-            Dict contains: agent_name, task_id, locked_at, expires_at, intent
+            Dict contains: agent_name, agent_id, agent_type, pid, task_id, locked_at, expires_at, intent
 
         Raises:
             FileLockDBError: If database error occurs (fail-closed behavior)
@@ -537,7 +627,24 @@ class FileSafetyManager:
                 row = cursor.fetchone()
 
                 if row:
-                    return dict(row)
+                    row_dict = dict(row)
+                    pid = row_dict.get("pid")
+
+                    # Check if the lock holder is still alive
+                    if cleanup_stale and pid and not self._is_process_running(pid):
+                        # Lock holder is dead, clean up
+                        cursor.execute(
+                            "DELETE FROM file_locks WHERE file_path = ?",
+                            (normalized_path,),
+                        )
+                        conn.commit()
+                        logger.debug(
+                            f"Auto-cleaned stale lock on {normalized_path} "
+                            f"(pid {pid} no longer running)"
+                        )
+                        return None
+
+                    return row_dict
                 return None
 
             except sqlite3.Error as e:
@@ -573,11 +680,19 @@ class FileSafetyManager:
             return False
         return bool(lock_info["agent_name"] != agent_name)
 
-    def list_locks(self, agent_name: str | None = None) -> list[dict[str, Any]]:
+    def list_locks(
+        self,
+        agent_name: str | None = None,
+        *,
+        agent_type: str | None = None,
+        include_stale: bool = True,
+    ) -> list[dict[str, Any]]:
         """List all active locks.
 
         Args:
-            agent_name: Optional filter by agent name
+            agent_name: Optional filter by agent name/agent_id (exact match)
+            agent_type: Optional filter by agent type (e.g., "claude", "gemini")
+            include_stale: If True, include locks from dead processes (default: True)
 
         Returns:
             List of lock info dicts
@@ -596,17 +711,35 @@ class FileSafetyManager:
                 self._cleanup_expired_locks_internal(cursor)
                 conn.commit()
 
-                if agent_name:
+                # Build query based on filters
+                if agent_type:
                     cursor.execute(
-                        "SELECT * FROM file_locks WHERE agent_name = ? ORDER BY locked_at DESC",
-                        (agent_name,),
+                        "SELECT * FROM file_locks WHERE agent_type = ? ORDER BY locked_at DESC",
+                        (agent_type,),
+                    )
+                elif agent_name:
+                    # Support both agent_name and agent_id for backward compatibility
+                    cursor.execute(
+                        """SELECT * FROM file_locks
+                           WHERE agent_name = ? OR agent_id = ?
+                           ORDER BY locked_at DESC""",
+                        (agent_name, agent_name),
                     )
                 else:
                     cursor.execute("SELECT * FROM file_locks ORDER BY locked_at DESC")
 
                 rows = cursor.fetchall()
 
-                return [dict(row) for row in rows]
+                # Filter out stale locks if requested
+                result = []
+                for row in rows:
+                    row_dict = dict(row)
+                    pid = row_dict.get("pid")
+                    if pid and not include_stale and not self._is_process_running(pid):
+                        continue
+                    result.append(row_dict)
+
+                return result
 
             except sqlite3.Error as e:
                 import sys
@@ -632,6 +765,154 @@ class FileSafetyManager:
             (now,),
         )
         return cursor.rowcount
+
+    def _is_process_running(self, pid: int) -> bool:
+        """Check if a process is still running.
+
+        Args:
+            pid: Process ID to check
+
+        Returns:
+            True if process is running, False otherwise
+        """
+        try:
+            os.kill(pid, 0)  # Signal 0 only checks existence
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            # Process exists but we don't have permission
+            return True
+        except (OSError, TypeError):
+            return False
+
+    def _cleanup_stale_locks_internal(self, cursor: sqlite3.Cursor) -> int:
+        """Clean up locks from dead processes (internal, requires cursor).
+
+        Args:
+            cursor: Active SQLite cursor
+
+        Returns:
+            Number of stale locks removed
+        """
+        # Get all locks with PIDs
+        cursor.execute("SELECT id, pid FROM file_locks WHERE pid IS NOT NULL")
+        rows = cursor.fetchall()
+
+        stale_ids = []
+        for lock_id, pid in rows:
+            if not self._is_process_running(pid):
+                stale_ids.append(lock_id)
+
+        if stale_ids:
+            placeholders = ",".join("?" * len(stale_ids))
+            cursor.execute(
+                f"DELETE FROM file_locks WHERE id IN ({placeholders})",
+                stale_ids,
+            )
+            logger.debug(f"Cleaned up {len(stale_ids)} stale locks from dead processes")
+
+        return len(stale_ids)
+
+    def cleanup_stale_locks(self) -> int:
+        """Clean up all locks from dead processes.
+
+        Returns:
+            Number of stale locks removed
+        """
+        if not self.enabled:
+            return 0
+
+        with self._lock:
+            conn = None
+            try:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+
+                removed = self._cleanup_stale_locks_internal(cursor)
+
+                conn.commit()
+                return removed
+
+            except sqlite3.Error as e:
+                logger.error(f"Failed to cleanup stale locks: {e}")
+                return 0
+            finally:
+                if conn:
+                    conn.close()
+
+    def get_stale_locks(self) -> list[dict[str, Any]]:
+        """Get list of locks from dead processes.
+
+        Returns:
+            List of lock info dicts for stale locks
+        """
+        if not self.enabled:
+            return []
+
+        with self._lock:
+            conn = None
+            try:
+                conn = self._get_connection()
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute("SELECT * FROM file_locks WHERE pid IS NOT NULL")
+                rows = cursor.fetchall()
+
+                stale_locks = []
+                for row in rows:
+                    row_dict = dict(row)
+                    pid = row_dict.get("pid")
+                    if pid and not self._is_process_running(pid):
+                        stale_locks.append(row_dict)
+
+                return stale_locks
+
+            except sqlite3.Error as e:
+                logger.error(f"Failed to get stale locks: {e}")
+                return []
+            finally:
+                if conn:
+                    conn.close()
+
+    def force_unlock(self, file_path: str) -> bool:
+        """Force release a lock on a file regardless of owner.
+
+        Args:
+            file_path: Absolute path to the file
+
+        Returns:
+            True if lock was released, False if not found
+        """
+        if not self.enabled:
+            return True
+
+        normalized_path = self._normalize_path(file_path)
+
+        with self._lock:
+            conn = None
+            try:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "DELETE FROM file_locks WHERE file_path = ?",
+                    (normalized_path,),
+                )
+                deleted = cursor.rowcount > 0
+
+                conn.commit()
+                if deleted:
+                    logger.info(f"Force unlocked: {normalized_path}")
+                return deleted
+
+            except sqlite3.Error as e:
+                logger.error(f"Failed to force unlock {normalized_path}: {e}")
+                return False
+            finally:
+                if conn:
+                    conn.close()
 
     def cleanup_expired_locks(self) -> int:
         """Clean up expired locks.

@@ -589,6 +589,8 @@ def cmd_file_safety_status(args: argparse.Namespace) -> None:
 
 def cmd_file_safety_locks(args: argparse.Namespace) -> None:
     """List active file locks."""
+    import os
+
     from synapse.file_safety import FileSafetyManager
 
     manager = FileSafetyManager.from_env()
@@ -597,24 +599,52 @@ def cmd_file_safety_locks(args: argparse.Namespace) -> None:
         print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
         return
 
+    # Get locks with stale information
     locks = manager.list_locks(
-        agent_name=args.agent if hasattr(args, "agent") else None
+        agent_name=args.agent if hasattr(args, "agent") and args.agent else None,
+        agent_type=args.type if hasattr(args, "type") and args.type else None,
+        include_stale=True,
     )
 
     if not locks:
         print("No active file locks.")
         return
 
-    print(f"{'File Path':<50} {'Agent':<15} {'Expires At':<20}")
-    print("-" * 85)
+    # Check for stale locks
+    stale_count = 0
+    live_count = 0
+
+    print(
+        f"{'File Path':<40} {'Agent':<20} {'PID':<8} {'Status':<8} {'Expires At':<20}"
+    )
+    print("-" * 100)
 
     for lock in locks:
-        file_path = lock["file_path"][:50]
-        agent = lock["agent_name"][:15]
+        file_path = os.path.basename(lock["file_path"])[:40]
+        agent = (lock.get("agent_id") or lock.get("agent_name", "unknown"))[:20]
+        pid = lock.get("pid")
         expires = lock["expires_at"][:20] if lock.get("expires_at") else "N/A"
-        print(f"{file_path:<50} {agent:<15} {expires:<20}")
 
-    print(f"\nTotal: {len(locks)} active locks")
+        # Determine if lock is stale
+        if pid:
+            is_alive = manager._is_process_running(pid)
+            status = "LIVE" if is_alive else "STALE"
+            if is_alive:
+                live_count += 1
+            else:
+                stale_count += 1
+        else:
+            status = "UNKNOWN"
+            live_count += 1  # Assume old locks without PID are live
+
+        pid_str = str(pid) if pid else "-"
+        print(f"{file_path:<40} {agent:<20} {pid_str:<8} {status:<8} {expires:<20}")
+
+    print(f"\nTotal: {len(locks)} locks ({live_count} live, {stale_count} stale)")
+
+    if stale_count > 0:
+        print(f"\nWarning: {stale_count} stale lock(s) from dead processes detected.")
+        print("Run 'synapse file-safety cleanup-locks' to clean them up.")
 
 
 def cmd_file_safety_lock(args: argparse.Namespace) -> None:
@@ -670,11 +700,64 @@ def cmd_file_safety_unlock(args: argparse.Namespace) -> None:
         print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
         return
 
-    if manager.release_lock(args.file, args.agent):
-        print(f"Lock released on {args.file}")
-    else:
-        print(f"No lock found for {args.file} by {args.agent}")
+    force = getattr(args, "force", False)
+    agent = getattr(args, "agent", None)
+
+    if not force and not agent:
+        print("Error: Agent name is required unless using --force", file=sys.stderr)
         sys.exit(1)
+
+    if force:
+        # Force unlock regardless of owner
+        if manager.force_unlock(args.file):
+            print(f"Lock force-released on {args.file}")
+        else:
+            print(f"No lock found for {args.file}")
+            sys.exit(1)
+    else:
+        # Normal unlock (requires agent ownership)
+        # agent is guaranteed to be str here due to earlier check
+        if manager.release_lock(args.file, str(agent)):
+            print(f"Lock released on {args.file}")
+        else:
+            print(f"No lock found for {args.file} by {agent}")
+            sys.exit(1)
+
+
+def cmd_file_safety_cleanup_locks(args: argparse.Namespace) -> None:
+    """Clean up stale locks from dead processes."""
+    from synapse.file_safety import FileSafetyManager
+
+    manager = FileSafetyManager.from_env()
+
+    if not manager.enabled:
+        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        return
+
+    # First show what will be cleaned
+    stale_locks = manager.get_stale_locks()
+
+    if not stale_locks:
+        print("No stale locks found.")
+        return
+
+    print(f"Found {len(stale_locks)} stale lock(s) from dead processes:")
+    for lock in stale_locks:
+        print(
+            f"  - {lock['file_path']} (pid={lock.get('pid')}, agent={lock.get('agent_id')})"
+        )
+
+    # Check for --force or prompt for confirmation
+    force = getattr(args, "force", False)
+    if not force:
+        response = input("\nClean up these locks? [y/N]: ").strip().lower()
+        if response != "y":
+            print("Aborted.")
+            return
+
+    # Clean up
+    cleaned = manager.cleanup_stale_locks()
+    print(f"\nCleaned up {cleaned} stale lock(s).")
 
 
 def cmd_file_safety_history(args: argparse.Namespace) -> None:
@@ -1938,6 +2021,9 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         "locks", help="List active file locks"
     )
     p_fs_locks.add_argument("--agent", "-a", help="Filter by agent name")
+    p_fs_locks.add_argument(
+        "--type", "-t", help="Filter by agent type (claude, gemini, codex)"
+    )
     p_fs_locks.set_defaults(func=cmd_file_safety_locks)
 
     # file-safety lock
@@ -1961,7 +2047,15 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         "unlock", help="Release a lock on a file"
     )
     p_fs_unlock.add_argument("file", help="File path to unlock")
-    p_fs_unlock.add_argument("agent", help="Agent name releasing the lock")
+    p_fs_unlock.add_argument(
+        "agent", nargs="?", help="Agent name releasing the lock (optional with --force)"
+    )
+    p_fs_unlock.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force unlock regardless of owner",
+    )
     p_fs_unlock.set_defaults(func=cmd_file_safety_unlock)
 
     # file-safety history
@@ -2017,6 +2111,15 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         "--force", "-f", action="store_true", help="Skip confirmation prompt"
     )
     p_fs_cleanup.set_defaults(func=cmd_file_safety_cleanup)
+
+    # file-safety cleanup-locks
+    p_fs_cleanup_locks = file_safety_subparsers.add_parser(
+        "cleanup-locks", help="Clean up stale locks from dead processes"
+    )
+    p_fs_cleanup_locks.add_argument(
+        "--force", "-f", action="store_true", help="Skip confirmation prompt"
+    )
+    p_fs_cleanup_locks.set_defaults(func=cmd_file_safety_cleanup_locks)
 
     # file-safety debug
     p_fs_debug = file_safety_subparsers.add_parser(
