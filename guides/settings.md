@@ -293,19 +293,7 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 }
 ```
 
-### @agent パターンでの応答制御
-
-```text
-@gemini --response 分析結果を教えて   # 結果を待つ
-@codex --no-response ビルドして        # 転送のみ
-@gemini 調べて                          # flow 設定に従う
-```
-
-| `a2a.flow` | フラグなし | `--response` | `--no-response` |
-|------------|-----------|--------------|-----------------|
-| `roundtrip` | 待つ | 待つ | 待たない |
-| `oneway` | 待たない | 待つ | 待たない |
-| `auto` | 待つ（デフォルト） | 待つ | 待たない |
+詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
 
 ## 委任設定 (delegation)
 

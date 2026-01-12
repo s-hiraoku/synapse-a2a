@@ -17,29 +17,6 @@ Delegation（委任）は、Claudeが受け取ったタスクを自動的に他�
 
 ---
 
-## 関連設定: A2A Flow
-
-委任とは独立して、エージェント間通信の応答動作を `a2a.flow` で制御できます。
-
-| 設定 | 説明 |
-|------|------|
-| `a2a.flow: roundtrip` | 常に結果を待つ |
-| `a2a.flow: oneway` | 常に転送のみ（結果を待たない） |
-| `a2a.flow: auto` | メッセージごとに `--response`/`--no-response` フラグで制御 |
-
-```json
-{
-  "a2a": {
-    "flow": "auto"
-  },
-  "delegation": {
-    "enabled": true
-  }
-}
-```
-
----
-
 ## クイックスタート
 
 ### Step 1: 設定ファイルを編集
@@ -48,9 +25,6 @@ Delegation（委任）は、Claudeが受け取ったタスクを自動的に他�
 
 ```json
 {
-  "a2a": {
-    "flow": "auto"
-  },
   "delegation": {
     "enabled": true
   }
@@ -80,26 +54,6 @@ synapse claude
 ```
 
 Claudeが自動的にルールに従ってタスクを振り分けます。
-
----
-
-## @agent パターンでの応答制御
-
-委任時に応答を待つかどうかを制御できます：
-
-```text
-@codex --response ファイルを修正して     # 結果を待って受け取る
-@gemini --no-response 調査を開始して      # 転送のみ（結果を待たない）
-@codex ビルドして                          # a2a.flow 設定に従う
-```
-
-### Flow 設定との組み合わせ
-
-| `a2a.flow` | フラグなし | `--response` | `--no-response` |
-|------------|-----------|--------------|-----------------|
-| `roundtrip` | 待つ | 待つ | 待たない |
-| `oneway` | 待たない | 待つ | 待たない |
-| `auto` | 待つ（デフォルト） | 待つ | 待たない |
 
 ---
 
@@ -179,6 +133,8 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 複数の調査タスクはGeminiに順次転送する（--no-response）
 ```
 
+> **Note**: `--response`/`--no-response` フラグの詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+
 ---
 
 ## 動作の仕組み
@@ -187,7 +143,6 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 2. **ルール注入**: `delegation.enabled: true` の場合、委任ルールがClaudeの初期インストラクションに追加される
 3. **タスク分析**: Claudeが受け取ったタスクをルールと照合
 4. **委任実行**: ルールにマッチしたら `@agent` パターンで転送
-5. **応答制御**: `a2a.flow` 設定または `--response`/`--no-response` フラグに従う
 
 ---
 
@@ -216,11 +171,6 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 - delegate.md に明示的な例を追加
 - タスクカテゴリを明確化
 
-### 応答が返ってこない
-
-- `a2a.flow` 設定を確認（`oneway` だと結果を待たない）
-- `--response` フラグを明示的に使用
-
 ---
 
 ## 設定例
@@ -230,9 +180,6 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 `.synapse/settings.json`:
 ```json
 {
-  "a2a": {
-    "flow": "auto"
-  },
   "delegation": {
     "enabled": true
   }
@@ -266,3 +213,10 @@ Web検索や調査タスクはGeminiに転送する。
 コーディング作業（Edit, Write, Bash）はすべてCodexに任せる。
 結果を確認してからユーザーに報告する（--response を使用）。
 ```
+
+---
+
+## 関連ドキュメント
+
+- [a2a-communication.md](a2a-communication.md) - A2A通信と応答制御
+- [settings.md](settings.md) - 設定ファイルの詳細
