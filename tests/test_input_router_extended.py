@@ -96,6 +96,32 @@ class TestInputRouterRefactorSpec:
         assert success is True
         assert router.is_external_agent is True
 
+    def test_route_to_agent_skips_tcp_preflight_when_uds_present(self, router):
+        """Spec: UDS targets should skip TCP preflight checks."""
+        router.registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "endpoint": "http://localhost:8100",
+                "pid": 123,
+                "uds_path": "/tmp/agent.sock",
+            }
+        }
+        router.a2a_client.send_to_local.return_value = A2ATask(
+            id="t1", status="working"
+        )
+
+        with (
+            patch("synapse.input_router.is_process_running", return_value=True),
+            patch("synapse.input_router.is_port_open") as mock_port_open,
+        ):
+            success = router.route_to_agent("claude", "hello")
+            assert success is True
+            mock_port_open.assert_not_called()
+            call_kwargs = router.a2a_client.send_to_local.call_args.kwargs
+            assert call_kwargs.get("uds_path") == "/tmp/agent.sock"
+
     # =========================================================================
     # 3. Error Handling
     # =========================================================================

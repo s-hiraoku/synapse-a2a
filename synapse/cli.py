@@ -1429,9 +1429,6 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
         skip_initial_instructions=is_resume,
     )
 
-    # Register agent
-    registry.register(agent_id, profile, port, status="PROCESSING")
-
     # Handle Ctrl+C gracefully
     def cleanup(signum: int, frame: object) -> None:
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
@@ -1483,6 +1480,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
 
         # Give server time to start
         time.sleep(1)
+
+        # Register agent after listeners are up (UDS first, then TCP)
+        registry.register(agent_id, profile, port, status="PROCESSING")
 
         # Initial instructions are sent via on_first_idle callback
         # when the agent reaches IDLE state (detected by idle_regex)

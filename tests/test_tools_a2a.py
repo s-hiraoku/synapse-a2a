@@ -274,7 +274,7 @@ class TestCmdCleanup:
 class TestCmdSend:
     """Test cmd_send() function."""
 
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
@@ -285,7 +285,7 @@ class TestCmdSend:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
         capsys,
     ):
         """Should send message successfully."""
@@ -301,11 +301,11 @@ class TestCmdSend:
         }
         mock_registry_cls.return_value = mock_registry
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "task": {"id": "task-123", "status": "working"}
-        }
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         args = argparse.Namespace(
             target="claude",
@@ -316,10 +316,9 @@ class TestCmdSend:
         )
         cmd_send(args)
 
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert "tasks/send-priority" in call_args[0][0]
-        assert call_args[1]["json"]["message"]["parts"][0]["text"] == "hello world"
+        mock_client.send_to_local.assert_called_once()
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["message"] == "hello world"
 
         captured = capsys.readouterr()
         assert "Success" in captured.out
@@ -444,7 +443,7 @@ class TestCmdSend:
         captured = capsys.readouterr()
         assert "not responding" in captured.err
 
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={"sender_id": "test"})
@@ -455,7 +454,7 @@ class TestCmdSend:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
     ):
         """Should include sender info in metadata."""
         mock_registry = MagicMock()
@@ -470,9 +469,11 @@ class TestCmdSend:
         }
         mock_registry_cls.return_value = mock_registry
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task": {"id": "task-123"}}
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         args = argparse.Namespace(
             target="claude",
@@ -483,11 +484,10 @@ class TestCmdSend:
         )
         cmd_send(args)
 
-        call_args = mock_post.call_args
-        payload = call_args[1]["json"]
-        assert payload["metadata"]["sender"] == {"sender_id": "test"}
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["sender_info"] == {"sender_id": "test"}
 
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
@@ -498,7 +498,7 @@ class TestCmdSend:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
     ):
         """Should set response_expected=False with --no-response flag in auto mode."""
         mock_registry = MagicMock()
@@ -513,9 +513,11 @@ class TestCmdSend:
         }
         mock_registry_cls.return_value = mock_registry
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task": {"id": "task-123"}}
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         args = argparse.Namespace(
             target="claude",
@@ -529,11 +531,10 @@ class TestCmdSend:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
-        call_args = mock_post.call_args
-        payload = call_args[1]["json"]
-        assert payload["metadata"]["response_expected"] is False
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["response_expected"] is False
 
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
@@ -544,12 +545,10 @@ class TestCmdSend:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
         capsys,
     ):
         """Should handle request errors."""
-        import requests
-
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-claude-8100": {
@@ -562,9 +561,9 @@ class TestCmdSend:
         }
         mock_registry_cls.return_value = mock_registry
 
-        mock_post.side_effect = requests.exceptions.ConnectionError(
-            "Connection refused"
-        )
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = None
+        mock_client_cls.return_value = mock_client
 
         args = argparse.Namespace(
             target="claude",
@@ -675,7 +674,7 @@ class TestMainFunction:
 class TestExactAgentIdMatch:
     """Test exact agent ID matching in cmd_send."""
 
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
@@ -686,7 +685,7 @@ class TestExactAgentIdMatch:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
     ):
         """Should match by exact agent ID."""
         mock_registry = MagicMock()
@@ -708,9 +707,11 @@ class TestExactAgentIdMatch:
         }
         mock_registry_cls.return_value = mock_registry
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task": {"id": "task-123"}}
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         # Use exact agent ID to avoid ambiguity
         args = argparse.Namespace(
@@ -723,16 +724,16 @@ class TestExactAgentIdMatch:
         cmd_send(args)
 
         # Should succeed with exact match
-        mock_post.assert_called_once()
-        call_url = mock_post.call_args[0][0]
-        assert "8100" in call_url
+        mock_client.send_to_local.assert_called_once()
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert "8100" in call_kwargs["endpoint"]
 
 
 class TestSentMessageHistory:
     """Test sent message history recording."""
 
     @patch("synapse.tools.a2a._get_history_manager")
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value=None)
@@ -743,7 +744,7 @@ class TestSentMessageHistory:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
         mock_history_manager,
     ):
         """Should record sent message to history when enabled."""
@@ -760,12 +761,11 @@ class TestSentMessageHistory:
         }
         mock_registry_cls.return_value = mock_registry
 
-        # Setup mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "task": {"id": "task-456", "status": "working"}
-        }
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-456", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         # Setup mock history manager
         mock_history = MagicMock()
@@ -793,7 +793,7 @@ class TestSentMessageHistory:
         assert call_kwargs["metadata"]["priority"] == 3
 
     @patch("synapse.tools.a2a._get_history_manager")
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value=None)
@@ -804,7 +804,7 @@ class TestSentMessageHistory:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
         mock_history_manager,
     ):
         """Should not record sent message when history is disabled."""
@@ -821,10 +821,11 @@ class TestSentMessageHistory:
         }
         mock_registry_cls.return_value = mock_registry
 
-        # Setup mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task": {"id": "task-789"}}
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-789", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         # Setup mock history manager (disabled)
         mock_history = MagicMock()
@@ -844,7 +845,7 @@ class TestSentMessageHistory:
         mock_history.save_observation.assert_not_called()
 
     @patch("synapse.tools.a2a._get_history_manager")
-    @patch("synapse.tools.a2a.requests.post")
+    @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info")
@@ -855,7 +856,7 @@ class TestSentMessageHistory:
         mock_sender,
         mock_running,
         mock_port,
-        mock_post,
+        mock_client_cls,
         mock_history_manager,
     ):
         """Should include sender info in history metadata."""
@@ -872,10 +873,11 @@ class TestSentMessageHistory:
         }
         mock_registry_cls.return_value = mock_registry
 
-        # Setup mock response
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task": {"id": "task-abc"}}
-        mock_post.return_value = mock_response
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-abc", status="working"
+        )
+        mock_client_cls.return_value = mock_client
 
         # Setup sender info (simulating message from Claude)
         mock_sender.return_value = {

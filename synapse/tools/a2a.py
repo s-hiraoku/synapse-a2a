@@ -7,8 +7,7 @@ import sys
 import uuid
 from pathlib import Path
 
-import requests
-
+from synapse.a2a_client import A2AClient
 from synapse.history import HistoryManager
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
 from synapse.settings import get_settings
@@ -212,6 +211,8 @@ def cmd_send(args: argparse.Namespace) -> None:
     pid = target_agent.get("pid")
     port = target_agent.get("port")
     agent_id = target_agent["agent_id"]
+    uds_path = target_agent.get("uds_path")
+    local_only = bool(uds_path)
 
     # Check if process is still alive
     if pid and not is_process_running(pid):
@@ -228,7 +229,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Check if port is reachable (fast 1-second check)
-    if port and not is_port_open("localhost", port, timeout=1.0):
+    if not uds_path and port and not is_port_open("localhost", port, timeout=1.0):
         print(
             f"Error: Agent '{agent_id}' server on port {port} is not responding.",
             file=sys.stderr,
@@ -247,11 +248,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     sender_info = build_sender_info(getattr(args, "sender", None))
 
     # 4. Send Request using Google A2A protocol
-    url = f"{target_agent['endpoint']}/tasks/send-priority?priority={args.priority}"
-    payload: dict[str, object] = {
-        "message": {"role": "user", "parts": [{"type": "text", "text": args.message}]}
-    }
-
     # Determine response_expected based on a2a.flow setting and flags
     settings = get_settings()
     flow = settings.get_a2a_flow()
@@ -267,37 +263,38 @@ def cmd_send(args: argparse.Namespace) -> None:
         response_expected = want_response if want_response is not None else True
 
     # Add metadata (sender info and response_expected)
-    metadata: dict[str, object] = {}
-    if sender_info:
-        metadata["sender"] = sender_info
-    metadata["response_expected"] = response_expected
-    payload["metadata"] = metadata
+    client = A2AClient()
+    task = client.send_to_local(
+        endpoint=str(target_agent["endpoint"]),
+        message=args.message,
+        priority=args.priority,
+        wait_for_completion=response_expected,
+        timeout=60,
+        sender_info=sender_info or None,
+        response_expected=response_expected,
+        uds_path=uds_path if isinstance(uds_path, str) else None,
+        local_only=local_only,
+    )
 
-    try:
-        # Use tuple timeout: (connect_timeout, read_timeout)
-        resp = requests.post(url, json=payload, timeout=(3, 30))
-        resp.raise_for_status()
-        result = resp.json()
-        task = result.get("task", result)
-        task_id = task.get("id", str(uuid.uuid4()))
-        print(
-            f"Success: Task created for {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)"
-        )
-        print(f"  Task ID: {task_id}")
-        print(f"  Status: {task.get('status', 'N/A')}")
-
-        # Record sent message to history
-        _record_sent_message(
-            task_id=task_id,
-            target_agent=target_agent,
-            message=args.message,
-            priority=args.priority,
-            sender_info=sender_info,
-        )
-
-    except requests.RequestException as e:
-        print(f"Error sending message: {e}", file=sys.stderr)
+    if not task:
+        print("Error sending message: local send failed", file=sys.stderr)
         sys.exit(1)
+
+    task_id = task.id or str(uuid.uuid4())
+    print(
+        f"Success: Task created for {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)"
+    )
+    print(f"  Task ID: {task_id}")
+    print(f"  Status: {task.status}")
+
+    # Record sent message to history
+    _record_sent_message(
+        task_id=task_id,
+        target_agent=target_agent,
+        message=args.message,
+        priority=args.priority,
+        sender_info=sender_info,
+    )
 
 
 def main() -> None:

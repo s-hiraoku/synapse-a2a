@@ -1,16 +1,19 @@
 import argparse
 import os
 import sys
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
+import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
 from synapse.controller import TerminalController
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, resolve_uds_path
 
 # Global controller and registry instances (for standalone mode)
 controller: TerminalController | None = None
@@ -279,9 +282,51 @@ async def get_status() -> dict:
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
+def run_dual_server(
+    app: FastAPI,
+    host: str,
+    port: int,
+    agent_id: str | None = None,
+    log_level: str = "info",
+    **ssl_config: Any,
+) -> None:
+    """Run both TCP and UDS servers."""
+    # TCP Server Config
+    tcp_config = uvicorn.Config(
+        app, host=host, port=port, log_level=log_level, **ssl_config
+    )
+    tcp_server = uvicorn.Server(tcp_config)
 
+    # UDS Server Config
+    uds_path = None
+    uds_server = None
+    if agent_id:
+        uds_path = resolve_uds_path(agent_id)
+        # Ensure directory exists and stale socket is removed
+        uds_path.parent.mkdir(parents=True, exist_ok=True)
+        if uds_path.exists():
+            uds_path.unlink()
+
+        uds_config = uvicorn.Config(
+            app, uds=str(uds_path), log_level=log_level, **ssl_config
+        )
+        uds_config.lifespan = "off"
+        uds_server = uvicorn.Server(uds_config)
+
+    def run_tcp() -> None:
+        tcp_server.run()
+
+    if uds_server:
+        # Run UDS server in a separate thread
+        uds_thread = threading.Thread(target=uds_server.run, daemon=True)
+        uds_thread.start()
+        print(f"UDS listener started at: {uds_path}")
+
+    # Run TCP server in main thread (blocking)
+    run_tcp()
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Synapse A2A Server")
     parser.add_argument(
         "--profile",
@@ -300,6 +345,10 @@ if __name__ == "__main__":
     os.environ["SYNAPSE_PROFILE"] = args.profile
     os.environ["SYNAPSE_PORT"] = str(args.port)
 
+    # Resolve agent_id for UDS path
+    registry = AgentRegistry()
+    agent_id = registry.get_agent_id(args.profile, args.port)
+
     # Configure SSL if certificates provided
     ssl_config = {}
     if args.ssl_cert and args.ssl_key:
@@ -314,4 +363,6 @@ if __name__ == "__main__":
         os.environ["SYNAPSE_USE_HTTPS"] = "true"
         print(f"HTTPS enabled with certificate: {args.ssl_cert}")
 
-    uvicorn.run(app, host=args.host, port=args.port, **ssl_config)
+    run_dual_server(
+        app, host=args.host, port=args.port, agent_id=agent_id, **ssl_config
+    )

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from synapse.registry import AgentRegistry
+from synapse.registry import AgentRegistry, resolve_uds_path
 
 
 @pytest.fixture
@@ -79,6 +79,18 @@ def test_register_includes_endpoint(registry):
 
     agents = registry.list_agents()
     assert agents[agent_id]["endpoint"] == "http://localhost:8100"
+
+
+def test_register_includes_uds_path(registry, monkeypatch, tmp_path):
+    """Registered agent should include resolved UDS path."""
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    agent_id = "test_uds_agent"
+    registry.register(agent_id, "claude", 8100)
+
+    agents = registry.list_agents()
+    uds_path = agents[agent_id]["uds_path"]
+    assert uds_path == str(resolve_uds_path(agent_id))
+    assert uds_path.startswith(str(tmp_path))
 
 
 def test_register_includes_pid_and_working_dir(registry):
