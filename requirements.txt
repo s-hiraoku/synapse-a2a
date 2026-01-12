@@ -1,3 +1,4 @@
 fastapi
 uvicorn
 pyyaml
+httpx>=0.24.0
