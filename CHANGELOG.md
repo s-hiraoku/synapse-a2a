@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2025-01-12
+
+### Fixed
+
+- Handle `PermissionError` correctly in `is_process_running` (#75)
+  - `PermissionError` from `os.kill(pid, 0)` means the process exists but we don't have permission to signal it
+  - Previously this was incorrectly treated as "process not found", causing agents to wrongly delete other agents' registry files
+
 ## [0.2.4] - 2025-01-12
 
 ### Changed
@@ -147,6 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.1...v0.2.2
