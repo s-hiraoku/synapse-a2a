@@ -212,6 +212,9 @@ def cmd_send(args: argparse.Namespace) -> None:
     port = target_agent.get("port")
     agent_id = target_agent["agent_id"]
     uds_path = target_agent.get("uds_path")
+    # Only use UDS if the socket file actually exists
+    if uds_path and not Path(uds_path).exists():
+        uds_path = None
     local_only = bool(uds_path)
 
     # Check if process is still alive

@@ -1,5 +1,6 @@
 import argparse
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from synapse.tools.a2a import cmd_send
 
@@ -41,7 +42,9 @@ class TestA2AToolSend:
             message="Hello",
         )
 
-        cmd_send(args)
+        # Mock Path.exists to return True for UDS socket file
+        with patch.object(Path, "exists", return_value=True):
+            cmd_send(args)
 
         mock_client.send_to_local.assert_called_once()
         call_kwargs = mock_client.send_to_local.call_args.kwargs

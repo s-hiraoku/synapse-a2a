@@ -1455,11 +1455,12 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     print()
 
     try:
-        # Start the API server in background
+        # Start the API server in background (TCP + UDS)
         import threading
 
         import uvicorn
 
+        from synapse.registry import resolve_uds_path
         from synapse.server import create_app
 
         app = create_app(
@@ -1472,13 +1473,30 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
             registry=registry,
         )
 
-        def run_server() -> None:
+        # Setup UDS server
+        uds_path = resolve_uds_path(agent_id)
+        uds_path.parent.mkdir(parents=True, exist_ok=True)
+        if uds_path.exists():
+            uds_path.unlink()
+
+        uds_config = uvicorn.Config(app, uds=str(uds_path), log_level="warning")
+        uds_config.lifespan = "off"
+        uds_server = uvicorn.Server(uds_config)
+
+        def run_uds_server() -> None:
+            uds_server.run()
+
+        uds_thread = threading.Thread(target=run_uds_server, daemon=True)
+        uds_thread.start()
+
+        # Setup TCP server
+        def run_tcp_server() -> None:
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
-        server_thread = threading.Thread(target=run_server, daemon=True)
-        server_thread.start()
+        tcp_thread = threading.Thread(target=run_tcp_server, daemon=True)
+        tcp_thread.start()
 
-        # Give server time to start
+        # Give servers time to start
         time.sleep(1)
 
         # Register agent after listeners are up (UDS first, then TCP)

@@ -1,5 +1,6 @@
 """Extended tests for InputRouter - Refactoring Specification."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -115,6 +116,7 @@ class TestInputRouterRefactorSpec:
         with (
             patch("synapse.input_router.is_process_running", return_value=True),
             patch("synapse.input_router.is_port_open") as mock_port_open,
+            patch.object(Path, "exists", return_value=True),
         ):
             success = router.route_to_agent("claude", "hello")
             assert success is True

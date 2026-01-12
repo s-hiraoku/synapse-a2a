@@ -4,6 +4,7 @@ import os
 import re
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 
 from synapse.a2a_client import A2AClient, get_client
 from synapse.registry import AgentRegistry, is_port_open, is_process_running
@@ -248,6 +249,9 @@ class InputRouter:
         port = target.get("port")
         agent_id = target.get("agent_id", agent_name)
         uds_path = target.get("uds_path")
+        # Only use UDS if the socket file actually exists
+        if uds_path and not Path(uds_path).exists():
+            uds_path = None
         local_only = bool(uds_path)
 
         # Check if process is still alive
