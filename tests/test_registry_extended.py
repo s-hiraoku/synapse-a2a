@@ -35,9 +35,9 @@ class TestHelperFunctions:
 
     @patch("synapse.registry.os.kill")
     def test_is_process_running_permission_error(self, mock_kill):
-        """Should return False on PermissionError."""
+        """Should return True on PermissionError (process exists but no permission)."""
         mock_kill.side_effect = PermissionError
-        assert is_process_running(1) is False
+        assert is_process_running(1) is True
 
     def test_is_port_open_true(self):
         """Should return True for an open port."""
