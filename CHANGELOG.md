@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2025-01-12
+
+### Changed
+
+- Separate `@agent` pattern (user PTY input) and `a2a.py send` (AI agent command)
+  - `@agent` pattern no longer accepts `--response`/`--no-response` flags
+  - AI agents use `python3 synapse/tools/a2a.py send` with explicit flags
+- Refactor `delegation.mode` into two independent settings:
+  - `a2a.flow` - Controls response behavior (roundtrip/oneway/auto)
+  - `delegation.enabled` - Enables/disables automatic task delegation
+- Remove `synapse delegate` CLI subcommand (use settings.json instead)
+
+### Added
+
+- `--response` / `--no-response` flags for `a2a.py send` command
+- `a2a.flow` setting with three modes:
+  - `roundtrip`: Always wait for response (flags ignored)
+  - `oneway`: Never wait for response (flags ignored)
+  - `auto`: AI decides via flags (default)
+- New guide: `guides/a2a-communication.md`
+
+### Documentation
+
+- Update SKILL.md with AI judgment guidance for response control
+- Update agent templates (gemini.md, default.md) with send command examples
+- Clarify separation between user and AI agent communication methods
+
 ## [0.2.3] - 2025-01-11
 
 ### Added
@@ -120,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1
