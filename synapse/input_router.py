@@ -252,7 +252,8 @@ class InputRouter:
         # Only use UDS if the socket file actually exists
         if uds_path and not Path(uds_path).exists():
             uds_path = None
-        local_only = bool(uds_path)
+        # Allow HTTP fallback if UDS fails (don't set local_only=True)
+        local_only = False
 
         # Check if process is still alive
         if pid and not is_process_running(pid):
