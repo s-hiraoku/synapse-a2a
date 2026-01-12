@@ -1142,7 +1142,7 @@ synapse reset
 |------|-----|------|
 | `flow` | `roundtrip` | 常に結果を待つ |
 | `flow` | `oneway` | 常に転送のみ（結果を待たない） |
-| `flow` | `auto` | メッセージごとに `--response`/`--no-response` フラグで制御（デフォルト） |
+| `flow` | `auto` | AIエージェントがタスクに応じて判断（デフォルト） |
 
 ```json
 {
