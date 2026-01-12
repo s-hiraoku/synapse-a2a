@@ -129,6 +129,38 @@ synapse claude -- --resume=SESSION_ID
 
 ---
 
+### 1.4 インストラクション管理
+
+Resume Mode で起動した場合など、初期インストラクションが送信されなかった状況で、後からインストラクションを送信したい場合に使用します。
+
+```bash
+# インストラクション内容を確認
+synapse instructions show claude
+
+# 利用されるインストラクションファイル一覧
+synapse instructions files claude
+
+# 実行中のエージェントに初期インストラクションを送信
+synapse instructions send claude
+
+# 送信前にプレビュー（実際には送信しない）
+synapse instructions send claude --preview
+
+# 特定のエージェントIDを指定して送信
+synapse instructions send synapse-claude-8100
+```
+
+**ユースケース**:
+
+| シチュエーション | 対応 |
+|----------------|------|
+| `--resume` 後に A2A 機能が必要になった | `synapse instructions send <agent>` |
+| エージェントがインストラクションを忘れた | `synapse instructions send <agent>` |
+| インストラクション内容の確認 | `synapse instructions show <agent>` |
+| 設定ファイルの確認 | `synapse instructions files <agent>` |
+
+---
+
 ## 2. CLI コマンド
 
 ### 2.1 コマンド一覧
@@ -149,7 +181,14 @@ flowchart TB
         list["list"]
         send["send"]
         logs["logs"]
+        instructions["instructions"]
         external["external"]
+    end
+
+    subgraph Instructions["instructions サブコマンド"]
+        inst_show["show"]
+        inst_files["files"]
+        inst_send["send"]
     end
 
     subgraph External["external サブコマンド"]
@@ -162,6 +201,7 @@ flowchart TB
 
     synapse --> Shortcuts
     synapse --> Commands
+    instructions --> Instructions
     external --> External
 ```
 
@@ -174,6 +214,7 @@ flowchart TB
 | `synapse list` | 実行中エージェント一覧 |
 | `synapse send` | メッセージ送信 |
 | `synapse logs <profile>` | ログ表示 |
+| `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
 
 ---

@@ -443,6 +443,9 @@ synapse claude -- --resume
 | `synapse list`                    | 実行中エージェント一覧 |
 | `synapse logs <profile>`          | ログ表示               |
 | `synapse send <target> <message>` | メッセージ送信         |
+| `synapse instructions show`       | インストラクション内容表示 |
+| `synapse instructions files`      | インストラクションファイル一覧 |
+| `synapse instructions send`       | 初期インストラクション再送信 |
 | `synapse history list`            | タスク履歴表示         |
 | `synapse history show <task_id>`  | タスク詳細表示         |
 | `synapse history search`          | キーワード検索         |
@@ -479,6 +482,31 @@ synapse codex -- resume --last
 - **Gemini**: `--resume`, `-r`
 - **Codex**: `resume`
 
+### インストラクション管理
+
+`--resume` モードで起動した場合など、初期インストラクションが送信されなかった場合に、手動で再送信できます。
+
+```bash
+# インストラクション内容を確認
+synapse instructions show claude
+
+# 利用されるインストラクションファイル一覧
+synapse instructions files claude
+
+# 実行中のエージェントに初期インストラクションを送信
+synapse instructions send claude
+
+# 送信前にプレビュー
+synapse instructions send claude --preview
+
+# 特定のエージェントIDを指定して送信
+synapse instructions send synapse-claude-8100
+```
+
+この機能は以下のケースで役立ちます：
+- `--resume` モードで起動後、A2A プロトコル情報が必要になった場合
+- エージェントがインストラクションを失った/忘れた場合のリカバリ
+- インストラクション内容の確認・デバッグ
 
 ### 外部エージェント管理
 
