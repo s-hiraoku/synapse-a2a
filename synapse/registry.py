@@ -14,8 +14,10 @@ def is_process_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)  # Signal 0 only checks existence
         return True
-    except (ProcessLookupError, PermissionError):
-        return False
+    except ProcessLookupError:
+        return False  # Process does not exist
+    except PermissionError:
+        return True  # Process exists but we don't have permission to signal it
 
 
 def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
