@@ -69,6 +69,7 @@ def test_render_table_file_safety_enabled_no_locks(list_command, mock_registry):
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
         fsm_instance.list_locks.return_value = []
+        fsm_instance.get_stale_locks.return_value = []
 
         output = list_command._render_agent_table(mock_registry)
 
@@ -92,11 +93,12 @@ def test_render_table_file_safety_shows_locked_file(list_command, mock_registry)
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
+        fsm_instance.get_stale_locks.return_value = []
 
         # Setup locks: claude locks a file
-        # list_locks receives agent_type (e.g., "claude"), not agent_id
-        def mock_list_locks(agent_name=None):
-            if agent_name == "claude":
+        # list_locks now receives agent_type as keyword argument
+        def mock_list_locks(agent_name=None, *, agent_type=None, include_stale=True):
+            if agent_type == "claude":
                 return [{"file_path": "/path/to/important_file.py"}]
             return []
 
@@ -120,11 +122,12 @@ def test_render_table_shows_only_one_locked_file(list_command, mock_registry):
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
+        fsm_instance.get_stale_locks.return_value = []
 
         # Setup locks: claude locks multiple files
-        # list_locks receives agent_type (e.g., "claude"), not agent_id
-        def mock_list_locks(agent_name=None):
-            if agent_name == "claude":
+        # list_locks now receives agent_type as keyword argument
+        def mock_list_locks(agent_name=None, *, agent_type=None, include_stale=True):
+            if agent_type == "claude":
                 return [
                     {"file_path": "/path/to/file1.py"},
                     {"file_path": "/path/to/file2.py"},

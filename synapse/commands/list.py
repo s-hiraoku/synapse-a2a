@@ -98,9 +98,11 @@ class ListCommand:
 
             live_agents = True
             if show_file_safety:
-                # list_locks expects agent_type (e.g., "claude"), not agent_id
+                # Use agent_type for filtering (e.g., "claude", "gemini")
                 agent_type = info.get("agent_type", "")
-                locks = file_safety.list_locks(agent_type)
+                locks = file_safety.list_locks(
+                    agent_type=agent_type, include_stale=False
+                )
                 editing_file = "-"
                 if locks:
                     file_path = locks[0].get("file_path")
@@ -133,6 +135,18 @@ class ListCommand:
                 output.append(f"  {agent_type}: {start}-{end}")
             return "\n".join(output)
 
+        # Check for stale locks and add warning
+        if show_file_safety:
+            stale_locks = file_safety.get_stale_locks()
+            if stale_locks:
+                lines.append("")
+                lines.append(
+                    f"Warning: {len(stale_locks)} stale lock(s) from dead processes detected."
+                )
+                lines.append(
+                    "Run 'synapse file-safety cleanup-locks' to clean them up."
+                )
+
         return "\n".join(lines)
 
     def run(self, args: argparse.Namespace) -> None:
@@ -149,10 +163,20 @@ class ListCommand:
         # Watch mode: continuous refresh
         self._print("Watch mode: Press Ctrl+C to exit\n")
 
+        # Get version for display
+        try:
+            from importlib.metadata import version
+
+            pkg_version = version("synapse-a2a")
+        except Exception:
+            pkg_version = "unknown"
+
         try:
             while True:
                 self._clear_screen()
-                self._print(f"Synapse Agent List (refreshing every {interval}s)")
+                self._print(
+                    f"Synapse A2A v{pkg_version} - Agent List (refreshing every {interval}s)"
+                )
                 self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
                 self._print("")
                 self._print(self._render_agent_table(registry))
