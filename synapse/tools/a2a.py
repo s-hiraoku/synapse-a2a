@@ -251,12 +251,12 @@ def cmd_send(args: argparse.Namespace) -> None:
         "message": {"role": "user", "parts": [{"type": "text", "text": args.message}]}
     }
 
-    # Add metadata (sender info and response_required)
+    # Add metadata (sender info and response_expected)
     metadata: dict[str, object] = {}
     if sender_info:
         metadata["sender"] = sender_info
-    # Default: response_required is True, --non-response sets it to False
-    metadata["response_required"] = not getattr(args, "non_response", False)
+    # Default: response_expected is True, --non-response sets it to False
+    metadata["response_expected"] = not getattr(args, "non_response", False)
     payload["metadata"] = metadata
 
     try:

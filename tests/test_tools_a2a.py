@@ -500,7 +500,7 @@ class TestCmdSend:
         mock_port,
         mock_post,
     ):
-        """Should set response_required=False with --non-response flag."""
+        """Should set response_expected=False with --non-response flag."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-claude-8100": {
@@ -528,7 +528,7 @@ class TestCmdSend:
 
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
-        assert payload["metadata"]["response_required"] is False
+        assert payload["metadata"]["response_expected"] is False
 
     @patch("synapse.tools.a2a.requests.post")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
