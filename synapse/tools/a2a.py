@@ -256,6 +256,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     settings = get_settings()
     flow = settings.get_a2a_flow()
     want_response = getattr(args, "want_response", None)
+    reply_to = getattr(args, "reply_to", None)
 
     if flow == "roundtrip":
         # Force response expected
@@ -276,6 +277,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         timeout=60,
         sender_info=sender_info or None,
         response_expected=response_expected,
+        in_reply_to=reply_to,
         uds_path=uds_path if isinstance(uds_path, str) else None,
         local_only=local_only,
     )
@@ -327,6 +329,11 @@ def main() -> None:
         "--from",
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
+    )
+    p_send.add_argument(
+        "--reply-to",
+        dest="reply_to",
+        help="Reply to a specific task ID (attach response without sending to PTY)",
     )
     # Response control: mutually exclusive group
     response_group = p_send.add_mutually_exclusive_group()

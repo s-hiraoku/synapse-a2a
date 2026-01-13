@@ -512,6 +512,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     message = args.message
     priority = args.priority
     sender = getattr(args, "sender", None)
+    reply_to = getattr(args, "reply_to", None)
     wait_response = args.wait
 
     # Get the a2a.py tool path from installed package
@@ -534,6 +535,8 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Add sender if specified
     if sender:
         cmd.extend(["--from", sender])
+    if reply_to:
+        cmd.extend(["--reply-to", reply_to])
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
@@ -1856,6 +1859,11 @@ Priority levels:
     )
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_send.add_argument(
+        "--reply-to",
+        dest="reply_to",
+        help="Reply to a specific task ID (attach response without sending to PTY)",
     )
     p_send.add_argument(
         "--return", "-r", dest="wait", action="store_true", help="Wait for response"

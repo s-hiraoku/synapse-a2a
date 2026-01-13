@@ -331,6 +331,32 @@ class TestA2ARouterEndpoints:
         assert ":synapse-gemini-8110]" in write_args[0][0]
         assert write_args[0][0].endswith("Urgent!")
 
+    def test_tasks_send_reply_to_updates_existing_task(self, client, mock_controller):
+        """POST /tasks/send with in_reply_to should complete existing task."""
+        create_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}
+        }
+        create_response = client.post("/tasks/send", json=create_payload)
+        task_id = create_response.json()["task"]["id"]
+
+        mock_controller.write.reset_mock()
+
+        reply_payload = {
+            "message": {
+                "role": "agent",
+                "parts": [{"type": "text", "text": "Reply text"}],
+            },
+            "metadata": {"in_reply_to": task_id},
+        }
+        response = client.post("/tasks/send", json=reply_payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task"]["id"] == task_id
+        assert data["task"]["status"] == "completed"
+        assert data["task"]["artifacts"][0]["data"]["content"] == "Reply text"
+        mock_controller.write.assert_not_called()
+
     def test_tasks_get_endpoint(self, client, mock_controller):
         """GET /tasks/{id} should return task status."""
         # First create a task

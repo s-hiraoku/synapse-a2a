@@ -489,13 +489,32 @@ def create_a2a_router(
         request: SendMessageRequest, priority: int = 1
     ) -> SendMessageResponse:
         """Create a task and send message to controller with optional priority."""
-        if not controller:
-            raise HTTPException(status_code=503, detail="Agent not running")
-
         # Extract text from message parts
         text_content = extract_text_from_parts(request.message.parts)
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
+
+        metadata = request.metadata or {}
+        in_reply_to = metadata.get("in_reply_to")
+
+        if in_reply_to:
+            existing_task = task_store.get(in_reply_to)
+            if not existing_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+
+            task_store.add_artifact(
+                in_reply_to, Artifact(type="text", data={"content": text_content})
+            )
+            task_store.update_status(in_reply_to, "completed")
+            updated_task = task_store.get(in_reply_to)
+            if not updated_task:
+                raise HTTPException(
+                    status_code=500, detail="Task disappeared unexpectedly"
+                )
+            return SendMessageResponse(task=updated_task)
+
+        if not controller:
+            raise HTTPException(status_code=503, detail="Agent not running")
 
         # Create task with metadata (may include sender info)
         task = task_store.create(

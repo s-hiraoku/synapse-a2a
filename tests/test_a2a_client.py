@@ -229,6 +229,25 @@ class TestA2AClientSendToLocal:
         assert request_body["message"]["parts"][0]["text"] == "Test message"
 
     @responses.activate
+    def test_send_to_local_includes_in_reply_to(self, a2a_client):
+        """Should include in_reply_to in metadata when provided."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            json={"task": {"id": "t-1", "status": "working"}},
+            status=200,
+        )
+
+        a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Reply message",
+            in_reply_to="task-123",
+        )
+
+        request_body = json.loads(responses.calls[0].request.body)
+        assert request_body["metadata"]["in_reply_to"] == "task-123"
+
+    @responses.activate
     def test_send_to_local_failure(self, a2a_client):
         """Should return None on failure."""
         responses.add(
