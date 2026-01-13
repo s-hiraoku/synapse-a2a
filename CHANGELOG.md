@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.11] - 2026-01-14
+
+### Added
+
+- `--reply-to` option for `a2a.py send` command to attach response to existing task (#99)
+  - Enables agents to complete tasks by sending responses back to original task
+  - Used for same-type agent communication (e.g., Claude to Claude)
+
+### Fixed
+
+- Accurate "EDITING FILE" display in `synapse list` using PID-based file locks (#100)
+  - Only show files locked by the agent's own process tree
+  - Filter out stale locks from other processes
+- Same-type agent communication deadlock issue (#99)
+  - Add `in_reply_to` metadata support for task completion
+
+### Changed
+
+- Refactor codebase by extracting helpers and reducing duplication (#98)
+  - Add `A2ATask.from_dict()` class method
+  - Add `_db_connection()` context manager for cleaner DB handling
+  - Extract helper functions across multiple modules
+  - Total: -109 lines of code while preserving functionality
+
+### Tests
+
+- Improve test coverage for logging, server, cli, and proto modules (#101)
+- Fix proto import test failure in CI environment
+
 ## [0.2.10] - 2026-01-13
 
 ### Fixed
@@ -238,6 +267,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.7...v0.2.8
