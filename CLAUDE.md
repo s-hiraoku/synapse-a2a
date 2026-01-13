@@ -306,7 +306,7 @@ synapse history stats --agent gemini
 
 2. **Delegate task**:
    ```bash
-   python3 synapse/tools/a2a.py send --target gemini --priority 3 "Write tests for X"
+   synapse send gemini "Write tests for X" --priority 3 --from claude
    ```
 
 3. **Monitor progress**:
@@ -317,7 +317,7 @@ synapse history stats --agent gemini
 
 4. **Send follow-up** (if needed):
    ```bash
-   python3 synapse/tools/a2a.py send --target gemini --priority 4 "Status update?"
+   synapse send gemini "Status update?" --priority 4 --from claude
    ```
 
 5. **Review completion**:

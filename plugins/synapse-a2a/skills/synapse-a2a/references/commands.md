@@ -54,57 +54,66 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 ## Sending Messages
 
-### @Agent Pattern
+### synapse send (Recommended)
+
+**Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
+
+```bash
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--return]
+```
+
+**Parameters:**
+- `target`: Agent type (`claude`, `gemini`, `codex`) or type-port (`claude-8100`)
+- `message`: Message to send
+- `--from, -f`: Sender agent ID (for reply identification) - **always include this**
+- `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
+- `--return, -r`: Wait for response
+
+**Examples:**
+```bash
+# Send message to Gemini (identifying as Codex)
+synapse send gemini "Please review this code" --from codex
+
+# Send with normal priority
+synapse send codex "Fix this bug" --priority 3 --from claude
+
+# Send to specific instance
+synapse send claude-8100 "Status update?" --from gemini
+
+# Emergency interrupt
+synapse send codex "STOP" --priority 5 --from claude
+
+# Wait for response
+synapse send gemini "Analyze this" --return --from codex
+```
+
+**Important:** Always use `--from` so the recipient knows who sent the message and can reply.
+
+### @Agent Pattern (User Input)
+
+When typing directly in the terminal (not from agent code), you can use:
 
 ```text
-@<agent_name> [--non-response] <message>
+@<agent_name> <message>
 ```
 
 Examples:
 ```text
 @codex Please refactor this file
-@gemini --non-response Log this event
+@gemini Research this API
 @claude-8100 Review this code
 ```
 
-### A2A Tool
+> **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
+
+### A2A Tool (Advanced)
+
+For advanced use cases or external scripts:
 
 ```bash
-python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] [--non-response] "<MESSAGE>"
-```
-
-**Parameters:**
-- `--target`: Agent ID (exact) or agent type (fuzzy)
-- `--priority`: 1-2 low/background, 3 normal, 4 urgent follow-up, 5 critical
-- `--non-response`: Do not require response from receiver
-
-Examples:
-```bash
-# Normal task (default priority 1)
-python -m synapse.tools.a2a send --target claude "Please review this code"
-
-# Normal priority
-python -m synapse.tools.a2a send --target codex --priority 3 "Fix this bug"
-
-# Urgent follow-up (priority 4)
-python -m synapse.tools.a2a send --target codex --priority 4 "Status update?"
-
-# Critical interrupt (priority 5)
-python -m synapse.tools.a2a send --target codex --priority 5 "STOP immediately"
-
-# Fire-and-forget (no response expected)
-python -m synapse.tools.a2a send --target gemini --non-response "Log this event"
-```
-
-### A2A Tool Utilities
-
-```bash
-# List agents (with live check)
-python -m synapse.tools.a2a list
-python -m synapse.tools.a2a list --live
-
-# Cleanup stale registry entries
-python -m synapse.tools.a2a cleanup
+python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
+python -m synapse.tools.a2a list       # List agents
+python -m synapse.tools.a2a cleanup    # Cleanup stale entries
 ```
 
 ## Task History
@@ -214,6 +223,7 @@ synapse reset
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `false` |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
 
 ## Storage Locations
 
@@ -222,4 +232,7 @@ synapse reset
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
+/tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 ```
+
+**Note:** UDS socket location can be customized with `SYNAPSE_UDS_DIR` environment variable.

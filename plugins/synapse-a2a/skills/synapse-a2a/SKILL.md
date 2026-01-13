@@ -13,38 +13,48 @@ Inter-agent communication framework via Google A2A Protocol.
 |------|---------|
 | List agents | `synapse list` |
 | Watch agents | `synapse list --watch` |
-| Send message | `@<agent> <message>` or `python3 synapse/tools/a2a.py send --target <agent> "<message>"` |
+| Send message | `synapse send <agent> "<message>" --from <sender>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
 
-## @Agent Routing
+**Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
-Send messages to other agents using the `@agent` pattern:
+## Sending Messages (Recommended)
 
-```text
-@codex Please refactor this file
-@gemini Research this API
-@claude-8100 Review this code
+**Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
+
+```bash
+synapse send gemini "Please review this code" --from claude
+synapse send claude "What is the status?" --from codex
+synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 ```
 
+**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+
 **Target Resolution:**
-1. Exact ID: `@synapse-claude-8100`
-2. Type-port: `@claude-8100`
-3. Type only: `@claude` (if single instance)
+1. Type only: `claude`, `gemini`, `codex` (if single instance)
+2. Type-port: `claude-8100`, `codex-8120`
+3. Exact ID: `synapse-claude-8100`
 
 ## Priority Levels
 
 | Priority | Description | Use Case |
 |----------|-------------|----------|
-| 1 | Normal | Default for standard tasks |
-| 2-3 | Elevated | Higher urgency |
+| 1-2 | Low | Background tasks |
+| 3 | Normal | Standard tasks |
 | 4 | Urgent | Follow-ups, status checks |
 | 5 | Interrupt | Emergency (sends SIGINT first) |
 
 ```bash
+# Normal priority (default)
+synapse send gemini "Analyze this"
+
+# Higher priority
+synapse send claude "Urgent review needed" --priority 4
+
 # Emergency interrupt
-python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
+synapse send codex "STOP" --priority 5
 ```
 
 ## Agent Status
@@ -54,7 +64,17 @@ python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
 | READY | Idle, waiting for input |
 | PROCESSING | Busy handling a task |
 
-Always verify target agent is READY before sending tasks.
+**Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
+
+```bash
+synapse list
+# Output:
+# NAME                  TYPE    STATUS      PORT
+# synapse-claude-8100   claude  READY       8100
+# synapse-codex-8120    codex   PROCESSING  8120  # <- busy, wait or use --priority 5
+```
+
+If the agent is `PROCESSING`, either wait for it to become `READY` or use `--priority 5` for emergency interrupt.
 
 ## Key Features
 

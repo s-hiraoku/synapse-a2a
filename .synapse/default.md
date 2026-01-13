@@ -16,12 +16,12 @@ A2A COMMUNICATION PROTOCOL
 
 HOW TO RECEIVE A2A MESSAGES:
 Input format: [A2A:task_id:sender_id] message
-Response command: python -m synapse.tools.a2a send --target SENDER_ID YOUR_RESPONSE
+Response command: synapse send SENDER_ID "YOUR_RESPONSE" --from {{agent_id}}
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
-When user types @agent message, use: python -m synapse.tools.a2a send --target AGENT MESSAGE
+Use: synapse send <AGENT> "<MESSAGE>" --from {{agent_id}}
 
 AVAILABLE AGENTS: claude, gemini, codex
-LIST COMMAND: python -m synapse.tools.a2a list
+LIST COMMAND: synapse list
 
 For advanced features (history, file-safety, delegation), use synapse-a2a skill.

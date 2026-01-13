@@ -510,6 +510,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     target = args.target
     message = args.message
     priority = args.priority
+    sender = getattr(args, "sender", None)
     wait_response = args.wait
 
     # Use the existing a2a tool
@@ -523,6 +524,10 @@ def cmd_send(args: argparse.Namespace) -> None:
         str(priority),
         message,
     ]
+
+    # Add sender if specified
+    if sender:
+        cmd.extend(["--from", sender])
 
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
@@ -1488,11 +1493,12 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     print()
 
     try:
-        # Start the API server in background
+        # Start the API server in background (TCP + UDS)
         import threading
 
         import uvicorn
 
+        from synapse.registry import resolve_uds_path
         from synapse.server import create_app
 
         app = create_app(
@@ -1505,13 +1511,28 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
             registry=registry,
         )
 
-        def run_server() -> None:
+        # Setup UDS server (directory created by resolve_uds_path)
+        uds_path = resolve_uds_path(agent_id)
+        uds_path.unlink(missing_ok=True)
+
+        uds_config = uvicorn.Config(app, uds=str(uds_path), log_level="warning")
+        uds_config.lifespan = "off"
+        uds_server = uvicorn.Server(uds_config)
+
+        def run_uds_server() -> None:
+            uds_server.run()
+
+        uds_thread = threading.Thread(target=run_uds_server, daemon=True)
+        uds_thread.start()
+
+        # Setup TCP server
+        def run_tcp_server() -> None:
             uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
-        server_thread = threading.Thread(target=run_server, daemon=True)
-        server_thread.start()
+        tcp_thread = threading.Thread(target=run_tcp_server, daemon=True)
+        tcp_thread.start()
 
-        # Give server time to start
+        # Give servers time to start
         time.sleep(1)
 
         # Register agent after listeners are up (UDS first, then TCP)
@@ -1750,6 +1771,9 @@ Priority levels:
     p_send.add_argument("message", help="Message to send")
     p_send.add_argument(
         "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
+    )
+    p_send.add_argument(
+        "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
     )
     p_send.add_argument(
         "--return", "-r", dest="wait", action="store_true", help="Wait for response"

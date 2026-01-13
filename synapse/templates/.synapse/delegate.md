@@ -18,10 +18,10 @@ You are the orchestrator for this task. Analyze incoming tasks and delegate to a
 
 ```bash
 # Check agent availability first
-python -m synapse.tools.a2a list
+synapse list
 
 # Send task to an agent
-python -m synapse.tools.a2a send --target <agent> "YOUR_TASK"
+synapse send <agent> "YOUR_TASK" --from {{agent_id}}
 ```
 
 ---
@@ -36,5 +36,5 @@ synapse list
 synapse history list --agent <agent>
 
 # Send follow-up (priority 4-5 for urgent)
-python -m synapse.tools.a2a send --target <agent> --priority 4 "Status?"
+synapse send <agent> "Status?" --priority 4 --from {{agent_id}}
 ```

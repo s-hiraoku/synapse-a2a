@@ -21,8 +21,8 @@
 - `pip install -e .` installs the package in editable mode.
 - `synapse <profile>` runs an agent in the foreground (e.g., `synapse claude`).
 - `synapse start <profile>` / `synapse stop <profile>` manage background agents.
-- `python3 synapse/tools/a2a.py list` lists running agents.
-- `python3 synapse/tools/a2a.py send --target <agent> "<message>"` sends a task.
+- `synapse list` lists running agents.
+- `synapse send <agent> "<message>" --from <sender>` sends a message to an agent.
 
 ## Coding Style & Naming Conventions
 

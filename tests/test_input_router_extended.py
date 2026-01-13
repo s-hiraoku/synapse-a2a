@@ -1,5 +1,6 @@
 """Extended tests for InputRouter - Refactoring Specification."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -115,12 +116,16 @@ class TestInputRouterRefactorSpec:
         with (
             patch("synapse.input_router.is_process_running", return_value=True),
             patch("synapse.input_router.is_port_open") as mock_port_open,
+            patch.object(Path, "exists", return_value=True),
         ):
             success = router.route_to_agent("claude", "hello")
             assert success is True
+            # TCP preflight skipped when UDS path exists (even though local_only=False)
             mock_port_open.assert_not_called()
             call_kwargs = router.a2a_client.send_to_local.call_args.kwargs
             assert call_kwargs.get("uds_path") == "/tmp/agent.sock"
+            # local_only=False to allow HTTP fallback if UDS fails
+            assert call_kwargs.get("local_only") is False
 
     # =========================================================================
     # 3. Error Handling

@@ -175,17 +175,6 @@ synapse gemini
 @gemini APIの改善案を出して
 ```
 
-#### 応答制御フラグ
-
-```text
-@gemini --response 分析結果を教えて   # 結果を待って受け取る（roundtrip）
-@codex --no-response ビルドして        # 転送のみ、結果を待たない（oneway）
-```
-
-- `--response`: 結果を待って受け取る
-- `--no-response`: 転送のみ（fire and forget）
-- フラグなし: `a2a.flow` 設定に従う（デフォルトは結果を待つ）
-
 複数インスタンスがある場合は `@type-port` 形式で指定：
 
 ```text
@@ -293,8 +282,8 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 
 プラグインをインストールすると、Claude が以下を自動的に理解・実行できるようになります：
 
-- **@agent パターン**: `@codex ファイルを修正して` のようなエージェント間通信
-- **応答制御**: `--response` / `--no-response` フラグでの応答制御
+- **synapse send**: `synapse send codex "ファイルを修正して" --from claude` でのエージェント間通信
+- **@agent パターン**: `@codex ファイルを修正して` でユーザー入力からの直接送信
 - **優先度制御**: Priority 1-5 でのメッセージ送信（5 は緊急停止）
 - **タスク委任**: `delegation.enabled` での自動タスク振り分け
 - **File Safety**: ファイルロックと変更追跡でマルチエージェント競合を防止
@@ -312,7 +301,7 @@ Synapse A2A を Claude Code で使用する場合、**プラグインのイン�
 
 | スキル | 説明 |
 |--------|------|
-| **synapse-a2a** | エージェント間通信の包括的ガイド。@agent ルーティング、`--response`/`--no-response` フラグ、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
+| **synapse-a2a** | エージェント間通信の包括的ガイド。`synapse send` コマンド、@agent ルーティング、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
 | **delegation** | 自動タスク委任の設定。`delegation.enabled` での有効化、事前チェック、エラーハンドリング、File Safety 連携 |
 
 ### ディレクトリ構造
@@ -656,19 +645,30 @@ synapse history cleanup --days 30 --dry-run
 - **無効化**: `SYNAPSE_HISTORY_ENABLED=false`（デフォルト）
 - デフォルトでは無効です。有効化するには環境変数を設定してから起動してください
 
-### A2A CLI ツール
+### synapse send コマンド（推奨）
 
-低レベル操作用：
+エージェント間通信には `synapse send` コマンドを使用してください。サンドボックス環境でも動作します。
+
+```bash
+# メッセージ送信
+synapse send claude "Hello" --priority 1 --from codex
+
+# 緊急停止
+synapse send claude "Stop!" --priority 5 --from codex
+```
+
+**重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
+
+### 低レベル A2A ツール
+
+高度な操作用：
 
 ```bash
 # エージェント一覧
-python3 synapse/tools/a2a.py list
+python -m synapse.tools.a2a list
 
 # メッセージ送信
-python3 synapse/tools/a2a.py send --target claude --priority 1 "Hello"
-
-# 緊急停止
-python3 synapse/tools/a2a.py send --target claude --priority 5 "Stop!"
+python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 ```
 
 ---
@@ -1269,6 +1269,36 @@ uvx synapse-a2a claude
 
 - **TUI 描画**: Ink ベースの CLI で描画が乱れる場合あり
 - **PTY 制限**: 一部の特殊入力シーケンスは未対応
+- **Codex サンドボックス**: Codex CLI のサンドボックスがネットワークアクセスをブロックするため、エージェント間通信には設定が必要（下記参照）
+
+### Codex CLI でのエージェント間通信
+
+Codex CLI はデフォルトでサンドボックス内で実行され、ネットワークアクセスが制限されています。`@agent` パターンでのエージェント間通信を使用するには、`~/.codex/config.toml` でネットワークアクセスを許可する必要があります。
+
+**グローバル設定（全プロジェクトに適用）:**
+
+```toml
+# ~/.codex/config.toml
+
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+```
+
+**プロジェクト単位の設定:**
+
+```toml
+# ~/.codex/config.toml
+
+[projects."/path/to/your/project"]
+sandbox_mode = "workspace-write"
+
+[projects."/path/to/your/project".sandbox_workspace_write]
+network_access = true
+```
+
+詳細は [guides/troubleshooting.md](guides/troubleshooting.md#codex-サンドボックスでのネットワークエラー) を参照してください。
 
 ---
 

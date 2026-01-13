@@ -27,10 +27,10 @@ synapse list --watch
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --from codex
+synapse send gemini "Status update?" --priority 4 --from claude
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from codex
+synapse send codex "STOP" --priority 5 --from claude
 ```
 
 ### Fire-and-forget (No Response Expected)
@@ -69,7 +69,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --from codex
+   synapse send gemini "What's your progress on src/auth.py?" --from claude
 ```
 
 ## Collaborative Development

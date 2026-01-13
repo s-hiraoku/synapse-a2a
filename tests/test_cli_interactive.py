@@ -24,17 +24,24 @@ class TestCmdRunInteractive:
             patch("synapse.cli.AgentRegistry") as mock_reg_cls,
             patch("synapse.server.create_app"),
             patch("uvicorn.run"),
+            patch("uvicorn.Config"),
+            patch("uvicorn.Server"),
+            patch("synapse.registry.resolve_uds_path") as mock_uds_path,
             patch("threading.Thread") as mock_thread,
             patch("synapse.cli.yaml.safe_load") as mock_yaml,
             patch("synapse.cli.os.path.exists", return_value=True),
             patch("builtins.open", MagicMock()),
             patch("synapse.settings.get_settings") as mock_settings,
         ):
+            # Mock UDS path to return a mock Path object
+            mock_path = MagicMock()
+            mock_path.exists.return_value = False
+            mock_uds_path.return_value = mock_path
             # Setup mocks
             mock_yaml.return_value = {
                 "command": "bash",
                 "submit_sequence": "\n",
-                "idle_regex": "\$",
+                "idle_regex": r"\$",
                 "args": ["-c"],
             }
 
@@ -69,9 +76,9 @@ class TestCmdRunInteractive:
         # Check Registration
         mock_dependencies["registry"].register.assert_called_once()
 
-        # Check Server Thread
-        mock_dependencies["thread"].assert_called_once()
-        mock_dependencies["thread"].return_value.start.assert_called_once()
+        # Check Server Threads (UDS and TCP)
+        assert mock_dependencies["thread"].call_count == 2
+        assert mock_dependencies["thread"].return_value.start.call_count == 2
 
         # Check Interactive Run
         mock_dependencies["controller"].run_interactive.assert_called_once()

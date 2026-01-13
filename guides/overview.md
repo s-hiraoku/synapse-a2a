@@ -129,8 +129,8 @@ flowchart TB
 
 | カテゴリ | 機能 | 説明 | 有効化 |
 |---------|------|------|--------|
-| **通信** | @Agent記法 | `@gemini メッセージ` で直接送信 | 常時 |
-| | 応答制御フラグ | `--response` / `--no-response` で応答を制御 | 常時 |
+| **通信** | synapse send | `synapse send <agent> "<message>" --from <sender>` で送信 | 常時 |
+| | @Agent記法 | `@gemini メッセージ` でユーザー入力から直接送信 | 常時 |
 | | A2A Flow設定 | roundtrip/oneway/auto で通信方式を制御 | `settings.json` |
 | | Priority Interrupt | Priority 5 で SIGINT 送信（緊急停止） | 常時 |
 | | 外部エージェント連携 | 他の A2A エージェントと通信 | 常時 |
@@ -379,27 +379,29 @@ PTYでユーザーが他のエージェントにメッセージを送信する�
 
 応答動作は `a2a.flow` 設定に従います。
 
-### a2a.py send コマンド（AIエージェント用）
+### synapse send コマンド（推奨）
 
-AIエージェントが他のエージェントにメッセージを送信する際に使用します。
+AIエージェントが他のエージェントにメッセージを送信する際に使用します。サンドボックス環境でも動作します。
 
 ```bash
-python3 synapse/tools/a2a.py send --target <AGENT> [--response|--no-response] "<MESSAGE>"
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>]
 ```
 
 **例:**
 ```bash
-python3 synapse/tools/a2a.py send --target gemini --response "分析結果を教えて"
-python3 synapse/tools/a2a.py send --target codex --no-response "テストを実行して"
+synapse send gemini "分析結果を教えて" --from claude
+synapse send codex "テストを実行して" --from claude
 ```
+
+**重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
 
 ### 応答制御（a2a.flow 設定）
 
-| `a2a.flow` 設定 | 動作 | フラグの扱い |
-|----------------|------|-------------|
+| `a2a.flow` 設定 | 動作 | `--return` フラグ |
+|----------------|------|------------------|
 | `roundtrip` | 常に待つ | 無視 |
 | `oneway` | 常に待たない | 無視 |
-| `auto` | フラグで制御 | `--response`=待つ、`--no-response`=待たない、なし=待つ |
+| `auto` | フラグで制御 | `--return`=待つ、なし=待たない |
 
 ### Priority レベル
 
