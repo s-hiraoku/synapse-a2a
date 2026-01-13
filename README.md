@@ -1241,6 +1241,36 @@ uvx synapse-a2a claude
 
 - **TUI 描画**: Ink ベースの CLI で描画が乱れる場合あり
 - **PTY 制限**: 一部の特殊入力シーケンスは未対応
+- **Codex サンドボックス**: Codex CLI のサンドボックスがネットワークアクセスをブロックするため、エージェント間通信には設定が必要（下記参照）
+
+### Codex CLI でのエージェント間通信
+
+Codex CLI はデフォルトでサンドボックス内で実行され、ネットワークアクセスが制限されています。`@agent` パターンでのエージェント間通信を使用するには、`~/.codex/config.toml` でネットワークアクセスを許可する必要があります。
+
+**グローバル設定（全プロジェクトに適用）:**
+
+```toml
+# ~/.codex/config.toml
+
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+```
+
+**プロジェクト単位の設定:**
+
+```toml
+# ~/.codex/config.toml
+
+[projects."/path/to/your/project"]
+sandbox_mode = "workspace-write"
+
+[projects."/path/to/your/project".sandbox_workspace_write]
+network_access = true
+```
+
+詳細は [guides/troubleshooting.md](guides/troubleshooting.md#codex-サンドボックスでのネットワークエラー) を参照してください。
 
 ---
 

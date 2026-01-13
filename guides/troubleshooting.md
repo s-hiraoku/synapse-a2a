@@ -171,7 +171,84 @@ rm -rf ~/.a2a/registry/*
 
 ## 3. ネットワーク/ポートの問題
 
-### 3.1 ポートが使用中
+### 3.1 Codex サンドボックスでのネットワークエラー
+
+**症状**:
+- Codex から `@claude` や `@gemini` でメッセージ送信時にエラー
+- `Operation not permitted` または接続エラー
+
+```
+[errno 1] Operation not permitted
+```
+
+**原因**:
+Codex CLI はデフォルトでサンドボックス内で実行され、ネットワークアクセス（TCP/UDS ソケット）がブロックされています。
+
+**対処法**:
+
+`~/.codex/config.toml` でネットワークアクセスを許可します。
+
+**方法 1: グローバル設定（全プロジェクトに適用）**
+
+```toml
+# ~/.codex/config.toml
+
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+```
+
+**方法 2: プロジェクト単位の設定**
+
+特定のプロジェクトでのみネットワークアクセスを許可する場合：
+
+```toml
+# ~/.codex/config.toml
+
+[projects."/path/to/your/project"]
+sandbox_mode = "workspace-write"
+
+[projects."/path/to/your/project".sandbox_workspace_write]
+network_access = true
+```
+
+**方法 3: プロファイルを使用**
+
+Synapse 用のプロファイルを作成し、起動時に指定：
+
+```toml
+# ~/.codex/config.toml
+
+[profiles.synapse]
+sandbox_mode = "workspace-write"
+
+[profiles.synapse.sandbox_workspace_write]
+network_access = true
+```
+
+```bash
+# プロファイルを指定して起動
+codex --profile synapse
+```
+
+**確認方法**:
+
+設定後、Codex を再起動してからエージェント間通信をテスト：
+
+```bash
+# Codex 内で
+@claude こんにちは
+```
+
+**注意事項**:
+- `network_access = true` はアウトバウンドネットワーク接続を許可します
+- セキュリティ上の理由から、必要なプロジェクトのみに設定することを推奨します
+- `danger-full-access` モードはすべての制限を解除しますが、セキュリティリスクがあるため非推奨です
+
+---
+
+### 3.2 ポートが使用中
 
 **症状**:
 ```
@@ -199,7 +276,7 @@ synapse claude --port 8200
 
 ---
 
-### 3.2 HTTP リクエストがタイムアウトする
+### 3.3 HTTP リクエストがタイムアウトする
 
 **症状**:
 - `curl` がタイムアウトする
