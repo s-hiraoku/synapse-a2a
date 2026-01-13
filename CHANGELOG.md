@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2025-01-13
+
+### Added
+
+- `synapse send` command with `--from` option for inter-agent communication (#86)
+- `synapse instructions` command for manual instruction management (#87)
+  - `synapse instructions show [agent]` - Display instruction content
+  - `synapse instructions files [agent]` - List instruction files
+  - `synapse instructions send <agent>` - Send instructions to running agent
+
+### Fixed
+
+- UDS server startup and socket existence checks (#89)
+- Always allow HTTP fallback when UDS connection fails
+- Set UDS directory permissions to 755 for sandboxed apps
+- Move UDS socket to `/tmp/synapse-a2a/` for sandbox compatibility
+- Update test mocks for UDS server startup
+- Address CodeRabbit review comments on PR #89
+
+### Changed
+
+- Standardize on `synapse send` command across all documentation
+- Recommend `synapse send` for inter-agent communication
+- Clarify `@agent` pattern vs external A2A tool usage
+
+### Documentation
+
+- Add UDS transport layer and separate standard/extension endpoints
+- Use `x-` prefix for Synapse extension fields in A2A metadata
+- Add explicit READY status verification instructions
+- Add Codex sandbox network configuration guide
+- Update delegation skill and api.md documentation
+- Sync skill files across .claude and plugins
+
 ## [0.2.6] - 2025-01-12
 
 ### Added
@@ -183,6 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.7...v0.2.8
 [0.2.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.3...v0.2.4
