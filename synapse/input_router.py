@@ -4,10 +4,14 @@ import os
 import re
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 
 from synapse.a2a_client import A2AClient, get_client
-from synapse.registry import AgentRegistry, is_port_open, is_process_running
+from synapse.registry import (
+    AgentRegistry,
+    get_valid_uds_path,
+    is_port_open,
+    is_process_running,
+)
 from synapse.settings import get_settings
 
 # Simple file-based logging
@@ -161,13 +165,7 @@ class InputRouter:
         # Determine response_expected based on a2a.flow setting
         settings = get_settings()
         flow = settings.get_a2a_flow()
-
-        if flow == "roundtrip":
-            response_expected = True
-        elif flow == "oneway":
-            response_expected = False
-        else:  # auto - default to waiting for response
-            response_expected = True
+        response_expected = flow != "oneway"  # roundtrip or auto both expect response
 
         log("DEBUG", f"flow={flow}, response_expected={response_expected}")
 
@@ -248,10 +246,7 @@ class InputRouter:
         pid = target.get("pid")
         port = target.get("port")
         agent_id = target.get("agent_id", agent_name)
-        uds_path = target.get("uds_path")
-        # Only use UDS if the socket file actually exists
-        if uds_path and not Path(uds_path).exists():
-            uds_path = None
+        uds_path = get_valid_uds_path(target.get("uds_path"))
         # Allow HTTP fallback if UDS fails (don't set local_only=True)
         local_only = False
 
@@ -334,13 +329,7 @@ class InputRouter:
         # Determine response_expected based on a2a.flow setting
         settings = get_settings()
         flow = settings.get_a2a_flow()
-
-        if flow == "roundtrip":
-            should_wait = True
-        elif flow == "oneway":
-            should_wait = False
-        else:  # auto - default to waiting for response
-            should_wait = True
+        should_wait = flow != "oneway"  # roundtrip or auto both wait
 
         try:
             task = self.a2a_client.send_message(
@@ -352,12 +341,9 @@ class InputRouter:
 
             if task:
                 if should_wait and task.artifacts:
-                    # Extract text from artifacts
-                    responses = []
-                    for artifact in task.artifacts:
-                        if artifact.get("type") == "text":
-                            responses.append(str(artifact.get("data", "")))
-                    self.last_response = "\n".join(responses) if responses else None
+                    self.last_response = self._extract_text_from_artifacts(
+                        task.artifacts
+                    )
                 else:
                     self.last_response = None
                 return True

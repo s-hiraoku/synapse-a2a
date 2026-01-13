@@ -260,14 +260,12 @@ class TerminalController:
                         timeout_idle = True
 
             # 3. Determine new status based on strategy
-            if self.idle_strategy == "pattern":
-                is_idle = pattern_match
-            elif self.idle_strategy == "timeout":
-                is_idle = timeout_idle
-            elif self.idle_strategy == "hybrid":
-                is_idle = pattern_match or timeout_idle
-            else:
-                is_idle = False
+            strategy_idle_map = {
+                "pattern": pattern_match,
+                "timeout": timeout_idle,
+                "hybrid": pattern_match or timeout_idle,
+            }
+            is_idle = strategy_idle_map.get(self.idle_strategy, False)
 
             new_status = "READY" if is_idle else "PROCESSING"
 

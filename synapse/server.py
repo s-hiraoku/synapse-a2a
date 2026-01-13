@@ -206,7 +206,6 @@ def create_app(
     port: int,
     submit_seq: str = "\n",
     agent_type: str = "claude",
-    registry: AgentRegistry | None = None,
 ) -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(
@@ -215,22 +214,11 @@ def create_app(
         version="1.0.0",
     )
 
-    # Task store shared with A2A router (will be set when router is created)
     task_store = TaskStore()
-
-    # --------------------------------------------------------
-    # Original Synapse API (maintained for backward compatibility)
-    # DEPRECATED: Use /tasks/send or /tasks/send-priority instead
-    # --------------------------------------------------------
 
     @new_app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
     async def send_message(msg: MessageRequest) -> dict:
-        """
-        Send message to agent (Synapse original API).
-
-        DEPRECATED: Use /tasks/send or /tasks/send-priority instead.
-        This endpoint now creates A2A tasks internally for consistency.
-        """
+        """Send message to agent (Synapse original API). DEPRECATED."""
         return _send_legacy_message(ctrl, task_store, msg, submit_seq)
 
     @new_app.get("/status", tags=["Synapse Original"])
@@ -238,15 +226,9 @@ def create_app(
         """Get agent status (Synapse original API)"""
         if not ctrl:
             return {"status": "NOT_STARTED", "context": ""}
-
         return {"status": ctrl.status, "context": ctrl.get_context()[-2000:]}
 
-    # --------------------------------------------------------
-    # Google A2A Compatible API
-    # --------------------------------------------------------
-    a2a_router = create_a2a_router(
-        ctrl, agent_type, port, submit_seq, agent_id, registry or reg
-    )
+    a2a_router = create_a2a_router(ctrl, agent_type, port, submit_seq, agent_id, reg)
     new_app.include_router(a2a_router)
 
     return new_app

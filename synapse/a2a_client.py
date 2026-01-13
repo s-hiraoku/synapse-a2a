@@ -74,6 +74,18 @@ class A2ATask:
     created_at: str = ""
     updated_at: str = ""
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], fallback_id: str = "") -> "A2ATask":
+        """Create an A2ATask from a dictionary response."""
+        return cls(
+            id=data.get("id", fallback_id),
+            status=data.get("status", "unknown"),
+            message=data.get("message"),
+            artifacts=data.get("artifacts", []),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )
+
 
 # ============================================================
 # External Agent Registry
@@ -161,6 +173,11 @@ class A2AClient:
     def __init__(self, registry: ExternalAgentRegistry | None = None):
         self.registry = registry or ExternalAgentRegistry()
         self.timeout = REQUEST_TIMEOUT
+
+    @property
+    def _timeout_seconds(self) -> float:
+        """Extract read timeout in seconds from timeout config."""
+        return self.timeout[1] if isinstance(self.timeout, tuple) else self.timeout
 
     def discover(self, url: str, alias: str | None = None) -> ExternalAgent | None:
         """
@@ -251,11 +268,6 @@ class A2AClient:
             if uds_path:
                 uds_file = Path(uds_path)
                 if uds_file.exists():
-                    timeout_seconds = (
-                        self.timeout[1]
-                        if isinstance(self.timeout, tuple)
-                        else self.timeout
-                    )
                     retries = [0.05, 0.1, 0.2]
                     for idx, delay in enumerate(retries, start=1):
                         try:
@@ -264,7 +276,9 @@ class A2AClient:
                                 f"{priority}"
                             )
                             transport = httpx.HTTPTransport(uds=uds_path)
-                            timeout_cfg = httpx.Timeout(timeout_seconds, connect=0.2)
+                            timeout_cfg = httpx.Timeout(
+                                self._timeout_seconds, connect=0.2
+                            )
                             with httpx.Client(
                                 transport=transport, timeout=timeout_cfg
                             ) as client:
@@ -295,14 +309,7 @@ class A2AClient:
                 result = http_response.json()
                 task_data = result.get("task", result)
 
-            task = A2ATask(
-                id=task_data.get("id", ""),
-                status=task_data.get("status", "unknown"),
-                message=task_data.get("message"),
-                artifacts=task_data.get("artifacts", []),
-                created_at=task_data.get("created_at", ""),
-                updated_at=task_data.get("updated_at", ""),
-            )
+            task = A2ATask.from_dict(task_data)
 
             if wait_for_completion:
                 completed_task = self._wait_for_local_completion(
@@ -342,12 +349,7 @@ class A2AClient:
                 url = get_task_url()
                 if uds_path:
                     transport = httpx.HTTPTransport(uds=uds_path)
-                    timeout_seconds = (
-                        self.timeout[1]
-                        if isinstance(self.timeout, tuple)
-                        else self.timeout
-                    )
-                    timeout_cfg = httpx.Timeout(timeout_seconds, connect=0.2)
+                    timeout_cfg = httpx.Timeout(self._timeout_seconds, connect=0.2)
                     with httpx.Client(
                         transport=transport, timeout=timeout_cfg
                     ) as client:
@@ -358,14 +360,7 @@ class A2AClient:
                     http_response = requests.get(url, timeout=self.timeout)
                     http_response.raise_for_status()
                     data = http_response.json()
-                task = A2ATask(
-                    id=data.get("id", task_id),
-                    status=data.get("status", "unknown"),
-                    message=data.get("message"),
-                    artifacts=data.get("artifacts", []),
-                    created_at=data.get("created_at", ""),
-                    updated_at=data.get("updated_at", ""),
-                )
+                task = A2ATask.from_dict(data, fallback_id=task_id)
 
                 if task.status in COMPLETED_TASK_STATES:
                     return task
@@ -426,14 +421,7 @@ class A2AClient:
             result = response.json()
             task_data = result.get("task", result)
 
-            task = A2ATask(
-                id=task_data.get("id", ""),
-                status=task_data.get("status", "unknown"),
-                message=task_data.get("message"),
-                artifacts=task_data.get("artifacts", []),
-                created_at=task_data.get("created_at", ""),
-                updated_at=task_data.get("updated_at", ""),
-            )
+            task = A2ATask.from_dict(task_data)
 
             self.registry.update_last_seen(alias)
 
@@ -460,14 +448,7 @@ class A2AClient:
             response.raise_for_status()
 
             data = response.json()
-            return A2ATask(
-                id=data.get("id", task_id),
-                status=data.get("status", "unknown"),
-                message=data.get("message"),
-                artifacts=data.get("artifacts", []),
-                created_at=data.get("created_at", ""),
-                updated_at=data.get("updated_at", ""),
-            )
+            return A2ATask.from_dict(data, fallback_id=task_id)
 
         except requests.exceptions.RequestException as e:
             print(f"Failed to get task from {alias}: {e}")
