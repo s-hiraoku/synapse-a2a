@@ -9,24 +9,25 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def _ensure_private_dir(path: Path) -> None:
+def _ensure_uds_dir(path: Path) -> None:
+    """Ensure UDS directory exists with permissions accessible by sandboxed apps."""
     path.mkdir(parents=True, exist_ok=True)
-    # Best effort; permissions may be managed externally.
+    # Use 755 so sandboxed apps (like Codex CLI) can access UDS sockets
     with contextlib.suppress(OSError):
-        path.chmod(0o700)
+        path.chmod(0o755)
 
 
 def resolve_uds_path(agent_id: str) -> Path:
-    """Resolve UDS path for a local agent."""
-    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
-    if runtime_dir:
-        base_dir = Path(runtime_dir) / "synapse-a2a"
-    else:
-        base_dir = Path.home() / ".a2a" / "uds"
+    """Resolve UDS path for a local agent.
 
-    _ensure_private_dir(base_dir)
-    if base_dir.parent.name == ".a2a":
-        _ensure_private_dir(base_dir.parent)
+    Uses /tmp/synapse-a2a/ by default for compatibility with sandboxed apps.
+    Can be overridden via SYNAPSE_UDS_DIR environment variable.
+    """
+    # Allow override via SYNAPSE_UDS_DIR, default to /tmp for sandbox compatibility
+    uds_dir = os.environ.get("SYNAPSE_UDS_DIR")
+    base_dir = Path(uds_dir) if uds_dir else Path("/tmp/synapse-a2a")
+
+    _ensure_uds_dir(base_dir)
     return base_dir / f"{agent_id}.sock"
 
 

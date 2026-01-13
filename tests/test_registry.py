@@ -83,7 +83,7 @@ def test_register_includes_endpoint(registry):
 
 def test_register_includes_uds_path(registry, monkeypatch, tmp_path):
     """Registered agent should include resolved UDS path."""
-    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_UDS_DIR", str(tmp_path))
     agent_id = "test_uds_agent"
     registry.register(agent_id, "claude", 8100)
 

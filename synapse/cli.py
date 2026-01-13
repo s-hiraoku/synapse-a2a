@@ -1473,11 +1473,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
             registry=registry,
         )
 
-        # Setup UDS server
+        # Setup UDS server (directory created by resolve_uds_path)
         uds_path = resolve_uds_path(agent_id)
-        uds_path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
-        # Ensure directory is accessible by other processes (for sandboxed apps)
-        uds_path.parent.chmod(0o755)
         if uds_path.exists():
             uds_path.unlink()
 
