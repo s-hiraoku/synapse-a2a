@@ -514,10 +514,15 @@ def cmd_send(args: argparse.Namespace) -> None:
     sender = getattr(args, "sender", None)
     wait_response = args.wait
 
-    # Use the existing a2a tool
+    # Get the a2a.py tool path from installed package
+    import synapse
+
+    package_dir = Path(synapse.__file__).parent
+    a2a_tool = package_dir / "tools" / "a2a.py"
+
     cmd = [
         sys.executable,
-        "synapse/tools/a2a.py",
+        str(a2a_tool),
         "send",
         "--target",
         target,
@@ -530,10 +535,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     if sender:
         cmd.extend(["--from", sender])
 
-    env = os.environ.copy()
-    env["PYTHONPATH"] = "."
-
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
