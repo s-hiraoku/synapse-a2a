@@ -38,6 +38,13 @@ class ListCommand:
         self._time = time_module
         self._print = print_func
 
+    def _format_empty_message(self) -> str:
+        """Format the 'no agents running' message with port ranges."""
+        lines = ["No agents running.", "", "Port ranges:"]
+        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+            lines.append(f"  {agent_type}: {start}-{end}")
+        return "\n".join(lines)
+
     def _render_agent_table(self, registry: AgentRegistry) -> str:
         """
         Render the agent table output.
@@ -51,11 +58,7 @@ class ListCommand:
         agents = registry.list_agents()
 
         if not agents:
-            output = ["No agents running.", ""]
-            output.append("Port ranges:")
-            for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-                output.append(f"  {agent_type}: {start}-{end}")
-            return "\n".join(output)
+            return self._format_empty_message()
 
         file_safety = FileSafetyManager.from_env()
         show_file_safety = file_safety.enabled
@@ -97,6 +100,16 @@ class ListCommand:
                 continue
 
             live_agents = True
+
+            # Build base row fields
+            base_row = (
+                f"{info.get('agent_type', 'unknown'):<10} "
+                f"{info.get('port', '-'):<8} "
+                f"{status:<12} "
+                f"{pid or '-':<8} "
+                f"{info.get('working_dir', '-'):<50} "
+            )
+
             if show_file_safety:
                 # Use agent_type for filtering (e.g., "claude", "gemini")
                 agent_type = info.get("agent_type", "")
@@ -109,31 +122,14 @@ class ListCommand:
                     if file_path:
                         editing_file = os.path.basename(file_path)
                 lines.append(
-                    f"{info.get('agent_type', 'unknown'):<10} "
-                    f"{info.get('port', '-'):<8} "
-                    f"{status:<12} "
-                    f"{pid or '-':<8} "
-                    f"{info.get('working_dir', '-'):<50} "
-                    f"{editing_file:<30} "
-                    f"{info.get('endpoint', '-')}"
+                    f"{base_row}{editing_file:<30} {info.get('endpoint', '-')}"
                 )
             else:
-                lines.append(
-                    f"{info.get('agent_type', 'unknown'):<10} "
-                    f"{info.get('port', '-'):<8} "
-                    f"{status:<12} "
-                    f"{pid or '-':<8} "
-                    f"{info.get('working_dir', '-'):<50} "
-                    f"{info.get('endpoint', '-')}"
-                )
+                lines.append(f"{base_row}{info.get('endpoint', '-')}")
 
         # If all agents were dead, show empty registry message
         if not live_agents:
-            output = ["No agents running.", ""]
-            output.append("Port ranges:")
-            for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-                output.append(f"  {agent_type}: {start}-{end}")
-            return "\n".join(output)
+            return self._format_empty_message()
 
         # Check for stale locks and add warning
         if show_file_safety:

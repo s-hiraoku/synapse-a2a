@@ -24,8 +24,22 @@ class SynapseShell(cmd.Cmd):
     def __init__(self) -> None:
         super().__init__()
         self.registry = AgentRegistry()
-        # Pattern: @AgentName [--return] message
         self.agent_pattern = re.compile(r"^@(\w+)\s*(--return\s+)?(.+)$", re.IGNORECASE)
+
+    def _find_agent_by_type(self, agent_type: str) -> dict | None:
+        """Find an agent by type name (case-insensitive).
+
+        Args:
+            agent_type: Agent type to find (e.g., 'claude', 'codex')
+
+        Returns:
+            Agent info dict or None if not found
+        """
+        agents = self.registry.list_agents()
+        for _agent_id, info in agents.items():
+            if info.get("agent_type", "").lower() == agent_type.lower():
+                return info
+        return None
 
     def default(self, line: str) -> None:
         """Handle input that doesn't match a command."""
@@ -46,18 +60,11 @@ class SynapseShell(cmd.Cmd):
         self, agent_name: str, message: str, wait_response: bool = False
     ) -> None:
         """Send a message to an agent."""
-        agents = self.registry.list_agents()
-
-        # Find agent by name/type
-        target = None
-        for _agent_id, info in agents.items():
-            if info.get("agent_type", "").lower() == agent_name:
-                target = info
-                break
+        target = self._find_agent_by_type(agent_name)
 
         if not target:
             print(f"Agent '{agent_name}' not found. Available agents:")
-            for _agent_id, info in agents.items():
+            for info in self.registry.list_agents().values():
                 print(f"  - {info.get('agent_type')}")
             return
 
@@ -66,13 +73,11 @@ class SynapseShell(cmd.Cmd):
             print(f"No endpoint found for {agent_name}")
             return
 
-        # Send message
-        priority = 1
         try:
             print(f"[Sending to {agent_name}...]")
             response = requests.post(
                 f"{endpoint}/message",
-                json={"content": message, "priority": priority},
+                json={"content": message, "priority": 1},
                 timeout=10,
             )
             response.raise_for_status()
@@ -145,25 +150,25 @@ class SynapseShell(cmd.Cmd):
             print("Usage: status <agent>")
             return
 
-        agent_name = arg.lower()
-        agents = self.registry.list_agents()
+        target = self._find_agent_by_type(arg)
+        if not target:
+            print(f"Agent '{arg}' not found.")
+            return
 
-        for _agent_id, info in agents.items():
-            if info.get("agent_type", "").lower() == agent_name:
-                endpoint = info.get("endpoint")
-                try:
-                    response = requests.get(f"{endpoint}/status", timeout=5)
-                    data = response.json()
-                    print(f"Status: {data.get('status')}")
-                    context = data.get("context", "")[-500:]
-                    # Clean ANSI codes
-                    clean = re.sub(r"\x1b\[[0-9;]*m", "", context)
-                    print(f"Context:\n{clean}")
-                except requests.exceptions.RequestException as e:
-                    print(f"Error: {e}")
-                return
+        endpoint = target.get("endpoint")
+        if not endpoint:
+            print(f"No endpoint found for {arg}")
+            return
 
-        print(f"Agent '{agent_name}' not found.")
+        try:
+            response = requests.get(f"{endpoint}/status", timeout=5)
+            data = response.json()
+            print(f"Status: {data.get('status')}")
+            context = data.get("context", "")[-500:]
+            clean = re.sub(r"\x1b\[[0-9;]*m", "", context)
+            print(f"Context:\n{clean}")
+        except requests.exceptions.RequestException as e:
+            print(f"Error: {e}")
 
     def do_exit(self, arg: str) -> bool:
         """Exit the shell."""

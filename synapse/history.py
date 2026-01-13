@@ -8,9 +8,34 @@ import contextlib
 import json
 import os
 import sqlite3
+import sys
 import threading
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
+
+
+@contextlib.contextmanager
+def _db_connection(
+    db_path: str, row_factory: bool = False
+) -> Generator[sqlite3.Connection, None, None]:
+    """Context manager for SQLite database connections.
+
+    Args:
+        db_path: Path to the SQLite database file
+        row_factory: If True, set row_factory to sqlite3.Row
+
+    Yields:
+        sqlite3.Connection that auto-commits and closes
+    """
+    conn = sqlite3.connect(db_path)
+    if row_factory:
+        conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
 
 class HistoryManager:
@@ -60,54 +85,42 @@ class HistoryManager:
         if not self.enabled:
             return
 
-        # Create directory if it doesn't exist
         db_file = Path(self.db_path)
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-
-                # Create observations table
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS observations (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        session_id TEXT NOT NULL,
-                        agent_name TEXT NOT NULL,
-                        task_id TEXT NOT NULL UNIQUE,
-                        input TEXT NOT NULL,
-                        output TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        metadata TEXT
+                with _db_connection(self.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS observations (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            session_id TEXT NOT NULL,
+                            agent_name TEXT NOT NULL,
+                            task_id TEXT NOT NULL UNIQUE,
+                            input TEXT NOT NULL,
+                            output TEXT NOT NULL,
+                            status TEXT NOT NULL,
+                            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            metadata TEXT
+                        )
+                        """
                     )
-                    """
-                )
-
-                # Create indexes for efficient querying
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_agent_name ON observations(agent_name)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_timestamp ON observations(timestamp)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_task_id ON observations(task_id)"
-                )
-
-                conn.commit()
-                conn.close()
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_agent_name ON observations(agent_name)"
+                    )
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_timestamp ON observations(timestamp)"
+                    )
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_task_id ON observations(task_id)"
+                    )
             except sqlite3.Error as e:
-                if self.enabled:
-                    # Log error but don't crash - history is non-critical
-                    import sys
-
-                    print(
-                        f"Warning: Failed to initialize history DB: {e}",
-                        file=sys.stderr,
-                    )
+                print(
+                    f"Warning: Failed to initialize history DB: {e}",
+                    file=sys.stderr,
+                )
 
     def save_observation(
         self,
@@ -140,32 +153,24 @@ class HistoryManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    """
-                    INSERT INTO observations
-                    (session_id, agent_name, task_id, input, output, status, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        session_id,
-                        agent_name,
-                        task_id,
-                        input_text,
-                        output_text,
-                        status,
-                        metadata_json,
-                    ),
-                )
-
-                conn.commit()
-                conn.close()
+                with _db_connection(self.db_path) as conn:
+                    conn.cursor().execute(
+                        """
+                        INSERT INTO observations
+                        (session_id, agent_name, task_id, input, output, status, metadata)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            session_id,
+                            agent_name,
+                            task_id,
+                            input_text,
+                            output_text,
+                            status,
+                            metadata_json,
+                        ),
+                    )
             except sqlite3.Error as e:
-                # Non-critical error - don't crash
-                import sys
-
                 print(f"Warning: Failed to save observation: {e}", file=sys.stderr)
 
     def get_observation(self, task_id: str) -> dict[str, Any] | None:
@@ -182,24 +187,15 @@ class HistoryManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    "SELECT * FROM observations WHERE task_id = ?",
-                    (task_id,),
-                )
-
-                row = cursor.fetchone()
-                conn.close()
-
-                if row:
-                    return self._row_to_dict(row)
-                return None
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT * FROM observations WHERE task_id = ?",
+                        (task_id,),
+                    )
+                    row = cursor.fetchone()
+                    return self._row_to_dict(row) if row else None
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to retrieve observation: {e}", file=sys.stderr)
                 return None
 
@@ -222,37 +218,29 @@ class HistoryManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-
-                if agent_name:
-                    cursor.execute(
-                        """
-                        SELECT * FROM observations
-                        WHERE agent_name = ?
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                        """,
-                        (agent_name, limit),
-                    )
-                else:
-                    cursor.execute(
-                        """
-                        SELECT * FROM observations
-                        ORDER BY timestamp DESC
-                        LIMIT ?
-                        """,
-                        (limit,),
-                    )
-
-                rows = cursor.fetchall()
-                conn.close()
-
-                return [self._row_to_dict(row) for row in rows]
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    cursor = conn.cursor()
+                    if agent_name:
+                        cursor.execute(
+                            """
+                            SELECT * FROM observations
+                            WHERE agent_name = ?
+                            ORDER BY timestamp DESC
+                            LIMIT ?
+                            """,
+                            (agent_name, limit),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT * FROM observations
+                            ORDER BY timestamp DESC
+                            LIMIT ?
+                            """,
+                            (limit,),
+                        )
+                    return [self._row_to_dict(row) for row in cursor.fetchall()]
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to list observations: {e}", file=sys.stderr)
                 return []
 
@@ -301,52 +289,37 @@ class HistoryManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    cursor = conn.cursor()
 
-                # Build LIKE/GLOB clauses dynamically
-                like_clauses: list[str] = []
-                params: list[Any] = []
+                    like_clauses: list[str] = []
+                    params: list[Any] = []
 
-                for keyword in keywords:
-                    if case_sensitive:
-                        # Use GLOB for case-sensitive matching
-                        like_clauses.append("(input GLOB ? OR output GLOB ?)")
-                        params.extend([f"*{keyword}*", f"*{keyword}*"])
-                    else:
-                        # Use LOWER() + LIKE for case-insensitive matching
-                        like_clauses.append(
-                            "(LOWER(input) LIKE ? OR LOWER(output) LIKE ?)"
-                        )
-                        params.extend([f"%{keyword.lower()}%", f"%{keyword.lower()}%"])
+                    for keyword in keywords:
+                        if case_sensitive:
+                            like_clauses.append("(input GLOB ? OR output GLOB ?)")
+                            params.extend([f"*{keyword}*", f"*{keyword}*"])
+                        else:
+                            like_clauses.append(
+                                "(LOWER(input) LIKE ? OR LOWER(output) LIKE ?)"
+                            )
+                            params.extend(
+                                [f"%{keyword.lower()}%", f"%{keyword.lower()}%"]
+                            )
 
-                # Join clauses with OR or AND based on logic parameter
-                if logic.upper() == "AND":
-                    where_clause = " AND ".join(like_clauses)
-                else:
-                    where_clause = " OR ".join(like_clauses)
+                    join_op = " AND " if logic.upper() == "AND" else " OR "
+                    where_clause = join_op.join(like_clauses)
 
-                # Build full query
-                query = f"SELECT * FROM observations WHERE ({where_clause})"
+                    query = f"SELECT * FROM observations WHERE ({where_clause})"
+                    if agent_name:
+                        query += " AND agent_name = ?"
+                        params.append(agent_name)
+                    query += " ORDER BY timestamp DESC LIMIT ?"
+                    params.append(limit)
 
-                # Add agent filter if provided
-                if agent_name:
-                    query += " AND agent_name = ?"
-                    params.append(agent_name)
-
-                # Add ordering and limit
-                query += " ORDER BY timestamp DESC LIMIT ?"
-                params.append(limit)
-
-                cursor.execute(query, params)
-                rows = cursor.fetchall()
-                conn.close()
-
-                return [self._row_to_dict(row) for row in rows]
+                    cursor.execute(query, params)
+                    return [self._row_to_dict(row) for row in cursor.fetchall()]
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to search observations: {e}", file=sys.stderr)
                 return []
 
@@ -646,44 +619,34 @@ class HistoryManager:
 
         with self._lock:
             try:
-                conn = sqlite3.connect(self.db_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    cursor = conn.cursor()
 
-                # Build query
-                query = "SELECT * FROM observations"
-                params: list[Any] = []
+                    query = "SELECT * FROM observations"
+                    params: list[Any] = []
 
-                if agent_name:
-                    query += " WHERE agent_name = ?"
-                    params.append(agent_name)
+                    if agent_name:
+                        query += " WHERE agent_name = ?"
+                        params.append(agent_name)
 
-                query += " ORDER BY timestamp DESC"
+                    query += " ORDER BY timestamp DESC"
 
-                if limit:
-                    query += " LIMIT ?"
-                    params.append(limit)
+                    if limit:
+                        query += " LIMIT ?"
+                        params.append(limit)
 
-                cursor.execute(query, params)
-                rows = cursor.fetchall()
-                conn.close()
+                    cursor.execute(query, params)
+                    observations = [self._row_to_dict(row) for row in cursor.fetchall()]
 
-                observations = [self._row_to_dict(row) for row in rows]
-
-                # Export in requested format
                 if format.lower() == "json":
                     return json.dumps(observations, indent=2, default=str)
                 elif format.lower() == "csv":
                     return self._export_to_csv(observations)
                 else:
-                    import sys
-
                     print(f"Warning: Unknown export format: {format}", file=sys.stderr)
                     return "[]" if format.lower() == "json" else ""
 
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to export observations: {e}", file=sys.stderr)
                 return "[]" if format.lower() == "json" else ""
 

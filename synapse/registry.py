@@ -31,6 +31,20 @@ def resolve_uds_path(agent_id: str) -> Path:
     return base_dir / f"{agent_id}.sock"
 
 
+def get_valid_uds_path(uds_path: str | None) -> str | None:
+    """Return UDS path only if the socket file exists.
+
+    Args:
+        uds_path: The UDS path from agent info, or None.
+
+    Returns:
+        The path if it exists, None otherwise.
+    """
+    if uds_path and Path(uds_path).exists():
+        return uds_path
+    return None
+
+
 def is_process_running(pid: int) -> bool:
     """Check if a process is still running."""
     try:

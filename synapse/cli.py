@@ -207,6 +207,26 @@ def _get_history_manager() -> HistoryManager:
     return HistoryManager.from_env(db_path=db_path)
 
 
+def _print_history_table(observations: list[dict]) -> None:
+    """Print observations in a formatted table."""
+    print(
+        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
+    )
+    print("-" * 119)
+
+    for obs in observations:
+        task_id = obs["task_id"][:36]
+        agent = obs["agent_name"][:10]
+        status = obs["status"][:12]
+        timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
+        input_preview = (
+            obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
+        )
+        print(
+            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
+        )
+
+
 def cmd_history_list(args: argparse.Namespace) -> None:
     """List task history."""
     manager = _get_history_manager()
@@ -223,24 +243,7 @@ def cmd_history_list(args: argparse.Namespace) -> None:
         print("No task history found.")
         return
 
-    # Print table header
-    print(
-        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
-    )
-    print("-" * 119)
-
-    # Print each observation
-    for obs in observations:
-        task_id = obs["task_id"][:36]
-        agent = obs["agent_name"][:10]
-        status = obs["status"][:12]
-        timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
-        input_preview = (
-            obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
-        )
-        print(
-            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
-        )
+    _print_history_table(observations)
 
     print(f"\nShowing {len(observations)} entries (limit: {args.limit})")
     if args.agent:
@@ -307,24 +310,7 @@ def cmd_history_search(args: argparse.Namespace) -> None:
         print(f"No matches found for: {', '.join(args.keywords)}")
         return
 
-    # Print table header
-    print(
-        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
-    )
-    print("-" * 119)
-
-    # Print each observation
-    for obs in observations:
-        task_id = obs["task_id"][:36]
-        agent = obs["agent_name"][:10]
-        status = obs["status"][:12]
-        timestamp = obs["timestamp"][:19] if obs["timestamp"] else "N/A"
-        input_preview = (
-            obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
-        )
-        print(
-            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
-        )
+    _print_history_table(observations)
 
     print(f"\nFound {len(observations)} matches")
     print(f"Keywords: {', '.join(args.keywords)} (logic: {args.logic})")
@@ -1590,7 +1576,6 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
             port,
             submit_seq,
             agent_type=profile,
-            registry=registry,
         )
 
         # Setup UDS server (directory created by resolve_uds_path)

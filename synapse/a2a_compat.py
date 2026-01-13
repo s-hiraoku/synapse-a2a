@@ -59,6 +59,28 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     return mapping.get(synapse_status, "working")
 
 
+def _format_artifact_text(artifact: "Artifact") -> str:
+    """Format an artifact as text for history or response.
+
+    Args:
+        artifact: The Artifact to format
+
+    Returns:
+        Formatted text representation of the artifact
+    """
+    if artifact.type == "code":
+        code_data = artifact.data if isinstance(artifact.data, dict) else {}
+        language = code_data.get("metadata", {}).get("language", "text")
+        content = code_data.get("content", str(artifact.data))
+        return f"[Code: {language}]\n{content}"
+    elif artifact.type == "text":
+        if isinstance(artifact.data, str):
+            return artifact.data
+        return str(artifact.data.get("content", str(artifact.data)))
+    else:
+        return f"[{artifact.type}] {artifact.data}"
+
+
 def _save_task_to_history(
     task: "Task", agent_id: str, agent_name: str, task_status: str
 ) -> None:
@@ -74,33 +96,13 @@ def _save_task_to_history(
         return
 
     try:
-        # Extract input text
         input_text = ""
         if task.message and task.message.parts:
             input_text = extract_text_from_parts(task.message.parts)
 
-        # Extract output text from artifacts
-        output_parts = []
-        for artifact in task.artifacts:
-            if artifact.type == "code":
-                code_data = artifact.data.get("metadata", {})
-                language = code_data.get("language", "text")
-                content = artifact.data.get("content", "")
-                output_parts.append(f"[Code: {language}]\n{content}")
-            elif artifact.type == "text":
-                content = (
-                    artifact.data
-                    if isinstance(artifact.data, str)
-                    else artifact.data.get("content", "")
-                )
-                output_parts.append(content)
-            else:
-                # Other artifact types
-                output_parts.append(f"[{artifact.type}] {artifact.data}")
-
+        output_parts = [_format_artifact_text(a) for a in task.artifacts]
         output_text = "\n".join(output_parts) if output_parts else ""
 
-        # Build metadata
         metadata = task.metadata.copy() if task.metadata else {}
         if task.error:
             metadata["error"] = {
@@ -109,7 +111,6 @@ def _save_task_to_history(
                 "data": task.error.data,
             }
 
-        # Save to history
         history_manager.save_observation(
             task_id=task.id,
             agent_name=agent_name,
@@ -120,7 +121,6 @@ def _save_task_to_history(
             metadata=metadata,
         )
     except Exception as e:
-        # Non-critical error - log but don't crash
         import sys
 
         print(f"Warning: Failed to save task to history: {e}", file=sys.stderr)
@@ -326,6 +326,28 @@ history_manager = HistoryManager.from_env(db_path=_history_db_path)
 logger = logging.getLogger(__name__)
 
 
+def _format_artifact_for_response(artifact: "Artifact") -> str:
+    """Format an artifact for A2A response message.
+
+    Args:
+        artifact: The Artifact to format
+
+    Returns:
+        Formatted text suitable for response message
+    """
+    if artifact.type == "code":
+        code_data = artifact.data if isinstance(artifact.data, dict) else {}
+        content = code_data.get("content", str(artifact.data))
+        language = code_data.get("metadata", {}).get("language", "text")
+        return f"```{language}\n{content}\n```"
+    elif artifact.type == "text":
+        if isinstance(artifact.data, str):
+            return artifact.data
+        return str(artifact.data.get("content", str(artifact.data)))
+    else:
+        return f"[{artifact.type}] {artifact.data}"
+
+
 async def _send_response_to_sender(
     task: Task,
     sender_endpoint: str,
@@ -345,32 +367,11 @@ async def _send_response_to_sender(
     Returns:
         True if response was sent successfully, False otherwise
     """
-    # Build response message with task results
-    response_parts = []
+    response_parts = [
+        {"type": "text", "text": _format_artifact_for_response(a)}
+        for a in task.artifacts
+    ]
 
-    # Add artifacts as text parts
-    for artifact in task.artifacts:
-        if artifact.type == "text":
-            content = (
-                artifact.data
-                if isinstance(artifact.data, str)
-                else artifact.data.get("content", str(artifact.data))
-            )
-            response_parts.append({"type": "text", "text": content})
-        elif artifact.type == "code":
-            code_data = artifact.data if isinstance(artifact.data, dict) else {}
-            content = code_data.get("content", str(artifact.data))
-            language = code_data.get("metadata", {}).get("language", "text")
-            response_parts.append(
-                {"type": "text", "text": f"```{language}\n{content}\n```"}
-            )
-        else:
-            # Other artifact types - convert to text
-            response_parts.append(
-                {"type": "text", "text": f"[{artifact.type}] {artifact.data}"}
-            )
-
-    # If no artifacts, send a minimal response
     if not response_parts:
         response_parts.append(
             {

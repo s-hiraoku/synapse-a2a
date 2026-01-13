@@ -9,7 +9,12 @@ from pathlib import Path
 
 from synapse.a2a_client import A2AClient
 from synapse.history import HistoryManager
-from synapse.registry import AgentRegistry, is_port_open, is_process_running
+from synapse.registry import (
+    AgentRegistry,
+    get_valid_uds_path,
+    is_port_open,
+    is_process_running,
+)
 from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -211,10 +216,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     pid = target_agent.get("pid")
     port = target_agent.get("port")
     agent_id = target_agent["agent_id"]
-    uds_path = target_agent.get("uds_path")
-    # Only use UDS if the socket file actually exists
-    if uds_path and not Path(uds_path).exists():
-        uds_path = None
+    uds_path = get_valid_uds_path(target_agent.get("uds_path"))
     # Allow HTTP fallback if UDS fails (don't set local_only=True)
     local_only = False
 
@@ -257,13 +259,12 @@ def cmd_send(args: argparse.Namespace) -> None:
     flow = settings.get_a2a_flow()
     want_response = getattr(args, "want_response", None)
 
-    if flow == "roundtrip":
-        # Force response expected
-        response_expected = True
-    elif flow == "oneway":
-        # Force no response
+    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag or defaults to True
+    if flow == "oneway":
         response_expected = False
-    else:  # auto - AI decides via flag, default to True
+    elif flow == "roundtrip":
+        response_expected = True
+    else:  # auto
         response_expected = want_response if want_response is not None else True
 
     # Add metadata (sender info and response_expected)

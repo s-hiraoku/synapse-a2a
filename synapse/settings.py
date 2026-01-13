@@ -328,29 +328,17 @@ class SynapseSettings:
         Returns:
             List of file paths relative to .synapse/ (e.g., ["default.md", "file-safety.md"])
         """
-        import os
-
         files: list[str] = []
 
         # Check agent-specific file
         agent_instruction = self.instructions.get(agent_type, "")
-        if (
-            agent_instruction
-            and isinstance(agent_instruction, str)
-            and agent_instruction.endswith(".md")
-            and self._instruction_file_exists(agent_instruction)
-        ):
+        if self._is_valid_md_file(agent_instruction):
             files.append(agent_instruction)
 
         # Check default file (only if agent-specific is not set)
         if not agent_instruction:
             default_instruction = self.instructions.get("default", "")
-            if (
-                default_instruction
-                and isinstance(default_instruction, str)
-                and default_instruction.endswith(".md")
-                and self._instruction_file_exists(default_instruction)
-            ):
+            if self._is_valid_md_file(default_instruction):
                 files.append(default_instruction)
 
         # Add optional files based on settings
@@ -362,18 +350,31 @@ class SynapseSettings:
             files.append("delegate.md")
 
         # File safety
-        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
-        if not file_safety_enabled:
-            file_safety_enabled = self.env.get(
-                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
-            ).lower()
-
-        if file_safety_enabled in ("true", "1") and self._instruction_file_exists(
+        if self._is_file_safety_enabled() and self._instruction_file_exists(
             "file-safety.md"
         ):
             files.append("file-safety.md")
 
         return files
+
+    def _is_valid_md_file(self, instruction: object) -> bool:
+        """Check if instruction is a valid .md filename that exists."""
+        return (
+            isinstance(instruction, str)
+            and instruction.endswith(".md")
+            and self._instruction_file_exists(instruction)
+        )
+
+    def _is_file_safety_enabled(self) -> bool:
+        """Check if file safety is enabled via env var or settings."""
+        import os
+
+        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
+        if not file_safety_enabled:
+            file_safety_enabled = self.env.get(
+                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
+            ).lower()
+        return file_safety_enabled in ("true", "1")
 
     def _instruction_file_exists(self, filename: str) -> bool:
         """Check if an instruction file exists in .synapse directory."""
@@ -399,17 +400,7 @@ class SynapseSettings:
         Returns:
             Instruction with optional content appended.
         """
-        import os
-
-        # Check file safety enabled (env var takes priority over settings)
-        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
-        if not file_safety_enabled:
-            # Fall back to settings.json
-            file_safety_enabled = self.env.get(
-                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
-            ).lower()
-
-        if file_safety_enabled in ("true", "1"):
+        if self._is_file_safety_enabled():
             file_safety_content = self._load_instruction_file("file-safety.md")
             if file_safety_content:
                 instruction = instruction + "\n\n" + file_safety_content

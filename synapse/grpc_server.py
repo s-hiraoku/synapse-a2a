@@ -8,6 +8,7 @@ Requires optional 'grpc' dependencies: pip install synapse-a2a[grpc]
 import asyncio
 import logging
 import os
+import time
 from collections.abc import Iterator
 from concurrent import futures
 from datetime import datetime, timezone
@@ -238,8 +239,6 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
                 break
 
             # Small delay
-            import time
-
             time.sleep(0.5)
 
     # =========================================================================

@@ -67,31 +67,20 @@ class StartCommand:
             env["SYNAPSE_TOOL_ARGS"] = "\x00".join(tool_args)
 
         protocol = "https" if ssl_cert else "http"
+        mode = "foreground" if foreground else "background"
+
+        print(f"Starting {profile} on port {port} ({mode}, {protocol.upper()})...")
+        if ssl_cert:
+            print(f"SSL: {ssl_cert}")
+        if tool_args:
+            print(f"Tool args: {' '.join(tool_args)}")
 
         if foreground:
-            # Run in foreground
-            print(
-                f"Starting {profile} on port {port} (foreground, {protocol.upper()})..."
-            )
-            if ssl_cert:
-                print(f"SSL: {ssl_cert}")
-            if tool_args:
-                print(f"Tool args: {' '.join(tool_args)}")
             try:
                 self._subprocess.run(cmd, env=env)
             except KeyboardInterrupt:
                 print("\nStopped.")
         else:
-            # Run in background
-            print(
-                f"Starting {profile} on port {port} (background, {protocol.upper()})..."
-            )
-            if ssl_cert:
-                print(f"SSL: {ssl_cert}")
-            if tool_args:
-                print(f"Tool args: {' '.join(tool_args)}")
-
-            # Create log directory
             log_dir = os.path.expanduser("~/.synapse/logs")
             os.makedirs(log_dir, exist_ok=True)
             log_file = os.path.join(log_dir, f"{profile}.log")
