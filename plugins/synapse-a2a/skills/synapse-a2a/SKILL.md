@@ -24,9 +24,11 @@ Inter-agent communication framework via Google A2A Protocol.
 
 ```bash
 synapse send gemini "Please review this code"
-synapse send claude "What is the status?"
-synapse send codex-8120 "Fix this bug" --priority 3
+synapse send claude "What is the status?" --from codex
+synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 ```
+
+**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
 
 **Target Resolution:**
 1. Type only: `claude`, `gemini`, `codex` (if single instance)

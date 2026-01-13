@@ -510,6 +510,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     target = args.target
     message = args.message
     priority = args.priority
+    sender = getattr(args, "sender", None)
     wait_response = args.wait
 
     # Use the existing a2a tool
@@ -523,6 +524,10 @@ def cmd_send(args: argparse.Namespace) -> None:
         str(priority),
         message,
     ]
+
+    # Add sender if specified
+    if sender:
+        cmd.extend(["--from", sender])
 
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
@@ -1733,6 +1738,9 @@ Priority levels:
     p_send.add_argument("message", help="Message to send")
     p_send.add_argument(
         "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
+    )
+    p_send.add_argument(
+        "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
     )
     p_send.add_argument(
         "--return", "-r", dest="wait", action="store_true", help="Wait for response"
