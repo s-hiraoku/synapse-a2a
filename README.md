@@ -1093,16 +1093,30 @@ pytest tests/test_sender_identification.py -v
 ### セットアップ
 
 ```bash
-# 設定ファイルを作成
+# .synapse/ ディレクトリを作成（全テンプレートファイルをコピー）
 synapse init
 
-# ? Where do you want to create settings.json?
-#   ❯ User scope (~/.synapse/settings.json)
-#     Project scope (./.synapse/settings.json)
+# ? Where do you want to create .synapse/?
+#   ❯ User scope (~/.synapse/)
+#     Project scope (./.synapse/)
+#
+# ✔ Created ~/.synapse
 
 # デフォルトに戻す
 synapse reset
 ```
+
+`synapse init` は以下のファイルを `.synapse/` ディレクトリにコピーします：
+
+| ファイル | 説明 |
+|----------|------|
+| `settings.json` | 環境変数・初期インストラクション設定 |
+| `default.md` | 全エージェント共通の初期インストラクション |
+| `gemini.md` | Gemini 用の初期インストラクション |
+| `delegate.md` | タスク委任ルール |
+| `file-safety.md` | File Safety の指示 |
+
+既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます。
 
 **Skills のインストール**: Claude Code を使用する場合、**プラグイン marketplace からのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が適用されます。
 
@@ -1112,7 +1126,7 @@ synapse reset
 /plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
-> **Note**: `synapse init` は設定ファイルの初期化（`env`, `instructions`, `resume_flags`, `delegation`）を行います。Codex はプラグインに対応していないため、`synapse init` は `.claude/skills/synapse-a2a/` から `.codex/skills/synapse-a2a/` へスキルを自動コピーします。（Gemini は Skills 非対応のためスキップ）
+> **Note**: Codex はプラグインに対応していないため、`synapse init` は `.claude/skills/synapse-a2a/` から `.codex/skills/synapse-a2a/` へスキルを自動コピーします。（Gemini は Skills 非対応のためスキップ）
 
 ### settings.json の構造
 
