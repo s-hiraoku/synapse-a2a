@@ -543,6 +543,39 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 
 # ============================================================
+# Instructions Commands
+# ============================================================
+
+
+def cmd_instructions_show(args: argparse.Namespace) -> None:
+    """Show instruction content for an agent type."""
+    from synapse.commands.instructions import InstructionsCommand
+
+    cmd = InstructionsCommand()
+    agent_type = getattr(args, "agent_type", None)
+    cmd.show(agent_type=agent_type)
+
+
+def cmd_instructions_files(args: argparse.Namespace) -> None:
+    """List instruction files for an agent type."""
+    from synapse.commands.instructions import InstructionsCommand
+
+    cmd = InstructionsCommand()
+    agent_type = getattr(args, "agent_type", None)
+    cmd.files(agent_type=agent_type)
+
+
+def cmd_instructions_send(args: argparse.Namespace) -> None:
+    """Send initial instructions to a running agent."""
+    from synapse.commands.instructions import InstructionsCommand
+
+    cmd = InstructionsCommand()
+    success = cmd.send(target=args.target, preview=args.preview)
+    if not success:
+        sys.exit(1)
+
+
+# ============================================================
 # File Safety Commands
 # ============================================================
 
@@ -1747,6 +1780,65 @@ Priority levels:
     )
     p_send.set_defaults(func=cmd_send)
 
+    # instructions - Manage and send initial instructions
+    p_instructions = subparsers.add_parser(
+        "instructions",
+        help="Manage and send initial instructions to agents",
+        description="""Manage and send initial instructions to running agents.
+
+Initial instructions are automatically sent when agents start, but can be
+re-sent manually using this command (useful for --resume mode or recovery).""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse instructions show                   Show default instruction
+  synapse instructions show claude            Show Claude's instruction
+  synapse instructions files claude           List instruction files
+  synapse instructions send claude            Send instructions to Claude
+  synapse instructions send synapse-claude-8100  Send to specific agent
+  synapse instructions send claude --preview  Preview without sending""",
+    )
+    instructions_subparsers = p_instructions.add_subparsers(
+        dest="instructions_command", metavar="SUBCOMMAND"
+    )
+
+    # instructions show
+    p_inst_show = instructions_subparsers.add_parser(
+        "show", help="Show instruction content"
+    )
+    p_inst_show.add_argument(
+        "agent_type",
+        nargs="?",
+        help="Agent type (claude, gemini, codex). If omitted, shows default.",
+    )
+    p_inst_show.set_defaults(func=cmd_instructions_show)
+
+    # instructions files
+    p_inst_files = instructions_subparsers.add_parser(
+        "files", help="List instruction files"
+    )
+    p_inst_files.add_argument(
+        "agent_type",
+        nargs="?",
+        help="Agent type (claude, gemini, codex). If omitted, shows default.",
+    )
+    p_inst_files.set_defaults(func=cmd_instructions_files)
+
+    # instructions send
+    p_inst_send = instructions_subparsers.add_parser(
+        "send", help="Send instructions to a running agent"
+    )
+    p_inst_send.add_argument(
+        "target",
+        help="Target agent: profile name (claude, gemini, codex) or agent ID (synapse-claude-8100)",
+    )
+    p_inst_send.add_argument(
+        "--preview",
+        "-p",
+        action="store_true",
+        help="Preview instruction without sending",
+    )
+    p_inst_send.set_defaults(func=cmd_instructions_send)
+
     # history - Task history management
     p_history = subparsers.add_parser(
         "history",
@@ -2176,6 +2268,13 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         not hasattr(args, "auth_command") or args.auth_command is None
     ):
         p_auth.print_help()
+        sys.exit(1)
+
+    # Handle instructions subcommand without action
+    if args.command == "instructions" and (
+        not hasattr(args, "instructions_command") or args.instructions_command is None
+    ):
+        p_instructions.print_help()
         sys.exit(1)
 
     # Handle file-safety subcommand without action (show status by default)

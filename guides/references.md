@@ -25,7 +25,14 @@ flowchart TB
         list["list"]
         send["send"]
         logs["logs"]
+        instructions["instructions"]
         external["external"]
+    end
+
+    subgraph Instructions["instructions サブコマンド"]
+        inst_show["show"]
+        inst_files["files"]
+        inst_send["send"]
     end
 
     subgraph External["external サブコマンド"]
@@ -38,6 +45,7 @@ flowchart TB
 
     synapse --> Shortcuts
     synapse --> Commands
+    instructions --> Instructions
     external --> External
 ```
 
@@ -201,7 +209,97 @@ synapse logs gemini -n 100
 
 ---
 
-### 1.8 synapse external
+### 1.8 synapse instructions
+
+初期インストラクションを管理・送信します。
+
+```bash
+synapse instructions <command> [options]
+```
+
+#### 1.8.1 synapse instructions show
+
+エージェントのインストラクション内容を表示します。
+
+```bash
+synapse instructions show [agent_type]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `agent_type` | No | エージェントタイプ（claude, gemini, codex）。省略時はデフォルト設定を表示 |
+
+**例**:
+
+```bash
+synapse instructions show
+synapse instructions show claude
+synapse instructions show gemini
+```
+
+#### 1.8.2 synapse instructions files
+
+エージェントが読み込むインストラクションファイル一覧を表示します。
+
+```bash
+synapse instructions files [agent_type]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `agent_type` | No | エージェントタイプ。省略時はデフォルト設定を表示 |
+
+**例**:
+
+```bash
+synapse instructions files claude
+```
+
+**出力例**:
+
+```
+Instruction files for 'claude':
+  - .synapse/default.md
+  - .synapse/file-safety.md
+```
+
+#### 1.8.3 synapse instructions send
+
+実行中のエージェントに初期インストラクションを送信します。
+
+```bash
+synapse instructions send <target> [--preview]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `target` | Yes | 送信先（プロファイル名またはエージェントID） |
+| `--preview`, `-p` | No | 実際に送信せずプレビューのみ表示 |
+
+**例**:
+
+```bash
+# プロファイル名で送信
+synapse instructions send claude
+
+# エージェントIDで送信
+synapse instructions send synapse-claude-8100
+
+# プレビュー（送信しない）
+synapse instructions send claude --preview
+```
+
+**ユースケース**:
+
+| シチュエーション | コマンド |
+|----------------|----------|
+| `--resume` 後に A2A 機能が必要になった | `synapse instructions send claude` |
+| エージェントがインストラクションを忘れた | `synapse instructions send <agent>` |
+| 送信前に内容を確認したい | `synapse instructions send <agent> --preview` |
+
+---
+
+### 1.9 synapse external
 
 外部 Google A2A エージェントを管理します。
 

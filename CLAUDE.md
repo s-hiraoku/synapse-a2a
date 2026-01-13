@@ -57,12 +57,16 @@ synapse history list                      # Show recent task history
 synapse history list --agent claude       # Filter by agent
 synapse history show <task_id>            # Show task details
 
-# Send message to agent
-synapse send claude "message" --priority 1 --from <your-agent>
+# Instructions management (for --resume mode or recovery)
+synapse instructions show                 # Show default instruction
+synapse instructions show claude          # Show Claude-specific instruction
+synapse instructions files claude         # List instruction files for Claude
+synapse instructions send claude          # Send instructions to running Claude agent
+synapse instructions send claude --preview # Preview without sending
 
-# Low-level A2A tool (advanced)
-python -m synapse.tools.a2a list
-python -m synapse.tools.a2a send --target claude --priority 1 "message"
+# Low-level A2A tool
+python3 synapse/tools/a2a.py list
+python3 synapse/tools/a2a.py send --target claude --priority 1 "message"
 ```
 
 ## Core Design Principle
@@ -88,6 +92,10 @@ synapse/
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
+├── commands/        # CLI command implementations
+│   ├── instructions.py  # synapse instructions command
+│   ├── list.py          # synapse list command
+│   └── start.py         # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 ```
 

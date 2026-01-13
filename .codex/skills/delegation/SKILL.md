@@ -1,21 +1,55 @@
 ---
 name: delegation
-description: This skill configures automatic task delegation between agents in Synapse A2A. Use /delegate to set up rules for routing coding tasks to Codex, research to Gemini, etc. Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
+description: This skill explains task delegation between agents in Synapse A2A. Delegation is configured via `.synapse/settings.json` and delegation rules are defined in `.synapse/delegate.md`. Tasks are delegated using the `@agent` pattern (e.g., `@codex`, `@gemini`). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding).
 ---
 
 # Delegation Skill
 
 Configure automatic task delegation to other agents based on natural language rules.
 
-## Commands
+## Configuration
 
-| Command | Description |
-|---------|-------------|
-| `/delegate` | Show current settings or start interactive setup |
-| `/delegate orchestrator` | Set orchestrator mode (Claude coordinates) |
-| `/delegate passthrough` | Set passthrough mode (direct forwarding) |
-| `/delegate off` | Disable delegation |
-| `/delegate status` | Show current configuration and agent status |
+> **Note**: The `/delegate` CLI subcommand has been removed (see CHANGELOG v0.2.4).
+> Delegation is now configured via settings files.
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `.synapse/settings.json` | Enable/disable delegation and set A2A flow mode |
+| `.synapse/delegate.md` | Define delegation rules and agent responsibilities |
+
+### Settings Structure
+
+In `.synapse/settings.json`:
+
+```json
+{
+  "a2a": {
+    "flow": "auto"  // "roundtrip" | "oneway" | "auto"
+  },
+  "delegation": {
+    "enabled": true  // Enable automatic task delegation
+  }
+}
+```
+
+## Delegating Tasks
+
+Use the `@agent` pattern to send tasks to other agents:
+
+```text
+@codex Please refactor this function
+@gemini Research the latest API changes
+@claude Review this design document
+```
+
+For programmatic delegation (from AI agents):
+
+```bash
+python -m synapse.tools.a2a send --target codex "Refactor this function"
+python -m synapse.tools.a2a send --target gemini --priority 4 "Status update?"
+```
 
 ## Modes
 
