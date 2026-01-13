@@ -13,25 +13,25 @@ Inter-agent communication framework via Google A2A Protocol.
 |------|---------|
 | List agents | `synapse list` |
 | Watch agents | `synapse list --watch` |
-| Send message | `@<agent> <message>` |
+| Send message | `synapse send <agent> "<message>"` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
 
-## @Agent Routing (Recommended)
+## Sending Messages (Recommended)
 
-**Always use the `@agent` pattern for inter-agent communication.** This works reliably within the Synapse environment and handles sandbox restrictions automatically.
+**Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
-```text
-@codex Please refactor this file
-@gemini Research this API
-@claude-8100 Review this code
+```bash
+synapse send gemini "Please review this code"
+synapse send claude "What is the status?"
+synapse send codex-8120 "Fix this bug" --priority 3
 ```
 
 **Target Resolution:**
-1. Exact ID: `@synapse-claude-8100`
-2. Type-port: `@claude-8100`
-3. Type only: `@claude` (if single instance)
+1. Type only: `claude`, `gemini`, `codex` (if single instance)
+2. Type-port: `claude-8100`, `codex-8120`
+3. Exact ID: `synapse-claude-8100`
 
 ## Priority Levels
 
@@ -42,14 +42,16 @@ Inter-agent communication framework via Google A2A Protocol.
 | 4 | Urgent | Follow-ups, status checks |
 | 5 | Interrupt | Emergency (sends SIGINT first) |
 
-For priority control, use the `--priority` flag with `@agent`:
+```bash
+# Normal priority (default)
+synapse send gemini "Analyze this"
 
-```text
-# Priority is specified by Synapse automatically based on context
-# For emergency interrupt, contact the user to use external tools
+# Higher priority
+synapse send claude "Urgent review needed" --priority 4
+
+# Emergency interrupt
+synapse send codex "STOP" --priority 5
 ```
-
-> **Note**: Direct use of `python -m synapse.tools.a2a` is for external tools only. Within Synapse, always use `@agent` pattern.
 
 ## Agent Status
 
