@@ -228,4 +228,7 @@ synapse reset
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
+/tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 ```
+
+**Note:** UDS socket location can be customized with `SYNAPSE_UDS_DIR` environment variable.

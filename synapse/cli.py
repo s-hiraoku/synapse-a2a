@@ -1475,8 +1475,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
 
         # Setup UDS server (directory created by resolve_uds_path)
         uds_path = resolve_uds_path(agent_id)
-        if uds_path.exists():
-            uds_path.unlink()
+        uds_path.unlink(missing_ok=True)
 
         uds_config = uvicorn.Config(app, uds=str(uds_path), log_level="warning")
         uds_config.lifespan = "off"
