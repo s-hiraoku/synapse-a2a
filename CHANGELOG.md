@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.12] - 2026-01-14
+
+### Changed
+
+- Unify response option flags between `synapse send` and `a2a.py send` (#96)
+  - Replace `--return` flag with `--response/--no-response` flags
+  - Default behavior is now "do not wait for response" (safer)
+  - Both commands now have consistent flag names and defaults
+- Update shell.py and shell_hook.py to use `--response` flag instead of `--return`
+
+### Documentation
+
+- Update all guides, skills, and templates to use new `--response/--no-response` flags
+- Update `docs/universal-agent-communication-spec.md` with new flag names
+
 ## [0.2.11] - 2026-01-14
 
 ### Added
