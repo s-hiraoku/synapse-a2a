@@ -18,6 +18,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
 
+**Tip:** Run `synapse list` before sending to verify the target agent is READY.
+
 ## Sending Messages (Recommended)
 
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
@@ -62,7 +64,17 @@ synapse send codex "STOP" --priority 5
 | READY | Idle, waiting for input |
 | PROCESSING | Busy handling a task |
 
-Always verify target agent is READY before sending tasks.
+**Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
+
+```bash
+synapse list
+# Output:
+# NAME                  TYPE    STATUS      PORT
+# synapse-claude-8100   claude  READY       8100
+# synapse-codex-8120    codex   PROCESSING  8120  # <- busy, wait or use --priority 5
+```
+
+If the agent is `PROCESSING`, either wait for it to become `READY` or use `--priority 5` for emergency interrupt.
 
 ## Key Features
 
