@@ -26,6 +26,8 @@ Example:
 
 ### JSON Payload
 
+Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
+
 ```json
 {
   "message": {
@@ -33,15 +35,22 @@ Example:
     "parts": [{"type": "text", "text": "<message>"}]
   },
   "metadata": {
-    "sender": {
-      "sender_id": "synapse-claude-8100",
-      "sender_type": "claude",
-      "sender_endpoint": "http://localhost:8100"
+    "x-sender": {
+      "x-sender-id": "synapse-claude-8100",
+      "x-sender-type": "claude",
+      "x-sender-endpoint": "http://localhost:8100"
     },
-    "response_expected": true
+    "x-response-expected": true
   }
 }
 ```
+
+**Extension fields explained:**
+- `x-sender`: Synapse-specific sender identification (not part of standard A2A)
+  - `x-sender-type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
+  - `x-sender-id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
+  - `x-sender-endpoint`: Agent's HTTP endpoint for replies
+- `x-response-expected`: Whether the sender is waiting for a response
 
 ## Priority Levels
 
