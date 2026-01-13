@@ -2,14 +2,83 @@
 
 ## Endpoints
 
-Standard Google A2A endpoints:
+### Standard Google A2A Endpoints
 
-| Endpoint | URL |
-|----------|-----|
-| Agent Card | `http://localhost:<port>/.well-known/agent.json` |
-| Send Task | `http://localhost:<port>/tasks/send` |
-| Send Priority | `http://localhost:<port>/tasks/send-priority?priority=<1-5>` |
-| Task Status | `http://localhost:<port>/tasks/<id>` |
+These endpoints follow the official Google A2A specification:
+
+| Endpoint | Path | Description |
+|----------|------|-------------|
+| Agent Card | `/.well-known/agent.json` | Agent capabilities and metadata |
+| Send Task | `/tasks/send` | Send a task to the agent |
+| Task Status | `/tasks/{id}` | Get task status by ID |
+
+### Synapse Extension Endpoints
+
+These are Synapse-specific extensions (not part of standard A2A):
+
+| Endpoint | Path | Description |
+|----------|------|-------------|
+| Send with Priority | `/tasks/x-send-priority?priority=<1-5>` | Send task with priority level |
+
+> **Note:** The priority endpoint uses `x-send-priority` to indicate it's a Synapse extension. Priority 5 triggers SIGINT before message delivery.
+
+## Transport Layer
+
+Synapse supports dual transport: **Unix Domain Sockets (UDS)** and **HTTP/TCP**.
+
+### UDS (Preferred for Local Communication)
+
+UDS provides faster, more secure inter-agent communication on the same machine.
+
+**Socket path:** `/tmp/synapse-a2a/{agent_id}.sock`
+
+Examples:
+```text
+/tmp/synapse-a2a/synapse-claude-8100.sock
+/tmp/synapse-a2a/synapse-gemini-8110.sock
+/tmp/synapse-a2a/synapse-codex-8120.sock
+```
+
+**Customization:** Set `SYNAPSE_UDS_DIR` environment variable to change the socket directory.
+
+### HTTP/TCP (Fallback)
+
+HTTP endpoints are available when UDS is not accessible (e.g., cross-machine communication).
+
+**Base URL:** `http://localhost:<port>`
+
+### Routing Precedence
+
+When `synapse send` or the A2A client sends a message, routing follows this order:
+
+1. **Check UDS socket existence:** Look for `/tmp/synapse-a2a/{agent_id}.sock`
+2. **If socket exists:** Use UDS (faster, no network overhead)
+3. **If socket missing:** Fall back to HTTP using the agent's registered port
+
+```text
+┌─────────────────────────────────────────────────────┐
+│  synapse send codex "message"                       │
+└─────────────────┬───────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────┐
+│  Does /tmp/synapse-a2a/synapse-codex-8120.sock      │
+│  exist?                                             │
+└─────────────────┬───────────────────────────────────┘
+                  │
+         ┌────────┴────────┐
+         │                 │
+         ▼ Yes             ▼ No
+┌─────────────────┐ ┌─────────────────────────────────┐
+│  Use UDS        │ │  Use HTTP localhost:8120        │
+│  (local_only)   │ │  (network fallback)             │
+└─────────────────┘ └─────────────────────────────────┘
+```
+
+**Why UDS preferred:**
+- Works in sandboxed environments (Codex) where network may be restricted
+- No port conflicts or firewall issues
+- Lower latency for local communication
 
 ## Message Format
 
@@ -99,10 +168,10 @@ curl -X POST http://localhost:8100/tasks/send \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
 ```
 
-### Send with Priority
+### Send with Priority (Synapse Extension)
 
 ```bash
-curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
+curl -X POST "http://localhost:8100/tasks/x-send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
 ```
