@@ -225,6 +225,7 @@ class A2AClient:
         timeout: int = 60,
         sender_info: dict[str, str] | None = None,
         response_expected: bool = True,
+        in_reply_to: str | None = None,
         uds_path: str | None = None,
         local_only: bool = False,
     ) -> A2ATask | None:
@@ -242,6 +243,7 @@ class A2AClient:
             timeout: Timeout in seconds for waiting
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
             response_expected: Whether the sender expects a response from the target agent
+            in_reply_to: Optional task ID to attach a reply to
 
         Returns:
             A2ATask if successful, None otherwise
@@ -260,6 +262,8 @@ class A2AClient:
             metadata: dict[str, Any] = {"response_expected": response_expected}
             if sender_info:
                 metadata["sender"] = sender_info
+            if in_reply_to:
+                metadata["in_reply_to"] = in_reply_to
             payload["metadata"] = metadata
 
             task_data = None
