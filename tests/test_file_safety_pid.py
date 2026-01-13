@@ -110,6 +110,48 @@ class TestPIDBasedLockManagement:
         assert len(gemini_locks) == 1
         assert gemini_locks[0]["agent_type"] == "gemini"
 
+    def test_list_locks_filter_by_pid(self, manager, temp_db_path):
+        """Should filter locks by pid."""
+        conn = sqlite3.connect(temp_db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO file_locks
+            (file_path, agent_name, agent_id, agent_type, pid, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "/tmp/file1.py",
+                "synapse-claude-8100",
+                "synapse-claude-8100",
+                "claude",
+                1111,
+                future_iso_timestamp(),
+            ),
+        )
+        cursor.execute(
+            """
+            INSERT INTO file_locks
+            (file_path, agent_name, agent_id, agent_type, pid, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "/tmp/file2.py",
+                "synapse-gemini-8110",
+                "synapse-gemini-8110",
+                "gemini",
+                2222,
+                future_iso_timestamp(),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        locks = manager.list_locks(pid=1111, include_stale=True)
+        assert len(locks) == 1
+        assert locks[0]["file_path"].endswith("file1.py")
+        assert locks[0]["pid"] == 1111
+
     def test_check_lock_detects_dead_process(self, manager, temp_db_path):
         """Should detect and clean up locks from dead processes."""
         # Insert a lock with a non-existent PID

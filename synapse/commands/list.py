@@ -113,9 +113,12 @@ class ListCommand:
             if show_file_safety:
                 # Use agent_type for filtering (e.g., "claude", "gemini")
                 agent_type = info.get("agent_type", "")
-                locks = file_safety.list_locks(
-                    agent_type=agent_type, include_stale=False
-                )
+                if pid:
+                    locks = file_safety.list_locks(pid=pid, include_stale=False)
+                else:
+                    locks = file_safety.list_locks(
+                        agent_type=agent_type, include_stale=False
+                    )
                 editing_file = "-"
                 if locks:
                     file_path = locks[0].get("file_path")
