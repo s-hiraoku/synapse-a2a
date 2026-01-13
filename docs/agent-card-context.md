@@ -47,7 +47,7 @@ Agent Card (`/.well-known/agent.json`) に以下の拡張フィールドを追�
       "port": 8100,
       "routing_rules": {
         "self_patterns": ["@synapse-claude-8100", "@claude"],
-        "forward_command": "python3 synapse/tools/a2a.py send --target <agent_id> --priority 1 \"<message>\"",
+        "forward_command": "synapse send <agent_id> \"<message>\" --priority 1 --from <your_agent_id>",
         "instructions": {
           "ja": "@synapse-claude-8100 または @claude 宛てのメッセージはあなた宛てです...",
           "en": "Messages addressed to @synapse-claude-8100 or @claude are for you..."
@@ -66,9 +66,9 @@ Agent Card (`/.well-known/agent.json`) に以下の拡張フィールドを追�
         "5": "EMERGENCY INTERRUPT (sends SIGINT before message)"
       },
       "examples": {
-        "send_message": "python3 synapse/tools/a2a.py send --target synapse-gemini-8110 ...",
-        "emergency_interrupt": "python3 synapse/tools/a2a.py send --target synapse-gemini-8110 --priority 5 ...",
-        "list_agents": "python3 synapse/tools/a2a.py list"
+        "send_message": "synapse send gemini \"message\" --from claude",
+        "emergency_interrupt": "synapse send gemini \"STOP\" --priority 5 --from claude",
+        "list_agents": "synapse list"
       }
     }
   }
@@ -160,7 +160,7 @@ AI エージェントは起動時にブートストラップメッセージを�
 ランタイム中に動的な通知を行うための `--silent` フラグ：
 
 ```bash
-python3 synapse/tools/a2a.py send --target self --silent "新しいエージェントが参加しました"
+synapse send self "新しいエージェントが参加しました" --silent --from claude
 ```
 
 - TaskStore に保存されるが PTY には書き込まれない

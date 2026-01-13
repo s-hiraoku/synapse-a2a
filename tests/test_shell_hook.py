@@ -33,10 +33,9 @@ class TestBashHookConstant:
         """Should check for --return flag."""
         assert "--return" in BASH_HOOK
 
-    def test_bash_hook_uses_a2a_tool(self):
-        """Should use synapse/tools/a2a.py for sending."""
-        assert "synapse/tools/a2a.py" in BASH_HOOK
-        assert "send" in BASH_HOOK
+    def test_bash_hook_uses_synapse_send(self):
+        """Should use synapse send command for sending."""
+        assert "synapse send" in BASH_HOOK
 
     def test_bash_hook_has_zsh_section(self):
         """Should have ZSH-specific section."""
@@ -83,10 +82,9 @@ class TestZshHookSimpleConstant:
         assert "agent=" in ZSH_HOOK_SIMPLE
         assert "sed" in ZSH_HOOK_SIMPLE
 
-    def test_zsh_hook_uses_a2a_tool(self):
-        """Should use synapse/tools/a2a.py for sending."""
-        assert "synapse/tools/a2a.py" in ZSH_HOOK_SIMPLE
-        assert "send" in ZSH_HOOK_SIMPLE
+    def test_zsh_hook_uses_synapse_send(self):
+        """Should use synapse send command for sending."""
+        assert "synapse send" in ZSH_HOOK_SIMPLE
 
     def test_zsh_hook_has_alias(self):
         """Should create @ alias."""
@@ -232,9 +230,9 @@ class TestHookFunctionality:
         """BASH_HOOK should set message priority."""
         assert "--priority" in BASH_HOOK
 
-    def test_zsh_hook_simple_uses_python3(self):
-        """ZSH_HOOK_SIMPLE should use python3."""
-        assert "python3" in ZSH_HOOK_SIMPLE
+    def test_zsh_hook_simple_uses_synapse_send(self):
+        """ZSH_HOOK_SIMPLE should use synapse send command."""
+        assert "synapse send" in ZSH_HOOK_SIMPLE
 
     def test_zsh_hook_simple_sets_priority(self):
         """ZSH_HOOK_SIMPLE should set message priority."""

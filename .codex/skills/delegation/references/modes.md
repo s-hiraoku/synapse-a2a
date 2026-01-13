@@ -98,30 +98,38 @@ When delegation is active:
 
 ## A2A Communication Methods
 
-### Method 1: @Agent Pattern (Simple)
+### Method 1: synapse send (Recommended)
+
+**Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
+
+```bash
+synapse send <agent> "<message>" [--from <sender>] [--priority <1-5>]
+```
+
+Examples:
+```bash
+# Normal task (priority 3)
+synapse send codex "Refactor src/auth.py" --priority 3 --from claude
+
+# Urgent follow-up (priority 4)
+synapse send gemini "Status update?" --priority 4 --from claude
+
+# Critical task (priority 5)
+synapse send codex "URGENT: Fix production bug" --priority 5 --from claude
+```
+
+**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+
+### Method 2: @Agent Pattern (User Input Only)
+
+When typing directly in the terminal (not from agent code), you can use:
 
 ```
 @codex Please refactor this file
 @gemini Research this API
 ```
 
-### Method 2: A2A Tool (Advanced)
-
-```bash
-python3 synapse/tools/a2a.py send --target <agent> --priority <1-5> "<message>"
-```
-
-Examples:
-```bash
-# Normal task (priority 3)
-python3 synapse/tools/a2a.py send --target codex --priority 3 "Refactor src/auth.py"
-
-# Urgent follow-up (priority 4)
-python3 synapse/tools/a2a.py send --target gemini --priority 4 "Status update?"
-
-# Critical task (priority 5)
-python3 synapse/tools/a2a.py send --target codex --priority 5 "URGENT: Fix production bug"
-```
+> **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
 
 ## Configuration File Format
 

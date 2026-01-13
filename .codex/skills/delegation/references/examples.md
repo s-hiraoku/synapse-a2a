@@ -80,7 +80,7 @@ If agent doesn't respond within reasonable time:
 
 2. If PROCESSING for too long, send priority 4-5 follow-up:
    ```bash
-   python3 synapse/tools/a2a.py send --target <agent> --priority 4 "Status update?"
+   synapse send <agent> "Status update?" --priority 4 --from <your-agent>
    ```
 
 3. If agent appears stuck, inform user and suggest alternatives

@@ -27,10 +27,10 @@ synapse list --watch
 
 ```bash
 # Urgent follow-up
-python3 synapse/tools/a2a.py send --target gemini --priority 4 "Status update?"
+synapse send gemini "Status update?" --priority 4 --from claude
 
 # Emergency interrupt
-python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
+synapse send codex "STOP" --priority 5 --from claude
 ```
 
 ### Fire-and-forget (No Response Expected)
@@ -68,7 +68,8 @@ File src/auth.py is locked by gemini (expires: 12:30:00)
 Options:
 1. Wait for lock to expire
 2. Work on different files first
-3. Check with lock holder: @gemini What's your progress on src/auth.py?
+3. Check with lock holder:
+   synapse send gemini "What's your progress on src/auth.py?" --from claude
 ```
 
 ## Collaborative Development
@@ -133,12 +134,12 @@ git diff
 
 2. If PROCESSING for too long:
    ```bash
-   python3 synapse/tools/a2a.py send --target <agent> --priority 4 "Status?"
+   synapse send <agent> "Status?" --priority 4 --from <your-agent>
    ```
 
 3. Emergency stop:
    ```bash
-   python3 synapse/tools/a2a.py send --target <agent> --priority 5 "STOP"
+   synapse send <agent> "STOP" --priority 5 --from <your-agent>
    ```
 
 ### Agent Not Found

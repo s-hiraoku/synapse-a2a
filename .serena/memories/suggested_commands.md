@@ -27,10 +27,11 @@ synapse list --watch                      # Watch mode (refresh every 2s)
 synapse list -w -i 1                      # Watch mode with 1s interval
 ```
 
-## Low-level A2A Tool
+## Agent Communication
 ```bash
-python3 synapse/tools/a2a.py list                                           # List running agents
-python3 synapse/tools/a2a.py send --target claude --priority 1 "message"    # Send message to agent
+synapse send claude "message" --from <your-agent>                           # Send message to agent
+synapse send claude "message" --priority 3 --from codex                     # With priority
+synapse send codex "STOP" --priority 5 --from claude                        # Emergency interrupt
 ```
 
 ## Code Quality

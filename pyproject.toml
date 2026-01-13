@@ -51,6 +51,10 @@ include = ["synapse*"]
 [tool.setuptools.package-data]
 synapse = ["templates/.synapse/*", "profiles/*.yaml", "profiles/**/*"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.ruff]
 target-version = "py310"
 line-length = 88
