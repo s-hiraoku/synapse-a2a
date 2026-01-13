@@ -18,7 +18,7 @@ Include file context:
 
 ```
 @codex Please refactor src/auth.py.
-Note: File is not currently locked. Acquire lock before editing.
+Note: File is locked by claude for this task. Lock will be released after you complete.
 Recent changes: claude fixed authentication logic (2026-01-09)
 ```
 

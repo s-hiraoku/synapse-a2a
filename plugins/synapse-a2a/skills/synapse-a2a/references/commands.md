@@ -223,6 +223,7 @@ synapse reset
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `false` |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
 
 ## Storage Locations
 

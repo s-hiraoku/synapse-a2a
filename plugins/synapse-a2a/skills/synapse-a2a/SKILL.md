@@ -13,7 +13,7 @@ Inter-agent communication framework via Google A2A Protocol.
 |------|---------|
 | List agents | `synapse list` |
 | Watch agents | `synapse list --watch` |
-| Send message | `synapse send <agent> "<message>"` |
+| Send message | `synapse send <agent> "<message>" --from <sender>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
@@ -23,7 +23,7 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code"
+synapse send gemini "Please review this code" --from claude
 synapse send claude "What is the status?" --from codex
 synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 ```

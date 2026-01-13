@@ -22,7 +22,7 @@ shell = SynapseShell()
 shell.send_to_agent('$agent', '$message', wait_response=True)
 "
         else
-            synapse send "$agent" "$message" --priority 1
+            synapse send "$agent" "$message" --priority 1 --from "${SYNAPSE_AGENT_ID:-shell}"
         fi
         return 1  # Prevent original command execution
     fi
@@ -75,7 +75,7 @@ synapse-send() {
     if [[ "$1" == @* ]]; then
         local agent=$(echo "$1" | sed 's/^@\\([^ ]*\\).*/\\1/')
         local message=$(echo "$@" | sed 's/^@[^ ]* *//')
-        synapse send "$agent" "$message" --priority 1
+        synapse send "$agent" "$message" --priority 1 --from "${SYNAPSE_AGENT_ID:-shell}"
     else
         echo "Usage: synapse-send @Agent message"
     fi
