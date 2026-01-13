@@ -1191,6 +1191,42 @@ def _write_default_settings(path: Path) -> bool:
         return False
 
 
+def _copy_synapse_templates(target_dir: Path) -> bool:
+    """
+    Copy template files from synapse/templates/.synapse/ to target directory.
+
+    This copies all template files including settings.json, default.md,
+    file-safety.md, etc. to the target .synapse/ directory.
+
+    Args:
+        target_dir: Target directory path (e.g., ~/.synapse or ./.synapse)
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        # Find templates directory relative to synapse package
+        import synapse
+
+        package_dir = Path(synapse.__file__).parent
+        templates_dir = package_dir / "templates" / ".synapse"
+
+        if not templates_dir.exists():
+            print(f"Error: Templates directory not found: {templates_dir}")
+            return False
+
+        # Remove existing directory if it exists
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+
+        # Copy entire template directory
+        shutil.copytree(templates_dir, target_dir)
+        return True
+    except OSError as e:
+        print(f"Error copying templates: {e}")
+        return False
+
+
 def _copy_claude_skills_to_codex(base_dir: Path, force: bool = False) -> list[str]:
     """
     Copy synapse-a2a skills from .claude to .codex directory.
@@ -1247,7 +1283,7 @@ def _copy_claude_skills_to_codex(base_dir: Path, force: bool = False) -> list[st
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    """Initialize settings.json and install skills."""
+    """Initialize .synapse/ directory with settings and template files."""
     scope = getattr(args, "scope", None)
 
     # If scope not provided via flag, prompt interactively
@@ -1260,26 +1296,24 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     # Determine paths based on scope
     if scope == "user":
-        settings_path = Path.home() / ".synapse" / "settings.json"
+        synapse_dir = Path.home() / ".synapse"
         skills_base = Path.home()
     else:  # project
-        settings_path = Path.cwd() / ".synapse" / "settings.json"
+        synapse_dir = Path.cwd() / ".synapse"
         skills_base = Path.cwd()
 
-    # Check if settings file already exists
-    if settings_path.exists():
+    # Check if .synapse directory already exists
+    if synapse_dir.exists():
         response = (
-            input(f"\n{settings_path} already exists. Overwrite? (y/N): ")
-            .strip()
-            .lower()
+            input(f"\n{synapse_dir} already exists. Overwrite? (y/N): ").strip().lower()
         )
         if response not in ("y", "yes"):
             print("Cancelled.")
             return
 
-    # Write default settings
-    if _write_default_settings(settings_path):
-        print(f"✔ Created {settings_path}")
+    # Copy template files to .synapse directory
+    if _copy_synapse_templates(synapse_dir):
+        print(f"✔ Created {synapse_dir}")
     else:
         sys.exit(1)
 

@@ -72,6 +72,14 @@ def temp_synapse_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+@pytest.fixture
+def temp_empty_dir():
+    """Create a temporary directory without .synapse subdirectory."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="test_synapse_empty_"))
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 # ==============================================================================
 # Tests for cmd_start
 # ==============================================================================
@@ -1119,27 +1127,101 @@ class TestCmdInit:
         captured = capsys.readouterr()
         assert "Cancelled" in captured.out
 
-    def test_init_user_scope(self, mock_args, temp_synapse_dir, capsys, monkeypatch):
-        """Should create settings in user scope."""
+    def test_init_user_scope(self, mock_args, temp_empty_dir, capsys, monkeypatch):
+        """Should create .synapse/ in user scope."""
         mock_args.scope = "user"
 
-        monkeypatch.setattr(Path, "home", lambda: temp_synapse_dir)
+        monkeypatch.setattr(Path, "home", lambda: temp_empty_dir)
 
         cmd_init(mock_args)
 
         captured = capsys.readouterr()
         assert "Created" in captured.out
+        assert (temp_empty_dir / ".synapse" / "settings.json").exists()
 
-    def test_init_project_scope(self, mock_args, temp_synapse_dir, capsys, monkeypatch):
-        """Should create settings in project scope."""
+    def test_init_project_scope(self, mock_args, temp_empty_dir, capsys, monkeypatch):
+        """Should create .synapse/ in project scope."""
         mock_args.scope = "project"
 
-        monkeypatch.setattr(Path, "cwd", lambda: temp_synapse_dir)
+        monkeypatch.setattr(Path, "cwd", lambda: temp_empty_dir)
 
         cmd_init(mock_args)
 
         captured = capsys.readouterr()
         assert "Created" in captured.out
+        assert (temp_empty_dir / ".synapse" / "settings.json").exists()
+
+    def test_init_copies_template_files(
+        self, mock_args, temp_empty_dir, capsys, monkeypatch
+    ):
+        """Should copy all template files from templates/.synapse/ to target."""
+        mock_args.scope = "project"
+
+        monkeypatch.setattr(Path, "cwd", lambda: temp_empty_dir)
+
+        cmd_init(mock_args)
+
+        # Check that template files were copied
+        synapse_dir = temp_empty_dir / ".synapse"
+        assert (synapse_dir / "settings.json").exists()
+        assert (synapse_dir / "default.md").exists()
+        assert (synapse_dir / "file-safety.md").exists()
+        assert (synapse_dir / "delegate.md").exists()
+        assert (synapse_dir / "gemini.md").exists()
+
+    def test_init_asks_overwrite_for_existing_synapse_dir(
+        self, mock_args, temp_empty_dir, capsys, monkeypatch
+    ):
+        """Should ask for confirmation when .synapse/ directory exists."""
+        mock_args.scope = "project"
+
+        monkeypatch.setattr(Path, "cwd", lambda: temp_empty_dir)
+
+        # Create existing .synapse directory with custom content
+        synapse_dir = temp_empty_dir / ".synapse"
+        synapse_dir.mkdir(parents=True)
+        custom_file = synapse_dir / "custom.md"
+        custom_file.write_text("custom content")
+        settings_file = synapse_dir / "settings.json"
+        settings_file.write_text('{"custom": "value"}')
+
+        # User says no to overwrite
+        with patch("builtins.input", return_value="n"):
+            cmd_init(mock_args)
+
+        captured = capsys.readouterr()
+        assert "Cancelled" in captured.out
+
+        # Custom file should still exist
+        assert custom_file.exists()
+        assert custom_file.read_text() == "custom content"
+
+    def test_init_overwrites_when_user_confirms(
+        self, mock_args, temp_empty_dir, capsys, monkeypatch
+    ):
+        """Should overwrite .synapse/ when user confirms."""
+        mock_args.scope = "project"
+
+        monkeypatch.setattr(Path, "cwd", lambda: temp_empty_dir)
+
+        # Create existing .synapse directory with old settings
+        synapse_dir = temp_empty_dir / ".synapse"
+        synapse_dir.mkdir(parents=True)
+        settings_file = synapse_dir / "settings.json"
+        settings_file.write_text('{"old": "value"}')
+
+        # User says yes to overwrite
+        with patch("builtins.input", return_value="y"):
+            cmd_init(mock_args)
+
+        captured = capsys.readouterr()
+        assert "Created" in captured.out
+
+        # Settings should have new default values
+        with open(settings_file) as f:
+            data = json.load(f)
+            assert "env" in data
+            assert "old" not in data
 
 
 class TestCmdReset:

@@ -45,23 +45,36 @@ Synapse A2A の設定ファイルについての詳細ガイドです。
 
 ### synapse init
 
-設定ファイルを対話的に作成します。
+`.synapse/` ディレクトリを対話的に作成します。テンプレートから全ファイルをコピーします。
 
 ```bash
 $ synapse init
 
-? Where do you want to create settings.json?
-  ❯ User scope (~/.synapse/settings.json)
-    Project scope (./.synapse/settings.json)
+? Where do you want to create .synapse/?
+  ❯ User scope (~/.synapse/)
+    Project scope (./.synapse/)
 
-✔ Created ~/.synapse/settings.json
+✔ Created ~/.synapse
 ```
 
-**初期化される内容**:
-- 標準的な環境変数（`env`）
-- デフォルトの A2A プロトコル指示（`instructions`）
-- コンテキスト再開フラグ（`resume_flags`）
-- 委任設定（`delegation`）
+**コピーされるファイル**:
+
+| ファイル | 説明 |
+|----------|------|
+| `settings.json` | 環境変数・初期インストラクション設定 |
+| `default.md` | 全エージェント共通の初期インストラクション |
+| `gemini.md` | Gemini 用の初期インストラクション |
+| `delegate.md` | タスク委任ルール |
+| `file-safety.md` | File Safety の指示 |
+
+既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます：
+
+```bash
+$ synapse init
+
+/path/to/.synapse already exists. Overwrite? (y/N): y
+✔ Created /path/to/.synapse
+```
 
 ### synapse reset
 
