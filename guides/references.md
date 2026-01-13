@@ -165,7 +165,7 @@ codex      8120     PROCESSING 12346    http://localhost:8120
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message> [--priority N] [--return]
+synapse send <target> <message> [--priority N] [--response | --no-response]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -173,7 +173,8 @@ synapse send <target> <message> [--priority N] [--return]
 | `target` | Yes | 送信先エージェント名 |
 | `message` | Yes | メッセージ内容 |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
-| `--return`, `-r` | No | レスポンスを待つ（未実装） |
+| `--response` | No | レスポンスを待つ |
+| `--no-response` | No | レスポンスを待たない（デフォルト） |
 
 **例**:
 
@@ -181,6 +182,7 @@ synapse send <target> <message> [--priority N] [--return]
 synapse send claude "Hello!"
 synapse send codex "設計して" -p 1
 synapse send gemini "止まれ" -p 5
+synapse send codex "結果を教えて" --response
 ```
 
 ---

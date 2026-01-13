@@ -29,9 +29,9 @@ class TestBashHookConstant:
         """Should extract message from command."""
         assert "message=" in BASH_HOOK
 
-    def test_bash_hook_checks_return_flag(self):
-        """Should check for --return flag."""
-        assert "--return" in BASH_HOOK
+    def test_bash_hook_checks_response_flag(self):
+        """Should check for --response flag."""
+        assert "--response" in BASH_HOOK
 
     def test_bash_hook_uses_synapse_send(self):
         """Should use synapse send command for sending."""
@@ -223,7 +223,7 @@ class TestHookFunctionality:
         assert "python3" in BASH_HOOK
 
     def test_bash_hook_imports_synapse_shell(self):
-        """BASH_HOOK should import SynapseShell for --return."""
+        """BASH_HOOK should import SynapseShell for --response."""
         assert "SynapseShell" in BASH_HOOK
 
     def test_bash_hook_sets_priority(self):

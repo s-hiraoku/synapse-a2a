@@ -384,7 +384,7 @@ PTYでユーザーが他のエージェントにメッセージを送信する�
 AIエージェントが他のエージェントにメッセージを送信する際に使用します。サンドボックス環境でも動作します。
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
 ```
 
 **例:**
@@ -397,11 +397,11 @@ synapse send codex "テストを実行して" --from claude
 
 ### 応答制御（a2a.flow 設定）
 
-| `a2a.flow` 設定 | 動作 | `--return` フラグ |
+| `a2a.flow` 設定 | 動作 | `--response` フラグ |
 |----------------|------|------------------|
 | `roundtrip` | 常に待つ | 無視 |
 | `oneway` | 常に待たない | 無視 |
-| `auto` | フラグで制御 | `--return`=待つ、なし=待たない |
+| `auto` | フラグで制御 | `--response`=待つ、なし=待たない |
 
 ### Priority レベル
 

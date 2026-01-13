@@ -61,18 +61,18 @@ class TestPatternDetection:
         match = shell.agent_pattern.match("@claude hello")
         assert match is not None
         assert match.group(1) == "claude"
-        assert match.group(2) is None  # No --return flag
+        assert match.group(2) is None  # No --response flag
         assert match.group(3) == "hello"
 
     @patch("synapse.shell.AgentRegistry")
-    def test_agent_pattern_with_return_flag(self, mock_registry_cls):
-        """Should detect --return flag in @agent pattern."""
+    def test_agent_pattern_with_response_flag(self, mock_registry_cls):
+        """Should detect --response flag in @agent pattern."""
         shell = SynapseShell()
 
-        match = shell.agent_pattern.match("@gemini --return do this task")
+        match = shell.agent_pattern.match("@gemini --response do this task")
         assert match is not None
         assert match.group(1) == "gemini"
-        assert match.group(2) is not None  # Has --return flag
+        assert match.group(2) is not None  # Has --response flag
         assert match.group(3) == "do this task"
 
     @patch("synapse.shell.AgentRegistry")
@@ -122,12 +122,12 @@ class TestDefaultHandler:
         shell.send_to_agent.assert_called_once_with("claude", "hello world", False)
 
     @patch("synapse.shell.AgentRegistry")
-    def test_default_calls_send_to_agent_with_return(self, mock_registry_cls):
-        """Should call send_to_agent with wait_response=True for --return."""
+    def test_default_calls_send_to_agent_with_response(self, mock_registry_cls):
+        """Should call send_to_agent with wait_response=True for --response."""
         shell = SynapseShell()
         shell.send_to_agent = MagicMock()
 
-        shell.default("@gemini --return analyze this")
+        shell.default("@gemini --response analyze this")
 
         shell.send_to_agent.assert_called_once_with("gemini", "analyze this", True)
 

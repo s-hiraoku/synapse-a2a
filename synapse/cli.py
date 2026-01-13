@@ -499,7 +499,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     priority = args.priority
     sender = getattr(args, "sender", None)
     reply_to = getattr(args, "reply_to", None)
-    wait_response = args.wait
+    want_response = getattr(args, "want_response", None)
 
     # Get the a2a.py tool path from installed package
     import synapse
@@ -524,14 +524,17 @@ def cmd_send(args: argparse.Namespace) -> None:
     if reply_to:
         cmd.extend(["--reply-to", reply_to])
 
+    # Pass response flag to a2a.py (unified with a2a.py send)
+    if want_response is True:
+        cmd.append("--response")
+    elif want_response is False:
+        cmd.append("--no-response")
+    # If None, don't pass any flag (a2a.py defaults to not waiting)
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
-
-    if wait_response:
-        # TODO: Implement response waiting
-        print("(--return not yet implemented)")
 
 
 # ============================================================
@@ -1861,8 +1864,20 @@ Priority levels:
         dest="reply_to",
         help="Reply to a specific task ID (attach response without sending to PTY)",
     )
-    p_send.add_argument(
-        "--return", "-r", dest="wait", action="store_true", help="Wait for response"
+    # Response control: mutually exclusive group (unified with a2a.py send)
+    response_group = p_send.add_mutually_exclusive_group()
+    response_group.add_argument(
+        "--response",
+        dest="want_response",
+        action="store_true",
+        default=None,
+        help="Wait for and receive response from target agent",
+    )
+    response_group.add_argument(
+        "--no-response",
+        dest="want_response",
+        action="store_false",
+        help="Do not wait for response (fire and forget)",
     )
     p_send.set_defaults(func=cmd_send)
 

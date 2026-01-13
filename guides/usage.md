@@ -276,25 +276,29 @@ gemini     8110     READY      12347    -                                       
 ### 2.4 メッセージ送信
 
 ```bash
-synapse send --target <agent> --priority <n> "メッセージ"
+synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-response]
 ```
 
 **オプション**:
 
 | オプション | 短縮形 | デフォルト | 説明 |
 |-----------|--------|-----------|------|
-| `--target` | - | 必須 | 送信先エージェント |
+| `target` | - | 必須 | 送信先エージェント |
 | `--priority` | `-p` | 1 | 優先度 (1-5) |
-| `--return` | `-r` | - | レスポンスを待つ（未実装） |
+| `--response` | - | - | レスポンスを待つ |
+| `--no-response` | - | デフォルト | レスポンスを待たない |
 
 **例**:
 
 ```bash
 # 通常送信
-synapse send --target codex --priority 1 "設計を書いて"
+synapse send codex "設計を書いて" --priority 1
 
 # 緊急停止
-synapse send --target claude --priority 5 "処理を止めて"
+synapse send claude "処理を止めて" --priority 5
+
+# 応答を待つ
+synapse send codex "結果を教えて" --response
 ```
 
 ---

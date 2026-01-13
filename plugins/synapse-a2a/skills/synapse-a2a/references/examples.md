@@ -33,6 +33,12 @@ synapse send gemini "Status update?" --priority 4 --from claude
 synapse send codex "STOP" --priority 5 --from claude
 ```
 
+### Fire-and-forget (No Response Expected)
+
+```text
+@gemini --no-response Log this completion event
+```
+
 ## File Coordination Example
 
 ### Delegating File Edit with Lock

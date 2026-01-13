@@ -650,11 +650,29 @@ synapse history cleanup --days 30 --dry-run
 エージェント間通信には `synapse send` コマンドを使用してください。サンドボックス環境でも動作します。
 
 ```bash
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+```
+
+**オプション:**
+
+| オプション | 短縮形 | 説明 |
+|-----------|--------|------|
+| `--from` | `-f` | 送信元エージェントID（返信識別用） |
+| `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT送信） |
+| `--response` | - | レスポンスを待つ |
+| `--no-response` | - | レスポンスを待たない（デフォルト） |
+
+**例:**
+
+```bash
 # メッセージ送信
 synapse send claude "Hello" --priority 1 --from codex
 
 # 緊急停止
 synapse send claude "Stop!" --priority 5 --from codex
+
+# レスポンスを待つ
+synapse send gemini "分析して" --response --from claude
 ```
 
 **重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。

@@ -36,7 +36,7 @@ synapse send codex "STOP" --priority 5 --from claude
 ### Fire-and-forget (No Response Expected)
 
 ```text
-@gemini --non-response Log this completion event
+@gemini --no-response Log this completion event
 ```
 
 ## File Coordination Example
