@@ -59,7 +59,7 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--return]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
 ```
 
 **Parameters:**
@@ -67,7 +67,8 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--return
 - `message`: Message to send
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
-- `--return, -r`: Wait for response
+- `--response`: Wait for response
+- `--no-response`: Do not wait for response (default)
 
 **Examples:**
 ```bash
@@ -84,7 +85,7 @@ synapse send claude-8100 "Status update?" --from gemini
 synapse send codex "STOP" --priority 5 --from claude
 
 # Wait for response
-synapse send gemini "Analyze this" --return --from codex
+synapse send gemini "Analyze this" --response --from codex
 ```
 
 **Important:** Always use `--from` so the recipient knows who sent the message and can reply.

@@ -260,13 +260,14 @@ def cmd_send(args: argparse.Namespace) -> None:
     want_response = getattr(args, "want_response", None)
     reply_to = getattr(args, "reply_to", None)
 
-    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag or defaults to True
+    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag or defaults to False
+    # Default to False (not waiting) for safety - see issue #96
     if flow == "oneway":
         response_expected = False
     elif flow == "roundtrip":
         response_expected = True
     else:  # auto
-        response_expected = want_response if want_response is not None else True
+        response_expected = want_response if want_response is not None else False
 
     # Add metadata (sender info and response_expected)
     client = A2AClient()

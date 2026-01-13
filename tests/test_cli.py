@@ -464,7 +464,7 @@ class TestCmdSend:
         mock_args.target = "gemini"
         mock_args.message = "Hello Gemini"
         mock_args.priority = 3
-        mock_args.wait = False
+        mock_args.want_response = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Task created", stderr="")
@@ -481,19 +481,33 @@ class TestCmdSend:
         captured = capsys.readouterr()
         assert "Task created" in captured.out
 
-    def test_send_with_wait_flag(self, mock_args, capsys):
-        """Should show message about --return not implemented."""
+    def test_send_with_response_flag(self, mock_args, capsys):
+        """Should pass --response flag to a2a.py."""
         mock_args.target = "codex"
         mock_args.message = "Test"
         mock_args.priority = 1
-        mock_args.wait = True
+        mock_args.want_response = True
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="")
             cmd_send(mock_args)
 
-        captured = capsys.readouterr()
-        assert "--return not yet implemented" in captured.out
+            cmd = mock_run.call_args[0][0]
+            assert "--response" in cmd
+
+    def test_send_with_no_response_flag(self, mock_args, capsys):
+        """Should pass --no-response flag to a2a.py."""
+        mock_args.target = "codex"
+        mock_args.message = "Test"
+        mock_args.priority = 1
+        mock_args.want_response = False
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            cmd_send(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--no-response" in cmd
 
 
 # ==============================================================================

@@ -167,13 +167,13 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 
 ```markdown
 # 結果の統合が必要な場合
-コーディングはCodexに依頼し、結果を待って確認する（synapse send --return）
+コーディングはCodexに依頼し、結果を待って確認する（synapse send --response）
 
 # 並列実行する場合
-複数の調査タスクはGeminiに順次転送する（synapse send、--return なし）
+複数の調査タスクはGeminiに順次転送する（synapse send、--response なし）
 ```
 
-> **Note**: `--return` フラグの詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+> **Note**: `--response` フラグの詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
 
 ---
 
@@ -231,7 +231,7 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 # Development Delegation
 
 設計とコードレビューは自分で行う。
-実装（ファイル編集、新規作成）はCodexに依頼する（synapse send --return で結果を確認）。
+実装（ファイル編集、新規作成）はCodexに依頼する（synapse send --response で結果を確認）。
 技術調査やドキュメント作成はGeminiに依頼する。
 ```
 
@@ -241,7 +241,7 @@ Claudeが自動的にルールに従ってタスクを振り分けます。
 # Research Delegation
 
 Web検索や調査タスクはGeminiに転送する。
-複数の調査を並列で実行する場合は synapse send（--return なし）を使う。
+複数の調査を並列で実行する場合は synapse send（--response なし）を使う。
 それ以外は自分で処理する。
 ```
 
@@ -251,7 +251,7 @@ Web検索や調査タスクはGeminiに転送する。
 # Coding Delegation
 
 コーディング作業（Edit, Write, Bash）はすべてCodexに任せる。
-結果を確認してからユーザーに報告する（synapse send --return を使用）。
+結果を確認してからユーザーに報告する（synapse send --response を使用）。
 ```
 
 ---

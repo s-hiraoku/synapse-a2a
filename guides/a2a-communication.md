@@ -49,7 +49,7 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--return]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
 ```
 
 ### パラメータ
@@ -59,7 +59,8 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--return]
 | `target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
 | `--from, -f` | 送信元エージェントID（返信先特定用） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
-| `--return, -r` | 応答を待つ |
+| `--response` | 応答を待つ |
+| `--no-response` | 応答を待たない（デフォルト） |
 
 ### 例
 
@@ -76,15 +77,15 @@ synapse send codex "STOP" --priority 5 --from claude
 
 **重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
 
-### いつ --return を使うか
+### いつ --response を使うか
 
-**--return を使う場合：**
+**--response を使う場合：**
 - 結果が必要で続きの作業に使う
 - 質問をして答えが必要
 - タスク完了を確認したい
 - ユーザーへの報告に結果を統合する
 
-**--return を使わない場合（デフォルト）：**
+**--response を使わない場合（デフォルト）：**
 - バックグラウンドで実行するタスク
 - 別の手段で結果を受け取る
 - 並列で複数タスクを委譲する
@@ -115,13 +116,13 @@ synapse send codex "STOP" --priority 5 --from claude
 
 ### Flow 設定とフラグの組み合わせ
 
-| `a2a.flow` | フラグなし | `--return` |
+| `a2a.flow` | フラグなし | `--response` |
 |------------|-----------|------------|
 | `roundtrip` | 待つ | 待つ |
 | `oneway` | 待たない | 待たない（上書き） |
 | `auto` | 待たない（デフォルト） | 待つ |
 
-> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではAIエージェントが `--return` フラグで明示的に制御します。
+> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではAIエージェントが `--response` フラグで明示的に制御します。
 
 ---
 
@@ -182,7 +183,7 @@ A2A メッセージには送信元情報が自動的に付与されます。
 ### 結果を統合して報告
 
 ```bash
-synapse send codex "ファイルを修正して" --return --from claude
+synapse send codex "ファイルを修正して" --response --from claude
 ```
 
 結果を待ち、完了後に統合して報告できます。
@@ -215,7 +216,7 @@ synapse send codex "テストを書いて" --from claude
 ### 応答が返ってこない
 
 1. `a2a.flow` 設定を確認（`oneway` だと結果を待たない）
-2. `--return` フラグを明示的に使用
+2. `--response` フラグを明示的に使用
 3. 対象エージェントの状態を確認:
    ```bash
    synapse list

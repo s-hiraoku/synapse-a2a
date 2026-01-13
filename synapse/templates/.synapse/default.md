@@ -22,14 +22,15 @@ HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--return]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
 ```
 
 Parameters:
 - `target`: Agent ID (e.g., `synapse-gemini-8110`) or type (e.g., `gemini`)
 - `--from, -f`: Your agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--return, -r`: Wait for and receive response from target agent
+- `--response`: Wait for and receive response from target agent
+- `--no-response`: Do not wait for response (default, fire and forget)
 
 IMPORTANT: Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
 
@@ -49,7 +50,7 @@ synapse send codex "Refactor the auth module" --from claude
 synapse send codex "STOP" --priority 5 --from claude
 
 # Wait for response
-synapse send gemini "Analyze this" --return --from claude
+synapse send gemini "Analyze this" --response --from claude
 ```
 
 AVAILABLE AGENTS: claude, gemini, codex
