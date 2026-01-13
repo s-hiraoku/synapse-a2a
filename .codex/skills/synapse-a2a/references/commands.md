@@ -67,7 +67,9 @@ Examples:
 @claude-8100 Review this code
 ```
 
-### A2A Tool
+### A2A Tool (External Use Only)
+
+> **Important**: The `python -m synapse.tools.a2a` command is for use **outside** of Synapse-wrapped agents (e.g., from a separate terminal or external scripts). Within a Synapse session, always use the `@agent` pattern instead.
 
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] [--non-response] "<MESSAGE>"
@@ -78,9 +80,13 @@ python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] [--non-resp
 - `--priority`: 1-2 low/background, 3 normal, 4 urgent follow-up, 5 critical
 - `--non-response`: Do not require response from receiver
 
-Examples:
+**Why external only?**
+- Sandboxed agents (like Codex) cannot make direct socket connections
+- The `@agent` pattern routes through Synapse which handles network access
+
+Examples (run from external terminal):
 ```bash
-# Normal task (default priority 1)
+# Low priority background task (default priority 1)
 python -m synapse.tools.a2a send --target claude "Please review this code"
 
 # Normal priority

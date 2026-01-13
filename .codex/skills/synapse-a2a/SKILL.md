@@ -13,14 +13,14 @@ Inter-agent communication framework via Google A2A Protocol.
 |------|---------|
 | List agents | `synapse list` |
 | Watch agents | `synapse list --watch` |
-| Send message | `@<agent> <message>` or `python3 synapse/tools/a2a.py send --target <agent> "<message>"` |
+| Send message | `@<agent> <message>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
 
-## @Agent Routing
+## @Agent Routing (Recommended)
 
-Send messages to other agents using the `@agent` pattern:
+**Always use the `@agent` pattern for inter-agent communication.** This works reliably within the Synapse environment and handles sandbox restrictions automatically.
 
 ```text
 @codex Please refactor this file
@@ -37,15 +37,19 @@ Send messages to other agents using the `@agent` pattern:
 
 | Priority | Description | Use Case |
 |----------|-------------|----------|
-| 1 | Normal | Default for standard tasks |
-| 2-3 | Elevated | Higher urgency |
+| 1-2 | Low | Background tasks |
+| 3 | Normal | Standard tasks |
 | 4 | Urgent | Follow-ups, status checks |
 | 5 | Interrupt | Emergency (sends SIGINT first) |
 
-```bash
-# Emergency interrupt
-python3 synapse/tools/a2a.py send --target codex --priority 5 "STOP"
+For priority control, use the `--priority` flag with `@agent`:
+
+```text
+# Priority is specified by Synapse automatically based on context
+# For emergency interrupt, contact the user to use external tools
 ```
+
+> **Note**: Direct use of `python -m synapse.tools.a2a` is for external tools only. Within Synapse, always use `@agent` pattern.
 
 ## Agent Status
 
