@@ -684,6 +684,7 @@ class FileSafetyManager:
         self,
         agent_name: str | None = None,
         *,
+        pid: int | None = None,
         agent_type: str | None = None,
         include_stale: bool = True,
     ) -> list[dict[str, Any]]:
@@ -691,6 +692,7 @@ class FileSafetyManager:
 
         Args:
             agent_name: Optional filter by agent name/agent_id (exact match)
+            pid: Optional filter by process ID (exact match)
             agent_type: Optional filter by agent type (e.g., "claude", "gemini")
             include_stale: If True, include locks from dead processes (default: True)
 
@@ -712,7 +714,12 @@ class FileSafetyManager:
                 conn.commit()
 
                 # Build query based on filters
-                if agent_type:
+                if pid is not None:
+                    cursor.execute(
+                        "SELECT * FROM file_locks WHERE pid = ? ORDER BY locked_at DESC",
+                        (pid,),
+                    )
+                elif agent_type:
                     cursor.execute(
                         "SELECT * FROM file_locks WHERE agent_type = ? ORDER BY locked_at DESC",
                         (agent_type,),

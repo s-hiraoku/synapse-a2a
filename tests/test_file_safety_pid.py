@@ -110,6 +110,26 @@ class TestPIDBasedLockManagement:
         assert len(gemini_locks) == 1
         assert gemini_locks[0]["agent_type"] == "gemini"
 
+    def test_list_locks_filter_by_pid(self, manager):
+        """Should filter locks by pid."""
+        manager.acquire_lock(
+            "file1.py",
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            pid=1111,
+        )
+        manager.acquire_lock(
+            "file2.py",
+            agent_id="synapse-gemini-8110",
+            agent_type="gemini",
+            pid=2222,
+        )
+
+        locks = manager.list_locks(pid=1111)
+        assert len(locks) == 1
+        assert locks[0]["file_path"].endswith("file1.py")
+        assert locks[0]["pid"] == 1111
+
     def test_check_lock_detects_dead_process(self, manager, temp_db_path):
         """Should detect and clean up locks from dead processes."""
         # Insert a lock with a non-existent PID

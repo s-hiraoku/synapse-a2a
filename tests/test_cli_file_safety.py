@@ -78,9 +78,10 @@ class TestCliFileSafetyCommands:
         assert "test.py" in printed_output
         assert "claude" in printed_output
 
+    @patch("synapse.registry.AgentRegistry")
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
-    def test_cmd_file_safety_lock(self, mock_print, mock_fm, mock_args):
+    def test_cmd_file_safety_lock(self, mock_print, mock_fm, mock_registry, mock_args):
         """cmd_file_safety_lock should call acquire_lock."""
         mock_fm_inst = mock_fm.from_env.return_value
         mock_fm_inst.enabled = True
@@ -88,6 +89,8 @@ class TestCliFileSafetyCommands:
             "status": LockStatus.ACQUIRED,
             "expires_at": "2026-01-09 11:00:00",
         }
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
 
         cmd_file_safety_lock(mock_args)
 
@@ -97,11 +100,40 @@ class TestCliFileSafetyCommands:
             task_id="task-1",
             duration_seconds=300,
             intent="Refactoring",
+            pid=None,
         )
         printed_output = "\n".join(
             call.args[0] for call in mock_print.call_args_list if call.args
         )
         assert "Lock acquired on test.py" in printed_output
+
+    @patch("synapse.registry.AgentRegistry")
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_uses_registry_pid(
+        self, mock_print, mock_fm, mock_registry, mock_args
+    ):
+        """cmd_file_safety_lock should pass registry PID when available."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.ACQUIRED,
+            "expires_at": "2026-01-09 11:00:00",
+        }
+
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = {"pid": 4321}
+
+        cmd_file_safety_lock(mock_args)
+
+        mock_fm_inst.acquire_lock.assert_called_once_with(
+            file_path="test.py",
+            agent_name="claude",
+            task_id="task-1",
+            duration_seconds=300,
+            intent="Refactoring",
+            pid=4321,
+        )
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")

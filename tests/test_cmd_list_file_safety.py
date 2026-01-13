@@ -96,9 +96,10 @@ def test_render_table_file_safety_shows_locked_file(list_command, mock_registry)
         fsm_instance.get_stale_locks.return_value = []
 
         # Setup locks: claude locks a file
-        # list_locks now receives agent_type as keyword argument
-        def mock_list_locks(agent_name=None, *, agent_type=None, include_stale=True):
-            if agent_type == "claude":
+        def mock_list_locks(
+            agent_name=None, *, pid=None, agent_type=None, include_stale=True
+        ):
+            if pid == 12345:
                 return [{"file_path": "/path/to/important_file.py"}]
             return []
 
@@ -125,9 +126,10 @@ def test_render_table_shows_only_one_locked_file(list_command, mock_registry):
         fsm_instance.get_stale_locks.return_value = []
 
         # Setup locks: claude locks multiple files
-        # list_locks now receives agent_type as keyword argument
-        def mock_list_locks(agent_name=None, *, agent_type=None, include_stale=True):
-            if agent_type == "claude":
+        def mock_list_locks(
+            agent_name=None, *, pid=None, agent_type=None, include_stale=True
+        ):
+            if pid == 12345:
                 return [
                     {"file_path": "/path/to/file1.py"},
                     {"file_path": "/path/to/file2.py"},

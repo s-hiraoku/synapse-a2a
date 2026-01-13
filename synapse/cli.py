@@ -691,6 +691,7 @@ def cmd_file_safety_locks(args: argparse.Namespace) -> None:
 def cmd_file_safety_lock(args: argparse.Namespace) -> None:
     """Acquire a lock on a file."""
     from synapse.file_safety import FileSafetyManager, LockStatus
+    from synapse.registry import AgentRegistry
 
     manager = FileSafetyManager.from_env()
 
@@ -698,12 +699,22 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
         return
 
+    pid = None
+    try:
+        registry = AgentRegistry()
+        agent_info = registry.get_agent(args.agent)
+        if agent_info:
+            pid = agent_info.get("pid")
+    except Exception:
+        pid = None
+
     result = manager.acquire_lock(
         file_path=args.file,
         agent_name=args.agent,
         task_id=args.task_id if hasattr(args, "task_id") else None,
         duration_seconds=args.duration if hasattr(args, "duration") else None,
         intent=args.intent if hasattr(args, "intent") else None,
+        pid=pid,
     )
 
     status = result["status"]
