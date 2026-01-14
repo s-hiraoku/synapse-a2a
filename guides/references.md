@@ -138,10 +138,10 @@ synapse list [--watch] [--interval SECONDS]
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `--watch`, `-w` | No | ウォッチモード（リアルタイム更新） |
+| `--watch`, `-w` | No | ウォッチモード（リアルタイム更新、TRANSPORT 列表示） |
 | `--interval`, `-i` | No | 更新間隔（秒）（デフォルト: 2.0） |
 
-**出力形式**:
+**通常の出力形式**:
 
 ```
 TYPE       PORT     STATUS     PID      ENDPOINT
@@ -150,13 +150,37 @@ claude     8100     READY      12345    http://localhost:8100
 codex      8120     PROCESSING 12346    http://localhost:8120
 ```
 
+**Watch モードの出力形式（`synapse list --watch`）**:
+
+```
+Synapse A2A v0.2.12 - Agent List (refreshing every 2s)
+Last updated: 2024-01-15 10:30:45
+
+TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              ENDPOINT
+claude     8100     PROCESSING   UDS→       12345    /home/user/project       http://localhost:8100
+gemini     8110     PROCESSING   →UDS       12346    /home/user/other         http://localhost:8110
+codex      8120     READY        -           12347    /home/user/third         http://localhost:8120
+```
+
 | 列 | 説明 |
 |----|------|
 | TYPE | エージェントタイプ（プロファイル名） |
 | PORT | HTTP サーバーポート |
 | STATUS | 現在の状態（READY/PROCESSING） |
+| TRANSPORT | 通信中の方式（watch モードのみ） |
 | PID | プロセス ID |
+| WORKING_DIR | 作業ディレクトリ |
 | ENDPOINT | HTTP エンドポイント URL |
+
+**TRANSPORT 列の値**:
+
+| 値 | 説明 |
+|----|------|
+| `UDS→` | UDS（Unix Domain Socket）で送信中 |
+| `TCP→` | TCP/HTTP で送信中 |
+| `→UDS` | UDS で受信中 |
+| `→TCP` | TCP で受信中 |
+| `-` | 通信なし |
 
 ---
 
@@ -775,13 +799,13 @@ curl -X POST http://localhost:8100/external/discover \
 ### 3.1 構文
 
 ```
-@<agent_name> [--non-response] <message>
+@<agent_name> <message>
 ```
 
 **正規表現パターン**:
 
 ```regex
-^@(\w+)(\s+--non-response)?\s+(.+)$
+^@(\w+(-\d+)?)\s+(.+)$
 ```
 
 ### 3.2 パターン
@@ -789,7 +813,9 @@ curl -X POST http://localhost:8100/external/discover \
 | 構文 | 説明 |
 |------|------|
 | `@agent message` | メッセージ送信（デフォルトで応答待ち） |
-| `@agent --non-response message` | メッセージ送信（応答を待たない） |
+| `@agent-port message` | 特定ポートのエージェントに送信 |
+
+> **Note**: レスポンスを待たずに送信したい場合は、`synapse send` コマンドの `--no-response` オプションを使用してください。
 
 ### 3.3 例
 
@@ -798,14 +824,19 @@ curl -X POST http://localhost:8100/external/discover \
 @codex 設計をレビューして
 @gemini このコードを最適化して
 
-# レスポンスを待たない
-@claude --non-response "タスクを実行して"
-@codex --non-response "バックグラウンドで処理して"
+# 特定のインスタンスに送信
+@claude-8100 このコードをレビューして
+@codex-8120 このファイルを修正して
 
 # クォート付き
 @gemini "複雑な メッセージ"
 @claude '複雑な メッセージ'
 ```
+
+> **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください:
+> ```bash
+> synapse send codex "バックグラウンドで処理して" --from claude --no-response
+> ```
 
 ### 3.4 フィードバック表示
 

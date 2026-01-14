@@ -48,8 +48,8 @@ synapse gemini
 
 # List agents
 synapse list                              # Show all running agents
-synapse list --watch                      # Watch mode (refresh every 2s)
-synapse list -w -i 1                      # Watch mode with 1s interval
+synapse list --watch                      # Watch mode (refresh every 2s, shows TRANSPORT column)
+synapse list -w -i 0.5                    # Watch mode with 0.5s interval (for observing communication)
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude
@@ -64,9 +64,13 @@ synapse instructions files claude         # List instruction files for Claude
 synapse instructions send claude          # Send instructions to running Claude agent
 synapse instructions send claude --preview # Preview without sending
 
+# Send messages (--response waits for reply, --no-response sends only)
+synapse send gemini "Analyze this" --from claude --response
+synapse send codex "Process this" --from claude --no-response
+
 # Low-level A2A tool
-python3 synapse/tools/a2a.py list
-python3 synapse/tools/a2a.py send --target claude --priority 1 "message"
+python -m synapse.tools.a2a list
+python -m synapse.tools.a2a send --target claude --priority 1 "message"
 ```
 
 ## Core Design Principle
@@ -220,9 +224,12 @@ To verify the registry status update system works correctly:
 # Terminal 1: Start a Claude agent
 synapse claude
 
-# Terminal 2: Watch agent status changes
+# Terminal 2: Start another agent
+synapse gemini
+
+# Terminal 3: Watch agent status changes
 synapse list --watch                      # 2s refresh (default)
-synapse list -w -i 0.5                    # 0.5s refresh (faster)
+synapse list -w -i 0.5                    # 0.5s refresh (faster, for observing TRANSPORT)
 
 # Expected behavior:
 # 1. Agent starts in PROCESSING status (initializing)
@@ -230,6 +237,18 @@ synapse list -w -i 0.5                    # 0.5s refresh (faster)
 # 3. Status updates are immediate (within refresh interval)
 # 4. No "flickering" where agent disappears/reappears
 # 5. No stale status values (always shows current state)
+# 6. TRANSPORT column shows UDS→/→UDS or TCP→/→TCP during communication
+```
+
+**Observing TRANSPORT column**:
+```bash
+# In Terminal 1 (Claude), send message to Gemini:
+@gemini hello
+
+# In Terminal 3, observe:
+# - Claude shows "UDS→" (sending via UDS)
+# - Gemini shows "→UDS" (receiving via UDS)
+# - After completion, both return to "-"
 ```
 
 ### Verifying Bug Fixes
@@ -306,7 +325,7 @@ synapse history stats --agent gemini
 
 2. **Delegate task**:
    ```bash
-   synapse send gemini "Write tests for X" --priority 3 --from claude
+   synapse send gemini "Write tests for X" --priority 3 --from claude --no-response
    ```
 
 3. **Monitor progress**:
@@ -317,7 +336,7 @@ synapse history stats --agent gemini
 
 4. **Send follow-up** (if needed):
    ```bash
-   synapse send gemini "Status update?" --priority 4 --from claude
+   synapse send gemini "Status update?" --priority 4 --from claude --response
    ```
 
 5. **Review completion**:

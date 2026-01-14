@@ -8,13 +8,13 @@
 # Show all running agents
 synapse list
 
-# Watch mode with auto-refresh (2s default)
+# Watch mode with auto-refresh (2s default, shows TRANSPORT column)
 synapse list --watch
 synapse list -w
 
-# Custom refresh interval
+# Custom refresh interval (0.5s recommended for observing communication)
 synapse list --watch --interval 0.5
-synapse list -w -i 1
+synapse list -w -i 0.5
 ```
 
 **Output includes:**
@@ -22,6 +22,10 @@ synapse list -w -i 1
 - Status (READY / PROCESSING)
 - Port number
 - Working directory
+- **TRANSPORT** (watch mode only): Communication method during inter-agent messages
+  - `UDS→` / `TCP→`: Sending via UDS/TCP
+  - `→UDS` / `→TCP`: Receiving via UDS/TCP
+  - `-`: No active communication
 
 ### Start Agents
 
