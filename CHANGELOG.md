@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.14] - 2026-01-15
+
+### Added
+
+- Transport display retention feature for `synapse list --watch` mode
+  - Communication events now persist for 3 seconds after completion
+  - Makes it possible to observe brief communication events in real-time
+  - New `registry.get_transport_display()` method with configurable retention period
+  - Stores `last_transport` and `transport_updated_at` for retention logic
+
 ## [0.2.13] - 2026-01-15
 
 ### Added
@@ -294,6 +304,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.13...v0.2.14
+[0.2.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.12...v0.2.13
+[0.2.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.8...v0.2.9

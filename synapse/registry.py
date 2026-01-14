@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -232,6 +233,10 @@ class AgentRegistry:
         Used by watch mode to display real-time communication status.
         Sender shows "UDS→" or "TCP→", receiver shows "→UDS" or "→TCP".
 
+        When transport is set, it's stored in active_transport and last_transport.
+        When transport is cleared (None), active_transport is removed but
+        last_transport and transport_updated_at are kept for retention display.
+
         Args:
             agent_id: The agent identifier.
             transport: Transport string (e.g., "UDS→", "→UDS", "TCP→", "→TCP")
@@ -242,9 +247,53 @@ class AgentRegistry:
         """
 
         def set_transport(data: dict) -> None:
+            now = time.time()
             if transport is None:
+                # Clear active_transport but keep last_transport for retention
                 data.pop("active_transport", None)
+                # Update timestamp when clearing (for retention countdown)
+                data["transport_updated_at"] = now
             else:
                 data["active_transport"] = transport
+                data["last_transport"] = transport
+                data["transport_updated_at"] = now
 
         return self._atomic_update(agent_id, set_transport, "transport")
+
+    def get_transport_display(
+        self, agent_id: str, retention_seconds: float = 3.0
+    ) -> str | None:
+        """
+        Get the transport to display, considering retention period.
+
+        If active_transport is set, return it.
+        If active_transport is None but last_transport exists and
+        transport_updated_at is within retention_seconds, return last_transport.
+        Otherwise return None.
+
+        Args:
+            agent_id: The agent identifier.
+            retention_seconds: How long to display last transport after clearing.
+
+        Returns:
+            Transport string to display, or None.
+        """
+        agent_data = self.get_agent(agent_id)
+        if not agent_data:
+            return None
+
+        # If active transport is set, return it
+        active = agent_data.get("active_transport")
+        if active and isinstance(active, str):
+            return str(active)
+
+        # Check if we should display last transport due to retention
+        last_transport = agent_data.get("last_transport")
+        updated_at = agent_data.get("transport_updated_at")
+
+        if last_transport and isinstance(last_transport, str) and updated_at:
+            elapsed = time.time() - updated_at
+            if elapsed < retention_seconds:
+                return str(last_transport)
+
+        return None
