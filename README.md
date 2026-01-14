@@ -429,7 +429,7 @@ synapse claude -- --resume
 | `synapse start <profile>`         | バックグラウンドで起動 |
 | `synapse stop <profile\|id>`      | エージェント停止（ID指定も可） |
 | `synapse --version`             | バージョン情報表示     |
-| `synapse list`                    | 実行中エージェント一覧 |
+| `synapse list`                    | 実行中エージェント一覧（`--watch` で TRANSPORT 列表示） |
 | `synapse logs <profile>`          | ログ表示               |
 | `synapse send <target> <message>` | メッセージ送信         |
 | `synapse instructions show`       | インストラクション内容表示 |

@@ -211,3 +211,85 @@ def test_update_status_multiple_times(registry):
 
     registry.update_status(agent_id, "IDLE")
     assert registry.get_agent(agent_id)["status"] == "IDLE"
+
+
+# ============================================================================
+# Tests for update_transport (Transport Display Feature)
+# ============================================================================
+
+
+def test_update_transport_sender(registry):
+    """update_transport sets sender format (UDS→)."""
+    agent_id = "test_transport_sender"
+    registry.register(agent_id, "claude", 8100)
+
+    result = registry.update_transport(agent_id, "UDS→")
+    assert result is True
+
+    info = registry.get_agent(agent_id)
+    assert info["active_transport"] == "UDS→"
+
+
+def test_update_transport_receiver(registry):
+    """update_transport sets receiver format (→UDS)."""
+    agent_id = "test_transport_receiver"
+    registry.register(agent_id, "gemini", 8110)
+
+    result = registry.update_transport(agent_id, "→UDS")
+    assert result is True
+
+    info = registry.get_agent(agent_id)
+    assert info["active_transport"] == "→UDS"
+
+
+def test_update_transport_tcp(registry):
+    """update_transport works with TCP format."""
+    agent_id = "test_transport_tcp"
+    registry.register(agent_id, "claude", 8100)
+
+    # Sender TCP
+    result = registry.update_transport(agent_id, "TCP→")
+    assert result is True
+    assert registry.get_agent(agent_id)["active_transport"] == "TCP→"
+
+    # Receiver TCP
+    result = registry.update_transport(agent_id, "→TCP")
+    assert result is True
+    assert registry.get_agent(agent_id)["active_transport"] == "→TCP"
+
+
+def test_update_transport_clear(registry):
+    """update_transport clears active_transport with None."""
+    agent_id = "test_transport_clear"
+    registry.register(agent_id, "claude", 8100)
+
+    # Set transport
+    registry.update_transport(agent_id, "UDS→")
+    assert registry.get_agent(agent_id)["active_transport"] == "UDS→"
+
+    # Clear transport
+    result = registry.update_transport(agent_id, None)
+    assert result is True
+
+    info = registry.get_agent(agent_id)
+    assert info.get("active_transport") is None
+
+
+def test_update_transport_nonexistent(registry):
+    """update_transport returns False for non-existent agent."""
+    result = registry.update_transport("nonexistent", "UDS→")
+    assert result is False
+
+
+def test_update_transport_preserves_other_fields(registry):
+    """update_transport should not modify other fields."""
+    agent_id = "test_transport_preserve"
+    registry.register(agent_id, "claude", 8100, status="READY")
+
+    registry.update_transport(agent_id, "UDS→")
+
+    info = registry.get_agent(agent_id)
+    assert info["agent_type"] == "claude"
+    assert info["port"] == 8100
+    assert info["status"] == "READY"
+    assert info["active_transport"] == "UDS→"

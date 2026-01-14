@@ -4,6 +4,7 @@ import logging
 import os
 import socket
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,55 @@ class AgentRegistry:
         except (json.JSONDecodeError, OSError):
             return None
 
+    def _atomic_update(
+        self, agent_id: str, updater: Callable[[dict], None], field_name: str
+    ) -> bool:
+        """
+        Atomically update an agent's registry file.
+
+        Args:
+            agent_id: The unique agent identifier.
+            updater: Function that modifies the data dict in place.
+            field_name: Name of the field being updated (for error messages).
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        file_path = self.registry_dir / f"{agent_id}.json"
+        if not file_path.exists():
+            return False
+
+        try:
+            with open(file_path) as f:
+                data = json.load(f)
+
+            updater(data)
+
+            # Atomic write: write to temp file, then rename
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=self.registry_dir,
+                prefix=f".{agent_id}.",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(temp_fd, "w") as f:
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                # Atomic rename (POSIX guarantee)
+                os.replace(temp_path, file_path)
+                return True
+            except Exception:
+                if os.path.exists(temp_path):
+                    with contextlib.suppress(OSError):
+                        os.unlink(temp_path)
+                raise
+
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error(f"Failed to update {field_name} for {agent_id}: {e}")
+            return False
+
     def update_status(self, agent_id: str, status: str) -> bool:
         """
         Update the status of a registered agent (atomic write).
@@ -146,45 +196,11 @@ class AgentRegistry:
         Returns:
             True if updated successfully, False otherwise.
         """
-        file_path = self.registry_dir / f"{agent_id}.json"
-        if not file_path.exists():
-            return False
 
-        try:
-            # Read current data
-            with open(file_path) as f:
-                data = json.load(f)
-
+        def set_status(data: dict) -> None:
             data["status"] = status
 
-            # Atomic write: write to temp file, then rename
-            # This ensures watch mode always reads complete JSON
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.registry_dir,
-                prefix=f".{agent_id}.",
-                suffix=".tmp",
-            )
-            try:
-                with os.fdopen(temp_fd, "w") as f:
-                    json.dump(data, f, indent=2)
-                    f.flush()
-                    # Force write to disk for critical updates
-                    os.fsync(f.fileno())
-
-                # Atomic rename (POSIX guarantee)
-                # This prevents watch mode from seeing partial files
-                os.replace(temp_path, file_path)
-                return True
-            except Exception:
-                # Cleanup temp file on error
-                if os.path.exists(temp_path):
-                    with contextlib.suppress(OSError):
-                        os.unlink(temp_path)
-                raise
-
-        except (json.JSONDecodeError, OSError) as e:
-            logger.error(f"Failed to update status for {agent_id}: {e}")
-            return False
+        return self._atomic_update(agent_id, set_status, "status")
 
     def cleanup_stale_entries(self) -> list[str]:
         """
@@ -208,3 +224,27 @@ class AgentRegistry:
         """
         self.cleanup_stale_entries()
         return self.list_agents()
+
+    def update_transport(self, agent_id: str, transport: str | None) -> bool:
+        """
+        Update the active transport method for an agent (atomic write).
+
+        Used by watch mode to display real-time communication status.
+        Sender shows "UDS→" or "TCP→", receiver shows "→UDS" or "→TCP".
+
+        Args:
+            agent_id: The agent identifier.
+            transport: Transport string (e.g., "UDS→", "→UDS", "TCP→", "→TCP")
+                       or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_transport(data: dict) -> None:
+            if transport is None:
+                data.pop("active_transport", None)
+            else:
+                data["active_transport"] = transport
+
+        return self._atomic_update(agent_id, set_transport, "transport")

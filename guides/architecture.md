@@ -165,12 +165,15 @@ classDiagram
 **パターン検出**:
 
 ```
-@Agent [--non-response] message
+@Agent message
 
 例:
 @codex 設計をレビューして
 @claude "コードをチェックして"
+@codex-8120 このファイルを修正して
 ```
+
+> **Note**: `@Agent` パターンはデフォルトでレスポンスを待ちます。レスポンスを待たずに送信したい場合は `synapse send --no-response` を使用してください。
 
 **入力処理フロー**:
 
@@ -513,7 +516,7 @@ sequenceDiagram
 - メッセージは A2AMessage 形式（Message/Part 構造）に変換される
 - `/tasks/send-priority` エンドポイントを使用（priority サポートのため）
 
-### 4.2 --non-response オプション付き通信
+### 4.2 レスポンス待ち通信（クォート付き）
 
 ```mermaid
 sequenceDiagram

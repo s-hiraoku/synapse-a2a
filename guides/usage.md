@@ -259,6 +259,23 @@ codex      8120     PROCESSING 12346    /home/user/projects/myapp               
 gemini     8110     READY      12347    -                                                  http://localhost:8110
 ```
 
+**Watch モードでの出力例（`synapse list --watch`）**:
+
+```
+Synapse A2A v0.2.12 - Agent List (refreshing every 2s)
+Last updated: 2024-01-15 10:30:45
+
+TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              ENDPOINT
+claude     8100     PROCESSING   UDS→       12345    /home/user/project       http://localhost:8100
+gemini     8110     PROCESSING   →UDS       12346    /home/user/other         http://localhost:8110
+codex      8120     READY        -           12347    /home/user/third         http://localhost:8120
+```
+
+> **Note**: Watch モード（`--watch` / `-w`）では、**TRANSPORT 列**がリアルタイム表示されます。
+> - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中
+> - `→UDS` / `→TCP`: エージェントが UDS/TCP で受信中
+> - `-`: 通信なし
+
 **File Safety 機能が有効な場合の出力例**:
 
 ```
@@ -388,7 +405,7 @@ synapse external remove <alias>
 ### 3.1 基本構文
 
 ```
-@<agent_name> [--non-response] <message>
+@<agent_name> <message>
 ```
 
 **パターン**:
@@ -397,12 +414,12 @@ synapse external remove <alias>
 flowchart LR
     At["@"]
     Agent["agent_name"]
-    Option["--non-response"]
     Message["message"]
 
-    At --> Agent --> Option --> Message
-    Agent -.-> Message
+    At --> Agent --> Message
 ```
+
+> **Note**: `@Agent` パターンはデフォルトでレスポンスを待ちます。レスポンスを待たない場合は `synapse send` コマンドを使用してください。
 
 ### 3.2 通常送信
 
@@ -751,7 +768,7 @@ Ink ベースの TUI（Claude Code など）では、以下の問題が発生す
 
 ### 7.3 レスポンス待ちのタイムアウト
 
-デフォルトでレスポンスを待ちます（最大 60 秒）。`--non-response` オプションを指定すると、レスポンスを待たずに送信のみ行います。長時間の処理を依頼する場合は、別途 `/status` API でポーリングしてください。
+`@Agent` パターンはデフォルトでレスポンスを待ちます（最大 60 秒）。レスポンスを待たずに送信のみ行いたい場合は、`synapse send` コマンドの `--no-response` オプションを使用してください。長時間の処理を依頼する場合は、別途 `/status` API でポーリングしてください。
 
 ---
 

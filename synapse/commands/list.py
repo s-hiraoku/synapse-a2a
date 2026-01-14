@@ -45,12 +45,15 @@ class ListCommand:
             lines.append(f"  {agent_type}: {start}-{end}")
         return "\n".join(lines)
 
-    def _render_agent_table(self, registry: AgentRegistry) -> str:
+    def _render_agent_table(
+        self, registry: AgentRegistry, is_watch_mode: bool = False
+    ) -> str:
         """
         Render the agent table output.
 
         Args:
             registry: AgentRegistry instance
+            is_watch_mode: If True, show TRANSPORT column for real-time status
 
         Returns:
             str: Formatted table output
@@ -63,23 +66,37 @@ class ListCommand:
         file_safety = FileSafetyManager.from_env()
         show_file_safety = file_safety.enabled
 
-        lines = []
+        # Build column list based on mode
+        columns = [
+            ("TYPE", 10),
+            ("PORT", 8),
+            ("STATUS", 12),
+        ]
+        if is_watch_mode:
+            columns.append(("TRANSPORT", 10))
+        columns.extend(
+            [
+                ("PID", 8),
+                ("WORKING_DIR", 50),
+            ]
+        )
         if show_file_safety:
-            header = (
-                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-                f"{'WORKING_DIR':<50} {'EDITING FILE':<30} ENDPOINT"
-            )
-        else:
-            header = (
-                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-                f"{'WORKING_DIR':<50} ENDPOINT"
-            )
-        lines.append(header)
-        lines.append("-" * len(header))
+            columns.append(("EDITING FILE", 30))
+        columns.append(("ENDPOINT", 0))  # 0 means no padding (last column)
+
+        # Build header
+        header_parts = []
+        for name, width in columns:
+            if width > 0:
+                header_parts.append(f"{name:<{width}}")
+            else:
+                header_parts.append(name)
+        header = " ".join(header_parts)
+
+        lines = [header, "-" * len(header)]
 
         live_agents = False
         for agent_id, info in agents.items():
-            # Verify agent is still alive (PID check + port check)
             pid = info.get("pid")
             port = info.get("port")
             status = info.get("status", "-")
@@ -101,17 +118,23 @@ class ListCommand:
 
             live_agents = True
 
-            # Build base row fields
-            base_row = (
-                f"{info.get('agent_type', 'unknown'):<10} "
-                f"{info.get('port', '-'):<8} "
-                f"{status:<12} "
-                f"{pid or '-':<8} "
-                f"{info.get('working_dir', '-'):<50} "
+            # Build row values matching column order
+            row_values = [
+                (info.get("agent_type", "unknown"), 10),
+                (info.get("port", "-"), 8),
+                (status, 12),
+            ]
+            if is_watch_mode:
+                transport = info.get("active_transport") or "-"
+                row_values.append((transport, 10))
+            row_values.extend(
+                [
+                    (pid or "-", 8),
+                    (info.get("working_dir", "-"), 50),
+                ]
             )
 
             if show_file_safety:
-                # Use agent_type for filtering (e.g., "claude", "gemini")
                 agent_type = info.get("agent_type", "")
                 if pid:
                     locks = file_safety.list_locks(pid=pid, include_stale=False)
@@ -124,13 +147,19 @@ class ListCommand:
                     file_path = locks[0].get("file_path")
                     if file_path:
                         editing_file = os.path.basename(file_path)
-                lines.append(
-                    f"{base_row}{editing_file:<30} {info.get('endpoint', '-')}"
-                )
-            else:
-                lines.append(f"{base_row}{info.get('endpoint', '-')}")
+                row_values.append((editing_file, 30))
 
-        # If all agents were dead, show empty registry message
+            row_values.append((info.get("endpoint", "-"), 0))
+
+            # Format row
+            row_parts = []
+            for value, width in row_values:
+                if width > 0:
+                    row_parts.append(f"{value:<{width}}")
+                else:
+                    row_parts.append(str(value))
+            lines.append(" ".join(row_parts))
+
         if not live_agents:
             return self._format_empty_message()
 
@@ -178,7 +207,7 @@ class ListCommand:
                 )
                 self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
                 self._print("")
-                self._print(self._render_agent_table(registry))
+                self._print(self._render_agent_table(registry, is_watch_mode=True))
                 self._time.sleep(interval)
         except KeyboardInterrupt:
             self._print("\n\nExiting watch mode...")

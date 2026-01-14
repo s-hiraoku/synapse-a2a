@@ -708,3 +708,131 @@ class TestPartialJSONRead:
         if False in watch_outputs:
             # Bug is present: agent disappeared temporarily
             assert watch_outputs[-1] is True  # But reappears at end
+
+
+# ============================================================================
+# Tests for Transport Display Feature (watch mode only)
+# ============================================================================
+
+
+class TestTransportDisplay:
+    """Tests for TRANSPORT column in watch mode."""
+
+    def _create_list_command(
+        self,
+        is_process_alive=lambda p: True,
+        is_port_open=lambda host, port, timeout=0.5: True,
+    ):
+        """Create a ListCommand with mock dependencies."""
+        return ListCommand(
+            registry_factory=lambda: MagicMock(spec=AgentRegistry),
+            is_process_alive=is_process_alive,
+            is_port_open=is_port_open,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
+
+    def test_watch_mode_shows_transport_column(self, temp_registry):
+        """Watch mode includes TRANSPORT column in header."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        assert "TRANSPORT" in output
+
+    def test_normal_mode_no_transport_column(self, temp_registry):
+        """Normal mode (non-watch) should not show TRANSPORT column."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=False)
+
+        assert "TRANSPORT" not in output
+
+    def test_transport_shows_sender_format(self, temp_registry):
+        """Sender shows 'UDS→' when active_transport is set."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+        temp_registry.update_transport(agent_id, "UDS→")
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        assert "UDS→" in output
+
+    def test_transport_shows_receiver_format(self, temp_registry):
+        """Receiver shows '→UDS' when active_transport is set."""
+        agent_id = "synapse-gemini-8110"
+        temp_registry.register(agent_id, "gemini", 8110, status="PROCESSING")
+        temp_registry.update_transport(agent_id, "→UDS")
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        assert "→UDS" in output
+
+    def test_transport_shows_tcp_format(self, temp_registry):
+        """TCP transport formats are displayed correctly."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+        temp_registry.update_transport(agent_id, "TCP→")
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        assert "TCP→" in output
+
+    def test_transport_shows_dash_when_idle(self, temp_registry):
+        """Transport shows '-' when no active communication."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+        # No active_transport set
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        # Should have TRANSPORT column with dash
+        assert "TRANSPORT" in output
+        lines = output.split("\n")
+        # Find the data line (skip header and separator)
+        data_lines = [line for line in lines if "claude" in line]
+        assert len(data_lines) == 1
+        # The line should contain a dash for transport (between STATUS and PID)
+        assert "-" in data_lines[0]
+
+    def test_transport_cleared_shows_dash(self, temp_registry):
+        """Transport shows '-' after being cleared (None)."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+        temp_registry.update_transport(agent_id, "UDS→")
+        temp_registry.update_transport(agent_id, None)  # Clear
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        # Should not show UDS→ anymore
+        assert "UDS→" not in output
+
+    def test_multiple_agents_with_different_transport(self, temp_registry):
+        """Multiple agents can show different transport states."""
+        temp_registry.register(
+            "synapse-claude-8100", "claude", 8100, status="PROCESSING"
+        )
+        temp_registry.register(
+            "synapse-gemini-8110", "gemini", 8110, status="PROCESSING"
+        )
+        temp_registry.register("synapse-codex-8120", "codex", 8120, status="READY")
+
+        temp_registry.update_transport("synapse-claude-8100", "UDS→")
+        temp_registry.update_transport("synapse-gemini-8110", "→UDS")
+        # codex has no active transport
+
+        list_cmd = self._create_list_command()
+        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+
+        assert "UDS→" in output
+        assert "→UDS" in output
