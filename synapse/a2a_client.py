@@ -266,17 +266,14 @@ class A2AClient:
 
         # Helper to update transport status in registry
         def _update_transport(transport_type: str | None) -> None:
-            if registry:
-                if sender_agent_id:
-                    if transport_type:
-                        registry.update_transport(sender_agent_id, f"{transport_type}→")
-                    else:
-                        registry.update_transport(sender_agent_id, None)
-                if target_agent_id:
-                    if transport_type:
-                        registry.update_transport(target_agent_id, f"→{transport_type}")
-                    else:
-                        registry.update_transport(target_agent_id, None)
+            if not registry:
+                return
+            if sender_agent_id:
+                value = f"{transport_type}→" if transport_type else None
+                registry.update_transport(sender_agent_id, value)
+            if target_agent_id:
+                value = f"→{transport_type}" if transport_type else None
+                registry.update_transport(target_agent_id, value)
 
         try:
             # Create A2A message
