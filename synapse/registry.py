@@ -208,3 +208,59 @@ class AgentRegistry:
         """
         self.cleanup_stale_entries()
         return self.list_agents()
+
+    def update_transport(self, agent_id: str, transport: str | None) -> bool:
+        """
+        Update the active transport method for an agent (atomic write).
+
+        Used by watch mode to display real-time communication status.
+        Sender shows "UDS→" or "TCP→", receiver shows "→UDS" or "→TCP".
+
+        Args:
+            agent_id: The agent identifier.
+            transport: Transport string (e.g., "UDS→", "→UDS", "TCP→", "→TCP")
+                       or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        file_path = self.registry_dir / f"{agent_id}.json"
+        if not file_path.exists():
+            return False
+
+        try:
+            # Read current data
+            with open(file_path) as f:
+                data = json.load(f)
+
+            # Update transport field
+            if transport is None:
+                data.pop("active_transport", None)
+            else:
+                data["active_transport"] = transport
+
+            # Atomic write: write to temp file, then rename
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=self.registry_dir,
+                prefix=f".{agent_id}.",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(temp_fd, "w") as f:
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                # Atomic rename (POSIX guarantee)
+                os.replace(temp_path, file_path)
+                return True
+            except Exception:
+                # Cleanup temp file on error
+                if os.path.exists(temp_path):
+                    with contextlib.suppress(OSError):
+                        os.unlink(temp_path)
+                raise
+
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error(f"Failed to update transport for {agent_id}: {e}")
+            return False

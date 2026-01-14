@@ -297,6 +297,9 @@ class InputRouter:
                 response_expected=response_expected,
                 uds_path=uds_path if isinstance(uds_path, str) else None,
                 local_only=local_only,
+                registry=self.registry,
+                sender_agent_id=self.self_agent_id,
+                target_agent_id=agent_id,
             )
 
             if task:

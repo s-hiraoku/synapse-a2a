@@ -45,12 +45,15 @@ class ListCommand:
             lines.append(f"  {agent_type}: {start}-{end}")
         return "\n".join(lines)
 
-    def _render_agent_table(self, registry: AgentRegistry) -> str:
+    def _render_agent_table(
+        self, registry: AgentRegistry, is_watch_mode: bool = False
+    ) -> str:
         """
         Render the agent table output.
 
         Args:
             registry: AgentRegistry instance
+            is_watch_mode: If True, show TRANSPORT column for real-time status
 
         Returns:
             str: Formatted table output
@@ -65,15 +68,27 @@ class ListCommand:
 
         lines = []
         if show_file_safety:
-            header = (
-                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-                f"{'WORKING_DIR':<50} {'EDITING FILE':<30} ENDPOINT"
-            )
+            if is_watch_mode:
+                header = (
+                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'TRANSPORT':<10} "
+                    f"{'PID':<8} {'WORKING_DIR':<50} {'EDITING FILE':<30} ENDPOINT"
+                )
+            else:
+                header = (
+                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+                    f"{'WORKING_DIR':<50} {'EDITING FILE':<30} ENDPOINT"
+                )
         else:
-            header = (
-                f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
-                f"{'WORKING_DIR':<50} ENDPOINT"
-            )
+            if is_watch_mode:
+                header = (
+                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'TRANSPORT':<10} "
+                    f"{'PID':<8} {'WORKING_DIR':<50} ENDPOINT"
+                )
+            else:
+                header = (
+                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} "
+                    f"{'WORKING_DIR':<50} ENDPOINT"
+                )
         lines.append(header)
         lines.append("-" * len(header))
 
@@ -101,14 +116,27 @@ class ListCommand:
 
             live_agents = True
 
+            # Get transport status for watch mode
+            transport = info.get("active_transport") or "-"
+
             # Build base row fields
-            base_row = (
-                f"{info.get('agent_type', 'unknown'):<10} "
-                f"{info.get('port', '-'):<8} "
-                f"{status:<12} "
-                f"{pid or '-':<8} "
-                f"{info.get('working_dir', '-'):<50} "
-            )
+            if is_watch_mode:
+                base_row = (
+                    f"{info.get('agent_type', 'unknown'):<10} "
+                    f"{info.get('port', '-'):<8} "
+                    f"{status:<12} "
+                    f"{transport:<10} "
+                    f"{pid or '-':<8} "
+                    f"{info.get('working_dir', '-'):<50} "
+                )
+            else:
+                base_row = (
+                    f"{info.get('agent_type', 'unknown'):<10} "
+                    f"{info.get('port', '-'):<8} "
+                    f"{status:<12} "
+                    f"{pid or '-':<8} "
+                    f"{info.get('working_dir', '-'):<50} "
+                )
 
             if show_file_safety:
                 # Use agent_type for filtering (e.g., "claude", "gemini")
@@ -178,7 +206,7 @@ class ListCommand:
                 )
                 self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
                 self._print("")
-                self._print(self._render_agent_table(registry))
+                self._print(self._render_agent_table(registry, is_watch_mode=True))
                 self._time.sleep(interval)
         except KeyboardInterrupt:
             self._print("\n\nExiting watch mode...")

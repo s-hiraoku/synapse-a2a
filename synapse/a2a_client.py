@@ -5,13 +5,15 @@ This module provides a client for communicating with external
 Google A2A compatible agents.
 """
 
+from __future__ import annotations
+
 import json
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 import httpx
@@ -23,6 +25,9 @@ from synapse.config import (
     TASK_POLL_INTERVAL,
 )
 from synapse.utils import get_iso_timestamp
+
+if TYPE_CHECKING:
+    from synapse.registry import AgentRegistry
 
 # ============================================================
 # Data Classes
@@ -58,7 +63,7 @@ class A2AMessage:
     parts: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_text(cls, text: str) -> "A2AMessage":
+    def from_text(cls, text: str) -> A2AMessage:
         """Create a message from plain text"""
         return cls(role="user", parts=[{"type": "text", "text": text}])
 
@@ -75,7 +80,7 @@ class A2ATask:
     updated_at: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], fallback_id: str = "") -> "A2ATask":
+    def from_dict(cls, data: dict[str, Any], fallback_id: str = "") -> A2ATask:
         """Create an A2ATask from a dictionary response."""
         return cls(
             id=data.get("id", fallback_id),
@@ -228,6 +233,9 @@ class A2AClient:
         in_reply_to: str | None = None,
         uds_path: str | None = None,
         local_only: bool = False,
+        registry: AgentRegistry | None = None,
+        sender_agent_id: str | None = None,
+        target_agent_id: str | None = None,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -244,12 +252,31 @@ class A2AClient:
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
             response_expected: Whether the sender expects a response from the target agent
             in_reply_to: Optional task ID to attach a reply to
+            uds_path: Optional UDS socket path for local communication
+            local_only: If True, only use UDS (no HTTP fallback)
+            registry: Optional AgentRegistry for transport status updates
+            sender_agent_id: Optional sender agent ID for transport display
+            target_agent_id: Optional target agent ID for transport display
 
         Returns:
             A2ATask if successful, None otherwise
         """
         if local_only and not uds_path:
             return None
+
+        # Helper to update transport status in registry
+        def _update_transport(transport_type: str | None) -> None:
+            if registry:
+                if sender_agent_id:
+                    if transport_type:
+                        registry.update_transport(sender_agent_id, f"{transport_type}→")
+                    else:
+                        registry.update_transport(sender_agent_id, None)
+                if target_agent_id:
+                    if transport_type:
+                        registry.update_transport(target_agent_id, f"→{transport_type}")
+                    else:
+                        registry.update_transport(target_agent_id, None)
 
         try:
             # Create A2A message
@@ -272,6 +299,8 @@ class A2AClient:
             if uds_path:
                 uds_file = Path(uds_path)
                 if uds_file.exists():
+                    # Update transport to UDS before attempting
+                    _update_transport("UDS")
                     retries = [0.05, 0.1, 0.2]
                     for idx, delay in enumerate(retries, start=1):
                         try:
@@ -294,17 +323,22 @@ class A2AClient:
                                 break
                         except httpx.TransportError:
                             if idx == len(retries):
+                                # UDS failed, clear transport before TCP fallback
+                                _update_transport(None)
                                 if local_only:
                                     return None
                                 break
                             time.sleep(delay)
                         except httpx.HTTPStatusError:
+                            _update_transport(None)
                             return None
                 else:
                     if local_only:
                         return None
 
             if task_data is None:
+                # Update transport to TCP
+                _update_transport("TCP")
                 # Use /tasks/send-priority for priority support
                 url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
                 http_response = requests.post(url, json=payload, timeout=self.timeout)
@@ -322,9 +356,14 @@ class A2AClient:
                 if completed_task is not None:
                     task = completed_task
 
+            # Clear transport status after communication completes
+            _update_transport(None)
+
             return task
 
         except requests.exceptions.RequestException as e:
+            # Clear transport status on error
+            _update_transport(None)
             print(f"Failed to send message to local agent: {e}")
             return None
 
