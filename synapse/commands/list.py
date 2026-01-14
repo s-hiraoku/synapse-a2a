@@ -125,7 +125,10 @@ class ListCommand:
                 (status, 12),
             ]
             if is_watch_mode:
-                transport = info.get("active_transport") or "-"
+                transport = (
+                    registry.get_transport_display(agent_id, retention_seconds=3.0)
+                    or "-"
+                )
                 row_values.append((transport, 10))
             row_values.extend(
                 [

@@ -804,8 +804,12 @@ class TestTransportDisplay:
         # The line should contain a dash for transport (between STATUS and PID)
         assert "-" in data_lines[0]
 
-    def test_transport_cleared_shows_dash(self, temp_registry):
-        """Transport shows '-' after being cleared (None)."""
+    def test_transport_cleared_shows_retained_value(self, temp_registry):
+        """Transport shows retained value after being cleared (retention feature).
+
+        With the retention feature, cleared transport is still displayed
+        for 3 seconds to allow users to observe communication events.
+        """
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
         temp_registry.update_transport(agent_id, "UDS→")
@@ -814,8 +818,8 @@ class TestTransportDisplay:
         list_cmd = self._create_list_command()
         output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
 
-        # Should not show UDS→ anymore
-        assert "UDS→" not in output
+        # Should still show UDS→ due to retention (within 3s)
+        assert "UDS→" in output
 
     def test_multiple_agents_with_different_transport(self, temp_registry):
         """Multiple agents can show different transport states."""
