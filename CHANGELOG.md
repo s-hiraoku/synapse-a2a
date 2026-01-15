@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.16] - 2026-01-15
+
+### Added
+
+- Critical Write Protocol (Read-After-Write verification) in `.synapse/file-safety.md`
+  - Agents must verify their writes by reading the file back immediately
+  - Retry mechanism for failed or incorrect writes
+  - New enforcement rule: "EVERY WRITE NEEDS VERIFICATION. NO EXCEPTIONS."
+
+### Fixed
+
+- Fix "EDITING FILE" not displaying in `synapse list` for some agents
+  - `synapse file-safety lock` now correctly passes `agent_id` and `agent_type` to database
+  - Support short agent names (e.g., "claude") by looking up live agents via `get_live_agents()`
+  - Extract `agent_type` from agent_id format (`synapse-{type}-{port}`) as fallback
+  - Refactored agent lookup logic into `_resolve_agent_info()` helper function
+
 ## [0.2.15] - 2026-01-15
 
 ### Fixed
@@ -312,6 +329,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.12...v0.2.13

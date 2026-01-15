@@ -680,10 +680,53 @@ def cmd_file_safety_locks(args: argparse.Namespace) -> None:
         print("Run 'synapse file-safety cleanup-locks' to clean them up.")
 
 
+def _resolve_agent_info(
+    agent_name: str,
+) -> tuple[str, str | None, int | None]:
+    """Resolve agent name to (agent_id, agent_type, pid).
+
+    Lookup order:
+    1. Exact match by agent_id in registry
+    2. Match by agent_type (short name like "claude") in live agents
+    3. Parse agent_type from agent_id format "synapse-{type}-{port}"
+
+    Returns:
+        Tuple of (agent_id, agent_type, pid). agent_type and pid may be None.
+    """
+    from synapse.registry import AgentRegistry
+
+    agent_id = agent_name
+    agent_type = None
+    pid = None
+
+    with contextlib.suppress(Exception):
+        registry = AgentRegistry()
+        agent_info = registry.get_agent(agent_id)
+
+        # Try to find by agent_type if exact match fails
+        if not agent_info:
+            for aid, info in registry.get_live_agents().items():
+                if info.get("agent_type") == agent_id:
+                    agent_info = info
+                    agent_id = aid
+                    break
+
+        if agent_info:
+            pid = agent_info.get("pid")
+            agent_type = agent_info.get("agent_type")
+
+    # Fallback: extract agent_type from agent_id format "synapse-{type}-{port}"
+    if not agent_type and agent_id.startswith("synapse-"):
+        parts = agent_id.split("-")
+        if len(parts) >= 3:
+            agent_type = parts[1]
+
+    return agent_id, agent_type, pid
+
+
 def cmd_file_safety_lock(args: argparse.Namespace) -> None:
     """Acquire a lock on a file."""
     from synapse.file_safety import FileSafetyManager, LockStatus
-    from synapse.registry import AgentRegistry
 
     manager = FileSafetyManager.from_env()
 
@@ -691,18 +734,12 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
         return
 
-    pid = None
-    try:
-        registry = AgentRegistry()
-        agent_info = registry.get_agent(args.agent)
-        if agent_info:
-            pid = agent_info.get("pid")
-    except Exception:
-        pid = None
+    agent_id, agent_type, pid = _resolve_agent_info(args.agent)
 
     result = manager.acquire_lock(
         file_path=args.file,
-        agent_name=args.agent,
+        agent_id=agent_id,
+        agent_type=agent_type,
         task_id=args.task_id if hasattr(args, "task_id") else None,
         duration_seconds=args.duration if hasattr(args, "duration") else None,
         intent=args.intent if hasattr(args, "intent") else None,
