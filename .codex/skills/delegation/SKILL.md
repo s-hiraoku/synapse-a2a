@@ -1,6 +1,6 @@
 ---
 name: delegation
-description: This skill explains task delegation between agents in Synapse A2A. Delegation is configured via `.synapse/settings.json` and delegation rules are defined in `.synapse/delegate.md`. Tasks are delegated using the `@agent` pattern (e.g., `@codex`, `@gemini`). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding).
+description: This skill configures automatic task delegation between agents in Synapse A2A. Use /delegate to set up rules for routing coding tasks to Codex, research to Gemini, etc. Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
 ---
 
 # Delegation Skill
@@ -9,7 +9,7 @@ Configure automatic task delegation to other agents based on natural language ru
 
 ## Configuration
 
-> **Note**: The `/delegate` CLI subcommand has been removed (see CHANGELOG v0.2.4).
+> **Note**: The `/delegate` CLI subcommand has been removed.
 > Delegation is now configured via settings files.
 
 ### Configuration Files
@@ -47,8 +47,8 @@ Use the `@agent` pattern to send tasks to other agents:
 For programmatic delegation (from AI agents):
 
 ```bash
-python -m synapse.tools.a2a send --target codex "Refactor this function"
-python -m synapse.tools.a2a send --target gemini --priority 4 "Status update?"
+synapse send codex "Refactor this function" --from claude
+synapse send gemini "Status update?" --priority 4 --from claude
 ```
 
 ## Modes

@@ -7,15 +7,49 @@ description: This skill configures automatic task delegation between agents in S
 
 Configure automatic task delegation to other agents based on natural language rules.
 
-## Commands
+## Configuration
 
-| Command | Description |
-|---------|-------------|
-| `/delegate` | Show current settings or start interactive setup |
-| `/delegate orchestrator` | Set orchestrator mode (Claude coordinates) |
-| `/delegate passthrough` | Set passthrough mode (direct forwarding) |
-| `/delegate off` | Disable delegation |
-| `/delegate status` | Show current configuration and agent status |
+> **Note**: The `/delegate` CLI subcommand has been removed.
+> Delegation is now configured via settings files.
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `.synapse/settings.json` | Enable/disable delegation and set A2A flow mode |
+| `.synapse/delegate.md` | Define delegation rules and agent responsibilities |
+
+### Settings Structure
+
+In `.synapse/settings.json`:
+
+```json
+{
+  "a2a": {
+    "flow": "auto"  // "roundtrip" | "oneway" | "auto"
+  },
+  "delegation": {
+    "enabled": true  // Enable automatic task delegation
+  }
+}
+```
+
+## Delegating Tasks
+
+Use the `@agent` pattern to send tasks to other agents:
+
+```text
+@codex Please refactor this function
+@gemini Research the latest API changes
+@claude Review this design document
+```
+
+For programmatic delegation (from AI agents):
+
+```bash
+synapse send codex "Refactor this function" --from claude
+synapse send gemini "Status update?" --priority 4 --from claude
+```
 
 ## Modes
 

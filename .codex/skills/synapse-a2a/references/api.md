@@ -132,12 +132,8 @@ Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
 
 **Priority 5 sequence:**
 1. Sends SIGINT to target agent (interrupts current task)
-2. Waits for interrupt processing with bounded timeout:
-   - Polls controller state (e.g., `ctrl.interrupted` flag) in a loop with small sleep intervals
-   - Alternatively, uses a fixed short delay (e.g., `asyncio.sleep(0.1)` or `time.sleep(0.1)`)
-   - Wait is bounded (max ~500ms) to prevent hanging if interrupt is not acknowledged
-   - Logs warning and proceeds if timeout is reached
-3. Sends the message after interrupt is processed or timeout expires
+2. Waits briefly for interrupt processing
+3. Sends the message
 
 ## Error Handling
 
