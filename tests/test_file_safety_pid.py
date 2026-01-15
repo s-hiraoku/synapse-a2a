@@ -289,6 +289,43 @@ class TestPIDBasedLockManagement:
         assert stale[0]["agent_id"] == "synapse-dead-8100"
         assert stale[0]["pid"] == dead_pid
 
+    def test_get_stale_locks_empty_table(self, manager):
+        """Should return empty list when file_locks table is empty (issue #97)."""
+        # Ensure no locks exist
+        all_locks = manager.list_locks(include_stale=True)
+        assert len(all_locks) == 0
+
+        # get_stale_locks should return empty list, not cause false positives
+        stale = manager.get_stale_locks()
+        assert len(stale) == 0
+
+    def test_get_stale_locks_after_unlock(self, manager):
+        """Should return empty list after proper lock/unlock cycle (issue #97)."""
+        import os
+
+        # Acquire a lock
+        manager.acquire_lock(
+            "issue97_test.py",
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            pid=os.getpid(),
+        )
+
+        # Verify lock exists
+        locks = manager.list_locks()
+        assert len(locks) == 1
+
+        # Properly release the lock
+        manager.release_lock("issue97_test.py", "synapse-claude-8100")
+
+        # After unlock, no stale locks should be reported
+        stale = manager.get_stale_locks()
+        assert len(stale) == 0
+
+        # Also verify no active locks
+        locks = manager.list_locks()
+        assert len(locks) == 0
+
     def test_force_unlock(self, manager):
         """Should force unlock a file regardless of owner."""
         manager.acquire_lock(
