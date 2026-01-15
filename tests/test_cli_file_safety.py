@@ -91,12 +91,14 @@ class TestCliFileSafetyCommands:
         }
         registry_instance = mock_registry.return_value
         registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
 
         cmd_file_safety_lock(mock_args)
 
         mock_fm_inst.acquire_lock.assert_called_once_with(
             file_path="test.py",
-            agent_name="claude",
+            agent_id="claude",
+            agent_type=None,
             task_id="task-1",
             duration_seconds=300,
             intent="Refactoring",
@@ -113,7 +115,7 @@ class TestCliFileSafetyCommands:
     def test_cmd_file_safety_lock_uses_registry_pid(
         self, mock_print, mock_fm, mock_registry, mock_args
     ):
-        """cmd_file_safety_lock should pass registry PID when available."""
+        """cmd_file_safety_lock should pass registry PID and agent_type when available."""
         mock_fm_inst = mock_fm.from_env.return_value
         mock_fm_inst.enabled = True
         mock_fm_inst.acquire_lock.return_value = {
@@ -122,17 +124,85 @@ class TestCliFileSafetyCommands:
         }
 
         registry_instance = mock_registry.return_value
-        registry_instance.get_agent.return_value = {"pid": 4321}
+        registry_instance.get_agent.return_value = {"pid": 4321, "agent_type": "claude"}
 
         cmd_file_safety_lock(mock_args)
 
         mock_fm_inst.acquire_lock.assert_called_once_with(
             file_path="test.py",
-            agent_name="claude",
+            agent_id="claude",
+            agent_type="claude",
             task_id="task-1",
             duration_seconds=300,
             intent="Refactoring",
             pid=4321,
+        )
+
+    @patch("synapse.registry.AgentRegistry")
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_short_name_lookup(
+        self, mock_print, mock_fm, mock_registry, mock_args
+    ):
+        """cmd_file_safety_lock should find agent by short name via get_live_agents."""
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.ACQUIRED,
+            "expires_at": "2026-01-09 11:00:00",
+        }
+
+        registry_instance = mock_registry.return_value
+        # Exact match fails (short name "claude" not found as agent_id)
+        registry_instance.get_agent.return_value = None
+        # But get_live_agents returns an agent with matching agent_type
+        registry_instance.get_live_agents.return_value = {
+            "synapse-claude-8100": {"pid": 5678, "agent_type": "claude"}
+        }
+
+        cmd_file_safety_lock(mock_args)
+
+        # Should use full agent_id and agent_type from registry
+        mock_fm_inst.acquire_lock.assert_called_once_with(
+            file_path="test.py",
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            task_id="task-1",
+            duration_seconds=300,
+            intent="Refactoring",
+            pid=5678,
+        )
+
+    @patch("synapse.registry.AgentRegistry")
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_extracts_agent_type_from_id(
+        self, mock_print, mock_fm, mock_registry, mock_args
+    ):
+        """cmd_file_safety_lock should extract agent_type from agent_id format."""
+        mock_args.agent = "synapse-gemini-8110"
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.ACQUIRED,
+            "expires_at": "2026-01-09 11:00:00",
+        }
+
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
+
+        cmd_file_safety_lock(mock_args)
+
+        # Should extract "gemini" from "synapse-gemini-8110"
+        mock_fm_inst.acquire_lock.assert_called_once_with(
+            file_path="test.py",
+            agent_id="synapse-gemini-8110",
+            agent_type="gemini",
+            task_id="task-1",
+            duration_seconds=300,
+            intent="Refactoring",
+            pid=None,
         )
 
     @patch("synapse.file_safety.FileSafetyManager")
