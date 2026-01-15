@@ -282,6 +282,9 @@ def cmd_send(args: argparse.Namespace) -> None:
         in_reply_to=reply_to,
         uds_path=uds_path if isinstance(uds_path, str) else None,
         local_only=local_only,
+        registry=reg,
+        sender_agent_id=sender_info.get("sender_id") if sender_info else None,
+        target_agent_id=agent_id,
     )
 
     if not task:
