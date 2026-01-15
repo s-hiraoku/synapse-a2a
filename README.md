@@ -450,6 +450,8 @@ synapse claude -- --resume
 | `synapse file-safety record`      | 変更を手動記録         |
 | `synapse file-safety cleanup`     | 古いデータ削除         |
 | `synapse file-safety debug`       | デバッグ情報表示       |
+| `synapse config`                  | 設定管理（インタラクティブTUI） |
+| `synapse config show`             | 現在の設定表示         |
 
 ### コンテキストの再開 (Resume Mode)
 
@@ -1122,6 +1124,27 @@ synapse init
 
 # デフォルトに戻す
 synapse reset
+
+# 設定をインタラクティブに編集（TUI）
+synapse config
+
+# ? Which settings file do you want to edit?
+#   ❯ User settings (~/.synapse/settings.json)
+#     Project settings (./.synapse/settings.json)
+#
+# ? Select a category to configure:
+#   ❯ Environment Variables
+#     Instructions
+#     A2A Protocol
+#     Delegation
+#     Resume Flags
+#     ──────────────
+#     Save and exit
+#     Exit without saving
+
+# 現在の設定を表示（読み取り専用）
+synapse config show
+synapse config show --scope user
 ```
 
 `synapse init` は以下のファイルを `.synapse/` ディレクトリにコピーします：
