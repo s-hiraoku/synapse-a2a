@@ -84,6 +84,52 @@ synapse send claude "分析結果です..." --reply-to abc123 --from gemini
 
 **重要:** `--from` オプションで送信元を指定してください。`--response` への返信時は `--reply-to <task_id>` を使用して返信を紐付けます。
 
+---
+
+## A2A メッセージの受信と返信
+
+AIエージェントとしてA2Aメッセージを受信した場合の返信方法です。
+
+### 受信メッセージの形式
+
+```text
+[A2A:<task_id>:<sender_id>] <message>
+```
+
+### 返信のルール
+
+返信方法は送信側が `--response` を使用したかどうかで異なります：
+
+- 送信側が `--response` を使用 → 送信側が待機中 → `--reply-to <task_id>` を使用
+- 送信側が `--response` を不使用 → 送信側は待機していない → `--reply-to` を使用しない
+
+しかし、受信側は送信側が `--response` を使用したかどうかを知ることができません。
+
+**そのため、以下のフォールバック戦略を推奨します：**
+
+1. まず `--reply-to` を付けて返信を試みる
+2. 失敗した場合は `--reply-to` なしで再試行する
+
+```bash
+# まず --reply-to を付けて試す
+synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
+
+# 失敗した場合は --reply-to なしで再試行
+synapse send <sender_type> "<your reply>" --from <your_agent_type>
+```
+
+### 受信・返信の例
+
+受信メッセージ：
+```text
+[A2A:abc12345:synapse-claude-8100] このコードをレビューして
+```
+
+返信：
+```bash
+synapse send claude "レビュー結果です..." --reply-to abc12345 --from gemini
+```
+
 ### いつ --response を使うか
 
 **--response を使う場合：**
