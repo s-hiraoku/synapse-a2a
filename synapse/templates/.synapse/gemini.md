@@ -22,17 +22,18 @@ HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
 ```
 
 Parameters:
 - `target`: Agent ID (e.g., `synapse-claude-8100`) or type (e.g., `claude`)
 - `--from, -f`: Your agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--response`: Wait for and receive response from target agent
-- `--no-response`: Do not wait for response (default, fire and forget)
+- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
+- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
+- `--reply-to`: Attach response to a specific task ID (use this when replying to `--response` requests)
 
-IMPORTANT: Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+IMPORTANT: Always use `--from` to identify yourself. When replying to a `--response` request, use `--reply-to <task_id>` to link your response.
 
 Examples:
 ```bash
@@ -49,8 +50,11 @@ synapse send codex "Refactor the auth module" --from gemini
 # Emergency interrupt (priority 5)
 synapse send codex "STOP" --priority 5 --from gemini
 
-# Wait for response
+# Wait for response (roundtrip)
 synapse send claude "Analyze this" --response --from gemini
+
+# Reply to a --response request (use task_id from [A2A:task_id:sender])
+synapse send claude "Here is my analysis..." --reply-to abc123 --from gemini
 ```
 
 AVAILABLE AGENTS: claude, gemini, codex

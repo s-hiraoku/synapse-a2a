@@ -183,6 +183,7 @@ flowchart TB
         logs["logs"]
         instructions["instructions"]
         external["external"]
+        config["config"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -216,6 +217,7 @@ flowchart TB
 | `synapse logs <profile>` | ログ表示 |
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
+| `synapse config` | 設定管理（インタラクティブTUI） |
 
 ---
 
@@ -293,7 +295,7 @@ gemini     8110     READY      12347    -                                       
 ### 2.4 メッセージ送信
 
 ```bash
-synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-response]
+synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
 **オプション**:
@@ -302,8 +304,9 @@ synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-respo
 |-----------|--------|-----------|------|
 | `target` | - | 必須 | 送信先エージェント |
 | `--priority` | `-p` | 1 | 優先度 (1-5) |
-| `--response` | - | - | レスポンスを待つ |
-| `--no-response` | - | デフォルト | レスポンスを待たない |
+| `--response` | - | - | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--no-response` | - | デフォルト | Oneway - 送りっぱなし、返信不要 |
+| `--reply-to` | - | - | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例**:
 
@@ -314,8 +317,11 @@ synapse send codex "設計を書いて" --priority 1
 # 緊急停止
 synapse send claude "処理を止めて" --priority 5
 
-# 応答を待つ
+# 応答を待つ（roundtrip）
 synapse send codex "結果を教えて" --response
+
+# --response への返信（task_idは [A2A:task_id:sender] から取得）
+synapse send claude "結果です..." --reply-to abc123 --from codex
 ```
 
 ---

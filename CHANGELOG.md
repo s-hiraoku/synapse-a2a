@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.17] - 2026-01-16
+
+### Added
+
+- `synapse config` command for interactive settings management (#72)
+  - TUI-based settings editor using questionary library
+  - Edit user (`~/.synapse/settings.json`) or project (`./.synapse/settings.json`) settings
+  - Categories: Environment Variables, Instructions, A2A Protocol, Delegation, Resume Flags
+  - `synapse config show` displays current merged settings (read-only)
+  - `synapse config show --scope user|project|merged` for scope-specific view
+
+### Dependencies
+
+- Add `questionary>=2.0.0` for interactive TUI prompts
+
 ## [0.2.16] - 2026-01-15
 
 ### Added
@@ -329,6 +344,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.13...v0.2.14

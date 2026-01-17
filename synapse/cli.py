@@ -1472,6 +1472,25 @@ def cmd_reset(args: argparse.Namespace) -> None:
             print(f"✔ Re-copied skill to {installed_path}")
 
 
+def cmd_config(args: argparse.Namespace) -> None:
+    """Interactive configuration management."""
+    from synapse.commands.config import ConfigCommand
+
+    cmd = ConfigCommand()
+    scope = getattr(args, "scope", None)
+
+    cmd.run(scope=scope)
+
+
+def cmd_config_show(args: argparse.Namespace) -> None:
+    """Show current settings."""
+    from synapse.commands.config import ConfigCommand
+
+    cmd = ConfigCommand()
+    scope = getattr(args, "scope", None)
+    cmd.show(scope=scope)
+
+
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -2241,6 +2260,45 @@ Also re-copies skills from .claude to .codex.""",
         help="Skip confirmation prompt",
     )
     p_reset.set_defaults(func=cmd_reset)
+
+    # config - Interactive settings management
+    p_config = subparsers.add_parser(
+        "config",
+        help="Interactive settings management",
+        description="""Interactively configure Synapse settings using a TUI.
+
+Opens an interactive menu to browse and modify settings in .synapse/settings.json.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse config                  Interactive mode (prompts for scope)
+  synapse config --scope user     Edit user settings directly
+  synapse config --scope project  Edit project settings directly
+  synapse config show             Show merged settings (read-only)
+  synapse config show --scope user  Show user settings only""",
+    )
+    p_config.add_argument(
+        "--scope",
+        choices=["user", "project"],
+        help="Settings scope to edit (user or project)",
+    )
+    p_config.set_defaults(func=cmd_config)
+
+    # config subcommands
+    config_subparsers = p_config.add_subparsers(
+        dest="config_command", metavar="SUBCOMMAND"
+    )
+
+    # config show
+    p_config_show = config_subparsers.add_parser(
+        "show", help="Show current settings (read-only)"
+    )
+    p_config_show.add_argument(
+        "--scope",
+        choices=["user", "project", "merged"],
+        default="merged",
+        help="Settings scope to display (default: merged)",
+    )
+    p_config_show.set_defaults(func=cmd_config_show)
 
     # file-safety - File locking and modification tracking
     p_file_safety = subparsers.add_parser(

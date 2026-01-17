@@ -1,21 +1,158 @@
 ---
 name: delegation
-description: This skill configures automatic task delegation between agents in Synapse A2A. Use /delegate to set up rules for routing coding tasks to Codex, research to Gemini, etc. Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
+description: This skill configures automatic task delegation between agents in Synapse A2A. Configure delegation rules via settings files (.synapse/settings.json and .synapse/delegate.md) or the interactive config TUI (synapse config). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
 ---
 
 # Delegation Skill
 
 Configure automatic task delegation to other agents based on natural language rules.
 
-## Commands
+## Configuration
 
-| Command | Description |
-|---------|-------------|
-| `/delegate` | Show current settings or start interactive setup |
-| `/delegate orchestrator` | Set orchestrator mode (Claude coordinates) |
-| `/delegate passthrough` | Set passthrough mode (direct forwarding) |
-| `/delegate off` | Disable delegation |
-| `/delegate status` | Show current configuration and agent status |
+> **Note**: The `/delegate` CLI subcommand has been removed.
+> Delegation is now configured via settings files.
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `.synapse/settings.json` | Enable/disable delegation and set A2A flow mode |
+| `.synapse/delegate.md` | Define delegation rules and agent responsibilities (see [Delegate Rules Structure](#delegate-rules-structure)) |
+
+### Settings Structure
+
+In `.synapse/settings.json`:
+
+```json
+{
+  "a2a": {
+    "flow": "auto"  // "roundtrip" | "oneway" | "auto"
+  },
+  "delegation": {
+    "enabled": true  // Enable automatic task delegation
+  }
+}
+```
+
+### Delegate Rules Structure
+
+The `.synapse/delegate.md` file defines delegation rules in YAML frontmatter followed by optional markdown documentation.
+
+#### Schema
+
+```yaml
+---
+# Delegate rules configuration
+version: 1  # Schema version (required)
+
+# Agent definitions with their responsibilities
+agents:
+  codex:
+    responsibilities:
+      - "Code implementation and refactoring"
+      - "File editing and creation"
+      - "Bug fixes"
+    default_priority: 3
+
+  gemini:
+    responsibilities:
+      - "Research and web search"
+      - "Documentation review"
+      - "API exploration"
+    default_priority: 3
+
+  claude:
+    responsibilities:
+      - "Code review and analysis"
+      - "Architecture planning"
+      - "Complex problem solving"
+    default_priority: 3
+
+# Delegation rules (evaluated in order, first match wins)
+rules:
+  - name: "coding-tasks"
+    description: "Route coding tasks to Codex"
+    match:
+      keywords: ["implement", "refactor", "fix", "edit", "create file"]
+      file_patterns: ["*.py", "*.ts", "*.js"]
+    target: codex
+    priority: 3
+    flow: roundtrip  # Wait for response
+
+  - name: "research-tasks"
+    description: "Route research to Gemini"
+    match:
+      keywords: ["research", "search", "find", "look up", "documentation"]
+    target: gemini
+    priority: 2
+    flow: oneway  # Fire and forget
+
+  - name: "review-tasks"
+    description: "Route reviews to Claude"
+    match:
+      keywords: ["review", "analyze", "evaluate", "assess"]
+    target: claude
+    priority: 3
+    flow: roundtrip
+
+# Fallback behavior when no rules match
+fallback:
+  action: manual  # "manual" | "ask" | "default_agent"
+  default_agent: claude  # Used when action is "default_agent"
+---
+
+# Delegation Rules Documentation
+
+Additional markdown content here for human-readable documentation...
+```
+
+#### Field Reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `version` | integer | Yes | Schema version (currently `1`) |
+| `agents` | object | Yes | Agent definitions keyed by agent name |
+| `agents.<name>.responsibilities` | string[] | No | List of task types this agent handles |
+| `agents.<name>.default_priority` | integer | No | Default priority (1-5) for this agent |
+| `rules` | array | No | Ordered list of delegation rules |
+| `rules[].name` | string | Yes | Unique rule identifier |
+| `rules[].description` | string | No | Human-readable description |
+| `rules[].match` | object | Yes | Conditions for rule matching |
+| `rules[].match.keywords` | string[] | No | Keywords to match in task text |
+| `rules[].match.file_patterns` | string[] | No | Glob patterns for file-related tasks |
+| `rules[].target` | string | Yes | Target agent name |
+| `rules[].priority` | integer | No | Task priority (1-5, default: 3) |
+| `rules[].flow` | string | No | `"roundtrip"` \| `"oneway"` \| `"auto"` |
+| `fallback` | object | No | Behavior when no rules match |
+| `fallback.action` | string | No | `"manual"` \| `"ask"` \| `"default_agent"` |
+| `fallback.default_agent` | string | No | Agent to use for `"default_agent"` action |
+
+#### Rule Evaluation
+
+Rules are evaluated in order from top to bottom. The first matching rule is applied:
+
+1. **Keyword matching**: Case-insensitive substring match against task text
+2. **File pattern matching**: Glob patterns matched against mentioned file paths
+3. **Combined conditions**: All specified conditions must match (AND logic)
+
+If no rules match, the `fallback` behavior is applied.
+
+## Delegating Tasks
+
+Use the `@agent` pattern to send tasks to other agents:
+
+```text
+@codex Please refactor this function
+@gemini Research the latest API changes
+@claude Review this design document
+```
+
+For programmatic delegation (from AI agents):
+
+```bash
+synapse send codex "Refactor this function" --from claude
+synapse send gemini "Status update?" --priority 4 --from claude
+```
 
 ## Modes
 

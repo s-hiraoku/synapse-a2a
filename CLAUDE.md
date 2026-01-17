@@ -64,6 +64,13 @@ synapse instructions files claude         # List instruction files for Claude
 synapse instructions send claude          # Send instructions to running Claude agent
 synapse instructions send claude --preview # Preview without sending
 
+# Settings management (interactive TUI)
+synapse config                            # Interactive config editor
+synapse config --scope user               # Edit user settings directly
+synapse config --scope project            # Edit project settings directly
+synapse config show                       # Show merged settings (read-only)
+synapse config show --scope user          # Show user settings only
+
 # Send messages (--response waits for reply, --no-response sends only)
 synapse send gemini "Analyze this" --from claude --response
 synapse send codex "Process this" --from claude --no-response

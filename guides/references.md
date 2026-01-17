@@ -27,6 +27,7 @@ flowchart TB
         logs["logs"]
         instructions["instructions"]
         external["external"]
+        config["config"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -189,7 +190,7 @@ codex      8120     READY        -           12347    /home/user/third         h
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message> [--priority N] [--response | --no-response]
+synapse send <target> <message> [--priority N] [--response | --no-response] [--reply-to <task_id>]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -197,8 +198,9 @@ synapse send <target> <message> [--priority N] [--response | --no-response]
 | `target` | Yes | 送信先エージェント名 |
 | `message` | Yes | メッセージ内容 |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
-| `--response` | No | レスポンスを待つ |
-| `--no-response` | No | レスポンスを待たない（デフォルト） |
+| `--response` | No | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--no-response` | No | Oneway - 送りっぱなし、返信不要（デフォルト） |
+| `--reply-to` | No | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例**:
 
@@ -207,6 +209,7 @@ synapse send claude "Hello!"
 synapse send codex "設計して" -p 1
 synapse send gemini "止まれ" -p 5
 synapse send codex "結果を教えて" --response
+synapse send claude "結果です..." --reply-to abc123 --from codex
 ```
 
 ---
@@ -430,6 +433,99 @@ Skills:
     Send messages to the agent
   - analyze
     Analyze provided content
+```
+
+---
+
+### 1.10 synapse config
+
+インタラクティブな TUI で設定を編集します。
+
+```bash
+synapse config [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | 編集するスコープ（`user` または `project`）。省略時はプロンプトで選択 |
+
+**例**:
+
+```bash
+synapse config                  # インタラクティブモード（スコープを選択）
+synapse config --scope user     # ユーザー設定を直接編集
+synapse config --scope project  # プロジェクト設定を直接編集
+```
+
+**対話フロー**:
+
+```
+? Which settings file do you want to edit?
+  ❯ User settings (~/.synapse/settings.json)
+    Project settings (./.synapse/settings.json)
+    Cancel
+
+? Select a category to configure:
+  ❯ Environment Variables - Configure SYNAPSE_* environment variables
+    Instructions - Configure agent-specific instruction files
+    A2A Protocol - Configure inter-agent communication settings
+    Delegation - Configure task delegation settings
+    Resume Flags - Configure CLI flags that indicate resume mode
+    Save and exit
+    Exit without saving
+```
+
+**カテゴリ**:
+
+| カテゴリ | 編集対象 |
+|----------|----------|
+| Environment Variables | `env.SYNAPSE_*` 環境変数 |
+| Instructions | `instructions.{default,claude,gemini,codex}` |
+| A2A Protocol | `a2a.flow` (auto/roundtrip/oneway) |
+| Delegation | `delegation.enabled` |
+| Resume Flags | `resume_flags.{claude,codex,gemini}` |
+
+---
+
+### 1.11 synapse config show
+
+現在の設定を表示します（読み取り専用）。
+
+```bash
+synapse config show [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | 表示するスコープ（`user`, `project`, または `merged`）。省略時は `merged` |
+
+**例**:
+
+```bash
+synapse config show                  # マージ済み設定を表示（デフォルト）
+synapse config show --scope user     # ユーザー設定のみ表示
+synapse config show --scope project  # プロジェクト設定のみ表示
+```
+
+**出力例**:
+
+```
+Current settings (merged from all scopes):
+------------------------------------------------------------
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    ...
+  },
+  "instructions": {
+    "default": "[SYNAPSE INSTRUCTIONS...]",
+    ...
+  },
+  "a2a": { "flow": "auto" },
+  "delegation": { "enabled": false },
+  "resume_flags": { ... }
+}
 ```
 
 ---

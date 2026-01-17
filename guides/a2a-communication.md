@@ -49,7 +49,7 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
 ```
 
 ### パラメータ
@@ -59,8 +59,9 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | `target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
 | `--from, -f` | 送信元エージェントID（返信先特定用） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
-| `--response` | 応答を待つ |
-| `--no-response` | 応答を待たない（デフォルト） |
+| `--response` | Roundtripモード - 送信側が待機、**受信側は `--reply-to` で返信必須** |
+| `--no-response` | Onewayモード - 送りっぱなし、返信不要（デフォルト） |
+| `--reply-to` | 特定のタスクIDへの返信として紐付け（`--response` への返信時に使用） |
 
 ### 例
 
@@ -73,9 +74,15 @@ synapse send codex "テストを実行して" --from claude
 
 # 緊急割り込み（Priority 5）
 synapse send codex "STOP" --priority 5 --from claude
+
+# 応答を待つ（roundtrip）
+synapse send gemini "分析して" --response --from claude
+
+# --response リクエストへの返信（task_idは [A2A:task_id:sender] から取得）
+synapse send claude "分析結果です..." --reply-to abc123 --from gemini
 ```
 
-**重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
+**重要:** `--from` オプションで送信元を指定してください。`--response` への返信時は `--reply-to <task_id>` を使用して返信を紐付けます。
 
 ### いつ --response を使うか
 

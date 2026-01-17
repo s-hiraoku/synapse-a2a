@@ -93,6 +93,79 @@ $ synapse reset
 ✔ Reset ~/.synapse/settings.json to defaults
 ```
 
+### synapse config
+
+インタラクティブな TUI で設定を編集します。
+
+```bash
+$ synapse config
+
+? Which settings file do you want to edit?
+  ❯ User settings (~/.synapse/settings.json)
+    Project settings (./.synapse/settings.json)
+    ────────────────────────────────────────────
+    Cancel
+
+Editing: /Users/you/.synapse/settings.json
+
+? Select a category to configure:
+  ❯ Environment Variables - Configure SYNAPSE_* environment variables
+    Instructions - Configure agent-specific instruction files
+    A2A Protocol - Configure inter-agent communication settings
+    Delegation - Configure task delegation settings
+    Resume Flags - Configure CLI flags that indicate resume mode
+    ────────────────────────────────────────────
+    Save and exit
+    Exit without saving
+```
+
+**カテゴリ**:
+
+| カテゴリ | 説明 |
+|----------|------|
+| Environment Variables | `SYNAPSE_HISTORY_ENABLED` などの環境変数 |
+| Instructions | エージェント別の初期インストラクション |
+| A2A Protocol | `flow` モード（auto/roundtrip/oneway） |
+| Delegation | タスク委任の有効/無効 |
+| Resume Flags | セッション再開を示すフラグ |
+
+**オプション**:
+
+```bash
+# スコープを直接指定（プロンプトをスキップ）
+synapse config --scope user     # ユーザー設定を編集
+synapse config --scope project  # プロジェクト設定を編集
+```
+
+### synapse config show
+
+現在の設定をマージ済みの状態で表示します（読み取り専用）。
+
+```bash
+$ synapse config show
+
+Current settings (merged from all scopes):
+------------------------------------------------------------
+{
+  "env": {
+    "SYNAPSE_HISTORY_ENABLED": "true",
+    ...
+  },
+  "instructions": { ... },
+  "a2a": { "flow": "auto" },
+  "delegation": { "enabled": false },
+  "resume_flags": { ... }
+}
+```
+
+**オプション**:
+
+```bash
+synapse config show                  # マージ済み設定を表示
+synapse config show --scope user     # ユーザー設定のみ表示
+synapse config show --scope project  # プロジェクト設定のみ表示
+```
+
 ## Skills のインストール
 
 Synapse A2A の機能をエージェントに教え込むための「スキル」の導入方法は、エージェントによって異なります。
