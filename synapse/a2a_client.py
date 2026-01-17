@@ -291,25 +291,57 @@ class A2AClient:
 
             # Generate sender_task_id when response is expected
             # The sender owns this task and will use it to receive the reply
+            # IMPORTANT: Create task on SENDER's server (not in this process) so
+            # the task persists after this CLI process exits. This enables --reply-to
+            # to find the task when the receiver sends a response.
             sender_task_id: str | None = None
             if response_expected:
-                # Import task_store lazily to avoid circular imports
-                from synapse.a2a_compat import Message, TextPart, task_store
-
-                # Create a task in the sender's task store
-                sender_message = Message(role="user", parts=[TextPart(text=message)])
-                sender_task = task_store.create(
-                    sender_message,
-                    metadata={
-                        "response_expected": True,
-                        "direction": "outgoing",
-                        "target_endpoint": endpoint,
-                    },
+                sender_endpoint = (
+                    sender_info.get("sender_endpoint") if sender_info else None
                 )
-                sender_task_id = sender_task.id
-                # Update task status to "working" (waiting for response)
-                task_store.update_status(sender_task_id, "working")
-                metadata["sender_task_id"] = sender_task_id
+                sender_uds_path = (
+                    sender_info.get("sender_uds_path") if sender_info else None
+                )
+
+                if sender_endpoint:
+                    create_payload = {
+                        "message": asdict(a2a_message),
+                        "metadata": {
+                            "response_expected": True,
+                            "direction": "outgoing",
+                            "target_endpoint": endpoint,
+                        },
+                    }
+
+                    # Try UDS first, fallback to HTTP
+                    if sender_uds_path and Path(sender_uds_path).exists():
+                        try:
+                            uds_url = "http://localhost/tasks/create"
+                            transport = httpx.HTTPTransport(uds=sender_uds_path)
+                            timeout_cfg = httpx.Timeout(10.0, connect=0.5)
+                            with httpx.Client(
+                                transport=transport, timeout=timeout_cfg
+                            ) as client:
+                                resp = client.post(uds_url, json=create_payload)
+                                resp.raise_for_status()
+                                sender_task_id = resp.json()["task"]["id"]
+                        except httpx.HTTPError:
+                            pass  # Fallback to HTTP below
+
+                    if not sender_task_id:
+                        # HTTP fallback
+                        try:
+                            create_url = f"{sender_endpoint.rstrip('/')}/tasks/create"
+                            create_response = requests.post(
+                                create_url, json=create_payload, timeout=self.timeout
+                            )
+                            create_response.raise_for_status()
+                            sender_task_id = create_response.json()["task"]["id"]
+                        except requests.exceptions.RequestException:
+                            pass  # Continue without sender_task_id
+
+                if sender_task_id:
+                    metadata["sender_task_id"] = sender_task_id
 
             payload["metadata"] = metadata
 

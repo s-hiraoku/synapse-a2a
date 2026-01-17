@@ -211,6 +211,19 @@ class SendMessageResponse(BaseModel):
     task: Task
 
 
+class CreateTaskRequest(BaseModel):
+    """Request to create a task (without sending to PTY)."""
+
+    message: Message
+    metadata: dict[str, Any] | None = None
+
+
+class CreateTaskResponse(BaseModel):
+    """Response with created task."""
+
+    task: Task
+
+
 class AgentSkill(BaseModel):
     """Agent capability/skill definition"""
 
@@ -621,6 +634,26 @@ def create_a2a_router(
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         return _send_task_message(request)
+
+    @router.post("/tasks/create", response_model=CreateTaskResponse)
+    async def create_task(  # noqa: B008
+        request: CreateTaskRequest, _: Any = Depends(require_auth)
+    ) -> CreateTaskResponse:
+        """
+        Create a task without sending to PTY.
+
+        This endpoint is used by --response flag to create a task on the
+        sender's server before sending to the target agent. The task is
+        created in "working" status, waiting for the reply via --reply-to.
+
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        task = task_store.create(
+            request.message,
+            metadata=request.metadata,
+        )
+        task_store.update_status(task.id, "working")
+        return CreateTaskResponse(task=task)
 
     @router.get("/tasks/{task_id}", response_model=Task)
     async def get_task(task_id: str, _: Any = Depends(require_auth)) -> Task:  # noqa: B008

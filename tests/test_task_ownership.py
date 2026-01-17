@@ -34,54 +34,72 @@ from synapse.utils import format_a2a_message
 class TestSenderTaskIdInMetadata:
     """Test that sender's task ID is passed to receiver."""
 
-    def test_request_payload_includes_sender_task_id(self):
-        """Request payload should include sender_task_id in metadata."""
-        # This tests the new behavior: when sending with response_expected=True,
-        # the sender creates a task and includes its ID in the request.
+    def test_request_payload_includes_sender_task_id_when_sender_endpoint_available(
+        self,
+    ):
+        """Request payload should include sender_task_id when sender's server is available."""
+        # The new design creates task on sender's SERVER (not CLI process).
+        # sender_task_id is only included when sender_endpoint is in sender_info.
 
         from unittest.mock import MagicMock, patch
 
         from synapse.a2a_client import A2AClient
 
-        with patch("synapse.a2a_client.requests") as mock_requests:
+        # Track calls to different endpoints
+        calls = {}
+
+        def mock_post(url, json=None, **kwargs):
+            calls[url] = json
             mock_response = MagicMock()
-            mock_response.json.return_value = {"status": "acknowledged"}
+            if "/tasks/create" in url:
+                mock_response.json.return_value = {
+                    "task": {"id": "sender-task-123", "status": "working"}
+                }
+            else:
+                mock_response.json.return_value = {
+                    "task": {"id": "receiver-task", "status": "working"}
+                }
             mock_response.raise_for_status = MagicMock()
-            mock_requests.post.return_value = mock_response
+            return mock_response
+
+        with patch("synapse.a2a_client.requests") as mock_requests:
+            mock_requests.post = mock_post
 
             client = A2AClient()
 
-            # This should create a sender-side task and include its ID
+            # With sender_endpoint, task should be created on sender's server
             client.send_to_local(
-                endpoint="http://localhost:8100",
+                endpoint="http://localhost:8120",
                 message="Test message",
                 priority=1,
                 response_expected=True,
                 wait_for_completion=False,
+                sender_info={
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
             )
 
-            # Verify the request was made
-            assert mock_requests.post.called
-
-            # Check that sender_task_id is in metadata
-            call_args = mock_requests.post.call_args
-            payload = call_args.kwargs.get("json") or call_args[1].get("json")
-
-            assert "metadata" in payload
-            # NEW: sender_task_id should be present
-            assert "sender_task_id" in payload["metadata"], (
-                "sender_task_id should be included in metadata when response_expected=True"
+            # Verify /tasks/create was called on sender's server
+            create_url = "http://localhost:8100/tasks/create"
+            assert create_url in calls, (
+                "/tasks/create should be called on sender's server"
             )
 
-    def test_sender_task_created_in_task_store(self):
-        """When response_expected=True, a task should be created in the shared task_store."""
+            # Verify sender_task_id is in the send request
+            send_url = [k for k in calls if "/tasks/send-priority" in k][0]
+            send_payload = calls[send_url]
+            assert "sender_task_id" in send_payload["metadata"], (
+                "sender_task_id should be included when sender_endpoint is available"
+            )
+
+    def test_sender_task_id_not_included_when_no_sender_endpoint(self):
+        """When sender_endpoint is not available, sender_task_id is not included."""
+        # Without sender_endpoint, we can't create task on sender's server
+
         from unittest.mock import MagicMock, patch
 
         from synapse.a2a_client import A2AClient
-        from synapse.a2a_compat import task_store
-
-        # Clear task store before test
-        task_store._tasks.clear()
 
         with patch("synapse.a2a_client.requests") as mock_requests:
             mock_response = MagicMock()
@@ -93,26 +111,26 @@ class TestSenderTaskIdInMetadata:
 
             client = A2AClient()
 
+            # Without sender_endpoint - task creation is skipped
             client.send_to_local(
                 endpoint="http://localhost:8100",
                 message="Test message",
                 priority=1,
                 response_expected=True,
                 wait_for_completion=False,
+                sender_info={"sender_id": "external-agent"},  # No sender_endpoint
             )
 
-            # Get the sender_task_id from the request payload
+            # Verify the request was made
+            assert mock_requests.post.called
+
+            # Check that sender_task_id is NOT in metadata
             call_args = mock_requests.post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
-            sender_task_id = payload["metadata"]["sender_task_id"]
 
-            # Verify the task exists in the shared task_store
-            sender_task = task_store.get(sender_task_id)
-            assert sender_task is not None, (
-                "Sender task should be created in shared task_store"
-            )
-            assert sender_task.status == "working", (
-                "Sender task should be in 'working' status while waiting for response"
+            assert "metadata" in payload
+            assert "sender_task_id" not in payload["metadata"], (
+                "sender_task_id should NOT be included when sender_endpoint is unavailable"
             )
 
     def test_sender_task_not_created_when_no_response_expected(self):

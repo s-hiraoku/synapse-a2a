@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.22] - 2026-01-18
+
+### Fixed
+
+- Register task on sender's server for `--reply-to` to work
+  - Problem: `--reply-to` always failed with "Task not found" because `sender_task_id` was created in the CLI process's in-memory task_store, which disappeared when the process exited
+  - Solution: When `--response` is used, call `POST /tasks/create` on the sender's running agent server (via UDS or HTTP) instead of creating the task locally
+  - The agent server's task_store persists as long as the agent is running, enabling `--reply-to` to find the task
+
+### Added
+
+- New `POST /tasks/create` endpoint to create task without sending to PTY
+- `sender_endpoint` and `sender_uds_path` fields in sender_info for server-side task registration
+
+### Changed
+
+- Extract `_extract_sender_info_from_agent()` helper function to reduce code duplication
+
+### Documentation
+
+- Update task ownership design document with new server-side registration approach
+- Update A2A communication guide with metadata structure changes
+- Add `/tasks/create` to API reference
+
 ## [0.2.21] - 2026-01-18
 
 ### Documentation

@@ -68,6 +68,26 @@ def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> 
     return False
 
 
+def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]:
+    """Extract sender info fields from agent registry entry.
+
+    Args:
+        agent_id: The agent's unique identifier
+        info: Agent info dict from registry
+
+    Returns:
+        Dict with sender_id and optional sender_type, sender_endpoint, sender_uds_path
+    """
+    sender_info: dict[str, str] = {"sender_id": agent_id}
+    if info.get("agent_type"):
+        sender_info["sender_type"] = info["agent_type"]
+    if info.get("endpoint"):
+        sender_info["sender_endpoint"] = info["endpoint"]
+    if info.get("uds_path"):
+        sender_info["sender_uds_path"] = info["uds_path"]
+    return sender_info
+
+
 def build_sender_info(explicit_sender: str | None = None) -> dict:
     """
     Build sender info using Registry PID matching.
@@ -75,12 +95,29 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
     Identifies the sender by checking which registered agent's PID
     is an ancestor of the current process.
 
-    Returns dict with sender_id, sender_type, sender_endpoint if available.
+    Returns dict with sender_id, sender_type, sender_endpoint, sender_uds_path if available.
     """
-    sender_info: dict[str, str] = {}
-
     # Explicit --from flag takes priority
     if explicit_sender:
+        # Even with explicit sender, look up endpoint and uds_path from registry
+        try:
+            reg = AgentRegistry()
+            agents = reg.list_agents()
+            # Try exact match first
+            if explicit_sender in agents:
+                return _extract_sender_info_from_agent(
+                    explicit_sender, agents[explicit_sender]
+                )
+            # Try fuzzy match by agent_type
+            for agent_id, info in agents.items():
+                agent_type = info.get("agent_type", "").lower()
+                if (
+                    explicit_sender.lower() in agent_id.lower()
+                    or explicit_sender.lower() == agent_type
+                ):
+                    return _extract_sender_info_from_agent(agent_id, info)
+        except Exception:
+            pass
         return {"sender_id": explicit_sender}
 
     # Primary method: Registry PID matching
@@ -93,18 +130,11 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
         for agent_id, info in agents.items():
             agent_pid = info.get("pid")
             if agent_pid and is_descendant_of(current_pid, agent_pid):
-                sender_info["sender_id"] = agent_id
-                agent_type = info.get("agent_type")
-                if agent_type:
-                    sender_info["sender_type"] = agent_type
-                endpoint = info.get("endpoint")
-                if endpoint:
-                    sender_info["sender_endpoint"] = endpoint
-                return sender_info
+                return _extract_sender_info_from_agent(agent_id, info)
     except Exception:
         pass
 
-    return sender_info
+    return {}
 
 
 def cmd_list(args: argparse.Namespace) -> None:

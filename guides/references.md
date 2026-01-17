@@ -562,6 +562,7 @@ flowchart LR
 |---------|------|------|
 | GET | `/.well-known/agent.json` | Agent Card（エージェント情報） |
 | POST | `/tasks/send` | Task ベースでメッセージ送信 |
+| POST | `/tasks/create` | Task 作成のみ（PTY送信なし、--response用） |
 | GET | `/tasks/{id}` | Task 状態取得 |
 | GET | `/tasks` | Task 一覧 |
 | POST | `/tasks/{id}/cancel` | Task キャンセル |
