@@ -9,15 +9,17 @@ Configure automatic task delegation to other agents based on natural language ru
 
 ## Configuration
 
-> **Note**: The `/delegate` CLI subcommand has been removed.
-> Delegation is now configured via settings files.
+Delegation is configured via settings files, managed using:
+- `synapse init` - Create .synapse/ with template files
+- `synapse config` - Interactive TUI for editing settings
+- Direct file editing
 
 ### Configuration Files
 
 | File | Purpose |
 |------|---------|
 | `.synapse/settings.json` | Enable/disable delegation and set A2A flow mode |
-| `.synapse/delegate.md` | Define delegation rules and agent responsibilities (see [Delegate Rules Structure](#delegate-rules-structure)) |
+| `.synapse/delegate.md` | Define delegation rules and agent responsibilities |
 
 ### Settings Structure
 

@@ -1,61 +1,44 @@
 # Delegation Modes
 
-## Session Startup Behavior
+## Configuration
 
-At session startup, check for existing delegation configuration:
+Delegation is configured via files, not CLI commands:
 
-```bash
-cat ~/.synapse/delegation.md 2>/dev/null
-```
+| File | Purpose |
+|------|---------|
+| `.synapse/settings.json` | Enable delegation with `"delegation": {"enabled": true}` |
+| `.synapse/delegate.md` | Define delegation rules in natural language |
 
-If configuration exists:
+### Setup Steps
 
-1. Display current delegation mode and rules summary to user
-2. Ask user: "Delegation settings found. Use these settings?"
-3. If confirmed, apply the delegation rules to current session
+1. **Initialize settings** (if not done):
+   ```bash
+   synapse init
+   ```
 
-## Setup Workflow
+2. **Enable delegation** in `.synapse/settings.json`:
+   ```json
+   {
+     "delegation": {
+       "enabled": true
+     }
+   }
+   ```
+   Or use interactive TUI: `synapse config`
 
-When user invokes `/delegate` or `/delegate <mode>`:
+3. **Define rules** in `.synapse/delegate.md`:
+   ```markdown
+   # Delegation Rules
 
-### Step 1: Select Mode
+   Coding tasks (file editing, creation, refactoring) go to Codex.
+   Research and web searches go to Gemini.
+   Code reviews stay with Claude.
+   ```
 
-If mode not specified, ask user to choose:
-
-- orchestrator: Analyze and integrate (recommended)
-- passthrough: Direct forwarding
-- off: Disable
-
-### Step 2: Define Rules (Natural Language)
-
-Prompt user for delegation rules:
-
-```
-Please describe your delegation rules in natural language.
-
-Examples:
-- Coding tasks (file editing, creation, refactoring) go to Codex
-- Research and web searches go to Gemini
-- Code reviews stay with Claude
-```
-
-### Step 3: Save Configuration
-
-```bash
-mkdir -p ~/.synapse
-cat > ~/.synapse/delegation.md << 'EOF'
-# Delegation Configuration
-
-mode: <selected_mode>
-
-## Rules
-<user's natural language rules>
-EOF
-```
-
-### Step 4: Confirm and Apply
-
-Display saved configuration and confirm activation.
+4. **Start agents** with the settings applied:
+   ```bash
+   synapse claude  # Will read .synapse/delegate.md if enabled
+   ```
 
 ## Orchestrator Mode Workflow
 
@@ -137,16 +120,25 @@ When typing directly in the terminal (not from agent code), you can use:
 
 > **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
 
-## Configuration File Format
+## Configuration Files
 
-`~/.synapse/delegation.md`:
+### `.synapse/settings.json`
+
+```json
+{
+  "a2a": {
+    "flow": "auto"
+  },
+  "delegation": {
+    "enabled": true
+  }
+}
+```
+
+### `.synapse/delegate.md`
 
 ```markdown
-# Delegation Configuration
-
-mode: orchestrator
-
-## Rules
+# Delegation Rules
 
 Coding tasks (file editing, creation) go to Codex.
 Research, web searches, documentation go to Gemini.

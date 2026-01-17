@@ -20,7 +20,7 @@ These are Synapse-specific extensions (not part of standard A2A):
 |----------|------|-------------|
 | Send with Priority | `/tasks/send-priority?priority=<1-5>` | Send task with priority level |
 
-> **Naming Convention Note:** While Synapse uses the `x-` prefix for metadata fields (`x-sender`, `x-response-expected`) following Google A2A guidelines, the endpoint path `/tasks/send-priority` intentionally omits this prefix for URL readability. The endpoint is clearly scoped to Synapse via this documentation and the "Synapse Extension" categorization.
+> **Naming Convention Note:** The endpoint path `/tasks/send-priority` follows Google A2A spec guidelines which recommend extensions use clear, scoped naming. The `x-` prefix convention is used for metadata fields, while endpoint paths use descriptive names. Metadata fields like `sender` and `response_expected` are nested in the `metadata` object per A2A spec.
 
 > **Note:** Priority 5 triggers SIGINT before message delivery (emergency interrupt).
 
@@ -97,7 +97,7 @@ Example:
 
 ### JSON Payload
 
-Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
+Standard Google A2A message format with Synapse extensions in the metadata object:
 
 ```json
 {
@@ -106,22 +106,24 @@ Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
     "parts": [{"type": "text", "text": "<message>"}]
   },
   "metadata": {
-    "x-sender": {
-      "x-sender-id": "synapse-claude-8100",
-      "x-sender-type": "claude",
-      "x-sender-endpoint": "http://localhost:8100"
+    "sender": {
+      "sender_id": "synapse-claude-8100",
+      "sender_type": "claude",
+      "sender_endpoint": "http://localhost:8100"
     },
-    "x-response-expected": true
+    "response_expected": true,
+    "in_reply_to": "task-id-optional"
   }
 }
 ```
 
-**Extension fields explained:**
-- `x-sender`: Synapse-specific sender identification (not part of standard A2A)
-  - `x-sender-type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
-  - `x-sender-id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
-  - `x-sender-endpoint`: Agent's HTTP endpoint for replies
-- `x-response-expected`: Whether the sender is waiting for a response
+**Metadata fields explained:**
+- `sender`: Synapse-specific sender identification
+  - `sender_type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
+  - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
+  - `sender_endpoint`: Agent's HTTP endpoint for replies
+- `response_expected`: Whether the sender is waiting for a response
+- `in_reply_to`: Task ID this message is replying to (for `--reply-to` responses)
 
 ## Priority Levels
 

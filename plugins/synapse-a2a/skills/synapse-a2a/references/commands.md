@@ -26,6 +26,7 @@ synapse list -w -i 0.5
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
+- **EDITING FILE** (when File Safety enabled): Currently locked file name
 
 ### Start Agents
 
@@ -46,6 +47,28 @@ SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # With all features
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
+
+# Resume mode (skip initial instructions)
+synapse claude -- --resume
+synapse gemini -- --resume
+synapse codex -- resume
+
+# Background mode
+synapse start claude --port 8100
+synapse start claude --port 8100 --foreground  # for debugging
+```
+
+### Stop Agents
+
+```bash
+# Stop by profile
+synapse stop claude
+
+# Stop by specific ID (recommended for precision)
+synapse stop synapse-claude-8100
+
+# Stop all instances of a profile
+synapse stop claude --all
 ```
 
 ### Port Ranges
@@ -259,6 +282,31 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+
+## Instructions Management
+
+Manage initial instructions sent to agents at startup.
+
+```bash
+# Show instruction content for an agent type
+synapse instructions show claude
+synapse instructions show gemini
+synapse instructions show  # Shows default
+
+# List instruction files used
+synapse instructions files claude
+
+# Send initial instructions to a running agent (useful after --resume)
+synapse instructions send claude
+
+# Preview what would be sent without actually sending
+synapse instructions send claude --preview
+
+# Send to specific agent ID
+synapse instructions send synapse-claude-8100
+```
+
+**Use case:** If you started an agent with `--resume` (which skips initial instructions) and later need the A2A protocol information, use `synapse instructions send <agent>` to inject the instructions.
 
 ## Storage Locations
 
