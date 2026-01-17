@@ -36,3 +36,4 @@ venv/
 
 # OS
 .DS_Store
+ci_log.txt
