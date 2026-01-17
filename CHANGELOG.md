@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.19] - 2026-01-17
+
+### Fixed
+
+- Add type-port shorthand support for `synapse send` command
+  - When multiple agents of the same type are running, use `claude-8100` format to target specific instances
+  - Target resolution priority: Full ID > Type-port > Agent type
+  - Show helpful hints when ambiguous target is detected
+
+### Documentation
+
+- Clarify `/tasks/send-priority` naming convention in API docs
+  - Document that endpoint path intentionally omits `x-` prefix for URL readability
+  - Note that `x-` prefix is used for metadata fields (`x-sender`, `x-response-expected`)
+- Sync target format documentation across all files
+  - README.md, CLAUDE.md, guides/references.md, skill files, templates
+
 ## [0.2.18] - 2026-01-17
 
 ### Fixed
