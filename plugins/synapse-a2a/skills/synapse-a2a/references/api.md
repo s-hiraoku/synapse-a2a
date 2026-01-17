@@ -18,9 +18,9 @@ These are Synapse-specific extensions (not part of standard A2A):
 
 | Endpoint | Path | Description |
 |----------|------|-------------|
-| Send with Priority | `/tasks/x-send-priority?priority=<1-5>` | Send task with priority level |
+| Send with Priority | `/tasks/send-priority?priority=<1-5>` | Send task with priority level |
 
-> **Note:** The priority endpoint uses `x-send-priority` to indicate it's a Synapse extension. Priority 5 triggers SIGINT before message delivery.
+> **Note:** Priority 5 triggers SIGINT before message delivery (emergency interrupt).
 
 ## Transport Layer
 
@@ -170,7 +170,7 @@ curl -X POST http://localhost:8100/tasks/send \
 ### Send with Priority (Synapse Extension)
 
 ```bash
-curl -X POST "http://localhost:8100/tasks/x-send-priority?priority=5" \
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
 ```

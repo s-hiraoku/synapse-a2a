@@ -199,11 +199,31 @@ synapse history cleanup --max-size 100
 ### Initialize Settings
 
 ```bash
-# Project-level settings (./.synapse/settings.json)
-synapse init --scope project
+# Interactive - prompts for scope selection
+synapse init
 
-# User-level settings (~/.synapse/settings.json)
-synapse init --scope user
+# Output:
+# ? Where do you want to create .synapse/?
+#   ❯ User scope (~/.synapse/)
+#     Project scope (./.synapse/)
+```
+
+Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, delegate.md, file-safety.md).
+
+### Edit Settings (Interactive TUI)
+
+```bash
+# Interactive TUI for editing settings
+synapse config
+
+# Edit specific scope directly
+synapse config --scope user     # Edit ~/.synapse/settings.json
+synapse config --scope project  # Edit ./.synapse/settings.json
+
+# View current settings (read-only)
+synapse config show
+synapse config show --scope user
+synapse config show --scope project
 ```
 
 ### Reset Settings

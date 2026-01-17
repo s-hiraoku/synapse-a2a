@@ -150,9 +150,20 @@ Use the `@agent` pattern to send tasks to other agents:
 For programmatic delegation (from AI agents):
 
 ```bash
+# Fire and forget (default)
 synapse send codex "Refactor this function" --from claude
+
+# Wait for response (roundtrip)
+synapse send gemini "Analyze this code" --response --from claude
+
+# Urgent follow-up
 synapse send gemini "Status update?" --priority 4 --from claude
+
+# Reply to a --response request
+synapse send claude "Here is the analysis..." --reply-to <task_id> --from gemini
 ```
+
+**Important:** When responding to a `--response` request, the receiver MUST use `--reply-to <task_id>` to link the response.
 
 ## Modes
 

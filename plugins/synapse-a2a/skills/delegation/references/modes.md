@@ -103,22 +103,28 @@ When delegation is active:
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send <agent> "<message>" [--from <sender>] [--priority <1-5>]
+synapse send <agent> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
 Examples:
 ```bash
-# Normal task (priority 3)
+# Normal task (priority 3, fire and forget)
 synapse send codex "Refactor src/auth.py" --priority 3 --from claude
+
+# Wait for response (roundtrip)
+synapse send gemini "Analyze this code" --response --from claude
 
 # Urgent follow-up (priority 4)
 synapse send gemini "Status update?" --priority 4 --from claude
 
-# Critical task (priority 5)
+# Critical task (priority 5 - sends SIGINT first)
 synapse send codex "URGENT: Fix production bug" --priority 5 --from claude
+
+# Reply to a --response request (receiver uses --reply-to)
+synapse send claude "Analysis result: ..." --reply-to abc123 --from gemini
 ```
 
-**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply. When replying to a `--response` request, use `--reply-to <task_id>` to link the response.
 
 ### Method 2: @Agent Pattern (User Input Only)
 

@@ -14,9 +14,12 @@ Inter-agent communication framework via Google A2A Protocol.
 | List agents | `synapse list` |
 | Watch agents | `synapse list --watch` |
 | Send message | `synapse send <agent> "<message>" --from <sender>` |
+| Wait for reply | `synapse send <agent> "<message>" --response --from <sender>` |
+| Reply to request | `synapse send <agent> "<response>" --reply-to <task_id> --from <sender>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
+| Edit settings (TUI) | `synapse config` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
@@ -36,6 +39,22 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 1. Type only: `claude`, `gemini`, `codex` (if single instance)
 2. Type-port: `claude-8100`, `codex-8120`
 3. Exact ID: `synapse-claude-8100`
+
+**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port format instead.
+
+### Roundtrip Communication (--response / --reply-to)
+
+For request-response patterns:
+
+```bash
+# Sender: Wait for response (blocks until reply received)
+synapse send gemini "Analyze this data" --response --from claude
+
+# Receiver: Reply to the request (use task_id from [A2A:task_id:sender])
+synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
+```
+
+The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
 
 ## Priority Levels
 
