@@ -14,14 +14,44 @@ BRANCH MANAGEMENT - CRITICAL
 A2A COMMUNICATION PROTOCOL
 ================================================================================
 
-- **ONE-TIME RESPONSE & RESET**: Send your response to the sender ONLY ONCE when the task is complete. After sending, reset your task context and wait for new instructions. Do not send intermediate status updates unless explicitly requested.
-
 HOW TO RECEIVE A2A MESSAGES:
 Input format: [A2A:task_id:sender_id] message
-Response command: synapse send SENDER_ID "YOUR_RESPONSE" --from {{agent_id}}
+Response: Use the send command below to reply to the sender
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
-Use: synapse send <AGENT> "<MESSAGE>" --from {{agent_id}}
+Use this command to communicate with other agents (works in sandboxed environments):
+
+```bash
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+```
+
+Parameters:
+- `target`: Agent ID (e.g., `synapse-claude-8100`) or type (e.g., `claude`)
+- `--from, -f`: Your agent ID (for reply identification) - **always include this**
+- `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
+- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse send`
+- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
+
+IMPORTANT: Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+
+Examples:
+```bash
+# Send message to Claude (identifying as Gemini)
+synapse send claude "What is the best practice for error handling in Python?" --from gemini
+
+# Background task
+synapse send codex "Run the test suite and commit if all tests pass" --from gemini
+
+# Parallel delegation
+synapse send claude "Research React best practices" --from gemini
+synapse send codex "Refactor the auth module" --from gemini
+
+# Emergency interrupt (priority 5)
+synapse send codex "STOP" --priority 5 --from gemini
+
+# Wait for response
+synapse send claude "Analyze this" --response --from gemini
+```
 
 AVAILABLE AGENTS: claude, gemini, codex
 LIST COMMAND: synapse list

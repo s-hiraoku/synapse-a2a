@@ -131,9 +131,8 @@ Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
 | 5 | Critical/emergency tasks | Sends SIGINT first, then message |
 
 **Priority 5 sequence:**
-1. Sends SIGINT to target agent (interrupts current task)
-2. Waits briefly for interrupt processing
-3. Sends the message
+1. Calls `controller.interrupt()` to send SIGINT to target agent
+2. Immediately calls `controller.write()` to send the message (no waiting)
 
 ## Error Handling
 

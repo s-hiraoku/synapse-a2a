@@ -29,8 +29,8 @@ Parameters:
 - `target`: Agent ID (e.g., `synapse-claude-8100`) or type (e.g., `claude`)
 - `--from, -f`: Your agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--response`: Wait for and receive response from target agent
-- `--no-response`: Do not wait for response (default, fire and forget)
+- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse send`
+- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
 
 IMPORTANT: Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
 
