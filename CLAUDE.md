@@ -72,8 +72,12 @@ synapse config show                       # Show merged settings (read-only)
 synapse config show --scope user          # Show user settings only
 
 # Send messages (--response waits for reply, --no-response sends only)
+# Target formats: agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
 synapse send gemini "Analyze this" --from claude --response
 synapse send codex "Process this" --from claude --no-response
+
+# Send to specific instance when multiple agents of same type exist
+synapse send claude-8100 "Hello" --from synapse-claude-8101
 
 # Reply to a --response request (receiver MUST use --reply-to)
 synapse send claude "Result here" --reply-to <task_id> --from gemini

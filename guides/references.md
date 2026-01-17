@@ -193,10 +193,19 @@ codex      8120     READY        -           12347    /home/user/third         h
 synapse send <target> <message> [--priority N] [--response | --no-response] [--reply-to <task_id>]
 ```
 
+**ターゲット指定方法**:
+
+| 形式 | 例 | 説明 |
+|-----|---|------|
+| エージェントタイプ | `claude` | 単一インスタンスの場合のみ |
+| タイプ-ポート | `claude-8100` | 同タイプが複数ある場合 |
+| フルID | `synapse-claude-8100` | 完全なエージェントID |
+
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `target` | Yes | 送信先エージェント名 |
+| `target` | Yes | 送信先エージェント（上記形式） |
 | `message` | Yes | メッセージ内容 |
+| `--from`, `-f` | No | 送信元エージェントID |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要（デフォルト） |
@@ -205,10 +214,11 @@ synapse send <target> <message> [--priority N] [--response | --no-response] [--r
 **例**:
 
 ```bash
-synapse send claude "Hello!"
-synapse send codex "設計して" -p 1
-synapse send gemini "止まれ" -p 5
-synapse send codex "結果を教えて" --response
+synapse send claude "Hello!" --from codex
+synapse send codex "設計して" -p 1 --from claude
+synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
+synapse send gemini "止まれ" -p 5 --from claude
+synapse send codex "結果を教えて" --response --from claude
 synapse send claude "結果です..." --reply-to abc123 --from codex
 ```
 

@@ -777,6 +777,182 @@ class TestExactAgentIdMatch:
         assert "8100" in call_kwargs["endpoint"]
 
 
+# ============================================================
+# Type-Port Shorthand Match Tests
+# ============================================================
+
+
+class TestTypePortShorthandMatch:
+    """Test type-port shorthand matching (e.g., claude-8100) in cmd_send."""
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_type_port_shorthand_match(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+    ):
+        """Should match by type-port shorthand (e.g., claude-8100)."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            },
+            "synapse-claude-8101": {
+                "agent_id": "synapse-claude-8101",
+                "agent_type": "claude",
+                "port": 8101,
+                "pid": 1235,
+                "endpoint": "http://localhost:8101",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
+
+        # Use type-port shorthand to target specific instance
+        args = argparse.Namespace(
+            target="claude-8101",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+        cmd_send(args)
+
+        # Should succeed with type-port match
+        mock_client.send_to_local.assert_called_once()
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert "8101" in call_kwargs["endpoint"]
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_type_port_shorthand_case_insensitive(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+    ):
+        """Should match type-port shorthand case-insensitively."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working"
+        )
+        mock_client_cls.return_value = mock_client
+
+        # Use uppercase type
+        args = argparse.Namespace(
+            target="CLAUDE-8100",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+        cmd_send(args)
+
+        # Should succeed
+        mock_client.send_to_local.assert_called_once()
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_type_port_shorthand_no_match(self, mock_registry_cls, capsys):
+        """Should error when type-port doesn't match any agent."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        # Try to send to non-existent port
+        args = argparse.Namespace(
+            target="claude-9999",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_send(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No agent found" in captured.err
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_ambiguous_target_shows_hint(self, mock_registry_cls, capsys):
+        """Should show type-port hints when target is ambiguous."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+            },
+            "synapse-claude-8101": {
+                "agent_id": "synapse-claude-8101",
+                "agent_type": "claude",
+                "port": 8101,
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        args = argparse.Namespace(
+            target="claude",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_send(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Ambiguous" in captured.err
+        # Should show helpful hints
+        assert "Hint" in captured.err
+        assert "claude-8100" in captured.err
+        assert "claude-8101" in captured.err
+
+
 class TestSentMessageHistory:
     """Test sent message history recording."""
 

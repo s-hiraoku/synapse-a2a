@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -190,27 +191,58 @@ def cmd_send(args: argparse.Namespace) -> None:
     agents = reg.list_agents()
 
     # 1. Resolve Target
+    # Matching priority:
+    # 1. Exact match on agent_id (e.g., synapse-claude-8100)
+    # 2. Match on type-port shorthand (e.g., claude-8100)
+    # 3. Match on agent_type if only one exists (e.g., claude)
     target_agent = None
+    target_lower = args.target.lower()
 
     # Check if exact match by ID
     if args.target in agents:
         target_agent = agents[args.target]
     else:
-        # Fuzzy match by agent_type (e.g. 'claude')
-        matches = [
-            a for a in agents.values() if args.target.lower() in a["agent_type"].lower()
-        ]
-        if len(matches) == 1:
-            target_agent = matches[0]
-        elif len(matches) > 1:
-            print(
-                f"Error: Ambiguous target '{args.target}'. Multiple agents found: {[m['agent_id'] for m in matches]}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        else:
-            print(f"Error: No agent found matching '{args.target}'", file=sys.stderr)
-            sys.exit(1)
+        # Try type-port shorthand (e.g., claude-8100)
+        type_port_match = re.match(r"^(\w+)-(\d+)$", target_lower)
+        if type_port_match:
+            target_type = type_port_match.group(1)
+            target_port = int(type_port_match.group(2))
+            for info in agents.values():
+                if (
+                    info.get("agent_type", "").lower() == target_type
+                    and info.get("port") == target_port
+                ):
+                    target_agent = info
+                    break
+
+        # If not found, try fuzzy match by agent_type (e.g. 'claude')
+        if not target_agent:
+            matches = [
+                a for a in agents.values() if target_lower in a["agent_type"].lower()
+            ]
+            if len(matches) == 1:
+                target_agent = matches[0]
+            elif len(matches) > 1:
+                # Provide helpful hint for disambiguation
+                print(
+                    f"Error: Ambiguous target '{args.target}'. Multiple agents found: {[m['agent_id'] for m in matches]}",
+                    file=sys.stderr,
+                )
+                # Show type-port hints if port info is available
+                options = [
+                    f"{m['agent_type']}-{m['port']}" for m in matches if m.get("port")
+                ]
+                if options:
+                    print(
+                        f"  Hint: Use specific identifier like: {', '.join(options)}",
+                        file=sys.stderr,
+                    )
+                sys.exit(1)
+            else:
+                print(
+                    f"Error: No agent found matching '{args.target}'", file=sys.stderr
+                )
+                sys.exit(1)
 
     # 2. Validate agent is actually running
     pid = target_agent.get("pid")

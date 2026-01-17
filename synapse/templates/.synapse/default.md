@@ -25,8 +25,12 @@ Use this command to communicate with other agents (works in sandboxed environmen
 synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
 ```
 
+Target formats (in priority order):
+- Full ID: `synapse-gemini-8110` (always works)
+- Type-port: `gemini-8110` (when multiple agents of same type exist)
+- Agent type: `gemini` (only when single instance exists)
+
 Parameters:
-- `target`: Agent ID (e.g., `synapse-gemini-8110`) or type (e.g., `gemini`)
 - `--from, -f`: Your agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
