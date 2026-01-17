@@ -532,11 +532,20 @@ def create_a2a_router(
         # Send to PTY with A2A task reference for sender identification
         try:
             sender_id = "unknown"
+            # Use sender's task ID for PTY output (if available), not receiver's task ID
+            # This enables --reply-to to work correctly across agents
+            display_task_id = task.id[:8]  # Default to receiver's task ID
             if request.metadata:
                 sender_id = request.metadata.get("sender", {}).get(
                     "sender_id", "unknown"
                 )
-            prefixed_content = format_a2a_message(task.id[:8], sender_id, text_content)
+                # Prefer sender_task_id for PTY display
+                sender_task_id = request.metadata.get("sender_task_id")
+                if sender_task_id:
+                    display_task_id = sender_task_id[:8]
+            prefixed_content = format_a2a_message(
+                display_task_id, sender_id, text_content
+            )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")

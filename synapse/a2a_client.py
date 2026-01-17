@@ -288,6 +288,29 @@ class A2AClient:
                 metadata["sender"] = sender_info
             if in_reply_to:
                 metadata["in_reply_to"] = in_reply_to
+
+            # Generate sender_task_id when response is expected
+            # The sender owns this task and will use it to receive the reply
+            sender_task_id: str | None = None
+            if response_expected:
+                # Import task_store lazily to avoid circular imports
+                from synapse.a2a_compat import Message, TextPart, task_store
+
+                # Create a task in the sender's task store
+                sender_message = Message(role="user", parts=[TextPart(text=message)])
+                sender_task = task_store.create(
+                    sender_message,
+                    metadata={
+                        "response_expected": True,
+                        "direction": "outgoing",
+                        "target_endpoint": endpoint,
+                    },
+                )
+                sender_task_id = sender_task.id
+                # Update task status to "working" (waiting for response)
+                task_store.update_status(sender_task_id, "working")
+                metadata["sender_task_id"] = sender_task_id
+
             payload["metadata"] = metadata
 
             task_data = None
