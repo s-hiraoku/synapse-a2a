@@ -1,11 +1,11 @@
 ---
 name: release
-description: Update version in pyproject.toml and add changelog entry. This skill should be used when the user wants to bump the version number and update CHANGELOG.md. Triggered by /release or /version commands.
+description: Update version in pyproject.toml, plugin.json, and add changelog entry. This skill should be used when the user wants to bump the version number and update CHANGELOG.md. Triggered by /release or /version commands.
 ---
 
 # Release Version Update
 
-This skill updates the project version and changelog.
+This skill updates the project version, plugin version, and changelog.
 
 ## Usage
 
@@ -52,6 +52,16 @@ Edit `pyproject.toml`:
 ```toml
 version = "NEW_VERSION"
 ```
+
+### Step 3.5: Update plugin.json
+
+Edit `plugins/synapse-a2a/.claude-plugin/plugin.json`:
+
+```json
+"version": "NEW_VERSION",
+```
+
+**Important:** Keep plugin version in sync with pyproject.toml version.
 
 ### Step 4: Analyze Changes for Changelog
 
@@ -126,6 +136,7 @@ Display:
 ## File Locations
 
 - Version: `pyproject.toml` (line with `version = "..."`)
+- Plugin Version: `plugins/synapse-a2a/.claude-plugin/plugin.json` (line with `"version": "..."`)
 - Changelog: `CHANGELOG.md`
 
 ## Changelog Format
