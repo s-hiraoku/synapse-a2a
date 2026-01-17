@@ -183,6 +183,7 @@ flowchart TB
         logs["logs"]
         instructions["instructions"]
         external["external"]
+        config["config"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -216,6 +217,7 @@ flowchart TB
 | `synapse logs <profile>` | ログ表示 |
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
+| `synapse config` | 設定管理（インタラクティブTUI） |
 
 ---
 
