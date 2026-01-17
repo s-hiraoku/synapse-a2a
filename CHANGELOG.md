@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.18] - 2026-01-17
+
+### Fixed
+
+- Fix `synapse config` saving "Back to main menu" as a settings key
+  - questionary `Choice(value=None)` uses title as value, not None
+  - Use sentinel value `_BACK_SENTINEL` to properly detect back navigation
+- Fix confirm dialog in `synapse config` not exiting on Ctrl+C
+  - Handle `None` return from `questionary.confirm().ask()`
+
+### Documentation
+
+- Add `--reply-to` parameter documentation for roundtrip communication
+  - Essential for completing `--response` requests
+  - Receiver MUST use `--reply-to <task_id>` to link their response
+  - Updated: README.md, CLAUDE.md, guides, skill files, templates
+- Clarify `--response` / `--no-response` flag descriptions
+  - `--response`: Roundtrip mode - sender waits, receiver MUST reply
+  - `--no-response`: Oneway mode - fire and forget (default)
+- Fix Priority 5 sequence documentation in api.md
+  - Corrected to: `controller.interrupt()` followed immediately by `controller.write()` (no waiting)
+- Add `delegate.md` schema documentation to delegation skill
+  - YAML frontmatter structure, field reference, rule evaluation
+
 ## [0.2.17] - 2026-01-16
 
 ### Added
