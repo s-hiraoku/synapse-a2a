@@ -26,6 +26,7 @@ synapse list -w -i 0.5
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
+- **EDITING FILE** (when File Safety enabled): Currently locked file name
 
 ### Start Agents
 
@@ -46,6 +47,29 @@ SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # With all features
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
+
+# Resume mode (skip initial instructions)
+# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand
+synapse claude -- --resume
+synapse gemini -- --resume
+synapse codex -- resume      # Codex: resume is a subcommand, not a flag
+
+# Background mode
+synapse start claude --port 8100
+synapse start claude --port 8100 --foreground  # for debugging
+```
+
+### Stop Agents
+
+```bash
+# Stop by profile
+synapse stop claude
+
+# Stop by specific ID (recommended for precision)
+synapse stop synapse-claude-8100
+
+# Stop all instances of a profile
+synapse stop claude --all
 ```
 
 ### Port Ranges
@@ -63,29 +87,31 @@ When you receive an A2A message, it appears in this format:
 [A2A:<task_id>:<sender_id>] <message>
 ```
 
-How to reply depends on whether the sender is waiting for a response:
-- If sender used `--response` flag → they are waiting → use `--reply-to <task_id>`
-- If sender did NOT use `--response` → they are NOT waiting → do NOT use `--reply-to`
+**When to use --reply-to:** Match your reply style to the sender's message intent:
 
-Since you cannot know if `--response` was used, follow this rule:
-**Always use `--reply-to` when replying.** If it fails, retry without `--reply-to`.
+| Sender's Message | Your Action |
+|------------------|-------------|
+| Question or request | Reply with `--reply-to` |
+| Delegated task | Do the task, no reply needed |
+| Notification | No reply needed |
 
 ```bash
-# First try with --reply-to
-synapse send <sender_type> "<your reply>" --reply-to <task_id> --from codex
+# If sender asked a question or made a request → use --reply-to
+synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
 
-# If that fails, retry without --reply-to
-synapse send <sender_type> "<your reply>" --from codex
+# If sender delegated a task → just do the task, no --reply-to needed
 ```
 
-**Example:**
-If you receive:
+**Example - Question:**
 ```
-[A2A:abc12345:synapse-claude-8100] Please analyze this code
+Received: [A2A:abc12345:synapse-claude-8100] What is the project structure?
+Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
 ```
-You reply with:
-```bash
-synapse send claude "Here is my analysis..." --reply-to abc12345 --from codex
+
+**Example - Delegation:**
+```
+Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
+Action:   Just do the task. No reply needed unless you have questions.
 ```
 
 ## Sending Messages
@@ -98,37 +124,52 @@ synapse send claude "Here is my analysis..." --reply-to abc12345 --from codex
 synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
+**Target Formats (in priority order):**
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Full ID | `synapse-claude-8100` | Always works, unique identifier |
+| Type-port | `claude-8100` | Use when multiple agents of same type |
+| Agent type | `claude` | Only when single instance exists |
+
 **Parameters:**
-- `target`: Agent type (`claude`, `gemini`, `codex`) or type-port (`claude-8100`)
-- `message`: Message to send
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
 - `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests)
 
+**Choosing --response vs --no-response:**
+
+| Message Type | Flag | Example |
+|--------------|------|---------|
+| Question | `--response` | "What is the status?" |
+| Request for analysis | `--response` | "Please review this code" |
+| Status check | `--response` | "Are you ready?" |
+| Notification | `--no-response` | "FYI: Build completed" |
+| Delegated task | `--no-response` | "Run tests and commit" |
+
+**Rule: If your message asks for a reply, use --response**
+
 **Examples:**
 ```bash
-# Send message to Gemini (identifying as Codex)
-synapse send gemini "Please review this code" --from codex
+# Question - needs reply
+synapse send gemini "What is the best approach?" --response --from codex
 
-# Send with normal priority
-synapse send codex "Fix this bug" --priority 3 --from claude
+# Delegation - no reply needed
+synapse send codex "Fix this bug and commit" --from claude
 
-# Send to specific instance
-synapse send claude-8100 "Status update?" --from gemini
+# Send to specific instance with status check
+synapse send claude-8100 "What is your status?" --response --from gemini
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from claude
-
-# Wait for response (roundtrip)
-synapse send gemini "Analyze this" --response --from codex
 
 # Reply to a --response request (use task_id from [A2A:task_id:sender])
 synapse send codex "Here is my analysis..." --reply-to abc123 --from gemini
 ```
 
-**Important:** Always use `--from` to identify yourself. When replying to a `--response` request, use `--reply-to <task_id>` to link your response.
+**Important:** Always use `--from` to identify yourself.
 
 ### @Agent Pattern (User Input)
 
@@ -231,11 +272,31 @@ synapse history cleanup --max-size 100
 ### Initialize Settings
 
 ```bash
-# Project-level settings (./.synapse/settings.json)
-synapse init --scope project
+# Interactive - prompts for scope selection
+synapse init
 
-# User-level settings (~/.synapse/settings.json)
-synapse init --scope user
+# Output:
+# ? Where do you want to create .synapse/?
+#   ❯ User scope (~/.synapse/)
+#     Project scope (./.synapse/)
+```
+
+Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, delegate.md, file-safety.md).
+
+### Edit Settings (Interactive TUI)
+
+```bash
+# Interactive TUI for editing settings
+synapse config
+
+# Edit specific scope directly
+synapse config --scope user     # Edit ~/.synapse/settings.json
+synapse config --scope project  # Edit ./.synapse/settings.json
+
+# View current settings (read-only)
+synapse config show
+synapse config show --scope user
+synapse config show --scope project
 ```
 
 ### Reset Settings
@@ -265,6 +326,31 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+
+## Instructions Management
+
+Manage initial instructions sent to agents at startup.
+
+```bash
+# Show instruction content for an agent type
+synapse instructions show claude
+synapse instructions show gemini
+synapse instructions show  # Shows default
+
+# List instruction files used
+synapse instructions files claude
+
+# Send initial instructions to a running agent (useful after --resume)
+synapse instructions send claude
+
+# Preview what would be sent without actually sending
+synapse instructions send claude --preview
+
+# Send to specific agent ID
+synapse instructions send synapse-claude-8100
+```
+
+**Use case:** If you started an agent with `--resume` (which skips initial instructions) and later need the A2A protocol information, use `synapse instructions send <agent>` to inject the instructions.
 
 ## Storage Locations
 

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.21] - 2026-01-18
+
+### Documentation
+
+- Clarify `--response` vs `--no-response` flag usage guidance
+  - Add decision table for choosing the correct flag based on message intent
+  - Rule: If your message asks for a reply, use `--response`
+- Clarify `--reply-to` usage when receiving messages
+  - Use `--reply-to` only when replying to questions/requests
+  - Delegated tasks don't need a reply
+- Sync changes across all skill files and templates
+
 ## [0.2.20] - 2026-01-17
 
 ### Fixed

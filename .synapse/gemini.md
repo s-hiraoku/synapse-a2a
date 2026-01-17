@@ -17,25 +17,36 @@ A2A COMMUNICATION PROTOCOL
 HOW TO RECEIVE AND REPLY TO A2A MESSAGES:
 Input format: [A2A:<task_id>:<sender_id>] <message>
 
-How to reply depends on whether the sender is waiting for a response:
-- If sender used `--response` flag → they are waiting → use `--reply-to <task_id>`
-- If sender did NOT use `--response` → they are NOT waiting → do NOT use `--reply-to`
+WHEN TO USE --reply-to:
+The sender's message content tells you whether they expect a reply:
 
-Since you cannot know if `--response` was used, follow this rule:
-**Always use `--reply-to` when replying.** If it fails, retry without `--reply-to`.
+**Sender expects reply** (questions, requests):
+- "What is your status?" → reply with `--reply-to`
+- "Please analyze this code" → reply with `--reply-to`
+- "Can you help with X?" → reply with `--reply-to`
+
+**Sender does NOT expect reply** (notifications, delegated tasks):
+- "FYI: Build completed" → no reply needed
+- "Run tests and commit" → do the task, no reply needed
+
+**Rule: Match your reply style to the sender's message intent**
 
 ```bash
-# First try with --reply-to
+# If sender asked a question or requested something → use --reply-to
 synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
 
-# If that fails, retry without --reply-to
-synapse send <sender_type> "<your reply>" --from <your_agent_type>
+# If sender delegated a task → just do the task, no --reply-to needed
+# (send a new message only if you have questions or need to report completion)
 ```
 
-Example - if you receive:
-  [A2A:abc12345:synapse-claude-8100] Please analyze this code
+Example - Received question:
+  [A2A:abc12345:synapse-claude-8100] What is the project structure?
 Reply with:
-  synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
+  synapse send claude "The project has src/, tests/, docs/ directories..." --reply-to abc12345 --from gemini
+
+Example - Received delegation:
+  [A2A:xyz67890:synapse-claude-8100] Run the tests and fix any failures
+Action: Just do the task. No reply needed unless you have questions.
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
@@ -44,36 +55,51 @@ Use this command to communicate with other agents (works in sandboxed environmen
 synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
 ```
 
+Target formats (in priority order):
+- Full ID: `synapse-claude-8100` (always works)
+- Type-port: `claude-8100` (when multiple agents of same type exist)
+- Agent type: `claude` (only when single instance exists)
+
 Parameters:
-- `target`: Agent ID (e.g., `synapse-claude-8100`) or type (e.g., `claude`)
 - `--from, -f`: Your agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
 - `--reply-to`: Attach response to a specific task ID (use this when replying to `--response` requests)
 
-IMPORTANT: Always use `--from` to identify yourself. When replying to a `--response` request, use `--reply-to <task_id>` to link your response.
+CHOOSING --response vs --no-response:
+- Use `--response` when you NEED a reply (questions, requests for analysis, status checks)
+- Use `--no-response` when you DON'T need a reply (notifications, fire-and-forget tasks)
+
+**Rule: If your message asks for a reply, use --response**
+Examples that NEED --response:
+- "What is the status?" → needs reply → use `--response`
+- "Please review this code" → needs reply → use `--response`
+- "Can you analyze this?" → needs reply → use `--response`
+
+Examples that DON'T need --response:
+- "FYI: The build completed" → notification → use `--no-response`
+- "Run the tests and commit if passed" → delegated task → use `--no-response`
+
+IMPORTANT: Always use `--from` to identify yourself.
 
 Examples:
 ```bash
-# Send message to Claude (identifying as Gemini)
-synapse send claude "What is the best practice for error handling in Python?" --from gemini
+# Question - needs reply
+synapse send claude "What is the best practice for error handling?" --response --from gemini
 
-# Background task
+# Delegation - no reply needed
 synapse send codex "Run the test suite and commit if all tests pass" --from gemini
 
-# Parallel delegation
+# Parallel delegation - no reply needed
 synapse send claude "Research React best practices" --from gemini
 synapse send codex "Refactor the auth module" --from gemini
 
-# Emergency interrupt (priority 5)
+# Emergency interrupt
 synapse send codex "STOP" --priority 5 --from gemini
 
-# Wait for response (roundtrip)
-synapse send claude "Analyze this" --response --from gemini
-
-# Reply to a --response request (use task_id from [A2A:task_id:sender])
-synapse send claude "Here is my analysis..." --reply-to abc123 --from gemini
+# Status check - needs reply
+synapse send codex "What is your current status?" --response --from gemini
 ```
 
 AVAILABLE AGENTS: claude, gemini, codex

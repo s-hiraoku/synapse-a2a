@@ -12,11 +12,18 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents | `synapse list` |
-| Watch agents | `synapse list --watch` |
-| Send message | `synapse send <agent> "<message>" --from <sender>` |
+| Watch agents | `synapse list --watch` (shows TRANSPORT column) |
+| Send message | `synapse send <target> "<message>" --from <sender>` |
+| Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
+| Reply to request | `synapse send <target> "<response>" --reply-to <task_id> --from <sender>` |
+| Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
+| Stop agent | `synapse stop <profile\|id>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
+| Edit settings (TUI) | `synapse config` |
+| Show instructions | `synapse instructions show <agent>` |
+| Send instructions | `synapse instructions send <agent>` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
@@ -32,10 +39,80 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 
 **Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
 
-**Target Resolution:**
-1. Type only: `claude`, `gemini`, `codex` (if single instance)
-2. Type-port: `claude-8100`, `codex-8120`
-3. Exact ID: `synapse-claude-8100`
+**Target Resolution (Matching Priority):**
+1. Exact ID: `synapse-claude-8100` (direct match)
+2. Type-port: `claude-8100`, `codex-8120` (shorthand)
+3. Type only: `claude`, `gemini`, `codex` (only if single instance)
+
+**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port shorthand (e.g., `claude-8100`) instead.
+
+### Choosing --response vs --no-response
+
+**Rule: If your message asks for a reply, use --response**
+
+| Message Type | Flag | Example |
+|--------------|------|---------|
+| Question | `--response` | "What is the status?" |
+| Request for analysis | `--response` | "Please review this code" |
+| Status check | `--response` | "Are you ready?" |
+| Notification | `--no-response` | "FYI: Build completed" |
+| Delegated task | `--no-response` | "Run tests and commit" |
+
+```bash
+# Question - needs reply
+synapse send gemini "What is the best approach?" --response --from claude
+
+# Delegation - no reply needed
+synapse send codex "Run tests and fix failures" --from claude
+```
+
+### Roundtrip Communication (--response / --reply-to)
+
+For request-response patterns:
+
+```bash
+# Sender: Wait for response (blocks until reply received)
+synapse send gemini "Analyze this data" --response --from claude
+
+# Receiver: Reply to the request (use task_id from [A2A:task_id:sender])
+synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
+```
+
+The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
+
+## Receiving and Replying to Messages
+
+When you receive an A2A message, it appears as:
+```
+[A2A:<task_id>:<sender_id>] <message>
+```
+
+**When to use --reply-to:** Match your reply style to the sender's message intent:
+
+| Sender's Message | Your Action |
+|------------------|-------------|
+| Question or request | Reply with `--reply-to` |
+| Delegated task | Do the task, no reply needed |
+| Notification | No reply needed |
+
+```bash
+# If sender asked a question → use --reply-to
+synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
+
+# If sender delegated a task → just do the task, no --reply-to needed
+```
+
+**Example - Question:**
+```
+Received: [A2A:abc12345:synapse-claude-8100] What is the project structure?
+Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
+```
+
+**Example - Delegation:**
+```
+Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
+Action:   Just do the task. No reply needed unless you have questions.
+```
 
 ## Priority Levels
 
