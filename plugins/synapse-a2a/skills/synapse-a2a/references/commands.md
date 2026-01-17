@@ -66,9 +66,15 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
+**Target Formats (in priority order):**
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Full ID | `synapse-claude-8100` | Always works, unique identifier |
+| Type-port | `claude-8100` | Use when multiple agents of same type |
+| Agent type | `claude` | Only when single instance exists |
+
 **Parameters:**
-- `target`: Agent type (`claude`, `gemini`, `codex`) or type-port (`claude-8100`)
-- `message`: Message to send
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
