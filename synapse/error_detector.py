@@ -102,6 +102,18 @@ def detect_task_status(output: str) -> tuple[str, TaskError | None]:
     return "completed", None
 
 
+INPUT_REQUIRED_PATTERNS = [
+    r"\?\s*$",  # Ends with ?
+    r"\[y/n\]\s*$",  # y/n confirmation
+    r"\[yes/no\]\s*$",  # yes/no confirmation
+    r"enter\s+.*:\s*$",  # Enter X:
+    r"please\s+(provide|enter|input|specify)",  # Please provide/enter
+    r"waiting\s+for\s+input",  # Waiting for input
+    r"press\s+(enter|any key)",  # Press enter
+    r"continue\?\s*$",  # Continue?
+]
+
+
 def is_input_required(output: str) -> bool:
     """
     Detect if the CLI is waiting for user input.
@@ -115,23 +127,10 @@ def is_input_required(output: str) -> bool:
     if not output:
         return False
 
-    # Check last few lines for input prompts
     last_lines = output.strip().split("\n")[-3:]
     last_content = "\n".join(last_lines)
 
-    INPUT_REQUIRED_PATTERNS = [
-        r"\?\s*$",  # Ends with ?
-        r"\[y/n\]\s*$",  # y/n confirmation
-        r"\[yes/no\]\s*$",  # yes/no confirmation
-        r"enter\s+.*:\s*$",  # Enter X:
-        r"please\s+(provide|enter|input|specify)",  # Please provide/enter
-        r"waiting\s+for\s+input",  # Waiting for input
-        r"press\s+(enter|any key)",  # Press enter
-        r"continue\?\s*$",  # Continue?
-    ]
-
-    for pattern in INPUT_REQUIRED_PATTERNS:
-        if re.search(pattern, last_content, re.IGNORECASE):
-            return True
-
-    return False
+    return any(
+        re.search(pattern, last_content, re.IGNORECASE)
+        for pattern in INPUT_REQUIRED_PATTERNS
+    )

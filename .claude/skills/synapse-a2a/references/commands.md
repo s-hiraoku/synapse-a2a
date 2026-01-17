@@ -49,9 +49,10 @@ SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # Resume mode (skip initial instructions)
+# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand
 synapse claude -- --resume
 synapse gemini -- --resume
-synapse codex -- resume
+synapse codex -- resume      # Codex: resume is a subcommand, not a flag
 
 # Background mode
 synapse start claude --port 8100

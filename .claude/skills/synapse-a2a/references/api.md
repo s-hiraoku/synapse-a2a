@@ -20,7 +20,7 @@ These are Synapse-specific extensions (not part of standard A2A):
 |----------|------|-------------|
 | Send with Priority | `/tasks/send-priority?priority=<1-5>` | Send task with priority level |
 
-> **Naming Convention Note:** While Synapse uses the `x-` prefix for metadata fields (`x-sender`, `x-response-expected`) following Google A2A guidelines, the endpoint path `/tasks/send-priority` intentionally omits this prefix for URL readability. The endpoint is clearly scoped to Synapse via this documentation and the "Synapse Extension" categorization.
+> **Naming Convention Note:** Synapse metadata fields (`sender`, `response_expected`, `sender_task_id`, `in_reply_to`) are nested within the `metadata` object, clearly scoping them as extensions. The endpoint path `/tasks/send-priority` is a Synapse-specific extension documented here.
 >
 > **Note:** Priority 5 triggers SIGINT before message delivery (emergency interrupt).
 
