@@ -406,9 +406,11 @@ class ConfigCommand:
                         "You have unsaved changes. Exit anyway?",
                         default=False,
                     ).ask()
-                    if confirm:
+                    if confirm is None or confirm:
+                        # None (Ctrl+C) or explicit True both exit
                         self._print("\nExited without saving.")
                         return False
+                    # confirm is False: continue the loop
                 else:
                     self._print("\nExited.")
                     return False
@@ -430,9 +432,11 @@ class ConfigCommand:
                         "You have unsaved changes. Exit anyway?",
                         default=False,
                     ).ask()
-                    if confirm:
+                    if confirm is None or confirm:
+                        # None (Ctrl+C) or explicit True both exit
                         self._print("\nExited without saving.")
                         return False
+                    # confirm is False: continue the loop
                 else:
                     self._print("\nExited.")
                     return False

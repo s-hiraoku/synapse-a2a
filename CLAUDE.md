@@ -75,6 +75,9 @@ synapse config show --scope user          # Show user settings only
 synapse send gemini "Analyze this" --from claude --response
 synapse send codex "Process this" --from claude --no-response
 
+# Reply to a --response request (receiver MUST use --reply-to)
+synapse send claude "Result here" --reply-to <task_id> --from gemini
+
 # Low-level A2A tool
 python -m synapse.tools.a2a list
 python -m synapse.tools.a2a send --target claude --priority 1 "message"

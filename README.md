@@ -652,7 +652,7 @@ synapse history cleanup --days 30 --dry-run
 エージェント間通信には `synapse send` コマンドを使用してください。サンドボックス環境でも動作します。
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
 **オプション:**
@@ -661,8 +661,9 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 |-----------|--------|------|
 | `--from` | `-f` | 送信元エージェントID（返信識別用） |
 | `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT送信） |
-| `--response` | - | レスポンスを待つ |
-| `--no-response` | - | レスポンスを待たない（デフォルト） |
+| `--response` | - | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--no-response` | - | Oneway - 送りっぱなし、返信不要（デフォルト） |
+| `--reply-to` | - | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例:**
 
@@ -673,11 +674,14 @@ synapse send claude "Hello" --priority 1 --from codex
 # 緊急停止
 synapse send claude "Stop!" --priority 5 --from codex
 
-# レスポンスを待つ
+# レスポンスを待つ（roundtrip）
 synapse send gemini "分析して" --response --from claude
+
+# --response への返信（task_idは [A2A:task_id:sender] から取得）
+synapse send claude "分析結果です..." --reply-to abc123 --from gemini
 ```
 
-**重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
+**重要:** `--from` オプションで送信元を指定してください。`--response` への返信時は `--reply-to <task_id>` を使用して返信を紐付けます。
 
 ### 低レベル A2A ツール
 
