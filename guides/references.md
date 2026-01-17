@@ -190,7 +190,7 @@ codex      8120     READY        -           12347    /home/user/third         h
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message> [--priority N] [--response | --no-response]
+synapse send <target> <message> [--priority N] [--response | --no-response] [--reply-to <task_id>]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -198,8 +198,9 @@ synapse send <target> <message> [--priority N] [--response | --no-response]
 | `target` | Yes | 送信先エージェント名 |
 | `message` | Yes | メッセージ内容 |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
-| `--response` | No | レスポンスを待つ |
-| `--no-response` | No | レスポンスを待たない（デフォルト） |
+| `--response` | No | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--no-response` | No | Oneway - 送りっぱなし、返信不要（デフォルト） |
+| `--reply-to` | No | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例**:
 
@@ -208,6 +209,7 @@ synapse send claude "Hello!"
 synapse send codex "設計して" -p 1
 synapse send gemini "止まれ" -p 5
 synapse send codex "結果を教えて" --response
+synapse send claude "結果です..." --reply-to abc123 --from codex
 ```
 
 ---
