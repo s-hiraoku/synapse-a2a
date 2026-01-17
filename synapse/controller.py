@@ -82,14 +82,12 @@ class TerminalController:
                     f"Falling back to timeout-based idle detection."
                 )
                 self.idle_regex = None
-                self._pattern_detected = False
             except Exception as e:
                 logging.error(
-                    f"Unexpected error compiling idle pattern '{pattern}': {e}. "
+                    f"Unexpected error compiling pattern '{pattern}': {e}. "
                     f"Falling back to timeout-based idle detection."
                 )
                 self.idle_regex = None
-                self._pattern_detected = False
 
         # Timeout settings
         timeout = self.idle_config.get("timeout", 1.5)
@@ -260,12 +258,14 @@ class TerminalController:
                         timeout_idle = True
 
             # 3. Determine new status based on strategy
-            strategy_idle_map = {
-                "pattern": pattern_match,
-                "timeout": timeout_idle,
-                "hybrid": pattern_match or timeout_idle,
-            }
-            is_idle = strategy_idle_map.get(self.idle_strategy, False)
+            if self.idle_strategy == "pattern":
+                is_idle = pattern_match
+            elif self.idle_strategy == "timeout":
+                is_idle = timeout_idle
+            elif self.idle_strategy == "hybrid":
+                is_idle = pattern_match or timeout_idle
+            else:
+                is_idle = False
 
             new_status = "READY" if is_idle else "PROCESSING"
 

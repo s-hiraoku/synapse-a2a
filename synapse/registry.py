@@ -284,16 +284,16 @@ class AgentRegistry:
 
         # If active transport is set, return it
         active = agent_data.get("active_transport")
-        if active and isinstance(active, str):
-            return str(active)
+        if isinstance(active, str) and active:
+            return active
 
         # Check if we should display last transport due to retention
         last_transport = agent_data.get("last_transport")
         updated_at = agent_data.get("transport_updated_at")
 
-        if last_transport and isinstance(last_transport, str) and updated_at:
+        if isinstance(last_transport, str) and last_transport and updated_at:
             elapsed = time.time() - updated_at
             if elapsed < retention_seconds:
-                return str(last_transport)
+                return last_transport
 
         return None

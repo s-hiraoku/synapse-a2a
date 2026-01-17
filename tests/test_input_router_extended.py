@@ -282,7 +282,9 @@ class TestInputRouterRefactorSpec:
         mock_agent.alias = "ext"
         router.a2a_client.send_message.return_value = None
 
-        success = router._send_to_external_agent(mock_agent, "msg")
+        success = router._send_to_external_agent(
+            mock_agent, "msg", response_expected=True
+        )
         assert success is False
 
     def test_send_to_external_agent_exception(self, router):
@@ -291,5 +293,7 @@ class TestInputRouterRefactorSpec:
         mock_agent.alias = "ext"
         router.a2a_client.send_message.side_effect = Exception("error")
 
-        success = router._send_to_external_agent(mock_agent, "msg")
+        success = router._send_to_external_agent(
+            mock_agent, "msg", response_expected=True
+        )
         assert success is False
