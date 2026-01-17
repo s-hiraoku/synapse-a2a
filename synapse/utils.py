@@ -6,6 +6,7 @@ This module provides common utility functions used across the codebase.
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 
 def extract_text_from_parts(parts: list[Any]) -> str:
@@ -62,3 +63,13 @@ def get_iso_timestamp() -> str:
     # Use replace to remove timezone info before adding Z suffix
     # to avoid invalid format like "2024-01-15T10:30:00+00:00Z"
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+
+
+def generate_task_id() -> str:
+    """
+    Generate a unique task ID for A2A messages.
+
+    Returns:
+        A UUID-based task ID string (first 8 characters for brevity).
+    """
+    return str(uuid4())[:8]

@@ -56,6 +56,38 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 | Gemini | 8110-8119 |
 | Codex  | 8120-8129 |
 
+## Receiving Messages
+
+When you receive an A2A message, it appears in this format:
+```
+[A2A:<task_id>:<sender_id>] <message>
+```
+
+How to reply depends on whether the sender is waiting for a response:
+- If sender used `--response` flag → they are waiting → use `--reply-to <task_id>`
+- If sender did NOT use `--response` → they are NOT waiting → do NOT use `--reply-to`
+
+Since you cannot know if `--response` was used, follow this rule:
+**Always use `--reply-to` when replying.** If it fails, retry without `--reply-to`.
+
+```bash
+# First try with --reply-to
+synapse send <sender_type> "<your reply>" --reply-to <task_id> --from codex
+
+# If that fails, retry without --reply-to
+synapse send <sender_type> "<your reply>" --from codex
+```
+
+**Example:**
+If you receive:
+```
+[A2A:abc12345:synapse-claude-8100] Please analyze this code
+```
+You reply with:
+```bash
+synapse send claude "Here is my analysis..." --reply-to abc12345 --from codex
+```
+
 ## Sending Messages
 
 ### synapse send (Recommended)

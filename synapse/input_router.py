@@ -235,7 +235,9 @@ class InputRouter:
                     "INFO",
                     f"Found external agent: {agent_name} at {external_agent.url}",
                 )
-                return self._send_to_external_agent(external_agent, message)
+                return self._send_to_external_agent(
+                    external_agent, message, response_expected
+                )
 
         if not target:
             log("ERROR", f"Agent '{agent_name}' not found (local or external)")
@@ -325,25 +327,22 @@ class InputRouter:
         """Alias for route_to_agent."""
         return self.route_to_agent(agent_name, message)
 
-    def _send_to_external_agent(self, agent: "object", message: str) -> bool:
+    def _send_to_external_agent(
+        self, agent: "object", message: str, response_expected: bool
+    ) -> bool:
         """Send a message to an external Google A2A agent."""
         self.is_external_agent = True
-
-        # Determine response_expected based on a2a.flow setting
-        settings = get_settings()
-        flow = settings.get_a2a_flow()
-        should_wait = flow != "oneway"  # roundtrip or auto both wait
 
         try:
             task = self.a2a_client.send_message(
                 agent.alias,  # type: ignore[attr-defined]
                 message,
-                wait_for_completion=should_wait,
+                wait_for_completion=response_expected,
                 timeout=60,
             )
 
             if task:
-                if should_wait and task.artifacts:
+                if response_expected and task.artifacts:
                     self.last_response = self._extract_text_from_artifacts(
                         task.artifacts
                     )
@@ -361,38 +360,29 @@ class InputRouter:
 
     def _extract_text_from_artifacts(self, artifacts: list) -> str | None:
         """Extract text content from A2A artifacts."""
-        responses = []
-        for artifact in artifacts:
-            if isinstance(artifact, dict) and artifact.get("type") == "text":
-                responses.append(str(artifact.get("data", "")))
+        responses = [
+            str(a.get("data", ""))
+            for a in artifacts
+            if isinstance(a, dict) and a.get("type") == "text"
+        ]
         return "\n".join(responses) if responses else None
 
     def get_feedback_message(self, agent: str, success: bool) -> str:
         """Generate feedback message for the user."""
-        # Use different indicator for external agents
-        agent_type = "ext" if self.is_external_agent else "local"
-        color = (
-            "\x1b[35m" if self.is_external_agent else "\x1b[32m"
-        )  # Magenta for external, Green for local
-
-        if success:
-            if hasattr(self, "last_response") and self.last_response:
-                # Include response from agent
-                return (
-                    f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
-                    f"\x1b[36m[← {agent}]\x1b[0m\n"
-                    f"{self.last_response}\n"
-                )
-            else:
-                return f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
-        else:
-            # Check for ambiguous matches
-            if hasattr(self, "ambiguous_matches") and self.ambiguous_matches:
+        if not success:
+            if self.ambiguous_matches:
                 options = ", ".join(self.ambiguous_matches)
-                msg = f"\x1b[33m[⚠ Multiple '{agent}' agents found. Use: {options}]\x1b[0m\n"
-                self.ambiguous_matches = None  # Clear after showing
-                return msg
-            return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"  # Red
+                self.ambiguous_matches = None
+                return f"\x1b[33m[⚠ Multiple '{agent}' agents found. Use: {options}]\x1b[0m\n"
+            return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"
+
+        agent_type = "ext" if self.is_external_agent else "local"
+        color = "\x1b[35m" if self.is_external_agent else "\x1b[32m"
+        header = f"{color}[→ {agent} ({agent_type})]\x1b[0m\n"
+
+        if self.last_response:
+            return f"{header}\x1b[36m[← {agent}]\x1b[0m\n{self.last_response}\n"
+        return header
 
     def reset(self) -> None:
         """Reset the router state."""

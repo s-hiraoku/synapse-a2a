@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.20] - 2026-01-17
+
+### Fixed
+
+- Redesign task ownership for `--reply-to` to work across agents
+  - Tasks are now created on the **sender** side when using `--response` flag
+  - `sender_task_id` is included in request metadata and displayed in PTY output
+  - Enables `--reply-to` to work for same-type agent communication (e.g., claude-to-claude)
+
+### Changed
+
+- Simplify codebase by removing duplications
+  - Consolidate duplicate artifact formatting functions in `a2a_compat.py`
+  - Remove redundant regex search in `error_detector.py`
+  - Consolidate exception handlers in `controller.py`
+  - Remove redundant settings lookup in `input_router.py`
+
+### Documentation
+
+- Add task ownership design document (`docs/TASK_OWNERSHIP_DESIGN.md`)
+- Add fallback strategy for `--reply-to` when sender didn't use `--response`
+- Add receiving and replying section to A2A communication guide
+
 ## [0.2.19] - 2026-01-17
 
 ### Fixed

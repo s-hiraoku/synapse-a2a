@@ -14,9 +14,28 @@ BRANCH MANAGEMENT - CRITICAL
 A2A COMMUNICATION PROTOCOL
 ================================================================================
 
-HOW TO RECEIVE A2A MESSAGES:
-Input format: [A2A:task_id:sender_id] message
-Response: Use the send command below to reply to the sender
+HOW TO RECEIVE AND REPLY TO A2A MESSAGES:
+Input format: [A2A:<task_id>:<sender_id>] <message>
+
+How to reply depends on whether the sender is waiting for a response:
+- If sender used `--response` flag → they are waiting → use `--reply-to <task_id>`
+- If sender did NOT use `--response` → they are NOT waiting → do NOT use `--reply-to`
+
+Since you cannot know if `--response` was used, follow this rule:
+**Always use `--reply-to` when replying.** If it fails, retry without `--reply-to`.
+
+```bash
+# First try with --reply-to
+synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
+
+# If that fails, retry without --reply-to
+synapse send <sender_type> "<your reply>" --from <your_agent_type>
+```
+
+Example - if you receive:
+  [A2A:abc12345:synapse-claude-8100] Please analyze this code
+Reply with:
+  synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
