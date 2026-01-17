@@ -222,12 +222,20 @@ A2A メッセージには送信元情報が自動的に付与されます。
     "sender": {
       "sender_id": "synapse-claude-8100",
       "sender_type": "claude",
-      "sender_endpoint": "http://localhost:8100"
+      "sender_endpoint": "http://localhost:8100",
+      "sender_uds_path": "/tmp/synapse-claude-8100.sock"
     },
+    "sender_task_id": "abc12345-...",
     "response_expected": true
   }
 }
 ```
+
+### --reply-to の仕組み
+
+`--response` フラグ使用時、送信元エージェントのサーバーにタスクが作成され、その `sender_task_id` が受信側に送られます。受信側が `--reply-to <task_id>` で返信すると、送信元サーバーの該当タスクが完了状態になり、結果が取得できます。
+
+技術的な詳細は [docs/TASK_OWNERSHIP_DESIGN.md](../docs/TASK_OWNERSHIP_DESIGN.md) を参照してください。
 
 ---
 
