@@ -60,6 +60,24 @@ synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
 
 The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
 
+## Receiving and Replying to Messages
+
+When you receive an A2A message, it appears as:
+```
+[A2A:<task_id>:<sender_id>] <message>
+```
+
+**How to reply:** Always use `--reply-to` with the task_id from the message:
+```bash
+synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
+```
+
+**Example:**
+```
+Received: [A2A:abc12345:synapse-claude-8100] Please review this code
+Reply:    synapse send claude "Here is my review..." --reply-to abc12345 --from gemini
+```
+
 ## Priority Levels
 
 | Priority | Description | Use Case |
