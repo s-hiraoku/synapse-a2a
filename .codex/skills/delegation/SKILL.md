@@ -1,6 +1,6 @@
 ---
 name: delegation
-description: This skill configures automatic task delegation between agents in Synapse A2A. Use /delegate to set up rules for routing coding tasks to Codex, research to Gemini, etc. Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
+description: This skill configures automatic task delegation between agents in Synapse A2A. Configure delegation rules via settings files (.synapse/settings.json and .synapse/delegate.md) or the interactive config TUI (synapse config). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
 ---
 
 # Delegation Skill

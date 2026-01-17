@@ -17,6 +17,10 @@ from synapse.settings import (
     load_settings,
 )
 
+# Sentinel value for "Back to main menu" choice
+# Note: questionary.Choice(title, value=None) uses title as value, not None
+_BACK_SENTINEL = "__BACK__"
+
 # Setting category definitions with display names and descriptions
 SETTING_CATEGORIES = {
     "env": {
@@ -101,10 +105,10 @@ class ConfigCommand:
                 Choice("User settings (~/.synapse/settings.json)", value="user"),
                 Choice("Project settings (./.synapse/settings.json)", value="project"),
                 Separator(),
-                Choice("Cancel", value=None),
+                Choice("Cancel", value=_BACK_SENTINEL),
             ],
         ).ask()
-        return result
+        return None if result == _BACK_SENTINEL else result
 
     def _prompt_main_menu(self) -> str | None:
         """Show main menu with setting categories."""
@@ -142,7 +146,7 @@ class ConfigCommand:
         choices.extend(
             [
                 Separator(),
-                Choice("Back to main menu", value=None),
+                Choice("Back to main menu", value=_BACK_SENTINEL),
             ]
         )
 
@@ -151,7 +155,7 @@ class ConfigCommand:
             choices=choices,
         ).ask()
 
-        if selected_key is None:
+        if selected_key is None or selected_key == _BACK_SENTINEL:
             return (None, None)
 
         # Get new value based on type
@@ -205,7 +209,7 @@ class ConfigCommand:
         choices.extend(
             [
                 Separator(),
-                Choice("Back to main menu", value=None),
+                Choice("Back to main menu", value=_BACK_SENTINEL),
             ]
         )
 
@@ -214,7 +218,7 @@ class ConfigCommand:
             choices=choices,
         ).ask()
 
-        if selected_key is None:
+        if selected_key is None or selected_key == _BACK_SENTINEL:
             return (None, None)
 
         current_value = instructions.get(selected_key, "")
@@ -238,7 +242,7 @@ class ConfigCommand:
                 value="flow",
             ),
             Separator(),
-            Choice("Back to main menu", value=None),
+            Choice("Back to main menu", value=_BACK_SENTINEL),
         ]
 
         selected_key = self._questionary.select(
@@ -246,7 +250,7 @@ class ConfigCommand:
             choices=choices,
         ).ask()
 
-        if selected_key is None:
+        if selected_key is None or selected_key == _BACK_SENTINEL:
             return (None, None)
 
         if selected_key == "flow":
@@ -276,7 +280,7 @@ class ConfigCommand:
                 value="enabled",
             ),
             Separator(),
-            Choice("Back to main menu", value=None),
+            Choice("Back to main menu", value=_BACK_SENTINEL),
         ]
 
         selected_key = self._questionary.select(
@@ -284,7 +288,7 @@ class ConfigCommand:
             choices=choices,
         ).ask()
 
-        if selected_key is None:
+        if selected_key is None or selected_key == _BACK_SENTINEL:
             return (None, None)
 
         if selected_key == "enabled":
@@ -316,7 +320,7 @@ class ConfigCommand:
         choices.extend(
             [
                 Separator(),
-                Choice("Back to main menu", value=None),
+                Choice("Back to main menu", value=_BACK_SENTINEL),
             ]
         )
 
@@ -325,7 +329,7 @@ class ConfigCommand:
             choices=choices,
         ).ask()
 
-        if selected_key is None:
+        if selected_key is None or selected_key == _BACK_SENTINEL:
             return (None, None)
 
         current_value = resume_flags.get(
@@ -395,7 +399,21 @@ class ConfigCommand:
         while True:
             category = self._prompt_main_menu()
 
-            if category == "save":
+            if category is None:
+                # Handle Ctrl+C or unexpected None return
+                if modified:
+                    confirm = self._questionary.confirm(
+                        "You have unsaved changes. Exit anyway?",
+                        default=False,
+                    ).ask()
+                    if confirm:
+                        self._print("\nExited without saving.")
+                        return False
+                else:
+                    self._print("\nExited.")
+                    return False
+
+            elif category == "save":
                 if modified:
                     if self._save_settings(settings_path, current_settings):
                         self._print(f"\nSettings saved to {settings_path}")
