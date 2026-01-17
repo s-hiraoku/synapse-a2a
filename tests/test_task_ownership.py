@@ -69,9 +69,9 @@ class TestSenderTaskIdInMetadata:
 
             assert "metadata" in payload
             # NEW: sender_task_id should be present
-            assert (
-                "sender_task_id" in payload["metadata"]
-            ), "sender_task_id should be included in metadata when response_expected=True"
+            assert "sender_task_id" in payload["metadata"], (
+                "sender_task_id should be included in metadata when response_expected=True"
+            )
 
     def test_sender_task_created_in_task_store(self):
         """When response_expected=True, a task should be created in the shared task_store."""
@@ -108,12 +108,12 @@ class TestSenderTaskIdInMetadata:
 
             # Verify the task exists in the shared task_store
             sender_task = task_store.get(sender_task_id)
-            assert (
-                sender_task is not None
-            ), "Sender task should be created in shared task_store"
-            assert (
-                sender_task.status == "working"
-            ), "Sender task should be in 'working' status while waiting for response"
+            assert sender_task is not None, (
+                "Sender task should be created in shared task_store"
+            )
+            assert sender_task.status == "working", (
+                "Sender task should be in 'working' status while waiting for response"
+            )
 
     def test_sender_task_not_created_when_no_response_expected(self):
         """When response_expected=False, no sender task should be created."""
@@ -146,14 +146,14 @@ class TestSenderTaskIdInMetadata:
             # Verify no sender_task_id in metadata
             call_args = mock_requests.post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
-            assert (
-                "sender_task_id" not in payload["metadata"]
-            ), "sender_task_id should NOT be included when response_expected=False"
+            assert "sender_task_id" not in payload["metadata"], (
+                "sender_task_id should NOT be included when response_expected=False"
+            )
 
             # Count tasks after - should be same as before
-            assert (
-                len(task_store._tasks) == initial_count
-            ), "No new task should be created when response_expected=False"
+            assert len(task_store._tasks) == initial_count, (
+                "No new task should be created when response_expected=False"
+            )
 
 
 # ============================================================
