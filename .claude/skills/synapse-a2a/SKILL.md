@@ -46,6 +46,26 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 
 **Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port shorthand (e.g., `claude-8100`) instead.
 
+### Choosing --response vs --no-response
+
+**Rule: If your message asks for a reply, use --response**
+
+| Message Type | Flag | Example |
+|--------------|------|---------|
+| Question | `--response` | "What is the status?" |
+| Request for analysis | `--response` | "Please review this code" |
+| Status check | `--response` | "Are you ready?" |
+| Notification | `--no-response` | "FYI: Build completed" |
+| Delegated task | `--no-response` | "Run tests and commit" |
+
+```bash
+# Question - needs reply
+synapse send gemini "What is the best approach?" --response --from claude
+
+# Delegation - no reply needed
+synapse send codex "Run tests and fix failures" --from claude
+```
+
 ### Roundtrip Communication (--response / --reply-to)
 
 For request-response patterns:
@@ -67,15 +87,31 @@ When you receive an A2A message, it appears as:
 [A2A:<task_id>:<sender_id>] <message>
 ```
 
-**How to reply:** Always use `--reply-to` with the task_id from the message:
+**When to use --reply-to:** Match your reply style to the sender's message intent:
+
+| Sender's Message | Your Action |
+|------------------|-------------|
+| Question or request | Reply with `--reply-to` |
+| Delegated task | Do the task, no reply needed |
+| Notification | No reply needed |
+
 ```bash
-synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
+# If sender asked a question → use --reply-to
+synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
+
+# If sender delegated a task → just do the task, no --reply-to needed
 ```
 
-**Example:**
+**Example - Question:**
 ```
-Received: [A2A:abc12345:synapse-claude-8100] Please review this code
-Reply:    synapse send claude "Here is my review..." --reply-to abc12345 --from gemini
+Received: [A2A:abc12345:synapse-claude-8100] What is the project structure?
+Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
+```
+
+**Example - Delegation:**
+```
+Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
+Action:   Just do the task. No reply needed unless you have questions.
 ```
 
 ## Priority Levels
