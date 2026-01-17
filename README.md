@@ -655,6 +655,16 @@ synapse history cleanup --days 30 --dry-run
 synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
+**ターゲット指定方法:**
+
+| 形式 | 例 | 説明 |
+|-----|---|------|
+| エージェントタイプ | `claude` | 単一インスタンスの場合のみ有効 |
+| タイプ-ポート | `claude-8100` | 同タイプが複数ある場合の指定 |
+| フルID | `synapse-claude-8100` | 完全なエージェントID |
+
+同じタイプのエージェントが複数起動している場合、タイプのみの指定（例: `claude`）はエラーになります。`claude-8100` や `synapse-claude-8100` のように特定のインスタンスを指定してください。
+
 **オプション:**
 
 | オプション | 短縮形 | 説明 |
@@ -668,8 +678,11 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 **例:**
 
 ```bash
-# メッセージ送信
+# メッセージ送信（単一インスタンス）
 synapse send claude "Hello" --priority 1 --from codex
+
+# 特定インスタンスへ送信（同タイプが複数の場合）
+synapse send claude-8100 "Hello" --from synapse-claude-8101
 
 # 緊急停止
 synapse send claude "Stop!" --priority 5 --from codex
