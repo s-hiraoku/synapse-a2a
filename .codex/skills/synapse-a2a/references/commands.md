@@ -56,6 +56,28 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 | Gemini | 8110-8119 |
 | Codex  | 8120-8129 |
 
+## Receiving Messages
+
+When you receive an A2A message, it appears in this format:
+```
+[A2A:<task_id>:<sender_id>] <message>
+```
+
+**You MUST reply using `--reply-to` with the task_id:**
+```bash
+synapse send <sender_id> "<your reply>" --reply-to <task_id> --from codex
+```
+
+**Example:**
+If you receive:
+```
+[A2A:abc12345:synapse-claude-8100] Please analyze this code
+```
+You reply with:
+```bash
+synapse send claude "Here is my analysis..." --reply-to abc12345 --from codex
+```
+
 ## Sending Messages
 
 ### synapse send (Recommended)

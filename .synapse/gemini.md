@@ -15,8 +15,17 @@ A2A COMMUNICATION PROTOCOL
 ================================================================================
 
 HOW TO RECEIVE A2A MESSAGES:
-Input format: [A2A:task_id:sender_id] message
-Response: Use the send command below to reply to the sender
+Input format: [A2A:<task_id>:<sender_id>] <message>
+
+When you receive a message in this format, you MUST reply using --reply-to with the task_id:
+```bash
+synapse send <sender_id> "<your reply>" --reply-to <task_id> --from <your_agent_type>
+```
+
+Example - if you receive:
+  [A2A:abc12345:synapse-claude-8100] Please analyze this code
+You reply with:
+  synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
