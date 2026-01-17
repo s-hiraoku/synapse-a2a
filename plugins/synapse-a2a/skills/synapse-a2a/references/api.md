@@ -112,6 +112,7 @@ Standard Google A2A message format with Synapse extensions in the metadata objec
       "sender_endpoint": "http://localhost:8100"
     },
     "response_expected": true,
+    "sender_task_id": "abc12345",
     "in_reply_to": "task-id-optional"
   }
 }
@@ -123,7 +124,8 @@ Standard Google A2A message format with Synapse extensions in the metadata objec
   - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
   - `sender_endpoint`: Agent's HTTP endpoint for replies
 - `response_expected`: Whether the sender is waiting for a response
-- `in_reply_to`: Task ID this message is replying to (for `--reply-to` responses)
+- `sender_task_id`: Task ID owned by the sender (included when `response_expected=true`). The receiver displays this ID in PTY output and uses it for `--reply-to`.
+- `in_reply_to`: Task ID this message is replying to (for `--reply-to` responses). Must match the `sender_task_id` from the original request.
 
 ## Priority Levels
 

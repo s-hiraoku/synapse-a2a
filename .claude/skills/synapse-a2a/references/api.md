@@ -97,7 +97,7 @@ Example:
 
 ### JSON Payload
 
-Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
+Standard Google A2A message format with Synapse extensions in the metadata object:
 
 ```json
 {
@@ -106,22 +106,26 @@ Standard Google A2A message format with Synapse extensions (prefixed with `x-`):
     "parts": [{"type": "text", "text": "<message>"}]
   },
   "metadata": {
-    "x-sender": {
-      "x-sender-id": "synapse-claude-8100",
-      "x-sender-type": "claude",
-      "x-sender-endpoint": "http://localhost:8100"
+    "sender": {
+      "sender_id": "synapse-claude-8100",
+      "sender_type": "claude",
+      "sender_endpoint": "http://localhost:8100"
     },
-    "x-response-expected": true
+    "response_expected": true,
+    "sender_task_id": "abc12345",
+    "in_reply_to": "task-id-optional"
   }
 }
 ```
 
-**Extension fields explained:**
-- `x-sender`: Synapse-specific sender identification (not part of standard A2A)
-  - `x-sender-type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
-  - `x-sender-id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
-  - `x-sender-endpoint`: Agent's HTTP endpoint for replies
-- `x-response-expected`: Whether the sender is waiting for a response
+**Metadata fields explained:**
+- `sender`: Synapse-specific sender identification
+  - `sender_type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
+  - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
+  - `sender_endpoint`: Agent's HTTP endpoint for replies
+- `response_expected`: Whether the sender is waiting for a response
+- `sender_task_id`: Task ID owned by the sender (included when `response_expected=true`). The receiver displays this ID in PTY output and uses it for `--reply-to`.
+- `in_reply_to`: Task ID this message is replying to (for `--reply-to` responses). Must match the `sender_task_id` from the original request.
 
 ## Priority Levels
 
