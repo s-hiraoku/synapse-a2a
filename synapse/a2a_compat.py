@@ -59,11 +59,12 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     return mapping.get(synapse_status, "working")
 
 
-def _format_artifact_text(artifact: "Artifact") -> str:
+def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> str:
     """Format an artifact as text for history or response.
 
     Args:
         artifact: The Artifact to format
+        use_markdown: If True, format code blocks with markdown fences
 
     Returns:
         Formatted text representation of the artifact
@@ -72,13 +73,17 @@ def _format_artifact_text(artifact: "Artifact") -> str:
         code_data = artifact.data if isinstance(artifact.data, dict) else {}
         language = code_data.get("metadata", {}).get("language", "text")
         content = code_data.get("content", str(artifact.data))
-        return f"[Code: {language}]\n{content}"
-    elif artifact.type == "text":
+        template = (
+            "```{lang}\n{content}\n```" if use_markdown else "[Code: {lang}]\n{content}"
+        )
+        return template.format(lang=language, content=content)
+
+    if artifact.type == "text":
         if isinstance(artifact.data, str):
             return artifact.data
-        return str(artifact.data.get("content", str(artifact.data)))
-    else:
-        return f"[{artifact.type}] {artifact.data}"
+        return str(artifact.data.get("content", artifact.data))
+
+    return f"[{artifact.type}] {artifact.data}"
 
 
 def _save_task_to_history(
@@ -326,28 +331,6 @@ history_manager = HistoryManager.from_env(db_path=_history_db_path)
 logger = logging.getLogger(__name__)
 
 
-def _format_artifact_for_response(artifact: "Artifact") -> str:
-    """Format an artifact for A2A response message.
-
-    Args:
-        artifact: The Artifact to format
-
-    Returns:
-        Formatted text suitable for response message
-    """
-    if artifact.type == "code":
-        code_data = artifact.data if isinstance(artifact.data, dict) else {}
-        content = code_data.get("content", str(artifact.data))
-        language = code_data.get("metadata", {}).get("language", "text")
-        return f"```{language}\n{content}\n```"
-    elif artifact.type == "text":
-        if isinstance(artifact.data, str):
-            return artifact.data
-        return str(artifact.data.get("content", str(artifact.data)))
-    else:
-        return f"[{artifact.type}] {artifact.data}"
-
-
 async def _send_response_to_sender(
     task: Task,
     sender_endpoint: str,
@@ -368,7 +351,7 @@ async def _send_response_to_sender(
         True if response was sent successfully, False otherwise
     """
     response_parts = [
-        {"type": "text", "text": _format_artifact_for_response(a)}
+        {"type": "text", "text": _format_artifact_text(a, use_markdown=True)}
         for a in task.artifacts
     ]
 

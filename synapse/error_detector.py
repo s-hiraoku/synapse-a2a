@@ -68,20 +68,18 @@ def detect_error(output: str | None) -> TaskError | None:
     recent_output = output[-3000:] if len(output) > 3000 else output
 
     for pattern, code, message in ERROR_PATTERNS:
-        if re.search(pattern, recent_output, re.IGNORECASE):
-            # Extract context around the error
-            match = re.search(pattern, recent_output, re.IGNORECASE)
-            if match:
-                # Get surrounding context (50 chars before and after)
-                start = max(0, match.start() - 50)
-                end = min(len(recent_output), match.end() + 50)
-                context = recent_output[start:end].strip()
+        match = re.search(pattern, recent_output, re.IGNORECASE)
+        if match:
+            # Get surrounding context (50 chars before and after)
+            start = max(0, match.start() - 50)
+            end = min(len(recent_output), match.end() + 50)
+            context = recent_output[start:end].strip()
 
-                return TaskError(
-                    code=code,
-                    message=message,
-                    data={"context": context, "pattern": pattern},
-                )
+            return TaskError(
+                code=code,
+                message=message,
+                data={"context": context, "pattern": pattern},
+            )
 
     return None
 
