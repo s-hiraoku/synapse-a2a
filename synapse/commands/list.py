@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time as time_module
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -21,6 +22,7 @@ class _TimeModule(Protocol):
 
     def strftime(self, format: str) -> str: ...
     def sleep(self, seconds: float) -> None: ...
+    def time(self) -> float: ...
 
 
 class ListCommand:
@@ -346,10 +348,13 @@ class ListCommand:
                                 selected_row = int(key)
 
                     # Update display at interval
+                    # Use injected time module if it has time(), otherwise fallback
                     current_time = (
-                        self._time.time() if hasattr(self._time, "time") else 0
+                        self._time.time()
+                        if hasattr(self._time, "time")
+                        else time_module.time()
                     )
-                    if current_time == 0 or current_time - last_update >= interval:
+                    if current_time - last_update >= interval:
                         agents, stale_locks, show_file_safety = (
                             self._get_agent_data_for_rich(registry, is_watch_mode=True)
                         )
@@ -372,9 +377,7 @@ class ListCommand:
                         )
 
                         live.update(display)
-                        last_update = (
-                            current_time if current_time else last_update + interval
-                        )
+                        last_update = current_time
 
                     # Small sleep to prevent CPU spinning
                     self._time.sleep(0.05)
