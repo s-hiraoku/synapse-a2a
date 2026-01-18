@@ -21,17 +21,14 @@ waiting_detection:
     - "● 2."
     - "● 3."
     - "●"                                     # Selection bullet
-    # Numbered choice with colon (1: 2: 3:)
-    - "1."
-    - "2."
-    - "3."
-    - "4."
     # Permission/confirmation prompts
     - "Allow once"
     - "Allow for this session"
     - "Allow execution"
     - "suggest changes"
-    # Japanese prompts
+    # Japanese prompts - answer requests
+    - "番号でお答え"                          # Answer by number
+    - "お答えください"                        # Please answer
     - "どれを実行しますか"                    # Which to execute?
     - "どのアクション"                        # Which action
     - "選択肢を"                              # Choices...
@@ -41,5 +38,6 @@ waiting_detection:
     # English prompts
     - "Which option"
     - "Enter a number"
+    - "Please answer"
   require_idle: true
   idle_timeout: 0.5                           # 500ms no output after pattern
