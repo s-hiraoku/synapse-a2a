@@ -9,15 +9,17 @@ Configure automatic task delegation to other agents based on natural language ru
 
 ## Configuration
 
-> **Note**: The `/delegate` CLI subcommand has been removed.
-> Delegation is now configured via settings files.
+Delegation is configured via settings files, managed using:
+- `synapse init` - Create .synapse/ with template files
+- `synapse config` - Interactive TUI for editing settings
+- Direct file editing
 
 ### Configuration Files
 
 | File | Purpose |
 |------|---------|
 | `.synapse/settings.json` | Enable/disable delegation and set A2A flow mode |
-| `.synapse/delegate.md` | Define delegation rules and agent responsibilities (see [Delegate Rules Structure](#delegate-rules-structure)) |
+| `.synapse/delegate.md` | Define delegation rules and agent responsibilities |
 
 ### Settings Structure
 
@@ -150,9 +152,20 @@ Use the `@agent` pattern to send tasks to other agents:
 For programmatic delegation (from AI agents):
 
 ```bash
+# Fire and forget (default)
 synapse send codex "Refactor this function" --from claude
+
+# Wait for response (roundtrip)
+synapse send gemini "Analyze this code" --response --from claude
+
+# Urgent follow-up
 synapse send gemini "Status update?" --priority 4 --from claude
+
+# Reply to a --response request
+synapse send claude "Here is the analysis..." --reply-to <task_id> --from gemini
 ```
+
+**Important:** When responding to a `--response` request, the receiver MUST use `--reply-to <task_id>` to link the response.
 
 ## Modes
 
