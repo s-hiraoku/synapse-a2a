@@ -81,25 +81,31 @@ synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
 
 The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
 
-**Short Task IDs:** PTY displays 8-character short IDs (e.g., `[A2A:54241e7e:sender]`). You can use either the short ID (`--reply-to 54241e7e`) or the full UUID.
+**Short Task IDs & :R Flag:** PTY displays 8-character short IDs. When the sender used `--response`, a `:R` suffix appears after the sender_id to indicate a reply is required:
+- With `--response`: `[A2A:54241e7e:synapse-claude-8100:R]` - reply required
+- Without `--response`: `[A2A:54241e7e:synapse-claude-8100]` - no reply needed
+
+Use the task_id (not including `:R`) with `--reply-to`:
+- Short ID: `--reply-to 54241e7e`
+- Full UUID: `--reply-to 54241e7e-1234-5678-abcd-ef1234567890`
 
 ## Receiving and Replying to Messages
 
 When you receive an A2A message, it appears as:
 ```
-[A2A:<task_id>:<sender_id>] <message>
+[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
+[A2A:<task_id>:<sender_id>] <message>     ← No response required
 ```
 
-**When to use --reply-to:** Match your reply style to the sender's message intent:
+**When to use --reply-to:**
 
-| Sender's Message | Your Action |
-|------------------|-------------|
-| Question or request | Reply with `--reply-to` |
-| Delegated task | Do the task, no reply needed |
-| Notification | No reply needed |
+| PTY Format | Action |
+|------------|--------|
+| `:R` flag present | **MUST** reply with `--reply-to <task_id>` |
+| No `:R` flag | Do NOT use `--reply-to` (send new message if needed) |
 
 ```bash
-# If sender asked a question → use --reply-to
+# :R flag present → use --reply-to (task_id only, not including :R)
 synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
 
 # If sender delegated a task → just do the task, no --reply-to needed
