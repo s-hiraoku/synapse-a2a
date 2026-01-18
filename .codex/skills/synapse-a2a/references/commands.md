@@ -82,33 +82,38 @@ synapse stop claude --all
 
 ## Receiving Messages
 
-When you receive an A2A message, it appears in this format:
+When you receive an A2A message, it appears in one of these formats:
+
 ```
-[A2A:<task_id>:<sender_id>] <message>
+[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
+[A2A:<task_id>:<sender_id>] <message>     ← No response required
 ```
 
-**When to use --reply-to:** Match your reply style to the sender's message intent:
+**The `:R` flag indicates the sender expects a reply.** When present, you MUST use `--reply-to` to respond.
 
-| Sender's Message | Your Action |
-|------------------|-------------|
-| Question or request | Reply with `--reply-to` |
-| Delegated task | Do the task, no reply needed |
-| Notification | No reply needed |
+**Note:** PTY displays 8-character short task IDs (e.g., `[A2A:54241e7e:sender:R]`). Use this short ID directly with `--reply-to`.
+
+**When to use --reply-to:**
+
+| PTY Format | Action |
+|------------|--------|
+| `:R` flag present | **MUST** reply with `--reply-to <task_id>` |
+| No `:R` flag | Do NOT use `--reply-to` (send new message if needed) |
 
 ```bash
-# If sender asked a question or made a request → use --reply-to
+# :R flag present → use --reply-to
 synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
 
-# If sender delegated a task → just do the task, no --reply-to needed
+# No :R flag → just do the task, no --reply-to needed
 ```
 
-**Example - Question:**
+**Example - Response Required (:R flag):**
 ```
-Received: [A2A:abc12345:synapse-claude-8100] What is the project structure?
+Received: [A2A:abc12345:synapse-claude-8100:R] What is the project structure?
 Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
 ```
 
-**Example - Delegation:**
+**Example - No Response Required (no :R flag):**
 ```
 Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
@@ -137,7 +142,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
-- `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests)
+- `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests). Accepts short IDs (8-char prefix shown in PTY) or full UUID.
 
 **Choosing --response vs --no-response:**
 

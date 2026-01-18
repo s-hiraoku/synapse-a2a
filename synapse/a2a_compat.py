@@ -582,8 +582,16 @@ def create_a2a_router(
                 sender_task_id = request.metadata.get("sender_task_id")
                 if sender_task_id:
                     display_task_id = sender_task_id[:8]
+            response_expected = (
+                request.metadata.get("response_expected", False)
+                if request.metadata
+                else False
+            )
             prefixed_content = format_a2a_message(
-                display_task_id, sender_id, text_content
+                display_task_id,
+                sender_id,
+                text_content,
+                response_expected=response_expected,
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:

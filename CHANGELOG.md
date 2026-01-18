@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.25] - 2026-01-18
+
+### Added
+
+- PTY display `:R` flag to indicate response is expected
+  - New format: `[A2A:<task_id>:<sender_id>:R]` when `response_expected=true`
+  - Agents can now visually identify when `--reply-to` is required
+- Failsafe retry for `--reply-to` 404 errors
+  - When `--reply-to` target task doesn't exist (404), automatically retry as new message
+  - Prevents message loss when receiver mistakenly uses `--reply-to` for `--no-response` messages
+
+### Documentation
+
+- Sync plugin skills with `.claude/skills/` and `.codex/skills/` directories
+- Add `/tasks/create` endpoint to API reference in skill documentation
+- Update short task ID documentation for `--reply-to` option
+- Update agent templates (default.md, gemini.md) with `:R` flag documentation
+
 ## [0.2.24] - 2026-01-18
 
 ### Fixed

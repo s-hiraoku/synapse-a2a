@@ -265,7 +265,8 @@ class TestReceiverDisplaysSenderTaskId:
         written_content = call_args[0][0]
 
         # The written content should contain sender's task ID, not receiver's
-        assert f"[A2A:{sender_task_id[:8]}:{sender_id}]" in written_content
+        # With response_expected=True, the :R flag should be present
+        assert f"[A2A:{sender_task_id[:8]}:{sender_id}:R]" in written_content
 
 
 # ============================================================

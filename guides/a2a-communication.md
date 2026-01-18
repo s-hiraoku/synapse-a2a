@@ -93,42 +93,56 @@ AIエージェントとしてA2Aメッセージを受信した場合の返信方
 ### 受信メッセージの形式
 
 ```text
-[A2A:<task_id>:<sender_id>] <message>
+[A2A:<task_id>:<sender_id>:R] <message>   ← 返信必須（:R フラグあり）
+[A2A:<task_id>:<sender_id>] <message>     ← 返信不要
 ```
+
+**:R フラグについて:**
+- 送信側が `--response` を使用した場合（`response_expected=true`）、PTY 出力に `:R` フラグが付与されます
+- 例: `[A2A:54241e7e:synapse-claude-8100:R]` - 返信が必要
+- 例: `[A2A:54241e7e:synapse-claude-8100]` - 返信不要
+
+**Note:** PTY では 8 文字の短い task_id が表示されます。`--reply-to` はこの短い ID でも完全な UUID でも指定できます。
 
 ### 返信のルール
 
-返信方法は送信側が `--response` を使用したかどうかで異なります：
+`:R` フラグの有無で返信方法が決まります：
 
-- 送信側が `--response` を使用 → 送信側が待機中 → `--reply-to <task_id>` を使用
-- 送信側が `--response` を不使用 → 送信側は待機していない → `--reply-to` を使用しない
-
-しかし、受信側は送信側が `--response` を使用したかどうかを知ることができません。
-
-**そのため、以下のフォールバック戦略を推奨します：**
-
-1. まず `--reply-to` を付けて返信を試みる
-2. 失敗した場合は `--reply-to` なしで再試行する
+| PTY 表示 | 意味 | アクション |
+|----------|------|-----------|
+| `:R` フラグあり | `response_expected=true` | **必ず** `--reply-to <task_id>` で返信 |
+| `:R` フラグなし | `response_expected=false` | `--reply-to` は使用しない |
 
 ```bash
-# まず --reply-to を付けて試す
+# :R フラグがある場合 → --reply-to を使用（task_id のみ、:R は含めない）
 synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
 
-# 失敗した場合は --reply-to なしで再試行
+# :R フラグがない場合 → タスクを実行し、必要なら新規メッセージとして送信
 synapse send <sender_type> "<your reply>" --from <your_agent_type>
 ```
 
 ### 受信・返信の例
 
+**例1: 返信が必要な場合（:R フラグあり）**
+
 受信メッセージ：
 ```text
-[A2A:abc12345:synapse-claude-8100] このコードをレビューして
+[A2A:abc12345:synapse-claude-8100:R] このコードをレビューして
 ```
 
-返信：
+返信（`--reply-to` 必須）：
 ```bash
 synapse send claude "レビュー結果です..." --reply-to abc12345 --from gemini
 ```
+
+**例2: 返信が不要な場合（:R フラグなし）**
+
+受信メッセージ：
+```text
+[A2A:xyz67890:synapse-claude-8100] テストを実行してコミットして
+```
+
+アクション：タスクを実行。`--reply-to` は使用しない。
 
 ### いつ --response を使うか
 
