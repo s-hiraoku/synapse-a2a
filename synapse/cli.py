@@ -1836,9 +1836,15 @@ Tip: Copy the agent ID from 'synapse list' output for precise control.""",
         description="Show all running Synapse agents with their status and ports.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  synapse list           Show all running agents
-  synapse list -w        Watch mode (auto-refresh every 2s)
-  synapse list -w -i 1   Watch mode with 1s refresh interval
+  synapse list              Show all running agents
+  synapse list -w           Watch mode with Rich TUI (auto-refresh every 2s)
+  synapse list -w -i 1      Watch mode with 1s refresh interval
+  synapse list -w --no-rich Watch mode with plain text output
+
+Interactive controls (Rich TUI mode):
+  1-9         Select agent by number to view full details
+  0           Clear selection
+  Ctrl+C      Exit watch mode
 
 Status meanings:
   READY       Agent is idle and waiting for input
@@ -1856,6 +1862,12 @@ Status meanings:
         type=float,
         default=2.0,
         help="Refresh interval in seconds (default: 2.0)",
+    )
+    p_list.add_argument(
+        "--no-rich",
+        action="store_true",
+        dest="no_rich",
+        help="Disable Rich TUI (use plain text output)",
     )
     p_list.set_defaults(func=cmd_list)
 

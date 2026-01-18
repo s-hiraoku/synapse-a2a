@@ -261,16 +261,35 @@ codex      8120     PROCESSING 12346    /home/user/projects/myapp               
 gemini     8110     READY      12347    -                                                  http://localhost:8110
 ```
 
-**Watch モードでの出力例（`synapse list --watch`）**:
+**Watch モード（`synapse list --watch`）**:
+
+Watch モードでは Rich TUI によるインタラクティブな表示が有効になります。
+
+```bash
+synapse list --watch              # Rich TUI モード（デフォルト）
+synapse list -w -i 0.5            # リフレッシュ間隔 0.5 秒
+synapse list -w --no-rich         # プレーンテキストモード
+```
+
+**Rich TUI モードの機能**:
+- 色付きステータス表示（READY=緑、PROCESSING=黄）
+- フリッカーなしの更新
+- **インタラクティブ操作**: 数字キー（1-9）でエージェントを選択し、詳細パネルでフルパスを確認
+- `0` キーで選択解除、`Ctrl+C` で終了
+
+**出力例（Rich TUI モード）**:
 
 ```
-Synapse A2A v0.2.12 - Agent List (refreshing every 2s)
-Last updated: 2024-01-15 10:30:45
-
-TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              ENDPOINT
-claude     8100     PROCESSING   UDS→       12345    /home/user/project       http://localhost:8100
-gemini     8110     PROCESSING   →UDS       12346    /home/user/other         http://localhost:8110
-codex      8120     READY        -           12347    /home/user/third         http://localhost:8120
+╭─────────────── Synapse A2A v0.2.26 - Agent List (every 2.0s) ───────────────╮
+│ ╭───┬────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
+│ │ # │ TYPE   │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
+│ ├───┼────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
+│ │ 1 │ claude │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
+│ │ 2 │ gemini │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
+│ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
+│ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
+╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
+Press 1-3 to view details, 0 to clear, Ctrl+C to exit
 ```
 
 > **Note**: Watch モード（`--watch` / `-w`）では、**TRANSPORT 列**がリアルタイム表示されます。

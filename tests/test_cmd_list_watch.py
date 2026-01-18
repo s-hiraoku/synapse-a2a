@@ -715,6 +715,106 @@ class TestPartialJSONRead:
 # ============================================================================
 
 
+# ============================================================================
+# Tests for Rich TUI Integration
+# ============================================================================
+
+
+class TestRichTUIIntegration:
+    """Tests for Rich TUI in watch mode."""
+
+    def test_no_rich_flag_uses_plain_output(self, temp_registry, capsys):
+        """--no-rich flag should use plain text output."""
+        args = MagicMock()
+        args.watch = True
+        args.interval = 0.1
+        args.no_rich = True
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            pytest.raises(SystemExit),
+        ):
+            cmd_list(args)
+
+        captured = capsys.readouterr()
+        # Plain mode uses simple text without Rich panel borders
+        assert "Watch mode:" in captured.out or "No agents running" in captured.out
+
+    def test_rich_mode_default_when_tty(self, temp_registry):
+        """Rich mode should be default when output is a TTY."""
+        args = MagicMock()
+        args.watch = True
+        args.interval = 0.1
+        # no_rich attribute not set (default behavior)
+        del args.no_rich
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            patch("sys.stdout.isatty", return_value=True),
+            pytest.raises(SystemExit),
+        ):
+            # Should not raise any errors about Rich not being available
+            cmd_list(args)
+
+    def test_fallback_to_plain_when_no_tty(self, temp_registry, capsys):
+        """Should fallback to plain mode when not a TTY."""
+        args = MagicMock()
+        args.watch = True
+        args.interval = 0.1
+        # no_rich attribute not set
+        del args.no_rich
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli._clear_screen"),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            patch("sys.stdout.isatty", return_value=False),
+            pytest.raises(SystemExit),
+        ):
+            cmd_list(args)
+
+        captured = capsys.readouterr()
+        # Plain mode output
+        assert "Watch mode:" in captured.out or "No agents running" in captured.out
+
+
+class TestRichWatchModeDisplay:
+    """Tests for Rich watch mode display features."""
+
+    def test_rich_watch_mode_displays_agents(self, temp_registry):
+        """Rich watch mode should display agent information."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        args = MagicMock()
+        args.watch = True
+        args.interval = 0.1
+        args.no_rich = False  # Force Rich mode
+
+        output_lines = []
+
+        def capture_print(text):
+            output_lines.append(str(text))
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("builtins.print", side_effect=capture_print),
+            pytest.raises(SystemExit),
+        ):
+            cmd_list(args)
+
+        # Combine output and check for agent info
+        full_output = "".join(output_lines)
+        # Agent info should be present somewhere in output
+        assert "claude" in full_output.lower() or "8100" in full_output
+
+
 class TestTransportDisplay:
     """Tests for TRANSPORT column in watch mode."""
 

@@ -48,8 +48,9 @@ synapse gemini
 
 # List agents
 synapse list                              # Show all running agents
-synapse list --watch                      # Watch mode (refresh every 2s, shows TRANSPORT column)
+synapse list --watch                      # Watch mode with Rich TUI (interactive, refresh every 2s)
 synapse list -w -i 0.5                    # Watch mode with 0.5s interval (for observing communication)
+synapse list -w --no-rich                 # Watch mode with plain text output (non-interactive)
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude
