@@ -21,6 +21,11 @@ waiting_detection:
     - "● 2."
     - "● 3."
     - "●"                                     # Selection bullet
+    # Numbered choice with colon (1: 2: 3:)
+    - "1."
+    - "2."
+    - "3."
+    - "4."
     # Permission/confirmation prompts
     - "Allow once"
     - "Allow for this session"
@@ -28,6 +33,8 @@ waiting_detection:
     - "suggest changes"
     # Japanese prompts
     - "どれを実行しますか"                    # Which to execute?
+    - "どのアクション"                        # Which action
+    - "選択肢を"                              # Choices...
     - "番号または"                            # Number or...
     - "選択肢を提案"                          # Propose choices
     - "選択してください"                      # Please select
