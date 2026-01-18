@@ -346,7 +346,6 @@ class A2AClient:
             payload["metadata"] = metadata
 
             task_data = None
-            used_uds = False
 
             if uds_path:
                 uds_file = Path(uds_path)
@@ -371,7 +370,6 @@ class A2AClient:
                                 uds_response.raise_for_status()
                                 result = uds_response.json()
                                 task_data = result.get("task", result)
-                                used_uds = True
                                 break
                         except httpx.TransportError:
                             if idx == len(retries):
@@ -401,12 +399,22 @@ class A2AClient:
 
             task = A2ATask.from_dict(task_data)
 
-            if wait_for_completion:
-                completed_task = self._wait_for_local_completion(
-                    endpoint, task.id, timeout, uds_path=uds_path if used_uds else None
+            if wait_for_completion and sender_task_id:
+                # Poll SENDER's server for the sender_task_id (where reply will arrive)
+                # not the target's server
+                sender_endpoint = (
+                    sender_info.get("sender_endpoint") if sender_info else None
                 )
-                if completed_task is not None:
-                    task = completed_task
+                sender_uds = sender_info.get("sender_uds_path") if sender_info else None
+                if sender_endpoint:
+                    completed_task = self._wait_for_local_completion(
+                        sender_endpoint,
+                        sender_task_id,
+                        timeout,
+                        uds_path=sender_uds if sender_uds else None,
+                    )
+                    if completed_task is not None:
+                        task = completed_task
 
             # Clear transport status after communication completes
             _update_transport(None)
