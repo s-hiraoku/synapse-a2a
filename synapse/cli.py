@@ -1981,7 +1981,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
     )
     p_inst_send.add_argument(
         "target",
-        help="Target agent: profile name (claude) or agent ID (synapse-claude-8100)",
+        help="Target agent: profile name (claude, codex, gemini) or agent ID",
     )
     p_inst_send.add_argument(
         "--preview",

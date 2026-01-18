@@ -175,8 +175,8 @@ class InputRouter:
                 log("DEBUG", f"Matched by agent_id: {agent_id}")
                 return info
 
-        # Priority 2: Match on type-port shorthand (e.g., codex-8120)
-        type_port_match = re.match(r"^(\w+)-(\d+)$", agent_name_lower)
+        # Priority 2: Match on type-port shorthand (e.g., codex-8120 or codex:8120)
+        type_port_match = re.match(r"^(\w+)[-:](\d+)$", agent_name_lower)
         if type_port_match:
             target_type = type_port_match.group(1)
             target_port = int(type_port_match.group(2))
