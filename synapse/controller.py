@@ -27,6 +27,7 @@ from synapse.config import (
 from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
+from synapse.status import DONE_TIMEOUT_SECONDS
 from synapse.utils import format_a2a_message
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,7 @@ class TerminalController:
         self._last_output_time: float | None = (
             None  # Track last output for idle detection
         )
+        self._done_time: float | None = None  # Track when DONE status was set
         self._skip_initial_instructions = skip_initial_instructions
 
         # InputRouter for parsing agent output and routing @Agent commands
@@ -270,8 +272,26 @@ class TerminalController:
             timeout_idle = self._check_timeout_idle()
 
             # Determine idle status based on strategy
+            # READY = idle, ready for input
+            # PROCESSING = actively working
             is_idle = self._evaluate_idle_status(pattern_match, timeout_idle)
             new_status = "READY" if is_idle else "PROCESSING"
+
+            # Handle DONE -> READY transition after timeout or new activity
+            if self.status == "DONE":
+                if not is_idle:
+                    # New activity detected, transition to PROCESSING
+                    new_status = "PROCESSING"
+                    self._done_time = None
+                elif self._done_time and (
+                    time.time() - self._done_time >= DONE_TIMEOUT_SECONDS
+                ):
+                    # Timeout expired, transition to READY
+                    new_status = "READY"
+                    self._done_time = None
+                else:
+                    # Stay in DONE state
+                    new_status = "DONE"
 
             # Update status and sync to registry (only if changed)
             if new_status != self.status:
@@ -297,7 +317,7 @@ class TerminalController:
                             f" -> {self.status}"
                         )
 
-            # Send initial instructions on first READY
+            # Send initial instructions on first READY (agent is idle)
             if (
                 is_idle
                 and self.status == "READY"
@@ -449,6 +469,23 @@ class TerminalController:
         with self.lock:
             return "".join(self._render_buffer)
 
+    def set_done(self) -> None:
+        """Set status to DONE (task completed).
+
+        The status will automatically transition to READY after DONE_TIMEOUT_SECONDS
+        or when new activity is detected.
+        """
+        with self.lock:
+            old_status = self.status
+            self.status = "DONE"
+            self._done_time = time.time()
+
+            logging.debug(f"[{self.agent_id}] Status: {old_status} -> DONE")
+
+            # Sync to registry
+            if self.agent_id:
+                self.registry.update_status(self.agent_id, self.status)
+
     def stop(self) -> None:
         """Stop the controlled process and clean up resources."""
         self.running = False
@@ -512,6 +549,18 @@ class TerminalController:
                 self.master_fd = fd
                 logging.debug(f"[{self.agent_id}] master_fd initialized to {fd}")
                 sync_pty_window_size()
+
+                # Get TTY device name and update registry for terminal jump
+                try:
+                    tty_device = os.ttyname(fd)
+                    if self.agent_id:
+                        self.registry.update_tty_device(self.agent_id, tty_device)
+                        logging.debug(
+                            f"[{self.agent_id}] TTY device registered: {tty_device}"
+                        )
+                except OSError:
+                    # ttyname may fail if fd is not a TTY
+                    pass
 
             data = os.read(fd, 1024)
             if data:
