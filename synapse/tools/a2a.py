@@ -360,6 +360,15 @@ def cmd_send(args: argparse.Namespace) -> None:
     print(f"  Task ID: {task_id}")
     print(f"  Status: {task.status}")
 
+    if task.artifacts:
+        print("  Response:")
+        for artifact in task.artifacts:
+            artifact_type = artifact.get("type", "unknown")
+            content = artifact.get("data") or artifact.get("text", "")
+            if content:
+                indented = str(content).replace("\n", "\n    ")
+                print(f"    [{artifact_type}] {indented}")
+
     # Record sent message to history
     _record_sent_message(
         task_id=task_id,
