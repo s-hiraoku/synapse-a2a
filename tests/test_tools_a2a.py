@@ -587,6 +587,112 @@ class TestCmdSend:
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
     @patch("synapse.tools.a2a.AgentRegistry")
+    def test_cmd_send_displays_artifacts(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should display response artifacts when present."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123",
+            status="completed",
+            artifacts=[
+                {"type": "text", "data": "Response content"},
+                {"type": "code", "data": "def hello(): pass"},
+            ],
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=True,
+        )
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "Response:" in captured.out
+        assert "[text] Response content" in captured.out
+        assert "[code] def hello(): pass" in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_cmd_send_displays_multiline_artifacts(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should indent multiline response artifacts."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123",
+            status="completed",
+            artifacts=[{"type": "text", "data": "Line 1\nLine 2\nLine 3"}],
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message="hello",
+            priority=1,
+            sender=None,
+            want_response=True,
+        )
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "Response:" in captured.out
+        assert "[text] Line 1\n    Line 2\n    Line 3" in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
     def test_cmd_send_request_error(
         self,
         mock_registry_cls,
