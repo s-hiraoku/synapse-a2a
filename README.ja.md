@@ -466,7 +466,7 @@ synapse claude -- --resume
 # 履歴付きで Gemini を再開
 synapse gemini -- --resume=5
 
-# フラグは settings.json でカスタマイズ可能
+# Codex は 'resume' をサブコマンドとして使用（--resume フラグではない）
 synapse codex -- resume --last
 ```
 
@@ -1035,7 +1035,7 @@ if not validation["allowed"]:
 
 ## テスト
 
-218 のテストケースで A2A プロトコル準拠を検証：
+包括的なテストスイートで A2A プロトコル準拠を検証：
 
 ```bash
 # 全テスト

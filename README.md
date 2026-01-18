@@ -466,7 +466,7 @@ synapse claude -- --resume
 # Resume Gemini with history
 synapse gemini -- --resume=5
 
-# Flags are customizable in settings.json
+# Codex uses 'resume' as a subcommand (not --resume flag)
 synapse codex -- resume --last
 ```
 
@@ -1035,7 +1035,7 @@ See [docs/file-safety.md](docs/file-safety.md) for details.
 
 ## Testing
 
-218 test cases verify A2A protocol compliance:
+Comprehensive test suite verifies A2A protocol compliance:
 
 ```bash
 # All tests
