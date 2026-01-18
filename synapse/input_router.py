@@ -373,7 +373,8 @@ class InputRouter:
             if self.ambiguous_matches:
                 options = ", ".join(self.ambiguous_matches)
                 self.ambiguous_matches = None
-                return f"\x1b[33m[⚠ Multiple '{agent}' agents found. Use: {options}]\x1b[0m\n"
+                msg = f"Multiple '{agent}' agents found. Use: {options}"
+                return f"\x1b[33m[⚠ {msg}]\x1b[0m\n"
             return f"\x1b[31m[✗ {agent} not found]\x1b[0m\n"
 
         agent_type = "ext" if self.is_external_agent else "local"

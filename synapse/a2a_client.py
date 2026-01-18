@@ -253,7 +253,7 @@ class A2AClient:
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
-            response_expected: Whether the sender expects a response from the target agent
+            response_expected: Whether the sender expects a response from the target
             in_reply_to: Optional task ID to attach a reply to
             uds_path: Optional UDS socket path for local communication
             local_only: If True, only use UDS (no HTTP fallback)

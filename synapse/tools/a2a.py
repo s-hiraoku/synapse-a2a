@@ -95,7 +95,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
     Identifies the sender by checking which registered agent's PID
     is an ancestor of the current process.
 
-    Returns dict with sender_id, sender_type, sender_endpoint, sender_uds_path if available.
+    Returns dict with sender_id, sender_type, sender_endpoint, sender_uds_path.
     """
     # Explicit --from flag takes priority
     if explicit_sender:
@@ -254,8 +254,9 @@ def cmd_send(args: argparse.Namespace) -> None:
                 target_agent = matches[0]
             elif len(matches) > 1:
                 # Provide helpful hint for disambiguation
+                agent_ids = [m["agent_id"] for m in matches]
                 print(
-                    f"Error: Ambiguous target '{args.target}'. Multiple agents found: {[m['agent_id'] for m in matches]}",
+                    f"Error: Ambiguous target '{args.target}'. Found: {agent_ids}",
                     file=sys.stderr,
                 )
                 # Show type-port hints if port info is available
@@ -306,8 +307,9 @@ def cmd_send(args: argparse.Namespace) -> None:
             "  The process may be running but the A2A server is not started.",
             file=sys.stderr,
         )
+        agent_type = target_agent["agent_type"]
         print(
-            f"  Hint: Start the server with: synapse start {target_agent['agent_type']} --port {port}",
+            f"  Hint: Start the server with: synapse start {agent_type} --port {port}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -322,7 +324,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     want_response = getattr(args, "want_response", None)
     reply_to = getattr(args, "reply_to", None)
 
-    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag or defaults to False
+    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag
     # Default to False (not waiting) for safety - see issue #96
     if flow == "oneway":
         response_expected = False
@@ -354,9 +356,9 @@ def cmd_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     task_id = task.id or str(uuid.uuid4())
-    print(
-        f"Success: Task created for {target_agent['agent_type']} ({target_agent['agent_id'][:8]}...)"
-    )
+    agent_type = target_agent["agent_type"]
+    agent_short = target_agent["agent_id"][:8]
+    print(f"Success: Task created for {agent_type} ({agent_short}...)")
     print(f"  Task ID: {task_id}")
     print(f"  Status: {task.status}")
 

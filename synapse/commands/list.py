@@ -171,9 +171,8 @@ class ListCommand:
             stale_locks = file_safety.get_stale_locks()
             if stale_locks:
                 lines.append("")
-                lines.append(
-                    f"Warning: {len(stale_locks)} stale lock(s) from dead processes detected."
-                )
+                count = len(stale_locks)
+                lines.append(f"Warning: {count} stale lock(s) from dead processes.")
                 lines.append(
                     "Run 'synapse file-safety cleanup-locks' to clean them up."
                 )
@@ -205,10 +204,10 @@ class ListCommand:
         try:
             while True:
                 self._clear_screen()
-                self._print(
-                    f"Synapse A2A v{pkg_version} - Agent List (refreshing every {interval}s)"
-                )
-                self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
+                title = f"Synapse A2A v{pkg_version} - Agent List (every {interval}s)"
+                self._print(title)
+                now = self._time.strftime("%Y-%m-%d %H:%M:%S")
+                self._print(f"Last updated: {now}")
                 self._print("")
                 self._print(self._render_agent_table(registry, is_watch_mode=True))
                 self._time.sleep(interval)

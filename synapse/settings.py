@@ -326,7 +326,7 @@ class SynapseSettings:
             agent_type: The agent type (claude, gemini, codex).
 
         Returns:
-            List of file paths relative to .synapse/ (e.g., ["default.md", "file-safety.md"])
+            List of file paths relative to .synapse/ (e.g., ["default.md"])
         """
         files: list[str] = []
 

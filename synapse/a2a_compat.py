@@ -431,9 +431,8 @@ async def _send_response_to_sender(
             logger.info(f"Response sent to {sender_endpoint} for task {task.id[:8]}")
             return True
     except httpx.HTTPStatusError as e:
-        logger.warning(
-            f"Failed to send response to {sender_endpoint}: HTTP {e.response.status_code}"
-        )
+        status = e.response.status_code
+        logger.warning(f"Failed to send response to {sender_endpoint}: HTTP {status}")
         return False
     except httpx.RequestError as e:
         logger.warning(f"Failed to send response to {sender_endpoint}: {e}")

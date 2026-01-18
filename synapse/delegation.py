@@ -5,8 +5,8 @@ This module manages delegation settings for automatic task routing
 between agents (Claude, Codex, Gemini).
 
 Configuration:
-- Enabled: Stored in .synapse/settings.json under "delegation.enabled" (boolean)
-- Instructions: Read from .synapse/delegate.md (project) or ~/.synapse/delegate.md (user)
+- Enabled: Stored in .synapse/settings.json under "delegation.enabled"
+- Instructions: Read from .synapse/delegate.md or ~/.synapse/delegate.md
 """
 
 from pathlib import Path

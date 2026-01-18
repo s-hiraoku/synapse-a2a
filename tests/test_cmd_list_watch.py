@@ -307,7 +307,7 @@ class TestCmdListWatchMode:
             cmd_list(args)
 
         captured = capsys.readouterr()
-        assert "refreshing every 2.5s" in captured.out
+        assert "every 2.5s" in captured.out
 
     def test_watch_mode_empty_registry_continues_watching(self, temp_registry, capsys):
         """Watch mode should show empty message and continue watching."""

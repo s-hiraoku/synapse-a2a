@@ -226,22 +226,28 @@ class FileSafetyManager:
 
                 # Create indexes for efficient querying
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_file_path ON file_locks(file_path)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_file_path "
+                    "ON file_locks(file_path)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_expires_at ON file_locks(expires_at)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_expires_at "
+                    "ON file_locks(expires_at)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_mods_file_path ON file_modifications(file_path)"
+                    "CREATE INDEX IF NOT EXISTS idx_mods_file_path "
+                    "ON file_modifications(file_path)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_mods_task_id ON file_modifications(task_id)"
+                    "CREATE INDEX IF NOT EXISTS idx_mods_task_id "
+                    "ON file_modifications(task_id)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_mods_timestamp ON file_modifications(timestamp)"
+                    "CREATE INDEX IF NOT EXISTS idx_mods_timestamp "
+                    "ON file_modifications(timestamp)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_mods_agent_name ON file_modifications(agent_name)"
+                    "CREATE INDEX IF NOT EXISTS idx_mods_agent_name "
+                    "ON file_modifications(agent_name)"
                 )
 
                 conn.commit()
@@ -252,13 +258,15 @@ class FileSafetyManager:
 
                 # Add indexes for new columns (after migration)
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_type ON file_locks(agent_type)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_type "
+                    "ON file_locks(agent_type)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_pid ON file_locks(pid)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_pid " "ON file_locks(pid)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_id ON file_locks(agent_id)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_agent_id "
+                    "ON file_locks(agent_id)"
                 )
                 conn.commit()
 
@@ -435,7 +443,8 @@ class FileSafetyManager:
 
                 # Check for existing lock
                 cursor.execute(
-                    "SELECT agent_id, agent_name, expires_at, pid FROM file_locks WHERE file_path = ?",
+                    "SELECT agent_id, agent_name, expires_at, pid "
+                    "FROM file_locks WHERE file_path = ?",
                     (normalized_path,),
                 )
                 existing = cursor.fetchone()
@@ -486,12 +495,13 @@ class FileSafetyManager:
                 cursor.execute(
                     """
                     INSERT INTO file_locks
-                    (file_path, agent_name, agent_id, agent_type, pid, task_id, expires_at, intent)
+                    (file_path, agent_name, agent_id, agent_type,
+                     pid, task_id, expires_at, intent)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         normalized_path,
-                        effective_agent_id,  # Keep agent_name for backward compatibility
+                        effective_agent_id,  # agent_name for backward compat
                         effective_agent_id,
                         agent_type,
                         effective_pid,
@@ -518,7 +528,8 @@ class FileSafetyManager:
                     conn.rollback()
                 try:
                     cursor.execute(
-                        "SELECT agent_name, expires_at FROM file_locks WHERE file_path = ?",
+                        "SELECT agent_name, expires_at "
+                        "FROM file_locks WHERE file_path = ?",
                         (normalized_path,),
                     )
                     row = cursor.fetchone()
@@ -599,7 +610,8 @@ class FileSafetyManager:
 
         Returns:
             Lock info dict if locked, None if not locked.
-            Dict contains: agent_name, agent_id, agent_type, pid, task_id, locked_at, expires_at, intent
+            Dict contains: agent_name, agent_id, agent_type, pid, task_id,
+            locked_at, expires_at, intent
 
         Raises:
             FileLockDBError: If database error occurs (fail-closed behavior)
@@ -716,12 +728,14 @@ class FileSafetyManager:
                 # Build query based on filters
                 if pid is not None:
                     cursor.execute(
-                        "SELECT * FROM file_locks WHERE pid = ? ORDER BY locked_at DESC",
+                        "SELECT * FROM file_locks "
+                        "WHERE pid = ? ORDER BY locked_at DESC",
                         (pid,),
                     )
                 elif agent_type:
                     cursor.execute(
-                        "SELECT * FROM file_locks WHERE agent_type = ? ORDER BY locked_at DESC",
+                        "SELECT * FROM file_locks "
+                        "WHERE agent_type = ? ORDER BY locked_at DESC",
                         (agent_type,),
                     )
                 elif agent_name:
@@ -1013,7 +1027,8 @@ class FileSafetyManager:
                 cursor.execute(
                     """
                     INSERT INTO file_modifications
-                    (task_id, agent_name, file_path, change_type, intent, affected_lines, metadata, timestamp)
+                    (task_id, agent_name, file_path, change_type, intent,
+                     affected_lines, metadata, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (

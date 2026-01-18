@@ -217,10 +217,8 @@ class TerminalController:
                     # Periodically check idle state (timeout-based detection)
                     self._check_idle_state(b"")
         except Exception as e:
-            logger.error(
-                f"Error in _monitor_output for {self.agent_id}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
+            err = f"{type(e).__name__}: {e}"
+            logger.error(f"Error in _monitor_output for {self.agent_id}: {err}")
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
