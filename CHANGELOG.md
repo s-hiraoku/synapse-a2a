@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.24] - 2026-01-18
+
+### Fixed
+
+- Poll sender's server for reply when using `--response` flag
+  - Problem: `synapse send --response` never received replies because it polled the target server instead of the sender's server where `--reply-to` stores the response
+  - Solution: When `--response` is used, poll the sender's server for `sender_task_id` completion instead of the target server
+
 ## [0.2.23] - 2026-01-18
 
 ### Added
