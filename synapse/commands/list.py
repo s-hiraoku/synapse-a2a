@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+import time as time_module
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 
 class _TimeModule(Protocol):
@@ -17,6 +22,7 @@ class _TimeModule(Protocol):
 
     def strftime(self, format: str) -> str: ...
     def sleep(self, seconds: float) -> None: ...
+    def time(self) -> float: ...
 
 
 class ListCommand:
@@ -167,19 +173,151 @@ class ListCommand:
 
         return "\n".join(lines)
 
-    def run(self, args: argparse.Namespace) -> None:
-        """List running agents (with optional watch mode)."""
-        registry = self._registry_factory()
-        watch_mode = getattr(args, "watch", False)
-        interval = getattr(args, "interval", 2.0)
+    def _get_agent_data_for_rich(
+        self,
+        registry: AgentRegistry,
+        is_watch_mode: bool = False,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+        """Get agent data formatted for Rich renderer.
 
-        if not watch_mode:
-            # Normal mode: single output
-            self._print(self._render_agent_table(registry))
+        Args:
+            registry: AgentRegistry instance.
+            is_watch_mode: If True, include transport information.
+
+        Returns:
+            Tuple of (agents_list, stale_locks, show_file_safety).
+        """
+        agents = registry.list_agents()
+        file_safety = FileSafetyManager.from_env()
+        show_file_safety = file_safety.enabled
+
+        agents_list: list[dict[str, Any]] = []
+
+        for agent_id, info in agents.items():
+            pid = info.get("pid")
+            port = info.get("port")
+            status = info.get("status", "-")
+
+            # Check 1: PID must be alive
+            if pid and not self._is_process_alive(pid):
+                registry.unregister(agent_id)
+                continue
+
+            # Check 2: Port must be open (agent server responding)
+            # Skip port check for PROCESSING agents (server may still be starting)
+            if (
+                status != "PROCESSING"
+                and port
+                and not self._is_port_open("localhost", port, timeout=0.5)
+            ):
+                registry.unregister(agent_id)
+                continue
+
+            agent_data: dict[str, Any] = {
+                "agent_id": agent_id,
+                "agent_type": info.get("agent_type", "unknown"),
+                "port": info.get("port", "-"),
+                "status": status,
+                "pid": pid or "-",
+                "working_dir": info.get("working_dir", "-"),
+                "endpoint": info.get("endpoint", "-"),
+            }
+
+            if is_watch_mode:
+                transport = (
+                    registry.get_transport_display(agent_id, retention_seconds=3.0)
+                    or "-"
+                )
+                agent_data["transport"] = transport
+
+            if show_file_safety:
+                agent_type = info.get("agent_type", "")
+                if pid:
+                    locks = file_safety.list_locks(pid=pid, include_stale=False)
+                else:
+                    locks = file_safety.list_locks(
+                        agent_type=agent_type, include_stale=False
+                    )
+                editing_file = "-"
+                if locks:
+                    file_path = locks[0].get("file_path")
+                    if file_path:
+                        editing_file = os.path.basename(file_path)
+                agent_data["editing_file"] = editing_file
+
+            agents_list.append(agent_data)
+
+        # Get stale locks
+        stale_locks: list[dict[str, Any]] = []
+        if show_file_safety:
+            stale_locks = file_safety.get_stale_locks()
+
+        return agents_list, stale_locks, show_file_safety
+
+    def _setup_nonblocking_input(self) -> tuple[Any, Any] | None:
+        """Set up non-blocking keyboard input.
+
+        Returns:
+            Tuple of (old_settings, old_flags) for restoration, or None if failed.
+        """
+        try:
+            import termios
+            import tty
+
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            tty.setcbreak(fd)
+            return (old_settings, fd)
+        except Exception:
+            return None
+
+    def _restore_terminal(self, saved: tuple[Any, Any] | None) -> None:
+        """Restore terminal to original settings.
+
+        Args:
+            saved: Tuple returned by _setup_nonblocking_input.
+        """
+        if saved is None:
             return
+        try:
+            import termios
 
-        # Watch mode: continuous refresh
-        self._print("Watch mode: Press Ctrl+C to exit\n")
+            old_settings, fd = saved
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        except Exception:
+            pass
+
+    def _read_key_nonblocking(self) -> str | None:
+        """Read a single key without blocking.
+
+        Returns:
+            Key character or None if no input available.
+        """
+        import select
+
+        try:
+            if select.select([sys.stdin], [], [], 0)[0]:
+                return sys.stdin.read(1)
+        except Exception:
+            pass
+        return None
+
+    def _run_watch_mode_rich(
+        self,
+        registry: AgentRegistry,
+        interval: float,
+        console: Console,
+    ) -> None:
+        """Run watch mode with Rich TUI.
+
+        Args:
+            registry: AgentRegistry instance.
+            interval: Refresh interval in seconds.
+            console: Rich Console instance.
+        """
+        from rich.live import Live
+
+        from synapse.commands.renderers.rich_renderer import RichRenderer
 
         # Get version for display
         try:
@@ -189,6 +327,78 @@ class ListCommand:
         except Exception:
             pkg_version = "unknown"
 
+        renderer = RichRenderer(console=console)
+
+        # Set up non-blocking input for interactive mode
+        saved_terminal = self._setup_nonblocking_input()
+        interactive = saved_terminal is not None
+        selected_row: int | None = None
+
+        try:
+            with Live(console=console, refresh_per_second=4) as live:
+                last_update = 0.0
+                while True:
+                    # Check for keyboard input
+                    if interactive:
+                        key = self._read_key_nonblocking()
+                        if key is not None:
+                            # ESC key (0x1b) clears selection
+                            if key == "\x1b":
+                                selected_row = None
+                            elif key.isdigit() and key != "0":
+                                selected_row = int(key)
+
+                    # Update display at interval
+                    # Use injected time module if it has time(), otherwise fallback
+                    current_time = (
+                        self._time.time()
+                        if hasattr(self._time, "time")
+                        else time_module.time()
+                    )
+                    if current_time - last_update >= interval:
+                        agents, stale_locks, show_file_safety = (
+                            self._get_agent_data_for_rich(registry, is_watch_mode=True)
+                        )
+
+                        # Validate selected_row against current agent count
+                        if selected_row is not None and selected_row > len(agents):
+                            selected_row = None
+
+                        timestamp = self._time.strftime("%Y-%m-%d %H:%M:%S")
+
+                        display = renderer.render_watch_display(
+                            agents=agents,
+                            version=pkg_version,
+                            interval=interval,
+                            timestamp=timestamp,
+                            show_file_safety=show_file_safety,
+                            stale_locks=stale_locks,
+                            interactive=interactive,
+                            selected_row=selected_row,
+                        )
+
+                        live.update(display)
+                        last_update = current_time
+
+                    # Small sleep to prevent CPU spinning
+                    self._time.sleep(0.05)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self._restore_terminal(saved_terminal)
+            console.print("\n[dim]Exiting watch mode...[/dim]")
+            raise SystemExit(0)
+
+    def _run_watch_mode_plain(
+        self, registry: AgentRegistry, interval: float, pkg_version: str
+    ) -> None:
+        """Run watch mode with plain text output.
+
+        Args:
+            registry: AgentRegistry instance.
+            interval: Refresh interval in seconds.
+            pkg_version: Package version string.
+        """
         try:
             while True:
                 self._clear_screen()
@@ -202,3 +412,51 @@ class ListCommand:
         except KeyboardInterrupt:
             self._print("\n\nExiting watch mode...")
             raise SystemExit(0) from None
+
+    def _should_use_rich(self, args: argparse.Namespace) -> bool:
+        """Determine if Rich TUI should be used.
+
+        Args:
+            args: Parsed command line arguments.
+
+        Returns:
+            True if Rich mode should be used.
+        """
+        # Check explicit --no-rich flag
+        no_rich = getattr(args, "no_rich", None)
+        if no_rich is True:
+            return False
+
+        # Auto-detect: use Rich only if stdout is a TTY
+        return sys.stdout.isatty()
+
+    def run(self, args: argparse.Namespace) -> None:
+        """List running agents (with optional watch mode)."""
+        registry = self._registry_factory()
+        watch_mode = getattr(args, "watch", False)
+        interval = getattr(args, "interval", 2.0)
+
+        if not watch_mode:
+            # Normal mode: single output
+            self._print(self._render_agent_table(registry))
+            return
+
+        # Watch mode: continuous refresh
+        # Get version for display
+        try:
+            from importlib.metadata import version
+
+            pkg_version = version("synapse-a2a")
+        except Exception:
+            pkg_version = "unknown"
+
+        use_rich = self._should_use_rich(args)
+
+        if use_rich:
+            from rich.console import Console
+
+            console = Console()
+            self._run_watch_mode_rich(registry, interval, console)
+        else:
+            self._print("Watch mode: Press Ctrl+C to exit\n")
+            self._run_watch_mode_plain(registry, interval, pkg_version)

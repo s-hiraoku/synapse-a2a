@@ -19,6 +19,7 @@ dependencies = [
     "requests>=2.31.0",
     "httpx>=0.24.0",
     "questionary>=2.0.0",
+    "rich>=13.0.0",
 ]
 
 [dependency-groups]

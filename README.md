@@ -431,7 +431,7 @@ synapse claude -- --resume
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (`--watch` shows TRANSPORT column) |
+| `synapse list` | List running agents (`--watch` for Rich TUI monitor with row selection) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
 | `synapse instructions show` | Show instruction content |

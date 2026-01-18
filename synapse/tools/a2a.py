@@ -234,8 +234,8 @@ def _resolve_target_agent(
     if target in agents:
         return agents[target], None
 
-    # Priority 2: Type-port shorthand (e.g., claude-8100)
-    type_port_match = re.match(r"^(\w+)-(\d+)$", target_lower)
+    # Priority 2: Type-port shorthand (e.g., claude-8100, gpt-4-8120)
+    type_port_match = re.match(r"^([\w-]+)-(\d+)$", target_lower)
     if type_port_match:
         target_type = type_port_match.group(1)
         target_port = int(type_port_match.group(2))
@@ -247,14 +247,20 @@ def _resolve_target_agent(
                 return info, None
 
     # Priority 3: Fuzzy match by agent_type
-    matches = [a for a in agents.values() if target_lower in a["agent_type"].lower()]
+    matches = [
+        a for a in agents.values() if target_lower in a.get("agent_type", "").lower()
+    ]
 
     if len(matches) == 1:
         return matches[0], None
 
     if len(matches) > 1:
-        agent_ids = [m["agent_id"] for m in matches]
-        options = [f"{m['agent_type']}-{m['port']}" for m in matches if m.get("port")]
+        agent_ids = [m.get("agent_id", "unknown") for m in matches]
+        options = [
+            f"{m.get('agent_type', 'unknown')}-{m['port']}"
+            for m in matches
+            if m.get("port")
+        ]
         error = f"Ambiguous target '{target}'. Found: {agent_ids}"
         if options:
             error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
