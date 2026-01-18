@@ -36,21 +36,29 @@ def extract_text_from_parts(parts: list[Any]) -> str:
     return "\n".join(text_contents)
 
 
-def format_a2a_message(task_id: str, sender_id: str, content: str) -> str:
+def format_a2a_message(
+    task_id: str,
+    sender_id: str,
+    content: str,
+    response_expected: bool = False,
+) -> str:
     """
     Format a message with A2A task prefix.
 
     Creates the standard format: [A2A:<task_id>:<sender_id>] <content>
+    Or with :R flag: [A2A:<task_id>:<sender_id>:R] <content> when response expected.
 
     Args:
         task_id: Task identifier (caller should truncate if needed)
         sender_id: Sender identifier
         content: Message content
+        response_expected: If True, append :R flag to indicate reply is required
 
     Returns:
         Formatted message string with A2A prefix
     """
-    return f"[A2A:{task_id}:{sender_id}] {content}"
+    flag = ":R" if response_expected else ""
+    return f"[A2A:{task_id}:{sender_id}{flag}] {content}"
 
 
 def get_iso_timestamp() -> str:

@@ -136,6 +136,42 @@ class TestFormatA2AMessage:
         result = format_a2a_message("task", "sender", "Key: Value")
         assert result == "[A2A:task:sender] Key: Value"
 
+    def test_response_expected_false_no_flag(self):
+        """Should not add :R flag when response_expected is False."""
+        result = format_a2a_message(
+            "task123", "sender456", "Hello", response_expected=False
+        )
+        assert result == "[A2A:task123:sender456] Hello"
+        assert ":R]" not in result
+
+    def test_response_expected_true_adds_r_flag(self):
+        """Should add :R flag when response_expected is True."""
+        result = format_a2a_message(
+            "task123", "sender456", "Hello", response_expected=True
+        )
+        assert result == "[A2A:task123:sender456:R] Hello"
+        assert ":R]" in result
+
+    def test_response_expected_default_is_false(self):
+        """Default response_expected should be False (no :R flag)."""
+        result = format_a2a_message("task", "sender", "Content")
+        assert result == "[A2A:task:sender] Content"
+        assert ":R]" not in result
+
+    def test_r_flag_with_special_characters(self):
+        """Should handle :R flag with special characters in content."""
+        result = format_a2a_message(
+            "task-id", "agent_claude-8100", "Test: [info]", response_expected=True
+        )
+        assert result == "[A2A:task-id:agent_claude-8100:R] Test: [info]"
+
+    def test_r_flag_with_multiline_content(self):
+        """Should handle :R flag with multiline content."""
+        result = format_a2a_message(
+            "task", "sender", "Line 1\nLine 2", response_expected=True
+        )
+        assert result == "[A2A:task:sender:R] Line 1\nLine 2"
+
 
 class TestGetIsoTimestamp:
     """Tests for get_iso_timestamp function."""

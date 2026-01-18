@@ -15,36 +15,29 @@ A2A COMMUNICATION PROTOCOL
 ================================================================================
 
 HOW TO RECEIVE AND REPLY TO A2A MESSAGES:
-Input format: [A2A:<task_id>:<sender_id>] <message>
+Input format:
+  [A2A:<task_id>:<sender_id>:R] <message>  ← Response required (:R flag present)
+  [A2A:<task_id>:<sender_id>] <message>    ← No response required
 
 WHEN TO USE --reply-to:
-The sender's message content tells you whether they expect a reply:
-
-**Sender expects reply** (questions, requests):
-- "What is your status?" → reply with `--reply-to`
-- "Please analyze this code" → reply with `--reply-to`
-- "Can you help with X?" → reply with `--reply-to`
-
-**Sender does NOT expect reply** (notifications, delegated tasks):
-- "FYI: Build completed" → no reply needed
-- "Run tests and commit" → do the task, no reply needed
-
-**Rule: Match your reply style to the sender's message intent**
+- **:R flag present** → MUST use `--reply-to <task_id>` to reply
+- **:R flag absent** → Do NOT use `--reply-to`
+  - If you need to communicate back, send a new message (without `--reply-to`)
 
 ```bash
-# If sender asked a question or requested something → use --reply-to
+# :R flag present → use --reply-to
 synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
 
-# If sender delegated a task → just do the task, no --reply-to needed
+# :R flag absent → do the task, no --reply-to needed
 # (send a new message only if you have questions or need to report completion)
 ```
 
-Example - Received question:
-  [A2A:abc12345:synapse-claude-8100] What is the project structure?
+Example - Response required (:R flag):
+  [A2A:abc12345:synapse-claude-8100:R] What is the project structure?
 Reply with:
   synapse send claude "The project has src/, tests/, docs/ directories..." --reply-to abc12345 --from codex
 
-Example - Received delegation:
+Example - No response required (no :R flag):
   [A2A:xyz67890:synapse-claude-8100] Run the tests and fix any failures
 Action: Just do the task. No reply needed unless you have questions.
 

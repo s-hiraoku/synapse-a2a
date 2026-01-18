@@ -82,16 +82,16 @@ class TestSenderTaskIdInMetadata:
 
             # Verify /tasks/create was called on sender's server
             create_url = "http://localhost:8100/tasks/create"
-            assert create_url in calls, (
-                "/tasks/create should be called on sender's server"
-            )
+            assert (
+                create_url in calls
+            ), "/tasks/create should be called on sender's server"
 
             # Verify sender_task_id is in the send request
             send_url = [k for k in calls if "/tasks/send-priority" in k][0]
             send_payload = calls[send_url]
-            assert "sender_task_id" in send_payload["metadata"], (
-                "sender_task_id should be included when sender_endpoint is available"
-            )
+            assert (
+                "sender_task_id" in send_payload["metadata"]
+            ), "sender_task_id should be included when sender_endpoint is available"
 
     def test_sender_task_id_not_included_when_no_sender_endpoint(self):
         """When sender_endpoint is not available, sender_task_id is not included."""
@@ -129,9 +129,9 @@ class TestSenderTaskIdInMetadata:
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
 
             assert "metadata" in payload
-            assert "sender_task_id" not in payload["metadata"], (
-                "sender_task_id should NOT be included when sender_endpoint is unavailable"
-            )
+            assert (
+                "sender_task_id" not in payload["metadata"]
+            ), "sender_task_id should NOT be included when sender_endpoint is unavailable"
 
     def test_sender_task_not_created_when_no_response_expected(self):
         """When response_expected=False, no sender task should be created."""
@@ -164,14 +164,14 @@ class TestSenderTaskIdInMetadata:
             # Verify no sender_task_id in metadata
             call_args = mock_requests.post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
-            assert "sender_task_id" not in payload["metadata"], (
-                "sender_task_id should NOT be included when response_expected=False"
-            )
+            assert (
+                "sender_task_id" not in payload["metadata"]
+            ), "sender_task_id should NOT be included when response_expected=False"
 
             # Count tasks after - should be same as before
-            assert len(task_store._tasks) == initial_count, (
-                "No new task should be created when response_expected=False"
-            )
+            assert (
+                len(task_store._tasks) == initial_count
+            ), "No new task should be created when response_expected=False"
 
 
 # ============================================================
@@ -265,7 +265,8 @@ class TestReceiverDisplaysSenderTaskId:
         written_content = call_args[0][0]
 
         # The written content should contain sender's task ID, not receiver's
-        assert f"[A2A:{sender_task_id[:8]}:{sender_id}]" in written_content
+        # With response_expected=True, the :R flag should be present
+        assert f"[A2A:{sender_task_id[:8]}:{sender_id}:R]" in written_content
 
 
 # ============================================================

@@ -439,6 +439,149 @@ class TestA2AClientWaitForCompletion:
 # ============================================================
 
 
+class TestA2AClientReplyToFailsafe:
+    """Test --reply-to failsafe behavior (404 retry)."""
+
+    @responses.activate
+    def test_reply_to_404_retries_as_new_message_http(self, a2a_client):
+        """Should retry without in_reply_to when 404 error occurs (HTTP)."""
+        # First call: 404 error (task not found)
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            status=404,
+        )
+        # Second call: success (retry without in_reply_to)
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            json={"task": {"id": "new-task", "status": "working"}},
+            status=200,
+        )
+
+        task = a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Reply message",
+            in_reply_to="nonexistent-task",
+        )
+
+        assert task is not None
+        assert task.id == "new-task"
+        # Should have made 2 requests
+        assert len(responses.calls) == 2
+        # First request had in_reply_to
+        first_body = json.loads(responses.calls[0].request.body)
+        assert first_body["metadata"]["in_reply_to"] == "nonexistent-task"
+        # Second request should NOT have in_reply_to
+        second_body = json.loads(responses.calls[1].request.body)
+        assert "in_reply_to" not in second_body["metadata"]
+
+    @responses.activate
+    def test_reply_to_404_no_retry_without_in_reply_to(self, a2a_client):
+        """Should not retry 404 if in_reply_to was not specified."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            status=404,
+        )
+
+        task = a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Message without reply-to",
+            in_reply_to=None,
+        )
+
+        # Should return None without retry
+        assert task is None
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_reply_to_other_errors_not_retried(self, a2a_client):
+        """Should not retry on non-404 errors."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            status=500,
+        )
+
+        task = a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Message",
+            in_reply_to="some-task",
+        )
+
+        # Should return None without retry
+        assert task is None
+        assert len(responses.calls) == 1
+
+    def test_reply_to_404_retries_as_new_message_uds(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Should retry without in_reply_to when 404 error occurs (UDS)."""
+        import httpx
+
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+        attempts = {"count": 0, "bodies": []}
+
+        class DummyResponse:
+            status_code = 404
+
+            def json(self):
+                return {"task": {"id": "new-task", "status": "working"}}
+
+            def raise_for_status(self):
+                if attempts["count"] == 1:
+                    # First attempt raises 404
+                    raise httpx.HTTPStatusError(
+                        "Not Found",
+                        request=httpx.Request("POST", "http://localhost"),
+                        response=self,
+                    )
+                # Second attempt succeeds
+                return None
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                attempts["count"] += 1
+                attempts["bodies"].append(json)
+                resp = DummyResponse()
+                if attempts["count"] == 1:
+                    resp.status_code = 404
+                else:
+                    resp.status_code = 200
+                return resp
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with patch("synapse.a2a_client.requests.post") as mock_post:
+            # Mock HTTP fallback for retry
+            mock_response = mock_post.return_value
+            mock_response.json.return_value = {
+                "task": {"id": "new-task-http", "status": "working"}
+            }
+            mock_response.raise_for_status.return_value = None
+
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Reply",
+                in_reply_to="nonexistent-task",
+                uds_path=str(sock_path),
+            )
+
+            # After UDS 404, it should retry (possibly via HTTP fallback)
+            assert task is not None
+
+
 class TestA2ATask:
     """Test A2A Task structure."""
 

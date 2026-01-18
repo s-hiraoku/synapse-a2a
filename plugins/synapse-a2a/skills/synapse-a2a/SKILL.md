@@ -24,6 +24,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Edit settings (TUI) | `synapse config` |
 | Show instructions | `synapse instructions show <agent>` |
 | Send instructions | `synapse instructions send <agent>` |
+| Version info | `synapse --version` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
@@ -79,6 +80,8 @@ synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
 ```
 
 The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
+
+**Short Task IDs:** PTY displays 8-character short IDs (e.g., `[A2A:54241e7e:sender]`). You can use either the short ID (`--reply-to 54241e7e`) or the full UUID.
 
 ## Receiving and Replying to Messages
 

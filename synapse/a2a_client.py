@@ -8,6 +8,7 @@ Google A2A compatible agents.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from collections.abc import Callable
@@ -28,6 +29,8 @@ from synapse.utils import get_iso_timestamp
 
 if TYPE_CHECKING:
     from synapse.registry import AgentRegistry
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # Data Classes
@@ -346,6 +349,7 @@ class A2AClient:
             payload["metadata"] = metadata
 
             task_data = None
+            retry_without_reply_to = False
 
             if uds_path:
                 uds_file = Path(uds_path)
@@ -379,24 +383,64 @@ class A2AClient:
                                     return None
                                 break
                             time.sleep(delay)
-                        except httpx.HTTPStatusError:
+                        except httpx.HTTPStatusError as e:
+                            if e.response.status_code == 404 and in_reply_to:
+                                retry_without_reply_to = True
+                                break
                             _update_transport(None)
                             return None
                 else:
                     if local_only:
                         return None
 
-            if task_data is None:
+            if task_data is None and not retry_without_reply_to:
                 # Update transport to TCP
                 _update_transport("TCP")
                 # Use /tasks/send-priority for priority support
                 url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={priority}"
-                http_response = requests.post(url, json=payload, timeout=self.timeout)
-                http_response.raise_for_status()
+                try:
+                    http_response = requests.post(
+                        url, json=payload, timeout=self.timeout
+                    )
+                    http_response.raise_for_status()
+                    result = http_response.json()
+                    task_data = result.get("task", result)
+                except requests.exceptions.HTTPError as e:
+                    if (
+                        hasattr(e.response, "status_code")
+                        and e.response.status_code == 404
+                        and in_reply_to
+                    ):
+                        retry_without_reply_to = True
+                    else:
+                        raise
 
-                result = http_response.json()
-                task_data = result.get("task", result)
+            # Retry without in_reply_to if we got 404 (task not found)
+            if retry_without_reply_to:
+                logger.warning(
+                    f"--reply-to {in_reply_to} not found (404), retrying as new message"
+                )
+                _update_transport(None)
+                return self.send_to_local(
+                    endpoint=endpoint,
+                    message=message,
+                    priority=priority,
+                    wait_for_completion=wait_for_completion,
+                    timeout=timeout,
+                    sender_info=sender_info,
+                    response_expected=response_expected,
+                    in_reply_to=None,
+                    uds_path=uds_path,
+                    local_only=local_only,
+                    registry=registry,
+                    sender_agent_id=sender_agent_id,
+                    target_agent_id=target_agent_id,
+                )
 
+            # At this point task_data is guaranteed to be non-None:
+            # - If retry_without_reply_to is True, we already returned above
+            # - Otherwise, we either got task_data from UDS or HTTP path
+            assert task_data is not None
             task = A2ATask.from_dict(task_data)
 
             if wait_for_completion and sender_task_id:

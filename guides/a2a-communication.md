@@ -96,6 +96,8 @@ AIエージェントとしてA2Aメッセージを受信した場合の返信方
 [A2A:<task_id>:<sender_id>] <message>
 ```
 
+**Note:** PTY では 8 文字の短い task_id が表示されます（例: `[A2A:54241e7e:sender]`）。`--reply-to` はこの短い ID でも完全な UUID でも指定できます。
+
 ### 返信のルール
 
 返信方法は送信側が `--response` を使用したかどうかで異なります：

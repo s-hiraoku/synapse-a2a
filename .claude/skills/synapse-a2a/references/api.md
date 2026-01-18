@@ -19,6 +19,7 @@ These are Synapse-specific extensions (not part of standard A2A):
 | Endpoint | Path | Description |
 |----------|------|-------------|
 | Send with Priority | `/tasks/send-priority?priority=<1-5>` | Send task with priority level |
+| Create Task | `/tasks/create` | Create task without sending to PTY (for `--response` flag) |
 
 > **Naming Convention Note:** Synapse metadata fields (`sender`, `response_expected`, `sender_task_id`, `in_reply_to`) are nested within the `metadata` object, clearly scoping them as extensions. The endpoint path `/tasks/send-priority` is a Synapse-specific extension documented here.
 >
@@ -92,8 +93,10 @@ When `synapse send` or the A2A client sends a message, routing follows this orde
 
 Example:
 ```text
-[A2A:abc12345:synapse-claude-8100] Please review this code
+[A2A:54241e7e:synapse-claude-8100] Please review this code
 ```
+
+**Note:** PTY displays 8-character short task IDs for readability. The `--reply-to` option accepts both short IDs (prefix match) and full UUIDs.
 
 ### JSON Payload
 

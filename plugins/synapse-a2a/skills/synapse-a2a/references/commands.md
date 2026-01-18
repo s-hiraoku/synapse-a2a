@@ -87,6 +87,8 @@ When you receive an A2A message, it appears in this format:
 [A2A:<task_id>:<sender_id>] <message>
 ```
 
+**Note:** PTY displays 8-character short task IDs (e.g., `[A2A:54241e7e:sender]`). Use this short ID directly with `--reply-to`.
+
 **When to use --reply-to:** Match your reply style to the sender's message intent:
 
 | Sender's Message | Your Action |
@@ -137,7 +139,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
-- `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests)
+- `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests). Accepts short IDs (8-char prefix shown in PTY) or full UUID.
 
 **Choosing --response vs --no-response:**
 
