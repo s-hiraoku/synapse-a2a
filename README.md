@@ -719,6 +719,7 @@ python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 | `/.well-known/agent.json` | GET      | Agent Card        |
 | `/tasks/send`             | POST     | メッセージ送信    |
 | `/tasks/send-priority`    | POST     | Priority 付き送信 |
+| `/tasks/create`           | POST     | タスク作成（PTY送信なし、`--response` 用） |
 | `/tasks/{id}`             | GET      | タスク状態取得    |
 | `/tasks`                  | GET      | タスク一覧        |
 | `/tasks/{id}/cancel`      | POST     | タスクキャンセル  |
@@ -871,13 +872,27 @@ A2A メッセージの送信元は `metadata.sender` で識別できます。
 ### PTY 出力形式
 
 ```
-[A2A:<task_id>:<sender_id>] <message>
+[A2A:<task_id>:<sender_id>:R] <message>   ← 返信必須（:R フラグあり）
+[A2A:<task_id>:<sender_id>] <message>     ← 返信不要
 ```
+
+**:R フラグ**: 送信側が `--response` を使用した場合、`:R` フラグが付与されます。このフラグがある場合は `--reply-to` での返信が必須です。
+
+**短いタスクID**: PTY では 8 文字の短い task_id が表示されます。`--reply-to` は短い ID でもフル UUID でも指定できます。
 
 例：
 
 ```
-[A2A:abc12345:synapse-claude-8100] この設計をレビューしてください
+[A2A:54241e7e:synapse-claude-8100:R] この設計をレビューしてください  ← 返信必須
+[A2A:abc12345:synapse-claude-8100] テストを実行して                   ← 返信不要
+```
+
+返信例：
+```bash
+# :R フラグあり → --reply-to 必須
+synapse send claude "レビュー結果です..." --reply-to 54241e7e --from gemini
+
+# :R フラグなし → タスクを実行、--reply-to は不要
 ```
 
 ### Task API での確認

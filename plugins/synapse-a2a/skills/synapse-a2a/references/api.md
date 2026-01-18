@@ -87,14 +87,20 @@ When `synapse send` or the A2A client sends a message, routing follows this orde
 
 ### PTY Output Format
 
+Messages appear in one of two formats depending on whether a response is expected:
+
 ```text
-[A2A:<task_id>:<sender_id>] <message_content>
+[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
+[A2A:<task_id>:<sender_id>] <message>     ← No response required
 ```
 
-Example:
+Examples:
 ```text
-[A2A:54241e7e:synapse-claude-8100] Please review this code
+[A2A:54241e7e:synapse-claude-8100:R] What is the status?     ← MUST reply with --reply-to
+[A2A:54241e7e:synapse-claude-8100] Run the tests            ← No reply needed
 ```
+
+**The `:R` flag indicates `response_expected=true` in the metadata.** When present, the receiver MUST use `--reply-to <task_id>` to respond.
 
 **Note:** PTY displays 8-character short task IDs for readability. The `--reply-to` option accepts both short IDs (prefix match) and full UUIDs.
 
@@ -165,6 +171,16 @@ Error: Ambiguous target 'codex'. Multiple agents found.
 Error: Agent 'synapse-claude-8100' server on port 8100 is not responding.
 ```
 **Solution:** Restart the agent with `synapse claude`.
+
+### Failsafe: --reply-to 404 Retry
+
+When using `--reply-to` with a task ID that doesn't exist (e.g., the sender didn't use `--response`), Synapse automatically retries the message as a new message without `--reply-to`. This prevents message loss when the receiver mistakenly uses `--reply-to` for a `--no-response` message.
+
+```text
+Warning: --reply-to abc12345 not found (404), retrying as new message
+```
+
+This failsafe ensures messages are always delivered, even if `--reply-to` is used incorrectly.
 
 ## HTTP API Examples
 
