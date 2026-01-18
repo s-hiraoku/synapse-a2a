@@ -526,7 +526,8 @@ def create_a2a_router(
             raise HTTPException(status_code=400, detail="No text content in message")
 
         metadata = request.metadata or {}
-        in_reply_to = metadata.get("in_reply_to")
+        # Support both "in_reply_to" (current) and "reply_to" (legacy) keys
+        in_reply_to = metadata.get("in_reply_to") or metadata.get("reply_to")
 
         if in_reply_to:
             # Support prefix match for short IDs from PTY display
