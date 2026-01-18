@@ -294,6 +294,40 @@ class TaskStore:
         with self._lock:
             return self._tasks.get(task_id)
 
+    def get_by_prefix(self, prefix: str) -> Task | None:
+        """Get a task by ID prefix (for --reply-to with short IDs).
+
+        Args:
+            prefix: Full UUID or prefix (e.g., "54241e7e" from PTY display)
+
+        Returns:
+            Task if exactly one match found, None if no match
+
+        Raises:
+            ValueError: If prefix matches multiple tasks (ambiguous)
+        """
+        prefix_lower = prefix.lower()
+        with self._lock:
+            # Exact match first
+            if prefix_lower in self._tasks:
+                return self._tasks[prefix_lower]
+
+            # Prefix match
+            matches = [
+                task
+                for task_id, task in self._tasks.items()
+                if task_id.lower().startswith(prefix_lower)
+            ]
+
+            if len(matches) == 0:
+                return None
+            if len(matches) == 1:
+                return matches[0]
+            # Multiple matches - ambiguous
+            raise ValueError(
+                f"Ambiguous task ID prefix '{prefix}': matches {len(matches)} tasks"
+            )
+
     def update_status(self, task_id: str, status: TaskState) -> Task | None:
         """Update task status"""
         with self._lock:
@@ -495,15 +529,24 @@ def create_a2a_router(
         in_reply_to = metadata.get("in_reply_to")
 
         if in_reply_to:
-            existing_task = task_store.get(in_reply_to)
+            # Support prefix match for short IDs from PTY display
+            try:
+                existing_task = task_store.get_by_prefix(in_reply_to)
+            except ValueError as e:
+                # Ambiguous prefix - multiple tasks match
+                raise HTTPException(status_code=400, detail=str(e)) from e
+
             if not existing_task:
                 raise HTTPException(status_code=404, detail="Task not found")
 
+            # Use the full task ID for subsequent operations
+            full_task_id = existing_task.id
+
             task_store.add_artifact(
-                in_reply_to, Artifact(type="text", data={"content": text_content})
+                full_task_id, Artifact(type="text", data={"content": text_content})
             )
-            task_store.update_status(in_reply_to, "completed")
-            updated_task = task_store.get(in_reply_to)
+            task_store.update_status(full_task_id, "completed")
+            updated_task = task_store.get(full_task_id)
             if not updated_task:
                 raise HTTPException(
                     status_code=500, detail="Task disappeared unexpectedly"

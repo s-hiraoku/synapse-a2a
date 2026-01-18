@@ -2,25 +2,44 @@
 
 ## Setup Example
 
+### Step 1: Initialize Settings (if not done)
+
+```bash
+synapse init
+# Select: Project scope (./.synapse/)
+```
+
+### Step 2: Enable Delegation
+
+Edit `.synapse/settings.json`:
+```json
+{
+  "delegation": {
+    "enabled": true
+  }
+}
+```
+
+Or use interactive TUI:
+```bash
+synapse config
+# Select: Delegation
+# Set: enabled = true
+```
+
+### Step 3: Define Rules
+
+Edit `.synapse/delegate.md`:
+```markdown
+# Delegation Rules
+
+Coding goes to Codex, research goes to Gemini.
+Code reviews stay with Claude.
+```
+
+### Step 4: Start Agents and Delegate
+
 ```text
-> /delegate orchestrator
-
-Please describe your delegation rules:
-> Coding goes to Codex, research goes to Gemini
-
-✓ Configuration saved
-
-Current settings:
-- Mode: orchestrator
-- Rules: Coding goes to Codex, research goes to Gemini
-
-Activate delegation with these settings? [Y/n]
-> Y
-
-✓ Delegation enabled
-
----
-
 > Implement user authentication
 
 [Pre-check]
@@ -28,15 +47,13 @@ Activate delegation with these settings? [Y/n]
 - File Safety: src/auth.py - not locked ✓
 
 Delegating coding task to Codex...
-@codex Please implement user authentication. Target file: src/auth.py
-Acquire file lock before editing.
+synapse send codex "Please implement user authentication. Target file: src/auth.py" --response --from claude
 
 [Codex processing... monitor with synapse list --watch]
 
 Response from Codex:
 - Created src/auth.py
 - Created tests/test_auth.py
-- Lock released
 
 Integrated result:
 ✓ User authentication implemented
@@ -46,25 +63,30 @@ Integrated result:
 
 ## Status Display Example
 
-When `/delegate status` is invoked:
+Check current delegation status:
 
+```bash
+# View settings
+synapse config show
+
+# View running agents
+synapse list
+
+# With watch mode (shows TRANSPORT during communication)
+synapse list --watch
+```
+
+Example output:
 ```text
-=== Delegation Configuration ===
-Mode: orchestrator
-Rules:
-  Coding goes to Codex, research goes to Gemini
-Status: active
+TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              ENDPOINT
+claude     8100     READY        -           12345    /path/to/project         http://localhost:8100
+codex      8120     READY        -           12346    /path/to/project         http://localhost:8120
+gemini     8110     PROCESSING   -           12347    /path/to/project         http://localhost:8110
+```
 
-=== Available Agents ===
-NAME     STATUS      PORT   WORKING_DIR
-claude   READY       8100   /path/to/project
-codex    READY       8120   /path/to/project
-gemini   PROCESSING  8110   /path/to/project
-
-=== File Safety ===
-Active Locks: 1
-  /path/to/api.py - gemini (expires: 12:30:00)
-================================
+Check file safety status:
+```bash
+synapse file-safety locks
 ```
 
 ## Error Handling Examples
