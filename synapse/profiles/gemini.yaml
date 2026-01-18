@@ -13,31 +13,12 @@ idle_detection:
   timeout: 3.0               # 3.0 seconds of no output = idle
 
 # WAITING status detection (user input prompts)
-# Detects when Gemini is showing numbered choices or asking for input
+# Uses regex to detect selection UI structure
+# Gemini CLI shows: ● 1. Option text / ○ 2. Option text
 waiting_detection:
-  patterns:
-    # Selection UI indicators (Gemini uses ● for selected option)
-    - "● 1."
-    - "● 2."
-    - "● 3."
-    - "●"                                     # Selection bullet
-    # Permission/confirmation prompts
-    - "Allow once"
-    - "Allow for this session"
-    - "Allow execution"
-    - "suggest changes"
-    # Japanese prompts - answer requests
-    - "番号でお答え"                          # Answer by number
-    - "お答えください"                        # Please answer
-    - "どれを実行しますか"                    # Which to execute?
-    - "どのアクション"                        # Which action
-    - "選択肢を"                              # Choices...
-    - "番号または"                            # Number or...
-    - "選択肢を提案"                          # Propose choices
-    - "選択してください"                      # Please select
-    # English prompts
-    - "Which option"
-    - "Enter a number"
-    - "Please answer"
+  # Regex pattern to detect selection UI:
+  # - ● or ○ followed by space(s) and digit(s) and dot
+  # - OR "Allow execution" / "Allow once" permission prompts
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
   require_idle: true
   idle_timeout: 0.5                           # 500ms no output after pattern

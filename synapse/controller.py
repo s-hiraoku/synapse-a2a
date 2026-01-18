@@ -95,12 +95,20 @@ class TerminalController:
         timeout = self.idle_config.get("timeout", 1.5)
         self._output_idle_threshold = timeout
 
-        # WAITING detection configuration
+        # WAITING detection configuration (regex-based)
         self.waiting_config = waiting_detection or {}
-        self._waiting_patterns: list[str] = self.waiting_config.get("patterns", [])
+        self._waiting_regex: re.Pattern[str] | None = None
+        waiting_regex_str = self.waiting_config.get("regex")
+        if waiting_regex_str:
+            try:
+                self._waiting_regex = re.compile(waiting_regex_str)
+            except re.error as e:
+                logging.error(
+                    f"Invalid waiting_detection regex '{waiting_regex_str}': {e}"
+                )
         self._waiting_require_idle: bool = self.waiting_config.get("require_idle", True)
         self._waiting_idle_timeout: float = float(
-            self.waiting_config.get("idle_timeout", 0.3)
+            self.waiting_config.get("idle_timeout", 0.5)
         )
         self._waiting_pattern_time: float | None = None  # When pattern was last seen
 
@@ -281,7 +289,7 @@ class TerminalController:
         """Check if agent is in WAITING state (user input prompt).
 
         WAITING is detected when:
-        1. A waiting pattern is found in recent output
+        1. A regex pattern matches recent output (selection UI structure)
         2. No new output for waiting_idle_timeout (if require_idle is True)
 
         Args:
@@ -290,20 +298,21 @@ class TerminalController:
         Returns:
             True if in WAITING state, False otherwise.
         """
-        if not self._waiting_patterns:
+        if not self._waiting_regex:
             return False
 
-        # Decode recent output for pattern matching
-        text = self.output_buffer[-1024:].decode("utf-8", errors="replace")
+        # Decode recent output for regex matching
+        # Use last 2KB to capture multi-line selection UIs
+        text = self.output_buffer[-2048:].decode("utf-8", errors="replace")
 
-        # Check for waiting patterns
-        pattern_found = any(pattern in text for pattern in self._waiting_patterns)
+        # Check for waiting pattern using regex
+        pattern_found = bool(self._waiting_regex.search(text))
 
         if pattern_found:
             # Record when pattern was seen (if new data contains pattern)
             if new_data:
                 new_text = new_data.decode("utf-8", errors="replace")
-                if any(pattern in new_text for pattern in self._waiting_patterns):
+                if self._waiting_regex.search(new_text):
                     self._waiting_pattern_time = time.time()
 
             # If require_idle, check if enough time has passed without output

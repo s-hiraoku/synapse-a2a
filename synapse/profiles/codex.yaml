@@ -12,23 +12,12 @@ idle_detection:
   timeout: 3.0               # 3.0 seconds of no output = idle
 
 # WAITING status detection (user input prompts)
-# Detects when Codex is showing numbered choices or asking for input
+# Uses regex to detect selection UI structure
+# Codex shows numbered lists with indentation
 waiting_detection:
-  patterns:
-    # Numbered choice indicators
-    - "1."
-    - "2."
-    - "3."
-    - "4."
-    - "5."
-    # Japanese prompts
-    - "どちらの挙動"                          # Which behavior
-    - "どの方針"                              # Which approach
-    - "どの順で"                              # Which order
-    - "どこまで対応"                          # How far to go
-    - "選択肢付き質問"                        # Question with choices
-    # English prompts
-    - "Which option"
-    - "Select one"
+  # Regex pattern to detect numbered choice structure:
+  # - Line starting with spaces, then digit(s) and dot
+  # - Multiple such lines indicate a choice list
+  regex: "^\\s+\\d+\\.\\s+.+$"
   require_idle: true
   idle_timeout: 0.5                           # 500ms no output after pattern

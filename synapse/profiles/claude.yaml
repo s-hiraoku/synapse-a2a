@@ -19,16 +19,13 @@ idle_detection:
   timeout: 0.5                                 # 500ms no output = idle (fallback)
 
 # WAITING status detection (user input prompts)
-# Detects when Claude Code is showing selection UI or asking for input
-# WAITING = agent is waiting for user input (choices, Y/n prompts, etc.)
+# Uses regex to detect Claude Code's Ink TUI selection UI
+# Claude shows: ❯ Option or ☐/☑ checkboxes
 waiting_detection:
-  patterns:
-    - "❯"                                      # Selection cursor (Ink TUI)
-    - "☐"                                      # Unchecked checkbox
-    - "☑"                                      # Checked checkbox
-    - "[Y/n]"                                  # Yes/No prompt
-    - "[y/N]"                                  # No/Yes prompt
-    - "Type something"                         # Free input prompt
-  # Require idle (no output) after pattern to confirm WAITING state
+  # Regex pattern to detect selection UI:
+  # - ❯ followed by space and text (selection cursor)
+  # - OR ☐/☑ followed by space (checkbox)
+  # - OR [Y/n] or [y/N] prompts
+  regex: "❯\\s+.+|[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
   require_idle: true
   idle_timeout: 0.3                            # 300ms no output after pattern
