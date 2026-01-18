@@ -1843,7 +1843,7 @@ Tip: Copy the agent ID from 'synapse list' output for precise control.""",
 
 Interactive controls (Rich TUI mode):
   1-9         Select agent by number to view full details
-  0           Clear selection
+  ESC         Close detail panel
   Ctrl+C      Exit watch mode
 
 Status meanings:

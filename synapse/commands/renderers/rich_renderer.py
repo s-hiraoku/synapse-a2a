@@ -234,8 +234,8 @@ class RichRenderer:
             footer.append("Press ", style="dim")
             footer.append(f"1-{agent_count}", style="bold cyan")
             footer.append(" to view details, ", style="dim")
-            footer.append("0", style="bold cyan")
-            footer.append(" to clear, ", style="dim")
+            footer.append("ESC", style="bold cyan")
+            footer.append(" to close, ", style="dim")
 
         footer.append("Ctrl+C", style="bold")
         footer.append(" to exit", style="dim")

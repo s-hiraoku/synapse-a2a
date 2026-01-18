@@ -342,9 +342,10 @@ class ListCommand:
                     if interactive:
                         key = self._read_key_nonblocking()
                         if key is not None:
-                            if key == "0":
+                            # ESC key (0x1b) clears selection
+                            if key == "\x1b":
                                 selected_row = None
-                            elif key.isdigit():
+                            elif key.isdigit() and key != "0":
                                 selected_row = int(key)
 
                     # Update display at interval

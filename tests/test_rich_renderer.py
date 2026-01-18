@@ -628,7 +628,7 @@ class TestRichRendererInteractiveFooter:
         output = console.file.getvalue()
 
         assert "1-3" in output
-        assert "0" in output  # clear selection
+        assert "ESC" in output  # close detail panel
         assert "Ctrl+C" in output
 
     def test_footer_minimal_when_not_interactive(self):

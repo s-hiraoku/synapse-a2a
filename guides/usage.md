@@ -275,7 +275,7 @@ synapse list -w --no-rich         # プレーンテキストモード
 - 色付きステータス表示（READY=緑、PROCESSING=黄）
 - フリッカーなしの更新
 - **インタラクティブ操作**: 数字キー（1-9）でエージェントを選択し、詳細パネルでフルパスを確認
-- `0` キーで選択解除、`Ctrl+C` で終了
+- `ESC` キーで詳細パネルを閉じる、`Ctrl+C` で終了
 
 **出力例（Rich TUI モード）**:
 
@@ -289,7 +289,7 @@ synapse list -w --no-rich         # プレーンテキストモード
 │ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
 │ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
-Press 1-3 to view details, 0 to clear, Ctrl+C to exit
+Press 1-3 to view details, ESC to close, Ctrl+C to exit
 ```
 
 > **Note**: Watch モード（`--watch` / `-w`）では、**TRANSPORT 列**がリアルタイム表示されます。
