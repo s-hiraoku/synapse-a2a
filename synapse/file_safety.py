@@ -262,7 +262,7 @@ class FileSafetyManager:
                     "ON file_locks(agent_type)"
                 )
                 cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locks_pid " "ON file_locks(pid)"
+                    "CREATE INDEX IF NOT EXISTS idx_locks_pid ON file_locks(pid)"
                 )
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_locks_agent_id "
