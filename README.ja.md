@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > CLI エージェント（Claude Code, Codex, Gemini）を**そのまま**に、Google A2A Protocol 経由でエージェント間連携を実現するフレームワーク
@@ -1262,11 +1262,11 @@ network_access = true
 ```bash
 # 認証を有効にして起動
 export SYNAPSE_AUTH_ENABLED=true
-export SYNAPSE_API_KEYS=my-secret-key
+export SYNAPSE_API_KEYS=<YOUR_API_KEY>
 synapse claude
 
 # API キー付きリクエスト
-curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+curl -H "X-API-Key: <YOUR_API_KEY>" http://localhost:8100/tasks
 ```
 
 ### Webhook 通知

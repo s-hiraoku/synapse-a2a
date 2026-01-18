@@ -1262,11 +1262,11 @@ Security, notification, and high-performance communication features for producti
 ```bash
 # Start with authentication enabled
 export SYNAPSE_AUTH_ENABLED=true
-export SYNAPSE_API_KEYS=my-secret-key
+export SYNAPSE_API_KEYS=<YOUR_API_KEY>
 synapse claude
 
 # Request with API Key
-curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+curl -H "X-API-Key: <YOUR_API_KEY>" http://localhost:8100/tasks
 ```
 
 ### Webhook Notifications
