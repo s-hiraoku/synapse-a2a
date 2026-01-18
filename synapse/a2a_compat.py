@@ -73,10 +73,9 @@ def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> s
         code_data = artifact.data if isinstance(artifact.data, dict) else {}
         language = code_data.get("metadata", {}).get("language", "text")
         content = code_data.get("content", str(artifact.data))
-        template = (
-            "```{lang}\n{content}\n```" if use_markdown else "[Code: {lang}]\n{content}"
-        )
-        return template.format(lang=language, content=content)
+        if use_markdown:
+            return f"```{language}\n{content}\n```"
+        return f"[Code: {language}]\n{content}"
 
     if artifact.type == "text":
         if isinstance(artifact.data, str):

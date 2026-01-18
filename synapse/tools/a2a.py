@@ -215,67 +215,66 @@ def _record_sent_message(
         logger.debug("Failed to record sent message to history", exc_info=True)
 
 
+def _resolve_target_agent(
+    target: str, agents: dict[str, dict]
+) -> tuple[dict | None, str | None]:
+    """Resolve target agent from name/id.
+
+    Matching priority:
+    1. Exact match on agent_id (e.g., synapse-claude-8100)
+    2. Match on type-port shorthand (e.g., claude-8100)
+    3. Match on agent_type if only one exists (e.g., claude)
+
+    Returns:
+        Tuple of (agent_info, error_message). If successful, error_message is None.
+    """
+    target_lower = target.lower()
+
+    # Priority 1: Exact match by ID
+    if target in agents:
+        return agents[target], None
+
+    # Priority 2: Type-port shorthand (e.g., claude-8100)
+    type_port_match = re.match(r"^(\w+)-(\d+)$", target_lower)
+    if type_port_match:
+        target_type = type_port_match.group(1)
+        target_port = int(type_port_match.group(2))
+        for info in agents.values():
+            if (
+                info.get("agent_type", "").lower() == target_type
+                and info.get("port") == target_port
+            ):
+                return info, None
+
+    # Priority 3: Fuzzy match by agent_type
+    matches = [a for a in agents.values() if target_lower in a["agent_type"].lower()]
+
+    if len(matches) == 1:
+        return matches[0], None
+
+    if len(matches) > 1:
+        agent_ids = [m["agent_id"] for m in matches]
+        options = [f"{m['agent_type']}-{m['port']}" for m in matches if m.get("port")]
+        error = f"Ambiguous target '{target}'. Found: {agent_ids}"
+        if options:
+            error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
+        return None, error
+
+    return None, f"No agent found matching '{target}'"
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
     agents = reg.list_agents()
 
-    # 1. Resolve Target
-    # Matching priority:
-    # 1. Exact match on agent_id (e.g., synapse-claude-8100)
-    # 2. Match on type-port shorthand (e.g., claude-8100)
-    # 3. Match on agent_type if only one exists (e.g., claude)
-    target_agent = None
-    target_lower = args.target.lower()
+    # Resolve target agent
+    target_agent, error = _resolve_target_agent(args.target, agents)
+    if error or target_agent is None:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
 
-    # Check if exact match by ID
-    if args.target in agents:
-        target_agent = agents[args.target]
-    else:
-        # Try type-port shorthand (e.g., claude-8100)
-        type_port_match = re.match(r"^(\w+)-(\d+)$", target_lower)
-        if type_port_match:
-            target_type = type_port_match.group(1)
-            target_port = int(type_port_match.group(2))
-            for info in agents.values():
-                if (
-                    info.get("agent_type", "").lower() == target_type
-                    and info.get("port") == target_port
-                ):
-                    target_agent = info
-                    break
-
-        # If not found, try fuzzy match by agent_type (e.g. 'claude')
-        if not target_agent:
-            matches = [
-                a for a in agents.values() if target_lower in a["agent_type"].lower()
-            ]
-            if len(matches) == 1:
-                target_agent = matches[0]
-            elif len(matches) > 1:
-                # Provide helpful hint for disambiguation
-                agent_ids = [m["agent_id"] for m in matches]
-                print(
-                    f"Error: Ambiguous target '{args.target}'. Found: {agent_ids}",
-                    file=sys.stderr,
-                )
-                # Show type-port hints if port info is available
-                options = [
-                    f"{m['agent_type']}-{m['port']}" for m in matches if m.get("port")
-                ]
-                if options:
-                    print(
-                        f"  Hint: Use specific identifier like: {', '.join(options)}",
-                        file=sys.stderr,
-                    )
-                sys.exit(1)
-            else:
-                print(
-                    f"Error: No agent found matching '{args.target}'", file=sys.stderr
-                )
-                sys.exit(1)
-
-    # 2. Validate agent is actually running
+    # Validate agent is actually running
     pid = target_agent.get("pid")
     port = target_agent.get("port")
     agent_id = target_agent["agent_id"]
@@ -314,10 +313,10 @@ def cmd_send(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    # 3. Build sender metadata
+    # Build sender metadata
     sender_info = build_sender_info(getattr(args, "sender", None))
 
-    # 4. Send Request using Google A2A protocol
+    # Send request using Google A2A protocol
     # Determine response_expected based on a2a.flow setting and flags
     settings = get_settings()
     flow = settings.get_a2a_flow()

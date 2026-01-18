@@ -220,54 +220,60 @@ class TerminalController:
             err = f"{type(e).__name__}: {e}"
             logger.error(f"Error in _monitor_output for {self.agent_id}: {err}")
 
+    def _check_pattern_idle(self) -> bool:
+        """Check for pattern-based idle detection. Must be called with lock held."""
+        if self.idle_strategy not in ("pattern", "hybrid") or not self.idle_regex:
+            return False
+
+        pattern_use = self.idle_config.get("pattern_use", "always")
+        should_check = pattern_use == "always" or (
+            pattern_use == "startup_only" and not self._pattern_detected
+        )
+        if not should_check:
+            return False
+
+        search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
+        if self.idle_regex.search(search_window):
+            self._pattern_detected = True
+            return True
+        return False
+
+    def _check_timeout_idle(self) -> bool:
+        """Check for timeout-based idle detection. Must be called with lock held."""
+        if self.idle_strategy not in ("timeout", "hybrid"):
+            return False
+
+        # For hybrid mode, only use timeout after pattern detected
+        if self.idle_strategy == "hybrid" and not self._pattern_detected:
+            return False
+
+        if not self._last_output_time:
+            return False
+
+        elapsed: float = time.time() - self._last_output_time
+        return bool(elapsed >= self._output_idle_threshold)
+
+    def _evaluate_idle_status(self, pattern_match: bool, timeout_idle: bool) -> bool:
+        """Evaluate idle status based on strategy and detection results."""
+        if self.idle_strategy == "pattern":
+            return pattern_match
+        if self.idle_strategy == "timeout":
+            return timeout_idle
+        if self.idle_strategy == "hybrid":
+            return pattern_match or timeout_idle
+        return False
+
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
-            pattern_match = False
-            timeout_idle = False
+            pattern_match = self._check_pattern_idle()
+            timeout_idle = self._check_timeout_idle()
 
-            # 1. Pattern-based detection (if strategy uses it)
-            if self.idle_strategy in ("pattern", "hybrid") and self.idle_regex:
-                # Check pattern only if appropriate for the mode
-                pattern_use = self.idle_config.get("pattern_use", "always")
-                should_check_pattern = pattern_use == "always" or (
-                    pattern_use == "startup_only" and not self._pattern_detected
-                )
-
-                if should_check_pattern:
-                    # For pattern strategy: check if pattern is in the buffer
-                    # The pattern indicates the agent is idle/ready
-                    search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
-                    match = self.idle_regex.search(search_window)
-                    if match:
-                        pattern_match = True
-                        self._pattern_detected = True
-
-            # 2. Timeout-based detection (if strategy uses it)
-            if self.idle_strategy in ("timeout", "hybrid"):
-                # For hybrid mode, only use timeout after pattern detected
-                should_check_timeout = self.idle_strategy == "timeout" or (
-                    self.idle_strategy == "hybrid" and self._pattern_detected
-                )
-
-                if should_check_timeout and self._last_output_time:
-                    elapsed = time.time() - self._last_output_time
-                    if elapsed >= self._output_idle_threshold:
-                        timeout_idle = True
-
-            # 3. Determine new status based on strategy
-            if self.idle_strategy == "pattern":
-                is_idle = pattern_match
-            elif self.idle_strategy == "timeout":
-                is_idle = timeout_idle
-            elif self.idle_strategy == "hybrid":
-                is_idle = pattern_match or timeout_idle
-            else:
-                is_idle = False
-
+            # Determine idle status based on strategy
+            is_idle = self._evaluate_idle_status(pattern_match, timeout_idle)
             new_status = "READY" if is_idle else "PROCESSING"
 
-            # 4. Update status and sync to registry (only if changed)
+            # Update status and sync to registry (only if changed)
             if new_status != self.status:
                 old_status = self.status
                 self.status = new_status
@@ -291,7 +297,7 @@ class TerminalController:
                             f" -> {self.status}"
                         )
 
-            # 5. Send initial instructions on first READY
+            # Send initial instructions on first READY
             if (
                 is_idle
                 and self.status == "READY"

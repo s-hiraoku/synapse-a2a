@@ -267,16 +267,16 @@ class A2AClient:
         if local_only and not uds_path:
             return None
 
-        # Helper to update transport status in registry
         def _update_transport(transport_type: str | None) -> None:
+            """Update transport status in registry for sender and target agents."""
             if not registry:
                 return
+            sender_value = f"{transport_type}→" if transport_type else None
+            target_value = f"→{transport_type}" if transport_type else None
             if sender_agent_id:
-                value = f"{transport_type}→" if transport_type else None
-                registry.update_transport(sender_agent_id, value)
+                registry.update_transport(sender_agent_id, sender_value)
             if target_agent_id:
-                value = f"→{transport_type}" if transport_type else None
-                registry.update_transport(target_agent_id, value)
+                registry.update_transport(target_agent_id, target_value)
 
         try:
             # Create A2A message

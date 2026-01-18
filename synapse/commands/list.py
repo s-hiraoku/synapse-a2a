@@ -67,31 +67,26 @@ class ListCommand:
         show_file_safety = file_safety.enabled
 
         # Build column list based on mode
-        columns = [
+        columns: list[tuple[str, int]] = [
             ("TYPE", 10),
             ("PORT", 8),
             ("STATUS", 12),
         ]
         if is_watch_mode:
             columns.append(("TRANSPORT", 10))
-        columns.extend(
-            [
-                ("PID", 8),
-                ("WORKING_DIR", 50),
-            ]
-        )
+        columns.extend([("PID", 8), ("WORKING_DIR", 50)])
         if show_file_safety:
             columns.append(("EDITING FILE", 30))
         columns.append(("ENDPOINT", 0))  # 0 means no padding (last column)
 
-        # Build header
-        header_parts = []
-        for name, width in columns:
-            if width > 0:
-                header_parts.append(f"{name:<{width}}")
-            else:
-                header_parts.append(name)
-        header = " ".join(header_parts)
+        def format_row(values: list[tuple[str, int]]) -> str:
+            """Format a row of values with their widths."""
+            parts = [
+                f"{value:<{width}}" if width > 0 else value for value, width in values
+            ]
+            return " ".join(parts)
+
+        header = format_row([(col, width) for col, width in columns])
 
         lines = [header, "-" * len(header)]
 
@@ -154,14 +149,7 @@ class ListCommand:
 
             row_values.append((info.get("endpoint", "-"), 0))
 
-            # Format row
-            row_parts = []
-            for value, width in row_values:
-                if width > 0:
-                    row_parts.append(f"{value:<{width}}")
-                else:
-                    row_parts.append(str(value))
-            lines.append(" ".join(row_parts))
+            lines.append(format_row(row_values))
 
         if not live_agents:
             return self._format_empty_message()
