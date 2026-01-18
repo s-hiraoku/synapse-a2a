@@ -16,11 +16,19 @@ idle_detection:
 # Detects when Gemini is showing numbered choices or asking for input
 waiting_detection:
   patterns:
-    - "どれを実行しますか"                    # Japanese: Which to execute?
-    - "番号または"                            # Japanese: Number or...
-    - "選択肢を提案"                          # Japanese: Propose choices
-    - "選択してください"                      # Japanese: Please select
-    - "Which option"                          # English choice prompt
-    - "Enter a number"                        # Number input prompt
+    # Numbered choice indicators
+    - "1."
+    - "2."
+    - "3."
+    - "4."
+    - "5."
+    # Japanese prompts
+    - "どれを実行しますか"                    # Which to execute?
+    - "番号または"                            # Number or...
+    - "選択肢を提案"                          # Propose choices
+    - "選択してください"                      # Please select
+    # English prompts
+    - "Which option"
+    - "Enter a number"
   require_idle: true
   idle_timeout: 0.5                           # 500ms no output after pattern
