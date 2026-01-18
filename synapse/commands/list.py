@@ -44,6 +44,40 @@ class ListCommand:
         self._time = time_module
         self._print = print_func
 
+    def _is_agent_alive(
+        self, registry: AgentRegistry, agent_id: str, info: dict[str, Any]
+    ) -> bool:
+        """Check if an agent is alive and unregister if dead.
+
+        Args:
+            registry: AgentRegistry instance for cleanup.
+            agent_id: Agent identifier.
+            info: Agent info dictionary.
+
+        Returns:
+            True if agent is alive, False if dead (and unregistered).
+        """
+        pid = info.get("pid")
+        port = info.get("port")
+        status = info.get("status", "-")
+
+        # Check 1: PID must be alive
+        if pid and not self._is_process_alive(pid):
+            registry.unregister(agent_id)
+            return False
+
+        # Check 2: Port must be open (agent server responding)
+        # Skip port check for PROCESSING agents (server may still be starting)
+        if (
+            status != "PROCESSING"
+            and port
+            and not self._is_port_open("localhost", port, timeout=0.5)
+        ):
+            registry.unregister(agent_id)
+            return False
+
+        return True
+
     def _format_empty_message(self) -> str:
         """Format the 'no agents running' message with port ranges."""
         lines = ["No agents running.", "", "Port ranges:"]
@@ -98,26 +132,12 @@ class ListCommand:
 
         live_agents = False
         for agent_id, info in agents.items():
-            pid = info.get("pid")
-            port = info.get("port")
-            status = info.get("status", "-")
-
-            # Check 1: PID must be alive
-            if pid and not self._is_process_alive(pid):
-                registry.unregister(agent_id)
-                continue
-
-            # Check 2: Port must be open (agent server responding)
-            # Skip port check for PROCESSING agents (server may still be starting)
-            if (
-                status != "PROCESSING"
-                and port
-                and not self._is_port_open("localhost", port, timeout=0.5)
-            ):
-                registry.unregister(agent_id)
+            if not self._is_agent_alive(registry, agent_id, info):
                 continue
 
             live_agents = True
+            pid = info.get("pid")
+            status = info.get("status", "-")
 
             # Build row values matching column order
             row_values = [
@@ -194,30 +214,15 @@ class ListCommand:
         agents_list: list[dict[str, Any]] = []
 
         for agent_id, info in agents.items():
+            if not self._is_agent_alive(registry, agent_id, info):
+                continue
+
             pid = info.get("pid")
-            port = info.get("port")
-            status = info.get("status", "-")
-
-            # Check 1: PID must be alive
-            if pid and not self._is_process_alive(pid):
-                registry.unregister(agent_id)
-                continue
-
-            # Check 2: Port must be open (agent server responding)
-            # Skip port check for PROCESSING agents (server may still be starting)
-            if (
-                status != "PROCESSING"
-                and port
-                and not self._is_port_open("localhost", port, timeout=0.5)
-            ):
-                registry.unregister(agent_id)
-                continue
-
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),
                 "port": info.get("port", "-"),
-                "status": status,
+                "status": info.get("status", "-"),
                 "pid": pid or "-",
                 "working_dir": info.get("working_dir", "-"),
                 "endpoint": info.get("endpoint", "-"),
@@ -307,6 +312,7 @@ class ListCommand:
         registry: AgentRegistry,
         interval: float,
         console: Console,
+        pkg_version: str,
     ) -> None:
         """Run watch mode with Rich TUI.
 
@@ -314,18 +320,11 @@ class ListCommand:
             registry: AgentRegistry instance.
             interval: Refresh interval in seconds.
             console: Rich Console instance.
+            pkg_version: Package version string.
         """
         from rich.live import Live
 
         from synapse.commands.renderers.rich_renderer import RichRenderer
-
-        # Get version for display
-        try:
-            from importlib.metadata import version
-
-            pkg_version = version("synapse-a2a")
-        except Exception:
-            pkg_version = "unknown"
 
         renderer = RichRenderer(console=console)
 
@@ -423,8 +422,7 @@ class ListCommand:
             True if Rich mode should be used.
         """
         # Check explicit --no-rich flag
-        no_rich = getattr(args, "no_rich", None)
-        if no_rich is True:
+        if getattr(args, "no_rich", False):
             return False
 
         # Auto-detect: use Rich only if stdout is a TTY
@@ -456,7 +454,7 @@ class ListCommand:
             from rich.console import Console
 
             console = Console()
-            self._run_watch_mode_rich(registry, interval, console)
+            self._run_watch_mode_rich(registry, interval, console, pkg_version)
         else:
             self._print("Watch mode: Press Ctrl+C to exit\n")
             self._run_watch_mode_plain(registry, interval, pkg_version)
