@@ -22,6 +22,11 @@ class TestDetectTerminalApp:
         with patch.dict(os.environ, {"TMUX": "/tmp/tmux-1000/default,12345,0"}):
             assert detect_terminal_app() == "tmux"
 
+    def test_detect_zellij(self) -> None:
+        """Should detect Zellij when ZELLIJ env var is set."""
+        with patch.dict(os.environ, {"ZELLIJ": "0"}, clear=True):
+            assert detect_terminal_app() == "zellij"
+
     def test_detect_iterm2(self) -> None:
         """Should detect iTerm2 from TERM_PROGRAM."""
         with patch.dict(os.environ, {"TERM_PROGRAM": "iTerm.app"}, clear=True):
@@ -70,6 +75,7 @@ class TestGetSupportedTerminals:
         assert "Ghostty" in terminals
         assert "VSCode" in terminals
         assert "tmux" in terminals
+        assert "zellij" in terminals
 
 
 class TestCanJump:
@@ -163,6 +169,23 @@ class TestJumpToTerminal:
         assert result is True
         # Should call list-panes first, then select-pane and select-window
         assert mock_run.call_count >= 1
+
+    @patch("synapse.terminal_jump.shutil.which")
+    @patch("synapse.terminal_jump.subprocess.run")
+    def test_jump_zellij(self, mock_run: MagicMock, mock_which: MagicMock) -> None:
+        """Should use zellij commands for zellij jump."""
+        mock_which.return_value = "/usr/bin/zellij"
+        mock_run.return_value = MagicMock(returncode=0)
+        agent_info = {"agent_id": "test-agent", "zellij_pane_id": "42"}
+
+        result = jump_to_terminal(agent_info, terminal_app="zellij")
+
+        assert result is True
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert "zellij" in call_args
+        assert "focus-terminal-pane" in call_args
+        assert "42" in call_args
 
     def test_jump_no_tty_device(self) -> None:
         """Should return False when no tty_device in agent_info."""

@@ -112,6 +112,11 @@ class AgentRegistry:
         if tty_device:
             data["tty_device"] = tty_device
 
+        # Add Zellij pane ID if running in Zellij (for terminal jump)
+        zellij_pane_id = os.environ.get("ZELLIJ_PANE_ID")
+        if zellij_pane_id:
+            data["zellij_pane_id"] = zellij_pane_id
+
         file_path = self.registry_dir / f"{agent_id}.json"
         with open(file_path, "w") as f:
             json.dump(data, f, indent=2)

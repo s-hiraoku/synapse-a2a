@@ -27,6 +27,10 @@ def detect_terminal_app() -> str | None:
     if os.environ.get("TMUX"):
         return "tmux"
 
+    # Check for Zellij
+    if os.environ.get("ZELLIJ"):
+        return "zellij"
+
     # Check TERM_PROGRAM environment variable (set by most terminals)
     term_program = os.environ.get("TERM_PROGRAM", "")
 
@@ -47,7 +51,7 @@ def get_supported_terminals() -> list[str]:
     Returns:
         List of supported terminal app names.
     """
-    return ["iTerm2", "Terminal", "Ghostty", "VSCode", "tmux"]
+    return ["iTerm2", "Terminal", "Ghostty", "VSCode", "tmux", "zellij"]
 
 
 def jump_to_terminal(
@@ -78,6 +82,8 @@ def jump_to_terminal(
 
     if terminal_app == "tmux":
         return _jump_tmux(agent_info)
+    elif terminal_app == "zellij":
+        return _jump_zellij(agent_info)
     elif terminal_app == "iTerm2":
         return _jump_iterm2(tty_device, agent_id)
     elif terminal_app == "Terminal":
@@ -201,18 +207,25 @@ def _jump_ghostty(tty_device: str | None, agent_id: str) -> bool:
     """Jump to Ghostty window containing the agent.
 
     Ghostty has limited AppleScript support - it doesn't support
-    window enumeration or TTY access. We just activate the app
-    and let the user find the right window/tab.
+    window enumeration or TTY access via AppleScript.
+
+    Note: If running inside tmux, we'll use tmux commands instead
+    which can properly switch to the correct pane by TTY.
 
     Args:
-        tty_device: TTY device path (unused for Ghostty).
-        agent_id: Agent identifier (unused, for logging only).
+        tty_device: TTY device path (used if tmux is detected).
+        agent_id: Agent identifier for logging.
 
     Returns:
         True if successful, False otherwise.
     """
-    # Ghostty AppleScript support is very limited
-    # Only activation works reliably
+    # Check if we're inside tmux - if so, use tmux pane switching
+    if os.environ.get("TMUX") and tty_device:
+        logger.info(f"Ghostty+tmux detected, using tmux for {agent_id}")
+        return _jump_tmux({"tty_device": tty_device, "agent_id": agent_id})
+
+    # Ghostty standalone - just activate the app
+    # Unfortunately, there's no way to switch to a specific tab via AppleScript
     script = """
     tell application "Ghostty"
         activate
@@ -329,6 +342,58 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
         return False
     except Exception as e:
         logger.warning(f"tmux error: {e}")
+        return False
+
+
+def _jump_zellij(agent_info: dict[str, Any]) -> bool:
+    """Jump to Zellij pane containing the agent.
+
+    Uses ZELLIJ_PANE_ID stored in agent_info to focus the correct pane.
+    Falls back to focusing the terminal application if pane ID is not available.
+
+    Args:
+        agent_info: Agent info with zellij_pane_id and agent_id.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    if not shutil.which("zellij"):
+        logger.warning("zellij not found")
+        return False
+
+    pane_id = agent_info.get("zellij_pane_id")
+    agent_id = agent_info.get("agent_id", "unknown")
+
+    if not pane_id:
+        logger.warning(f"No Zellij pane ID for agent {agent_id}")
+        # Try to at least activate the terminal app (Ghostty, etc.)
+        term_program = os.environ.get("TERM_PROGRAM", "")
+        if term_program == "ghostty":
+            return _run_applescript('tell application "Ghostty" to activate')
+        return False
+
+    try:
+        # Use zellij action to focus the pane
+        # Note: zellij action focus-pane requires pane ID
+        result = subprocess.run(
+            ["zellij", "action", "focus-terminal-pane", str(pane_id)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"zellij focus-terminal-pane failed: {result.stderr}")
+            return False
+
+        logger.info(f"Jumped to Zellij pane {pane_id} for {agent_id}")
+        return True
+
+    except subprocess.TimeoutExpired:
+        logger.warning("zellij command timed out")
+        return False
+    except Exception as e:
+        logger.warning(f"zellij error: {e}")
         return False
 
 
