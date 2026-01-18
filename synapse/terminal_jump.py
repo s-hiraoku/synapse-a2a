@@ -200,30 +200,22 @@ def _jump_terminal_app(tty_device: str | None, agent_id: str) -> bool:
 def _jump_ghostty(tty_device: str | None, agent_id: str) -> bool:
     """Jump to Ghostty window containing the agent.
 
-    Ghostty doesn't expose TTY per window via AppleScript,
-    so we just activate the app and rely on window title matching
-    or let the user find the right window.
+    Ghostty has limited AppleScript support - it doesn't support
+    window enumeration or TTY access. We just activate the app
+    and let the user find the right window/tab.
 
     Args:
         tty_device: TTY device path (unused for Ghostty).
-        agent_id: Agent identifier for window title matching.
+        agent_id: Agent identifier (unused, for logging only).
 
     Returns:
         True if successful, False otherwise.
     """
-    # Ghostty AppleScript support is limited
-    # We can activate the app and try to find by window name
-    script = f"""
+    # Ghostty AppleScript support is very limited
+    # Only activation works reliably
+    script = """
     tell application "Ghostty"
         activate
-        -- Try to find window by name containing agent_id
-        repeat with w in windows
-            if name of w contains "{agent_id}" then
-                set index of w to 1
-                return "found"
-            end if
-        end repeat
-        return "activated"
     end tell
     """
 

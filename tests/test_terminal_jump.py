@@ -135,7 +135,7 @@ class TestJumpToTerminal:
 
     @patch("synapse.terminal_jump._run_applescript")
     def test_jump_ghostty(self, mock_applescript: MagicMock) -> None:
-        """Should call AppleScript for Ghostty jump."""
+        """Should call AppleScript for Ghostty jump (activate only)."""
         mock_applescript.return_value = True
         agent_info = {"agent_id": "synapse-claude-8100", "tty_device": "/dev/ttys003"}
 
@@ -145,7 +145,7 @@ class TestJumpToTerminal:
         mock_applescript.assert_called_once()
         script = mock_applescript.call_args[0][0]
         assert "Ghostty" in script
-        assert "synapse-claude-8100" in script
+        assert "activate" in script
 
     @patch("synapse.terminal_jump.shutil.which")
     @patch("synapse.terminal_jump.subprocess.run")
