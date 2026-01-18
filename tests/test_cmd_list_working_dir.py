@@ -51,9 +51,9 @@ class TestCmdListWorkingDir:
         ):
             cmd_list(args)
 
-        # Check output
+        # Check output - now displays only directory name, not full path
         captured = capsys.readouterr()
-        assert test_working_dir in captured.out
+        assert "project" in captured.out  # Directory name only
         assert "WORKING_DIR" in captured.out  # Header should include WORKING_DIR
 
     def test_list_displays_multiple_agents_with_working_dir(
@@ -88,10 +88,10 @@ class TestCmdListWorkingDir:
         ):
             cmd_list(args)
 
-        # Check output
+        # Check output - now displays only directory names, not full paths
         captured = capsys.readouterr()
-        for test_dir in test_dirs:
-            assert test_dir in captured.out
+        assert "project1" in captured.out
+        assert "project2" in captured.out
 
     def test_list_header_includes_working_dir(self, temp_registry, capsys):
         """synapse list header should include WORKING_DIR column."""
@@ -136,6 +136,7 @@ class TestCmdListWorkingDir:
         """synapse list should display agent registered from current directory."""
         # Get the current working directory
         current_dir = os.getcwd()
+        current_dir_name = os.path.basename(current_dir)
 
         # Register an agent with current working directory
         temp_registry.register("synapse-claude-8100", "claude", 8100)
@@ -160,6 +161,6 @@ class TestCmdListWorkingDir:
         ):
             cmd_list(args)
 
-        # Check output
+        # Check output - now displays only directory name, not full path
         captured = capsys.readouterr()
-        assert current_dir in captured.out
+        assert current_dir_name in captured.out

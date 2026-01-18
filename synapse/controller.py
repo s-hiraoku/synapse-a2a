@@ -39,6 +39,7 @@ class TerminalController:
         command: str,
         idle_regex: str | None = None,
         idle_detection: dict | None = None,
+        waiting_detection: dict | None = None,
         env: dict | None = None,
         registry: AgentRegistry | None = None,
         agent_id: str | None = None,
@@ -93,6 +94,15 @@ class TerminalController:
         # Timeout settings
         timeout = self.idle_config.get("timeout", 1.5)
         self._output_idle_threshold = timeout
+
+        # WAITING detection configuration
+        self.waiting_config = waiting_detection or {}
+        self._waiting_patterns: list[str] = self.waiting_config.get("patterns", [])
+        self._waiting_require_idle: bool = self.waiting_config.get("require_idle", True)
+        self._waiting_idle_timeout: float = float(
+            self.waiting_config.get("idle_timeout", 0.3)
+        )
+        self._waiting_pattern_time: float | None = None  # When pattern was last seen
 
         self.env = env or os.environ.copy()
         self.master_fd: int | None = None
@@ -210,8 +220,10 @@ class TerminalController:
                                     daemon=True,
                                 ).start()
 
-                        # For debugging/logging locally
-                        # print(data.decode(errors='replace'), end='', flush=True)
+                        # Debug logging for PTY output analysis
+                        # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
+                        if os.environ.get("SYNAPSE_DEBUG_PTY"):
+                            self._log_pty_output(data, text)
 
                     except OSError:
                         break
@@ -265,6 +277,49 @@ class TerminalController:
             return pattern_match or timeout_idle
         return False
 
+    def _check_waiting_state(self, new_data: bytes) -> bool:
+        """Check if agent is in WAITING state (user input prompt).
+
+        WAITING is detected when:
+        1. A waiting pattern is found in recent output
+        2. No new output for waiting_idle_timeout (if require_idle is True)
+
+        Args:
+            new_data: New data from PTY.
+
+        Returns:
+            True if in WAITING state, False otherwise.
+        """
+        if not self._waiting_patterns:
+            return False
+
+        # Decode recent output for pattern matching
+        text = self.output_buffer[-1024:].decode("utf-8", errors="replace")
+
+        # Check for waiting patterns
+        pattern_found = any(pattern in text for pattern in self._waiting_patterns)
+
+        if pattern_found:
+            # Record when pattern was seen (if new data contains pattern)
+            if new_data:
+                new_text = new_data.decode("utf-8", errors="replace")
+                if any(pattern in new_text for pattern in self._waiting_patterns):
+                    self._waiting_pattern_time = time.time()
+
+            # If require_idle, check if enough time has passed without output
+            if self._waiting_require_idle:
+                if self._waiting_pattern_time and self._last_output_time:
+                    time_since_output = time.time() - self._last_output_time
+                    return time_since_output >= self._waiting_idle_timeout
+                return False
+            else:
+                # Pattern found and no idle required
+                return True
+
+        # No pattern found, reset waiting pattern time
+        self._waiting_pattern_time = None
+        return False
+
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
@@ -275,11 +330,21 @@ class TerminalController:
             # READY = idle, ready for input
             # PROCESSING = actively working
             is_idle = self._evaluate_idle_status(pattern_match, timeout_idle)
-            new_status = "READY" if is_idle else "PROCESSING"
+
+            # Check for WAITING state (user input prompt)
+            is_waiting = self._check_waiting_state(new_data)
+
+            # Determine new status
+            if is_waiting:
+                new_status = "WAITING"
+            elif is_idle:
+                new_status = "READY"
+            else:
+                new_status = "PROCESSING"
 
             # Handle DONE -> READY transition after timeout or new activity
             if self.status == "DONE":
-                if not is_idle:
+                if not is_idle and not is_waiting:
                     # New activity detected, transition to PROCESSING
                     new_status = "PROCESSING"
                     self._done_time = None
@@ -288,6 +353,10 @@ class TerminalController:
                 ):
                     # Timeout expired, transition to READY
                     new_status = "READY"
+                    self._done_time = None
+                elif is_waiting:
+                    # WAITING takes priority over DONE
+                    new_status = "WAITING"
                     self._done_time = None
                 else:
                     # Stay in DONE state
@@ -648,3 +717,44 @@ class TerminalController:
                     if self._render_buffer[i] == "\n":
                         self._render_line_start = i + 1
                         break
+
+    def _log_pty_output(self, raw_data: bytes, text: str) -> None:
+        """Log PTY output for debugging WAITING detection patterns.
+
+        Enable with SYNAPSE_DEBUG_PTY=1 environment variable.
+        Logs to ~/.synapse/logs/pty_debug.log
+
+        Args:
+            raw_data: Raw bytes from PTY.
+            text: Decoded text.
+        """
+        from pathlib import Path
+
+        log_dir = Path.home() / ".synapse" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "pty_debug.log"
+
+        # Detect potential WAITING indicators
+        waiting_indicators = []
+        if "❯" in text:
+            waiting_indicators.append("❯ (selection cursor)")
+        if "☐" in text or "☑" in text:
+            waiting_indicators.append("☐/☑ (checkbox)")
+        if "[Y/n]" in text or "[y/N]" in text:
+            waiting_indicators.append("[Y/n] prompt")
+        if "Type something" in text:
+            waiting_indicators.append("Type something")
+        if "?" in text and len(text.strip()) < 100:
+            waiting_indicators.append("? (question mark)")
+
+        with open(log_file, "a") as f:
+            import datetime
+
+            ts = datetime.datetime.now().isoformat()
+            f.write(f"\n{'=' * 60}\n")
+            f.write(f"[{ts}] Agent: {self.agent_id}\n")
+            f.write(f"Status: {self.status}\n")
+            if waiting_indicators:
+                f.write(f"WAITING indicators: {', '.join(waiting_indicators)}\n")
+            f.write(f"Raw bytes ({len(raw_data)}): {raw_data!r}\n")
+            f.write(f"Text: {text!r}\n")

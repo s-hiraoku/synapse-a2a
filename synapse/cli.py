@@ -1552,6 +1552,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
                 "timeout": 1.5,
             }
 
+    # Parse waiting detection config
+    waiting_detection = config.get("waiting_detection", {})
+
     # Merge profile args with CLI tool args
     profile_args = config.get("args", [])
     all_args = profile_args + tool_args
@@ -1590,6 +1593,7 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
         command=config["command"],
         args=all_args,
         idle_detection=idle_detection if idle_detection else None,
+        waiting_detection=waiting_detection if waiting_detection else None,
         idle_regex=(
             config.get("idle_regex") if not idle_detection else None
         ),  # Backward compat

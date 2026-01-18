@@ -17,3 +17,18 @@ idle_detection:
   pattern: "BRACKETED_PASTE_MODE"              # ESC[?2004h = ready for input
   pattern_use: "startup_only"                  # Only check pattern at startup
   timeout: 0.5                                 # 500ms no output = idle (fallback)
+
+# WAITING status detection (user input prompts)
+# Detects when Claude Code is showing selection UI or asking for input
+# WAITING = agent is waiting for user input (choices, Y/n prompts, etc.)
+waiting_detection:
+  patterns:
+    - "❯"                                      # Selection cursor (Ink TUI)
+    - "☐"                                      # Unchecked checkbox
+    - "☑"                                      # Checked checkbox
+    - "[Y/n]"                                  # Yes/No prompt
+    - "[y/N]"                                  # No/Yes prompt
+    - "Type something"                         # Free input prompt
+  # Require idle (no output) after pattern to confirm WAITING state
+  require_idle: true
+  idle_timeout: 0.3                            # 300ms no output after pattern

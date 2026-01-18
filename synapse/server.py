@@ -78,6 +78,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "timeout": 1.5,
             }
 
+    # Parse waiting detection config
+    waiting_detection = profile.get("waiting_detection", {})
+
     # Merge profile args with CLI tool args
     profile_args = profile.get("args", [])
     all_args = profile_args + tool_args
@@ -101,6 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         command=profile["command"],
         args=all_args,
         idle_detection=idle_detection if idle_detection else None,
+        waiting_detection=waiting_detection if waiting_detection else None,
         idle_regex=(
             profile.get("idle_regex") if not idle_detection else None
         ),  # Backward compat
