@@ -62,6 +62,7 @@ line-length = 88
 exclude = [
     "synapse/proto/a2a_pb2.py",
     "synapse/proto/a2a_pb2_grpc.py",
+    "synapse/shell_hook.py",  # Contains embedded shell scripts
 ]
 
 [tool.ruff.lint]

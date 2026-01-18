@@ -73,10 +73,9 @@ def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> s
         code_data = artifact.data if isinstance(artifact.data, dict) else {}
         language = code_data.get("metadata", {}).get("language", "text")
         content = code_data.get("content", str(artifact.data))
-        template = (
-            "```{lang}\n{content}\n```" if use_markdown else "[Code: {lang}]\n{content}"
-        )
-        return template.format(lang=language, content=content)
+        if use_markdown:
+            return f"```{language}\n{content}\n```"
+        return f"[Code: {language}]\n{content}"
 
     if artifact.type == "text":
         if isinstance(artifact.data, str):
@@ -431,9 +430,8 @@ async def _send_response_to_sender(
             logger.info(f"Response sent to {sender_endpoint} for task {task.id[:8]}")
             return True
     except httpx.HTTPStatusError as e:
-        logger.warning(
-            f"Failed to send response to {sender_endpoint}: HTTP {e.response.status_code}"
-        )
+        status = e.response.status_code
+        logger.warning(f"Failed to send response to {sender_endpoint}: HTTP {status}")
         return False
     except httpx.RequestError as e:
         logger.warning(f"Failed to send response to {sender_endpoint}: {e}")

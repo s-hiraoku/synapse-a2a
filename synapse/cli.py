@@ -53,9 +53,8 @@ def install_skills() -> None:
             if source_dir.exists():
                 claude_target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(source_dir, claude_target)
-                print(
-                    f"\x1b[32m[Synapse]\x1b[0m Installed {skill_name} skill to {claude_target}"
-                )
+                msg = f"Installed {skill_name} skill to {claude_target}"
+                print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
                 # Copy to .codex as well
                 _copy_skill_to_codex(claude_target, skill_name)
     except Exception:
@@ -209,9 +208,8 @@ def _get_history_manager() -> HistoryManager:
 
 def _print_history_table(observations: list[dict]) -> None:
     """Print observations in a formatted table."""
-    print(
-        f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19} {'Input (first 40 chars)':<42}"
-    )
+    hdr = f"{'Task ID':<36} {'Agent':<10} {'Status':<12} {'Timestamp':<19}"
+    print(f"{hdr} {'Input (first 40 chars)':<42}")
     print("-" * 119)
 
     for obs in observations:
@@ -222,9 +220,8 @@ def _print_history_table(observations: list[dict]) -> None:
         input_preview = (
             obs["input"][:40].replace("\n", " ") if obs["input"] else "(empty)"
         )
-        print(
-            f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19} {input_preview:<42}"
-        )
+        row = f"{task_id:<36} {agent:<10} {status:<12} {timestamp:<19}"
+        print(f"{row} {input_preview:<42}")
 
 
 def cmd_history_list(args: argparse.Namespace) -> None:
@@ -385,9 +382,8 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
             days=args.days,
             vacuum=not args.no_vacuum,
         )
-        print(
-            f"Deleted {result['deleted_count']} observations older than {args.days} days"
-        )
+        count = result["deleted_count"]
+        print(f"Deleted {count} observations older than {args.days} days")
     else:
         result = manager.cleanup_by_size(
             max_size_mb=args.max_size,
@@ -441,9 +437,8 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
         print("BY AGENT")
         print("=" * 60)
         print()
-        print(
-            f"{'Agent':<10} {'Total':<8} {'Completed':<10} {'Failed':<8} {'Canceled':<8}"
-        )
+        hdr = f"{'Agent':<10} {'Total':<8} {'Completed':<10} {'Failed':<8}"
+        print(f"{hdr} {'Canceled':<8}")
         print("-" * 60)
 
         for agent, counts in sorted(stats["by_agent"].items()):
@@ -824,9 +819,9 @@ def cmd_file_safety_cleanup_locks(args: argparse.Namespace) -> None:
 
     print(f"Found {len(stale_locks)} stale lock(s) from dead processes:")
     for lock in stale_locks:
-        print(
-            f"  - {lock['file_path']} (pid={lock.get('pid')}, agent={lock.get('agent_id')})"
-        )
+        pid = lock.get("pid")
+        agent = lock.get("agent_id")
+        print(f"  - {lock['file_path']} (pid={pid}, agent={agent})")
 
     # Check for --force or prompt for confirmation
     force = getattr(args, "force", False)
@@ -1986,7 +1981,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
     )
     p_inst_send.add_argument(
         "target",
-        help="Target agent: profile name (claude, gemini, codex) or agent ID (synapse-claude-8100)",
+        help="Target agent: profile name (claude, codex, gemini) or agent ID",
     )
     p_inst_send.add_argument(
         "--preview",

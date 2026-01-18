@@ -67,31 +67,26 @@ class ListCommand:
         show_file_safety = file_safety.enabled
 
         # Build column list based on mode
-        columns = [
+        columns: list[tuple[str, int]] = [
             ("TYPE", 10),
             ("PORT", 8),
             ("STATUS", 12),
         ]
         if is_watch_mode:
             columns.append(("TRANSPORT", 10))
-        columns.extend(
-            [
-                ("PID", 8),
-                ("WORKING_DIR", 50),
-            ]
-        )
+        columns.extend([("PID", 8), ("WORKING_DIR", 50)])
         if show_file_safety:
             columns.append(("EDITING FILE", 30))
         columns.append(("ENDPOINT", 0))  # 0 means no padding (last column)
 
-        # Build header
-        header_parts = []
-        for name, width in columns:
-            if width > 0:
-                header_parts.append(f"{name:<{width}}")
-            else:
-                header_parts.append(name)
-        header = " ".join(header_parts)
+        def format_row(values: list[tuple[str, int]]) -> str:
+            """Format a row of values with their widths."""
+            parts = [
+                f"{value:<{width}}" if width > 0 else value for value, width in values
+            ]
+            return " ".join(parts)
+
+        header = format_row([(col, width) for col, width in columns])
 
         lines = [header, "-" * len(header)]
 
@@ -154,14 +149,7 @@ class ListCommand:
 
             row_values.append((info.get("endpoint", "-"), 0))
 
-            # Format row
-            row_parts = []
-            for value, width in row_values:
-                if width > 0:
-                    row_parts.append(f"{value:<{width}}")
-                else:
-                    row_parts.append(str(value))
-            lines.append(" ".join(row_parts))
+            lines.append(format_row(row_values))
 
         if not live_agents:
             return self._format_empty_message()
@@ -171,9 +159,8 @@ class ListCommand:
             stale_locks = file_safety.get_stale_locks()
             if stale_locks:
                 lines.append("")
-                lines.append(
-                    f"Warning: {len(stale_locks)} stale lock(s) from dead processes detected."
-                )
+                count = len(stale_locks)
+                lines.append(f"Warning: {count} stale lock(s) from dead processes.")
                 lines.append(
                     "Run 'synapse file-safety cleanup-locks' to clean them up."
                 )
@@ -205,10 +192,10 @@ class ListCommand:
         try:
             while True:
                 self._clear_screen()
-                self._print(
-                    f"Synapse A2A v{pkg_version} - Agent List (refreshing every {interval}s)"
-                )
-                self._print(f"Last updated: {self._time.strftime('%Y-%m-%d %H:%M:%S')}")
+                title = f"Synapse A2A v{pkg_version} - Agent List (every {interval}s)"
+                self._print(title)
+                now = self._time.strftime("%Y-%m-%d %H:%M:%S")
+                self._print(f"Last updated: {now}")
                 self._print("")
                 self._print(self._render_agent_table(registry, is_watch_mode=True))
                 self._time.sleep(interval)

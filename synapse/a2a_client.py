@@ -253,7 +253,7 @@ class A2AClient:
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
-            response_expected: Whether the sender expects a response from the target agent
+            response_expected: Whether the sender expects a response from the target
             in_reply_to: Optional task ID to attach a reply to
             uds_path: Optional UDS socket path for local communication
             local_only: If True, only use UDS (no HTTP fallback)
@@ -267,16 +267,16 @@ class A2AClient:
         if local_only and not uds_path:
             return None
 
-        # Helper to update transport status in registry
         def _update_transport(transport_type: str | None) -> None:
+            """Update transport status in registry for sender and target agents."""
             if not registry:
                 return
+            sender_value = f"{transport_type}→" if transport_type else None
+            target_value = f"→{transport_type}" if transport_type else None
             if sender_agent_id:
-                value = f"{transport_type}→" if transport_type else None
-                registry.update_transport(sender_agent_id, value)
+                registry.update_transport(sender_agent_id, sender_value)
             if target_agent_id:
-                value = f"→{transport_type}" if transport_type else None
-                registry.update_transport(target_agent_id, value)
+                registry.update_transport(target_agent_id, target_value)
 
         try:
             # Create A2A message

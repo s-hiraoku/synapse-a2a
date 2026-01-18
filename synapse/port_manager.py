@@ -164,8 +164,9 @@ class PortManager:
         start_port, end_port = get_port_range(agent_type)
         running = self.get_running_instances(agent_type)
 
+        port_range = f"{start_port}-{end_port}"
         lines = [
-            f"Error: All ports in range {start_port}-{end_port} are in use for '{agent_type}'.",
+            f"Error: All ports in range {port_range} are in use for '{agent_type}'.",
             "",
             "Running instances:",
         ]
@@ -175,11 +176,7 @@ class PortManager:
             pid = info.get("pid", "?")
             lines.append(f"  {agent_id} (PID: {pid})")
 
-        lines.extend(
-            [
-                "",
-                f"Use 'synapse stop {agent_type}' to stop an instance, or specify --port manually.",
-            ]
-        )
+        hint = f"Use 'synapse stop {agent_type}' to stop an instance"
+        lines.extend(["", f"{hint}, or specify --port manually."])
 
         return "\n".join(lines)

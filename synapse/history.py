@@ -108,13 +108,16 @@ class HistoryManager:
                         """
                     )
                     cursor.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_agent_name ON observations(agent_name)"
+                        "CREATE INDEX IF NOT EXISTS idx_agent_name "
+                        "ON observations(agent_name)"
                     )
                     cursor.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_timestamp ON observations(timestamp)"
+                        "CREATE INDEX IF NOT EXISTS idx_timestamp "
+                        "ON observations(timestamp)"
                     )
                     cursor.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_task_id ON observations(task_id)"
+                        "CREATE INDEX IF NOT EXISTS idx_task_id "
+                        "ON observations(task_id)"
                     )
             except sqlite3.Error as e:
                 print(
@@ -157,7 +160,8 @@ class HistoryManager:
                     conn.cursor().execute(
                         """
                         INSERT INTO observations
-                        (session_id, agent_name, task_id, input, output, status, metadata)
+                        (session_id, agent_name, task_id, input, output,
+                         status, metadata)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
@@ -524,10 +528,8 @@ class HistoryManager:
                     }
 
                 # Status breakdown
-                cursor.execute(
-                    f"SELECT status, COUNT(*) FROM observations {where_clause} GROUP BY status",
-                    params,
-                )
+                sql = f"SELECT status, COUNT(*) FROM observations {where_clause}"
+                cursor.execute(f"{sql} GROUP BY status", params)
                 status_counts = dict(cursor.fetchall())
 
                 completed = status_counts.get("completed", 0)
@@ -560,10 +562,8 @@ class HistoryManager:
                         by_agent[agent]["total"] += count
 
                 # Time range
-                cursor.execute(
-                    f"SELECT MIN(timestamp), MAX(timestamp) FROM observations {where_clause}",
-                    params,
-                )
+                sql = "SELECT MIN(timestamp), MAX(timestamp) FROM observations"
+                cursor.execute(f"{sql} {where_clause}", params)
                 oldest, newest = cursor.fetchone()
 
                 # Calculate date range in days

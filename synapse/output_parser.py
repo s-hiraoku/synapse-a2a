@@ -92,7 +92,7 @@ def extract_file_references(output: str) -> list[ParsedSegment]:
         for match in re.finditer(pattern, output, re.IGNORECASE):
             filepath = match.group(1)
 
-            # Skip duplicates of same file + action (but allow same file with different actions)
+            # Skip duplicates of same file+action (different actions allowed)
             entry_key = (filepath, action)
             if entry_key in seen_entries:
                 continue

@@ -3,11 +3,13 @@ Synapse A2A Protocol Buffer definitions.
 
 Generated from a2a.proto using grpcio-tools.
 Regenerate with:
-    python -m grpc_tools.protoc \
-        --proto_path=synapse/proto \
-        --proto_path=$(python -c "import grpc_tools; import os; print(os.path.join(os.path.dirname(grpc_tools.__file__), '_proto'))") \
-        --python_out=synapse/proto \
-        --grpc_python_out=synapse/proto \
+    GRPC_PROTO=$(python -c "import grpc_tools, os; \\
+        print(os.path.join(os.path.dirname(grpc_tools.__file__), '_proto'))")
+    python -m grpc_tools.protoc \\
+        --proto_path=synapse/proto \\
+        --proto_path=$GRPC_PROTO \\
+        --python_out=synapse/proto \\
+        --grpc_python_out=synapse/proto \\
         synapse/proto/a2a.proto
 """
 
