@@ -10,3 +10,17 @@ env:
 idle_detection:
   strategy: "timeout"
   timeout: 3.0               # 3.0 seconds of no output = idle
+
+# WAITING status detection (user input prompts)
+# Detects when Codex is showing numbered choices or asking for input
+waiting_detection:
+  patterns:
+    - "どちらの挙動"                          # Japanese: Which behavior
+    - "どの方針"                              # Japanese: Which approach
+    - "どの順で"                              # Japanese: Which order
+    - "どこまで対応"                          # Japanese: How far to go
+    - "選択肢付き質問"                        # Japanese: Question with choices
+    - "Which option"                          # English choice prompt
+    - "Select one"                            # Selection prompt
+  require_idle: true
+  idle_timeout: 0.5                           # 500ms no output after pattern
