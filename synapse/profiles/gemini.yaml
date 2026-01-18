@@ -16,12 +16,16 @@ idle_detection:
 # Detects when Gemini is showing numbered choices or asking for input
 waiting_detection:
   patterns:
-    # Numbered choice indicators
-    - "1."
-    - "2."
-    - "3."
-    - "4."
-    - "5."
+    # Selection UI indicators (Gemini uses ● for selected option)
+    - "● 1."
+    - "● 2."
+    - "● 3."
+    - "●"                                     # Selection bullet
+    # Permission/confirmation prompts
+    - "Allow once"
+    - "Allow for this session"
+    - "Allow execution"
+    - "suggest changes"
     # Japanese prompts
     - "どれを実行しますか"                    # Which to execute?
     - "番号または"                            # Number or...
