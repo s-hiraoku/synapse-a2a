@@ -170,7 +170,10 @@ class RichRenderer:
             ("Port", str(agent.get("port", "-"))),
             ("Status", agent.get("status", "-")),
             ("PID", str(agent.get("pid", "-"))),
-            ("Working Dir", agent.get("working_dir", "-")),
+            (
+                "Working Dir",
+                agent.get("working_dir_full", agent.get("working_dir", "-")),
+            ),
             ("Endpoint", agent.get("endpoint", "-")),
         ]
 

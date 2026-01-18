@@ -154,7 +154,7 @@ class ListCommand:
             row_values.extend(
                 [
                     (pid or "-", 8),
-                    (info.get("working_dir", "-"), 50),
+                    (os.path.basename(info.get("working_dir", "")) or "-", 50),
                 ]
             )
 
@@ -218,13 +218,18 @@ class ListCommand:
                 continue
 
             pid = info.get("pid")
+            working_dir_full = info.get("working_dir", "-")
+            working_dir_short = (
+                os.path.basename(working_dir_full) if working_dir_full != "-" else "-"
+            )
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),
                 "port": info.get("port", "-"),
                 "status": info.get("status", "-"),
                 "pid": pid or "-",
-                "working_dir": info.get("working_dir", "-"),
+                "working_dir": working_dir_short,
+                "working_dir_full": working_dir_full,
                 "endpoint": info.get("endpoint", "-"),
             }
 
