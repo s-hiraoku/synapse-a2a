@@ -193,9 +193,11 @@ No automatic delegation. User explicitly uses @agent patterns.
 
 Before delegating any task:
 
-1. **Verify agent is READY**: `synapse list`
+1. **Verify agent is READY**: `synapse list` or `synapse list --watch` (Rich TUI with real-time status)
 2. **Check file locks**: `synapse file-safety locks` (for file edits)
 3. **Verify branch**: `git branch --show-current` (for coding tasks)
+
+**Note:** Use `synapse list --watch` for real-time agent monitoring. The TRANSPORT column shows active communication (UDS→/→UDS or TCP→/→TCP). Press 1-9 to view agent details, ESC to close, Ctrl+C to exit.
 
 ## Priority Levels
 

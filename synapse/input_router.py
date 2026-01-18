@@ -316,17 +316,9 @@ class InputRouter:
 
             if task:
                 log("INFO", f"Task created: {task.id}, status: {task.status}")
-                if response_expected and task.artifacts:
-                    self.last_response = self._extract_text_from_artifacts(
-                        task.artifacts
-                    )
-                else:
-                    self.last_response = None
-                return True
             else:
                 log("ERROR", "Failed to create task")
-                self.last_response = None
-                return False
+            return self._handle_task_response(task, response_expected)
 
         except Exception as e:
             log("ERROR", f"Request failed: {e}")
@@ -351,17 +343,7 @@ class InputRouter:
                 timeout=60,
             )
 
-            if task:
-                if response_expected and task.artifacts:
-                    self.last_response = self._extract_text_from_artifacts(
-                        task.artifacts
-                    )
-                else:
-                    self.last_response = None
-                return True
-            else:
-                self.last_response = None
-                return False
+            return self._handle_task_response(task, response_expected)
 
         except Exception as e:
             log("ERROR", f"External agent request failed: {e}")
@@ -376,6 +358,30 @@ class InputRouter:
             if isinstance(a, dict) and a.get("type") == "text"
         ]
         return "\n".join(responses) if responses else None
+
+    def _handle_task_response(
+        self, task: object | None, response_expected: bool
+    ) -> bool:
+        """Handle task response and set last_response.
+
+        Args:
+            task: Task object returned from send, or None on failure.
+            response_expected: Whether a response was expected.
+
+        Returns:
+            True if task succeeded, False otherwise.
+        """
+        if not task:
+            self.last_response = None
+            return False
+
+        # Extract response if expected and available
+        artifacts = getattr(task, "artifacts", None)
+        if response_expected and artifacts:
+            self.last_response = self._extract_text_from_artifacts(artifacts)
+        else:
+            self.last_response = None
+        return True
 
     def get_feedback_message(self, agent: str, success: bool) -> str:
         """Generate feedback message for the user."""

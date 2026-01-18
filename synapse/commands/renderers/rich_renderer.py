@@ -314,10 +314,9 @@ class RichRenderer:
             elements.append(detail_panel)
 
         # Add stale locks warning if present
-        if stale_locks:
-            warning = self.build_stale_locks_warning(stale_locks)
-            if warning:
-                elements.append(warning)
+        warning = self.build_stale_locks_warning(stale_locks or [])
+        if warning:
+            elements.append(warning)
 
         footer = self.build_footer(interactive=interactive, agent_count=len(agents))
         elements.append(footer)

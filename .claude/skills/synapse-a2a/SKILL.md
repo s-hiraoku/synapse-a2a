@@ -12,7 +12,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents | `synapse list` |
-| Watch agents | `synapse list --watch` (shows TRANSPORT column) |
+| Watch agents (Rich TUI) | `synapse list --watch` (interactive, shows TRANSPORT) |
+| Watch agents (plain) | `synapse list --watch --no-rich` |
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to request | `synapse send <target> "<response>" --reply-to <task_id> --from <sender>` |
@@ -22,8 +23,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
 | Edit settings (TUI) | `synapse config` |
+| View settings | `synapse config show [--scope user\|project]` |
 | Show instructions | `synapse instructions show <agent>` |
-| Send instructions | `synapse instructions send <agent>` |
+| Send instructions | `synapse instructions send <agent> [--preview]` |
 | Version info | `synapse --version` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.

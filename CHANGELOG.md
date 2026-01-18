@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.27] - 2026-01-18
+
+### Added
+
+- Rich TUI for `synapse list --watch` with interactive features
+  - Color-coded status display (READY=green, PROCESSING=yellow)
+  - Row selection via number keys (1-9) to view full paths in detail panel
+  - ESC key to close detail panel, Ctrl+C to exit
+  - `--no-rich` flag for plain text output mode
+  - TRANSPORT column shows real-time communication status (UDS→/→UDS, TCP→/→TCP)
+
+### Changed
+
+- Extract `_is_agent_alive` helper method in list.py to reduce duplication
+- Consolidate `pkg_version` retrieval in list.py
+- Simplify stale locks handling in rich_renderer.py
+- Extract `_handle_task_response` helper in input_router.py
+
+### Documentation
+
+- Sync plugin skills with Rich TUI documentation
+- Add Rich TUI features to Quick Reference (--no-rich, interactive mode)
+- Document synapse config show --scope options
+- Add synapse instructions send --preview to Quick Reference
+- Document TUI categories in commands.md
+
 ## [0.2.26] - 2026-01-18
 
 ### Fixed

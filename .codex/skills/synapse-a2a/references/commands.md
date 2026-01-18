@@ -8,20 +8,30 @@
 # Show all running agents
 synapse list
 
-# Watch mode with auto-refresh (2s default, shows TRANSPORT column)
+# Watch mode with Rich TUI (default, interactive)
 synapse list --watch
 synapse list -w
+
+# Watch mode with plain text output (non-interactive)
+synapse list --watch --no-rich
+synapse list -w --no-rich
 
 # Custom refresh interval (0.5s recommended for observing communication)
 synapse list --watch --interval 0.5
 synapse list -w -i 0.5
 ```
 
-**Output includes:**
+**Rich TUI Watch Mode Features:**
+- Color-coded status display (READY=green, PROCESSING=yellow)
+- Flicker-free updates
+- **Interactive row selection**: Press 1-9 to select an agent row and view full paths in a detail panel
+- Press `ESC` to close detail panel, `Ctrl+C` to exit
+
+**Output columns:**
 - Agent name and type
 - Status (READY / PROCESSING)
 - Port number
-- Working directory
+- Working directory (truncated in TUI, full path in detail panel)
 - **TRANSPORT** (watch mode only): Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
@@ -294,15 +304,22 @@ Creates `.synapse/` directory with all template files (settings.json, default.md
 # Interactive TUI for editing settings
 synapse config
 
-# Edit specific scope directly
+# Edit specific scope directly (skip scope selection prompt)
 synapse config --scope user     # Edit ~/.synapse/settings.json
 synapse config --scope project  # Edit ./.synapse/settings.json
 
 # View current settings (read-only)
-synapse config show
-synapse config show --scope user
-synapse config show --scope project
+synapse config show                    # Show merged settings from all scopes
+synapse config show --scope user       # Show user settings only
+synapse config show --scope project    # Show project settings only
 ```
+
+**TUI Categories:**
+- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, etc.
+- **Instructions**: Agent-specific initial instruction files
+- **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
+- **Delegation**: Enable/disable task delegation
+- **Resume Flags**: CLI flags that indicate session resume mode
 
 ### Reset Settings
 
