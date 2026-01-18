@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.23] - 2026-01-18
+
+### Added
+
+- Support prefix match for `--reply-to` short task IDs
+  - Add `TaskStore.get_by_prefix()` method for case-insensitive prefix matching
+  - PTY displays 8-char short IDs (e.g., `[A2A:54241e7e:sender]`)
+  - `--reply-to 54241e7e` now works with short IDs displayed in PTY
+  - Return 400 error for ambiguous prefixes (multiple matches)
+
+### Documentation
+
+- Sync .codex/skills with plugins and fix metadata field naming
+
 ## [0.2.22] - 2026-01-18
 
 ### Fixed
