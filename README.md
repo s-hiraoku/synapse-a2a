@@ -1,31 +1,33 @@
 # Synapse A2A
 
-> **各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する**
+**🌐 Language: [English](README.md) | [日本語](README.ja.md)**
+
+> **Enable agents to collaborate on tasks without changing their behavior**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> Claude Code、Codex、Gemini などの CLI エージェントを**そのままの形で**活用しながら、Google A2A プロトコルによるエージェント間協調を実現するフレームワーク
+> A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini) **exactly as they are**
 
-## プロジェクトの目標
+## Project Goals
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  ✅ エージェントの挙動を変えない（Non-Invasive）                 │
-│  ✅ エージェント同士を協力させる（Collaborative）                │
-│  ✅ 既存のワークフローを維持する（Transparent）                  │
+│  ✅ Non-Invasive: Don't change agent behavior                   │
+│  ✅ Collaborative: Enable agents to work together               │
+│  ✅ Transparent: Maintain existing workflows                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Synapse A2A は、各エージェントの入出力を**透過的に**ラップするだけで、エージェント自体の挙動には一切手を加えません。これにより：
+Synapse A2A **transparently wraps** each agent's input/output without modifying the agent itself. This means:
 
-- **各エージェントの強みを活かす**: 役割や得意分野はユーザーが自由に設定可能
-- **学習コストゼロ**: 既存の使い方をそのまま継続できる
-- **将来の変更に強い**: エージェントのアップデートに影響されにくい
+- **Leverage each agent's strengths**: Users can freely assign roles and specializations
+- **Zero learning curve**: Continue using existing workflows
+- **Future-proof**: Resistant to agent updates
 
-詳細は [プロジェクト哲学](docs/project-philosophy.md) を参照してください。
+See [Project Philosophy](docs/project-philosophy.md) for details.
 
 ```mermaid
 flowchart LR
@@ -41,7 +43,7 @@ flowchart LR
             PTY2["PTY + Codex CLI"]
         end
     end
-    subgraph External["外部"]
+    subgraph External["External"]
         ExtAgent["Google A2A Agent"]
     end
 
@@ -52,93 +54,93 @@ flowchart LR
 
 ---
 
-## 目次
+## Table of Contents
 
-- [主な特徴](#主な特徴)
-- [前提条件](#前提条件)
-- [クイックスタート](#クイックスタート)
-- [ユースケース](#ユースケース)
-- [Claude Code プラグイン](#claude-code-プラグイン)
-- [ドキュメント](#ドキュメント)
-- [アーキテクチャ](#アーキテクチャ)
-- [CLI コマンド](#cli-コマンド)
-- [API エンドポイント](#api-エンドポイント)
-- [Task 構造](#task-構造)
-- [送信元識別](#送信元識別)
-- [Priority（優先度）](#priority優先度)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Use Cases](#use-cases)
+- [Claude Code Plugin](#claude-code-plugin)
+- [Documentation](#documentation)
+- [Architecture](#architecture)
+- [CLI Commands](#cli-commands)
+- [API Endpoints](#api-endpoints)
+- [Task Structure](#task-structure)
+- [Sender Identification](#sender-identification)
+- [Priority Levels](#priority-levels)
 - [Agent Card](#agent-card)
-- [レジストリとポート管理](#レジストリとポート管理)
-- [File Safety（ファイル競合防止）](#file-safetyファイル競合防止)
-- [テスト](#テスト)
-- [設定ファイル (.synapse)](#設定ファイル-synapse)
-- [開発・リリース](#開発リリース)
+- [Registry and Port Management](#registry-and-port-management)
+- [File Safety](#file-safety)
+- [Testing](#testing)
+- [Configuration (.synapse)](#configuration-synapse)
+- [Development & Release](#development--release)
 
 ---
 
-## 主な特徴
+## Features
 
-| カテゴリ               | 機能                                                     |
-| ---------------------- | -------------------------------------------------------- |
-| **A2A 準拠**           | 全通信が Message/Part + Task 形式、Agent Card による発見 |
-| **CLI 連携**           | 既存の CLI ツールを改造せずに A2A エージェント化         |
-| **@Agent 記法**        | `@claude`, `@codex-8120` で直接メッセージ送信            |
-| **送信元識別**         | `metadata.sender` + PID マッチングで送信元を自動識別     |
-| **Priority Interrupt** | Priority 5 で SIGINT 送信後にメッセージ送信（緊急停止）  |
-| **マルチインスタンス** | 同じエージェントタイプを複数同時起動（ポート自動割当）   |
-| **外部連携**           | 他の Google A2A エージェントとの通信                     |
-| **タスク委任**         | 自然言語ルールで他エージェントへ自動タスク転送           |
-| **File Safety**        | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` でロック状態を確認可能） |
+| Category | Feature |
+| -------- | ------- |
+| **A2A Compliant** | All communication uses Message/Part + Task format, Agent Card discovery |
+| **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
+| **@Agent Syntax** | Send messages directly with `@claude`, `@codex-8120` |
+| **Sender Identification** | Auto-identify sender via `metadata.sender` + PID matching |
+| **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
+| **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
+| **External Integration** | Communicate with other Google A2A agents |
+| **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
+| **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
 
 ---
 
-## 前提条件
+## Prerequisites
 
-- **OS**: macOS / Linux（Windows は WSL2 推奨）
+- **OS**: macOS / Linux (Windows via WSL2 recommended)
 - **Python**: 3.10+
-- **CLI ツール**: 使用するエージェントの CLI を事前にインストール & 初期設定
+- **CLI Tools**: Pre-install and configure the agents you want to use:
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
   - [Codex CLI](https://github.com/openai/codex)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 ---
 
-## クイックスタート
+## Quick Start
 
-### 1. Synapse A2A のインストール
+### 1. Install Synapse A2A
 
 ```bash
-# PyPI からインストール（推奨）
+# Install from PyPI (recommended)
 pip install synapse-a2a
 
-# gRPC も使う場合
+# With gRPC support
 pip install "synapse-a2a[grpc]"
 ```
 
-開発者向け（このリポジトリを編集する場合）：
+For developers (editing this repository):
 
 ```bash
-# uv でインストール
+# Install with uv
 uv sync
 
-# または pip（editable）
+# Or pip (editable)
 pip install -e .
 ```
 
-### 2. Claude Code プラグインのインストール（推奨）
+### 2. Install Claude Code Plugin (Recommended)
 
-**Synapse A2A を最大限活用するには、Claude Code プラグインのインストールを強く推奨します。**
+**Installing the plugin is strongly recommended to get the most out of Synapse A2A.**
 
-プラグインをインストールすると、Claude が自動的に Synapse A2A の機能を理解し、@agent パターンでのメッセージ送信、タスク委任、File Safety などを適切に使用できるようになります。
+The plugin helps Claude automatically understand Synapse A2A features: @agent messaging, task delegation, File Safety, and more.
 
 ```bash
-# Claude Code 内で実行
+# Run inside Claude Code
 /plugin marketplace add s-hiraoku/synapse-a2a
 /plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
-詳細は [Claude Code プラグイン](#claude-code-プラグイン) を参照してください。
+See [Claude Code Plugin](#claude-code-plugin) for details.
 
-### 3. エージェントを起動
+### 3. Start Agents
 
 ```bash
 # Terminal 1: Claude
@@ -151,46 +153,46 @@ synapse codex
 synapse gemini
 ```
 
-> Note: 端末のスクロールバック表示が崩れる場合は、以下の起動方法を試してください。
+> Note: If terminal scrollback display is garbled, try:
 > ```bash
 > uv run synapse gemini
-> # または
+> # or
 > uv run python -m synapse.cli gemini
 > ```
 
-ポートは自動割当されます：
+Ports are auto-assigned:
 
-| エージェント | ポート範囲 |
-| ------------ | ---------- |
-| Claude       | 8100-8109  |
-| Gemini       | 8110-8119  |
-| Codex        | 8120-8129  |
+| Agent  | Port Range |
+| ------ | ---------- |
+| Claude | 8100-8109  |
+| Gemini | 8110-8119  |
+| Codex  | 8120-8129  |
 
-### 4. エージェント間通信
+### 4. Inter-Agent Communication
 
-端末内で `@Agent` を使ってメッセージ送信：
+Use `@Agent` in the terminal to send messages:
 
 ```text
-@codex この設計をレビューして
-@gemini APIの改善案を出して
+@codex Please review this design
+@gemini Suggest API improvements
 ```
 
-複数インスタンスがある場合は `@type-port` 形式で指定：
+For multiple instances of the same type, use `@type-port` format:
 
 ```text
-@codex-8120 こちらを担当して
-@codex-8121 こちらを担当して
+@codex-8120 Handle this task
+@codex-8121 Handle that task
 ```
 
 ### 5. HTTP API
 
 ```bash
-# メッセージ送信
+# Send message
 curl -X POST http://localhost:8100/tasks/send \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
 
-# 緊急停止（Priority 5）
+# Emergency stop (Priority 5)
 curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Stop!"}]}}'
@@ -198,113 +200,113 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
 
 ---
 
-## ユースケース
+## Use Cases
 
-### 1. 瞬時の仕様確認 (Simple)
-コーディングに特化した **Claude** で作業中、最新のライブラリ仕様やエラー情報を確認したい場合、Web検索が得意な **Gemini** にその場で問い合わせることで、コンテキストスイッチを防ぎます。
-
-```bash
-# Claudeの画面で:
-@gemini Python 3.12の新しいf-stringの仕様を要約して
-```
-
-### 2. 設計のクロスレビュー (Intermediate)
-自分の考えた設計に対して、異なる視点を持つエージェントからフィードバックをもらいます。
+### 1. Instant Specification Lookup (Simple)
+While coding with **Claude**, quickly query **Gemini** (better at web search) for the latest library specs or error info without context switching.
 
 ```bash
-# Claudeで設計案を出した後に:
-@gemini この設計について、スケーラビリティと保守性の観点から批判的にレビューして
+# In Claude's terminal:
+@gemini Summarize the new f-string features in Python 3.12
 ```
 
-### 3. TDD ペアプログラミング (Intermediate)
-「テストを書く人」と「実装する人」を分けることで、堅牢なコードを作成します。
+### 2. Cross-Review Designs (Intermediate)
+Get feedback on your design from agents with different perspectives.
+
+```bash
+# After Claude drafts a design:
+@gemini Critically review this design from scalability and maintainability perspectives
+```
+
+### 3. TDD Pair Programming (Intermediate)
+Separate "test writer" and "implementer" for robust code.
 
 ```bash
 # Terminal 1 (Codex):
-auth.py の単体テストを作成して。ケースは正常系と、トークン期限切れの異常系で。
+Create unit tests for auth.py - normal case and token expiration case.
 
 # Terminal 2 (Claude):
-@codex-8120 が作成したテストに通るように auth.py を実装して
+@codex-8120 Implement auth.py to pass the tests you created
 ```
 
-### 4. セキュリティ監査 (Specialized)
-自分の書いたコードをコミットする前に、セキュリティ専門家という役割を与えたエージェントに監査させます。
+### 4. Security Audit (Specialized)
+Have an agent with a security expert role audit your code before committing.
 
 ```bash
-# Gemini に役割を与える
-あなたはセキュリティエンジニアです。脆弱性（SQLi, XSS等）の観点のみでレビューしてください。
+# Give Gemini a role:
+You are a security engineer. Review only for vulnerabilities (SQLi, XSS, etc.)
 
-# コードを書いてから:
-@gemini 現在の変更内容（git diff）を監査して
+# After writing code:
+@gemini Audit the current changes (git diff)
 ```
 
-### 5. エラーログからの自動修復 (Advanced)
-テスト実行でエラーが出た際、ログファイルをエージェントに渡して修正案を適用させます。
+### 5. Auto-Fix from Error Logs (Advanced)
+Pass error logs to an agent for automatic fix suggestions.
 
 ```bash
-# テストが失敗した...
+# Tests failed...
 pytest > error.log
 
-# エージェントに修正を依頼
-@claude error.log を読んで、原因となっている synapse/server.py の箇所を修正して
+# Ask agent to fix
+@claude Read error.log and fix the issue in synapse/server.py
 ```
 
-### 6. 言語・フレームワークの移行 (Advanced)
-大規模なリファクタリングで、古い構文を新しい構文に置換する作業を分担します。
+### 6. Language/Framework Migration (Advanced)
+Distribute large refactoring work across agents.
 
 ```bash
 # Terminal 1 (Claude):
-legacy_api.js を読み込んで、TypeScriptの型定義を作成して
+Read legacy_api.js and create TypeScript type definitions
 
 # Terminal 2 (Codex):
-@claude が作成した型定義を使って、legacy_api.js を src/new_api.ts に書き換えて
+@claude Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts
 ```
 
-### SSHリモート環境との違い
+### Comparison with SSH Remote
 
-| 操作 | SSH | Synapse |
-|-----|-----|---------|
-| 手動でCLI操作 | ◎ | ◎ |
-| プログラムからタスク投入 | △ expect等が必要 | ◎ HTTP API |
-| 複数クライアント同時接続 | △ 複数セッション | ◎ 単一エンドポイント |
-| 進捗のリアルタイム通知 | ✗ | ◎ SSE/Webhook |
-| エージェント間の自動連携 | ✗ | ◎ @Agent記法 |
+| Operation | SSH | Synapse |
+|-----------|-----|---------|
+| Manual CLI operation | ◎ | ◎ |
+| Programmatic task submission | △ requires expect etc. | ◎ HTTP API |
+| Multiple simultaneous clients | △ multiple sessions | ◎ single endpoint |
+| Real-time progress notifications | ✗ | ◎ SSE/Webhook |
+| Automatic inter-agent coordination | ✗ | ◎ @Agent syntax |
 
-> **Note**: 個人でCLI操作するだけなら SSH で十分なケースも多いです。Synapse は「自動化」「連携」「マルチエージェント」が必要な場面で真価を発揮します。
+> **Note**: SSH is often sufficient for individual CLI use. Synapse shines when you need automation, coordination, and multi-agent collaboration.
 
 ---
 
-## Claude Code プラグイン
+## Claude Code Plugin
 
-Synapse A2A を Claude Code で使用する場合、**プラグインのインストールを強く推奨します**。
+**Installing the plugin is strongly recommended** when using Synapse A2A with Claude Code.
 
-### なぜプラグインが必要か
+### Why Install the Plugin?
 
-プラグインをインストールすると、Claude が以下を自動的に理解・実行できるようになります：
+With the plugin installed, Claude automatically understands and executes:
 
-- **synapse send**: `synapse send codex "ファイルを修正して" --from claude` でのエージェント間通信
-- **@agent パターン**: `@codex ファイルを修正して` でユーザー入力からの直接送信
-- **優先度制御**: Priority 1-5 でのメッセージ送信（5 は緊急停止）
-- **タスク委任**: `delegation.enabled` での自動タスク振り分け
-- **File Safety**: ファイルロックと変更追跡でマルチエージェント競合を防止
-- **履歴管理**: タスク履歴の検索・エクスポート・統計
+- **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from claude`
+- **@agent pattern**: Direct sending from user input via `@codex Fix this`
+- **Priority control**: Message sending with Priority 1-5 (5 = emergency stop)
+- **Task delegation**: Automatic task routing with `delegation.enabled`
+- **File Safety**: Prevent multi-agent conflicts with file locking and change tracking
+- **History management**: Search, export, and statistics for task history
 
-### インストール方法
+### Installation
 
 ```bash
-# Claude Code 内で実行
+# Run inside Claude Code
 /plugin marketplace add s-hiraoku/synapse-a2a
 /plugin install synapse-a2a@s-hiraoku/synapse-a2a
 ```
 
-### 含まれるスキル
+### Included Skills
 
-| スキル | 説明 |
-|--------|------|
-| **synapse-a2a** | エージェント間通信の包括的ガイド。`synapse send` コマンド、@agent ルーティング、優先度、A2A プロトコル、履歴管理、File Safety、設定管理をカバー |
-| **delegation** | 自動タスク委任の設定。`delegation.enabled` での有効化、事前チェック、エラーハンドリング、File Safety 連携 |
+| Skill | Description |
+|-------|-------------|
+| **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, @agent routing, priority, A2A protocol, history, File Safety, settings |
+| **delegation** | Automatic task delegation setup: `delegation.enabled`, pre-checks, error handling, File Safety integration |
 
-### ディレクトリ構造
+### Directory Structure
 
 ```text
 plugins/
@@ -316,27 +318,27 @@ plugins/
         └── delegation/SKILL.md
 ```
 
-詳細は [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照してください。
+See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
 
-> **Note**: Codex もプラグインには対応していませんが、展開された skills を `.codex/` ディレクトリ（具体的には `.codex/skills/`）に配置することで、これらの機能を活用することが可能です。
-
----
-
-## ドキュメント
-
-- [guides/README.md](guides/README.md) - ドキュメント全体の見取り図
-- [guides/multi-agent-setup.md](guides/multi-agent-setup.md) - セットアップ手順
-- [guides/usage.md](guides/usage.md) - コマンドと運用パターン
-- [guides/settings.md](guides/settings.md) - `.synapse` 設定の詳細
-- [guides/troubleshooting.md](guides/troubleshooting.md) - よくある問題と対処
+> **Note**: Codex doesn't support plugins, but you can place expanded skills in the `.codex/skills/` directory to enable these features.
 
 ---
 
-## アーキテクチャ
+## Documentation
 
-### A2A サーバー / クライアント構成
+- [guides/README.md](guides/README.md) - Documentation overview
+- [guides/multi-agent-setup.md](guides/multi-agent-setup.md) - Setup guide
+- [guides/usage.md](guides/usage.md) - Commands and usage patterns
+- [guides/settings.md](guides/settings.md) - `.synapse` configuration details
+- [guides/troubleshooting.md](guides/troubleshooting.md) - Common issues and solutions
 
-Synapse では **各エージェントが A2A サーバーとして動作** します。中央サーバーは存在せず、P2P 構成です。
+---
+
+## Architecture
+
+### A2A Server/Client Structure
+
+In Synapse, **each agent operates as an A2A server**. There's no central server; it's a P2P architecture.
 
 ```
 ┌─────────────────────────────────────┐    ┌─────────────────────────────────────┐
@@ -353,23 +355,23 @@ Synapse では **各エージェントが A2A サーバーとして動作** し�
 └─────────────────────────────────────┘
 ```
 
-各エージェントは：
+Each agent is:
 
-- **A2A サーバー**: 他のエージェントからのリクエストを受け付ける
-- **A2A クライアント**: 他のエージェントにリクエストを送信する
+- **A2A Server**: Accepts requests from other agents
+- **A2A Client**: Sends requests to other agents
 
-### 主要コンポーネント
+### Key Components
 
-| コンポーネント     | ファイル                  | 役割                     |
-| ------------------ | ------------------------- | ------------------------ |
-| FastAPI Server     | `synapse/server.py`       | A2A エンドポイント提供   |
-| A2A Router         | `synapse/a2a_compat.py`   | A2A プロトコル実装       |
-| A2A Client         | `synapse/a2a_client.py`   | 他エージェントへの通信   |
-| TerminalController | `synapse/controller.py`   | PTY 管理、READY/PROCESSING 検出 |
-| InputRouter        | `synapse/input_router.py` | @Agent パターン検出      |
-| AgentRegistry      | `synapse/registry.py`     | エージェント登録・検索   |
+| Component | File | Role |
+| --------- | ---- | ---- |
+| FastAPI Server | `synapse/server.py` | Provides A2A endpoints |
+| A2A Router | `synapse/a2a_compat.py` | A2A protocol implementation |
+| A2A Client | `synapse/a2a_client.py` | Communication with other agents |
+| TerminalController | `synapse/controller.py` | PTY management, READY/PROCESSING detection |
+| InputRouter | `synapse/input_router.py` | @Agent pattern detection |
+| AgentRegistry | `synapse/registry.py` | Agent registration and lookup |
 
-### 起動シーケンス
+### Startup Sequence
 
 ```mermaid
 sequenceDiagram
@@ -378,383 +380,348 @@ sequenceDiagram
     participant PTY as TerminalController
     participant CLI as CLI Agent
 
-    Synapse->>Registry: 1. エージェント登録 (agent_id, pid, port)
-    Synapse->>PTY: 2. PTY 起動
-    PTY->>CLI: 3. CLI エージェント起動
-    Synapse->>PTY: 4. 初期指示送信 (sender: synapse-system)
-    PTY->>CLI: 5. AI が初期指示を受信
+    Synapse->>Registry: 1. Register agent (agent_id, pid, port)
+    Synapse->>PTY: 2. Start PTY
+    PTY->>CLI: 3. Start CLI agent
+    Synapse->>PTY: 4. Send initial instructions (sender: synapse-system)
+    PTY->>CLI: 5. AI receives initial instructions
 ```
 
-### 通信フロー
+### Communication Flow
 
 ```mermaid
 sequenceDiagram
-    participant User as ユーザー
+    participant User
     participant Claude as Claude (8100)
     participant Client as A2AClient
     participant Codex as Codex (8120)
 
-    User->>Claude: @codex 設計をレビューして
+    User->>Claude: @codex Review this design
     Claude->>Client: send_to_local()
     Client->>Codex: POST /tasks/send-priority
-    Codex->>Codex: Task 作成 → PTY に書き込み
+    Codex->>Codex: Create Task → Write to PTY
     Codex-->>Client: {"task": {"id": "...", "status": "working"}}
-    Client-->>Claude: [→ codex] 送信完了
+    Client-->>Claude: [→ codex] Send complete
 ```
 
 ---
 
-## CLI コマンド
+## CLI Commands
 
-### 基本操作
+### Basic Operations
 
 ```bash
-# エージェント起動（フォアグラウンド）
+# Start agent (foreground)
 synapse claude
 synapse codex
 synapse gemini
 
-# ポート指定
+# Specify port
 synapse claude --port 8105
 
-# CLI ツールに引数を渡す
+# Pass arguments to CLI tool
 synapse claude -- --resume
 ```
 
-### コマンド一覧
+### Command List
 
-| コマンド                          | 説明                   |
-| --------------------------------- | ---------------------- |
-| `synapse <profile>`               | フォアグラウンドで起動 |
-| `synapse start <profile>`         | バックグラウンドで起動 |
-| `synapse stop <profile\|id>`      | エージェント停止（ID指定も可） |
-| `synapse --version`             | バージョン情報表示     |
-| `synapse list`                    | 実行中エージェント一覧（`--watch` でRich TUIモニター） |
-| `synapse logs <profile>`          | ログ表示               |
-| `synapse send <target> <message>` | メッセージ送信         |
-| `synapse instructions show`       | インストラクション内容表示 |
-| `synapse instructions files`      | インストラクションファイル一覧 |
-| `synapse instructions send`       | 初期インストラクション再送信 |
-| `synapse history list`            | タスク履歴表示         |
-| `synapse history show <task_id>`  | タスク詳細表示         |
-| `synapse history search`          | キーワード検索         |
-| `synapse history cleanup`         | 古いデータ削除         |
-| `synapse history stats`           | 統計情報表示           |
-| `synapse history export`          | JSON/CSV エクスポート  |
-| `synapse file-safety status`      | ファイル安全統計表示   |
-| `synapse file-safety locks`       | アクティブロック一覧   |
-| `synapse file-safety lock`        | ファイルをロック       |
-| `synapse file-safety unlock`      | ロック解放             |
-| `synapse file-safety history`     | ファイル変更履歴       |
-| `synapse file-safety recent`      | 最近の変更一覧         |
-| `synapse file-safety record`      | 変更を手動記録         |
-| `synapse file-safety cleanup`     | 古いデータ削除         |
-| `synapse file-safety debug`       | デバッグ情報表示       |
-| `synapse config`                  | 設定管理（インタラクティブTUI） |
-| `synapse config show`             | 現在の設定表示         |
+| Command | Description |
+| ------- | ----------- |
+| `synapse <profile>` | Start in foreground |
+| `synapse start <profile>` | Start in background |
+| `synapse stop <profile\|id>` | Stop agent (can specify ID) |
+| `synapse --version` | Show version |
+| `synapse list` | List running agents (`--watch` for Rich TUI monitor with row selection) |
+| `synapse logs <profile>` | Show logs |
+| `synapse send <target> <message>` | Send message |
+| `synapse instructions show` | Show instruction content |
+| `synapse instructions files` | List instruction files |
+| `synapse instructions send` | Resend initial instructions |
+| `synapse history list` | Show task history |
+| `synapse history show <task_id>` | Show task details |
+| `synapse history search` | Keyword search |
+| `synapse history cleanup` | Delete old data |
+| `synapse history stats` | Show statistics |
+| `synapse history export` | Export to JSON/CSV |
+| `synapse file-safety status` | Show file safety statistics |
+| `synapse file-safety locks` | List active locks |
+| `synapse file-safety lock` | Lock a file |
+| `synapse file-safety unlock` | Release lock |
+| `synapse file-safety history` | File change history |
+| `synapse file-safety recent` | Recent changes |
+| `synapse file-safety record` | Manually record change |
+| `synapse file-safety cleanup` | Delete old data |
+| `synapse file-safety debug` | Show debug info |
+| `synapse config` | Settings management (interactive TUI) |
+| `synapse config show` | Show current settings |
 
-### コンテキストの再開 (Resume Mode)
+### Resume Mode
 
-既存のセッションを再開する場合、以下のフラグを使用すると **初期インストラクション（A2A プロトコル説明）の送信をスキップ** できます。これにより、コンテキストを汚さずにスムーズに作業を継続できます。
+When resuming an existing session, use these flags to **skip initial instruction sending** (A2A protocol explanation), keeping your context clean:
 
 ```bash
-# Claude Code のセッション再開
+# Resume Claude Code session
 synapse claude -- --resume
 
-# Gemini の履歴指定再開
+# Resume Gemini with history
 synapse gemini -- --resume=5
 
-# フラグは settings.json でカスタマイズ可能
+# Codex uses 'resume' as a subcommand (not --resume flag)
 synapse codex -- resume --last
 ```
 
-デフォルトの対応フラグ（`settings.json` で変更可能）:
+Default flags (customizable in `settings.json`):
 - **Claude**: `--resume`, `--continue`, `-r`, `-c`
 - **Gemini**: `--resume`, `-r`
 - **Codex**: `resume`
 
-### インストラクション管理
+### Instruction Management
 
-`--resume` モードで起動した場合など、初期インストラクションが送信されなかった場合に、手動で再送信できます。
+Manually resend initial instructions when they weren't sent (e.g., after `--resume` mode):
 
 ```bash
-# インストラクション内容を確認
+# Show instruction content
 synapse instructions show claude
 
-# 利用されるインストラクションファイル一覧
+# List instruction files
 synapse instructions files claude
 
-# 実行中のエージェントに初期インストラクションを送信
+# Send initial instructions to running agent
 synapse instructions send claude
 
-# 送信前にプレビュー
+# Preview before sending
 synapse instructions send claude --preview
 
-# 特定のエージェントIDを指定して送信
+# Send to specific agent ID
 synapse instructions send synapse-claude-8100
 ```
 
-この機能は以下のケースで役立ちます：
-- `--resume` モードで起動後、A2A プロトコル情報が必要になった場合
-- エージェントがインストラクションを失った/忘れた場合のリカバリ
-- インストラクション内容の確認・デバッグ
+Useful when:
+- You need A2A protocol info after starting with `--resume`
+- Agent lost/forgot instructions and needs recovery
+- Debugging instruction content
 
-### 外部エージェント管理
+### External Agent Management
 
 ```bash
-# 外部エージェント登録
+# Register external agent
 synapse external add http://other-agent:9000 --alias other
 
-# 一覧表示
+# List
 synapse external list
 
-# メッセージ送信
-synapse external send other "タスクを処理して"
+# Send message
+synapse external send other "Process this task"
 ```
 
-### タスク履歴管理
+### Task History Management
 
-タスク履歴機能により、過去のエージェント実行結果を検索・参照・分析できます。
+Search, browse, and analyze past agent execution results.
 
-**有効化:**
+**Enable:**
 
 ```bash
-# 環境変数で有効化
+# Enable via environment variable
 export SYNAPSE_HISTORY_ENABLED=true
 synapse claude
 ```
 
-#### 基本操作
+#### Basic Operations
 
 ```bash
-# 最新50件の履歴を表示
+# Show latest 50 entries
 synapse history list
 
-# 特定エージェントのみ表示
+# Filter by agent
 synapse history list --agent claude
 
-# カスタム件数で表示
+# Custom limit
 synapse history list --limit 100
 
-# タスク詳細を表示
+# Show task details
 synapse history show task-id-uuid
 ```
 
-#### キーワード検索（Phase 2a）
+#### Keyword Search
 
-入力・出力フィールドからキーワードで検索：
+Search input/output fields by keyword:
 
 ```bash
-# 単一キーワード検索
+# Single keyword
 synapse history search "Python"
 
-# 複数キーワード（OR ロジック）
+# Multiple keywords (OR logic)
 synapse history search "Python" "Docker"
 
-# AND ロジック（すべてのキーワードを含む）
+# AND logic (all keywords must match)
 synapse history search "Python" "function" --logic AND
 
-# エージェント フィルタ付き
+# With agent filter
 synapse history search "Python" --agent claude
 
-# 件数制限
+# Limit results
 synapse history search "error" --limit 20
 ```
 
-#### 統計情報表示（Phase 2d）
-
-タスク実行の統計情報を表示：
+#### Statistics
 
 ```bash
-# 全体統計（総数、成功率、エージェント別集計）
+# Overall stats (total, success rate, per-agent breakdown)
 synapse history stats
 
-# 特定エージェントの統計
+# Specific agent stats
 synapse history stats --agent claude
 ```
 
-出力例：
-```text
-============================================================
-TASK HISTORY STATISTICS
-============================================================
-
-Total Tasks:     150
-Completed:       140
-Failed:          10
-Success Rate:    93.3%
-
-Database Size:   2.5 MB
-Oldest Task:     2026-01-01 10:00:00
-Newest Task:     2026-01-04 15:30:00
-
-============================================================
-BY AGENT
-============================================================
-
-Agent      Total    Completed  Failed
-------------------------------------------------------------
-claude     100      95         5
-gemini     50       45         5
-```
-
-#### データ エクスポート（Phase 2b）
-
-JSON または CSV 形式でエクスポート：
+#### Data Export
 
 ```bash
-# JSON エクスポート（標準出力）
+# JSON export (stdout)
 synapse history export --format json
 
-# CSV エクスポート
+# CSV export
 synapse history export --format csv
 
-# ファイル保存
+# Save to file
 synapse history export --format json --output history.json
 synapse history export --format csv --agent claude > claude_history.csv
-
-# フィルタ付きエクスポート
-synapse history export --format json --agent gemini --limit 50
 ```
 
-#### リテンション ポリシー（Phase 2c）
-
-古いデータを自動削除：
+#### Retention Policy
 
 ```bash
-# 30日以上前のデータを削除
+# Delete data older than 30 days
 synapse history cleanup --days 30
 
-# データベースサイズを 100MB 以下に保つ
+# Keep database under 100MB
 synapse history cleanup --max-size 100
 
-# 確認なしで実行（自動化用）
+# Force (no confirmation)
 synapse history cleanup --days 30 --force
 
-# ドライラン（削除予定内容を表示するだけ）
+# Dry run
 synapse history cleanup --days 30 --dry-run
 ```
 
-**ストレージ:**
+**Storage:**
 
-- SQLite データベース: `~/.synapse/history/history.db`
-- 保存項目: タスクID、エージェント名、入力、出力、ステータス、メタデータ
-- 自動インデックス: agent_name, timestamp, task_id
+- SQLite database: `~/.synapse/history/history.db`
+- Stored: task ID, agent name, input, output, status, metadata
+- Auto-indexed: agent_name, timestamp, task_id
 
-**設定:**
+**Settings:**
 
-- **有効化**: `SYNAPSE_HISTORY_ENABLED=true`
-- **無効化**: `SYNAPSE_HISTORY_ENABLED=false`（デフォルト）
-- デフォルトでは無効です。有効化するには環境変数を設定してから起動してください
+- **Enable**: `SYNAPSE_HISTORY_ENABLED=true`
+- **Disable**: `SYNAPSE_HISTORY_ENABLED=false` (default)
 
-### synapse send コマンド（推奨）
+### synapse send Command (Recommended)
 
-エージェント間通信には `synapse send` コマンドを使用してください。サンドボックス環境でも動作します。
+Use `synapse send` for inter-agent communication. Works in sandboxed environments.
 
 ```bash
 synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
 ```
 
-**ターゲット指定方法:**
+**Target Formats:**
 
-| 形式 | 例 | 説明 |
-|-----|---|------|
-| エージェントタイプ | `claude` | 単一インスタンスの場合のみ有効 |
-| タイプ-ポート | `claude-8100` | 同タイプが複数ある場合の指定 |
-| フルID | `synapse-claude-8100` | 完全なエージェントID |
+| Format | Example | Description |
+|--------|---------|-------------|
+| Agent type | `claude` | Only works when single instance exists |
+| Type-port | `claude-8100` | Use when multiple instances of same type |
+| Full ID | `synapse-claude-8100` | Complete agent ID |
 
-同じタイプのエージェントが複数起動している場合、タイプのみの指定（例: `claude`）はエラーになります。`claude-8100` や `synapse-claude-8100` のように特定のインスタンスを指定してください。
+When multiple agents of the same type are running, type-only (e.g., `claude`) will error. Use `claude-8100` or `synapse-claude-8100`.
 
-**オプション:**
+**Options:**
 
-| オプション | 短縮形 | 説明 |
-|-----------|--------|------|
-| `--from` | `-f` | 送信元エージェントID（返信識別用） |
-| `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT送信） |
-| `--response` | - | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
-| `--no-response` | - | Oneway - 送りっぱなし、返信不要（デフォルト） |
-| `--reply-to` | - | 特定タスクIDへの返信（`--response` への返信時に使用） |
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--from` | `-f` | Sender agent ID (for reply identification) |
+| `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
+| `--response` | - | Roundtrip - sender waits, receiver MUST reply with `--reply-to` |
+| `--no-response` | - | Oneway - fire and forget, no reply needed (default) |
+| `--reply-to` | - | Reply to specific task ID (use when responding to `--response`) |
 
-**例:**
+**Examples:**
 
 ```bash
-# メッセージ送信（単一インスタンス）
+# Send message (single instance)
 synapse send claude "Hello" --priority 1 --from codex
 
-# 特定インスタンスへ送信（同タイプが複数の場合）
+# Send to specific instance (multiple of same type)
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
-# 緊急停止
+# Emergency stop
 synapse send claude "Stop!" --priority 5 --from codex
 
-# レスポンスを待つ（roundtrip）
-synapse send gemini "分析して" --response --from claude
+# Wait for response (roundtrip)
+synapse send gemini "Analyze this" --response --from claude
 
-# --response への返信（task_idは [A2A:task_id:sender] から取得）
-synapse send claude "分析結果です..." --reply-to abc123 --from gemini
+# Reply to --response (task_id from [A2A:task_id:sender])
+synapse send claude "Analysis result..." --reply-to abc123 --from gemini
 ```
 
-**重要:** `--from` オプションで送信元を指定してください。`--response` への返信時は `--reply-to <task_id>` を使用して返信を紐付けます。
+**Important:** Always use `--from` to identify the sender. When replying to `--response`, use `--reply-to <task_id>` to link the response.
 
-### 低レベル A2A ツール
+### Low-Level A2A Tool
 
-高度な操作用：
+For advanced operations:
 
 ```bash
-# エージェント一覧
+# List agents
 python -m synapse.tools.a2a list
 
-# メッセージ送信
+# Send message
 python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 ```
 
 ---
 
-## API エンドポイント
+## API Endpoints
 
-### A2A 準拠
+### A2A Compliant
 
-| エンドポイント            | メソッド | 説明              |
-| ------------------------- | -------- | ----------------- |
-| `/.well-known/agent.json` | GET      | Agent Card        |
-| `/tasks/send`             | POST     | メッセージ送信    |
-| `/tasks/send-priority`    | POST     | Priority 付き送信 |
-| `/tasks/create`           | POST     | タスク作成（PTY送信なし、`--response` 用） |
-| `/tasks/{id}`             | GET      | タスク状態取得    |
-| `/tasks`                  | GET      | タスク一覧        |
-| `/tasks/{id}/cancel`      | POST     | タスクキャンセル  |
-| `/status`                 | GET      | READY/PROCESSING 状態 |
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/.well-known/agent.json` | GET | Agent Card |
+| `/tasks/send` | POST | Send message |
+| `/tasks/send-priority` | POST | Send with priority |
+| `/tasks/create` | POST | Create task (no PTY send, for `--response`) |
+| `/tasks/{id}` | GET | Get task status |
+| `/tasks` | GET | List tasks |
+| `/tasks/{id}/cancel` | POST | Cancel task |
+| `/status` | GET | READY/PROCESSING status |
 
-### 外部エージェント
+### External Agents
 
-| エンドポイント                  | メソッド | 説明                 |
-| ------------------------------- | -------- | -------------------- |
-| `/external/discover`            | POST     | 外部エージェント登録 |
-| `/external/agents`              | GET      | 一覧                 |
-| `/external/agents/{alias}`      | DELETE   | 削除                 |
-| `/external/agents/{alias}/send` | POST     | 送信                 |
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/external/discover` | POST | Register external agent |
+| `/external/agents` | GET | List |
+| `/external/agents/{alias}` | DELETE | Remove |
+| `/external/agents/{alias}/send` | POST | Send |
 
 ---
 
-## Task 構造
+## Task Structure
 
-A2A プロトコルでは、全ての通信が **Task** として管理されます。
+In the A2A protocol, all communication is managed as **Tasks**.
 
-### Task ライフサイクル
+### Task Lifecycle
 
 ```mermaid
 stateDiagram-v2
     [*] --> submitted: POST /tasks/send
-    submitted --> working: 処理開始
-    working --> completed: 正常終了
-    working --> failed: エラー
-    working --> input_required: 追加入力待ち
-    input_required --> working: 入力受信
+    submitted --> working: Processing starts
+    working --> completed: Success
+    working --> failed: Error
+    working --> input_required: Waiting for input
+    input_required --> working: Input received
     completed --> [*]
     failed --> [*]
 ```
 
-### Task オブジェクト
+### Task Object
 
 ```json
 {
@@ -763,7 +730,7 @@ stateDiagram-v2
   "status": "working",
   "message": {
     "role": "user",
-    "parts": [{ "type": "text", "text": "この設計をレビューして" }]
+    "parts": [{ "type": "text", "text": "Review this design" }]
   },
   "artifacts": [],
   "metadata": {
@@ -778,26 +745,26 @@ stateDiagram-v2
 }
 ```
 
-### フィールド説明
+### Field Descriptions
 
-| フィールド   | 型         | 説明                                                                |
-| ------------ | ---------- | ------------------------------------------------------------------- |
-| `id`         | string     | タスクの一意識別子（UUID）                                          |
-| `context_id` | string?    | 会話コンテキスト ID（マルチターン用）                               |
-| `status`     | string     | `submitted` / `working` / `completed` / `failed` / `input_required` |
-| `message`    | Message    | 送信されたメッセージ                                                |
-| `artifacts`  | Artifact[] | タスク完了時の成果物                                                |
-| `metadata`   | object     | 送信元情報など（`metadata.sender`）                                 |
-| `created_at` | string     | 作成日時（ISO 8601）                                                |
-| `updated_at` | string     | 更新日時（ISO 8601）                                                |
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | string | Unique task identifier (UUID) |
+| `context_id` | string? | Conversation context ID (for multi-turn) |
+| `status` | string | `submitted` / `working` / `completed` / `failed` / `input_required` |
+| `message` | Message | Sent message |
+| `artifacts` | Artifact[] | Task output artifacts |
+| `metadata` | object | Sender info (`metadata.sender`) |
+| `created_at` | string | Creation timestamp (ISO 8601) |
+| `updated_at` | string | Update timestamp (ISO 8601) |
 
-### Message 構造
+### Message Structure
 
 ```json
 {
   "role": "user",
   "parts": [
-    { "type": "text", "text": "メッセージ内容" },
+    { "type": "text", "text": "Message content" },
     {
       "type": "file",
       "file": {
@@ -810,98 +777,51 @@ stateDiagram-v2
 }
 ```
 
-| Part タイプ | 説明               |
-| ----------- | ------------------ |
-| `text`      | テキストメッセージ |
-| `file`      | ファイル添付       |
-| `data`      | 構造化データ       |
-
-### 初期指示 Task
-
-エージェント起動時、Synapse は A2A Task として初期指示を送信します。
-
-```json
-{
-  "id": "init-task-id",
-  "status": "working",
-  "message": {
-    "role": "user",
-    "parts": [
-      { "type": "text", "text": "[Synapse A2A Protocol Instructions]\n\n..." }
-    ]
-  },
-  "metadata": {
-    "sender": {
-      "sender_id": "synapse-system",
-      "sender_type": "system",
-      "sender_endpoint": "http://localhost:8100"
-    }
-  }
-}
-```
-
-PTY 出力形式：
-
-```
-[A2A:init1234:synapse-system] [Synapse A2A Protocol Instructions]
-
-You are participating in a multi-agent environment connected via the Synapse A2A Protocol.
-
-## Your Identity
-- Agent ID: synapse-claude-8100
-- Agent Type: claude
-- Port: 8100
-
-## How to Send Messages (@Agent)
-...
-```
-
-初期指示には以下が含まれます：
-
-- エージェントの identity（ID, type, port）
-- @Agent でのメッセージ送信方法
-- 利用可能な他のエージェント一覧
-- 送信元識別と **返信方法**（`[A2A:task_id:sender_id]` から sender_id を抽出して返信）
+| Part Type | Description |
+| --------- | ----------- |
+| `text` | Text message |
+| `file` | File attachment |
+| `data` | Structured data |
 
 ---
 
-## 送信元識別
+## Sender Identification
 
-A2A メッセージの送信元は `metadata.sender` で識別できます。
+The sender of A2A messages can be identified via `metadata.sender`.
 
-### PTY 出力形式
-
-```
-[A2A:<task_id>:<sender_id>:R] <message>   ← 返信必須（:R フラグあり）
-[A2A:<task_id>:<sender_id>] <message>     ← 返信不要
-```
-
-**:R フラグ**: 送信側が `--response` を使用した場合、`:R` フラグが付与されます。このフラグがある場合は `--reply-to` での返信が必須です。
-
-**短いタスクID**: PTY では 8 文字の短い task_id が表示されます。`--reply-to` は短い ID でもフル UUID でも指定できます。
-
-例：
+### PTY Output Format
 
 ```
-[A2A:54241e7e:synapse-claude-8100:R] この設計をレビューしてください  ← 返信必須
-[A2A:abc12345:synapse-claude-8100] テストを実行して                   ← 返信不要
+[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
+[A2A:<task_id>:<sender_id>] <message>     ← No response required
 ```
 
-返信例：
+**:R Flag**: When the sender uses `--response`, the `:R` flag is appended. When present, you MUST reply with `--reply-to`.
+
+**Short Task IDs**: PTY displays 8-character short task_ids. `--reply-to` accepts both short IDs and full UUIDs.
+
+Examples:
+
+```
+[A2A:54241e7e:synapse-claude-8100:R] Please review this design  ← Response required
+[A2A:abc12345:synapse-claude-8100] Run the tests               ← No response required
+```
+
+Reply examples:
 ```bash
-# :R フラグあり → --reply-to 必須
-synapse send claude "レビュー結果です..." --reply-to 54241e7e --from gemini
+# :R flag present → --reply-to required
+synapse send claude "Review result..." --reply-to 54241e7e --from gemini
 
-# :R フラグなし → タスクを実行、--reply-to は不要
+# No :R flag → just do the task, no --reply-to needed
 ```
 
-### Task API での確認
+### Task API Verification
 
 ```bash
 curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
 ```
 
-レスポンス：
+Response:
 
 ```json
 {
@@ -911,23 +831,23 @@ curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
 }
 ```
 
-### 仕組み
+### How It Works
 
-1. **送信時**: Registry を参照し、PID マッチングで自身の agent_id を特定
-2. **Task 作成時**: `metadata.sender` に送信元情報を付与
-3. **受信時**: PTY プレフィックスまたは Task API で確認
+1. **On send**: Reference Registry, identify own agent_id via PID matching
+2. **On Task creation**: Attach sender info to `metadata.sender`
+3. **On receive**: Check via PTY prefix or Task API
 
 ---
 
-## Priority（優先度）
+## Priority Levels
 
-| Priority | 動作                    | 用途           |
-| -------- | ----------------------- | -------------- |
-| 1-4      | 通常の stdin 書き込み   | 通常メッセージ |
-| 5        | SIGINT 送信後に書き込み | 緊急停止       |
+| Priority | Behavior | Use Case |
+| -------- | -------- | -------- |
+| 1-4 | Normal stdin write | Regular messages |
+| 5 | SIGINT then write | Emergency stop |
 
 ```bash
-# 緊急停止
+# Emergency stop
 synapse send claude "Stop!" --priority 5
 ```
 
@@ -935,7 +855,7 @@ synapse send claude "Stop!" --priority 5
 
 ## Agent Card
 
-各エージェントは `/.well-known/agent.json` で Agent Card を公開します。
+Each agent publishes an Agent Card at `/.well-known/agent.json`.
 
 ```bash
 curl http://localhost:8100/.well-known/agent.json
@@ -974,18 +894,18 @@ curl http://localhost:8100/.well-known/agent.json
 }
 ```
 
-### 設計思想
+### Design Philosophy
 
-Agent Card は「名刺」として他者向け情報のみを含みます：
+Agent Card is a "business card" containing only external-facing information:
 
-- capabilities, skills, endpoint など
-- 内部指示は含まない（起動時に A2A Task で送信）
+- capabilities, skills, endpoint, etc.
+- Internal instructions are not included (sent via A2A Task at startup)
 
 ---
 
-## レジストリとポート管理
+## Registry and Port Management
 
-### レジストリファイル
+### Registry Files
 
 ```
 ~/.a2a/registry/
@@ -994,14 +914,14 @@ Agent Card は「名刺」として他者向け情報のみを含みます：
 └── synapse-gemini-8110.json
 ```
 
-### 自動クリーンアップ
+### Auto Cleanup
 
-stale エントリは以下の操作で自動削除：
+Stale entries are automatically removed during:
 
-- `synapse list` 実行時
-- メッセージ送信時（対象が死んでいる場合）
+- `synapse list` execution
+- Message sending (when target is dead)
 
-### ポート範囲
+### Port Ranges
 
 ```python
 PORT_RANGES = {
@@ -1014,9 +934,9 @@ PORT_RANGES = {
 
 ---
 
-## File Safety（ファイル競合防止）
+## File Safety
 
-マルチエージェント環境で複数のエージェントが同時にファイルを編集する際の競合を防止します。
+Prevents conflicts when multiple agents edit the same files simultaneously.
 
 ```mermaid
 sequenceDiagram
@@ -1035,45 +955,45 @@ sequenceDiagram
     FS-->>Gemini: ACQUIRED
 ```
 
-### 機能
+### Features
 
-| 機能 | 説明 |
-|------|------|
-| **ファイルロック** | 排他制御で同時編集を防止 |
-| **変更追跡** | 誰がいつ何を変更したか記録 |
-| **コンテキスト注入** | 読み込み時に最近の変更履歴を提供 |
-| **事前バリデーション** | 書き込み前にロック状態をチェック |
+| Feature | Description |
+|---------|-------------|
+| **File Locking** | Exclusive control prevents simultaneous editing |
+| **Change Tracking** | Records who changed what and when |
+| **Context Injection** | Provides recent change history on read |
+| **Pre-write Validation** | Checks lock status before writing |
 
-### 有効化
+### Enable
 
 ```bash
-# 環境変数で有効化
+# Enable via environment variable
 export SYNAPSE_FILE_SAFETY_ENABLED=true
 synapse claude
 ```
 
-### 基本コマンド
+### Basic Commands
 
 ```bash
-# 統計表示
+# Show statistics
 synapse file-safety status
 
-# アクティブロック一覧
+# List active locks
 synapse file-safety locks
 
-# ロック取得
+# Acquire lock
 synapse file-safety lock /path/to/file.py claude --intent "Refactoring"
 
-# ロック解放
+# Release lock
 synapse file-safety unlock /path/to/file.py claude
 
-# ファイル変更履歴
+# File change history
 synapse file-safety history /path/to/file.py
 
-# 最近の変更一覧
+# Recent changes
 synapse file-safety recent
 
-# 古いデータ削除
+# Delete old data
 synapse file-safety cleanup --days 30
 ```
 
@@ -1084,12 +1004,12 @@ from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
 
 manager = FileSafetyManager.from_env()
 
-# ロック取得
+# Acquire lock
 result = manager.acquire_lock("/path/to/file.py", "claude", intent="Refactoring")
 if result["status"] == LockStatus.ACQUIRED:
-    # ファイル編集...
+    # Edit file...
 
-    # 変更記録
+    # Record change
     manager.record_modification(
         file_path="/path/to/file.py",
         agent_name="claude",
@@ -1098,54 +1018,54 @@ if result["status"] == LockStatus.ACQUIRED:
         intent="Fix authentication bug"
     )
 
-    # ロック解放
+    # Release lock
     manager.release_lock("/path/to/file.py", "claude")
 
-# 書き込み前バリデーション
+# Pre-write validation
 validation = manager.validate_write("/path/to/file.py", "gemini")
 if not validation["allowed"]:
     print(f"Write blocked: {validation['reason']}")
 ```
 
-**ストレージ**: デフォルトは `~/.synapse/file_safety.db` (SQLite)。`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能（例: `./.synapse/file_safety.db` でプロジェクト単位）。
+**Storage**: Default is `~/.synapse/file_safety.db` (SQLite). Change via `SYNAPSE_FILE_SAFETY_DB_PATH` (e.g., `./.synapse/file_safety.db` for per-project).
 
-詳細は [docs/file-safety.md](docs/file-safety.md) を参照してください。
+See [docs/file-safety.md](docs/file-safety.md) for details.
 
 ---
 
-## テスト
+## Testing
 
-218 のテストケースで A2A プロトコル準拠を検証：
+Comprehensive test suite verifies A2A protocol compliance:
 
 ```bash
-# 全テスト
+# All tests
 pytest
 
-# 特定カテゴリ
+# Specific category
 pytest tests/test_a2a_compat.py -v
 pytest tests/test_sender_identification.py -v
 ```
 
 ---
 
-## 設定ファイル (.synapse)
+## Configuration (.synapse)
 
-`.synapse/settings.json` を使って、環境変数や初期インストラクションをカスタマイズできます。
+Customize environment variables and initial instructions via `.synapse/settings.json`.
 
-### スコープ
+### Scopes
 
-| スコープ | パス | 優先度 |
-|----------|------|--------|
-| User | `~/.synapse/settings.json` | 低 |
-| Project | `./.synapse/settings.json` | 中 |
-| Local | `./.synapse/settings.local.json` | 高（gitignore推奨） |
+| Scope | Path | Priority |
+|-------|------|----------|
+| User | `~/.synapse/settings.json` | Low |
+| Project | `./.synapse/settings.json` | Medium |
+| Local | `./.synapse/settings.local.json` | High (gitignore recommended) |
 
-高優先度の設定が低優先度を上書きします。
+Higher priority settings override lower ones.
 
-### セットアップ
+### Setup
 
 ```bash
-# .synapse/ ディレクトリを作成（全テンプレートファイルをコピー）
+# Create .synapse/ directory (copies all template files)
 synapse init
 
 # ? Where do you want to create .synapse/?
@@ -1154,69 +1074,35 @@ synapse init
 #
 # ✔ Created ~/.synapse
 
-# デフォルトに戻す
+# Reset to defaults
 synapse reset
 
-# 設定をインタラクティブに編集（TUI）
+# Edit settings interactively (TUI)
 synapse config
 
-# ? Which settings file do you want to edit?
-#   ❯ User settings (~/.synapse/settings.json)
-#     Project settings (./.synapse/settings.json)
-#
-# ? Select a category to configure:
-#   ❯ Environment Variables
-#     Instructions
-#     A2A Protocol
-#     Delegation
-#     Resume Flags
-#     ──────────────
-#     Save and exit
-#     Exit without saving
-
-# 現在の設定を表示（読み取り専用）
+# Show current settings (read-only)
 synapse config show
 synapse config show --scope user
 ```
 
-`synapse init` は以下のファイルを `.synapse/` ディレクトリにコピーします：
+`synapse init` copies these files to `.synapse/`:
 
-| ファイル | 説明 |
-|----------|------|
-| `settings.json` | 環境変数・初期インストラクション設定 |
-| `default.md` | 全エージェント共通の初期インストラクション |
-| `gemini.md` | Gemini 用の初期インストラクション |
-| `delegate.md` | タスク委任ルール |
-| `file-safety.md` | File Safety の指示 |
+| File | Description |
+|------|-------------|
+| `settings.json` | Environment variables and initial instruction settings |
+| `default.md` | Initial instructions common to all agents |
+| `gemini.md` | Gemini-specific initial instructions |
+| `delegate.md` | Task delegation rules |
+| `file-safety.md` | File Safety instructions |
 
-既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます。
-
-**Skills のインストール**: Claude Code を使用する場合、**プラグイン marketplace からのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が適用されます。
-
-```bash
-# Claude Code 内で実行
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
-```
-
-> **Note**: Codex はプラグインに対応していないため、`synapse init` は `.claude/skills/synapse-a2a/` から `.codex/skills/synapse-a2a/` へスキルを自動コピーします。（Gemini は Skills 非対応のためスキップ）
-
-### settings.json の構造
+### settings.json Structure
 
 ```json
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
-    "SYNAPSE_AUTH_ENABLED": "false",
-    "SYNAPSE_API_KEYS": "",
-    "SYNAPSE_ADMIN_KEY": "",
-    "SYNAPSE_ALLOW_LOCALHOST": "true",
-    "SYNAPSE_USE_HTTPS": "false",
-    "SYNAPSE_WEBHOOK_SECRET": "",
-    "SYNAPSE_WEBHOOK_TIMEOUT": "10",
-    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+    "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
   "instructions": {
     "default": "[SYNAPSE INSTRUCTIONS...]\n...",
@@ -1233,136 +1119,114 @@ synapse config show --scope user
 }
 ```
 
-### 環境変数 (env)
+### Environment Variables (env)
 
-| 変数 | 説明 | デフォルト |
-|------|------|-----------|
-| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | ファイル安全機能を有効化 | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | file-safety DB パス | `~/.synapse/file_safety.db` |
-| `SYNAPSE_AUTH_ENABLED` | API認証を有効化 | `false` |
-| `SYNAPSE_API_KEYS` | APIキー（カンマ区切り） | - |
-| `SYNAPSE_ADMIN_KEY` | 管理者キー | - |
-| `SYNAPSE_ALLOW_LOCALHOST` | localhost認証スキップ | `true` |
-| `SYNAPSE_USE_HTTPS` | HTTPS使用 | `false` |
-| `SYNAPSE_WEBHOOK_SECRET` | Webhookシークレット | - |
-| `SYNAPSE_WEBHOOK_TIMEOUT` | Webhookタイムアウト(秒) | `10` |
-| `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhookリトライ数 | `3` |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SYNAPSE_HISTORY_ENABLED` | Enable task history | `false` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_AUTH_ENABLED` | Enable API authentication | `false` |
+| `SYNAPSE_API_KEYS` | API keys (comma-separated) | - |
+| `SYNAPSE_ADMIN_KEY` | Admin key | - |
+| `SYNAPSE_ALLOW_LOCALHOST` | Skip auth for localhost | `true` |
+| `SYNAPSE_USE_HTTPS` | Use HTTPS | `false` |
+| `SYNAPSE_WEBHOOK_SECRET` | Webhook secret | - |
+| `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
+| `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
 
-### A2A 通信設定 (a2a)
+### A2A Communication Settings (a2a)
 
-エージェント間通信の動作を制御します。
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `flow` | `roundtrip` | Always wait for result |
+| `flow` | `oneway` | Always forward only (don't wait) |
+| `flow` | `auto` | AI agent decides per task (default) |
 
-| 設定 | 値 | 説明 |
-|------|-----|------|
-| `flow` | `roundtrip` | 常に結果を待つ |
-| `flow` | `oneway` | 常に転送のみ（結果を待たない） |
-| `flow` | `auto` | AIエージェントがタスクに応じて判断（デフォルト） |
+### Delegation Settings (delegation)
 
-```json
-{
-  "a2a": {
-    "flow": "auto"
-  }
-}
-```
+| Setting | Value | Description |
+|---------|-------|-------------|
+| `enabled` | `true` | Load `.synapse/delegate.md` and enable delegation rules |
+| `enabled` | `false` | Disable delegation (default) |
 
-### 委任設定 (delegation)
+### Initial Instructions (instructions)
 
-自動タスク委任を制御します。
-
-| 設定 | 値 | 説明 |
-|------|-----|------|
-| `enabled` | `true` | `.synapse/delegate.md` を読み込み、委任ルールを有効化 |
-| `enabled` | `false` | 委任を無効化（デフォルト） |
-
-```json
-{
-  "delegation": {
-    "enabled": true
-  }
-}
-```
-
-委任を有効にするには、`.synapse/delegate.md` に委任ルールを記述してください。
-
-### 初期インストラクション (instructions)
-
-エージェント起動時に送信される指示をカスタマイズできます。
+Customize instructions sent at agent startup:
 
 ```json
 {
   "instructions": {
-    "default": "全エージェント共通の指示",
-    "claude": "Claude専用の指示（設定時はdefaultより優先）",
-    "gemini": "Gemini専用の指示",
-    "codex": "Codex専用の指示"
+    "default": "Common instructions for all agents",
+    "claude": "Claude-specific instructions (takes priority over default)",
+    "gemini": "Gemini-specific instructions",
+    "codex": "Codex-specific instructions"
   }
 }
 ```
 
-**優先順位**:
-1. エージェント固有の設定（`claude`, `gemini`, `codex`）があればそれを使用
-2. なければ `default` を使用
-3.両方とも空なら初期インストラクションは送信しない
+**Priority**:
+1. Agent-specific setting (`claude`, `gemini`, `codex`) if present
+2. Otherwise use `default`
+3. If both empty, no initial instructions sent
 
-**プレースホルダー**:
-- `{{agent_id}}` - エージェントID（例: `synapse-claude-8100`）
-- `{{port}}` - ポート番号（例: `8100`）
+**Placeholders**:
+- `{{agent_id}}` - Agent ID (e.g., `synapse-claude-8100`)
+- `{{port}}` - Port number (e.g., `8100`)
 
-詳細は [guides/settings.md](guides/settings.md) を参照してください。
+See [guides/settings.md](guides/settings.md) for details.
 
 ---
 
-## 開発・リリース
+## Development & Release
 
-### PyPI への公開
+### Publishing to PyPI
 
-タグをプッシュすると GitHub Actions で自動的に PyPI へ公開されます。
+Pushing a tag automatically publishes to PyPI via GitHub Actions.
 
 ```bash
-# 1. pyproject.toml のバージョンを更新
+# 1. Update version in pyproject.toml
 # version = "0.2.0"
 
-# 2. タグを作成してプッシュ
+# 2. Create and push tag
 git tag v0.2.0
 git push origin v0.2.0
 ```
 
-### 手動公開
+### Manual Publishing
 
 ```bash
-# uv でビルド・公開
+# Build and publish with uv
 uv build
 uv publish
 ```
 
-### ユーザーのインストール方法
+### User Installation
 
 ```bash
-# pipx（推奨）
+# pipx (recommended)
 pipx install synapse-a2a
 
-# または pip
+# or pip
 pip install synapse-a2a
 
-# uvx で直接実行
+# Run directly with uvx
 uvx synapse-a2a claude
 ```
 
 ---
 
-## 既知の制約
+## Known Limitations
 
-- **TUI 描画**: Ink ベースの CLI で描画が乱れる場合あり
-- **PTY 制限**: 一部の特殊入力シーケンスは未対応
-- **Codex サンドボックス**: Codex CLI のサンドボックスがネットワークアクセスをブロックするため、エージェント間通信には設定が必要（下記参照）
+- **TUI Rendering**: Display may be garbled with Ink-based CLIs
+- **PTY Limitations**: Some special input sequences not supported
+- **Codex Sandbox**: Codex CLI's sandbox blocks network access, requiring configuration for inter-agent communication (see below)
 
-### Codex CLI でのエージェント間通信
+### Inter-Agent Communication in Codex CLI
 
-Codex CLI はデフォルトでサンドボックス内で実行され、ネットワークアクセスが制限されています。`@agent` パターンでのエージェント間通信を使用するには、`~/.codex/config.toml` でネットワークアクセスを許可する必要があります。
+Codex CLI runs in a sandbox by default with restricted network access. To use `@agent` pattern for inter-agent communication, allow network access in `~/.codex/config.toml`.
 
-**グローバル設定（全プロジェクトに適用）:**
+**Global Setting (applies to all projects):**
 
 ```toml
 # ~/.codex/config.toml
@@ -1373,7 +1237,7 @@ sandbox_mode = "workspace-write"
 network_access = true
 ```
 
-**プロジェクト単位の設定:**
+**Per-Project Setting:**
 
 ```toml
 # ~/.codex/config.toml
@@ -1385,112 +1249,106 @@ sandbox_mode = "workspace-write"
 network_access = true
 ```
 
-詳細は [guides/troubleshooting.md](guides/troubleshooting.md#codex-サンドボックスでのネットワークエラー) を参照してください。
+See [guides/troubleshooting.md](guides/troubleshooting.md#codex-sandbox-network-error) for details.
 
 ---
 
-## エンタープライズ機能
+## Enterprise Features
 
-本番環境向けのセキュリティ・通知・高性能通信機能を提供します。
+Security, notification, and high-performance communication features for production environments.
 
-### API Key 認証
+### API Key Authentication
 
 ```bash
-# 認証を有効にして起動
+# Start with authentication enabled
 export SYNAPSE_AUTH_ENABLED=true
-export SYNAPSE_API_KEYS=my-secret-key
+export SYNAPSE_API_KEYS=<YOUR_API_KEY>
 synapse claude
 
-# API Key でリクエスト
-curl -H "X-API-Key: my-secret-key" http://localhost:8100/tasks
+# Request with API Key
+curl -H "X-API-Key: <YOUR_API_KEY>" http://localhost:8100/tasks
 ```
 
-### Webhook 通知
+### Webhook Notifications
 
-タスク完了時に外部 URL へ通知を送信します。
+Send notifications to external URLs when tasks complete.
 
 ```bash
-# Webhook を登録
+# Register webhook
 curl -X POST http://localhost:8100/webhooks \
   -H "Content-Type: application/json" \
   -d '{"url": "https://your-server.com/hook", "events": ["task.completed"]}'
 ```
 
-| イベント | 説明 |
-|---------|------|
-| `task.completed` | タスク正常完了 |
-| `task.failed` | タスク失敗 |
-| `task.canceled` | タスクキャンセル |
+| Event | Description |
+|-------|-------------|
+| `task.completed` | Task completed successfully |
+| `task.failed` | Task failed |
+| `task.canceled` | Task canceled |
 
-### SSE ストリーミング
+### SSE Streaming
 
-リアルタイムでタスク出力を受信できます。
+Receive task output in real-time.
 
 ```bash
 curl -N http://localhost:8100/tasks/{task_id}/subscribe
 ```
 
-イベントタイプ:
+Event types:
 
-| イベント | 説明 |
-|---------|------|
-| `output` | 新しい CLI 出力 |
-| `status` | ステータス変更 |
-| `done` | タスク完了（Artifact 含む） |
+| Event | Description |
+|-------|-------------|
+| `output` | New CLI output |
+| `status` | Status change |
+| `done` | Task complete (includes Artifact) |
 
-### 出力解析
+### Output Parsing
 
-CLI 出力を自動解析し、エラー検出・ステータス更新・Artifact 生成を行います。
+Automatically parse CLI output for error detection, status updates, and Artifact generation.
 
-```bash
-# エラー検出 → 自動的に failed ステータス
-# input_required 検出 → 追加入力待ち状態
-# 出力パース → コードブロック・ファイル参照を Artifact に変換
-```
+| Feature | Description |
+|---------|-------------|
+| Error Detection | Detects `command not found`, `permission denied`, etc. |
+| input_required | Detects question/confirmation prompts |
+| Output Parser | Structures code/files/errors |
 
-| 機能 | 説明 |
-|------|------|
-| エラー検出 | `command not found`, `permission denied` 等を検出 |
-| input_required | 質問・確認プロンプトを検出 |
-| 出力パーサー | コード/ファイル/エラーを構造化 |
+### gRPC Support
 
-### gRPC サポート
-
-高性能通信が必要な場合は gRPC を使用できます。
+Use gRPC for high-performance communication.
 
 ```bash
-# gRPC 依存をインストール
+# Install gRPC dependencies
 pip install synapse-a2a[grpc]
 
-# gRPC は REST ポート + 1 で起動
+# gRPC runs on REST port + 1
 # REST: 8100 → gRPC: 8101
 ```
 
-詳細は [guides/enterprise.md](guides/enterprise.md) を参照してください。
+See [guides/enterprise.md](guides/enterprise.md) for details.
 
 ---
 
-## ドキュメント
+## Documentation
 
-| パス                                                     | 内容                   |
-| -------------------------------------------------------- | ---------------------- |
-| [guides/usage.md](guides/usage.md)                       | 使い方詳細             |
-| [guides/architecture.md](guides/architecture.md)         | アーキテクチャ詳細     |
-| [guides/enterprise.md](guides/enterprise.md)             | エンタープライズ機能   |
-| [guides/troubleshooting.md](guides/troubleshooting.md)   | トラブルシューティング |
-| [guides/delegation.md](guides/delegation.md)             | タスク委任ガイド       |
-| [docs/file-safety.md](docs/file-safety.md)               | ファイル競合防止機能   |
-| [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想               |
+| Path | Content |
+| ---- | ------- |
+| [guides/usage.md](guides/usage.md) | Detailed usage |
+| [guides/architecture.md](guides/architecture.md) | Architecture details |
+| [guides/enterprise.md](guides/enterprise.md) | Enterprise features |
+| [guides/troubleshooting.md](guides/troubleshooting.md) | Troubleshooting |
+| [guides/delegation.md](guides/delegation.md) | Task delegation guide |
+| [docs/file-safety.md](docs/file-safety.md) | File conflict prevention |
+| [docs/project-philosophy.md](docs/project-philosophy.md) | Design philosophy |
 
 ---
 
-## ライセンス
+## License
 
 MIT License
 
 ---
 
-## 関連リンク
+## Related Links
 
-- [Claude Code](https://claude.ai/code) - Anthropic の CLI エージェント
-- [Google A2A Protocol](https://github.com/google/A2A) - Agent-to-Agent プロトコル
+- [Claude Code](https://claude.ai/code) - Anthropic's CLI agent
+- [Google A2A Protocol](https://github.com/google/A2A) - Agent-to-Agent protocol
