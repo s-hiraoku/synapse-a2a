@@ -71,6 +71,7 @@ flowchart LR
 - [Agent Card](#agent-card)
 - [Registry and Port Management](#registry-and-port-management)
 - [File Safety](#file-safety)
+- [Agent Monitor](#agent-monitor)
 - [Testing](#testing)
 - [Configuration (.synapse)](#configuration-synapse)
 - [Development & Release](#development--release)
@@ -90,6 +91,7 @@ flowchart LR
 | **External Integration** | Communicate with other Google A2A agents |
 | **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
+| **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), terminal jump with Enter/j key |
 
 ---
 
@@ -431,7 +433,7 @@ synapse claude -- --resume
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (`--watch` for Rich TUI monitor with row selection) |
+| `synapse list` | List running agents (`--watch` for Rich TUI monitor with terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
 | `synapse instructions show` | Show instruction content |
@@ -1030,6 +1032,51 @@ if not validation["allowed"]:
 **Storage**: Default is `~/.synapse/file_safety.db` (SQLite). Change via `SYNAPSE_FILE_SAFETY_DB_PATH` (e.g., `./.synapse/file_safety.db` for per-project).
 
 See [docs/file-safety.md](docs/file-safety.md) for details.
+
+---
+
+## Agent Monitor
+
+Real-time monitoring of agent status with terminal jump capability.
+
+### Watch Mode
+
+```bash
+# Start watch mode with Rich TUI
+synapse list --watch
+
+# Custom refresh interval (0.5s for fast updates)
+synapse list -w -i 0.5
+```
+
+### Status States
+
+| Status | Color | Meaning |
+|--------|-------|---------|
+| **READY** | Green | Agent is idle, waiting for input |
+| **WAITING** | Cyan | Agent is showing selection UI, waiting for user choice |
+| **PROCESSING** | Yellow | Agent is actively working |
+| **DONE** | Blue | Task completed (auto-transitions to READY after 10s) |
+
+### Terminal Jump
+
+Jump directly to an agent's terminal window from watch mode:
+
+| Key | Action |
+|-----|--------|
+| ↑/↓ | Select agent row |
+| **Enter** or **j** | Jump to selected agent's terminal |
+| q | Quit watch mode |
+
+**Supported Terminals**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+### WAITING Detection
+
+Detects when agents are waiting for user input (selection UI, Y/n prompts) using regex patterns:
+
+- **Gemini**: `● 1. Option` selection UI, `Allow execution` prompts
+- **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
+- **Codex**: Indented numbered lists
 
 ---
 

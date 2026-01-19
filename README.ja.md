@@ -71,6 +71,7 @@ flowchart LR
 - [Agent Card](#agent-card)
 - [Registry とポート管理](#registry-とポート管理)
 - [File Safety](#file-safety)
+- [エージェントモニター](#エージェントモニター)
 - [テスト](#テスト)
 - [設定 (.synapse)](#設定-synapse)
 - [開発 & リリース](#開発--リリース)
@@ -90,6 +91,7 @@ flowchart LR
 | **外部連携** | 他の Google A2A エージェントと通信 |
 | **タスク委譲** | 自然言語ルールで他エージェントへタスクを自動転送 |
 | **File Safety** | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` で表示可能） |
+| **エージェントモニター** | リアルタイムステータス（READY/WAITING/PROCESSING/DONE）、Enter/j でターミナルジャンプ |
 
 ---
 
@@ -1030,6 +1032,51 @@ if not validation["allowed"]:
 **ストレージ**: デフォルトは `~/.synapse/file_safety.db`（SQLite）。`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能（例：`./.synapse/file_safety.db` でプロジェクトごと）。
 
 詳しくは [docs/file-safety.md](docs/file-safety.md) を参照。
+
+---
+
+## エージェントモニター
+
+エージェントのステータスをリアルタイムで監視し、ターミナルジャンプ機能を提供します。
+
+### ウォッチモード
+
+```bash
+# Rich TUI でウォッチモードを開始
+synapse list --watch
+
+# カスタムリフレッシュ間隔（0.5秒で高速更新）
+synapse list -w -i 0.5
+```
+
+### ステータス状態
+
+| ステータス | 色 | 意味 |
+|------------|----|----|
+| **READY** | 緑 | アイドル状態、入力待ち |
+| **WAITING** | シアン | 選択UI表示中、ユーザーの選択待ち |
+| **PROCESSING** | 黄 | アクティブに処理中 |
+| **DONE** | 青 | タスク完了（10秒後に自動でREADYに遷移） |
+
+### ターミナルジャンプ
+
+ウォッチモードからエージェントのターミナルウィンドウに直接ジャンプ：
+
+| キー | アクション |
+|------|----------|
+| ↑/↓ | エージェント行を選択 |
+| **Enter** または **j** | 選択したエージェントのターミナルにジャンプ |
+| q | ウォッチモードを終了 |
+
+**対応ターミナル**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+### WAITING 検出
+
+正規表現パターンを使用してエージェントがユーザー入力を待っている状態（選択UI、Y/nプロンプト）を検出：
+
+- **Gemini**: `● 1. Option` 選択UI、`Allow execution` プロンプト
+- **Claude**: `❯ Option` カーソル、`☐/☑` チェックボックス、`[Y/n]` プロンプト
+- **Codex**: インデントされた番号付きリスト
 
 ---
 

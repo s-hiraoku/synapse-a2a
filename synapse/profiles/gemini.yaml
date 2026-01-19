@@ -11,3 +11,14 @@ env:
 idle_detection:
   strategy: "timeout"
   timeout: 3.0               # 3.0 seconds of no output = idle
+
+# WAITING status detection (user input prompts)
+# Uses regex to detect selection UI structure
+# Gemini CLI shows: ● 1. Option text / ○ 2. Option text
+waiting_detection:
+  # Regex pattern to detect selection UI:
+  # - ● or ○ followed by space(s) and digit(s) and dot
+  # - OR "Allow execution" / "Allow once" permission prompts
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  require_idle: true
+  idle_timeout: 0.5                           # 500ms no output after pattern

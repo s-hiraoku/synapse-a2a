@@ -11,16 +11,11 @@ from rich.table import Table
 from rich.text import Text
 
 from synapse.port_manager import PORT_RANGES
+from synapse.status import STATUS_STYLES
 
 
 class RichRenderer:
     """Rich TUI renderer for agent list display."""
-
-    # Status color mapping
-    STATUS_STYLES = {
-        "READY": "bold green",
-        "PROCESSING": "bold yellow",
-    }
 
     def __init__(self, console: Console | None = None) -> None:
         """Initialize renderer with optional console.
@@ -39,12 +34,12 @@ class RichRenderer:
         """Format status with appropriate color.
 
         Args:
-            status: Agent status string (READY, PROCESSING, etc.)
+            status: Agent status string (WAITING, PROCESSING, DONE, etc.)
 
         Returns:
             Rich Text object with styled status.
         """
-        style = self.STATUS_STYLES.get(status, "")
+        style = STATUS_STYLES.get(status, "")
         return Text(status, style=style)
 
     def _build_empty_table(self) -> Table:
@@ -175,7 +170,10 @@ class RichRenderer:
             ("Port", str(agent.get("port", "-"))),
             ("Status", agent.get("status", "-")),
             ("PID", str(agent.get("pid", "-"))),
-            ("Working Dir", agent.get("working_dir", "-")),
+            (
+                "Working Dir",
+                agent.get("working_dir_full", agent.get("working_dir", "-")),
+            ),
             ("Endpoint", agent.get("endpoint", "-")),
         ]
 
@@ -218,12 +216,20 @@ class RichRenderer:
             border_style="blue",
         )
 
-    def build_footer(self, interactive: bool = False, agent_count: int = 0) -> Text:
+    def build_footer(
+        self,
+        interactive: bool = False,
+        agent_count: int = 0,
+        jump_available: bool = False,
+        has_selection: bool = False,
+    ) -> Text:
         """Build footer text with control hints.
 
         Args:
             interactive: If True, show number key hints for selection.
             agent_count: Number of agents (for showing valid key range).
+            jump_available: If True, show terminal jump hint.
+            has_selection: If True, a row is currently selected.
 
         Returns:
             Rich Text with control instructions.
@@ -234,6 +240,12 @@ class RichRenderer:
             footer.append("Press ", style="dim")
             footer.append(f"1-{agent_count}", style="bold cyan")
             footer.append(" to view details, ", style="dim")
+
+            # Show jump hint if available and row selected
+            if jump_available and has_selection:
+                footer.append("Enter/j", style="bold green")
+                footer.append(" to jump, ", style="dim")
+
             footer.append("ESC", style="bold cyan")
             footer.append(" to close, ", style="dim")
 
@@ -276,6 +288,7 @@ class RichRenderer:
         stale_locks: list[dict[str, Any]] | None = None,
         interactive: bool = False,
         selected_row: int | None = None,
+        jump_available: bool = False,
     ) -> RenderableType:
         """Build the complete watch mode display.
 
@@ -288,6 +301,7 @@ class RichRenderer:
             stale_locks: List of stale lock dictionaries (optional).
             interactive: If True, enable number key selection.
             selected_row: Currently selected row (1-indexed), or None.
+            jump_available: If True, terminal jump feature is available.
 
         Returns:
             Rich renderable for the complete watch display.
@@ -318,7 +332,12 @@ class RichRenderer:
         if warning:
             elements.append(warning)
 
-        footer = self.build_footer(interactive=interactive, agent_count=len(agents))
+        footer = self.build_footer(
+            interactive=interactive,
+            agent_count=len(agents),
+            jump_available=jump_available,
+            has_selection=selected_row is not None,
+        )
         elements.append(footer)
 
         return Group(*elements)

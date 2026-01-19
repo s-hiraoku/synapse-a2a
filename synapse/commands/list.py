@@ -154,7 +154,7 @@ class ListCommand:
             row_values.extend(
                 [
                     (pid or "-", 8),
-                    (info.get("working_dir", "-"), 50),
+                    (os.path.basename(info.get("working_dir", "")) or "-", 50),
                 ]
             )
 
@@ -218,14 +218,21 @@ class ListCommand:
                 continue
 
             pid = info.get("pid")
+            working_dir_full = info.get("working_dir", "-")
+            working_dir_short = (
+                os.path.basename(working_dir_full) if working_dir_full != "-" else "-"
+            )
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),
                 "port": info.get("port", "-"),
                 "status": info.get("status", "-"),
                 "pid": pid or "-",
-                "working_dir": info.get("working_dir", "-"),
+                "working_dir": working_dir_short,
+                "working_dir_full": working_dir_full,
                 "endpoint": info.get("endpoint", "-"),
+                "tty_device": info.get("tty_device"),
+                "zellij_pane_id": info.get("zellij_pane_id"),
             }
 
             if is_watch_mode:
@@ -333,6 +340,14 @@ class ListCommand:
         interactive = saved_terminal is not None
         selected_row: int | None = None
 
+        # Import terminal jump functionality
+        from synapse.terminal_jump import can_jump, jump_to_terminal
+
+        jump_available = can_jump()
+
+        # Track current agents for jump functionality
+        current_agents: list[dict[str, Any]] = []
+
         try:
             with Live(console=console, refresh_per_second=4) as live:
                 last_update = 0.0
@@ -346,6 +361,15 @@ class ListCommand:
                                 selected_row = None
                             elif key.isdigit() and key != "0":
                                 selected_row = int(key)
+                            # Enter or 'j' key triggers terminal jump
+                            elif (
+                                key in ("\r", "\n", "j", "J")
+                                and jump_available
+                                and selected_row is not None
+                                and 1 <= selected_row <= len(current_agents)
+                            ):
+                                agent = current_agents[selected_row - 1]
+                                jump_to_terminal(agent)
 
                     # Update display at interval
                     # Use injected time module if it has time(), otherwise fallback
@@ -358,6 +382,9 @@ class ListCommand:
                         agents, stale_locks, show_file_safety = (
                             self._get_agent_data_for_rich(registry, is_watch_mode=True)
                         )
+
+                        # Update current_agents for terminal jump
+                        current_agents = agents
 
                         # Validate selected_row against current agent count
                         if selected_row is not None and selected_row > len(agents):
@@ -374,6 +401,7 @@ class ListCommand:
                             stale_locks=stale_locks,
                             interactive=interactive,
                             selected_row=selected_row,
+                            jump_available=jump_available,
                         )
 
                         live.update(display)

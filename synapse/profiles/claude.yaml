@@ -17,3 +17,15 @@ idle_detection:
   pattern: "BRACKETED_PASTE_MODE"              # ESC[?2004h = ready for input
   pattern_use: "startup_only"                  # Only check pattern at startup
   timeout: 0.5                                 # 500ms no output = idle (fallback)
+
+# WAITING status detection (user input prompts)
+# Uses regex to detect Claude Code's Ink TUI selection UI
+# Claude shows: ❯ Option or ☐/☑ checkboxes
+waiting_detection:
+  # Regex pattern to detect selection UI:
+  # - ❯ followed by space and text (selection cursor)
+  # - OR ☐/☑ followed by space (checkbox)
+  # - OR [Y/n] or [y/N] prompts
+  regex: "❯\\s+.+|[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
+  require_idle: true
+  idle_timeout: 0.3                            # 300ms no output after pattern

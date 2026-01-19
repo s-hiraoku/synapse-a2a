@@ -10,3 +10,14 @@ env:
 idle_detection:
   strategy: "timeout"
   timeout: 3.0               # 3.0 seconds of no output = idle
+
+# WAITING status detection (user input prompts)
+# Uses regex to detect selection UI structure
+# Codex shows numbered lists with indentation
+waiting_detection:
+  # Regex pattern to detect numbered choice structure:
+  # - Line starting with spaces, then digit(s) and dot
+  # - Multiple such lines indicate a choice list
+  regex: "^\\s+\\d+\\.\\s+.+$"
+  require_idle: true
+  idle_timeout: 0.5                           # 500ms no output after pattern

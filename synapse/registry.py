@@ -78,9 +78,25 @@ class AgentRegistry:
         return f"synapse-{agent_type}-{port}"
 
     def register(
-        self, agent_id: str, agent_type: str, port: int, status: str = "PROCESSING"
+        self,
+        agent_id: str,
+        agent_type: str,
+        port: int,
+        status: str = "PROCESSING",
+        tty_device: str | None = None,
     ) -> Path:
-        """Writes connection info to registry file."""
+        """Writes connection info to registry file.
+
+        Args:
+            agent_id: Unique agent identifier.
+            agent_type: Type of agent (claude, gemini, codex).
+            port: Port number for HTTP endpoint.
+            status: Initial status (READY, WAITING, PROCESSING, or DONE).
+            tty_device: TTY device path (e.g., /dev/ttys001) for terminal jump.
+
+        Returns:
+            Path to the created registry file.
+        """
         data = {
             "agent_id": agent_id,
             "agent_type": agent_type,
@@ -91,6 +107,15 @@ class AgentRegistry:
             "endpoint": f"http://localhost:{port}",
             "uds_path": str(resolve_uds_path(agent_id)),
         }
+
+        # Add tty_device if available (for terminal jump feature)
+        if tty_device:
+            data["tty_device"] = tty_device
+
+        # Add Zellij pane ID if running in Zellij (for terminal jump)
+        zellij_pane_id = os.environ.get("ZELLIJ_PANE_ID")
+        if zellij_pane_id:
+            data["zellij_pane_id"] = zellij_pane_id
 
         file_path = self.registry_dir / f"{agent_id}.json"
         with open(file_path, "w") as f:
@@ -202,6 +227,22 @@ class AgentRegistry:
             data["status"] = status
 
         return self._atomic_update(agent_id, set_status, "status")
+
+    def update_tty_device(self, agent_id: str, tty_device: str) -> bool:
+        """Update the TTY device for an agent (for terminal jump feature).
+
+        Args:
+            agent_id: The unique agent identifier.
+            tty_device: TTY device path (e.g., /dev/ttys001).
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_tty(data: dict) -> None:
+            data["tty_device"] = tty_device
+
+        return self._atomic_update(agent_id, set_tty, "tty_device")
 
     def cleanup_stale_entries(self) -> list[str]:
         """

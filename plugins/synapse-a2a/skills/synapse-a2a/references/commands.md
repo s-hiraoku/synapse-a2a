@@ -22,14 +22,27 @@ synapse list -w -i 0.5
 ```
 
 **Rich TUI Watch Mode Features:**
-- Color-coded status display (READY=green, PROCESSING=yellow)
+- Color-coded status display:
+  - READY = green (idle, waiting for input)
+  - WAITING = cyan (awaiting user input - selection, confirmation)
+  - PROCESSING = yellow (busy handling a task)
+  - DONE = magenta (task completed, auto-clears after 10s)
 - Flicker-free updates
 - **Interactive row selection**: Press 1-9 to select an agent row and view full paths in a detail panel
+- **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
 - Press `ESC` to close detail panel, `Ctrl+C` to exit
+
+**Terminal Jump Supported Terminals:**
+- iTerm2 (macOS) - Switches to correct tab/pane
+- Terminal.app (macOS) - Switches to correct tab
+- Ghostty (macOS) - Activates application
+- VS Code integrated terminal - Activates/focuses VS Code window
+- tmux - Switches to agent's session/pane
+- Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Output columns:**
 - Agent name and type
-- Status (READY / PROCESSING)
+- Status (READY / WAITING / PROCESSING / DONE)
 - Port number
 - Working directory (truncated in TUI, full path in detail panel)
 - **TRANSPORT** (watch mode only): Communication method during inter-agent messages
