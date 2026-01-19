@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.29] - 2026-01-20
+
+### Fixed
+
+- AppleScript validation now checks for expected token in output
+  - `_jump_iterm2` and `_jump_terminal_app` verify "found" response
+  - Scripts returning "not found" now correctly return False
+- DONE status color changed from blue to magenta for consistency with documentation
+- Zellij terminal jump updated (CLI doesn't support direct pane focus)
+  - Falls back to activating terminal app with pane ID logged for reference
+- Markdown lint MD058: added blank lines before Agent Status tables in skill docs
+
+### Changed
+
+- `_run_applescript` now accepts optional `expected_token` parameter for output validation
+
+### Documentation
+
+- Update VS Code terminal jump description (activates window, not working directory)
+- Update Zellij description to note CLI limitation for direct pane focus
+- Sync skill documentation across .claude, .codex, and plugins directories
+
 ## [0.2.28] - 2026-01-19
 
 ### Added
