@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zellij terminal jump updated (CLI doesn't support direct pane focus)
   - Falls back to activating terminal app with pane ID logged for reference
 - Markdown lint MD058: added blank lines before Agent Status tables in skill docs
+- Table column widths adjusted for stable display (prevent resizing on updates)
 
 ### Changed
 

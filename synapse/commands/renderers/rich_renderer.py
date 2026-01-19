@@ -90,23 +90,23 @@ class RichRenderer:
 
         # Add row number column if enabled
         if show_row_numbers:
-            table.add_column("#", justify="right", style="dim")
+            table.add_column("#", justify="right", style="dim", width=2)
 
-        # Add columns in order
-        table.add_column("TYPE", style="cyan")
-        table.add_column("PORT", justify="right")
-        table.add_column("STATUS")
+        # Add columns in order with fixed widths to prevent table resizing
+        table.add_column("TYPE", style="cyan", width=6)
+        table.add_column("PORT", justify="right", width=5)
+        table.add_column("STATUS", min_width=12)
 
         if is_watch_mode:
-            table.add_column("TRANSPORT")
+            table.add_column("TRANSPORT", min_width=10)
 
-        table.add_column("PID", justify="right")
-        table.add_column("WORKING_DIR")
+        table.add_column("PID", justify="right", width=6)
+        table.add_column("WORKING_DIR", min_width=20, max_width=30)
 
         if show_file_safety:
-            table.add_column("EDITING FILE")
+            table.add_column("EDITING FILE", min_width=15, max_width=25)
 
-        table.add_column("ENDPOINT")
+        table.add_column("ENDPOINT", min_width=30, no_wrap=True)
 
         # Add rows
         for idx, agent in enumerate(agents, start=1):
