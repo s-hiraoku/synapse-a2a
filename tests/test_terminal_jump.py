@@ -173,19 +173,20 @@ class TestJumpToTerminal:
     @patch("synapse.terminal_jump.shutil.which")
     @patch("synapse.terminal_jump.subprocess.run")
     def test_jump_zellij(self, mock_run: MagicMock, mock_which: MagicMock) -> None:
-        """Should use zellij commands for zellij jump."""
-        mock_which.return_value = "/usr/bin/zellij"
-        mock_run.return_value = MagicMock(returncode=0)
+        """Should activate terminal app for zellij (direct pane focus not supported)."""
+        mock_which.return_value = "/usr/bin/osascript"
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
         agent_info = {"agent_id": "test-agent", "zellij_pane_id": "42"}
 
-        result = jump_to_terminal(agent_info, terminal_app="zellij")
+        with patch.dict(os.environ, {"TERM_PROGRAM": "ghostty"}):
+            result = jump_to_terminal(agent_info, terminal_app="zellij")
 
+        # Zellij falls back to activating terminal app since direct pane focus
+        # is not supported via CLI
         assert result is True
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]
-        assert "zellij" in call_args
-        assert "focus-terminal-pane" in call_args
-        assert "42" in call_args
+        assert "osascript" in call_args
 
     def test_jump_no_tty_device(self) -> None:
         """Should return False when no tty_device in agent_info."""

@@ -1,7 +1,7 @@
 """Terminal jump functionality for switching to agent terminal windows.
 
-Supports macOS terminal emulators: iTerm2, Terminal.app, Ghostty.
-Also supports tmux sessions.
+Supports macOS terminal emulators: iTerm2, Terminal.app, Ghostty, VS Code.
+Also supports tmux sessions and Zellij (with limitations).
 """
 
 from __future__ import annotations
@@ -115,11 +115,13 @@ def jump_to_terminal(
         return False
 
 
-def _run_applescript(script: str) -> bool:
+def _run_applescript(script: str, expected_token: str | None = None) -> bool:
     """Run an AppleScript and return success status.
 
     Args:
         script: AppleScript code to execute.
+        expected_token: Optional token to verify in stdout (e.g., "found").
+            If provided and not present in output, returns False.
 
     Returns:
         True if script executed successfully, False otherwise.
@@ -138,6 +140,15 @@ def _run_applescript(script: str) -> bool:
         if result.returncode != 0:
             logger.warning(f"AppleScript failed: {result.stderr}")
             return False
+
+        # If expected_token is specified, verify it's in the output
+        if expected_token is not None and expected_token not in result.stdout:
+            logger.warning(
+                f"AppleScript did not return expected token '{expected_token}': "
+                f"got {result.stdout.strip()!r}"
+            )
+            return False
+
         return True
     except subprocess.TimeoutExpired:
         logger.warning("AppleScript timed out")
@@ -185,7 +196,7 @@ def _jump_iterm2(tty_device: str | None, agent_id: str) -> bool:
     end tell
     """
 
-    return _run_applescript(script)
+    return _run_applescript(script, expected_token="found")
 
 
 def _jump_terminal_app(tty_device: str | None, agent_id: str) -> bool:
@@ -224,7 +235,7 @@ def _jump_terminal_app(tty_device: str | None, agent_id: str) -> bool:
     end tell
     """
 
-    return _run_applescript(script)
+    return _run_applescript(script, expected_token="found")
 
 
 def _jump_ghostty(tty_device: str | None, agent_id: str) -> bool:
@@ -397,8 +408,9 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
 def _jump_zellij(agent_info: dict[str, Any]) -> bool:
     """Jump to Zellij pane containing the agent.
 
-    Uses ZELLIJ_PANE_ID stored in agent_info to focus the correct pane.
-    Falls back to focusing the terminal application if pane ID is not available.
+    Note: Zellij CLI does not support focusing a specific pane by ID.
+    This function activates the terminal application as a fallback.
+    The pane ID is logged for manual navigation reference.
 
     Args:
         agent_info: Agent info with zellij_pane_id and agent_id.
@@ -406,44 +418,32 @@ def _jump_zellij(agent_info: dict[str, Any]) -> bool:
     Returns:
         True if successful, False otherwise.
     """
-    if not shutil.which("zellij"):
-        logger.warning("zellij not found")
-        return False
-
     pane_id = agent_info.get("zellij_pane_id")
     agent_id = agent_info.get("agent_id", "unknown")
 
-    if not pane_id:
-        logger.warning(f"No Zellij pane ID for agent {agent_id}")
-        # Try to at least activate the terminal app (Ghostty, etc.)
-        term_program = os.environ.get("TERM_PROGRAM", "")
-        if term_program == "ghostty":
-            return _run_applescript('tell application "Ghostty" to activate')
-        return False
-
-    try:
-        # Use zellij action to focus the pane
-        # Note: zellij action focus-pane requires pane ID
-        result = subprocess.run(
-            ["zellij", "action", "focus-terminal-pane", str(pane_id)],
-            capture_output=True,
-            text=True,
-            timeout=5,
+    # Zellij CLI doesn't support focus-pane-by-id (proposal was rejected).
+    # Best we can do is activate the terminal app and log the pane ID.
+    if pane_id:
+        logger.info(
+            f"Zellij pane ID for {agent_id}: {pane_id} "
+            "(direct pane focus not supported via CLI)"
         )
 
-        if result.returncode != 0:
-            logger.warning(f"zellij focus-terminal-pane failed: {result.stderr}")
-            return False
+    # Try to activate the terminal app (Ghostty, iTerm2, etc.)
+    term_program = os.environ.get("TERM_PROGRAM", "")
+    if term_program == "ghostty":
+        return _run_applescript('tell application "Ghostty" to activate')
+    elif term_program == "iTerm.app":
+        return _run_applescript('tell application "iTerm2" to activate')
+    elif term_program == "Apple_Terminal":
+        return _run_applescript('tell application "Terminal" to activate')
 
-        logger.info(f"Jumped to Zellij pane {pane_id} for {agent_id}")
-        return True
-
-    except subprocess.TimeoutExpired:
-        logger.warning("zellij command timed out")
-        return False
-    except Exception as e:
-        logger.warning(f"zellij error: {e}")
-        return False
+    # No known terminal to activate
+    logger.warning(
+        f"Zellij detected but cannot focus pane for {agent_id}. "
+        f"Pane ID: {pane_id or 'unknown'}"
+    )
+    return False
 
 
 def can_jump() -> bool:

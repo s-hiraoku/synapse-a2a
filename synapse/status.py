@@ -26,7 +26,7 @@ STATUS_STYLES = {
     READY: "bold green",  # Green: idle, ready for input
     WAITING: "bold cyan",  # Cyan: waiting for user input/choice
     PROCESSING: "bold yellow",  # Yellow: actively working
-    DONE: "bold blue",  # Blue: completed successfully
+    DONE: "bold magenta",  # Magenta: completed successfully
 }
 
 # DONE status auto-transition timeout (seconds)

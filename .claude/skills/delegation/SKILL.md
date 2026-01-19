@@ -198,6 +198,7 @@ Before delegating any task:
 3. **Verify branch**: `git branch --show-current` (for coding tasks)
 
 **Agent Status:**
+
 | Status | Meaning | Action |
 |--------|---------|--------|
 | READY | Idle, waiting for input | Safe to delegate |

@@ -36,9 +36,9 @@ synapse list -w -i 0.5
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
 - Ghostty (macOS) - Activates application
-- VS Code integrated terminal - Opens to working directory
-- tmux - Switches to agent's session
-- Zellij - Focuses agent's terminal pane
+- VS Code integrated terminal - Activates/focuses VS Code window
+- tmux - Switches to agent's session/pane
+- Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Output columns:**
 - Agent name and type
