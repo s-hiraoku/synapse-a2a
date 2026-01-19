@@ -51,6 +51,7 @@ synapse list                              # Show all running agents
 synapse list --watch                      # Watch mode with Rich TUI (interactive, refresh every 2s)
 synapse list -w -i 0.5                    # Watch mode with 0.5s interval (for observing communication)
 synapse list -w --no-rich                 # Watch mode with plain text output (non-interactive)
+# In watch mode: ↑/↓ to select, Enter/j to jump to terminal, q to quit
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude
@@ -129,16 +130,26 @@ User types `@codex review this` → InputRouter detects pattern → A2AClient.se
 
 **Agent Status System**:
 
-Agents use a two-state status system:
-- **READY**: Agent is idle and waiting for input (detected when `idle_regex` matches PTY output)
-- **PROCESSING**: Agent is actively processing (startup, handling requests, or producing output)
+Agents use a four-state status system:
+- **READY** (green): Agent is idle, waiting for user input
+- **WAITING** (cyan): Agent is showing selection UI, waiting for user choice (detected via regex)
+- **PROCESSING** (yellow): Agent is actively processing (startup, handling requests, or producing output)
+- **DONE** (blue): Task completed (auto-transitions to READY after 10 seconds)
 
 Status transitions:
 - Initial: `PROCESSING` (startup in progress)
 - On idle detection: `PROCESSING` → `READY` (agent is ready for input)
 - On output/activity: `READY` → `PROCESSING` (agent is handling work)
+- On selection UI detected: → `WAITING` (agent waiting for user choice)
+- On task completion: → `DONE` (via `set_done()` call)
+- After 10s idle in DONE: `DONE` → `READY`
 
 Dead processes are automatically cleaned up from the registry and not displayed in `synapse list`.
+
+**Terminal Jump** (in `synapse list --watch`):
+- Use ↑/↓ to select agent row
+- Press Enter or j to jump to that agent's terminal window
+- Supported terminals: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
 
 ## Profile Configuration Notes
 
