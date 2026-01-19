@@ -101,7 +101,8 @@ class TerminalController:
         waiting_regex_str = self.waiting_config.get("regex")
         if waiting_regex_str:
             try:
-                self._waiting_regex = re.compile(waiting_regex_str)
+                # Use MULTILINE flag so ^ and $ match per-line in multi-line outputs
+                self._waiting_regex = re.compile(waiting_regex_str, re.MULTILINE)
             except re.error as e:
                 logging.error(
                     f"Invalid waiting_detection regex '{waiting_regex_str}': {e}"
@@ -309,8 +310,11 @@ class TerminalController:
         pattern_found = bool(self._waiting_regex.search(text))
 
         if pattern_found:
-            # Record when pattern was seen (if new data contains pattern)
-            if new_data:
+            # Initialize pattern time if not set (pattern exists in buffer)
+            # or update if new data contains the pattern
+            if self._waiting_pattern_time is None:
+                self._waiting_pattern_time = time.time()
+            elif new_data:
                 new_text = new_data.decode("utf-8", errors="replace")
                 if self._waiting_regex.search(new_text):
                     self._waiting_pattern_time = time.time()

@@ -231,6 +231,8 @@ class ListCommand:
                 "working_dir": working_dir_short,
                 "working_dir_full": working_dir_full,
                 "endpoint": info.get("endpoint", "-"),
+                "tty_device": info.get("tty_device"),
+                "zellij_pane_id": info.get("zellij_pane_id"),
             }
 
             if is_watch_mode:

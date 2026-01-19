@@ -147,22 +147,50 @@ synapse send codex "STOP" --priority 5
 
 ## Agent Status
 
-| Status | Meaning |
-|--------|---------|
-| READY | Idle, waiting for input |
-| PROCESSING | Busy handling a task |
+| Status | Meaning | Color |
+|--------|---------|-------|
+| READY | Idle, waiting for input | Green |
+| WAITING | Awaiting user input (selection, confirmation) | Cyan |
+| PROCESSING | Busy handling a task | Yellow |
+| DONE | Task completed (auto-clears after 10s) | Magenta |
 
 **Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
 
 ```bash
 synapse list
 # Output:
-# NAME                  TYPE    STATUS      PORT
-# synapse-claude-8100   claude  READY       8100
-# synapse-codex-8120    codex   PROCESSING  8120  # <- busy, wait or use --priority 5
+# NAME                  TYPE    STATUS      PORT   WORKING_DIR
+# synapse-claude-8100   claude  READY       8100   my-project
+# synapse-gemini-8110   gemini  WAITING     8110   my-project  # <- needs user input
+# synapse-codex-8120    codex   PROCESSING  8120   my-project  # <- busy
 ```
 
-If the agent is `PROCESSING`, either wait for it to become `READY` or use `--priority 5` for emergency interrupt.
+**Status meanings:**
+- `READY`: Safe to send messages
+- `WAITING`: Agent needs user input - use terminal jump (see below) to respond
+- `PROCESSING`: Busy, wait or use `--priority 5` for emergency interrupt
+- `DONE`: Recently completed, will return to READY shortly
+
+## Terminal Jump (Watch Mode)
+
+In `synapse list --watch` mode, you can jump directly to an agent's terminal:
+
+| Key | Action |
+|-----|--------|
+| `Enter` or `j` | Jump to selected agent's terminal |
+| `1-9` | Select agent row (and view details) |
+| `ESC` | Close detail panel |
+| `Ctrl+C` | Exit watch mode |
+
+**Supported Terminals:**
+- iTerm2 (macOS) - Switches to correct tab/pane
+- Terminal.app (macOS) - Switches to correct tab
+- Ghostty (macOS) - Activates application
+- VS Code integrated terminal - Opens to working directory
+- tmux - Switches to agent's session
+- Zellij - Focuses agent's terminal pane
+
+**Use case:** When an agent shows `WAITING` status, use terminal jump to quickly respond to its selection prompt.
 
 ## Key Features
 

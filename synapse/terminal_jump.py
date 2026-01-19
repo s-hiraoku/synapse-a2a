@@ -16,6 +16,24 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _escape_applescript_string(value: str) -> str:
+    """Escape a string for safe interpolation into AppleScript.
+
+    Escapes backslashes and double quotes to prevent injection attacks.
+
+    Args:
+        value: The string to escape.
+
+    Returns:
+        Escaped string safe for use in AppleScript string literals.
+    """
+    # Escape backslashes first (so we don't double-escape the quote escapes)
+    value = value.replace("\\", "\\\\")
+    # Escape double quotes
+    value = value.replace('"', '\\"')
+    return value
+
+
 def detect_terminal_app() -> str | None:
     """Detect the current terminal application.
 
@@ -145,6 +163,9 @@ def _jump_iterm2(tty_device: str | None, agent_id: str) -> bool:
         logger.warning(f"No TTY device for agent {agent_id}")
         return False
 
+    # Escape tty_device to prevent AppleScript injection
+    safe_tty = _escape_applescript_string(tty_device)
+
     # AppleScript to find and activate iTerm2 session by TTY
     script = f"""
     tell application "iTerm2"
@@ -152,7 +173,7 @@ def _jump_iterm2(tty_device: str | None, agent_id: str) -> bool:
         repeat with w in windows
             repeat with t in tabs of w
                 repeat with s in sessions of t
-                    if tty of s is "{tty_device}" then
+                    if tty of s is "{safe_tty}" then
                         select t
                         select s
                         return "found"
@@ -183,13 +204,16 @@ def _jump_terminal_app(tty_device: str | None, agent_id: str) -> bool:
         logger.warning(f"No TTY device for agent {agent_id}")
         return False
 
+    # Escape tty_device to prevent AppleScript injection
+    safe_tty = _escape_applescript_string(tty_device)
+
     # AppleScript to find and activate Terminal.app tab by TTY
     script = f"""
     tell application "Terminal"
         activate
         repeat with w in windows
             repeat with t in tabs of w
-                if tty of t is "{tty_device}" then
+                if tty of t is "{safe_tty}" then
                     set selected of t to true
                     set index of w to 1
                     return "found"
@@ -260,12 +284,20 @@ def _jump_vscode(tty_device: str | None, agent_id: str) -> bool:
         # On other platforms, try wmctrl or xdotool for X11
         if shutil.which("wmctrl"):
             try:
-                subprocess.run(
+                result = subprocess.run(
                     ["wmctrl", "-a", "Visual Studio Code"],
                     capture_output=True,
+                    text=True,
                     timeout=5,
                 )
-                return True
+                if result.returncode == 0:
+                    return True
+                logger.warning(
+                    f"wmctrl failed (returncode={result.returncode}): "
+                    f"stdout={result.stdout!r}, stderr={result.stderr!r}"
+                )
+            except subprocess.TimeoutExpired:
+                logger.warning("wmctrl command timed out")
             except Exception as e:
                 logger.warning(f"wmctrl failed: {e}")
 
@@ -322,16 +354,33 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
             pane_id, pane_tty = parts
             if pane_tty == tty_device:
                 # Select the pane
-                subprocess.run(
+                pane_result = subprocess.run(
                     ["tmux", "select-pane", "-t", pane_id],
                     capture_output=True,
+                    text=True,
                     timeout=5,
                 )
-                subprocess.run(
-                    ["tmux", "select-window", "-t", pane_id.rsplit(".", 1)[0]],
+                if pane_result.returncode != 0:
+                    logger.warning(
+                        f"tmux select-pane failed for {pane_id}: {pane_result.stderr}"
+                    )
+                    return False
+
+                # Select the window
+                window_id = pane_id.rsplit(".", 1)[0]
+                window_result = subprocess.run(
+                    ["tmux", "select-window", "-t", window_id],
                     capture_output=True,
+                    text=True,
                     timeout=5,
                 )
+                if window_result.returncode != 0:
+                    logger.warning(
+                        f"tmux select-window failed for {window_id}: "
+                        f"{window_result.stderr}"
+                    )
+                    return False
+
                 return True
 
         logger.warning(f"No tmux pane found with TTY {tty_device}")

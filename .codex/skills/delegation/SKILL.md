@@ -197,7 +197,15 @@ Before delegating any task:
 2. **Check file locks**: `synapse file-safety locks` (for file edits)
 3. **Verify branch**: `git branch --show-current` (for coding tasks)
 
-**Note:** Use `synapse list --watch` for real-time agent monitoring. The TRANSPORT column shows active communication (UDS→/→UDS or TCP→/→TCP). Press 1-9 to view agent details, ESC to close, Ctrl+C to exit.
+**Agent Status:**
+| Status | Meaning | Action |
+|--------|---------|--------|
+| READY | Idle, waiting for input | Safe to delegate |
+| WAITING | Awaiting user input | Use terminal jump to respond |
+| PROCESSING | Busy handling a task | Wait or use --priority 5 |
+| DONE | Task completed | Will return to READY shortly |
+
+**Note:** Use `synapse list --watch` for real-time agent monitoring. The TRANSPORT column shows active communication (UDS→/→UDS or TCP→/→TCP). Press 1-9 to view agent details, `Enter` or `j` to jump to terminal, ESC to close, Ctrl+C to exit.
 
 ## Priority Levels
 

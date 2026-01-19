@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.28] - 2026-01-19
+
+### Added
+
+- Terminal jump feature in `synapse list --watch` mode
+  - Press `Enter` or `j` to jump directly to selected agent's terminal
+  - Supports iTerm2, Terminal.app, Ghostty, VS Code, tmux, and Zellij
+- Expanded 4-state agent status system
+  - READY (green): Idle, waiting for input
+  - WAITING (cyan): Awaiting user input (selection, confirmation prompts)
+  - PROCESSING (yellow): Busy handling a task
+  - DONE (magenta): Task completed (auto-clears after 10s)
+- WAITING status detection via regex patterns in profile YAML
+  - Claude: Selection UI (❯), checkboxes (☐/☑), Y/n prompts
+  - Gemini: Numbered choices (●/○), Allow execution prompts
+  - Codex: Numbered list selection
+- Zellij terminal multiplexer support for terminal jump
+
+### Fixed
+
+- Ghostty terminal jump simplified to activate-only (AppleScript limitation)
+- Working directory display shows only directory name in list view (full path in detail panel)
+
+### Changed
+
+- WAITING detection refactored from pattern list to single regex for accuracy
+
+### Documentation
+
+- Add Agent Monitor section to README.md and README.ja.md
+- Update plugin skills with 4-state status and terminal jump documentation
+
 ## [0.2.27] - 2026-01-18
 
 ### Added
