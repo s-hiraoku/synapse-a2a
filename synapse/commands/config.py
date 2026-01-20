@@ -7,8 +7,17 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import questionary
-from questionary import Choice, Separator
+# questionary is optional (used by legacy ConfigCommand)
+try:
+    import questionary
+    from questionary import Choice, Separator
+
+    HAS_QUESTIONARY = True
+except ImportError:
+    questionary = None
+    Choice = None
+    Separator = None
+    HAS_QUESTIONARY = False
 
 from synapse.settings import (
     DEFAULT_SETTINGS,
@@ -56,7 +65,7 @@ BOOLEAN_ENV_VARS = {
 
 
 class ConfigCommand:
-    """Interactive TUI for managing Synapse settings."""
+    """Interactive TUI for managing Synapse settings (questionary-based, legacy)."""
 
     def __init__(
         self,
@@ -70,7 +79,15 @@ class ConfigCommand:
             settings_factory: Factory to create SynapseSettings instance.
             print_func: Function to use for output (for testing).
             questionary_module: Questionary module for TUI (injectable for testing).
+
+        Raises:
+            ImportError: If questionary is not installed and no module provided.
         """
+        if questionary_module is None and not HAS_QUESTIONARY:
+            raise ImportError(
+                "questionary is required for ConfigCommand. "
+                "Install it with: pip install questionary"
+            )
         self._settings_factory = settings_factory or get_settings
         self._print = print_func
         self._questionary = questionary_module or questionary
@@ -517,3 +534,347 @@ class ConfigCommand:
                 self._print(json.dumps(settings_dict, indent=2))
             else:
                 self._print(f"No settings file found at {path}")
+
+
+# Separator constant for menu items
+_MENU_SEPARATOR = "───────────────────────────────"
+
+
+class RichConfigCommand:
+    """Rich TUI config command with keyboard navigation (arrow keys, Enter, ESC)."""
+
+    def __init__(
+        self,
+        scope: str = "user",
+        settings_factory: Callable[[], SynapseSettings] | None = None,
+        print_func: Callable[[str], None] = print,
+    ) -> None:
+        """Initialize RichConfigCommand."""
+        self._scope = scope
+        self._settings_factory = settings_factory or get_settings
+        self._print = print_func
+        self._modified = False
+        self._current_settings: dict[str, Any] = {}
+
+    def _get_settings_path(self, scope: str) -> Path:
+        """Get settings file path for the given scope."""
+        if scope == "user":
+            return Path.home() / ".synapse" / "settings.json"
+        return Path.cwd() / ".synapse" / "settings.json"
+
+    def _get_category_keys(self) -> list[str]:
+        """Get list of category keys."""
+        return list(SETTING_CATEGORIES.keys())
+
+    def _get_setting_keys(self, category: str) -> list[str]:
+        """Get list of setting keys for a category."""
+        return list(DEFAULT_SETTINGS.get(category, {}).keys())
+
+    def _update_setting(self, category: str, key: str, value: Any) -> None:
+        """Update a setting value."""
+        if category not in self._current_settings:
+            self._current_settings[category] = {}
+        self._current_settings[category][key] = value
+        self._modified = True
+
+    def _build_header(
+        self,
+        title_text: str,
+        subtitle: str | None = None,
+        style: str = "box",
+    ) -> str:
+        """Build a consistent header for menus.
+
+        Args:
+            title_text: The main title text
+            subtitle: Optional subtitle/description line
+            style: Header style - "box" for main menu, "section" for category/edit views
+
+        Returns:
+            Formatted header string
+        """
+        modified_mark = " [*]" if self._modified else ""
+
+        if style == "box":
+            lines = [
+                "╔══════════════════════════════════════════════════════════╗",
+                "║               SYNAPSE CONFIGURATION EDITOR               ║",
+                "╚══════════════════════════════════════════════════════════╝",
+                f"  {title_text}{modified_mark}",
+                "",
+            ]
+        else:
+            lines = [
+                f"┌─ {title_text}{modified_mark} ─────────────────────────────────────┐",
+            ]
+            if subtitle:
+                lines.append(f"│  {subtitle}")
+            lines.extend(
+                [
+                    "└────────────────────────────────────────────────────────────┘",
+                    "",
+                ]
+            )
+
+        return "\n".join(lines)
+
+    def _build_numbered_items(
+        self,
+        labels: list[str],
+        footer_items: list[tuple[str, str]] | None = None,
+    ) -> list[str]:
+        """Build numbered menu items with optional footer.
+
+        Args:
+            labels: List of item labels to number (1-indexed)
+            footer_items: Optional list of (shortcut, label) tuples for footer
+
+        Returns:
+            List of formatted menu items
+        """
+        items = [f"[{i + 1}] {label}" for i, label in enumerate(labels)]
+        items.append(_MENU_SEPARATOR)
+
+        if footer_items:
+            for shortcut, label in footer_items:
+                items.append(f"[{shortcut}] {label}")
+
+        return items
+
+    def _format_display_value(self, key: str, value: Any) -> str:
+        """Format a setting value for display.
+
+        Args:
+            key: The setting key (used to determine formatting)
+            value: The value to format
+
+        Returns:
+            Formatted display string
+        """
+        if key in BOOLEAN_ENV_VARS:
+            if str(value).lower() == "true":
+                return "ON"
+            if value:
+                return "OFF"
+            return "(not set)"
+
+        if isinstance(value, list):
+            return ", ".join(value) if value else "(empty)"
+
+        if value:
+            return str(value)
+
+        return "(not set)"
+
+    def _format_display_key(self, key: str) -> str:
+        """Format a setting key for display (removes SYNAPSE_ prefix)."""
+        if key.startswith("SYNAPSE_"):
+            return key.replace("SYNAPSE_", "")
+        return key
+
+    def _select_menu(
+        self,
+        title: str,
+        items: list[str],
+        cursor_index: int = 0,
+        status_bar: str | None = None,
+    ) -> int | None:
+        """Show a menu and return the selected index, or None if cancelled."""
+        from simple_term_menu import TerminalMenu
+
+        if status_bar is None:
+            status_bar = "\n  [↑/↓] Move  [Enter] Select  [ESC/q] Back  [1-9] Jump"
+
+        menu = TerminalMenu(
+            items,
+            title=title,
+            cursor_index=cursor_index,
+            menu_cursor="> ",
+            menu_cursor_style=("fg_yellow", "bold"),
+            menu_highlight_style=("fg_yellow", "bold"),
+            shortcut_key_highlight_style=("fg_cyan",),
+            status_bar=status_bar,
+            status_bar_style=("fg_cyan",),
+            cycle_cursor=True,
+            clear_screen=True,
+        )
+        result = menu.show()
+        return int(result) if result is not None else None
+
+    def _select_from_options(
+        self,
+        title: str,
+        options: list[tuple[str, Any]],
+    ) -> Any | None:
+        """Show a selection menu and return the selected value.
+
+        Args:
+            title: Header title for the menu
+            options: List of (display_label, value) tuples
+
+        Returns:
+            The selected value, or None if cancelled
+        """
+        labels = [label for label, _ in options]
+        items = self._build_numbered_items(labels, [("0", "Cancel")])
+        selected = self._select_menu(title, items)
+
+        if selected is not None and selected < len(options):
+            return options[selected][1]
+        return None
+
+    def run(self) -> bool:
+        """Run the Rich TUI config editor."""
+        from rich.console import Console
+        from rich.prompt import Prompt
+
+        console = Console()
+        settings_path = self._get_settings_path(self._scope)
+        self._current_settings = load_settings(settings_path)
+
+        categories = self._get_category_keys()
+
+        while True:
+            title = self._build_header(f"File: {settings_path}", style="box")
+            labels = [SETTING_CATEGORIES[k]["name"] for k in categories]
+            items = self._build_numbered_items(
+                labels,
+                [("s", "Save and exit"), ("q", "Exit without saving")],
+            )
+
+            selected = self._select_menu(title, items)
+
+            # Handle exit options
+            if selected is None or selected == len(categories) + 2:
+                if self._modified:
+                    console.clear()
+                    confirm = Prompt.ask(
+                        "Discard changes?", choices=["y", "n"], default="n"
+                    )
+                    if confirm != "y":
+                        continue
+                console.clear()
+                console.print("[dim]Exited without saving.[/dim]")
+                return False
+
+            if selected == len(categories) + 1:
+                if self._modified:
+                    settings_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(settings_path, "w") as f:
+                        json.dump(self._current_settings, f, indent=2)
+                    console.clear()
+                    console.print(f"[green]Saved to {settings_path}[/green]")
+                else:
+                    console.clear()
+                    console.print("[dim]No changes to save.[/dim]")
+                return True
+
+            if selected == len(categories):
+                continue
+
+            self._edit_category(categories[selected])
+
+    def _edit_category(self, category: str) -> None:
+        """Edit settings in a category."""
+        while True:
+            setting_keys = self._get_setting_keys(category)
+            cat_settings = self._current_settings.get(category, {})
+            defaults = DEFAULT_SETTINGS.get(category, {})
+            info = SETTING_CATEGORIES[category]
+
+            labels = []
+            for key in setting_keys:
+                value = cat_settings.get(key, defaults.get(key, ""))
+                display_key = self._format_display_key(key)
+                val_str = self._format_display_value(key, value)
+                labels.append(f"{display_key}: {val_str}")
+
+            title = self._build_header(
+                info["name"], info.get("description", ""), style="section"
+            )
+            items = self._build_numbered_items(labels, [("0", "Back")])
+
+            selected = self._select_menu(title, items)
+
+            if selected is None or selected == len(setting_keys) + 1:
+                return
+
+            if selected == len(setting_keys):
+                continue
+
+            if selected < len(setting_keys):
+                self._edit_value(category, setting_keys[selected])
+
+    def _edit_value(self, category: str, key: str) -> None:
+        """Edit a single value."""
+        cat_settings = self._current_settings.get(category, {})
+        defaults = DEFAULT_SETTINGS.get(category, {})
+        current = cat_settings.get(key, defaults.get(key, ""))
+        display_key = self._format_display_key(key)
+        current_display = current if current else "(not set)"
+        title = self._build_header(
+            f"Edit: {display_key}", f"Current value: {current_display}", style="section"
+        )
+
+        # Handle different value types with selection menus
+        if key in BOOLEAN_ENV_VARS:
+            self._edit_boolean_env_value(title, category, key)
+        elif key == "flow":
+            self._edit_flow_value(title, category, key)
+        elif key == "enabled":
+            self._edit_enabled_value(title, category, key)
+        else:
+            self._edit_text_value(display_key, current, category, key)
+
+    def _edit_boolean_env_value(self, title: str, category: str, key: str) -> None:
+        """Edit a boolean environment variable value."""
+        options: list[tuple[str, Any]] = [
+            ("true (ON)", "true"),
+            ("false (OFF)", "false"),
+            ("(clear)", ""),
+        ]
+        result = self._select_from_options(title, options)
+        if result is not None:
+            self._update_setting(category, key, result)
+
+    def _edit_flow_value(self, title: str, category: str, key: str) -> None:
+        """Edit a flow setting value."""
+        options: list[tuple[str, Any]] = [
+            ("auto", "auto"),
+            ("roundtrip", "roundtrip"),
+            ("oneway", "oneway"),
+        ]
+        result = self._select_from_options(title, options)
+        if result is not None:
+            self._update_setting(category, key, result)
+
+    def _edit_enabled_value(self, title: str, category: str, key: str) -> None:
+        """Edit an enabled boolean setting value."""
+        options: list[tuple[str, Any]] = [("true", True), ("false", False)]
+        result = self._select_from_options(title, options)
+        if result is not None:
+            self._update_setting(category, key, result)
+
+    def _edit_text_value(
+        self, display_key: str, current: Any, category: str, key: str
+    ) -> None:
+        """Edit a text value using Rich Prompt."""
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+
+        console = Console()
+        console.clear()
+        console.print(
+            Panel(
+                f"Current: [cyan]{current or '(not set)'}[/cyan]",
+                title=display_key,
+                border_style="yellow",
+            )
+        )
+        console.print()
+        console.print("[dim]Enter new value (empty to clear, 'c' to cancel)[/dim]")
+        console.print()
+        new_value = Prompt.ask("Value", default=str(current) if current else "")
+        if new_value.lower() != "c":
+            self._update_setting(category, key, new_value if new_value else "")

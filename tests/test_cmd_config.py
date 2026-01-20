@@ -9,7 +9,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.commands.config import ConfigCommand
+from synapse.commands.config import HAS_QUESTIONARY, RichConfigCommand
+
+# ConfigCommand requires questionary - conditionally import
+if HAS_QUESTIONARY:
+    from synapse.commands.config import ConfigCommand
+else:
+    ConfigCommand = None  # type: ignore[assignment,misc]
+
+# Skip decorator for tests requiring questionary
+requires_questionary = pytest.mark.skipif(
+    not HAS_QUESTIONARY, reason="questionary not installed"
+)
 
 
 class MockQuestionary:
@@ -49,6 +60,7 @@ def temp_synapse_dir(tmp_path: Path) -> Path:
     return synapse_dir
 
 
+@requires_questionary
 class TestConfigShow:
     """Tests for 'synapse config show' command."""
 
@@ -98,6 +110,7 @@ class TestConfigShow:
         assert "true" in output
 
 
+@requires_questionary
 class TestConfigRun:
     """Tests for interactive config command."""
 
@@ -360,6 +373,7 @@ class TestConfigRun:
         assert result is False
 
 
+@requires_questionary
 class TestConfigHelpers:
     """Tests for helper methods."""
 
@@ -422,6 +436,7 @@ class TestConfigHelpers:
         assert result == {}
 
 
+@requires_questionary
 class TestConfigCLIIntegration:
     """Tests for CLI integration."""
 
@@ -454,3 +469,246 @@ class TestConfigCLIIntegration:
             cmd_config_show(args)
 
             mock_cmd.show.assert_called_once_with(scope="merged")
+
+
+class TestRichConfigCommand:
+    """Tests for Rich TUI config command."""
+
+    def test_init_default(self) -> None:
+        """Should initialize with default values."""
+        cmd = RichConfigCommand()
+        assert cmd._scope == "user"
+        assert cmd._modified is False
+
+    def test_init_with_scope(self) -> None:
+        """Should accept scope parameter."""
+        cmd = RichConfigCommand(scope="project")
+        assert cmd._scope == "project"
+
+    def test_get_category_keys(self) -> None:
+        """Should return list of category keys."""
+        cmd = RichConfigCommand()
+        keys = cmd._get_category_keys()
+        assert "env" in keys
+        assert "instructions" in keys
+        assert "a2a" in keys
+        assert "delegation" in keys
+        assert "resume_flags" in keys
+
+    def test_get_setting_keys(self) -> None:
+        """Should return list of setting keys for a category."""
+        cmd = RichConfigCommand()
+        keys = cmd._get_setting_keys("env")
+        assert "SYNAPSE_HISTORY_ENABLED" in keys
+
+    def test_update_setting_env(self) -> None:
+        """Should update env setting correctly."""
+        cmd = RichConfigCommand()
+        cmd._current_settings = {}
+
+        cmd._update_setting("env", "SYNAPSE_HISTORY_ENABLED", "true")
+
+        assert cmd._current_settings["env"]["SYNAPSE_HISTORY_ENABLED"] == "true"
+        assert cmd._modified is True
+
+    def test_update_setting_delegation(self) -> None:
+        """Should update delegation setting correctly (boolean)."""
+        cmd = RichConfigCommand()
+        cmd._current_settings = {}
+
+        cmd._update_setting("delegation", "enabled", True)
+
+        assert cmd._current_settings["delegation"]["enabled"] is True
+        assert cmd._modified is True
+
+    def test_update_setting_resume_flags(self) -> None:
+        """Should update resume_flags setting correctly (list)."""
+        cmd = RichConfigCommand()
+        cmd._current_settings = {}
+
+        cmd._update_setting("resume_flags", "claude", ["--continue", "--resume"])
+
+        assert cmd._current_settings["resume_flags"]["claude"] == [
+            "--continue",
+            "--resume",
+        ]
+        assert cmd._modified is True
+
+    def test_get_settings_path_user(self) -> None:
+        """Should return user settings path."""
+        cmd = RichConfigCommand()
+        path = cmd._get_settings_path("user")
+        assert ".synapse/settings.json" in str(path)
+
+    def test_get_settings_path_project(self) -> None:
+        """Should return project settings path."""
+        cmd = RichConfigCommand()
+        path = cmd._get_settings_path("project")
+        assert ".synapse/settings.json" in str(path)
+
+    def test_select_menu_returns_none_on_escape(self) -> None:
+        """_select_menu should return None when ESC is pressed."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        # Create a mock module
+        mock_module = MagicMock()
+        mock_menu = MagicMock()
+        mock_menu.show.return_value = None
+        mock_module.TerminalMenu.return_value = mock_menu
+
+        # Patch the import
+        with patch.dict(sys.modules, {"simple_term_menu": mock_module}):
+            cmd = RichConfigCommand()
+            result = cmd._select_menu("Test Title", ["Item 1", "Item 2"])
+
+            assert result is None
+            mock_module.TerminalMenu.assert_called_once()
+
+    def test_select_menu_returns_selected_index(self) -> None:
+        """_select_menu should return selected index."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        # Create a mock module
+        mock_module = MagicMock()
+        mock_menu = MagicMock()
+        mock_menu.show.return_value = 1  # Second item selected
+        mock_module.TerminalMenu.return_value = mock_menu
+
+        with patch.dict(sys.modules, {"simple_term_menu": mock_module}):
+            cmd = RichConfigCommand()
+            result = cmd._select_menu("Test Title", ["Item 1", "Item 2"])
+
+            assert result == 1
+
+    def test_run_saves_settings(self, tmp_path: Path) -> None:
+        """run() should save settings when user selects save."""
+        from unittest.mock import patch
+
+        settings_path = tmp_path / ".synapse" / "settings.json"
+        initial_settings = {"env": {"SYNAPSE_HISTORY_ENABLED": "true"}}
+
+        cmd = RichConfigCommand(scope="user")
+
+        # Mock _select_menu to return "Save and exit" option (index 6 for 5 categories + separator)
+        # Categories: env, instructions, a2a, delegation, resume_flags (5)
+        # Separator at index 5, Save at index 6, Quit at index 7
+        def mock_select_menu(
+            title: str, items: list[str], cursor_index: int = 0
+        ) -> int:
+            # Set modified flag and settings before returning save
+            cmd._modified = True
+            cmd._current_settings = initial_settings
+            return 6
+
+        with (
+            patch.object(cmd, "_select_menu", side_effect=mock_select_menu),
+            patch.object(cmd, "_get_settings_path", return_value=settings_path),
+            patch(
+                "synapse.commands.config.load_settings", return_value=initial_settings
+            ),
+        ):
+            result = cmd.run()
+
+        assert result is True
+        assert settings_path.exists()
+        saved = json.loads(settings_path.read_text())
+        assert saved["env"]["SYNAPSE_HISTORY_ENABLED"] == "true"
+
+    def test_run_exits_without_saving(self) -> None:
+        """run() should exit without saving when user cancels."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand(scope="user")
+        cmd._modified = False
+
+        # Mock _select_menu to return "Exit without saving" option (index 7)
+        with (
+            patch.object(cmd, "_select_menu", return_value=7),
+            patch("synapse.commands.config.load_settings", return_value={}),
+        ):
+            result = cmd.run()
+
+        assert result is False
+
+    def test_run_exits_on_escape(self) -> None:
+        """run() should exit when ESC is pressed."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand(scope="user")
+        cmd._modified = False
+
+        # Mock _select_menu to return None (ESC pressed)
+        with (
+            patch.object(cmd, "_select_menu", return_value=None),
+            patch("synapse.commands.config.load_settings", return_value={}),
+        ):
+            result = cmd.run()
+
+        assert result is False
+
+    def test_edit_category_back_on_escape(self) -> None:
+        """_edit_category should return when ESC is pressed."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand()
+        cmd._current_settings = {}
+
+        # Mock _select_menu to return None (ESC)
+        with patch.object(cmd, "_select_menu", return_value=None):
+            # Should return without error
+            cmd._edit_category("env")
+
+    def test_edit_value_boolean_true(self) -> None:
+        """_edit_value should set boolean to true when first option selected."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand()
+        cmd._current_settings = {"env": {}}
+
+        # Mock _select_menu to return 0 (true option)
+        with patch.object(cmd, "_select_menu", return_value=0):
+            cmd._edit_value("env", "SYNAPSE_HISTORY_ENABLED")
+
+        assert cmd._current_settings["env"]["SYNAPSE_HISTORY_ENABLED"] == "true"
+        assert cmd._modified is True
+
+    def test_edit_value_boolean_false(self) -> None:
+        """_edit_value should set boolean to false when second option selected."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand()
+        cmd._current_settings = {"env": {}}
+
+        # Mock _select_menu to return 1 (false option)
+        with patch.object(cmd, "_select_menu", return_value=1):
+            cmd._edit_value("env", "SYNAPSE_HISTORY_ENABLED")
+
+        assert cmd._current_settings["env"]["SYNAPSE_HISTORY_ENABLED"] == "false"
+
+    def test_edit_value_flow_setting(self) -> None:
+        """_edit_value should set flow setting correctly."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand()
+        cmd._current_settings = {"a2a": {}}
+
+        # Mock _select_menu to return 1 (roundtrip option)
+        with patch.object(cmd, "_select_menu", return_value=1):
+            cmd._edit_value("a2a", "flow")
+
+        assert cmd._current_settings["a2a"]["flow"] == "roundtrip"
+
+    def test_edit_value_enabled_setting(self) -> None:
+        """_edit_value should set enabled setting correctly."""
+        from unittest.mock import patch
+
+        cmd = RichConfigCommand()
+        cmd._current_settings = {"delegation": {}}
+
+        # Mock _select_menu to return 0 (true option)
+        with patch.object(cmd, "_select_menu", return_value=0):
+            cmd._edit_value("delegation", "enabled")
+
+        assert cmd._current_settings["delegation"]["enabled"] is True

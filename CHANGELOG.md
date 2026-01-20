@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.30] - 2026-01-21
+
+### Added
+
+- Rich TUI for `synapse config` command with keyboard navigation (#133)
+  - Arrow keys (↑/↓) for cursor movement
+  - Enter to select, ESC/q to go back
+  - Number keys (1-9) for quick jumps
+  - Box-style headers with status bar showing controls
+- `simple-term-menu` dependency for terminal menu selection
+
+### Changed
+
+- Replace questionary-based config UI with simple-term-menu
+- Extract helper methods in RichConfigCommand for cleaner code structure
+
 ## [0.2.29] - 2026-01-20
 
 ### Fixed
