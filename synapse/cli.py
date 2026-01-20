@@ -1469,12 +1469,25 @@ def cmd_reset(args: argparse.Namespace) -> None:
 
 def cmd_config(args: argparse.Namespace) -> None:
     """Interactive configuration management."""
-    from synapse.commands.config import ConfigCommand
+    import sys
 
-    cmd = ConfigCommand()
     scope = getattr(args, "scope", None)
+    no_rich = getattr(args, "no_rich", False)
 
-    cmd.run(scope=scope)
+    # Use Rich TUI if stdout is TTY and not explicitly disabled
+    use_rich = sys.stdout.isatty() and not no_rich
+
+    if use_rich:
+        from synapse.commands.config import RichConfigCommand
+
+        # Default to user scope if not specified
+        rich_cmd = RichConfigCommand(scope=scope or "user")
+        rich_cmd.run()
+    else:
+        from synapse.commands.config import ConfigCommand
+
+        legacy_cmd = ConfigCommand()
+        legacy_cmd.run(scope=scope)
 
 
 def cmd_config_show(args: argparse.Namespace) -> None:
@@ -2291,6 +2304,11 @@ Opens an interactive menu to browse and modify settings in .synapse/settings.jso
         "--scope",
         choices=["user", "project"],
         help="Settings scope to edit (user or project)",
+    )
+    p_config.add_argument(
+        "--no-rich",
+        action="store_true",
+        help="Use legacy questionary-based interface instead of Rich TUI",
     )
     p_config.set_defaults(func=cmd_config)
 
