@@ -108,7 +108,7 @@ class ListCommand:
 
         # Build column list based on mode
         columns: list[tuple[str, int]] = [
-            ("TYPE", 10),
+            ("TYPE", 12),
             ("PORT", 8),
             ("STATUS", 12),
         ]
@@ -141,7 +141,7 @@ class ListCommand:
 
             # Build row values matching column order
             row_values = [
-                (info.get("agent_type", "unknown"), 10),
+                (info.get("agent_type", "unknown"), 12),
                 (info.get("port", "-"), 8),
                 (status, 12),
             ]

@@ -43,6 +43,7 @@ class TestGetPortRange:
         assert get_port_range("claude") == (8100, 8109)
         assert get_port_range("gemini") == (8110, 8119)
         assert get_port_range("codex") == (8120, 8129)
+        assert get_port_range("opencode") == (8130, 8139)
         assert get_port_range("dummy") == (8190, 8199)
 
     def test_unknown_agent_type(self):
@@ -56,6 +57,7 @@ class TestGetPortRange:
         assert "claude" in PORT_RANGES
         assert "gemini" in PORT_RANGES
         assert "codex" in PORT_RANGES
+        assert "opencode" in PORT_RANGES
         assert "dummy" in PORT_RANGES
 
 

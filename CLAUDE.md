@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Mission: Enable agents to collaborate on tasks without changing their behavior.**
 
-Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
+Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini, OpenCode) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
 
 ### Core Principles
 
@@ -45,6 +45,7 @@ pytest tests/test_file_safety_extended.py -v # File Safety tests
 synapse claude
 synapse codex
 synapse gemini
+synapse opencode
 
 # List agents
 synapse list                              # Show all running agents
@@ -224,13 +225,28 @@ idle_detection:
   timeout: 1.5                 # Fallback if pattern fails
 ```
 
+### OpenCode - Timeout Strategy
+
+OpenCode uses Bubble Tea TUI (similar to Claude Code):
+
+```yaml
+# synapse/profiles/opencode.yaml
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"         # No pattern detection for OpenCode
+  timeout: 1.0                 # 1.0 second of no output = idle
+```
+
+**Why timeout?**: OpenCode uses Bubble Tea for its TUI, which doesn't have consistent prompt patterns. Timeout-based detection (1.0s) reliably detects when OpenCode is waiting for input.
+
 ## Port Ranges
 
-| Agent  | Ports     |
-| ------ | --------- |
-| Claude | 8100-8109 |
-| Gemini | 8110-8119 |
-| Codex  | 8120-8129 |
+| Agent    | Ports     |
+| -------- | --------- |
+| Claude   | 8100-8109 |
+| Gemini   | 8110-8119 |
+| Codex    | 8120-8129 |
+| OpenCode | 8130-8139 |
 
 ## Storage
 
@@ -320,6 +336,7 @@ pytest tests/test_cmd_list_watch.py::TestPartialJSONRead -v
 SYNAPSE_HISTORY_ENABLED=true synapse claude
 SYNAPSE_HISTORY_ENABLED=true synapse gemini
 SYNAPSE_HISTORY_ENABLED=true synapse codex
+SYNAPSE_HISTORY_ENABLED=true synapse opencode
 ```
 
 ### Monitoring Delegated Tasks

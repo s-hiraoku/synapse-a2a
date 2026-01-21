@@ -95,7 +95,7 @@ synapse send codex "STOP" --priority 5 --from claude
 synapse send codex "What is your current status?" --response --from claude
 ```
 
-AVAILABLE AGENTS: claude, gemini, codex
+AVAILABLE AGENTS: claude, gemini, codex, opencode
 LIST COMMAND: synapse list
 
 For advanced features (history, file-safety, delegation), use synapse-a2a skill.
