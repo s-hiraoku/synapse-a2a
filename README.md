@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini) **exactly as they are**
+> A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode) **exactly as they are**
 
 ## Project Goals
 
@@ -103,6 +103,7 @@ flowchart LR
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
   - [Codex CLI](https://github.com/openai/codex)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+  - [OpenCode](https://github.com/opencode-ai/opencode)
 
 ---
 
@@ -153,6 +154,9 @@ synapse codex
 
 # Terminal 3: Gemini
 synapse gemini
+
+# Terminal 4: OpenCode
+synapse opencode
 ```
 
 > Note: If terminal scrollback display is garbled, try:
@@ -164,11 +168,12 @@ synapse gemini
 
 Ports are auto-assigned:
 
-| Agent  | Port Range |
-| ------ | ---------- |
-| Claude | 8100-8109  |
-| Gemini | 8110-8119  |
-| Codex  | 8120-8129  |
+| Agent    | Port Range |
+| -------- | ---------- |
+| Claude   | 8100-8109  |
+| Gemini   | 8110-8119  |
+| Codex    | 8120-8129  |
+| OpenCode | 8130-8139  |
 
 ### 4. Inter-Agent Communication
 
@@ -417,6 +422,7 @@ sequenceDiagram
 synapse claude
 synapse codex
 synapse gemini
+synapse opencode
 
 # Specify port
 synapse claude --port 8105
@@ -476,6 +482,7 @@ Default flags (customizable in `settings.json`):
 - **Claude**: `--resume`, `--continue`, `-r`, `-c`
 - **Gemini**: `--resume`, `-r`
 - **Codex**: `resume`
+- **OpenCode**: `--continue`, `-c`
 
 ### Instruction Management
 
@@ -930,6 +937,7 @@ PORT_RANGES = {
     "claude": (8100, 8109),
     "gemini": (8110, 8119),
     "codex": (8120, 8129),
+    "opencode": (8130, 8139),
     "dummy": (8190, 8199),
 }
 ```
@@ -1077,6 +1085,7 @@ Detects when agents are waiting for user input (selection UI, Y/n prompts) using
 - **Gemini**: `● 1. Option` selection UI, `Allow execution` prompts
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
 - **Codex**: Indented numbered lists
+- **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
 
 ---
 
@@ -1213,7 +1222,7 @@ Customize instructions sent at agent startup:
 ```
 
 **Priority**:
-1. Agent-specific setting (`claude`, `gemini`, `codex`) if present
+1. Agent-specific setting (`claude`, `gemini`, `codex`, `opencode`) if present
 2. Otherwise use `default`
 3. If both empty, no initial instructions sent
 
@@ -1398,4 +1407,5 @@ MIT License
 ## Related Links
 
 - [Claude Code](https://claude.ai/code) - Anthropic's CLI agent
+- [OpenCode](https://opencode.ai/) - Open-source AI coding agent
 - [Google A2A Protocol](https://github.com/google/A2A) - Agent-to-Agent protocol

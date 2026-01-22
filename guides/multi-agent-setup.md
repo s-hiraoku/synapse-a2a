@@ -1,6 +1,6 @@
 # Multi-Agent Setup Guide
 
-このガイドでは、Claude / Codex / Gemini の3つのエージェントを同時に起動し、
+このガイドでは、Claude / Codex / Gemini / OpenCode のエージェントを同時に起動し、
 相互通信できる状態にするまでを **丁寧に** まとめています。
 
 ---
@@ -37,6 +37,7 @@ Synapse のエージェント間通信は **Google A2A プロトコル**に準�
 | Claude | `claude` | https://claude.ai/code |
 | Codex | `codex` | https://github.com/openai/codex |
 | Gemini | `gemini` | https://github.com/google/gemini-cli |
+| OpenCode | `opencode` | https://github.com/opencode-ai/opencode |
 
 ---
 
@@ -69,6 +70,9 @@ synapse codex --port 8120
 
 # Terminal 3
 synapse gemini --port 8110
+
+# Terminal 4
+synapse opencode --port 8130
 ```
 
 起動後の挙動:

@@ -13,6 +13,7 @@ flowchart LR
         Claude["claude.yaml"]
         Codex["codex.yaml"]
         Gemini["gemini.yaml"]
+        OpenCode["opencode.yaml"]
         Dummy["dummy.yaml"]
         Custom["custom.yaml"]
     end
@@ -286,7 +287,30 @@ env:
 
 ---
 
-### 4.4 dummy.yaml
+### 4.4 opencode.yaml
+
+```yaml
+command: "opencode"
+args: []
+submit_sequence: "\r"
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"
+  timeout: 1.0
+env:
+  TERM: "xterm-256color"
+```
+
+**特徴**:
+
+- OpenCode CLI 用（オープンソース AI コーディングエージェント）
+- Bubble Tea ベースの TUI のため `\r` を使用
+- **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
+- 1.0 秒のタイムアウト
+
+---
+
+### 4.5 dummy.yaml
 
 ```yaml
 command: "python3 -u dummy_agent.py"

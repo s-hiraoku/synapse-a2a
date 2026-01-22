@@ -44,8 +44,8 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 
 **Target Resolution (Matching Priority):**
 1. Exact ID: `synapse-claude-8100` (direct match)
-2. Type-port: `claude-8100`, `codex-8120` (shorthand)
-3. Type only: `claude`, `gemini`, `codex` (only if single instance)
+2. Type-port: `claude-8100`, `codex-8120`, `opencode-8130` (shorthand)
+3. Type only: `claude`, `gemini`, `codex`, `opencode` (only if single instance)
 
 **Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port shorthand (e.g., `claude-8100`) instead.
 

@@ -16,7 +16,8 @@
     "default": "default.md",
     "claude": "",
     "gemini": "gemini.md",
-    "codex": ""
+    "codex": "",
+    "opencode": ""
   },
   "a2a": {
     "flow": "auto"
@@ -27,6 +28,7 @@
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],
-    "gemini": ["--resume"]
+    "gemini": ["--resume"],
+    "opencode": ["--continue", "-c"]
   }
 }

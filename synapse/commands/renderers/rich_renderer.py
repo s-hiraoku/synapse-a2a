@@ -93,7 +93,7 @@ class RichRenderer:
             table.add_column("#", justify="right", style="dim", width=2)
 
         # Add columns in order with fixed widths to prevent table resizing
-        table.add_column("TYPE", style="cyan", width=6)
+        table.add_column("TYPE", style="cyan", width=12)
         table.add_column("PORT", justify="right", width=5)
         table.add_column("STATUS", min_width=12)
 
