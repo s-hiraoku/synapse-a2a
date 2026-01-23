@@ -30,6 +30,7 @@ def mock_registry():
             "endpoint": "http://localhost:8101",
         },
     }
+    registry.get_transport_display.return_value = "-"
     return registry
 
 
@@ -39,63 +40,55 @@ def list_command():
     return ListCommand(
         registry_factory=MagicMock(),
         is_process_alive=lambda pid: True,
-        is_port_open=lambda host, port, timeout: True,
+        is_port_open=lambda host, port, timeout=0.5: True,
         clear_screen=MagicMock(),
         time_module=MagicMock(),
         print_func=MagicMock(),
     )
 
 
-def test_render_table_file_safety_disabled(list_command, mock_registry):
-    """Test table rendering when file safety is disabled."""
+def test_get_agent_data_file_safety_disabled(list_command, mock_registry):
+    """Test that file safety column is not added when disabled."""
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
-        # Setup FSM to be disabled
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = False
 
-        output = list_command._render_agent_table(mock_registry)
+        agents, stale_locks, show_file_safety = list_command._get_agent_data(
+            mock_registry
+        )
 
-        # Verify header does NOT contain EDITING FILE column
-        header_line = output.split("\n")[0]
-        assert "EDITING FILE" not in header_line
-        assert "TYPE" in header_line
-        assert "PORT" in header_line
+        assert show_file_safety is False
+        # Check no editing_file key added
+        for agent in agents:
+            assert "editing_file" not in agent
 
 
-def test_render_table_file_safety_enabled_no_locks(list_command, mock_registry):
-    """Test table rendering when enabled but no files are locked."""
+def test_get_agent_data_file_safety_enabled_no_locks(list_command, mock_registry):
+    """Test that file safety is shown with placeholder when no locks."""
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
-        # Setup FSM to be enabled but return no locks
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
         fsm_instance.list_locks.return_value = []
         fsm_instance.get_stale_locks.return_value = []
 
-        output = list_command._render_agent_table(mock_registry)
+        agents, stale_locks, show_file_safety = list_command._get_agent_data(
+            mock_registry
+        )
 
-        # Verify header DOES contain EDITING FILE column
-        header_line = output.split("\n")[0]
-        assert "EDITING FILE" in header_line
-
-        # Verify columns alignment in header (simple check)
-        assert output.find("EDITING FILE") > output.find("PID")
-
-        # Verify content lines show placeholder for no locks
-        lines = output.split("\n")[2:]  # Skip header and separator
-        for line in lines:
-            if "claude" in line:
-                # Should show placeholder (e.g. "-")
-                assert " -" in line or line.rstrip().endswith("-")
+        assert show_file_safety is True
+        # Check editing_file key added with placeholder
+        for agent in agents:
+            assert "editing_file" in agent
+            assert agent["editing_file"] == "-"
 
 
-def test_render_table_file_safety_shows_locked_file(list_command, mock_registry):
-    """Test table rendering shows locked file name."""
+def test_get_agent_data_file_safety_shows_locked_file(list_command, mock_registry):
+    """Test that file safety shows locked file name."""
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
         fsm_instance.get_stale_locks.return_value = []
 
-        # Setup locks: claude locks a file
         def mock_list_locks(
             agent_name=None, *, pid=None, agent_type=None, include_stale=True
         ):
@@ -105,27 +98,23 @@ def test_render_table_file_safety_shows_locked_file(list_command, mock_registry)
 
         fsm_instance.list_locks.side_effect = mock_list_locks
 
-        output = list_command._render_agent_table(mock_registry)
+        agents, stale_locks, show_file_safety = list_command._get_agent_data(
+            mock_registry
+        )
 
-        # Check output contains the file name (basename only)
-        assert "important_file.py" in output
-        # Ensure full path is NOT shown to keep table clean
-        assert "/path/to/important_file.py" not in output
-
-        # Verify specific line for claude has the file
-        lines = output.split("\n")
-        claude_line = next(line for line in lines if "claude" in line)
-        assert "important_file.py" in claude_line
+        assert show_file_safety is True
+        claude_agent = next(a for a in agents if a["agent_type"] == "claude")
+        # Should show basename only
+        assert claude_agent["editing_file"] == "important_file.py"
 
 
-def test_render_table_shows_only_one_locked_file(list_command, mock_registry):
-    """Test table shows only one file even if multiple are locked."""
+def test_get_agent_data_shows_only_one_locked_file(list_command, mock_registry):
+    """Test that only first locked file is shown when multiple locked."""
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
         fsm_instance = MockFSM.from_env.return_value
         fsm_instance.enabled = True
         fsm_instance.get_stale_locks.return_value = []
 
-        # Setup locks: claude locks multiple files
         def mock_list_locks(
             agent_name=None, *, pid=None, agent_type=None, include_stale=True
         ):
@@ -138,15 +127,9 @@ def test_render_table_shows_only_one_locked_file(list_command, mock_registry):
 
         fsm_instance.list_locks.side_effect = mock_list_locks
 
-        output = list_command._render_agent_table(mock_registry)
+        agents, _, _ = list_command._get_agent_data(mock_registry)
 
-        lines = output.split("\n")
-        claude_line = next(line for line in lines if "claude" in line)
-
-        # Check that ONLY one file is displayed
-        has_file1 = "file1.py" in claude_line
-        has_file2 = "file2.py" in claude_line
-
-        assert has_file1 or has_file2
-        # Ensure both are NOT displayed (concatenated or listed)
-        assert not (has_file1 and has_file2)
+        claude_agent = next(a for a in agents if a["agent_type"] == "claude")
+        # Should show only first file
+        assert claude_agent["editing_file"] == "file1.py"
+        assert "file2.py" not in claude_agent["editing_file"]

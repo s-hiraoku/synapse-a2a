@@ -131,47 +131,44 @@ synapse stop <profile|id>
 
 ### 1.5 synapse list
 
-実行中のエージェント一覧を表示します。
+実行中のエージェント一覧を Rich TUI で表示します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます。
 
 ```bash
-synapse list [--watch] [--interval SECONDS]
+synapse list
 ```
 
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `--watch`, `-w` | No | ウォッチモード（リアルタイム更新、TRANSPORT 列表示） |
-| `--interval`, `-i` | No | 更新間隔（秒）（デフォルト: 2.0） |
-
-**通常の出力形式**:
+**出力形式（Rich TUI）**:
 
 ```
-TYPE       PORT     STATUS     PID      ENDPOINT
-------------------------------------------------------------
-claude     8100     READY      12345    http://localhost:8100
-codex      8120     PROCESSING 12346    http://localhost:8120
+╭─────────────── Synapse A2A v0.2.30 - Agent List ───────────────╮
+│ ╭───┬────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
+│ │ # │ TYPE   │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
+│ ├───┼────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
+│ │ 1 │ claude │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
+│ │ 2 │ gemini │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
+│ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
+│ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
+╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
+[1-3: select] [Enter/j: jump] [ESC: clear] [q: quit]
 ```
 
-**Watch モードの出力形式（`synapse list --watch`）**:
+**キーボード操作**:
 
-```
-Synapse A2A v0.2.12 - Agent List (refreshing every 2s)
-Last updated: 2024-01-15 10:30:45
-
-TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              ENDPOINT
-claude     8100     PROCESSING   UDS→       12345    /home/user/project       http://localhost:8100
-gemini     8110     PROCESSING   →UDS       12346    /home/user/other         http://localhost:8110
-codex      8120     READY        -           12347    /home/user/third         http://localhost:8120
-```
+| キー | アクション |
+|------|----------|
+| 1-9 | エージェント行を選択 |
+| Enter / j | 選択したエージェントのターミナルにジャンプ |
+| ESC | 選択解除 |
+| q | 終了 |
 
 | 列 | 説明 |
 |----|------|
 | TYPE | エージェントタイプ（プロファイル名） |
 | PORT | HTTP サーバーポート |
-| STATUS | 現在の状態（READY/PROCESSING） |
-| TRANSPORT | 通信中の方式（watch モードのみ） |
+| STATUS | 現在の状態（READY/PROCESSING/DONE） |
+| TRANSPORT | 通信中の方式 |
 | PID | プロセス ID |
 | WORKING_DIR | 作業ディレクトリ |
-| ENDPOINT | HTTP エンドポイント URL |
 
 **TRANSPORT 列の値**:
 

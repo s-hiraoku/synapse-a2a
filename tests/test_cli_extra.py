@@ -41,8 +41,8 @@ class TestCliExtra:
 class TestListCommand:
     """Test cases for ListCommand class."""
 
-    def test_render_table_with_dead_agents(self):
-        """Test that _render_agent_table cleans up dead agents."""
+    def test_get_agent_data_cleans_up_dead_agents(self):
+        """Test that _get_agent_data cleans up dead agents."""
         mock_registry_factory = MagicMock()
         mock_registry = MagicMock()
         mock_registry_factory.return_value = mock_registry
@@ -65,11 +65,14 @@ class TestListCommand:
             print_func=print,
         )
 
-        list_cmd._render_agent_table(mock_registry)
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            list_cmd._get_agent_data(mock_registry)
+
         mock_registry.unregister.assert_called_with("dead-agent")
 
-    def test_render_table_with_closed_port(self):
-        """Test that _render_agent_table cleans up agents with closed ports."""
+    def test_get_agent_data_cleans_up_closed_ports(self):
+        """Test that _get_agent_data cleans up agents with closed ports."""
         mock_registry_factory = MagicMock()
         mock_registry = MagicMock()
         mock_registry_factory.return_value = mock_registry
@@ -92,5 +95,8 @@ class TestListCommand:
             print_func=print,
         )
 
-        list_cmd._render_agent_table(mock_registry)
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            list_cmd._get_agent_data(mock_registry)
+
         mock_registry.unregister.assert_called_with("closed-port-agent")

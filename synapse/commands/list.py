@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import time as time_module
 from collections.abc import Callable
+from pathlib import Path
+from threading import Event
 from typing import TYPE_CHECKING, Any, Protocol
 
 from synapse.file_safety import FileSafetyManager
@@ -26,7 +27,7 @@ class _TimeModule(Protocol):
 
 
 class ListCommand:
-    """List running agents (with optional watch mode)."""
+    """List running agents with Rich TUI and event-driven updates."""
 
     def __init__(
         self,
@@ -78,131 +79,14 @@ class ListCommand:
 
         return True
 
-    def _format_empty_message(self) -> str:
-        """Format the 'no agents running' message with port ranges."""
-        lines = ["No agents running.", "", "Port ranges:"]
-        for agent_type, (start, end) in sorted(PORT_RANGES.items()):
-            lines.append(f"  {agent_type}: {start}-{end}")
-        return "\n".join(lines)
-
-    def _render_agent_table(
-        self, registry: AgentRegistry, is_watch_mode: bool = False
-    ) -> str:
-        """
-        Render the agent table output.
-
-        Args:
-            registry: AgentRegistry instance
-            is_watch_mode: If True, show TRANSPORT column for real-time status
-
-        Returns:
-            str: Formatted table output
-        """
-        agents = registry.list_agents()
-
-        if not agents:
-            return self._format_empty_message()
-
-        file_safety = FileSafetyManager.from_env()
-        show_file_safety = file_safety.enabled
-
-        # Build column list based on mode
-        columns: list[tuple[str, int]] = [
-            ("TYPE", 12),
-            ("PORT", 8),
-            ("STATUS", 12),
-        ]
-        if is_watch_mode:
-            columns.append(("TRANSPORT", 10))
-        columns.extend([("PID", 8), ("WORKING_DIR", 50)])
-        if show_file_safety:
-            columns.append(("EDITING FILE", 30))
-        columns.append(("ENDPOINT", 0))  # 0 means no padding (last column)
-
-        def format_row(values: list[tuple[str, int]]) -> str:
-            """Format a row of values with their widths."""
-            parts = [
-                f"{value:<{width}}" if width > 0 else value for value, width in values
-            ]
-            return " ".join(parts)
-
-        header = format_row([(col, width) for col, width in columns])
-
-        lines = [header, "-" * len(header)]
-
-        live_agents = False
-        for agent_id, info in agents.items():
-            if not self._is_agent_alive(registry, agent_id, info):
-                continue
-
-            live_agents = True
-            pid = info.get("pid")
-            status = info.get("status", "-")
-
-            # Build row values matching column order
-            row_values = [
-                (info.get("agent_type", "unknown"), 12),
-                (info.get("port", "-"), 8),
-                (status, 12),
-            ]
-            if is_watch_mode:
-                transport = (
-                    registry.get_transport_display(agent_id, retention_seconds=3.0)
-                    or "-"
-                )
-                row_values.append((transport, 10))
-            row_values.extend(
-                [
-                    (pid or "-", 8),
-                    (os.path.basename(info.get("working_dir", "")) or "-", 50),
-                ]
-            )
-
-            if show_file_safety:
-                agent_type = info.get("agent_type", "")
-                if pid:
-                    locks = file_safety.list_locks(pid=pid, include_stale=False)
-                else:
-                    locks = file_safety.list_locks(
-                        agent_type=agent_type, include_stale=False
-                    )
-                editing_file = "-"
-                if locks:
-                    file_path = locks[0].get("file_path")
-                    if file_path:
-                        editing_file = os.path.basename(file_path)
-                row_values.append((editing_file, 30))
-
-            row_values.append((info.get("endpoint", "-"), 0))
-
-            lines.append(format_row(row_values))
-
-        if not live_agents:
-            return self._format_empty_message()
-
-        # Check for stale locks and add warning
-        if show_file_safety:
-            stale_locks = file_safety.get_stale_locks()
-            if stale_locks:
-                lines.append("")
-                count = len(stale_locks)
-                lines.append(f"Warning: {count} stale lock(s) from dead processes.")
-                lines.append(
-                    "Run 'synapse file-safety cleanup-locks' to clean them up."
-                )
-
-        return "\n".join(lines)
-
-    def _get_agent_data_for_rich(
+    def _get_agent_data(
         self,
         registry: AgentRegistry,
-        is_watch_mode: bool = False,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
         """Get agent data formatted for Rich renderer.
 
         Args:
             registry: AgentRegistry instance.
-            is_watch_mode: If True, include transport information.
 
         Returns:
             Tuple of (agents_list, stale_locks, show_file_safety).
@@ -235,12 +119,11 @@ class ListCommand:
                 "zellij_pane_id": info.get("zellij_pane_id"),
             }
 
-            if is_watch_mode:
-                transport = (
-                    registry.get_transport_display(agent_id, retention_seconds=3.0)
-                    or "-"
-                )
-                agent_data["transport"] = transport
+            # Include transport info
+            transport = (
+                registry.get_transport_display(agent_id, retention_seconds=3.0) or "-"
+            )
+            agent_data["transport"] = transport
 
             if show_file_safety:
                 agent_type = info.get("agent_type", "")
@@ -314,18 +197,51 @@ class ListCommand:
             pass
         return None
 
-    def _run_watch_mode_rich(
+    def _create_file_watcher(
+        self, registry_dir: Path, change_event: Event
+    ) -> Any | None:
+        """Create a file watcher for registry directory.
+
+        Args:
+            registry_dir: Path to registry directory.
+            change_event: Event to signal when changes detected.
+
+        Returns:
+            Observer instance if successful, None otherwise.
+        """
+        try:
+            from watchdog.events import FileSystemEventHandler
+            from watchdog.observers import Observer
+
+            class RegistryChangeHandler(FileSystemEventHandler):
+                def __init__(self, event: Event) -> None:
+                    self._event = event
+
+                def on_any_event(self, event: Any) -> None:
+                    # Only trigger on JSON file changes
+                    if event.src_path.endswith(".json"):
+                        self._event.set()
+
+            observer = Observer()
+            handler = RegistryChangeHandler(change_event)
+            observer.schedule(handler, str(registry_dir), recursive=False)
+            observer.start()
+            return observer
+        except ImportError:
+            return None
+        except Exception:
+            return None
+
+    def _run_rich_tui(
         self,
         registry: AgentRegistry,
-        interval: float,
         console: Console,
         pkg_version: str,
     ) -> None:
-        """Run watch mode with Rich TUI.
+        """Run Rich TUI with event-driven updates.
 
         Args:
             registry: AgentRegistry instance.
-            interval: Refresh interval in seconds.
             console: Rich Console instance.
             pkg_version: Package version string.
         """
@@ -348,16 +264,29 @@ class ListCommand:
         # Track current agents for jump functionality
         current_agents: list[dict[str, Any]] = []
 
+        # Set up file watcher
+        change_event = Event()
+        observer = self._create_file_watcher(registry.registry_dir, change_event)
+
+        # Force initial update
+        change_event.set()
+
+        # Fallback polling interval (2 seconds) in case file watcher misses events
+        last_poll_time = self._time.time()
+        poll_interval = 2.0
+
         try:
             with Live(console=console, refresh_per_second=4) as live:
-                last_update = 0.0
                 while True:
                     # Check for keyboard input
                     if interactive:
                         key = self._read_key_nonblocking()
                         if key is not None:
+                            # q key to quit
+                            if key in ("q", "Q"):
+                                break
                             # ESC key (0x1b) clears selection
-                            if key == "\x1b":
+                            elif key == "\x1b":
                                 selected_row = None
                             elif key.isdigit() and key != "0":
                                 selected_row = int(key)
@@ -371,16 +300,18 @@ class ListCommand:
                                 agent = current_agents[selected_row - 1]
                                 jump_to_terminal(agent)
 
-                    # Update display at interval
-                    # Use injected time module if it has time(), otherwise fallback
-                    current_time = (
-                        self._time.time()
-                        if hasattr(self._time, "time")
-                        else time_module.time()
-                    )
-                    if current_time - last_update >= interval:
-                        agents, stale_locks, show_file_safety = (
-                            self._get_agent_data_for_rich(registry, is_watch_mode=True)
+                    # Fallback polling: trigger update every poll_interval seconds
+                    current_time = self._time.time()
+                    if current_time - last_poll_time >= poll_interval:
+                        change_event.set()
+                        last_poll_time = current_time
+
+                    # Update display when file changes detected or polling triggered
+                    if change_event.is_set():
+                        change_event.clear()
+
+                        agents, stale_locks, show_file_safety = self._get_agent_data(
+                            registry
                         )
 
                         # Update current_agents for terminal jump
@@ -392,10 +323,9 @@ class ListCommand:
 
                         timestamp = self._time.strftime("%Y-%m-%d %H:%M:%S")
 
-                        display = renderer.render_watch_display(
+                        display = renderer.render_display(
                             agents=agents,
                             version=pkg_version,
-                            interval=interval,
                             timestamp=timestamp,
                             show_file_safety=show_file_safety,
                             stale_locks=stale_locks,
@@ -405,69 +335,49 @@ class ListCommand:
                         )
 
                         live.update(display)
-                        last_update = current_time
 
                     # Small sleep to prevent CPU spinning
                     self._time.sleep(0.05)
         except KeyboardInterrupt:
             pass
         finally:
+            if observer:
+                observer.stop()
+                observer.join()
             self._restore_terminal(saved_terminal)
-            console.print("\n[dim]Exiting watch mode...[/dim]")
+            console.print("\n[dim]Exiting...[/dim]")
             raise SystemExit(0)
 
-    def _run_watch_mode_plain(
-        self, registry: AgentRegistry, interval: float, pkg_version: str
-    ) -> None:
-        """Run watch mode with plain text output.
-
-        Args:
-            registry: AgentRegistry instance.
-            interval: Refresh interval in seconds.
-            pkg_version: Package version string.
-        """
-        try:
-            while True:
-                self._clear_screen()
-                title = f"Synapse A2A v{pkg_version} - Agent List (every {interval}s)"
-                self._print(title)
-                now = self._time.strftime("%Y-%m-%d %H:%M:%S")
-                self._print(f"Last updated: {now}")
-                self._print("")
-                self._print(self._render_agent_table(registry, is_watch_mode=True))
-                self._time.sleep(interval)
-        except KeyboardInterrupt:
-            self._print("\n\nExiting watch mode...")
-            raise SystemExit(0) from None
-
-    def _should_use_rich(self, args: argparse.Namespace) -> bool:
-        """Determine if Rich TUI should be used.
-
-        Args:
-            args: Parsed command line arguments.
-
-        Returns:
-            True if Rich mode should be used.
-        """
-        # Check explicit --no-rich flag
-        if getattr(args, "no_rich", False):
-            return False
-
-        # Auto-detect: use Rich only if stdout is a TTY
-        return sys.stdout.isatty()
-
     def run(self, args: argparse.Namespace) -> None:
-        """List running agents (with optional watch mode)."""
+        """List running agents with Rich TUI."""
         registry = self._registry_factory()
-        watch_mode = getattr(args, "watch", False)
-        interval = getattr(args, "interval", 2.0)
 
-        if not watch_mode:
-            # Normal mode: single output
-            self._print(self._render_agent_table(registry))
+        # Check if stdout is a TTY
+        if not sys.stdout.isatty():
+            # Non-interactive mode: single output
+            agents, _, _ = self._get_agent_data(registry)
+            if not agents:
+                lines = ["No agents running.", "", "Port ranges:"]
+                for agent_type, (start, end) in sorted(PORT_RANGES.items()):
+                    lines.append(f"  {agent_type}: {start}-{end}")
+                self._print("\n".join(lines))
+            else:
+                # Simple table output
+                header = (
+                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
+                )
+                self._print(header)
+                self._print("-" * len(header))
+                for agent in agents:
+                    self._print(
+                        f"{agent['agent_type']:<10} "
+                        f"{agent['port']:<8} "
+                        f"{agent['status']:<12} "
+                        f"{agent['pid']:<8} "
+                        f"{agent['endpoint']}"
+                    )
             return
 
-        # Watch mode: continuous refresh
         # Get version for display
         try:
             from importlib.metadata import version
@@ -476,13 +386,7 @@ class ListCommand:
         except Exception:
             pkg_version = "unknown"
 
-        use_rich = self._should_use_rich(args)
+        from rich.console import Console
 
-        if use_rich:
-            from rich.console import Console
-
-            console = Console()
-            self._run_watch_mode_rich(registry, interval, console, pkg_version)
-        else:
-            self._print("Watch mode: Press Ctrl+C to exit\n")
-            self._run_watch_mode_plain(registry, interval, pkg_version)
+        console = Console()
+        self._run_rich_tui(registry, console, pkg_version)

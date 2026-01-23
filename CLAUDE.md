@@ -47,12 +47,9 @@ synapse codex
 synapse gemini
 synapse opencode
 
-# List agents
-synapse list                              # Show all running agents
-synapse list --watch                      # Watch mode with Rich TUI (interactive, refresh every 2s)
-synapse list -w -i 0.5                    # Watch mode with 0.5s interval (for observing communication)
-synapse list -w --no-rich                 # Watch mode with plain text output (non-interactive)
-# In watch mode: ↑/↓ to select, Enter/j to jump to terminal, q to quit
+# List agents (Rich TUI with event-driven auto-update)
+synapse list                              # Show all running agents with auto-refresh on changes
+# Interactive controls: 1-9 select agent, Enter/j jump to terminal, ESC clear selection, q quit
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude
@@ -258,7 +255,7 @@ idle_detection:
 
 ## Testing Registry & Status Updates
 
-### Manual Verification of `synapse list --watch`
+### Manual Verification of `synapse list`
 
 To verify the registry status update system works correctly:
 
@@ -269,14 +266,14 @@ synapse claude
 # Terminal 2: Start another agent
 synapse gemini
 
-# Terminal 3: Watch agent status changes
-synapse list --watch                      # 2s refresh (default)
-synapse list -w -i 0.5                    # 0.5s refresh (faster, for observing TRANSPORT)
+# Terminal 3: Monitor agent status changes
+synapse list
+# Uses file watcher (inotify/fsevents) for instant updates when registry changes
 
 # Expected behavior:
 # 1. Agent starts in PROCESSING status (initializing)
 # 2. After initialization completes, status changes to READY
-# 3. Status updates are immediate (within refresh interval)
+# 3. Status updates instantly when registry files change
 # 4. No "flickering" where agent disappears/reappears
 # 5. No stale status values (always shows current state)
 # 6. TRANSPORT column shows UDS→/→UDS or TCP→/→TCP during communication
@@ -298,7 +295,7 @@ synapse list -w -i 0.5                    # 0.5s refresh (faster, for observing 
 **Bug #1 (Race Conditions)**:
 - Start multiple agents simultaneously
 - Status updates should be consistent (no lost updates)
-- Each agent's status visible in watch mode without flicker
+- Each agent's status visible in list mode without flicker
 
 **Bug #2 (Silent Failures)**:
 - Check logs: `tail -f ~/.synapse/logs/*.log`
@@ -317,7 +314,7 @@ synapse list -w -i 0.5                    # 0.5s refresh (faster, for observing 
 pytest
 
 # Specific tests for registry/status system
-pytest tests/test_cmd_list_watch.py -v
+pytest tests/test_cmd_list_watch.py -v   # List command tests
 pytest tests/test_registry.py -v
 pytest tests/test_controller_registry_sync.py -v
 
@@ -325,6 +322,7 @@ pytest tests/test_controller_registry_sync.py -v
 pytest tests/test_cmd_list_watch.py::TestSilentFailures -v
 pytest tests/test_cmd_list_watch.py::TestRegistryRaceConditions -v
 pytest tests/test_cmd_list_watch.py::TestPartialJSONRead -v
+pytest tests/test_cmd_list_watch.py::TestFileWatcher -v
 ```
 
 ## Multi-Agent Management with History
@@ -344,8 +342,8 @@ SYNAPSE_HISTORY_ENABLED=true synapse opencode
 When orchestrating multiple agents, use these commands to track progress:
 
 ```bash
-# Real-time agent status
-python3 synapse/tools/a2a.py list
+# Real-time agent status (auto-updates on registry changes)
+synapse list
 
 # Task history by agent
 synapse history list --agent gemini
@@ -373,7 +371,7 @@ synapse history stats --agent gemini
 
 3. **Monitor progress**:
    ```bash
-   synapse list --watch
+   synapse list                            # Auto-updates on changes
    git status && git log --oneline -5
    ```
 
@@ -402,4 +400,4 @@ synapse history stats --agent gemini
 - Use `git log` and `git status` to verify completed work
 - Track task IDs from delegation responses for follow-up
 - Use `--priority 4-5` for urgent status checks
-- Monitor `synapse list --watch` during active orchestration
+- Monitor `synapse list` during active orchestration (auto-updates on registry changes)

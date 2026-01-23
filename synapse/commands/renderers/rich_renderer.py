@@ -1,4 +1,4 @@
-"""Rich TUI renderer for synapse list --watch."""
+"""Rich TUI renderer for synapse list."""
 
 from __future__ import annotations
 
@@ -63,7 +63,6 @@ class RichRenderer:
     def build_table(
         self,
         agents: list[dict[str, Any]],
-        is_watch_mode: bool = False,
         show_file_safety: bool = False,
         show_row_numbers: bool = False,
         selected_row: int | None = None,
@@ -73,9 +72,8 @@ class RichRenderer:
         Args:
             agents: List of agent dictionaries with keys:
                 - agent_type, port, status, pid, working_dir, endpoint
-                - transport (optional, for watch mode)
+                - transport (always included)
                 - editing_file (optional, for file safety)
-            is_watch_mode: If True, include TRANSPORT column.
             show_file_safety: If True, include EDITING FILE column.
             show_row_numbers: If True, add row numbers for selection.
             selected_row: If set, highlight this row (1-indexed).
@@ -96,10 +94,7 @@ class RichRenderer:
         table.add_column("TYPE", style="cyan", width=12)
         table.add_column("PORT", justify="right", width=5)
         table.add_column("STATUS", min_width=12)
-
-        if is_watch_mode:
-            table.add_column("TRANSPORT", min_width=10)
-
+        table.add_column("TRANSPORT", min_width=10)
         table.add_column("PID", justify="right", width=6)
         table.add_column("WORKING_DIR", min_width=20, max_width=30)
 
@@ -126,14 +121,7 @@ class RichRenderer:
                     Text(agent.get("agent_type", "unknown"), style=type_style),
                     str(agent.get("port", "-")),
                     self._format_status(agent.get("status", "-")),
-                ]
-            )
-
-            if is_watch_mode:
-                row.append(agent.get("transport", "-"))
-
-            row.extend(
-                [
+                    agent.get("transport", "-"),
                     str(agent.get("pid", "-")),
                     agent.get("working_dir", "-"),
                 ]
@@ -249,6 +237,8 @@ class RichRenderer:
             footer.append("ESC", style="bold cyan")
             footer.append(" to close, ", style="dim")
 
+        footer.append("q", style="bold")
+        footer.append(" or ", style="dim")
         footer.append("Ctrl+C", style="bold")
         footer.append(" to exit", style="dim")
 
@@ -278,11 +268,10 @@ class RichRenderer:
         )
         return warning
 
-    def render_watch_display(
+    def render_display(
         self,
         agents: list[dict[str, Any]],
         version: str,
-        interval: float,
         timestamp: str,
         show_file_safety: bool = False,
         stale_locks: list[dict[str, Any]] | None = None,
@@ -290,12 +279,11 @@ class RichRenderer:
         selected_row: int | None = None,
         jump_available: bool = False,
     ) -> RenderableType:
-        """Build the complete watch mode display.
+        """Build the complete display.
 
         Args:
             agents: List of agent dictionaries.
             version: Package version string.
-            interval: Refresh interval in seconds.
             timestamp: Current timestamp string.
             show_file_safety: If True, include EDITING FILE column.
             stale_locks: List of stale lock dictionaries (optional).
@@ -304,17 +292,16 @@ class RichRenderer:
             jump_available: If True, terminal jump feature is available.
 
         Returns:
-            Rich renderable for the complete watch display.
+            Rich renderable for the complete display.
         """
         table = self.build_table(
             agents,
-            is_watch_mode=True,
             show_file_safety=show_file_safety,
             show_row_numbers=interactive,
             selected_row=selected_row,
         )
 
-        title = f"Synapse A2A v{version} - Agent List (every {interval}s)"
+        title = f"Synapse A2A v{version} - Agent List"
         subtitle = f"Last updated: {timestamp}"
 
         panel = self.build_panel(table, title=title, subtitle=subtitle)
@@ -341,3 +328,43 @@ class RichRenderer:
         elements.append(footer)
 
         return Group(*elements)
+
+    # Keep old method for backward compatibility with tests
+    def render_watch_display(
+        self,
+        agents: list[dict[str, Any]],
+        version: str,
+        interval: float,
+        timestamp: str,
+        show_file_safety: bool = False,
+        stale_locks: list[dict[str, Any]] | None = None,
+        interactive: bool = False,
+        selected_row: int | None = None,
+        jump_available: bool = False,
+    ) -> RenderableType:
+        """Build the complete display (deprecated, use render_display).
+
+        Args:
+            agents: List of agent dictionaries.
+            version: Package version string.
+            interval: Refresh interval in seconds (ignored).
+            timestamp: Current timestamp string.
+            show_file_safety: If True, include EDITING FILE column.
+            stale_locks: List of stale lock dictionaries (optional).
+            interactive: If True, enable number key selection.
+            selected_row: Currently selected row (1-indexed), or None.
+            jump_available: If True, terminal jump feature is available.
+
+        Returns:
+            Rich renderable for the complete display.
+        """
+        return self.render_display(
+            agents=agents,
+            version=version,
+            timestamp=timestamp,
+            show_file_safety=show_file_safety,
+            stale_locks=stale_locks,
+            interactive=interactive,
+            selected_row=selected_row,
+            jump_available=jump_available,
+        )

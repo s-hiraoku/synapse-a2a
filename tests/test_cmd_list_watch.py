@@ -1,4 +1,4 @@
-"""Tests for synapse list --watch command."""
+"""Tests for synapse list command."""
 
 import json
 import os
@@ -32,8 +32,8 @@ def temp_registry(temp_registry_dir):
     return reg
 
 
-class TestRenderAgentTable:
-    """Tests for ListCommand._render_agent_table method."""
+class TestGetAgentData:
+    """Tests for ListCommand._get_agent_data method."""
 
     def _create_list_command(
         self,
@@ -50,51 +50,50 @@ class TestRenderAgentTable:
             print_func=print,
         )
 
-    def test_render_empty_registry(self, temp_registry):
-        """Should display 'No agents running' with port ranges."""
+    def test_empty_registry(self, temp_registry):
+        """Should return empty list for no agents."""
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry)
-        assert "No agents running" in output
-        assert "Port ranges:" in output
-        assert "claude: 8100-8109" in output
+        agents, stale_locks, show_file_safety = list_cmd._get_agent_data(temp_registry)
+        assert agents == []
 
-    def test_render_single_agent(self, temp_registry):
-        """Should render table with single agent."""
+    def test_single_agent(self, temp_registry):
+        """Should return data for single agent."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "TYPE" in output  # Header
-        assert "claude" in output
-        assert "8100" in output
-        assert "READY" in output
+        assert len(agents) == 1
+        assert agents[0]["agent_type"] == "claude"
+        assert agents[0]["port"] == 8100
+        assert agents[0]["status"] == "READY"
 
-    def test_render_multiple_agents(self, temp_registry):
-        """Should render table with multiple agents."""
+    def test_multiple_agents(self, temp_registry):
+        """Should return data for multiple agents."""
         temp_registry.register("synapse-claude-8100", "claude", 8100, status="READY")
         temp_registry.register(
             "synapse-gemini-8110", "gemini", 8110, status="PROCESSING"
         )
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "claude" in output
-        assert "gemini" in output
-        assert output.count("\n") >= 3  # Header + separator + 2 agents
+        assert len(agents) == 2
+        types = [a["agent_type"] for a in agents]
+        assert "claude" in types
+        assert "gemini" in types
 
     def test_cleans_up_dead_processes(self, temp_registry):
-        """Should remove dead processes from registry during render."""
+        """Should remove dead processes from registry during data fetch."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
         list_cmd = self._create_list_command(is_process_alive=lambda p: False)
-        output = list_cmd._render_agent_table(temp_registry)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        # Should show empty registry
-        assert "No agents running" in output
+        # Should return empty list
+        assert agents == []
 
         # Should have cleaned up the registry
         assert len(temp_registry.list_agents()) == 0
@@ -108,9 +107,9 @@ class TestRenderAgentTable:
             is_process_alive=lambda p: True,
             is_port_open=lambda host, port, timeout=0.5: False,
         )
-        output = list_cmd._render_agent_table(temp_registry)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "No agents running" in output
+        assert agents == []
         assert len(temp_registry.list_agents()) == 0
 
     def test_processing_agent_kept_when_port_closed(self, temp_registry):
@@ -122,10 +121,22 @@ class TestRenderAgentTable:
             is_process_alive=lambda p: True,
             is_port_open=lambda host, port, timeout=0.5: False,
         )
-        output = list_cmd._render_agent_table(temp_registry)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "PROCESSING" in output
-        assert len(temp_registry.list_agents()) == 1
+        assert len(agents) == 1
+        assert agents[0]["status"] == "PROCESSING"
+
+    def test_transport_included_in_data(self, temp_registry):
+        """Transport data should always be included."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+        temp_registry.update_transport(agent_id, "UDS→")
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "UDS→"
 
 
 class TestClearScreen:
@@ -146,20 +157,21 @@ class TestClearScreen:
         mock_system.assert_called_once_with("cls")
 
 
-class TestCmdListNormalMode:
-    """Tests for cmd_list in normal (non-watch) mode."""
+class TestCmdListNonTTY:
+    """Tests for cmd_list in non-TTY mode (piped output)."""
 
-    def test_normal_mode_single_output(self, temp_registry, capsys):
-        """Normal mode should output once and exit."""
+    def test_non_tty_single_output(self, temp_registry, capsys):
+        """Non-TTY mode should output once and exit."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
         args = MagicMock()
-        args.watch = False
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
             patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
+            patch("sys.stdout.isatty", return_value=False),
         ):
             cmd_list(args)
 
@@ -167,195 +179,66 @@ class TestCmdListNormalMode:
         assert "claude" in captured.out
         assert "8100" in captured.out
 
-    def test_normal_mode_backward_compatible(self, temp_registry, capsys):
-        """Args without watch attribute should work (backward compat)."""
-        args = MagicMock(spec=[])  # Empty spec = no attributes
+    def test_non_tty_empty_registry(self, temp_registry, capsys):
+        """Non-TTY mode with empty registry shows port ranges."""
+        args = MagicMock()
 
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("sys.stdout.isatty", return_value=False),
+        ):
             cmd_list(args)
 
         captured = capsys.readouterr()
         assert "No agents running" in captured.out
+        assert "Port ranges:" in captured.out
 
 
-class TestCmdListWatchMode:
-    """Tests for cmd_list in watch mode."""
+class TestCmdListTUI:
+    """Tests for cmd_list in TUI mode."""
 
-    def test_watch_mode_loops_with_interval(self, temp_registry):
-        """Watch mode should loop and refresh at interval."""
+    def test_tui_mode_exits_on_ctrl_c(self, temp_registry):
+        """TUI mode should exit gracefully on Ctrl+C."""
         args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
 
-        call_count = 0
-
-        def sleep_side_effect(duration):
-            nonlocal call_count
-            call_count += 1
-            if call_count >= 3:  # Exit after 3 iterations
-                raise KeyboardInterrupt()
+        def mock_run_rich(*args, **kwargs):
+            raise SystemExit(0)
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
-            pytest.raises(SystemExit) as exc_info,
-        ):
-            cmd_list(args)
-
-        assert exc_info.value.code == 0
-        assert call_count == 3
-
-    def test_watch_mode_clears_screen(self, temp_registry):
-        """Watch mode should clear screen before each update."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-
-        clear_calls: list[int] = []
-
-        def sleep_side_effect(duration):
-            if len(clear_calls) >= 2:
-                raise KeyboardInterrupt()
-
-        def clear_side_effect():
-            clear_calls.append(1)
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen", side_effect=clear_side_effect),
-            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        assert len(clear_calls) >= 2
-
-    def test_watch_mode_uses_custom_interval(self, temp_registry):
-        """Watch mode should respect custom interval."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 5.0
-
-        sleep_calls = []
-
-        def sleep_side_effect(duration):
-            sleep_calls.append(duration)
-            raise KeyboardInterrupt()
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        assert 5.0 in sleep_calls
-
-    def test_watch_mode_exits_on_ctrl_c(self, temp_registry, capsys):
-        """Watch mode should exit gracefully on Ctrl+C."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
+            patch("sys.stdout.isatty", return_value=True),
+            patch(
+                "synapse.commands.list.ListCommand._run_rich_tui",
+                side_effect=mock_run_rich,
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             cmd_list(args)
 
         assert exc_info.value.code == 0
 
-        captured = capsys.readouterr()
-        assert "Exiting watch mode" in captured.out
-
-    def test_watch_mode_shows_timestamp(self, temp_registry, capsys):
-        """Watch mode should show last updated timestamp."""
+    def test_tui_mode_uses_rich(self, temp_registry):
+        """TUI mode should use Rich when TTY is available."""
         args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
 
-        timestamp = "2026-01-03 12:00:00"
+        run_rich_called = []
+
+        def mock_run_rich(*args, **kwargs):
+            run_rich_called.append(True)
+            raise SystemExit(0)
+
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            patch("synapse.cli.time.strftime", return_value=timestamp),
+            patch("sys.stdout.isatty", return_value=True),
+            patch(
+                "synapse.commands.list.ListCommand._run_rich_tui",
+                side_effect=mock_run_rich,
+            ),
             pytest.raises(SystemExit),
         ):
             cmd_list(args)
 
-        captured = capsys.readouterr()
-        assert "Last updated:" in captured.out
-        assert "2026-01-03 12:00:00" in captured.out
-
-    def test_watch_mode_shows_refresh_interval_in_header(self, temp_registry, capsys):
-        """Watch mode should show refresh interval in header."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 2.5
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        captured = capsys.readouterr()
-        assert "every 2.5s" in captured.out
-
-    def test_watch_mode_empty_registry_continues_watching(self, temp_registry, capsys):
-        """Watch mode should show empty message and continue watching."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-
-        call_count = 0
-
-        def sleep_side_effect(duration):
-            nonlocal call_count
-            call_count += 1
-            if call_count >= 2:
-                raise KeyboardInterrupt()
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        captured = capsys.readouterr()
-        assert "No agents running" in captured.out
-        assert call_count == 2  # Should have looped
-
-    def test_watch_mode_default_interval(self, temp_registry):
-        """Watch mode should use default 2.0s interval if not specified."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 2.0  # default
-
-        sleep_calls = []
-
-        def sleep_side_effect(duration):
-            sleep_calls.append(duration)
-            raise KeyboardInterrupt()
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=sleep_side_effect),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        assert 2.0 in sleep_calls
+        assert len(run_rich_called) == 1
 
 
 # ============================================================================
@@ -512,7 +395,7 @@ class TestRegistryRaceConditions:
             while not update_complete.is_set():
                 read_started.set()
 
-                # Read registry (simulates _render_agent_table)
+                # Read registry (simulates _get_agent_data)
                 agents = temp_registry.list_agents()
                 if agent_id in agents:
                     status_reads.append(agents[agent_id]["status"])
@@ -655,8 +538,8 @@ class TestPartialJSONRead:
         final_agents = temp_registry.list_agents()
         assert agent_id in final_agents
 
-    def test_watch_mode_agent_flickering(self, temp_registry):
-        """Watch mode shows agent flickering in/out due to partial reads."""
+    def test_agent_flickering(self, temp_registry):
+        """Agent flickering in/out due to partial reads."""
         agent_id = "flickering-agent"
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
@@ -711,112 +594,12 @@ class TestPartialJSONRead:
 
 
 # ============================================================================
-# Tests for Transport Display Feature (watch mode only)
+# Tests for Transport Display Feature
 # ============================================================================
-
-
-# ============================================================================
-# Tests for Rich TUI Integration
-# ============================================================================
-
-
-class TestRichTUIIntegration:
-    """Tests for Rich TUI in watch mode."""
-
-    def test_no_rich_flag_uses_plain_output(self, temp_registry, capsys):
-        """--no-rich flag should use plain text output."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-        args.no_rich = True
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        captured = capsys.readouterr()
-        # Plain mode uses simple text without Rich panel borders
-        assert "Watch mode:" in captured.out or "No agents running" in captured.out
-
-    def test_rich_mode_default_when_tty(self, temp_registry):
-        """Rich mode should be default when output is a TTY."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-        # no_rich attribute not set (default behavior)
-        del args.no_rich
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            patch("sys.stdout.isatty", return_value=True),
-            pytest.raises(SystemExit),
-        ):
-            # Should not raise any errors about Rich not being available
-            cmd_list(args)
-
-    def test_fallback_to_plain_when_no_tty(self, temp_registry, capsys):
-        """Should fallback to plain mode when not a TTY."""
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-        # no_rich attribute not set
-        del args.no_rich
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli._clear_screen"),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            patch("sys.stdout.isatty", return_value=False),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        captured = capsys.readouterr()
-        # Plain mode output
-        assert "Watch mode:" in captured.out or "No agents running" in captured.out
-
-
-class TestRichWatchModeDisplay:
-    """Tests for Rich watch mode display features."""
-
-    def test_rich_watch_mode_displays_agents(self, temp_registry):
-        """Rich watch mode should display agent information."""
-        agent_id = "synapse-claude-8100"
-        temp_registry.register(agent_id, "claude", 8100, status="READY")
-
-        args = MagicMock()
-        args.watch = True
-        args.interval = 0.1
-        args.no_rich = False  # Force Rich mode
-
-        output_lines = []
-
-        def capture_print(text):
-            output_lines.append(str(text))
-
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.time.sleep", side_effect=KeyboardInterrupt),
-            patch("synapse.cli.is_process_alive", return_value=True),
-            patch("builtins.print", side_effect=capture_print),
-            pytest.raises(SystemExit),
-        ):
-            cmd_list(args)
-
-        # Combine output and check for agent info
-        full_output = "".join(output_lines)
-        # Agent info should be present somewhere in output
-        assert "claude" in full_output.lower() or "8100" in full_output
 
 
 class TestTransportDisplay:
-    """Tests for TRANSPORT column in watch mode."""
+    """Tests for TRANSPORT column in agent list."""
 
     def _create_list_command(
         self,
@@ -833,26 +616,6 @@ class TestTransportDisplay:
             print_func=print,
         )
 
-    def test_watch_mode_shows_transport_column(self, temp_registry):
-        """Watch mode includes TRANSPORT column in header."""
-        agent_id = "synapse-claude-8100"
-        temp_registry.register(agent_id, "claude", 8100, status="READY")
-
-        list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
-
-        assert "TRANSPORT" in output
-
-    def test_normal_mode_no_transport_column(self, temp_registry):
-        """Normal mode (non-watch) should not show TRANSPORT column."""
-        agent_id = "synapse-claude-8100"
-        temp_registry.register(agent_id, "claude", 8100, status="READY")
-
-        list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=False)
-
-        assert "TRANSPORT" not in output
-
     def test_transport_shows_sender_format(self, temp_registry):
         """Sender shows 'UDS→' when active_transport is set."""
         agent_id = "synapse-claude-8100"
@@ -860,9 +623,10 @@ class TestTransportDisplay:
         temp_registry.update_transport(agent_id, "UDS→")
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "UDS→" in output
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "UDS→"
 
     def test_transport_shows_receiver_format(self, temp_registry):
         """Receiver shows '→UDS' when active_transport is set."""
@@ -871,9 +635,10 @@ class TestTransportDisplay:
         temp_registry.update_transport(agent_id, "→UDS")
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "→UDS" in output
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "→UDS"
 
     def test_transport_shows_tcp_format(self, temp_registry):
         """TCP transport formats are displayed correctly."""
@@ -882,9 +647,10 @@ class TestTransportDisplay:
         temp_registry.update_transport(agent_id, "TCP→")
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "TCP→" in output
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "TCP→"
 
     def test_transport_shows_dash_when_idle(self, temp_registry):
         """Transport shows '-' when no active communication."""
@@ -893,16 +659,10 @@ class TestTransportDisplay:
         # No active_transport set
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        # Should have TRANSPORT column with dash
-        assert "TRANSPORT" in output
-        lines = output.split("\n")
-        # Find the data line (skip header and separator)
-        data_lines = [line for line in lines if "claude" in line]
-        assert len(data_lines) == 1
-        # The line should contain a dash for transport (between STATUS and PID)
-        assert "-" in data_lines[0]
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "-"
 
     def test_transport_cleared_shows_retained_value(self, temp_registry):
         """Transport shows retained value after being cleared (retention feature).
@@ -916,10 +676,11 @@ class TestTransportDisplay:
         temp_registry.update_transport(agent_id, None)  # Clear
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         # Should still show UDS→ due to retention (within 3s)
-        assert "UDS→" in output
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "UDS→"
 
     def test_multiple_agents_with_different_transport(self, temp_registry):
         """Multiple agents can show different transport states."""
@@ -936,7 +697,120 @@ class TestTransportDisplay:
         # codex has no active transport
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(temp_registry, is_watch_mode=True)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        assert "UDS→" in output
-        assert "→UDS" in output
+        assert len(agents) == 3
+        transports = {a["agent_type"]: a["transport"] for a in agents}
+        assert transports["claude"] == "UDS→"
+        assert transports["gemini"] == "→UDS"
+        assert transports["codex"] == "-"
+
+
+# ============================================================================
+# Tests for Rich Renderer
+# ============================================================================
+
+
+class TestRichRenderer:
+    """Tests for RichRenderer class."""
+
+    def test_build_table_with_agents(self):
+        """Should build table with agent data."""
+        from synapse.commands.renderers.rich_renderer import RichRenderer
+
+        renderer = RichRenderer()
+        agents = [
+            {
+                "agent_type": "claude",
+                "port": 8100,
+                "status": "READY",
+                "transport": "-",
+                "pid": 12345,
+                "working_dir": "myproject",
+                "endpoint": "http://localhost:8100",
+            }
+        ]
+
+        table = renderer.build_table(agents)
+
+        # Table should have rows
+        assert table.row_count == 1
+
+    def test_build_empty_table(self):
+        """Should build empty table with port ranges."""
+        from synapse.commands.renderers.rich_renderer import RichRenderer
+
+        renderer = RichRenderer()
+        table = renderer.build_table([])
+
+        # Should show "No agents running" message
+        assert table.row_count > 0
+
+    def test_render_display(self):
+        """Should render complete display."""
+        from synapse.commands.renderers.rich_renderer import RichRenderer
+
+        renderer = RichRenderer()
+        agents = [
+            {
+                "agent_type": "claude",
+                "port": 8100,
+                "status": "READY",
+                "transport": "-",
+                "pid": 12345,
+                "working_dir": "myproject",
+                "endpoint": "http://localhost:8100",
+            }
+        ]
+
+        display = renderer.render_display(
+            agents=agents,
+            version="1.0.0",
+            timestamp="2026-01-22 12:00:00",
+        )
+
+        # Should return a renderable
+        assert display is not None
+
+
+# ============================================================================
+# Tests for File Watcher
+# ============================================================================
+
+
+class TestFileWatcher:
+    """Tests for file watcher functionality."""
+
+    def test_create_file_watcher(self, temp_registry_dir):
+        """Should create file watcher for registry directory."""
+        from threading import Event
+
+        from synapse.commands.list import ListCommand
+
+        list_cmd = ListCommand(
+            registry_factory=lambda: MagicMock(spec=AgentRegistry),
+            is_process_alive=lambda p: True,
+            is_port_open=lambda host, port, timeout=0.5: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
+
+        change_event = Event()
+        observer = list_cmd._create_file_watcher(temp_registry_dir, change_event)
+
+        if observer is not None:
+            # Observer should be running
+            assert observer.is_alive()
+
+            # Create a JSON file to trigger the watcher
+            test_file = temp_registry_dir / "test-agent.json"
+            test_file.write_text('{"test": true}')
+
+            # Wait for the event to be set
+            change_event.wait(timeout=1.0)
+            assert change_event.is_set()
+
+            # Cleanup
+            observer.stop()
+            observer.join()

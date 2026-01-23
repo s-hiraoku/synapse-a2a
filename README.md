@@ -439,7 +439,7 @@ synapse claude -- --resume
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (`--watch` for Rich TUI monitor with terminal jump) |
+| `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
 | `synapse instructions show` | Show instruction content |
@@ -1047,15 +1047,14 @@ See [docs/file-safety.md](docs/file-safety.md) for details.
 
 Real-time monitoring of agent status with terminal jump capability.
 
-### Watch Mode
+### Rich TUI Mode
 
 ```bash
-# Start watch mode with Rich TUI
-synapse list --watch
-
-# Custom refresh interval (0.5s for fast updates)
-synapse list -w -i 0.5
+# Start Rich TUI with auto-refresh (default)
+synapse list
 ```
+
+The display automatically updates when agent status changes (via file watcher) with a 2-second fallback polling interval.
 
 ### Status States
 
@@ -1068,19 +1067,22 @@ synapse list -w -i 0.5
 
 ### Terminal Jump
 
-Jump directly to an agent's terminal window from watch mode:
+Jump directly to an agent's terminal window:
 
 | Key | Action |
 |-----|--------|
-| ↑/↓ | Select agent row |
+| 1-9 | Select agent row |
 | **Enter** or **j** | Jump to selected agent's terminal |
-| q | Quit watch mode |
+| ESC | Clear selection |
+| q | Quit |
 
 **Supported Terminals**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
 
 ### WAITING Detection
 
-Detects when agents are waiting for user input (selection UI, Y/n prompts) using regex patterns:
+> **Note**: WAITING detection is currently disabled due to false positives on startup. See [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) for details.
+
+When enabled, detects agents waiting for user input (selection UI, Y/n prompts) using regex patterns:
 
 - **Gemini**: `● 1. Option` selection UI, `Allow execution` prompts
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
