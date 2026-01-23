@@ -95,7 +95,7 @@ synapse send codex "STOP" --priority 5 --from gemini
 synapse send codex "What is your current status?" --response --from gemini
 ```
 
-AVAILABLE AGENTS: claude, gemini, codex, opencode
+AVAILABLE AGENTS: claude, gemini, codex
 LIST COMMAND: synapse list
 
 ================================================================================
