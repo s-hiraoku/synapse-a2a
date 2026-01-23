@@ -261,26 +261,25 @@ codex      8120     PROCESSING 12346    /home/user/projects/myapp               
 gemini     8110     READY      12347    -                                                  http://localhost:8110
 ```
 
-**Watch モード（`synapse list --watch`）**:
+**Rich TUI モード（デフォルト）**:
 
-Watch モードでは Rich TUI によるインタラクティブな表示が有効になります。
+`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（2秒間隔のフォールバックポーリング）。
 
 ```bash
-synapse list --watch              # Rich TUI モード（デフォルト）
-synapse list -w -i 0.5            # リフレッシュ間隔 0.5 秒
-synapse list -w --no-rich         # プレーンテキストモード
+synapse list                      # 自動更新 Rich TUI
 ```
 
 **Rich TUI モードの機能**:
 - 色付きステータス表示（READY=緑、PROCESSING=黄）
-- フリッカーなしの更新
-- **インタラクティブ操作**: 数字キー（1-9）でエージェントを選択し、詳細パネルでフルパスを確認
-- `ESC` キーで詳細パネルを閉じる、`Ctrl+C` で終了
+- ファイルウォッチャーによる自動更新（変更検出時に即座に反映）
+- **インタラクティブ操作**: 数字キー（1-9）でエージェントを選択
+- **ターミナルジャンプ**: Enter または j キーで選択したエージェントのターミナルに移動
+- `ESC` キーで選択解除、`q` で終了
 
 **出力例（Rich TUI モード）**:
 
 ```
-╭─────────────── Synapse A2A v0.2.26 - Agent List (every 2.0s) ───────────────╮
+╭─────────────── Synapse A2A v0.2.30 - Agent List ───────────────╮
 │ ╭───┬────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
 │ │ # │ TYPE   │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
 │ ├───┼────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
@@ -289,10 +288,10 @@ synapse list -w --no-rich         # プレーンテキストモード
 │ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
 │ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
-Press 1-3 to view details, ESC to close, Ctrl+C to exit
+[1-3: select] [Enter/j: jump] [ESC: clear] [q: quit]
 ```
 
-> **Note**: Watch モード（`--watch` / `-w`）では、**TRANSPORT 列**がリアルタイム表示されます。
+> **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
 > - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中
 > - `→UDS` / `→TCP`: エージェントが UDS/TCP で受信中
 > - `-`: 通信なし
