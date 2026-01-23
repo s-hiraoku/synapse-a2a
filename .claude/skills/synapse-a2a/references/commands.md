@@ -5,28 +5,17 @@
 ### List Running Agents
 
 ```bash
-# Show all running agents
+# Show all running agents (Rich TUI with auto-refresh on changes)
 synapse list
-
-# Watch mode with Rich TUI (default, interactive)
-synapse list --watch
-synapse list -w
-
-# Watch mode with plain text output (non-interactive)
-synapse list --watch --no-rich
-synapse list -w --no-rich
-
-# Custom refresh interval (0.5s recommended for observing communication)
-synapse list --watch --interval 0.5
-synapse list -w -i 0.5
 ```
 
-**Rich TUI Watch Mode Features:**
+**Rich TUI Features:**
+- Auto-refresh when agent status changes (via file watcher)
 - Color-coded status display:
   - READY = green (idle, waiting for input)
   - WAITING = cyan (awaiting user input - selection, confirmation)
   - PROCESSING = yellow (busy handling a task)
-  - DONE = magenta (task completed, auto-clears after 10s)
+  - DONE = blue (task completed, auto-clears after 10s)
 - Flicker-free updates
 - **Interactive row selection**: Press 1-9 to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
@@ -59,6 +48,7 @@ synapse claude
 synapse gemini
 synapse codex
 synapse opencode
+synapse copilot
 
 # With specific port
 synapse claude --port 8101
@@ -73,11 +63,12 @@ SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # Resume mode (skip initial instructions)
-# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode uses --continue
+# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode/Copilot use --continue
 synapse claude -- --resume
 synapse gemini -- --resume
 synapse codex -- resume      # Codex: resume is a subcommand, not a flag
 synapse opencode -- --continue
+synapse copilot -- --continue
 
 # Background mode
 synapse start claude --port 8100
@@ -105,6 +96,7 @@ synapse stop claude --all
 | Gemini   | 8110-8119 |
 | Codex    | 8120-8129 |
 | OpenCode | 8130-8139 |
+| Copilot  | 8140-8149 |
 
 ## Receiving Messages
 

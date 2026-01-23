@@ -15,7 +15,7 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse codex
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse opencode
 
 # Terminal 4: Monitor
-synapse list --watch
+synapse list
 ```
 
 ## Communication Examples

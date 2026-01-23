@@ -38,6 +38,7 @@ Synapse のエージェント間通信は **Google A2A プロトコル**に準�
 | Codex | `codex` | https://github.com/openai/codex |
 | Gemini | `gemini` | https://github.com/google/gemini-cli |
 | OpenCode | `opencode` | https://github.com/opencode-ai/opencode |
+| Copilot | `copilot` | https://docs.github.com/en/copilot/github-copilot-in-the-cli |
 
 ---
 
@@ -73,6 +74,9 @@ synapse gemini --port 8110
 
 # Terminal 4
 synapse opencode --port 8130
+
+# Terminal 5
+synapse copilot --port 8140
 ```
 
 起動後の挙動:

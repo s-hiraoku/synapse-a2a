@@ -193,7 +193,7 @@ No automatic delegation. User explicitly uses @agent patterns.
 
 Before delegating any task:
 
-1. **Verify agent is READY**: `synapse list` or `synapse list --watch` (Rich TUI with real-time status)
+1. **Verify agent is READY**: `synapse list` (Rich TUI with auto-refresh on changes)
 2. **Check file locks**: `synapse file-safety locks` (for file edits)
 3. **Verify branch**: `git branch --show-current` (for coding tasks)
 
@@ -206,7 +206,7 @@ Before delegating any task:
 | PROCESSING | Busy handling a task | Wait or use --priority 5 |
 | DONE | Task completed | Will return to READY shortly |
 
-**Note:** Use `synapse list --watch` for real-time agent monitoring. The TRANSPORT column shows active communication (UDS→/→UDS or TCP→/→TCP). Press 1-9 to view agent details, `Enter` or `j` to jump to terminal, ESC to close, Ctrl+C to exit.
+**Note:** `synapse list` provides real-time agent monitoring with auto-refresh. Press 1-9 to select agent, `Enter` or `j` to jump to terminal, ESC to clear selection, q to quit.
 
 ## Priority Levels
 
@@ -221,9 +221,11 @@ Before delegating any task:
 
 | Agent | Strengths | Port Range |
 |-------|-----------|------------|
-| codex | Coding, file editing, refactoring | 8120-8129 |
-| gemini | Research, web search, documentation | 8110-8119 |
 | claude | Code review, analysis, planning | 8100-8109 |
+| gemini | Research, web search, documentation | 8110-8119 |
+| codex | Coding, file editing, refactoring | 8120-8129 |
+| opencode | AI coding, file operations | 8130-8139 |
+| copilot | Code suggestions, completions | 8140-8149 |
 
 ## References
 
