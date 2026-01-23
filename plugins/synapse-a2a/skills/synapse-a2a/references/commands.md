@@ -58,6 +58,7 @@ synapse list -w -i 0.5
 synapse claude
 synapse gemini
 synapse codex
+synapse opencode
 
 # With specific port
 synapse claude --port 8101
@@ -72,10 +73,11 @@ SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # Resume mode (skip initial instructions)
-# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand
+# Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode uses --continue
 synapse claude -- --resume
 synapse gemini -- --resume
 synapse codex -- resume      # Codex: resume is a subcommand, not a flag
+synapse opencode -- --continue
 
 # Background mode
 synapse start claude --port 8100
@@ -97,11 +99,12 @@ synapse stop claude --all
 
 ### Port Ranges
 
-| Agent  | Ports     |
-|--------|-----------|
-| Claude | 8100-8109 |
-| Gemini | 8110-8119 |
-| Codex  | 8120-8129 |
+| Agent    | Ports     |
+|----------|-----------|
+| Claude   | 8100-8109 |
+| Gemini   | 8110-8119 |
+| Codex    | 8120-8129 |
+| OpenCode | 8130-8139 |
 
 ## Receiving Messages
 

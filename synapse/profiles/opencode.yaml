@@ -1,0 +1,25 @@
+command: "opencode"
+args: []
+submit_sequence: "\r"
+env:
+  TERM: "xterm-256color"
+
+# Multi-strategy idle detection configuration
+# OpenCode: Use timeout-based detection
+# OpenCode uses Bubble Tea TUI, similar to Claude Code
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"       # No pattern detection for OpenCode
+  timeout: 1.0               # 1.0 second of no output = idle
+
+# WAITING status detection (user input prompts)
+# OpenCode uses Bubble Tea TUI with selection UI
+# Detects numbered lists, checkboxes, and confirmation prompts
+waiting_detection:
+  # Regex pattern to detect:
+  # - Numbered choices (1., 2., 3.)
+  # - Selection indicators (>, *)
+  # - Yes/No prompts [y/N]
+  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]"
+  require_idle: true
+  idle_timeout: 0.5          # 500ms no output after pattern

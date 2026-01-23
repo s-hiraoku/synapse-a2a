@@ -124,6 +124,7 @@ synapse claude -- --resume=SESSION_ID
 | **Claude** | `--resume`, `--continue`, `-r`, `-c` |
 | **Gemini** | `--resume`, `-r` |
 | **Codex** | `resume` |
+| **OpenCode** | `--continue`, `-c` |
 
 これらのフラグは `.synapse/settings.json` でカスタマイズ可能です。
 
@@ -173,6 +174,7 @@ flowchart TB
         claude["claude"]
         codex["codex"]
         gemini["gemini"]
+        opencode["opencode"]
     end
 
     subgraph Commands["サブコマンド"]
@@ -711,9 +713,11 @@ flowchart LR
     Claude["Claude<br/>（コード担当）"]
     Codex["Codex<br/>（設計担当）"]
     Gemini["Gemini<br/>（レビュー担当）"]
+    OpenCode["OpenCode<br/>（補助担当）"]
 
     Human -->|"@claude 実装して"| Claude
     Human -->|"@codex 設計して"| Codex
+    Human -->|"@opencode 調査して"| OpenCode
     Claude -->|"@codex 設計確認"| Codex
     Claude -->|"@gemini レビュー依頼"| Gemini
     Gemini -->|"@claude 修正依頼"| Claude

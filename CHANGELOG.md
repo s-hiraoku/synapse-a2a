@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-01-22
+
+### Changed
+
+- Use hyphenated "open-source" consistently in all documentation
+- Clarify tool exclusions in OpenCode agents documentation (todowrite/todoread)
+- Add `pattern_use: "never"` to OpenCode profile for schema compliance
+- Document Synapse metadata field naming convention (non-x- prefixed fields in metadata namespace)
+
+### Documentation
+
+- Add OpenCode to delegation skill Available Agents table (port 8130-8139)
+- Update sender_type enumeration to include "opencode" in API docs
+- Synchronize opencode-expert skill across .claude, .codex, and .opencode directories
+
+## [0.3.0] - 2026-01-22
+
+### Added
+
+- OpenCode agent support (#135)
+  - New agent profile: `synapse/profiles/opencode.yaml`
+  - Port range 8130-8139 for OpenCode instances
+  - Full A2A protocol integration with `synapse opencode` command
+  - OpenCode expert skill for comprehensive OpenCode guidance
+- OpenCode skills for multi-agent environments
+  - `.opencode/skills/synapse-a2a/` - Synapse A2A integration skill
+  - `.opencode/skills/delegation/` - Task delegation skill
+  - `.opencode/skills/opencode-expert/` - OpenCode CLI/tools/agents reference
+
+### Changed
+
+- Consolidated instruction templates: removed redundant `opencode.md`, uses `default.md`
+- Updated `settings.json` template with OpenCode resume flags (`--continue`, `-c`)
+
+### Documentation
+
+- Added OpenCode to all documentation (README, guides, CLAUDE.md)
+- Synchronized plugin skills with OpenCode references
+- Added OpenCode port range (8130-8139) to all port documentation
+
+### Tests
+
+- Added 21 tests for OpenCode support (`tests/test_opencode.py`)
+- Updated port manager tests for OpenCode port range
+
 ## [0.2.30] - 2026-01-21
 
 ### Added

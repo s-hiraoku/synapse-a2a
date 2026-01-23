@@ -12,6 +12,7 @@ PORT_RANGES: dict[str, tuple[int, int]] = {
     "claude": (8100, 8109),
     "gemini": (8110, 8119),
     "codex": (8120, 8129),
+    "opencode": (8130, 8139),
     "dummy": (8190, 8199),
 }
 
