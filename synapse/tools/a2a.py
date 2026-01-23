@@ -269,6 +269,71 @@ def _resolve_target_agent(
     return None, f"No agent found matching '{target}'"
 
 
+def _build_context_message(
+    original_message: str,
+    sender_info: dict[str, str],
+    files: str | None = None,
+) -> str:
+    """Build message with context information prepended.
+
+    Args:
+        original_message: The user's original message.
+        sender_info: Sender agent information.
+        files: Comma-separated list of file paths to include.
+
+    Returns:
+        Message with context prefix.
+    """
+    context_parts = []
+
+    # Agent information
+    sender_id = sender_info.get("sender_id", "unknown")
+    sender_type = sender_info.get("sender_type", "unknown")
+    sender_endpoint = sender_info.get("sender_endpoint", "")
+
+    context_parts.append(f"- Agent: {sender_id}")
+    context_parts.append(f"- Type: {sender_type}")
+
+    # Working directory from registry
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        if sender_id in agents:
+            working_dir = agents[sender_id].get("working_dir", "")
+            if working_dir:
+                context_parts.append(f"- Working Directory: {working_dir}")
+    except Exception:
+        pass
+
+    if sender_endpoint:
+        context_parts.append(f"- Endpoint: {sender_endpoint}")
+
+    # Include file contents if specified
+    if files:
+        file_list = [f.strip() for f in files.split(",")]
+        file_contents = []
+        for file_path in file_list:
+            path = Path(file_path)
+            if path.exists() and path.is_file():
+                try:
+                    content = path.read_text(errors="replace")
+                    # Limit file content to prevent huge messages
+                    if len(content) > 2000:
+                        content = content[:2000] + "\n... (truncated)"
+                    file_contents.append(f"\n--- {path.name} ---\n{content}")
+                except Exception:
+                    file_contents.append(f"\n--- {path.name} ---\n(error reading file)")
+            else:
+                file_contents.append(f"\n--- {file_path} ---\n(file not found)")
+
+        if file_contents:
+            context_parts.append("- Files:" + "".join(file_contents))
+
+    # Build final message
+    context_header = "【コンテキスト】\n" + "\n".join(context_parts)
+    return f"{context_header}\n\n【メッセージ】\n{original_message}"
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
@@ -322,6 +387,12 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Build sender metadata
     sender_info = build_sender_info(getattr(args, "sender", None))
 
+    # Build message with optional context
+    message = args.message
+    if getattr(args, "context", False) and sender_info:
+        files = getattr(args, "files", None)
+        message = _build_context_message(args.message, sender_info, files)
+
     # Send request using Google A2A protocol
     # Determine response_expected based on a2a.flow setting and flags
     settings = get_settings()
@@ -342,7 +413,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     client = A2AClient()
     task = client.send_to_local(
         endpoint=str(target_agent["endpoint"]),
-        message=args.message,
+        message=message,  # Use message (may include context prefix)
         priority=args.priority,
         wait_for_completion=response_expected,
         timeout=60,
@@ -432,6 +503,15 @@ def main() -> None:
         dest="want_response",
         action="store_false",
         help="Do not wait for response (fire and forget)",
+    )
+    p_send.add_argument(
+        "--context",
+        action="store_true",
+        help="Include sender context (agent info, working dir) in message",
+    )
+    p_send.add_argument(
+        "--files",
+        help="Comma-separated file paths to include in context",
     )
     p_send.add_argument("message", help="Content of the message")
 
