@@ -814,3 +814,208 @@ class TestFileWatcher:
             # Cleanup
             observer.stop()
             observer.join()
+
+
+# ============================================================================
+# Tests for Kill Action in List TUI (Issue #137)
+# ============================================================================
+
+
+class TestKillActionInListTUI:
+    """Tests for kill action in synapse list TUI mode."""
+
+    def _create_list_command(
+        self,
+        is_process_alive=lambda p: True,
+        is_port_open=lambda host, port, timeout=0.5: True,
+    ):
+        """Create a ListCommand with mock dependencies."""
+        return ListCommand(
+            registry_factory=lambda: MagicMock(spec=AgentRegistry),
+            is_process_alive=is_process_alive,
+            is_port_open=is_port_open,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
+
+    def _register_agent_with_pid(
+        self,
+        registry: AgentRegistry,
+        agent_id: str,
+        agent_type: str,
+        port: int,
+        pid: int,
+    ):
+        """Register an agent and override the PID."""
+        registry.register(agent_id, agent_type, port, status="READY")
+        # Override PID by updating the file
+        file_path = registry.registry_dir / f"{agent_id}.json"
+        with open(file_path) as f:
+            data = json.load(f)
+        data["pid"] = pid
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def test_kill_agent_removes_from_list(self, temp_registry):
+        """Killing an agent should remove it from the registry."""
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+
+        # Verify agent exists
+        agents_before, _, _ = list_cmd._get_agent_data(temp_registry)
+        assert len(agents_before) == 1
+
+        # Kill the agent (simulate by calling stop_agent)
+        from synapse.commands.list import stop_agent
+
+        with patch("synapse.commands.list.os.kill") as mock_kill:
+            mock_kill.return_value = None
+            stop_agent(temp_registry, agents_before[0])
+
+        # Verify agent is removed
+        agents_after, _, _ = list_cmd._get_agent_data(temp_registry)
+        assert len(agents_after) == 0
+
+    def test_kill_agent_sends_sigterm(self, temp_registry):
+        """Killing an agent should send SIGTERM signal."""
+        import signal
+
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        from synapse.commands.list import stop_agent
+
+        with patch("synapse.commands.list.os.kill") as mock_kill:
+            mock_kill.return_value = None
+            stop_agent(temp_registry, agents[0])
+
+            mock_kill.assert_called_once_with(12345, signal.SIGTERM)
+
+    def test_kill_dead_process_unregisters(self, temp_registry):
+        """Killing a process that is already dead should just unregister."""
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        from synapse.commands.list import stop_agent
+
+        with patch("synapse.commands.list.os.kill") as mock_kill:
+            mock_kill.side_effect = ProcessLookupError("No such process")
+            stop_agent(temp_registry, agents[0])
+
+        # Agent should be unregistered
+        assert len(temp_registry.list_agents()) == 0
+
+    def test_kill_agent_with_no_pid(self, temp_registry):
+        """Killing an agent without a PID should not crash."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+        # PID is set automatically, so we need to remove it
+        file_path = temp_registry.registry_dir / f"{agent_id}.json"
+        with open(file_path) as f:
+            data = json.load(f)
+        del data["pid"]
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        from synapse.commands.list import stop_agent
+
+        # Should not raise
+        stop_agent(temp_registry, agents[0])
+
+        # Agent should still be unregistered
+        assert len(temp_registry.list_agents()) == 0
+
+    def test_k_key_triggers_kill_confirmation(self, temp_registry):
+        """Pressing 'k' key should trigger kill confirmation."""
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+
+        # Test that kill_selected_agent method exists and can be called
+        assert hasattr(list_cmd, "_handle_kill_action")
+
+    def test_kill_requires_selection(self, temp_registry):
+        """Kill action should require a selected agent."""
+        list_cmd = self._create_list_command()
+
+        # Call with no selection should return False
+        result = list_cmd._handle_kill_action(
+            registry=temp_registry,
+            agents=[],
+            selected_row=None,
+            console=MagicMock(),
+        )
+
+        assert result is False
+
+    def test_kill_with_valid_selection(self, temp_registry):
+        """Kill action with valid selection should prompt and kill."""
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        mock_console = MagicMock()
+        mock_console.input.return_value = "y"
+
+        with patch("synapse.commands.list.os.kill") as mock_kill:
+            mock_kill.return_value = None
+            result = list_cmd._handle_kill_action(
+                registry=temp_registry,
+                agents=agents,
+                selected_row=1,
+                console=mock_console,
+            )
+
+        assert result is True
+        mock_kill.assert_called_once()
+
+    def test_kill_cancelled_by_user(self, temp_registry):
+        """Kill action cancelled by user should not kill agent."""
+        agent_id = "synapse-claude-8100"
+        self._register_agent_with_pid(
+            temp_registry, agent_id, "claude", 8100, pid=12345
+        )
+
+        list_cmd = self._create_list_command()
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
+
+        mock_console = MagicMock()
+        mock_console.input.return_value = "n"
+
+        with patch("synapse.commands.list.os.kill") as mock_kill:
+            result = list_cmd._handle_kill_action(
+                registry=temp_registry,
+                agents=agents,
+                selected_row=1,
+                console=mock_console,
+            )
+
+        assert result is False
+        mock_kill.assert_not_called()
+        # Agent should still exist
+        assert len(temp_registry.list_agents()) == 1

@@ -229,10 +229,13 @@ class RichRenderer:
             footer.append(f"1-{agent_count}", style="bold cyan")
             footer.append(" to view details, ", style="dim")
 
-            # Show jump hint if available and row selected
-            if jump_available and has_selection:
-                footer.append("Enter/j", style="bold green")
-                footer.append(" to jump, ", style="dim")
+            # Show action hints if row is selected
+            if has_selection:
+                if jump_available:
+                    footer.append("Enter/j", style="bold green")
+                    footer.append(" to jump, ", style="dim")
+                footer.append("k", style="bold red")
+                footer.append(" to kill, ", style="dim")
 
             footer.append("ESC", style="bold cyan")
             footer.append(" to close, ", style="dim")

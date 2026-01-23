@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,32 @@ from synapse.registry import AgentRegistry
 
 if TYPE_CHECKING:
     from rich.console import Console
+
+
+def stop_agent(registry: AgentRegistry, agent_info: dict[str, Any]) -> None:
+    """Stop a single agent given its info dict.
+
+    Args:
+        registry: AgentRegistry instance for cleanup.
+        agent_info: Agent info dictionary with pid and agent_id.
+    """
+    agent_id = agent_info.get("agent_id")
+    pid = agent_info.get("pid")
+
+    # Handle case where pid is "-" (display placeholder) or None
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.kill(pid, signal.SIGTERM)
+            if isinstance(agent_id, str):
+                registry.unregister(agent_id)
+        except ProcessLookupError:
+            # Process already dead, just unregister
+            if isinstance(agent_id, str):
+                registry.unregister(agent_id)
+    else:
+        # No valid PID, just unregister
+        if isinstance(agent_id, str):
+            registry.unregister(agent_id)
 
 
 class _TimeModule(Protocol):
@@ -197,6 +224,45 @@ class ListCommand:
             pass
         return None
 
+    def _handle_kill_action(
+        self,
+        registry: AgentRegistry,
+        agents: list[dict[str, Any]],
+        selected_row: int | None,
+        console: Console,
+    ) -> bool:
+        """Handle kill action for a selected agent.
+
+        Args:
+            registry: AgentRegistry instance.
+            agents: List of agent data dicts.
+            selected_row: 1-indexed selected row number.
+            console: Rich Console for prompting user.
+
+        Returns:
+            True if agent was killed, False otherwise.
+        """
+        if selected_row is None or not agents:
+            return False
+
+        if selected_row < 1 or selected_row > len(agents):
+            return False
+
+        agent = agents[selected_row - 1]
+        agent_id = agent.get("agent_id", "unknown")
+
+        # Prompt for confirmation
+        try:
+            response = console.input(f"Kill {agent_id}? [y/N] ")
+            if response.lower() != "y":
+                return False
+        except EOFError:
+            return False
+
+        # Kill the agent
+        stop_agent(registry, agent)
+        return True
+
     def _create_file_watcher(
         self, registry_dir: Path, change_event: Event
     ) -> Any | None:
@@ -299,6 +365,27 @@ class ListCommand:
                             ):
                                 agent = current_agents[selected_row - 1]
                                 jump_to_terminal(agent)
+                            # 'k' key triggers kill action
+                            elif (
+                                key in ("k", "K")
+                                and selected_row is not None
+                                and 1 <= selected_row <= len(current_agents)
+                            ):
+                                # Restore terminal temporarily for confirmation
+                                self._restore_terminal(saved_terminal)
+                                live.stop()
+                                killed = self._handle_kill_action(
+                                    registry=registry,
+                                    agents=current_agents,
+                                    selected_row=selected_row,
+                                    console=console,
+                                )
+                                if killed:
+                                    selected_row = None
+                                    change_event.set()  # Trigger refresh
+                                # Restore non-blocking mode
+                                saved_terminal = self._setup_nonblocking_input()
+                                live.start()
 
                     # Fallback polling: trigger update every poll_interval seconds
                     current_time = self._time.time()
