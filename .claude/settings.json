@@ -1,4 +1,17 @@
 {
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun x gh-setup-hooks",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "pyright-lsp@claude-plugins-official": true,
     "claude-mem@thedotmack": false,
