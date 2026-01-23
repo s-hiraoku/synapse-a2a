@@ -2,6 +2,15 @@
 
 This file provides Gemini-specific guidance. For repository-wide policies, see [AGENTS.md](./AGENTS.md).
 
+## Skills
+
+Gemini has access to skills in `.gemini/skills/`. Use these skills for specialized tasks:
+
+- **synapse-a2a**: Inter-agent communication using Synapse A2A framework
+- **delegation**: Configure automatic task delegation between agents
+
+Skills are automatically loaded when relevant tasks are detected.
+
 ## Gemini-Specific Branch Management
 
 - Follow all branch rules in AGENTS.md (no direct commits to `main`, always use PRs)
