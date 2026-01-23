@@ -1,15 +1,12 @@
-# Synapse A2A Plugin
+# Synapse A2A Skills
 
-Claude Code plugin for [Synapse A2A](https://github.com/s-hiraoku/synapse-a2a) - a multi-agent communication framework.
+Skills for [Synapse A2A](https://github.com/s-hiraoku/synapse-a2a) - a multi-agent communication framework.
 
 ## Installation
 
 ```bash
-# Add the marketplace
-/plugin marketplace add s-hiraoku/synapse-a2a
-
-# Install the plugin
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# Install via skills.sh (https://skills.sh/)
+npx skills add s-hiraoku/synapse-a2a
 ```
 
 ## Skills Included

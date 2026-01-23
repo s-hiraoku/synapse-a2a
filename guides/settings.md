@@ -172,19 +172,18 @@ Synapse A2A の機能をエージェントに教え込むための「スキル�
 
 ### Claude Code
 
-Claude Code の場合、**プラグイン marketplace からのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が自動的に適用されます。
+Claude Code の場合、**skills.sh 経由でのインストールを強く推奨します**。これにより、最新のスキルと機能（File Safety, Delegation など）が自動的に適用されます。
 
 ```bash
-# Claude Code 内で実行
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# skills.sh 経由でインストール（https://skills.sh/）
+npx skills add s-hiraoku/synapse-a2a
 ```
 
 ### Legacy Skills (手動インストール)
 
 `synapse` コマンド起動時に、`~/.claude/skills/` に基本的なスキルファイルが自動的に配置される場合があります。これは旧バージョンとの互換性のための動作です。
 
-> **Note**: `synapse init` は現在、個別のプロジェクトディレクトリへのスキルファイルのコピーは行いません。プロジェクト単位でスキルを管理したい場合は、プラグイン機能を使用してください。
+> **Note**: `synapse init` は現在、個別のプロジェクトディレクトリへのスキルファイルのコピーは行いません。プロジェクト単位でスキルを管理したい場合は、skills.sh を使用してください。
 
 ### Gemini
 

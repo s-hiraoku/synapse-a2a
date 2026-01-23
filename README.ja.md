@@ -60,7 +60,7 @@ flowchart LR
 - [前提条件](#前提条件)
 - [クイックスタート](#クイックスタート)
 - [ユースケース](#ユースケース)
-- [Claude Code プラグイン](#claude-code-プラグイン)
+- [スキル](#スキル)
 - [ドキュメント](#ドキュメント)
 - [アーキテクチャ](#アーキテクチャ)
 - [CLI コマンド](#cli-コマンド)
@@ -128,19 +128,18 @@ uv sync
 pip install -e .
 ```
 
-### 2. Claude Code プラグインのインストール（推奨）
+### 2. スキルのインストール（推奨）
 
-**Synapse A2A を最大限に活用するには、プラグインのインストールを強く推奨します。**
+**Synapse A2A を最大限に活用するには、スキルのインストールを強く推奨します。**
 
-プラグインにより、Claude は Synapse A2A の機能を自動的に理解します：@agent メッセージング、タスク委譲、File Safety など。
+スキルにより、Claude は Synapse A2A の機能を自動的に理解します：@agent メッセージング、タスク委譲、File Safety など。
 
 ```bash
-# Claude Code 内で実行
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# skills.sh 経由でインストール（https://skills.sh/）
+npx skills add s-hiraoku/synapse-a2a
 ```
 
-詳しくは [Claude Code プラグイン](#claude-code-プラグイン) を参照。
+詳しくは [スキル](#スキル) を参照。
 
 ### 3. エージェントの起動
 
@@ -278,13 +277,13 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 
 ---
 
-## Claude Code プラグイン
+## スキル
 
-**Claude Code で Synapse A2A を使用する場合、プラグインのインストールを強く推奨します。**
+**Claude Code で Synapse A2A を使用する場合、スキルのインストールを強く推奨します。**
 
-### プラグインをインストールする理由
+### スキルをインストールする理由
 
-プラグインをインストールすると、Claude は自動的に以下を理解して実行します：
+スキルをインストールすると、Claude は自動的に以下を理解して実行します：
 
 - **synapse send**: `synapse send codex "Fix this" --from claude` でエージェント間通信
 - **@agent パターン**: `@codex Fix this` でユーザー入力から直接送信
@@ -296,9 +295,8 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 ### インストール
 
 ```bash
-# Claude Code 内で実行
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# skills.sh 経由でインストール（https://skills.sh/）
+npx skills add s-hiraoku/synapse-a2a
 ```
 
 ### 含まれるスキル

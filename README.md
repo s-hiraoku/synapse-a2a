@@ -60,7 +60,7 @@ flowchart LR
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Use Cases](#use-cases)
-- [Claude Code Plugin](#claude-code-plugin)
+- [Skills](#skills)
 - [Documentation](#documentation)
 - [Architecture](#architecture)
 - [CLI Commands](#cli-commands)
@@ -129,19 +129,18 @@ uv sync
 pip install -e .
 ```
 
-### 2. Install Claude Code Plugin (Recommended)
+### 2. Install Skills (Recommended)
 
-**Installing the plugin is strongly recommended to get the most out of Synapse A2A.**
+**Installing skills is strongly recommended to get the most out of Synapse A2A.**
 
-The plugin helps Claude automatically understand Synapse A2A features: @agent messaging, task delegation, File Safety, and more.
+Skills help Claude automatically understand Synapse A2A features: @agent messaging, task delegation, File Safety, and more.
 
 ```bash
-# Run inside Claude Code
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# Install via skills.sh (https://skills.sh/)
+npx skills add s-hiraoku/synapse-a2a
 ```
 
-See [Claude Code Plugin](#claude-code-plugin) for details.
+See [Skills](#skills) for details.
 
 ### 3. Start Agents
 
@@ -283,13 +282,13 @@ Read legacy_api.js and create TypeScript type definitions
 
 ---
 
-## Claude Code Plugin
+## Skills
 
-**Installing the plugin is strongly recommended** when using Synapse A2A with Claude Code.
+**Installing skills is strongly recommended** when using Synapse A2A with Claude Code.
 
-### Why Install the Plugin?
+### Why Install Skills?
 
-With the plugin installed, Claude automatically understands and executes:
+With skills installed, Claude automatically understands and executes:
 
 - **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from claude`
 - **@agent pattern**: Direct sending from user input via `@codex Fix this`
@@ -301,9 +300,8 @@ With the plugin installed, Claude automatically understands and executes:
 ### Installation
 
 ```bash
-# Run inside Claude Code
-/plugin marketplace add s-hiraoku/synapse-a2a
-/plugin install synapse-a2a@s-hiraoku/synapse-a2a
+# Install via skills.sh (https://skills.sh/)
+npx skills add s-hiraoku/synapse-a2a
 ```
 
 ### Included Skills
