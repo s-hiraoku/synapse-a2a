@@ -290,8 +290,12 @@ class TerminalController:
         """Check if agent is in WAITING state (user input prompt).
 
         WAITING is detected when:
-        1. A regex pattern matches recent output (selection UI structure)
+        1. A regex pattern matches output near the end of the buffer (not stale)
         2. No new output for waiting_idle_timeout (if require_idle is True)
+
+        Fix for issue #140: Only consider pattern "active" if it appears in
+        the last WAITING_PATTERN_WINDOW bytes of the buffer, preventing
+        stale patterns from triggering false positives.
 
         Args:
             new_data: New data from PTY.
@@ -302,22 +306,28 @@ class TerminalController:
         if not self._waiting_regex:
             return False
 
-        # Decode recent output for regex matching
-        # Use last 2KB to capture multi-line selection UIs
-        text = self.output_buffer[-2048:].decode("utf-8", errors="replace")
+        # Size of window to check for "fresh" patterns at buffer end
+        # Selection UIs are typically visible at the current screen position
+        WAITING_PATTERN_WINDOW = 512
 
-        # Check for waiting pattern using regex
-        pattern_found = bool(self._waiting_regex.search(text))
+        # Check for pattern in recent output (near end of buffer only)
+        recent_output = self.output_buffer[-WAITING_PATTERN_WINDOW:]
+        recent_text = recent_output.decode("utf-8", errors="replace")
+        pattern_in_recent = bool(self._waiting_regex.search(recent_text))
 
-        if pattern_found:
-            # Initialize pattern time if not set (pattern exists in buffer)
-            # or update if new data contains the pattern
-            if self._waiting_pattern_time is None:
+        # Also check if pattern is in new data (freshest source)
+        pattern_in_new_data = False
+        if new_data:
+            new_text = new_data.decode("utf-8", errors="replace")
+            pattern_in_new_data = bool(self._waiting_regex.search(new_text))
+
+        # Pattern is "active" if it appears in recent output OR in new data
+        pattern_active = pattern_in_recent or pattern_in_new_data
+
+        if pattern_active:
+            # Update pattern time when pattern is freshly detected
+            if pattern_in_new_data or self._waiting_pattern_time is None:
                 self._waiting_pattern_time = time.time()
-            elif new_data:
-                new_text = new_data.decode("utf-8", errors="replace")
-                if self._waiting_regex.search(new_text):
-                    self._waiting_pattern_time = time.time()
 
             # If require_idle, check if enough time has passed without output
             if self._waiting_require_idle:
@@ -329,7 +339,7 @@ class TerminalController:
                 # Pattern found and no idle required
                 return True
 
-        # No pattern found, reset waiting pattern time
+        # No active pattern found, reset waiting pattern time
         self._waiting_pattern_time = None
         return False
 

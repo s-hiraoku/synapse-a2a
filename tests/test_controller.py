@@ -689,3 +689,156 @@ class TestInvalidRegexHandling:
         # Should have default timeout
         assert ctrl._output_idle_threshold == 1.5  # Default
         assert ctrl.idle_regex is None
+
+
+# ============================================================================
+# Tests for WAITING status detection (Issue #140)
+# ============================================================================
+
+
+class TestWaitingStatusDetection:
+    """Tests for WAITING status detection to prevent false positives."""
+
+    # UTF-8 encoded bytes for Unicode characters
+    CURSOR_CHAR = b"\xe2\x9d\xaf"  # ❯
+    CHECKBOX_EMPTY = b"\xe2\x98\x90"  # ☐
+    CHECKBOX_CHECKED = b"\xe2\x98\x91"  # ☑
+
+    def _create_controller_with_waiting(
+        self,
+        waiting_regex: str = r"[\u2771\u2610\u2611\u276f\u2794]|[❯☐☑]",
+        require_idle: bool = False,
+        idle_timeout: float = 0.5,
+    ) -> TerminalController:
+        """Create a controller with WAITING detection configured."""
+        return TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            waiting_detection={
+                "regex": waiting_regex,  # 'regex' key is used in controller.py
+                "require_idle": require_idle,
+                "idle_timeout": idle_timeout,
+            },
+        )
+
+    def test_waiting_regex_compiled(self):
+        """Waiting regex should be compiled from config."""
+        ctrl = self._create_controller_with_waiting()
+        assert ctrl._waiting_regex is not None
+        assert hasattr(ctrl._waiting_regex, "search")
+
+    def test_waiting_disabled_when_no_config(self):
+        """WAITING detection should be disabled when not configured."""
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
+        assert ctrl._waiting_regex is None
+
+    def test_waiting_not_detected_without_pattern(self):
+        """_check_waiting_state should return False when no pattern match."""
+        ctrl = self._create_controller_with_waiting()
+        ctrl.output_buffer = b"normal output without selection UI"
+        result = ctrl._check_waiting_state(b"more output")
+        assert result is False
+
+    def test_waiting_detected_when_pattern_at_end(self):
+        """WAITING should be detected when pattern is at end of buffer."""
+        ctrl = self._create_controller_with_waiting(require_idle=False)
+        ctrl.output_buffer = (
+            b"Select an option:\n" + self.CURSOR_CHAR + b" Option A\n  Option B"
+        )
+        ctrl._last_output_time = time.time()
+        result = ctrl._check_waiting_state(self.CURSOR_CHAR + b" Option A")
+        assert result is True
+
+    def test_waiting_not_stuck_after_selection_completes(self):
+        """WAITING should not remain stuck after selection UI is dismissed."""
+        ctrl = self._create_controller_with_waiting(require_idle=False)
+
+        # First, show selection UI
+        ctrl.output_buffer = b"Select:\n" + self.CURSOR_CHAR + b" Option A"
+        ctrl._last_output_time = time.time()
+        result1 = ctrl._check_waiting_state(self.CURSOR_CHAR + b" Option A")
+        assert result1 is True
+
+        # Then, selection completes and new output appears
+        ctrl.output_buffer = b"Selection made. Continuing...\n$"
+        result2 = ctrl._check_waiting_state(b"Selection made. Continuing...")
+        assert result2 is False
+
+    def test_waiting_pattern_freshness_tracking(self):
+        """Pattern freshness should be tracked to prevent stale matches.
+
+        If the pattern is buried in old output (far from buffer end) and
+        new data doesn't contain the pattern, WAITING should not trigger.
+        """
+        ctrl = self._create_controller_with_waiting(require_idle=True, idle_timeout=0.1)
+        ctrl._last_output_time = time.time() - 1.0  # 1 second ago
+
+        # Pattern at beginning of buffer (>512 bytes from end), followed by
+        # lots of new content that pushed it out of the "recent" window
+        ctrl.output_buffer = (
+            b"old content with "
+            + self.CURSOR_CHAR
+            + b" cursor\n"
+            + (b"x" * 600)  # Push pattern outside 512-byte window
+            + b"\nnew content $"
+        )
+
+        # New data doesn't contain the pattern
+        result = ctrl._check_waiting_state(b"new content without cursor")
+        assert result is False
+
+    def test_waiting_with_require_idle(self):
+        """WAITING should require idle timeout when require_idle is True."""
+        ctrl = self._create_controller_with_waiting(require_idle=True, idle_timeout=0.5)
+        ctrl._last_output_time = time.time()
+
+        # Pattern in buffer, but not idle long enough
+        ctrl.output_buffer = self.CURSOR_CHAR + b" Option A"
+        result = ctrl._check_waiting_state(self.CURSOR_CHAR + b" Option A")
+        assert result is False
+
+        # After idle timeout
+        ctrl._last_output_time = time.time() - 1.0
+        result2 = ctrl._check_waiting_state(b"")
+        assert result2 is True
+
+    def test_waiting_pattern_near_end_only(self):
+        """Pattern should only match if it appears near end of buffer.
+
+        This is the key fix for issue #140: patterns should only be detected
+        if they appear in the last N bytes of the buffer, not anywhere.
+        """
+        ctrl = self._create_controller_with_waiting(require_idle=False)
+
+        # Pattern at beginning of large buffer (should NOT trigger WAITING)
+        old_content = self.CURSOR_CHAR + b" Option A\n" + (b"x" * 3000) + b"\n$ "
+        ctrl.output_buffer = old_content
+        result = ctrl._check_waiting_state(b"$ ")
+        # The pattern is in the buffer but far from the end
+        # Implementation should check if pattern is in recent output
+        assert result is False
+
+    def test_waiting_transitions_correctly(self):
+        """Full transition test: PROCESSING -> WAITING -> READY."""
+        ctrl = self._create_controller_with_waiting(require_idle=False)
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.write = Mock()
+
+        # Initial state
+        assert ctrl.status == "PROCESSING"
+
+        # Show selection UI - should become WAITING
+        ctrl.output_buffer = b"Select:\n" + self.CURSOR_CHAR + b" Option A"
+        ctrl._check_idle_state(self.CURSOR_CHAR + b" Option A")
+        assert ctrl.status == "WAITING"
+
+        # User selects, output continues - should become PROCESSING
+        ctrl.output_buffer = b"Selected A. Processing...\nworking..."
+        ctrl._check_idle_state(b"working...")
+        assert ctrl.status == "PROCESSING"
+
+        # Work completes - should become READY
+        ctrl.output_buffer = b"Done.\n$"
+        ctrl._check_idle_state(b"$")
+        assert ctrl.status == "READY"
