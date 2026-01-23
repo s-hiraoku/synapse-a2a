@@ -40,6 +40,8 @@ Examples:
 /tmp/synapse-a2a/synapse-claude-8100.sock
 /tmp/synapse-a2a/synapse-gemini-8110.sock
 /tmp/synapse-a2a/synapse-codex-8120.sock
+/tmp/synapse-a2a/synapse-opencode-8130.sock
+/tmp/synapse-a2a/synapse-copilot-8140.sock
 ```
 
 **Customization:** Set `SYNAPSE_UDS_DIR` environment variable to change the socket directory.
@@ -129,7 +131,7 @@ Standard Google A2A message format with Synapse extensions in the metadata objec
 
 **Metadata fields explained:**
 - `sender`: Synapse-specific sender identification
-  - `sender_type`: Agent type - `"claude"`, `"gemini"`, or `"codex"`
+  - `sender_type`: Agent type - `"claude"`, `"gemini"`, `"codex"`, `"opencode"`, or `"copilot"`
   - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
   - `sender_endpoint`: Agent's HTTP endpoint for replies
 - `response_expected`: Whether the sender is waiting for a response

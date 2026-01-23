@@ -102,7 +102,7 @@ Options:
 ### Watch Agent Status
 
 ```bash
-synapse list --watch
+synapse list
 ```
 
 ### View Task History
