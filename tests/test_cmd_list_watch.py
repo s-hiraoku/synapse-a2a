@@ -170,6 +170,7 @@ class TestCmdListNonTTY:
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
             patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
             patch("sys.stdout.isatty", return_value=False),
         ):
             cmd_list(args)
