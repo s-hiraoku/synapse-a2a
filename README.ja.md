@@ -433,7 +433,7 @@ synapse claude -- --resume
 | `synapse start <profile>` | バックグラウンドで起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID 指定可能） |
 | `synapse --version` | バージョン表示 |
-| `synapse list` | 実行中のエージェント一覧（`--watch` で TRANSPORT 列表示） |
+| `synapse list` | 実行中のエージェント一覧（自動更新 Rich TUI、ターミナルジャンプ対応） |
 | `synapse logs <profile>` | ログ表示 |
 | `synapse send <target> <message>` | メッセージ送信 |
 | `synapse instructions show` | 指示内容を表示 |
@@ -1039,15 +1039,14 @@ if not validation["allowed"]:
 
 エージェントのステータスをリアルタイムで監視し、ターミナルジャンプ機能を提供します。
 
-### ウォッチモード
+### Rich TUI モード
 
 ```bash
-# Rich TUI でウォッチモードを開始
-synapse list --watch
-
-# カスタムリフレッシュ間隔（0.5秒で高速更新）
-synapse list -w -i 0.5
+# 自動更新 Rich TUI を起動（デフォルト）
+synapse list
 ```
+
+ファイルウォッチャーによりエージェントのステータス変更時に自動更新されます（2秒間隔のフォールバックポーリング）。
 
 ### ステータス状態
 
@@ -1060,19 +1059,22 @@ synapse list -w -i 0.5
 
 ### ターミナルジャンプ
 
-ウォッチモードからエージェントのターミナルウィンドウに直接ジャンプ：
+エージェントのターミナルウィンドウに直接ジャンプ：
 
 | キー | アクション |
 |------|----------|
-| ↑/↓ | エージェント行を選択 |
+| 1-9 | エージェント行を選択 |
 | **Enter** または **j** | 選択したエージェントのターミナルにジャンプ |
-| q | ウォッチモードを終了 |
+| ESC | 選択解除 |
+| q | 終了 |
 
 **対応ターミナル**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
 
 ### WAITING 検出
 
-正規表現パターンを使用してエージェントがユーザー入力を待っている状態（選択UI、Y/nプロンプト）を検出：
+> **注意**: WAITING検出は起動時の誤検出のため現在無効化されています。詳細は [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) を参照。
+
+有効化時は、正規表現パターンを使用してエージェントがユーザー入力を待っている状態（選択UI、Y/nプロンプト）を検出：
 
 - **Gemini**: `● 1. Option` 選択UI、`Allow execution` プロンプト
 - **Claude**: `❯ Option` カーソル、`☐/☑` チェックボックス、`[Y/n]` プロンプト
