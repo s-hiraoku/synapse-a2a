@@ -1071,7 +1071,7 @@ Jump directly to an agent's terminal window:
 
 | Key | Action |
 |-----|--------|
-| ↑/↓ | Select agent row |
+| 1-9 | Select agent row |
 | **Enter** or **j** | Jump to selected agent's terminal |
 | ESC | Clear selection |
 | q | Quit |
