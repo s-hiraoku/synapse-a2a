@@ -158,7 +158,7 @@ class TestTransportRetention:
 class TestListCommandTransportRetention:
     """Tests for transport retention display in list command."""
 
-    def test_render_agent_table_uses_retention(self, tmp_path: Path) -> None:
+    def test_get_agent_data_uses_retention(self, tmp_path: Path) -> None:
         """List command should use get_transport_display with retention."""
         from synapse.commands.list import ListCommand
 
@@ -189,18 +189,19 @@ class TestListCommandTransportRetention:
 
         with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
             mock_fs.from_env.return_value.enabled = False
-            output = cmd._render_agent_table(mock_registry, is_watch_mode=True)
+            agents, _, _ = cmd._get_agent_data(mock_registry)
 
-        # Verify get_transport_display was called
+        # Verify get_transport_display was called with retention
         mock_registry.get_transport_display.assert_called_once_with(
             "synapse-claude-8100", retention_seconds=3.0
         )
 
         # Verify output contains the retained transport
-        assert "UDS→" in output
+        assert len(agents) == 1
+        assert agents[0]["transport"] == "UDS→"
 
-    def test_render_agent_table_normal_mode_no_transport(self, tmp_path: Path) -> None:
-        """Normal mode (non-watch) should not call get_transport_display."""
+    def test_get_agent_data_shows_transport_column(self, tmp_path: Path) -> None:
+        """Transport column should always be present in agent data."""
         from synapse.commands.list import ListCommand
 
         mock_registry = MagicMock(spec=AgentRegistry)
@@ -215,6 +216,7 @@ class TestListCommandTransportRetention:
                 "endpoint": "http://localhost:8100",
             }
         }
+        mock_registry.get_transport_display.return_value = "-"
 
         cmd = ListCommand(
             registry_factory=lambda: mock_registry,
@@ -227,13 +229,11 @@ class TestListCommandTransportRetention:
 
         with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
             mock_fs.from_env.return_value.enabled = False
-            output = cmd._render_agent_table(mock_registry, is_watch_mode=False)
+            agents, _, _ = cmd._get_agent_data(mock_registry)
 
-        # Verify get_transport_display was NOT called
-        mock_registry.get_transport_display.assert_not_called()
-
-        # Verify TRANSPORT column is not in output
-        assert "TRANSPORT" not in output
+        # Transport should always be included
+        assert len(agents) == 1
+        assert "transport" in agents[0]
 
 
 class TestTransportRetentionIntegration:

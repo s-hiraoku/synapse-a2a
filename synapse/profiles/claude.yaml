@@ -19,13 +19,10 @@ idle_detection:
   timeout: 0.5                                 # 500ms no output = idle (fallback)
 
 # WAITING status detection (user input prompts)
-# Uses regex to detect Claude Code's Ink TUI selection UI
-# Claude shows: ❯ Option or ☐/☑ checkboxes
-waiting_detection:
-  # Regex pattern to detect selection UI:
-  # - ❯ followed by space and text (selection cursor)
-  # - OR ☐/☑ followed by space (checkbox)
-  # - OR [Y/n] or [y/N] prompts
-  regex: "❯\\s+.+|[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
-  require_idle: true
-  idle_timeout: 0.3                            # 300ms no output after pattern
+# DISABLED: Current regex-based detection causes false positives
+# where WAITING status gets stuck because patterns remain in output buffer
+# See: https://github.com/s-hiraoku/synapse-a2a/issues/140
+# waiting_detection:
+#   regex: "^❯\\s+.+|^[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
+#   require_idle: true
+#   idle_timeout: 0.3

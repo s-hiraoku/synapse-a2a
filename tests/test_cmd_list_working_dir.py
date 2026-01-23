@@ -25,8 +25,10 @@ def temp_registry():
 class TestCmdListWorkingDir:
     """Tests for cmd_list command working_dir display."""
 
-    def test_list_displays_working_dir(self, temp_registry, capsys):
-        """synapse list should display working_dir for registered agents."""
+    def test_list_displays_working_dir(self, temp_registry):
+        """synapse list should include working_dir in agent data."""
+        from synapse.commands.list import ListCommand
+
         # Register an agent with working_dir
         test_working_dir = "/home/user/project"
         temp_registry.register("synapse-claude-8100", "claude", 8100)
@@ -39,28 +41,25 @@ class TestCmdListWorkingDir:
         with open(file_path, "w") as f:
             json.dump(data, f)
 
-        # Mock the arguments object with explicit attributes
-        args = MagicMock()
-        args.watch = False
-        args.interval = 2.0
+        list_cmd = ListCommand(
+            registry_factory=lambda: temp_registry,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda host, port, timeout=0.5: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
 
-        # Run the command with patched registry
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
-        ):
-            cmd_list(args)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        # Check output - now displays only directory name, not full path
-        captured = capsys.readouterr()
-        assert "project" in captured.out  # Directory name only
-        assert "WORKING_DIR" in captured.out  # Header should include WORKING_DIR
+        assert len(agents) == 1
+        # working_dir should be the basename
+        assert agents[0]["working_dir"] == "project"
 
-    def test_list_displays_multiple_agents_with_working_dir(
-        self, temp_registry, capsys
-    ):
-        """synapse list should display working_dir for multiple agents."""
-        # Register multiple agents with different working_dirs
+    def test_list_displays_multiple_agents_with_working_dir(self, temp_registry):
+        """synapse list should include working_dir for multiple agents."""
+        from synapse.commands.list import ListCommand
+
         test_dirs = ["/home/user/project1", "/home/user/project2"]
 
         for i, test_dir in enumerate(test_dirs):
@@ -68,7 +67,6 @@ class TestCmdListWorkingDir:
             port = 8100 + i
             temp_registry.register(agent_id, "claude", port)
 
-            # Update the registry file
             file_path = temp_registry.registry_dir / f"{agent_id}.json"
             with open(file_path) as f:
                 data = json.load(f)
@@ -76,72 +74,62 @@ class TestCmdListWorkingDir:
             with open(file_path, "w") as f:
                 json.dump(data, f)
 
-        # Mock the arguments object with explicit attributes
-        args = MagicMock()
-        args.watch = False
-        args.interval = 2.0
+        list_cmd = ListCommand(
+            registry_factory=lambda: temp_registry,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda host, port, timeout=0.5: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
 
-        # Run the command with patched registry
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
-        ):
-            cmd_list(args)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        # Check output - now displays only directory names, not full paths
-        captured = capsys.readouterr()
-        assert "project1" in captured.out
-        assert "project2" in captured.out
+        assert len(agents) == 2
+        working_dirs = [a["working_dir"] for a in agents]
+        assert "project1" in working_dirs
+        assert "project2" in working_dirs
 
     def test_list_header_includes_working_dir(self, temp_registry, capsys):
-        """synapse list header should include WORKING_DIR column."""
-        # Register an agent
+        """synapse list header should be present (non-TTY mode)."""
         temp_registry.register("synapse-claude-8100", "claude", 8100)
 
-        # Mock the arguments object with explicit attributes
         args = MagicMock()
-        args.watch = False
-        args.interval = 2.0
 
-        # Run the command with patched registry
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
             patch("synapse.cli.is_process_alive", return_value=True),
+            patch("sys.stdout.isatty", return_value=False),
         ):
             cmd_list(args)
 
-        # Check output
         captured = capsys.readouterr()
-        # The output should have a header line with column names
-        lines = captured.out.strip().split("\n")
-        header = lines[0]
-        assert "WORKING_DIR" in header
+        # Non-TTY mode shows simple table
+        assert "TYPE" in captured.out
+        assert "PORT" in captured.out
 
     def test_list_empty_registry(self, temp_registry, capsys):
         """synapse list should handle empty registry gracefully."""
-        # Mock the arguments object with explicit attributes
         args = MagicMock()
-        args.watch = False
-        args.interval = 2.0
 
-        # Run the command with patched registry
-        with patch("synapse.cli.AgentRegistry", return_value=temp_registry):
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("sys.stdout.isatty", return_value=False),
+        ):
             cmd_list(args)
 
-        # Check output
         captured = capsys.readouterr()
         assert "No agents running" in captured.out
 
-    def test_list_agent_with_current_working_dir(self, temp_registry, capsys):
-        """synapse list should display agent registered from current directory."""
-        # Get the current working directory
+    def test_list_agent_with_current_working_dir(self, temp_registry):
+        """synapse list should show current directory name."""
+        from synapse.commands.list import ListCommand
+
         current_dir = os.getcwd()
         current_dir_name = os.path.basename(current_dir)
 
-        # Register an agent with current working directory
         temp_registry.register("synapse-claude-8100", "claude", 8100)
 
-        # Update to use current directory (as done in register())
         file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
         with open(file_path) as f:
             data = json.load(f)
@@ -149,18 +137,16 @@ class TestCmdListWorkingDir:
         with open(file_path, "w") as f:
             json.dump(data, f)
 
-        # Mock the arguments object with explicit attributes
-        args = MagicMock()
-        args.watch = False
-        args.interval = 2.0
+        list_cmd = ListCommand(
+            registry_factory=lambda: temp_registry,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda host, port, timeout=0.5: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=print,
+        )
 
-        # Run the command with patched registry
-        with (
-            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
-            patch("synapse.cli.is_process_alive", return_value=True),
-        ):
-            cmd_list(args)
+        agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
-        # Check output - now displays only directory name, not full path
-        captured = capsys.readouterr()
-        assert current_dir_name in captured.out
+        assert len(agents) == 1
+        assert agents[0]["working_dir"] == current_dir_name

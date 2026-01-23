@@ -104,12 +104,12 @@ class TestCmdRunInteractive:
 
 
 # ============================================================
-# ListCommand._render_agent_table Tests
+# ListCommand._get_agent_data Tests
 # ============================================================
 
 
-class TestRenderAgentTable:
-    """Tests for ListCommand._render_agent_table method."""
+class TestGetAgentData:
+    """Tests for ListCommand._get_agent_data method."""
 
     def _create_list_command(
         self,
@@ -126,19 +126,21 @@ class TestRenderAgentTable:
             print_func=print,
         )
 
-    def test_render_empty_registry(self):
-        """Should return message when no agents running."""
+    def test_empty_registry(self):
+        """Should return empty list when no agents running."""
         registry = MagicMock(spec=AgentRegistry)
         registry.list_agents.return_value = {}
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(registry)
 
-        assert "No agents running" in output
-        assert "Port ranges:" in output
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            agents, stale_locks, show_file_safety = list_cmd._get_agent_data(registry)
 
-    def test_render_active_agents(self):
-        """Should render table with active agents."""
+        assert agents == []
+
+    def test_returns_active_agents(self):
+        """Should return data for active agents."""
         registry = MagicMock(spec=AgentRegistry)
         registry.list_agents.return_value = {
             "agent-1": {
@@ -149,14 +151,18 @@ class TestRenderAgentTable:
                 "endpoint": "http://localhost:8100",
             }
         }
+        registry.get_transport_display.return_value = "-"
 
         list_cmd = self._create_list_command()
-        output = list_cmd._render_agent_table(registry)
 
-        assert "claude" in output
-        assert "8100" in output
-        assert "IDLE" in output
-        assert "12345" in output
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            agents, _, _ = list_cmd._get_agent_data(registry)
+
+        assert len(agents) == 1
+        assert agents[0]["agent_type"] == "claude"
+        assert agents[0]["port"] == 8100
+        assert agents[0]["status"] == "IDLE"
 
     def test_cleanup_dead_processes(self):
         """Should unregister agents with dead processes."""
@@ -166,10 +172,13 @@ class TestRenderAgentTable:
         }
 
         list_cmd = self._create_list_command(is_process_alive=lambda p: False)
-        output = list_cmd._render_agent_table(registry)
+
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            agents, _, _ = list_cmd._get_agent_data(registry)
 
         registry.unregister.assert_called_with("agent-1")
-        assert "No agents running" in output
+        assert agents == []
 
     def test_cleanup_closed_ports(self):
         """Should unregister agents with closed ports (if not PROCESSING)."""
@@ -187,10 +196,13 @@ class TestRenderAgentTable:
             is_process_alive=lambda p: True,
             is_port_open=lambda host, port, timeout=0.5: False,
         )
-        output = list_cmd._render_agent_table(registry)
+
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            agents, _, _ = list_cmd._get_agent_data(registry)
 
         registry.unregister.assert_called_with("agent-1")
-        assert "No agents running" in output
+        assert agents == []
 
     def test_skip_port_check_for_processing(self):
         """Should skip port check for agents in PROCESSING state."""
@@ -201,12 +213,14 @@ class TestRenderAgentTable:
                 "port": 8100,
                 "status": "PROCESSING",
                 "pid": 12345,
+                "endpoint": "http://localhost:8100",
             }
         }
+        registry.get_transport_display.return_value = "-"
 
         port_check_called = []
 
-        def track_port_check(h, p, t):
+        def track_port_check(h, p, timeout=0.5):
             port_check_called.append(True)
             return True
 
@@ -214,7 +228,11 @@ class TestRenderAgentTable:
             is_process_alive=lambda p: True,
             is_port_open=track_port_check,
         )
-        output = list_cmd._render_agent_table(registry)
+
+        with patch("synapse.commands.list.FileSafetyManager") as mock_fs:
+            mock_fs.from_env.return_value.enabled = False
+            agents, _, _ = list_cmd._get_agent_data(registry)
 
         assert len(port_check_called) == 0
-        assert "PROCESSING" in output
+        assert len(agents) == 1
+        assert agents[0]["status"] == "PROCESSING"
