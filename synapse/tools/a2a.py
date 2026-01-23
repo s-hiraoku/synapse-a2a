@@ -90,10 +90,12 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
 
 def build_sender_info(explicit_sender: str | None = None) -> dict:
     """
-    Build sender info using Registry PID matching.
+    Build sender info using environment variable or Registry PID matching.
 
-    Identifies the sender by checking which registered agent's PID
-    is an ancestor of the current process.
+    Priority order:
+    1. Explicit --from flag (highest priority)
+    2. SYNAPSE_AGENT_ID environment variable
+    3. Registry PID matching (fallback)
 
     Returns dict with sender_id, sender_type, sender_endpoint, sender_uds_path.
     """
@@ -120,7 +122,20 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
             pass
         return {"sender_id": explicit_sender}
 
-    # Primary method: Registry PID matching
+    # Check SYNAPSE_AGENT_ID environment variable (set by cli.py in PTY)
+    env_agent_id = os.environ.get("SYNAPSE_AGENT_ID")
+    if env_agent_id:
+        try:
+            reg = AgentRegistry()
+            agents = reg.list_agents()
+            if env_agent_id in agents:
+                return _extract_sender_info_from_agent(
+                    env_agent_id, agents[env_agent_id]
+                )
+        except Exception:
+            pass
+
+    # Fallback: Registry PID matching
     # Find which agent's process is an ancestor of current process
     try:
         reg = AgentRegistry()
