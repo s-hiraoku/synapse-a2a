@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Mission: Enable agents to collaborate on tasks without changing their behavior.**
 
-Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini, OpenCode) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
+Synapse A2A is a framework that wraps CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) with PTY and enables inter-agent communication via Google A2A Protocol. Each agent runs as an A2A server (P2P architecture, no central server).
 
 ### Core Principles
 
@@ -46,6 +46,7 @@ synapse claude
 synapse codex
 synapse gemini
 synapse opencode
+synapse copilot
 
 # List agents (Rich TUI with event-driven auto-update)
 synapse list                              # Show all running agents with auto-refresh on changes
@@ -236,6 +237,20 @@ idle_detection:
 
 **Why timeout?**: OpenCode uses Bubble Tea for its TUI, which doesn't have consistent prompt patterns. Timeout-based detection (1.0s) reliably detects when OpenCode is waiting for input.
 
+### GitHub Copilot CLI - Timeout Strategy
+
+GitHub Copilot CLI uses interactive TUI (similar to Claude Code):
+
+```yaml
+# synapse/profiles/copilot.yaml
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"         # No pattern detection for Copilot CLI
+  timeout: 0.5                 # 500ms of no output = idle
+```
+
+**Why timeout?**: GitHub Copilot CLI uses an interactive TUI without consistent prompt patterns. Timeout-based detection (0.5s) reliably detects when Copilot CLI is waiting for input.
+
 ## Port Ranges
 
 | Agent    | Ports     |
@@ -244,6 +259,7 @@ idle_detection:
 | Gemini   | 8110-8119 |
 | Codex    | 8120-8129 |
 | OpenCode | 8130-8139 |
+| Copilot  | 8140-8149 |
 
 ## Storage
 

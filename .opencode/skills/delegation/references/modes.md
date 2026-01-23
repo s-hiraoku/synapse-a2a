@@ -51,7 +51,7 @@ Delegation is configured via files, not CLI commands:
 4. If matches delegation rule and agent is READY:
    a. Acquire file locks if needed (File Safety)
    b. Send to target agent with appropriate priority
-   c. Wait for response (monitor with synapse list --watch)
+   c. Wait for response (monitor with synapse list)
    d. Review and integrate response
    e. Release file locks
    f. Report final result to user

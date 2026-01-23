@@ -49,7 +49,7 @@ Code reviews stay with Claude.
 Delegating coding task to Codex...
 synapse send codex "Please implement user authentication. Target file: src/auth.py" --response --from claude
 
-[Codex processing... monitor with synapse list --watch]
+[Codex processing... monitor with synapse list]
 
 Response from Codex:
 - Created src/auth.py
@@ -69,11 +69,8 @@ Check current delegation status:
 # View settings
 synapse config show
 
-# View running agents
+# View running agents (Rich TUI with auto-refresh)
 synapse list
-
-# With watch mode (shows TRANSPORT during communication)
-synapse list --watch
 ```
 
 Example output:
@@ -132,11 +129,8 @@ If delegated task fails:
 ### Real-time Status
 
 ```bash
-# Watch agent status changes
-synapse list --watch
-
-# Check specific agent
-synapse list | grep <agent>
+# Watch agent status changes (Rich TUI with auto-refresh)
+synapse list
 ```
 
 ### Task History

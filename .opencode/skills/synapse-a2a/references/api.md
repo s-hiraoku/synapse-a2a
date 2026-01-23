@@ -21,7 +21,7 @@ These are Synapse-specific extensions (not part of standard A2A):
 | Send with Priority | `/tasks/send-priority?priority=<1-5>` | Send task with priority level |
 | Create Task | `/tasks/create` | Create task without sending to PTY (for `--response` flag) |
 
-> **Naming Convention Note:** Synapse metadata fields (`sender`, `response_expected`, `sender_task_id`, `in_reply_to`) are nested within the `metadata` object, clearly scoping them as Synapse-specific extensions. While A2A protocol recommends `x-` prefixes for extensions, Synapse uses descriptive field names within the `metadata` namespace for clarity. The endpoint path `/tasks/send-priority` is a Synapse-specific extension documented here.
+> **Naming Convention Note:** Synapse metadata fields (`sender`, `response_expected`, `sender_task_id`, `in_reply_to`) are nested within the `metadata` object, clearly scoping them as extensions. The endpoint path `/tasks/send-priority` is a Synapse-specific extension documented here.
 >
 > **Note:** Priority 5 triggers SIGINT before message delivery (emergency interrupt).
 
@@ -40,6 +40,8 @@ Examples:
 /tmp/synapse-a2a/synapse-claude-8100.sock
 /tmp/synapse-a2a/synapse-gemini-8110.sock
 /tmp/synapse-a2a/synapse-codex-8120.sock
+/tmp/synapse-a2a/synapse-opencode-8130.sock
+/tmp/synapse-a2a/synapse-copilot-8140.sock
 ```
 
 **Customization:** Set `SYNAPSE_UDS_DIR` environment variable to change the socket directory.
@@ -129,8 +131,8 @@ Standard Google A2A message format with Synapse extensions in the metadata objec
 
 **Metadata fields explained:**
 - `sender`: Synapse-specific sender identification
-  - `sender_type`: Agent type - `"claude"`, `"gemini"`, `"codex"`, or `"opencode"`
-  - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`, `"synapse-opencode-8130"`)
+  - `sender_type`: Agent type - `"claude"`, `"gemini"`, `"codex"`, `"opencode"`, or `"copilot"`
+  - `sender_id`: Full agent identifier (e.g., `"synapse-gemini-8110"`)
   - `sender_endpoint`: Agent's HTTP endpoint for replies
 - `response_expected`: Whether the sender is waiting for a response
 - `sender_task_id`: Task ID owned by the sender (included when `response_expected=true`). The receiver displays this ID in PTY output and uses it for `--reply-to`.

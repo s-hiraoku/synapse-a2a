@@ -14,6 +14,7 @@ flowchart LR
         Codex["codex.yaml"]
         Gemini["gemini.yaml"]
         OpenCode["opencode.yaml"]
+        Copilot["copilot.yaml"]
         Dummy["dummy.yaml"]
         Custom["custom.yaml"]
     end
@@ -310,7 +311,36 @@ env:
 
 ---
 
-### 4.5 dummy.yaml
+### 4.5 copilot.yaml
+
+```yaml
+command: "copilot"
+args: []
+submit_sequence: "\r"
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"
+  timeout: 0.5
+env:
+  TERM: "xterm-256color"
+
+waiting_detection:
+  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
+  require_idle: true
+  idle_timeout: 0.5
+```
+
+**特徴**:
+
+- GitHub Copilot CLI 用
+- インタラクティブ TUI のため `\r` を使用
+- **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
+- 500ms の短いタイムアウト（高速応答性）
+- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出
+
+---
+
+### 4.6 dummy.yaml
 
 ```yaml
 command: "python3 -u dummy_agent.py"

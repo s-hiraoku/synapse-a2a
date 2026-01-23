@@ -11,9 +11,7 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents | `synapse list` |
-| Watch agents (Rich TUI) | `synapse list --watch` (interactive, shows TRANSPORT) |
-| Watch agents (plain) | `synapse list --watch --no-rich` |
+| List agents (Rich TUI) | `synapse list` (auto-refresh on changes, terminal jump with Enter/j) |
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to request | `synapse send <target> "<response>" --reply-to <task_id> --from <sender>` |
@@ -44,8 +42,8 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 
 **Target Resolution (Matching Priority):**
 1. Exact ID: `synapse-claude-8100` (direct match)
-2. Type-port: `claude-8100`, `codex-8120`, `opencode-8130` (shorthand)
-3. Type only: `claude`, `gemini`, `codex`, `opencode` (only if single instance)
+2. Type-port: `claude-8100`, `codex-8120`, `opencode-8130`, `copilot-8140` (shorthand)
+3. Type only: `claude`, `gemini`, `codex`, `opencode`, `copilot` (only if single instance)
 
 **Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port shorthand (e.g., `claude-8100`) instead.
 
@@ -152,7 +150,7 @@ synapse send codex "STOP" --priority 5
 | READY | Idle, waiting for input | Green |
 | WAITING | Awaiting user input (selection, confirmation) | Cyan |
 | PROCESSING | Busy handling a task | Yellow |
-| DONE | Task completed (auto-clears after 10s) | Magenta |
+| DONE | Task completed (auto-clears after 10s) | Blue |
 
 **Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
 
@@ -171,16 +169,16 @@ synapse list
 - `PROCESSING`: Busy, wait or use `--priority 5` for emergency interrupt
 - `DONE`: Recently completed, will return to READY shortly
 
-## Terminal Jump (Watch Mode)
+## Terminal Jump
 
-In `synapse list --watch` mode, you can jump directly to an agent's terminal:
+In `synapse list`, you can jump directly to an agent's terminal:
 
 | Key | Action |
 |-----|--------|
 | `Enter` or `j` | Jump to selected agent's terminal |
 | `1-9` | Select agent row (and view details) |
-| `ESC` | Close detail panel |
-| `Ctrl+C` | Exit watch mode |
+| `ESC` | Clear selection |
+| `q` | Quit |
 
 **Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane

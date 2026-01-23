@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-01-24
+
+### Added
+
+- GitHub Copilot CLI agent support
+  - New agent profile: `synapse/profiles/copilot.yaml`
+  - Port range 8140-8149 for Copilot instances
+  - Full A2A protocol integration with `synapse copilot` command
+  - Timeout-based idle detection (500ms) for interactive TUI
+
+### Documentation
+
+- Sync plugin skills with Copilot support across all agent directories
+- Update `synapse list` documentation (auto-refresh is now default TUI behavior)
+- Fix DONE status color (magenta → blue) to match README
+- Add Copilot to all skill references (commands, API, delegation)
+
 ## [0.3.4] - 2026-01-23
 
 ### Documentation

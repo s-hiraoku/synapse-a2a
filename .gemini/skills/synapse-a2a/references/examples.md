@@ -11,8 +11,11 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 # Terminal 2: Start Codex
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse codex
 
-# Terminal 3: Monitor
-synapse list --watch
+# Terminal 3: Start OpenCode
+SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse opencode
+
+# Terminal 4: Monitor
+synapse list
 ```
 
 ## Communication Examples
@@ -99,7 +102,7 @@ Options:
 ### Watch Agent Status
 
 ```bash
-synapse list --watch
+synapse list
 ```
 
 ### View Task History
