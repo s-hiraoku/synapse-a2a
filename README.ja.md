@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> CLI エージェント（Claude Code, Codex, Gemini）を**そのまま**に、Google A2A Protocol 経由でエージェント間連携を実現するフレームワーク
+> CLI エージェント（Claude Code, Codex, Gemini, GitHub Copilot CLI）を**そのまま**に、Google A2A Protocol 経由でエージェント間連携を実現するフレームワーク
 
 ## プロジェクトの目標
 
@@ -103,6 +103,7 @@ flowchart LR
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
   - [Codex CLI](https://github.com/openai/codex)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+  - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli)
 
 ---
 
@@ -152,6 +153,9 @@ synapse codex
 
 # ターミナル 3: Gemini
 synapse gemini
+
+# ターミナル 4: GitHub Copilot CLI
+synapse copilot
 ```
 
 > 注意: ターミナルのスクロールバック表示が崩れる場合：
@@ -168,6 +172,8 @@ synapse gemini
 | Claude       | 8100-8109  |
 | Gemini       | 8110-8119  |
 | Codex        | 8120-8129  |
+| OpenCode     | 8130-8139  |
+| Copilot      | 8140-8149  |
 
 ### 4. エージェント間通信
 
@@ -415,6 +421,7 @@ sequenceDiagram
 synapse claude
 synapse codex
 synapse gemini
+synapse copilot
 
 # ポート指定
 synapse claude --port 8105
@@ -474,6 +481,7 @@ synapse codex -- resume --last
 - **Claude**: `--resume`, `--continue`, `-r`, `-c`
 - **Gemini**: `--resume`, `-r`
 - **Codex**: `resume`
+- **Copilot**: `--resume`, `-r`
 
 ### 指示管理
 
@@ -928,6 +936,8 @@ PORT_RANGES = {
     "claude": (8100, 8109),
     "gemini": (8110, 8119),
     "codex": (8120, 8129),
+    "opencode": (8130, 8139),
+    "copilot": (8140, 8149),
     "dummy": (8190, 8199),
 }
 ```
@@ -1077,6 +1087,7 @@ synapse list
 - **Gemini**: `● 1. Option` 選択UI、`Allow execution` プロンプト
 - **Claude**: `❯ Option` カーソル、`☐/☑` チェックボックス、`[Y/n]` プロンプト
 - **Codex**: インデントされた番号付きリスト
+- **Copilot**: 番号付き選択UI、`[y/N]` プロンプト
 
 ---
 
@@ -1213,7 +1224,7 @@ synapse config show --scope user
 ```
 
 **優先度**:
-1. エージェント固有の設定（`claude`, `gemini`, `codex`）がある場合はそれを使用
+1. エージェント固有の設定（`claude`, `gemini`, `codex`, `opencode`, `copilot`）がある場合はそれを使用
 2. なければ `default` を使用
 3. 両方が空の場合、初期指示は送信されない
 
@@ -1398,4 +1409,5 @@ MIT License
 ## 関連リンク
 
 - [Claude Code](https://claude.ai/code) - Anthropic の CLI エージェント
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) - GitHub の CLI エージェント
 - [Google A2A Protocol](https://github.com/google/A2A) - Agent-to-Agent プロトコル

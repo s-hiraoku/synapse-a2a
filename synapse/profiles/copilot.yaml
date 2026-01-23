@@ -1,0 +1,28 @@
+# GitHub Copilot CLI profile
+# Uses interactive TUI mode similar to Claude Code
+command: "copilot"
+args: []
+# CR required for interactive TUI to process Enter key
+submit_sequence: "\r"
+env:
+  TERM: "xterm-256color"
+
+# Multi-strategy idle detection configuration
+# Copilot CLI: Timeout-based detection (similar to Claude Code)
+# The TUI doesn't have consistent prompt patterns, so we use timeout
+idle_detection:
+  strategy: "timeout"
+  pattern_use: "never"         # No pattern detection for Copilot CLI
+  timeout: 0.5                 # 500ms no output = idle
+
+# WAITING status detection (user input prompts)
+# Copilot CLI uses selection UI for tool approvals and confirmations
+# Detects numbered choices, Yes/No prompts, and selection indicators
+waiting_detection:
+  # Regex pattern to detect:
+  # - Numbered choices (1., 2., 3.)
+  # - Selection indicators (>, *)
+  # - Yes/No prompts [y/N] or (y/n)
+  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
+  require_idle: true
+  idle_timeout: 0.5            # 500ms no output after pattern

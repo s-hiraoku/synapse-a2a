@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode) **exactly as they are**
+> A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
 
 ## Project Goals
 
@@ -104,6 +104,7 @@ flowchart LR
   - [Codex CLI](https://github.com/openai/codex)
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
   - [OpenCode](https://github.com/opencode-ai/opencode)
+  - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli)
 
 ---
 
@@ -156,6 +157,9 @@ synapse gemini
 
 # Terminal 4: OpenCode
 synapse opencode
+
+# Terminal 5: GitHub Copilot CLI
+synapse copilot
 ```
 
 > Note: If terminal scrollback display is garbled, try:
@@ -173,6 +177,7 @@ Ports are auto-assigned:
 | Gemini   | 8110-8119  |
 | Codex    | 8120-8129  |
 | OpenCode | 8130-8139  |
+| Copilot  | 8140-8149  |
 
 ### 4. Inter-Agent Communication
 
@@ -421,6 +426,7 @@ synapse claude
 synapse codex
 synapse gemini
 synapse opencode
+synapse copilot
 
 # Specify port
 synapse claude --port 8105
@@ -481,6 +487,7 @@ Default flags (customizable in `settings.json`):
 - **Gemini**: `--resume`, `-r`
 - **Codex**: `resume`
 - **OpenCode**: `--continue`, `-c`
+- **Copilot**: `--continue`, `--resume`
 
 ### Instruction Management
 
@@ -936,6 +943,7 @@ PORT_RANGES = {
     "gemini": (8110, 8119),
     "codex": (8120, 8129),
     "opencode": (8130, 8139),
+    "copilot": (8140, 8149),
     "dummy": (8190, 8199),
 }
 ```
@@ -1086,6 +1094,7 @@ When enabled, detects agents waiting for user input (selection UI, Y/n prompts) 
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
 - **Codex**: Indented numbered lists
 - **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
+- **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts
 
 ---
 
@@ -1222,7 +1231,7 @@ Customize instructions sent at agent startup:
 ```
 
 **Priority**:
-1. Agent-specific setting (`claude`, `gemini`, `codex`, `opencode`) if present
+1. Agent-specific setting (`claude`, `gemini`, `codex`, `opencode`, `copilot`) if present
 2. Otherwise use `default`
 3. If both empty, no initial instructions sent
 
@@ -1408,4 +1417,5 @@ MIT License
 
 - [Claude Code](https://claude.ai/code) - Anthropic's CLI agent
 - [OpenCode](https://opencode.ai/) - Open-source AI coding agent
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) - GitHub's AI coding assistant
 - [Google A2A Protocol](https://github.com/google/A2A) - Agent-to-Agent protocol
