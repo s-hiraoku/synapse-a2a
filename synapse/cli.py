@@ -1314,9 +1314,8 @@ def _copy_claude_skills_to_codex(base_dir: Path, force: bool = False) -> list[st
     """
     Copy synapse-a2a skills from .claude to .codex directory.
 
-    Claude Code supports plugins, so skills are installed via:
-        /plugin marketplace add s-hiraoku/synapse-a2a
-        /plugin install synapse-a2a@s-hiraoku/synapse-a2a
+    Claude Code supports skills via skills.sh:
+        npx skills add s-hiraoku/synapse-a2a
 
     Codex does not support plugins, so this function copies the skills
     from .claude/skills/synapse-a2a to .codex/skills/synapse-a2a.
