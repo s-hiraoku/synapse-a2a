@@ -29,9 +29,9 @@ class TestCopilotPortRange:
         copilot_start, copilot_end = PORT_RANGES["copilot"]
         for agent_type, (start, end) in PORT_RANGES.items():
             if agent_type != "copilot":
-                assert (
-                    copilot_end < start or end < copilot_start
-                ), f"Copilot range overlaps with {agent_type}"
+                assert copilot_end < start or end < copilot_start, (
+                    f"Copilot range overlaps with {agent_type}"
+                )
 
 
 class TestCopilotProfile:
