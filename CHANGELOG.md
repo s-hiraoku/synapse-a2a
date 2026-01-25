@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-01-25
+
+### Added
+
+- Interactive filter and kill functionality for `synapse list` (#158)
+  - Press `/` to filter agents by TYPE or DIR
+  - Press `k` to kill selected agent (with confirmation)
+  - ESC clears filter, `q` quits
+- Compliance/permissions check system (Issue #159)
+  - Block dangerous commands via `.synapse/compliance.yaml`
+  - Integrate compliance checks into controller and input router
+  - Return 403 status for blocked operations with proper error handling
+
+### Fixed
+
+- `synapse list` display corruption and keyboard navigation issues (#156)
+  - Fix rendering artifacts when list updates
+  - Improve arrow key navigation reliability
+
+### Documentation
+
+- Add resident agent memory usage note (#157)
+
 ## [0.3.5] - 2026-01-24
 
 ### Added

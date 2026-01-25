@@ -16,6 +16,17 @@ import time
 import uuid
 from collections.abc import Callable
 
+from synapse.compliance import (
+    ActionType,
+    ComplianceBlockedError,
+    ComplianceSettings,
+    Decision,
+    PolicyEngine,
+    copy_to_clipboard,
+    format_manual_display,
+    format_prefill_notification,
+    log_compliance_banner,
+)
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
     IDLE_CHECK_WINDOW,
@@ -149,6 +160,16 @@ class TerminalController:
             self_agent_type=agent_type,
             self_port=port,
         )
+
+        # Compliance settings and policy engine
+        self._compliance_settings = ComplianceSettings.load()
+        self._policy_engine = PolicyEngine.for_provider(
+            agent_type or "unknown", self._compliance_settings
+        )
+
+        # Log compliance banner at startup
+        if agent_type:
+            log_compliance_banner(self._compliance_settings)
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -503,20 +524,71 @@ class TerminalController:
         time.sleep(POST_WRITE_IDLE_DELAY)
 
         try:
-            self.write(prefixed, self._submit_seq)
+            # System messages bypass compliance checks
+            self.write(prefixed, self._submit_seq, bypass_compliance=True)
             self._identity_sent = True
         except Exception as e:
             logging.error(f"Failed to send initial instructions: {e}")
         finally:
             self._identity_sending = False
 
-    def write(self, data: str, submit_seq: str | None = None) -> None:
-        """Write data to the controlled process PTY with optional submit sequence."""
+    def write(
+        self,
+        data: str,
+        submit_seq: str | None = None,
+        bypass_compliance: bool = False,
+    ) -> bool:
+        """Write data to the controlled process PTY with optional submit sequence.
+
+        Args:
+            data: The data to write.
+            submit_seq: Optional submit sequence (e.g., Enter key).
+            bypass_compliance: If True, skip compliance checks (for system messages).
+
+        Returns:
+            True if write succeeded, False if process not running.
+
+        Raises:
+            ComplianceBlockedError: If action is blocked by compliance policy.
+        """
         if not self.running:
-            return
+            return False
 
         if self.master_fd is None:
             raise ValueError(f"master_fd is None (interactive={self.interactive})")
+
+        # Compliance check (unless bypassed for system messages)
+        if not bypass_compliance:
+            mode = self._compliance_settings.get_effective_mode(
+                self.agent_type or "unknown"
+            )
+
+            # Check inject permission
+            inject_decision = self._policy_engine.check(ActionType.INJECT_INPUT)
+            if inject_decision == Decision.DENY:
+                # Manual mode: copy to clipboard and display
+                clipboard_ok = copy_to_clipboard(data)
+                display = format_manual_display(data, clipboard_ok)
+                logging.info(
+                    f"[Compliance:{mode}] Input blocked - manual mode\n{display}"
+                )
+                raise ComplianceBlockedError(
+                    mode=mode,
+                    action=ActionType.INJECT_INPUT,
+                    message=f"Input injection blocked by compliance mode: {mode}",
+                )
+
+            # Check submit permission (if submit_seq is provided)
+            if submit_seq:
+                submit_decision = self._policy_engine.check(ActionType.SUBMIT_INPUT)
+                if submit_decision == Decision.DENY:
+                    # Prefill mode: inject but don't submit
+                    logging.info(f"[Compliance:{mode}] Submit blocked - prefill mode")
+                    # Write data without submit_seq
+                    submit_seq = None
+                    # Notify user
+                    notification = format_prefill_notification(data)
+                    logging.info(notification)
 
         with self.lock:
             self.status = "PROCESSING"
@@ -531,6 +603,7 @@ class TerminalController:
                 time.sleep(WRITE_PROCESSING_DELAY)
                 submit_encoded = submit_seq.encode("utf-8")
                 os.write(self.master_fd, submit_encoded)
+            return True
         except OSError as e:
             logging.error(f"Write to PTY failed: {e}")
             raise

@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
+from synapse.compliance import ComplianceBlockedError
 from synapse.config import CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
@@ -592,6 +593,12 @@ def create_a2a_router(
                 response_expected=response_expected,
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
+        except ComplianceBlockedError as e:
+            task_store.update_status(task.id, "failed")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Blocked by compliance policy: {e.message}",
+            ) from e
         except Exception as e:
             task_store.update_status(task.id, "failed")
             msg = f"Failed to send: {e!s}"
