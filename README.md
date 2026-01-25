@@ -1060,7 +1060,7 @@ Real-time monitoring of agent status with terminal jump capability.
 synapse list
 ```
 
-The display automatically updates when agent status changes (via file watcher) with a 2-second fallback polling interval.
+The display automatically updates when agent status changes (via file watcher) with a 10-second fallback polling interval.
 
 ### Status States
 
@@ -1077,7 +1077,8 @@ Jump directly to an agent's terminal window:
 
 | Key | Action |
 |-----|--------|
-| 1-9 | Select agent row |
+| 1-9 | Select agent row (direct) |
+| ↑/↓ | Navigate agent rows |
 | **Enter** or **j** | Jump to selected agent's terminal |
 | ESC | Clear selection |
 | q | Quit |
