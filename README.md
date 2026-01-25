@@ -948,6 +948,25 @@ PORT_RANGES = {
 }
 ```
 
+### Typical Memory Usage (Resident Agents)
+
+On macOS, idle resident agents are lightweight. As of January 25, 2026,
+RSS is around ~12 MB per agent process in a typical development setup.
+
+Actual usage varies by profile, plugins, history settings, and workload.
+Note that `ps` reports RSS in KB (so ~12 MB corresponds to ~12,000 KB).
+To measure on your machine:
+
+```bash
+ps -o pid,comm,rss,vsz,etime,command -A | rg "synapse"
+```
+
+If you don't have ripgrep:
+
+```bash
+ps -o pid,comm,rss,vsz,etime,command -A | grep "synapse"
+```
+
 ---
 
 ## File Safety
