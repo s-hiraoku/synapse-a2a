@@ -1,6 +1,6 @@
 ---
 name: synapse-a2a
-description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, handling A2A protocol operations, managing task history, configuring settings, or using File Safety features for multi-agent coordination. Automatically triggered when agent communication, A2A protocol tasks, history operations, or file safety operations are detected.
+description: This skill provides comprehensive guidance for inter-agent communication using the Synapse A2A framework. Use this skill when sending messages to other agents, routing @agent patterns, understanding priority levels, handling A2A protocol operations, managing task history, configuring settings, using File Safety features for multi-agent coordination, or configuring compliance modes. Automatically triggered when agent communication, A2A protocol tasks, history operations, file safety operations, or compliance configuration are detected.
 ---
 
 # Synapse A2A Communication
@@ -198,7 +198,30 @@ In `synapse list`, you can interact with agents:
 - **Agent Communication**: @agent pattern, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
+- **Compliance Control**: Three modes (auto/prefill/manual) to control agent automation
 - **Settings**: Configure via `settings.json` (`synapse init`)
+
+## Compliance Modes
+
+Control agent automation level per provider:
+
+| Mode | inject | submit | confirm | route | Description |
+|------|--------|--------|---------|-------|-------------|
+| `auto` | ✓ | ✓ | ✓ | ✓ | Full automation (default, backward compatible) |
+| `prefill` | ✓ | ✗ | ✗ | ✗ | Input injection only, no auto-submit |
+| `manual` | ✗ | ✗ | ✗ | ✗ | Display/clipboard only, no automation |
+
+Configure in `.synapse/settings.json`:
+```json
+{
+  "defaultMode": "auto",
+  "providers": {
+    "claude": { "mode": "prefill" },
+    "codex": { "mode": "manual" }
+  },
+  "ui": { "warningBanner": "always" }
+}
+```
 
 ## References
 
@@ -207,4 +230,5 @@ For detailed documentation, read:
 - `references/commands.md` - Full CLI command reference
 - `references/file-safety.md` - File Safety detailed guide
 - `references/api.md` - A2A endpoints and message format
+- `references/compliance.md` - Compliance modes detailed guide
 - `references/examples.md` - Multi-agent workflow examples

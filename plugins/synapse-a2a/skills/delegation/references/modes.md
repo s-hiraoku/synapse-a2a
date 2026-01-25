@@ -45,17 +45,21 @@ Delegation is configured via files, not CLI commands:
 ```
 1. Analyze user request
 2. Run pre-delegation checklist
-3. If target agent not READY:
+3. Check compliance mode (synapse config show):
+   - If source is prefill/manual: Cannot route, inform user
+   - If auto: Proceed with routing
+4. If target agent not READY:
    a. Inform user: "Target agent (<agent>) is processing. Wait?"
    b. Wait or queue based on user preference
-4. If matches delegation rule and agent is READY:
+5. If matches delegation rule and agent is READY:
    a. Acquire file locks if needed (File Safety)
    b. Send to target agent with appropriate priority
-   c. Wait for response (monitor with synapse list)
-   d. Review and integrate response
-   e. Release file locks
-   f. Report final result to user
-5. If no match: Process directly
+   c. If target is prefill: Inform user to press Enter in target terminal
+   d. Wait for response (monitor with synapse list)
+   e. Review and integrate response
+   f. Release file locks
+   g. Report final result to user
+6. If no match: Process directly
 ```
 
 ## Passthrough Mode Workflow
@@ -131,9 +135,13 @@ When typing directly in the terminal (not from agent code), you can use:
   },
   "delegation": {
     "enabled": true
-  }
+  },
+  "defaultMode": "auto",
+  "providers": {}
 }
 ```
+
+**Compliance Note:** For delegation to work, ensure the orchestrating agent (usually Claude) has `defaultMode: "auto"` or `providers.claude.mode: "auto"`. If set to `prefill` or `manual`, routing capabilities are disabled.
 
 ### `.synapse/delegate.md`
 

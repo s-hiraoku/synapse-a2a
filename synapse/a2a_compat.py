@@ -702,7 +702,7 @@ def create_a2a_router(
     @router.post("/tasks/send", response_model=SendMessageResponse)
     async def send_message(  # noqa: B008
         request: SendMessageRequest, _: Any = Depends(require_auth)
-    ) -> SendMessageResponse:
+    ) -> SendMessageResponse | JSONResponse:
         """
         Send a message to the agent (Google A2A compatible).
 
@@ -973,7 +973,7 @@ def create_a2a_router(
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(  # noqa: B008
         request: SendMessageRequest, priority: int = 1, _: Any = Depends(require_auth)
-    ) -> SendMessageResponse:
+    ) -> SendMessageResponse | JSONResponse:
         """
         Send a message with priority (Synapse extension).
 

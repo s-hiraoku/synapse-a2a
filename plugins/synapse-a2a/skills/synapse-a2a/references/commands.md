@@ -346,11 +346,19 @@ synapse reset
     "SYNAPSE_HISTORY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
+  },
+  "defaultMode": "auto",
+  "providers": {
+    "claude": { "mode": "prefill" },
+    "codex": { "mode": "manual" }
+  },
+  "ui": {
+    "warningBanner": "always"
   }
 }
 ```
 
-**Available Settings:**
+**Available Environment Settings:**
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -358,6 +366,14 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+
+**Compliance Settings:**
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `defaultMode` | Default compliance mode (`auto`/`prefill`/`manual`) | `auto` |
+| `providers.<name>.mode` | Provider-specific mode override | (uses defaultMode) |
+| `ui.warningBanner` | Banner display (`always`/`autoOnly`/`off`) | `always` |
 
 ## Instructions Management
 

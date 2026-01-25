@@ -1,6 +1,6 @@
 ---
 name: delegation
-description: This skill configures automatic task delegation between agents in Synapse A2A. Configure delegation rules via settings files (.synapse/settings.json and .synapse/delegate.md) or the interactive config TUI (synapse config). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, and File Safety integration.
+description: This skill configures automatic task delegation between agents in Synapse A2A. Configure delegation rules via settings files (.synapse/settings.json and .synapse/delegate.md) or the interactive config TUI (synapse config). Supports orchestrator mode (Claude coordinates) and passthrough mode (direct forwarding). Includes agent status verification, priority levels, error handling, File Safety integration, and compliance mode awareness.
 ---
 
 # Delegation Skill
@@ -196,6 +196,7 @@ Before delegating any task:
 1. **Verify agent is READY**: `synapse list` (Rich TUI with auto-refresh on changes)
 2. **Check file locks**: `synapse file-safety locks` (for file edits)
 3. **Verify branch**: `git branch --show-current` (for coding tasks)
+4. **Check compliance mode**: `synapse config show` (routing may be blocked)
 
 **Agent Status:**
 
@@ -205,6 +206,14 @@ Before delegating any task:
 | WAITING | Awaiting user input | Use terminal jump to respond |
 | PROCESSING | Busy handling a task | Wait or use --priority 5 |
 | DONE | Task completed | Will return to READY shortly |
+
+**Compliance Modes:**
+
+| Mode | Routing | Description |
+|------|---------|-------------|
+| `auto` | ✓ | Full automation, delegation works normally |
+| `prefill` | ✗ | Routing blocked, messages won't be forwarded |
+| `manual` | ✗ | All automation blocked |
 
 **Note:** `synapse list` provides real-time agent monitoring with auto-refresh. Press 1-9/↑↓ to select agent, `Enter`/`j` to jump, `k` to kill, `/` to filter, ESC to clear, q to quit.
 
@@ -233,4 +242,5 @@ For detailed documentation, read:
 
 - `references/modes.md` - Delegation modes and workflows
 - `references/file-safety.md` - File Safety integration
+- `references/compliance.md` - Compliance mode integration
 - `references/examples.md` - Example sessions and configurations

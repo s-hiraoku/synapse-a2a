@@ -184,6 +184,35 @@ Warning: --reply-to abc12345 not found (404), retrying as new message
 
 This failsafe ensures messages are always delivered, even if `--reply-to` is used incorrectly.
 
+### Compliance Mode Responses
+
+API responses vary based on the target provider's compliance mode:
+
+| Mode | Action | HTTP Response | Task Status |
+|------|--------|---------------|-------------|
+| `auto` | Normal send to PTY | 200 OK | `working` |
+| `prefill` | Input injected, submit suppressed | 202 Accepted | `input_required` |
+| `manual` | Blocked (display/clipboard only) | 403 Forbidden | - |
+
+**Prefill mode response:**
+```json
+{
+  "task": {
+    "id": "uuid-...",
+    "status": "input_required",
+    "message": "Input prefilled. User action required."
+  }
+}
+```
+
+**Manual mode response:**
+```json
+{
+  "error": "Compliance mode 'manual' blocks automatic input",
+  "code": "compliance_blocked"
+}
+```
+
 ## HTTP API Examples
 
 ### Send Message

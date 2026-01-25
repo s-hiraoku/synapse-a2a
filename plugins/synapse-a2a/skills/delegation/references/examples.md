@@ -66,7 +66,7 @@ Integrated result:
 Check current delegation status:
 
 ```bash
-# View settings
+# View settings (including compliance mode)
 synapse config show
 
 # View running agents (Rich TUI with auto-refresh)
@@ -79,6 +79,8 @@ TYPE       PORT     STATUS       TRANSPORT   PID      WORKING_DIR              E
 claude     8100     READY        -           12345    /path/to/project         http://localhost:8100
 codex      8120     READY        -           12346    /path/to/project         http://localhost:8120
 gemini     8110     PROCESSING   -           12347    /path/to/project         http://localhost:8110
+opencode   8130     READY        -           12348    /path/to/project         http://localhost:8130
+copilot    8140     READY        -           12349    /path/to/project         http://localhost:8140
 ```
 
 Check file safety status:
@@ -123,6 +125,21 @@ If delegated task fails:
 1. Review error message from agent
 2. Provide context and retry with adjusted instructions
 3. If repeated failures, process directly or suggest user intervention
+
+### Compliance Mode Blocking
+
+If routing is blocked by compliance:
+
+```text
+Error: Compliance mode 'prefill' blocks automatic routing
+
+Solutions:
+1. Check compliance settings: synapse config show
+2. If your agent is in prefill/manual mode, use synapse send directly:
+   synapse send codex "Task description" --from claude
+3. If target is in prefill mode, input was injected but user must press Enter
+   - Use terminal jump to respond: synapse list → select → Enter/j
+```
 
 ## Monitoring Examples
 

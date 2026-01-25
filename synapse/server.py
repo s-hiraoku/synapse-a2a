@@ -247,7 +247,7 @@ def create_app(
     task_store = TaskStore()
 
     @new_app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-    async def send_message(msg: MessageRequest) -> dict:
+    async def send_message(msg: MessageRequest) -> dict[str, Any] | Response:
         """Send message to agent (Synapse original API). DEPRECATED."""
         return _send_legacy_message(ctrl, task_store, msg, submit_seq)
 
@@ -269,7 +269,7 @@ standalone_task_store: TaskStore | None = None
 
 
 @app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-async def send_message(msg: MessageRequest) -> dict:
+async def send_message(msg: MessageRequest) -> dict[str, Any] | Response:
     """
     Send message to agent (Synapse original API).
 

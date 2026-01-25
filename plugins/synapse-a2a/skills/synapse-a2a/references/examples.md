@@ -11,10 +11,16 @@ SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 # Terminal 2: Start Codex
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse codex
 
-# Terminal 3: Start OpenCode
+# Terminal 3: Start Gemini
+SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse gemini
+
+# Terminal 4: Start OpenCode
 SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse opencode
 
-# Terminal 4: Monitor
+# Terminal 5: Start Copilot
+SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse copilot
+
+# Terminal 6: Monitor
 synapse list
 ```
 
@@ -38,9 +44,12 @@ synapse send codex "STOP" --priority 5 --from claude
 
 ### Fire-and-forget (No Response Expected)
 
-```text
-@gemini --no-response Log this completion event
+```bash
+# Use synapse send for no-response mode (default)
+synapse send gemini "Log this completion event" --from claude
 ```
+
+> **Note:** The `@agent` pattern waits for response by default. Use `synapse send` command for fire-and-forget.
 
 ## File Coordination Example
 
@@ -153,4 +162,26 @@ synapse list
 
 # Start missing agent
 synapse codex  # in new terminal
+```
+
+### Compliance Mode Issues
+
+#### Message Not Routing
+
+```bash
+# Check compliance mode
+synapse config show
+
+# If prefill or manual, routing is blocked
+# Switch to auto for delegation
+```
+
+#### Prefill Mode - Input But No Execution
+
+```bash
+# Expected in prefill mode:
+# 1. Input appears in agent's terminal
+# 2. User must press Enter to execute
+# 3. Use terminal jump to respond:
+synapse list  # Select agent with 1-9/↑↓, press Enter/j to jump
 ```
