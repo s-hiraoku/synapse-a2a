@@ -555,3 +555,195 @@ class TestPrefillApiResponse:
         assert WriteResult.SUCCESS.value == "success"
         assert WriteResult.PREFILLED.value == "prefilled"
         assert WriteResult.NOT_RUNNING.value == "not_running"
+
+    def test_a2a_compat_returns_202_on_prefill(self):
+        """A2A compat endpoint returns 202 + input_required when prefill mode."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from synapse.a2a_compat import create_a2a_router
+        from synapse.compliance import ComplianceSettings, WriteResult
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "prefill"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                # Create mock controller that returns PREFILLED
+                mock_controller = MagicMock()
+                mock_controller.write.return_value = WriteResult.PREFILLED
+                mock_controller.get_context.return_value = ""
+                mock_controller.status = "READY"
+
+                # Create mock registry
+                mock_registry = MagicMock()
+
+                # Create FastAPI app with A2A router
+                app = FastAPI()
+                router = create_a2a_router(
+                    controller=mock_controller,
+                    agent_type="claude",
+                    port=8100,
+                    submit_seq="\n",
+                    agent_id="test-claude-8100",
+                    registry=mock_registry,
+                )
+                app.include_router(router)
+
+                client = TestClient(app)
+
+                # Send message request
+                response = client.post(
+                    "/tasks/send",
+                    json={
+                        "message": {
+                            "role": "user",
+                            "parts": [{"type": "text", "text": "Hello"}],
+                        }
+                    },
+                )
+
+                # Should return 202 Accepted
+                assert response.status_code == 202
+
+                # Response should contain task with input_required status
+                data = response.json()
+                assert "task" in data
+                assert data["task"]["status"] == "input_required"
+
+    def test_a2a_compat_returns_403_on_manual_mode(self):
+        """A2A compat endpoint returns 403 when manual mode blocks."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from synapse.a2a_compat import create_a2a_router
+        from synapse.compliance import (
+            ActionType,
+            ComplianceBlockedError,
+            ComplianceSettings,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "manual"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                # Create mock controller that raises ComplianceBlockedError
+                mock_controller = MagicMock()
+                mock_controller.write.side_effect = ComplianceBlockedError(
+                    mode="manual",
+                    action=ActionType.INJECT_INPUT,
+                    message="Blocked by manual mode",
+                )
+                mock_controller.get_context.return_value = ""
+                mock_controller.status = "READY"
+
+                # Create mock registry
+                mock_registry = MagicMock()
+
+                # Create FastAPI app with A2A router
+                app = FastAPI()
+                router = create_a2a_router(
+                    controller=mock_controller,
+                    agent_type="claude",
+                    port=8100,
+                    submit_seq="\n",
+                    agent_id="test-claude-8100",
+                    registry=mock_registry,
+                )
+                app.include_router(router)
+
+                client = TestClient(app)
+
+                # Send message request
+                response = client.post(
+                    "/tasks/send",
+                    json={
+                        "message": {
+                            "role": "user",
+                            "parts": [{"type": "text", "text": "Hello"}],
+                        }
+                    },
+                )
+
+                # Should return 403 Forbidden
+                assert response.status_code == 403
+
+                # Response should contain compliance error message
+                data = response.json()
+                assert "detail" in data
+                assert "compliance" in data["detail"].lower()
+
+    def test_a2a_compat_returns_200_on_auto_mode(self):
+        """A2A compat endpoint returns 200 when auto mode succeeds."""
+        from unittest.mock import MagicMock, patch
+
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from synapse.a2a_compat import create_a2a_router
+        from synapse.compliance import ComplianceSettings, WriteResult
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "auto"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                # Create mock controller that returns SUCCESS
+                mock_controller = MagicMock()
+                mock_controller.write.return_value = WriteResult.SUCCESS
+                mock_controller.get_context.return_value = ""
+                mock_controller.status = "READY"
+
+                # Create mock registry
+                mock_registry = MagicMock()
+
+                # Create FastAPI app with A2A router
+                app = FastAPI()
+                router = create_a2a_router(
+                    controller=mock_controller,
+                    agent_type="claude",
+                    port=8100,
+                    submit_seq="\n",
+                    agent_id="test-claude-8100",
+                    registry=mock_registry,
+                )
+                app.include_router(router)
+
+                client = TestClient(app)
+
+                # Send message request
+                response = client.post(
+                    "/tasks/send",
+                    json={
+                        "message": {
+                            "role": "user",
+                            "parts": [{"type": "text", "text": "Hello"}],
+                        }
+                    },
+                )
+
+                # Should return 200 OK
+                assert response.status_code == 200
+
+                # Response should contain task with working/submitted status
+                data = response.json()
+                assert "task" in data
+                # Status should be working (task in progress)
+                assert data["task"]["status"] in ("working", "submitted")
