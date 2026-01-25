@@ -22,6 +22,7 @@ from synapse.compliance import (
     ComplianceSettings,
     Decision,
     PolicyEngine,
+    WriteResult,
     copy_to_clipboard,
     format_manual_display,
     format_prefill_notification,
@@ -537,7 +538,7 @@ class TerminalController:
         data: str,
         submit_seq: str | None = None,
         bypass_compliance: bool = False,
-    ) -> bool:
+    ) -> WriteResult:
         """Write data to the controlled process PTY with optional submit sequence.
 
         Args:
@@ -546,16 +547,22 @@ class TerminalController:
             bypass_compliance: If True, skip compliance checks (for system messages).
 
         Returns:
-            True if write succeeded, False if process not running.
+            WriteResult indicating the outcome:
+            - SUCCESS: Write completed normally with submit
+            - PREFILLED: Data injected but submit suppressed (prefill mode)
+            - NOT_RUNNING: Process not running
 
         Raises:
-            ComplianceBlockedError: If action is blocked by compliance policy.
+            ComplianceBlockedError: If action is blocked by compliance policy (manual mode).
         """
         if not self.running:
-            return False
+            return WriteResult.NOT_RUNNING
 
         if self.master_fd is None:
             raise ValueError(f"master_fd is None (interactive={self.interactive})")
+
+        # Track if we're in prefill mode
+        is_prefill = False
 
         # Compliance check (unless bypassed for system messages)
         if not bypass_compliance:
@@ -586,6 +593,7 @@ class TerminalController:
                     logging.info(f"[Compliance:{mode}] Submit blocked - prefill mode")
                     # Write data without submit_seq
                     submit_seq = None
+                    is_prefill = True
                     # Notify user
                     notification = format_prefill_notification(data)
                     logging.info(notification)
@@ -603,7 +611,8 @@ class TerminalController:
                 time.sleep(WRITE_PROCESSING_DELAY)
                 submit_encoded = submit_seq.encode("utf-8")
                 os.write(self.master_fd, submit_encoded)
-            return True
+
+            return WriteResult.PREFILLED if is_prefill else WriteResult.SUCCESS
         except OSError as e:
             logging.error(f"Write to PTY failed: {e}")
             raise
