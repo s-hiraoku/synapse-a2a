@@ -227,7 +227,9 @@ class RichRenderer:
         if interactive and agent_count > 0:
             footer.append("Press ", style="dim")
             footer.append(f"1-{agent_count}", style="bold cyan")
-            footer.append(" to view details, ", style="dim")
+            footer.append(" or ", style="dim")
+            footer.append("↑/↓", style="bold cyan")
+            footer.append(" to select, ", style="dim")
 
             # Show jump hint if available and row selected
             if jump_available and has_selection:
@@ -235,7 +237,7 @@ class RichRenderer:
                 footer.append(" to jump, ", style="dim")
 
             footer.append("ESC", style="bold cyan")
-            footer.append(" to close, ", style="dim")
+            footer.append(" to clear, ", style="dim")
 
         footer.append("q", style="bold")
         footer.append(" or ", style="dim")

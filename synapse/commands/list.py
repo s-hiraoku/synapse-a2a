@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import sys
 from collections.abc import Callable
@@ -183,18 +184,107 @@ class ListCommand:
             pass
 
     def _read_key_nonblocking(self) -> str | None:
-        """Read a single key without blocking.
+        """Read a single key or escape sequence without blocking.
+
+        Uses os.read() for platform-stable nonblocking reads and prefix-matching
+        for escape sequences that may arrive in parts.
 
         Returns:
-            Key character or None if no input available.
+            Key character, escape sequence (e.g., "UP", "DOWN"), or None.
         """
+        import fcntl
+        import os
         import select
 
+        # Known escape sequences (bytes)
+        KNOWN_SEQUENCES: dict[bytes, str] = {
+            b"\x1b[A": "UP",
+            b"\x1b[B": "DOWN",
+        }
+
+        fd = sys.stdin.fileno()
+        flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+
         try:
-            if select.select([sys.stdin], [], [], 0)[0]:
-                return sys.stdin.read(1)
+            # Check if data is available
+            if not select.select([sys.stdin], [], [], 0)[0]:
+                return None
+
+            # Set non-blocking mode
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+            # Read initial bytes using os.read (platform-stable)
+            try:
+                buf = os.read(fd, 1)
+            except (BlockingIOError, OSError):
+                return None
+
+            if not buf:
+                return None
+
+            # If not an escape character, return immediately
+            if buf[0:1] != b"\x1b":
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags)  # Restore before return
+                return buf.decode("utf-8", errors="ignore")
+
+            # Accumulate bytes for escape sequence detection
+            # Use short timeout to wait for remaining bytes
+            max_seq_len = max(len(seq) for seq in KNOWN_SEQUENCES)
+
+            while len(buf) < max_seq_len:
+                # Check if current buffer matches a complete sequence
+                if buf in KNOWN_SEQUENCES:
+                    fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+                    return KNOWN_SEQUENCES[buf]
+
+                # Check if buffer is a prefix of any known sequence
+                is_prefix = any(
+                    seq.startswith(buf) and seq != buf for seq in KNOWN_SEQUENCES
+                )
+                if not is_prefix:
+                    # Not a prefix of any known sequence, stop reading
+                    break
+
+                # Wait briefly for more bytes (escape sequences arrive quickly)
+                if not select.select([sys.stdin], [], [], 0.05)[0]:
+                    # Timeout - no more bytes coming
+                    break
+
+                try:
+                    next_byte = os.read(fd, 1)
+                except (BlockingIOError, OSError):
+                    break
+
+                if not next_byte:
+                    break
+
+                buf += next_byte
+
+            # Restore flags before returning
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+
+            # Check for complete sequence match
+            if buf in KNOWN_SEQUENCES:
+                return KNOWN_SEQUENCES[buf]
+
+            # Standalone ESC (no sequence matched)
+            if buf == b"\x1b":
+                return "\x1b"
+
+            # Partial or unknown escape sequence - treat as ESC
+            if buf.startswith(b"\x1b"):
+                return "\x1b"
+
+            # Return first character
+            return buf[0:1].decode("utf-8", errors="ignore") or None
+
         except Exception:
             pass
+        finally:
+            # Always restore original flags
+            with contextlib.suppress(Exception):
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+
         return None
 
     def _create_file_watcher(
@@ -271,12 +361,19 @@ class ListCommand:
         # Force initial update
         change_event.set()
 
-        # Fallback polling interval (2 seconds) in case file watcher misses events
+        # Track if display needs refresh (for selection changes)
+        needs_refresh = False
+
+        # Fallback polling (10 seconds) in case file watcher misses events
         last_poll_time = self._time.time()
-        poll_interval = 2.0
+        poll_interval = 10.0
 
         try:
-            with Live(console=console, refresh_per_second=4) as live:
+            with Live(
+                console=console,
+                auto_refresh=False,
+                vertical_overflow="crop",
+            ) as live:
                 while True:
                     # Check for keyboard input
                     if interactive:
@@ -285,11 +382,29 @@ class ListCommand:
                             # q key to quit
                             if key in ("q", "Q"):
                                 break
-                            # ESC key (0x1b) clears selection
+                            # ESC key clears selection
                             elif key == "\x1b":
                                 selected_row = None
+                                needs_refresh = True
+                            # Number keys for direct selection
                             elif key.isdigit() and key != "0":
                                 selected_row = int(key)
+                                needs_refresh = True
+                            # Arrow keys for navigation
+                            elif key == "UP":
+                                if current_agents:
+                                    if selected_row is None:
+                                        selected_row = len(current_agents)
+                                    elif selected_row > 1:
+                                        selected_row -= 1
+                                    needs_refresh = True
+                            elif key == "DOWN":
+                                if current_agents:
+                                    if selected_row is None:
+                                        selected_row = 1
+                                    elif selected_row < len(current_agents):
+                                        selected_row += 1
+                                    needs_refresh = True
                             # Enter or 'j' key triggers terminal jump
                             elif (
                                 key in ("\r", "\n", "j", "J")
@@ -306,9 +421,10 @@ class ListCommand:
                         change_event.set()
                         last_poll_time = current_time
 
-                    # Update display when file changes detected or polling triggered
-                    if change_event.is_set():
+                    # Update display when file changes or selection changes
+                    if change_event.is_set() or needs_refresh:
                         change_event.clear()
+                        needs_refresh = False
 
                         agents, stale_locks, show_file_safety = self._get_agent_data(
                             registry
@@ -334,7 +450,7 @@ class ListCommand:
                             jump_available=jump_available,
                         )
 
-                        live.update(display)
+                        live.update(display, refresh=True)
 
                     # Small sleep to prevent CPU spinning
                     self._time.sleep(0.05)

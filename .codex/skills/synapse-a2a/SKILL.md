@@ -11,7 +11,7 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents (Rich TUI) | `synapse list` (auto-refresh on changes, terminal jump with Enter/j) |
+| List agents (Rich TUI) | `synapse list` (auto-refresh, ↑/↓ or 1-9 to select, Enter/j to jump) |
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to request | `synapse send <target> "<response>" --reply-to <task_id> --from <sender>` |
@@ -175,8 +175,9 @@ In `synapse list`, you can jump directly to an agent's terminal:
 
 | Key | Action |
 |-----|--------|
+| `1-9` | Select agent row (direct) |
+| `↑/↓` | Navigate agent rows |
 | `Enter` or `j` | Jump to selected agent's terminal |
-| `1-9` | Select agent row (and view details) |
 | `ESC` | Clear selection |
 | `q` | Quit |
 
