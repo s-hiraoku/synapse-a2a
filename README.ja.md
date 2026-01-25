@@ -942,6 +942,24 @@ PORT_RANGES = {
 }
 ```
 
+### 常駐エージェントの典型メモリ使用量
+
+macOS 環境では、待機中の常駐エージェントは軽量です。2026-01-25 時点の
+一般的な開発環境では、プロセスあたり RSS が約 12 MB 程度です。
+
+実際の使用量は、プロファイル、プラグイン、履歴設定、負荷により変動します。
+`ps` の RSS は KB 表示（約 12 MB は約 12,000 KB）です。手元で測定する場合:
+
+```bash
+ps -o pid,comm,rss,vsz,etime,command -A | rg "synapse"
+```
+
+ripgrep がない場合:
+
+```bash
+ps -o pid,comm,rss,vsz,etime,command -A | grep "synapse"
+```
+
 ---
 
 ## File Safety
