@@ -1090,16 +1090,16 @@ The display automatically updates when agent status changes (via file watcher) w
 | **PROCESSING** | Yellow | Agent is actively working |
 | **DONE** | Blue | Task completed (auto-transitions to READY after 10s) |
 
-### Terminal Jump
-
-Jump directly to an agent's terminal window:
+### Interactive Controls
 
 | Key | Action |
 |-----|--------|
 | 1-9 | Select agent row (direct) |
 | ↑/↓ | Navigate agent rows |
 | **Enter** or **j** | Jump to selected agent's terminal |
-| ESC | Clear selection |
+| **k** | Kill selected agent (with confirmation) |
+| **/** | Filter by TYPE or WORKING_DIR |
+| ESC | Clear filter/selection |
 | q | Quit |
 
 **Supported Terminals**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij

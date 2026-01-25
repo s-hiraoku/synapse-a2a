@@ -6,6 +6,7 @@ from typing import Any
 
 from rich import box
 from rich.console import Console, Group, RenderableType
+from rich.markup import escape as rich_escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -210,6 +211,9 @@ class RichRenderer:
         agent_count: int = 0,
         jump_available: bool = False,
         has_selection: bool = False,
+        kill_confirm_agent: dict[str, Any] | None = None,
+        filter_mode: bool = False,
+        filter_text: str = "",
     ) -> Text:
         """Build footer text with control hints.
 
@@ -218,31 +222,71 @@ class RichRenderer:
             agent_count: Number of agents (for showing valid key range).
             jump_available: If True, show terminal jump hint.
             has_selection: If True, a row is currently selected.
+            kill_confirm_agent: If set, show kill confirmation for this agent.
+            filter_mode: If True, show filter input mode.
+            filter_text: Current filter text (shown when not empty).
 
         Returns:
             Rich Text with control instructions.
         """
         footer = Text()
 
+        # Kill confirmation mode
+        if kill_confirm_agent:
+            agent_id = kill_confirm_agent.get("agent_id", "unknown")
+            pid = kill_confirm_agent.get("pid", "-")
+            footer.append("⚠ ", style="bold yellow")
+            footer.append(f"Kill {agent_id} (PID: {pid})? ", style="yellow")
+            footer.append("[", style="dim")
+            footer.append("y", style="bold green")
+            footer.append("]=Yes  [", style="dim")
+            footer.append("n", style="bold red")
+            footer.append("/", style="dim")
+            footer.append("ESC", style="bold red")
+            footer.append("]=Cancel", style="dim")
+            return footer
+
+        # Filter input mode
+        if filter_mode:
+            footer.append("Filter (TYPE/DIR): ", style="bold yellow")
+            footer.append(rich_escape(filter_text), style="bold white")
+            footer.append("▌", style="bold white blink")
+            footer.append("  [", style="dim")
+            footer.append("Enter", style="bold green")
+            footer.append("]=Apply  [", style="dim")
+            footer.append("ESC", style="bold red")
+            footer.append("]=Cancel", style="dim")
+            return footer
+
         if interactive and agent_count > 0:
-            footer.append("Press ", style="dim")
-            footer.append(f"1-{agent_count}", style="bold cyan")
-            footer.append(" or ", style="dim")
-            footer.append("↑/↓", style="bold cyan")
-            footer.append(" to select, ", style="dim")
+            # Clamp display max to 9 since only single-digit keys are supported
+            display_max = min(agent_count, 9)
+            footer.append(f"1-{display_max}", style="bold cyan")
+            footer.append("/", style="dim")
+            footer.append("↑↓", style="bold cyan")
+            footer.append(":select ", style="dim")
 
-            # Show jump hint if available and row selected
-            if jump_available and has_selection:
-                footer.append("Enter/j", style="bold green")
-                footer.append(" to jump, ", style="dim")
+            # Show action hints when row is selected
+            if has_selection:
+                if jump_available:
+                    footer.append("Enter/j", style="bold green")
+                    footer.append(":jump ", style="dim")
+                footer.append("k", style="bold red")
+                footer.append(":kill ", style="dim")
 
+        footer.append("/", style="bold yellow")
+        footer.append(":filter ", style="dim")
+
+        # Show ESC hint for clearing filter or selection
+        if filter_text:
             footer.append("ESC", style="bold cyan")
-            footer.append(" to clear, ", style="dim")
+            footer.append(":clear filter ", style="dim")
+        elif has_selection:
+            footer.append("ESC", style="bold cyan")
+            footer.append(":clear ", style="dim")
 
         footer.append("q", style="bold")
-        footer.append(" or ", style="dim")
-        footer.append("Ctrl+C", style="bold")
-        footer.append(" to exit", style="dim")
+        footer.append(":exit", style="dim")
 
         return footer
 
@@ -280,6 +324,9 @@ class RichRenderer:
         interactive: bool = False,
         selected_row: int | None = None,
         jump_available: bool = False,
+        kill_confirm_agent: dict[str, Any] | None = None,
+        filter_mode: bool = False,
+        filter_text: str = "",
     ) -> RenderableType:
         """Build the complete display.
 
@@ -292,6 +339,9 @@ class RichRenderer:
             interactive: If True, enable number key selection.
             selected_row: Currently selected row (1-indexed), or None.
             jump_available: If True, terminal jump feature is available.
+            kill_confirm_agent: If set, show kill confirmation for this agent.
+            filter_mode: If True, show filter input mode.
+            filter_text: Current filter text.
 
         Returns:
             Rich renderable for the complete display.
@@ -303,7 +353,11 @@ class RichRenderer:
             selected_row=selected_row,
         )
 
+        # Build title with filter indicator
         title = f"Synapse A2A v{version} - Agent List"
+        if filter_text and not filter_mode:
+            escaped_filter = rich_escape(filter_text)
+            title += f" [bold magenta](Filter: {escaped_filter})[/bold magenta]"
         subtitle = f"Last updated: {timestamp}"
 
         panel = self.build_panel(table, title=title, subtitle=subtitle)
@@ -326,6 +380,9 @@ class RichRenderer:
             agent_count=len(agents),
             jump_available=jump_available,
             has_selection=selected_row is not None,
+            kill_confirm_agent=kill_confirm_agent,
+            filter_mode=filter_mode,
+            filter_text=filter_text,
         )
         elements.append(footer)
 

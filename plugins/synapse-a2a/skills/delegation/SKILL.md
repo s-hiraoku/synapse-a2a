@@ -206,7 +206,7 @@ Before delegating any task:
 | PROCESSING | Busy handling a task | Wait or use --priority 5 |
 | DONE | Task completed | Will return to READY shortly |
 
-**Note:** `synapse list` provides real-time agent monitoring with auto-refresh. Press 1-9 to select agent, `Enter` or `j` to jump to terminal, ESC to clear selection, q to quit.
+**Note:** `synapse list` provides real-time agent monitoring with auto-refresh. Press 1-9/↑↓ to select agent, `Enter`/`j` to jump, `k` to kill, `/` to filter, ESC to clear, q to quit.
 
 ## Priority Levels
 

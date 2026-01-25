@@ -1855,11 +1855,13 @@ Tip: Copy the agent ID from 'synapse list' output for precise control.""",
   synapse list              Show running agents (Rich TUI with auto-update)
 
 Interactive controls:
-  1-9         Select agent by number to view full details
-  Enter/j     Jump to selected agent's terminal
-  ESC         Close detail panel
+  1-9         Select agent by number
+  ↑/↓         Navigate selection
+  Enter/j     Jump to terminal
+  k           Kill agent (with confirmation)
+  /           Filter by TYPE or WORKING_DIR
+  ESC         Clear filter/selection
   q           Quit
-  Ctrl+C      Quit
 
 Status meanings:
   READY       Agent is idle and waiting for input

@@ -17,9 +17,11 @@ synapse list
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
 - Flicker-free updates
-- **Interactive row selection**: Press 1-9 to select an agent row and view full paths in a detail panel
+- **Interactive row selection**: Press 1-9 or ↑/↓ to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
-- Press `ESC` to close detail panel, `Ctrl+C` to exit
+- **Kill Agent**: Press `k` to terminate selected agent (with confirmation dialog)
+- **Filter**: Press `/` to filter by TYPE or WORKING_DIR
+- Press `ESC` to clear filter/selection, `q` to exit
 
 **Terminal Jump Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
