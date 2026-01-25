@@ -473,11 +473,12 @@ def format_prefill_notification(content: str) -> str:
     return f"[Prefilled] Press Enter to send: {preview}"
 
 
-def format_manual_display(content: str) -> str:
+def format_manual_display(content: str, clipboard_success: bool = True) -> str:
     """Format display message for manual mode.
 
     Args:
         content: The proposed prompt content.
+        clipboard_success: Whether clipboard copy succeeded.
 
     Returns:
         Display message string.
@@ -486,8 +487,11 @@ def format_manual_display(content: str) -> str:
         "─" * 40,
         content,
         "─" * 40,
-        "[Copied to clipboard] Paste manually and press Enter",
     ]
+    if clipboard_success:
+        lines.append("[Copied to clipboard] Paste manually and press Enter")
+    else:
+        lines.append("[Clipboard unavailable] Copy the above and paste manually")
     return "\n".join(lines)
 
 

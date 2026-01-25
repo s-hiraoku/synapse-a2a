@@ -184,6 +184,17 @@ class TestManualModeClipboard:
         display_lower = display.lower()
         assert "clipboard" in display_lower or "copied" in display_lower
 
+    def test_manual_mode_format_display_clipboard_failed(self):
+        """Manual mode shows appropriate message when clipboard fails."""
+        from synapse.compliance import format_manual_display
+
+        content = "test command"
+        display = format_manual_display(content, clipboard_success=False)
+
+        # Should mention clipboard unavailable
+        display_lower = display.lower()
+        assert "unavailable" in display_lower or "copy" in display_lower
+
 
 class TestConfigTUIIntegration:
     """Test integration with synapse config TUI."""
@@ -312,3 +323,43 @@ class TestAutoConfirmControl:
         # Manual mode - denied
         manual_engine = PolicyEngine(mode="manual")
         assert manual_engine.check(ActionType.AUTO_CONFIRM) == Decision.DENY
+
+
+class TestInputRouterCompliance:
+    """Test InputRouter compliance integration."""
+
+    def test_input_router_initializes_compliance(self):
+        """InputRouter should initialize compliance settings."""
+        from synapse.input_router import InputRouter
+
+        router = InputRouter(self_agent_type="claude")
+
+        assert router._compliance_settings is not None
+        assert router._policy_engine is not None
+
+    def test_input_router_respects_manual_mode(self):
+        """InputRouter should block routing in manual mode."""
+        from unittest.mock import patch
+
+        from synapse.compliance import ComplianceSettings
+        from synapse.input_router import InputRouter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "manual"})
+
+            # Patch ComplianceSettings.load to use our test settings
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                router = InputRouter(
+                    self_agent_type="claude", self_agent_id="test-claude"
+                )
+                # Should return False (blocked by compliance)
+                result = router.route_to_agent("gemini", "test message")
+                assert result is False
+                # Should have set last_response indicating compliance block
+                assert router.last_response is not None
+                assert "compliance" in router.last_response.lower()
