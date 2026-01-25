@@ -180,7 +180,11 @@ In `synapse list`, you can interact with agents:
 | `Enter` or `j` | Jump to selected agent's terminal |
 | `k` | Kill selected agent (with confirmation) |
 | `/` | Filter by TYPE or WORKING_DIR |
+<<<<<<< HEAD
 | `ESC` | Clear filter first, then selection |
+=======
+| `ESC` | Clear filter/selection |
+>>>>>>> 6bceada (feat(list): add interactive filter and kill functionality)
 | `q` | Quit |
 
 **Supported Terminals:**
