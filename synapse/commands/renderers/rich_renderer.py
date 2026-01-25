@@ -259,7 +259,9 @@ class RichRenderer:
             return footer
 
         if interactive and agent_count > 0:
-            footer.append(f"1-{agent_count}", style="bold cyan")
+            # Clamp display max to 9 since only single-digit keys are supported
+            display_max = min(agent_count, 9)
+            footer.append(f"1-{display_max}", style="bold cyan")
             footer.append("/", style="dim")
             footer.append("↑↓", style="bold cyan")
             footer.append(":select ", style="dim")

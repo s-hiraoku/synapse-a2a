@@ -456,10 +456,14 @@ class ListCommand:
                                     # Confirm kill
                                     self._kill_agent(registry, kill_confirm_agent)
                                     selected_row = None
+                                    kill_confirm_agent = None
                                     change_event.set()  # Refresh display
-                                # Cancel on n, N, ESC, or any other key
-                                kill_confirm_agent = None
-                                needs_refresh = True
+                                    needs_refresh = True
+                                elif key in ("n", "N", "\x1b"):
+                                    # Cancel on n, N, or ESC only
+                                    kill_confirm_agent = None
+                                    needs_refresh = True
+                                # Other keys: ignore, stay in confirmation mode
                             # Normal mode
                             # q key to quit
                             elif key in ("q", "Q"):
