@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-25
+
+### Added
+
+- **Compliance/Permissions Control** - Three-mode system to control agent automation (Issue #159)
+  - `auto` mode: Full automation (default, backward compatible)
+  - `prefill` mode: Input injection only, user must press Enter to execute
+  - `manual` mode: Display/clipboard only, no automation
+  - Per-provider configuration in `.synapse/settings.json`
+  - API responses: 200 OK (auto), 202 Accepted + `input_required` (prefill), 403 Forbidden (manual)
+  - Warning banner display with `ui.warningBanner` setting
+
+### Documentation
+
+- Sync plugin skills with compliance feature
+  - Add `references/compliance.md` to synapse-a2a and delegation skills
+  - Update SKILL.md files with compliance modes section
+  - Update commands.md with compliance settings
+  - Update api.md with compliance mode response behavior
+  - Add compliance troubleshooting to examples.md
+  - Add compliance check to pre-delegation checklist
+- Fix invalid `@agent --no-response` syntax in examples (use `synapse send` instead)
+- Add all 5 agents (claude, codex, gemini, opencode, copilot) consistently to startup examples
+
 ## [0.3.6] - 2026-01-25
 
 ### Added
