@@ -20,12 +20,12 @@ from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
-from synapse.compliance import ComplianceBlockedError
+from synapse.compliance import ComplianceBlockedError, WriteResult
 from synapse.config import CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
@@ -517,7 +517,7 @@ def create_a2a_router(
 
     def _send_task_message(
         request: SendMessageRequest, priority: int = 1
-    ) -> SendMessageResponse:
+    ) -> SendMessageResponse | JSONResponse:
         """Create a task and send message to controller with optional priority."""
         # Extract text from message parts
         text_content = extract_text_from_parts(request.message.parts)
@@ -592,7 +592,7 @@ def create_a2a_router(
                 text_content,
                 response_expected=response_expected,
             )
-            controller.write(prefixed_content, submit_seq=submit_seq)
+            write_result = controller.write(prefixed_content, submit_seq=submit_seq)
         except ComplianceBlockedError as e:
             task_store.update_status(task.id, "failed")
             raise HTTPException(
@@ -603,6 +603,26 @@ def create_a2a_router(
             task_store.update_status(task.id, "failed")
             msg = f"Failed to send: {e!s}"
             raise HTTPException(status_code=500, detail=msg) from e
+
+        # Handle prefill mode - task needs human input to proceed
+        if write_result == WriteResult.PREFILLED:
+            task_store.update_status(task.id, "input_required")
+            updated_task = task_store.get(task.id)
+            if not updated_task:
+                raise HTTPException(
+                    status_code=500, detail="Task disappeared unexpectedly"
+                )
+            # Return 202 Accepted - task created but needs human action
+            response_data = SendMessageResponse(task=updated_task)
+            return JSONResponse(
+                status_code=202,
+                content=response_data.model_dump(mode="json"),
+            )
+
+        # Handle not running
+        if write_result == WriteResult.NOT_RUNNING:
+            task_store.update_status(task.id, "failed")
+            raise HTTPException(status_code=503, detail="Agent process not running")
 
         # Get updated task
         updated_task = task_store.get(task.id)

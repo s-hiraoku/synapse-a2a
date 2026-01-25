@@ -8,11 +8,12 @@ from typing import Any
 
 import uvicorn
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
-from synapse.compliance import ComplianceBlockedError
+from synapse.compliance import ComplianceBlockedError, WriteResult
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry, resolve_uds_path
 
@@ -169,7 +170,7 @@ def _send_legacy_message(
     task_store: TaskStore,
     msg: MessageRequest,
     submit_seq: str,
-) -> dict:
+) -> dict[str, Any] | Response:
     """Send a legacy /message request using a TaskStore for tracking."""
     if not ctrl:
         raise HTTPException(status_code=503, detail="Agent not running")
@@ -188,7 +189,7 @@ def _send_legacy_message(
 
     # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
     try:
-        ctrl.write(msg.content, submit_seq=submit_seq)
+        write_result = ctrl.write(msg.content, submit_seq=submit_seq)
     except ComplianceBlockedError as e:
         task_store.update_status(task.id, "failed")
         raise HTTPException(
@@ -198,6 +199,24 @@ def _send_legacy_message(
     except Exception as e:
         task_store.update_status(task.id, "failed")
         raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e
+
+    # Handle prefill mode - task needs human input to proceed
+    if write_result == WriteResult.PREFILLED:
+        task_store.update_status(task.id, "input_required")
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "prefilled",
+                "priority": msg.priority,
+                "task_id": task.id,
+                "message": "Input prefilled, human action required to submit",
+            },
+        )
+
+    # Handle not running
+    if write_result == WriteResult.NOT_RUNNING:
+        task_store.update_status(task.id, "failed")
+        raise HTTPException(status_code=503, detail="Agent process not running")
 
     return {"status": "sent", "priority": msg.priority, "task_id": task.id}
 

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from synapse.compliance import ComplianceBlockedError
+from synapse.compliance import ComplianceBlockedError, WriteResult
 
 try:
     import grpc
@@ -145,7 +145,19 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
         try:
             sender_id = (metadata or {}).get("sender", {}).get("sender_id", "unknown")
             prefixed_content = f"[A2A:{task['id'][:8]}:{sender_id}] {message_text}"
-            self.controller.write(prefixed_content, submit_seq=self.submit_seq)
+            write_result = self.controller.write(
+                prefixed_content, submit_seq=self.submit_seq
+            )
+
+            # Handle prefill mode - task needs human input to proceed
+            if write_result == WriteResult.PREFILLED:
+                self._update_task_status(task["id"], "input_required")
+            elif write_result == WriteResult.NOT_RUNNING:
+                self._update_task_status(task["id"], "failed")
+                task["error"] = {
+                    "code": "NOT_RUNNING",
+                    "message": "Agent process not running",
+                }
         except ComplianceBlockedError as e:
             self._update_task_status(task["id"], "failed")
             task["error"] = {"code": "COMPLIANCE_BLOCKED", "message": e.message}
