@@ -50,7 +50,7 @@ synapse copilot
 
 # List agents (Rich TUI with event-driven auto-update)
 synapse list                              # Show all running agents with auto-refresh on changes
-# Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, ESC clear selection, q quit
+# Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, k kill (with confirm), / filter by TYPE/DIR, ESC clear, q quit
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude

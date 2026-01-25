@@ -83,11 +83,14 @@ class ListCommand:
     def _get_agent_data(
         self,
         registry: AgentRegistry,
+        working_dir_filter: str | None = None,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
         """Get agent data formatted for Rich renderer.
 
         Args:
             registry: AgentRegistry instance.
+            working_dir_filter: Optional filter for working directory (partial match,
+                case-insensitive).
 
         Returns:
             Tuple of (agents_list, stale_locks, show_file_safety).
@@ -142,6 +145,16 @@ class ListCommand:
                 agent_data["editing_file"] = editing_file
 
             agents_list.append(agent_data)
+
+        # Apply filter (partial match, case-insensitive) to TYPE and WORKING_DIR
+        if working_dir_filter:
+            filter_lower = working_dir_filter.lower()
+            agents_list = [
+                a
+                for a in agents_list
+                if filter_lower in a["working_dir_full"].lower()
+                or filter_lower in a.get("agent_type", "").lower()
+            ]
 
         # Get stale locks
         stale_locks: list[dict[str, Any]] = []
@@ -287,6 +300,32 @@ class ListCommand:
 
         return None
 
+    def _kill_agent(self, registry: AgentRegistry, agent: dict[str, Any]) -> None:
+        """Kill an agent and unregister from registry.
+
+        Args:
+            registry: AgentRegistry instance.
+            agent: Agent data dictionary.
+        """
+        import signal
+
+        agent_id = agent.get("agent_id")
+        pid = agent.get("pid")
+
+        if not pid or pid == "-":
+            return
+
+        try:
+            os.kill(int(pid), signal.SIGTERM)
+            if agent_id:
+                registry.unregister(agent_id)
+        except ProcessLookupError:
+            # Process already dead, cleanup registry
+            if agent_id:
+                registry.unregister(agent_id)
+        except (ValueError, TypeError):
+            pass  # Invalid PID
+
     def _create_file_watcher(
         self, registry_dir: Path, change_event: Event
     ) -> Any | None:
@@ -364,6 +403,14 @@ class ListCommand:
         # Track if display needs refresh (for selection changes)
         needs_refresh = False
 
+        # Kill confirmation state
+        kill_confirm_agent: dict[str, Any] | None = None
+
+        # Filter state
+        filter_mode = False
+        filter_input = ""  # Text being typed in filter mode
+        active_filter = ""  # Applied filter
+
         # Fallback polling (10 seconds) in case file watcher misses events
         last_poll_time = self._time.time()
         poll_interval = 10.0
@@ -379,12 +426,51 @@ class ListCommand:
                     if interactive:
                         key = self._read_key_nonblocking()
                         if key is not None:
+                            # Handle filter input mode
+                            if filter_mode:
+                                if key == "\x1b":  # ESC - cancel filter
+                                    filter_mode = False
+                                    filter_input = ""
+                                    needs_refresh = True
+                                elif key in ("\r", "\n"):  # Enter - apply filter
+                                    filter_mode = False
+                                    active_filter = filter_input
+                                    filter_input = ""
+                                    selected_row = None  # Reset selection
+                                    needs_refresh = True
+                                elif key == "\x7f" or key == "\b":  # Backspace
+                                    filter_input = filter_input[:-1]
+                                    needs_refresh = True
+                                elif len(key) == 1 and key.isprintable():
+                                    filter_input += key
+                                    needs_refresh = True
+                            # Handle kill confirmation mode
+                            elif kill_confirm_agent is not None:
+                                if key in ("y", "Y"):
+                                    # Confirm kill
+                                    self._kill_agent(registry, kill_confirm_agent)
+                                    selected_row = None
+                                    change_event.set()  # Refresh display
+                                # Cancel on n, N, ESC, or any other key
+                                kill_confirm_agent = None
+                                needs_refresh = True
+                            # Normal mode
                             # q key to quit
-                            if key in ("q", "Q"):
+                            elif key in ("q", "Q"):
                                 break
-                            # ESC key clears selection
+                            # '/' key enters filter mode
+                            elif key == "/":
+                                filter_mode = True
+                                filter_input = (
+                                    active_filter  # Start with current filter
+                                )
+                                needs_refresh = True
+                            # ESC key: first clears filter, then clears selection
                             elif key == "\x1b":
-                                selected_row = None
+                                if active_filter:
+                                    active_filter = ""
+                                elif selected_row is not None:
+                                    selected_row = None
                                 needs_refresh = True
                             # Number keys for direct selection
                             elif key.isdigit() and key != "0":
@@ -414,6 +500,14 @@ class ListCommand:
                             ):
                                 agent = current_agents[selected_row - 1]
                                 jump_to_terminal(agent)
+                            # 'k' key triggers kill confirmation mode
+                            elif (
+                                key in ("k", "K")
+                                and selected_row is not None
+                                and 1 <= selected_row <= len(current_agents)
+                            ):
+                                kill_confirm_agent = current_agents[selected_row - 1]
+                                needs_refresh = True
 
                     # Fallback polling: trigger update every poll_interval seconds
                     current_time = self._time.time()
@@ -426,8 +520,10 @@ class ListCommand:
                         change_event.clear()
                         needs_refresh = False
 
+                        # Use active_filter for filtering
+                        current_filter = active_filter if active_filter else None
                         agents, stale_locks, show_file_safety = self._get_agent_data(
-                            registry
+                            registry, current_filter
                         )
 
                         # Update current_agents for terminal jump
@@ -437,7 +533,16 @@ class ListCommand:
                         if selected_row is not None and selected_row > len(agents):
                             selected_row = None
 
+                        # Clear kill confirmation if agent no longer exists
+                        if kill_confirm_agent:
+                            agent_ids = [a.get("agent_id") for a in agents]
+                            if kill_confirm_agent.get("agent_id") not in agent_ids:
+                                kill_confirm_agent = None
+
                         timestamp = self._time.strftime("%Y-%m-%d %H:%M:%S")
+
+                        # Show filter_input while in filter mode, active_filter otherwise
+                        display_filter = filter_input if filter_mode else active_filter
 
                         display = renderer.render_display(
                             agents=agents,
@@ -448,6 +553,9 @@ class ListCommand:
                             interactive=interactive,
                             selected_row=selected_row,
                             jump_available=jump_available,
+                            kill_confirm_agent=kill_confirm_agent,
+                            filter_mode=filter_mode,
+                            filter_text=display_filter,
                         )
 
                         live.update(display, refresh=True)

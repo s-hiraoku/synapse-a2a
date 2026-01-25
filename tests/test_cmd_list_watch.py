@@ -166,6 +166,7 @@ class TestCmdListNonTTY:
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
         args = MagicMock()
+        args.working_dir = None
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
@@ -182,6 +183,7 @@ class TestCmdListNonTTY:
     def test_non_tty_empty_registry(self, temp_registry, capsys):
         """Non-TTY mode with empty registry shows port ranges."""
         args = MagicMock()
+        args.working_dir = None
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),

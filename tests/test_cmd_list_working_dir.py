@@ -95,6 +95,7 @@ class TestCmdListWorkingDir:
         temp_registry.register("synapse-claude-8100", "claude", 8100)
 
         args = MagicMock()
+        args.working_dir = None
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
@@ -111,6 +112,7 @@ class TestCmdListWorkingDir:
     def test_list_empty_registry(self, temp_registry, capsys):
         """synapse list should handle empty registry gracefully."""
         args = MagicMock()
+        args.working_dir = None
 
         with (
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
