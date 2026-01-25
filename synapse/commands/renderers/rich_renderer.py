@@ -6,6 +6,7 @@ from typing import Any
 
 from rich import box
 from rich.console import Console, Group, RenderableType
+from rich.markup import escape as rich_escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -248,7 +249,7 @@ class RichRenderer:
         # Filter input mode
         if filter_mode:
             footer.append("Filter (TYPE/DIR): ", style="bold yellow")
-            footer.append(filter_text, style="bold white")
+            footer.append(rich_escape(filter_text), style="bold white")
             footer.append("▌", style="bold white blink")
             footer.append("  [", style="dim")
             footer.append("Enter", style="bold green")
@@ -353,7 +354,8 @@ class RichRenderer:
         # Build title with filter indicator
         title = f"Synapse A2A v{version} - Agent List"
         if filter_text and not filter_mode:
-            title += f" [bold magenta](Filter: {filter_text})[/bold magenta]"
+            escaped_filter = rich_escape(filter_text)
+            title += f" [bold magenta](Filter: {escaped_filter})[/bold magenta]"
         subtitle = f"Last updated: {timestamp}"
 
         panel = self.build_panel(table, title=title, subtitle=subtitle)

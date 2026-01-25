@@ -1,9 +1,7 @@
 """Tests for synapse list --working-dir filter and kill functionality."""
 
 import json
-import shutil
 import signal
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,13 +11,12 @@ from synapse.registry import AgentRegistry
 
 
 @pytest.fixture
-def temp_registry():
+def temp_registry(tmp_path):
     """Create a test registry with temp directory."""
     reg = AgentRegistry()
-    reg.registry_dir = Path("/tmp/a2a_test_list_filter")
+    reg.registry_dir = tmp_path / "a2a_test_list_filter"
     reg.registry_dir.mkdir(parents=True, exist_ok=True)
     yield reg
-    shutil.rmtree(reg.registry_dir, ignore_errors=True)
 
 
 def _create_list_command(

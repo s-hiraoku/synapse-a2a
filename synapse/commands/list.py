@@ -323,6 +323,12 @@ class ListCommand:
             # Process already dead, cleanup registry
             if agent_id:
                 registry.unregister(agent_id)
+        except PermissionError:
+            # No permission to kill - do not unregister
+            pass
+        except OSError:
+            # Other OS-level errors - do not unregister
+            pass
         except (ValueError, TypeError):
             pass  # Invalid PID
 
