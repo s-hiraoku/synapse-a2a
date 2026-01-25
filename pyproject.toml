@@ -22,6 +22,7 @@ dependencies = [
     "rich>=13.0.0",
     "simple-term-menu>=1.6.6",
     "watchdog>=3.0.0",
+    "pyperclip>=1.8.0",
 ]
 
 [dependency-groups]

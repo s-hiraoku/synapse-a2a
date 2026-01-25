@@ -30,5 +30,10 @@
     "codex": ["resume"],
     "gemini": ["--resume"],
     "opencode": ["--continue", "-c"]
+  },
+  "defaultMode": "auto",
+  "providers": {},
+  "ui": {
+    "warningBanner": "always"
   }
 }
