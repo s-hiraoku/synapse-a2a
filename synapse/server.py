@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
+from synapse.compliance import ComplianceBlockedError
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry, resolve_uds_path
 
@@ -188,6 +189,12 @@ def _send_legacy_message(
     # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
     try:
         ctrl.write(msg.content, submit_seq=submit_seq)
+    except ComplianceBlockedError as e:
+        task_store.update_status(task.id, "failed")
+        raise HTTPException(
+            status_code=403,
+            detail=f"Blocked by compliance policy: {e.message}",
+        ) from e
     except Exception as e:
         task_store.update_status(task.id, "failed")
         raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e

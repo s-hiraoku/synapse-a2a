@@ -714,3 +714,55 @@ class TestClipboardIntegration:
             assert result is False
         finally:
             compliance_module.pyperclip = original
+
+
+# =============================================================================
+# Tests for ComplianceBlockedError Exception
+# =============================================================================
+
+
+class TestComplianceBlockedError:
+    """Test ComplianceBlockedError exception class."""
+
+    def test_exception_with_all_attributes(self):
+        """Exception should store mode, action, and message."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        err = ComplianceBlockedError(
+            mode="manual",
+            action=ActionType.INJECT_INPUT,
+            message="Test message",
+        )
+
+        assert err.mode == "manual"
+        assert err.action == ActionType.INJECT_INPUT
+        assert err.message == "Test message"
+        assert str(err) == "Test message"
+
+    def test_exception_generates_default_message(self):
+        """Exception should generate default message if not provided."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        err = ComplianceBlockedError(mode="prefill", action=ActionType.SUBMIT_INPUT)
+
+        assert "prefill" in err.message
+        assert "submit_input" in err.message
+
+    def test_exception_is_standard_exception(self):
+        """Exception should be a standard Python exception."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        err = ComplianceBlockedError(mode="manual", action=ActionType.INJECT_INPUT)
+
+        assert isinstance(err, Exception)
+
+    def test_exception_can_be_raised_and_caught(self):
+        """Exception should be raisable and catchable."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        with pytest.raises(ComplianceBlockedError) as exc_info:
+            raise ComplianceBlockedError(
+                mode="manual", action=ActionType.INJECT_INPUT, message="Test"
+            )
+
+        assert exc_info.value.mode == "manual"

@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 from synapse.compliance import (
     ActionType,
+    ComplianceBlockedError,
     ComplianceSettings,
     Decision,
     PolicyEngine,
@@ -545,7 +546,10 @@ class TerminalController:
             bypass_compliance: If True, skip compliance checks (for system messages).
 
         Returns:
-            True if write succeeded, False if blocked by compliance policy.
+            True if write succeeded, False if process not running.
+
+        Raises:
+            ComplianceBlockedError: If action is blocked by compliance policy.
         """
         if not self.running:
             return False
@@ -568,7 +572,11 @@ class TerminalController:
                 logging.info(
                     f"[Compliance:{mode}] Input blocked - manual mode\n{display}"
                 )
-                return False
+                raise ComplianceBlockedError(
+                    mode=mode,
+                    action=ActionType.INJECT_INPUT,
+                    message=f"Input injection blocked by compliance mode: {mode}",
+                )
 
             # Check submit permission (if submit_seq is provided)
             if submit_seq:

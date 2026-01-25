@@ -2,6 +2,7 @@
 
 import os
 import re
+import shlex
 from collections.abc import Callable
 from datetime import datetime
 
@@ -238,13 +239,21 @@ class InputRouter:
                 self.self_agent_type or "unknown"
             )
             # In manual/prefill mode, copy command to clipboard instead
-            cmd = f"synapse send {agent_name} '{message}' --from {self.self_agent_id or 'unknown'}"
+            # Use shlex.quote for safe shell escaping
+            safe_message = shlex.quote(message)
+            safe_from = shlex.quote(self.self_agent_id or "unknown")
+            cmd = f"synapse send {agent_name} {safe_message} --from {safe_from}"
             clipboard_ok = copy_to_clipboard(cmd)
             display = format_manual_display(cmd, clipboard_ok)
             log("INFO", f"[Compliance:{mode}] Route blocked\n{display}")
-            self.last_response = (
-                f"[Compliance:{mode}] Routing blocked. Command copied to clipboard."
-            )
+            if clipboard_ok:
+                self.last_response = (
+                    f"[Compliance:{mode}] Routing blocked. Command copied to clipboard."
+                )
+            else:
+                self.last_response = (
+                    f"[Compliance:{mode}] Routing blocked. Clipboard unavailable."
+                )
             return False
 
         # Determine response_expected based on a2a.flow setting

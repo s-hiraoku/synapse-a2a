@@ -363,3 +363,124 @@ class TestInputRouterCompliance:
                 # Should have set last_response indicating compliance block
                 assert router.last_response is not None
                 assert "compliance" in router.last_response.lower()
+
+    def test_input_router_escapes_message_safely(self):
+        """InputRouter should safely escape messages with special characters."""
+        from unittest.mock import patch
+
+        from synapse.compliance import ComplianceSettings
+        from synapse.input_router import InputRouter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "manual"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                router = InputRouter(
+                    self_agent_type="claude", self_agent_id="test-claude"
+                )
+                # Message with single quotes that could break shell command
+                result = router.route_to_agent("gemini", "test's message with 'quotes'")
+                assert result is False
+                # Message should be escaped safely in last_response
+                # The shlex.quote should prevent command injection
+                assert router.last_response is not None
+
+    def test_input_router_clipboard_failure_message(self):
+        """InputRouter should show correct message when clipboard fails."""
+        from unittest.mock import patch
+
+        from synapse.compliance import ComplianceSettings
+        from synapse.input_router import InputRouter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "manual"})
+
+            with (
+                patch.object(
+                    ComplianceSettings,
+                    "load",
+                    return_value=ComplianceSettings.load(project_root=project_root),
+                ),
+                patch("synapse.input_router.copy_to_clipboard", return_value=False),
+            ):
+                router = InputRouter(
+                    self_agent_type="claude", self_agent_id="test-claude"
+                )
+                result = router.route_to_agent("gemini", "test message")
+                assert result is False
+                # Should mention clipboard unavailable
+                assert router.last_response is not None
+                assert "unavailable" in router.last_response.lower()
+
+
+class TestComplianceBlockedError:
+    """Test ComplianceBlockedError exception."""
+
+    def test_exception_attributes(self):
+        """ComplianceBlockedError should have mode, action, and message."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        err = ComplianceBlockedError(
+            mode="manual",
+            action=ActionType.INJECT_INPUT,
+            message="Test message",
+        )
+
+        assert err.mode == "manual"
+        assert err.action == ActionType.INJECT_INPUT
+        assert err.message == "Test message"
+        assert str(err) == "Test message"
+
+    def test_exception_default_message(self):
+        """ComplianceBlockedError should generate default message."""
+        from synapse.compliance import ActionType, ComplianceBlockedError
+
+        err = ComplianceBlockedError(mode="prefill", action=ActionType.SUBMIT_INPUT)
+
+        assert "prefill" in err.message
+        assert "submit_input" in err.message
+
+
+class TestControllerComplianceException:
+    """Test controller raises ComplianceBlockedError."""
+
+    def test_controller_raises_on_manual_mode(self):
+        """Controller.write() should raise ComplianceBlockedError in manual mode."""
+        from unittest.mock import MagicMock, patch
+
+        from synapse.compliance import (
+            ActionType,
+            ComplianceBlockedError,
+            ComplianceSettings,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "manual"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                from synapse.controller import TerminalController
+
+                ctrl = TerminalController(
+                    command="echo test",
+                    agent_type="claude",
+                )
+                # Mock master_fd and running state
+                ctrl.master_fd = MagicMock()
+                ctrl.running = True
+
+                with pytest.raises(ComplianceBlockedError) as exc_info:
+                    ctrl.write("test data")
+
+                assert exc_info.value.mode == "manual"
+                assert exc_info.value.action == ActionType.INJECT_INPUT

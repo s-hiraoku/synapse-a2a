@@ -92,6 +92,26 @@ class Decision(Enum):
     DENY = "deny"
 
 
+class ComplianceBlockedError(Exception):
+    """Exception raised when an action is blocked by compliance policy.
+
+    Attributes:
+        mode: The compliance mode that blocked the action.
+        action: The action type that was blocked.
+        message: Human-readable message describing the block.
+    """
+
+    def __init__(
+        self, mode: str, action: ActionType, message: str | None = None
+    ) -> None:
+        self.mode = mode
+        self.action = action
+        self.message = (
+            message or f"Action {action.value} blocked by compliance mode: {mode}"
+        )
+        super().__init__(self.message)
+
+
 # =============================================================================
 # Capability Mapping (Section 5.1)
 # =============================================================================

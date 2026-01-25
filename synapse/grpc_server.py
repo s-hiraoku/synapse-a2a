@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from synapse.compliance import ComplianceBlockedError
+
 try:
     import grpc
 
@@ -144,6 +146,9 @@ class GrpcServicer(_ServicerBase):  # type: ignore[misc, unused-ignore]
             sender_id = (metadata or {}).get("sender", {}).get("sender_id", "unknown")
             prefixed_content = f"[A2A:{task['id'][:8]}:{sender_id}] {message_text}"
             self.controller.write(prefixed_content, submit_seq=self.submit_seq)
+        except ComplianceBlockedError as e:
+            self._update_task_status(task["id"], "failed")
+            task["error"] = {"code": "COMPLIANCE_BLOCKED", "message": e.message}
         except Exception as e:
             self._update_task_status(task["id"], "failed")
             task["error"] = {"code": "SEND_FAILED", "message": str(e)}
