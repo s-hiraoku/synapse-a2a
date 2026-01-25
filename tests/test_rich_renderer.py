@@ -418,7 +418,7 @@ class TestRichRendererFooter:
     """Tests for footer display."""
 
     def test_build_footer_contains_exit_hint(self):
-        """Footer should contain q and Ctrl+C exit hints."""
+        """Footer should contain q exit hint."""
         console = Console(file=StringIO(), force_terminal=True)
         renderer = RichRenderer(console=console)
 
@@ -427,7 +427,6 @@ class TestRichRendererFooter:
         console.print(footer)
         output = console.file.getvalue()
 
-        assert "Ctrl+C" in output
         assert "q" in output
         assert "exit" in output.lower()
 
@@ -613,14 +612,16 @@ class TestRichRendererInteractiveFooter:
         console = Console(file=StringIO(), force_terminal=True)
         renderer = RichRenderer(console=console)
 
-        footer = renderer.build_footer(interactive=True, agent_count=3)
+        footer = renderer.build_footer(
+            interactive=True, agent_count=3, has_selection=True
+        )
 
         console.print(footer)
         output = console.file.getvalue()
 
         assert "1-3" in output
-        assert "ESC" in output  # close detail panel
-        assert "Ctrl+C" in output
+        assert "ESC" in output  # clear filter/selection
+        assert "q" in output
 
     def test_footer_minimal_when_not_interactive(self):
         """Footer should be minimal in non-interactive mode."""
@@ -632,7 +633,7 @@ class TestRichRendererInteractiveFooter:
         console.print(footer)
         output = console.file.getvalue()
 
-        assert "Ctrl+C" in output
+        assert "q" in output
         assert "1-3" not in output
 
 
