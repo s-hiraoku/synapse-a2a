@@ -112,6 +112,19 @@ class ComplianceBlockedError(Exception):
         super().__init__(self.message)
 
 
+class WriteResult(Enum):
+    """Result of a write operation to indicate compliance state.
+
+    - SUCCESS: Write completed normally with submit
+    - PREFILLED: Data injected but submit was suppressed (prefill mode)
+    - NOT_RUNNING: Process not running, write failed
+    """
+
+    SUCCESS = "success"
+    PREFILLED = "prefilled"
+    NOT_RUNNING = "not_running"
+
+
 # =============================================================================
 # Capability Mapping (Section 5.1)
 # =============================================================================

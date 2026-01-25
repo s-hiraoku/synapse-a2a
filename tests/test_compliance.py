@@ -766,3 +766,36 @@ class TestComplianceBlockedError:
             )
 
         assert exc_info.value.mode == "manual"
+
+
+# =============================================================================
+# Tests for WriteResult Enum
+# =============================================================================
+
+
+class TestWriteResult:
+    """Test WriteResult enum for controller write outcomes."""
+
+    def test_write_result_values(self):
+        """WriteResult should have expected values."""
+        from synapse.compliance import WriteResult
+
+        assert WriteResult.SUCCESS.value == "success"
+        assert WriteResult.PREFILLED.value == "prefilled"
+        assert WriteResult.NOT_RUNNING.value == "not_running"
+
+    def test_write_result_is_enum(self):
+        """WriteResult should be an Enum."""
+        from enum import Enum
+
+        from synapse.compliance import WriteResult
+
+        assert issubclass(WriteResult, Enum)
+
+    def test_write_result_comparison(self):
+        """WriteResult values should be comparable."""
+        from synapse.compliance import WriteResult
+
+        assert WriteResult.SUCCESS == WriteResult.SUCCESS
+        assert WriteResult.SUCCESS != WriteResult.PREFILLED
+        assert WriteResult.PREFILLED != WriteResult.NOT_RUNNING

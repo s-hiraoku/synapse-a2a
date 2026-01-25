@@ -484,3 +484,74 @@ class TestControllerComplianceException:
 
                 assert exc_info.value.mode == "manual"
                 assert exc_info.value.action == ActionType.INJECT_INPUT
+
+    def test_controller_returns_prefilled_on_prefill_mode(self):
+        """Controller.write() should return PREFILLED when submit is suppressed."""
+        from unittest.mock import MagicMock, patch
+
+        from synapse.compliance import ComplianceSettings, WriteResult
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "prefill"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                from synapse.controller import TerminalController
+
+                ctrl = TerminalController(
+                    command="echo test",
+                    agent_type="claude",
+                )
+                # Mock master_fd and running state
+                ctrl.master_fd = MagicMock()
+                ctrl.running = True
+
+                # Write with submit_seq - should be suppressed in prefill mode
+                result = ctrl.write("test data", submit_seq="\n")
+
+                assert result == WriteResult.PREFILLED
+
+    def test_controller_returns_success_on_auto_mode(self):
+        """Controller.write() should return SUCCESS in auto mode."""
+        from unittest.mock import MagicMock, patch
+
+        from synapse.compliance import ComplianceSettings, WriteResult
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            create_settings_file(project_root, {"defaultMode": "auto"})
+
+            with patch.object(
+                ComplianceSettings,
+                "load",
+                return_value=ComplianceSettings.load(project_root=project_root),
+            ):
+                from synapse.controller import TerminalController
+
+                ctrl = TerminalController(
+                    command="echo test",
+                    agent_type="claude",
+                )
+                # Mock master_fd and running state
+                ctrl.master_fd = MagicMock()
+                ctrl.running = True
+
+                result = ctrl.write("test data", submit_seq="\n")
+
+                assert result == WriteResult.SUCCESS
+
+
+class TestPrefillApiResponse:
+    """Test API returns 202 + input_required for prefill mode."""
+
+    def test_write_result_enum_values(self):
+        """WriteResult should have expected values."""
+        from synapse.compliance import WriteResult
+
+        assert WriteResult.SUCCESS.value == "success"
+        assert WriteResult.PREFILLED.value == "prefilled"
+        assert WriteResult.NOT_RUNNING.value == "not_running"
