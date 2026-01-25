@@ -183,16 +183,41 @@ class ListCommand:
             pass
 
     def _read_key_nonblocking(self) -> str | None:
-        """Read a single key without blocking.
+        """Read a single key or escape sequence without blocking.
 
         Returns:
-            Key character or None if no input available.
+            Key character, escape sequence (e.g., "UP", "DOWN"), or None.
         """
+        import fcntl
+        import os
         import select
 
         try:
-            if select.select([sys.stdin], [], [], 0)[0]:
-                return sys.stdin.read(1)
+            if not select.select([sys.stdin], [], [], 0)[0]:
+                return None
+
+            # Read all available bytes at once
+            fd = sys.stdin.fileno()
+            # Get current flags and set non-blocking
+            flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+            try:
+                data = sys.stdin.read(10)  # Read up to 10 chars
+            finally:
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags)  # Restore flags
+
+            if not data:
+                return None
+
+            # Check for arrow key sequences
+            if data == "\x1b[A":
+                return "UP"
+            elif data == "\x1b[B":
+                return "DOWN"
+            elif data.startswith("\x1b"):
+                return "\x1b"  # ESC or other escape sequence
+            else:
+                return data[0]  # Return first character
         except Exception:
             pass
         return None
@@ -271,12 +296,19 @@ class ListCommand:
         # Force initial update
         change_event.set()
 
-        # Fallback polling interval (2 seconds) in case file watcher misses events
+        # Track if display needs refresh (for selection changes)
+        needs_refresh = False
+
+        # Fallback polling (10 seconds) in case file watcher misses events
         last_poll_time = self._time.time()
-        poll_interval = 2.0
+        poll_interval = 10.0
 
         try:
-            with Live(console=console, refresh_per_second=4) as live:
+            with Live(
+                console=console,
+                auto_refresh=False,
+                vertical_overflow="crop",
+            ) as live:
                 while True:
                     # Check for keyboard input
                     if interactive:
@@ -285,11 +317,29 @@ class ListCommand:
                             # q key to quit
                             if key in ("q", "Q"):
                                 break
-                            # ESC key (0x1b) clears selection
+                            # ESC key clears selection
                             elif key == "\x1b":
                                 selected_row = None
+                                needs_refresh = True
+                            # Number keys for direct selection
                             elif key.isdigit() and key != "0":
                                 selected_row = int(key)
+                                needs_refresh = True
+                            # Arrow keys for navigation
+                            elif key == "UP":
+                                if current_agents:
+                                    if selected_row is None:
+                                        selected_row = len(current_agents)
+                                    elif selected_row > 1:
+                                        selected_row -= 1
+                                    needs_refresh = True
+                            elif key == "DOWN":
+                                if current_agents:
+                                    if selected_row is None:
+                                        selected_row = 1
+                                    elif selected_row < len(current_agents):
+                                        selected_row += 1
+                                    needs_refresh = True
                             # Enter or 'j' key triggers terminal jump
                             elif (
                                 key in ("\r", "\n", "j", "J")
@@ -306,9 +356,10 @@ class ListCommand:
                         change_event.set()
                         last_poll_time = current_time
 
-                    # Update display when file changes detected or polling triggered
-                    if change_event.is_set():
+                    # Update display when file changes or selection changes
+                    if change_event.is_set() or needs_refresh:
                         change_event.clear()
+                        needs_refresh = False
 
                         agents, stale_locks, show_file_safety = self._get_agent_data(
                             registry
@@ -334,7 +385,7 @@ class ListCommand:
                             jump_available=jump_available,
                         )
 
-                        live.update(display)
+                        live.update(display, refresh=True)
 
                     # Small sleep to prevent CPU spinning
                     self._time.sleep(0.05)
