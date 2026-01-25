@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import sys
 from collections.abc import Callable
@@ -185,6 +186,9 @@ class ListCommand:
     def _read_key_nonblocking(self) -> str | None:
         """Read a single key or escape sequence without blocking.
 
+        Uses os.read() for platform-stable nonblocking reads and prefix-matching
+        for escape sequences that may arrive in parts.
+
         Returns:
             Key character, escape sequence (e.g., "UP", "DOWN"), or None.
         """
@@ -192,34 +196,95 @@ class ListCommand:
         import os
         import select
 
+        # Known escape sequences (bytes)
+        KNOWN_SEQUENCES: dict[bytes, str] = {
+            b"\x1b[A": "UP",
+            b"\x1b[B": "DOWN",
+        }
+
+        fd = sys.stdin.fileno()
+        flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+
         try:
+            # Check if data is available
             if not select.select([sys.stdin], [], [], 0)[0]:
                 return None
 
-            # Read all available bytes at once
-            fd = sys.stdin.fileno()
-            # Get current flags and set non-blocking
-            flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+            # Set non-blocking mode
             fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-            try:
-                data = sys.stdin.read(10)  # Read up to 10 chars
-            finally:
-                fcntl.fcntl(fd, fcntl.F_SETFL, flags)  # Restore flags
 
-            if not data:
+            # Read initial bytes using os.read (platform-stable)
+            try:
+                buf = os.read(fd, 1)
+            except (BlockingIOError, OSError):
                 return None
 
-            # Check for arrow key sequences
-            if data == "\x1b[A":
-                return "UP"
-            elif data == "\x1b[B":
-                return "DOWN"
-            elif data.startswith("\x1b"):
-                return "\x1b"  # ESC or other escape sequence
-            else:
-                return data[0]  # Return first character
+            if not buf:
+                return None
+
+            # If not an escape character, return immediately
+            if buf[0:1] != b"\x1b":
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags)  # Restore before return
+                return buf.decode("utf-8", errors="ignore")
+
+            # Accumulate bytes for escape sequence detection
+            # Use short timeout to wait for remaining bytes
+            max_seq_len = max(len(seq) for seq in KNOWN_SEQUENCES)
+
+            while len(buf) < max_seq_len:
+                # Check if current buffer matches a complete sequence
+                if buf in KNOWN_SEQUENCES:
+                    fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+                    return KNOWN_SEQUENCES[buf]
+
+                # Check if buffer is a prefix of any known sequence
+                is_prefix = any(
+                    seq.startswith(buf) and seq != buf for seq in KNOWN_SEQUENCES
+                )
+                if not is_prefix:
+                    # Not a prefix of any known sequence, stop reading
+                    break
+
+                # Wait briefly for more bytes (escape sequences arrive quickly)
+                if not select.select([sys.stdin], [], [], 0.05)[0]:
+                    # Timeout - no more bytes coming
+                    break
+
+                try:
+                    next_byte = os.read(fd, 1)
+                except (BlockingIOError, OSError):
+                    break
+
+                if not next_byte:
+                    break
+
+                buf += next_byte
+
+            # Restore flags before returning
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+
+            # Check for complete sequence match
+            if buf in KNOWN_SEQUENCES:
+                return KNOWN_SEQUENCES[buf]
+
+            # Standalone ESC (no sequence matched)
+            if buf == b"\x1b":
+                return "\x1b"
+
+            # Partial or unknown escape sequence - treat as ESC
+            if buf.startswith(b"\x1b"):
+                return "\x1b"
+
+            # Return first character
+            return buf[0:1].decode("utf-8", errors="ignore") or None
+
         except Exception:
             pass
+        finally:
+            # Always restore original flags
+            with contextlib.suppress(Exception):
+                fcntl.fcntl(fd, fcntl.F_SETFL, flags)
+
         return None
 
     def _create_file_watcher(
