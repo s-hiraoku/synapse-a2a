@@ -405,6 +405,88 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 
 詳細は [delegation.md](delegation.md) を参照してください。
 
+## コンプライアンス設定 (Compliance)
+
+エージェントへの自動入力・送信を制御するセキュリティ機能です。
+
+### モード
+
+| モード | 説明 |
+|--------|------|
+| `auto` | すべての自動操作を許可（デフォルト、後方互換） |
+| `prefill` | 入力の注入のみ許可、Enter送信は手動で |
+| `manual` | すべての自動操作を禁止、クリップボードにコピーのみ |
+
+### 機能制御マッピング
+
+| モード | inject | submit | confirm | route |
+|--------|--------|--------|---------|-------|
+| `auto` | ✓ | ✓ | ✓ | ✓ |
+| `prefill` | ✓ | ✗ | ✗ | ✗ |
+| `manual` | ✗ | ✗ | ✗ | ✗ |
+
+- **inject**: PTYへの入力注入
+- **submit**: Enter/改行の送信
+- **confirm**: y/nプロンプトへの自動応答
+- **route**: エージェント間のメッセージルーティング
+
+### 設定例
+
+```json
+{
+  "defaultMode": "auto",
+  "providers": {
+    "claude": { "mode": "prefill" },
+    "codex": { "mode": "manual" }
+  },
+  "ui": {
+    "warningBanner": "always"
+  }
+}
+```
+
+### プロバイダー別設定
+
+| 設定キー | 説明 |
+|----------|------|
+| `defaultMode` | 全プロバイダーのデフォルトモード |
+| `providers.<name>.mode` | 特定プロバイダーのモード上書き |
+| `ui.warningBanner` | バナー表示（`always` / `autoOnly` / `off`）|
+
+### 解決順序
+
+```
+providers.<provider>.mode > defaultMode > "auto"
+```
+
+### API レスポンス
+
+| モード | 動作 | HTTPレスポンス |
+|--------|------|---------------|
+| `auto` | 通常送信 | 200 OK |
+| `prefill` | 入力注入、送信抑制 | 202 Accepted + `status: input_required` |
+| `manual` | ブロック | 403 Forbidden |
+
+### ユースケース
+
+**セキュリティ重視のプロジェクト:**
+```json
+{
+  "defaultMode": "prefill",
+  "providers": {
+    "codex": { "mode": "manual" }
+  }
+}
+```
+
+**本番環境での監査:**
+```json
+{
+  "defaultMode": "manual",
+  "ui": { "warningBanner": "always" }
+}
+```
+
 ## ユースケース
 
 ### プロジェクト全体で履歴を有効化

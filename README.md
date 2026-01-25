@@ -92,6 +92,7 @@ flowchart LR
 | **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), terminal jump with Enter/j key |
+| **Compliance Control** | Three modes (auto/prefill/manual) to control agent automation per provider |
 
 ---
 
@@ -1234,6 +1235,31 @@ synapse config show --scope user
 |---------|-------|-------------|
 | `enabled` | `true` | Load `.synapse/delegate.md` and enable delegation rules |
 | `enabled` | `false` | Disable delegation (default) |
+
+### Compliance Settings
+
+Control agent automation with three modes:
+
+| Mode | inject | submit | confirm | route | Description |
+|------|--------|--------|---------|-------|-------------|
+| `auto` | ✓ | ✓ | ✓ | ✓ | Full automation (default) |
+| `prefill` | ✓ | ✗ | ✗ | ✗ | Input injection only, manual Enter |
+| `manual` | ✗ | ✗ | ✗ | ✗ | No automation, clipboard copy only |
+
+```json
+{
+  "defaultMode": "auto",
+  "providers": {
+    "claude": { "mode": "prefill" },
+    "codex": { "mode": "manual" }
+  },
+  "ui": {
+    "warningBanner": "always"
+  }
+}
+```
+
+See [guides/settings.md](guides/settings.md#コンプライアンス設定-compliance) for details.
 
 ### Initial Instructions (instructions)
 

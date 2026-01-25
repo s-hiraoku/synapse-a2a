@@ -40,6 +40,8 @@ pytest tests/test_a2a_compat.py -v        # Specific file
 pytest -k "test_identity" -v              # Pattern match
 pytest tests/test_history.py -v           # History feature tests
 pytest tests/test_file_safety_extended.py -v # File Safety tests
+pytest tests/test_compliance.py -v        # Compliance/Permissions tests
+pytest tests/test_compliance_integration.py -v # Compliance integration tests
 
 # Run agent (interactive)
 synapse claude
@@ -111,6 +113,7 @@ synapse/
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
+├── compliance.py    # Compliance/Permissions control (auto/prefill/manual modes)
 ├── commands/        # CLI command implementations
 │   ├── instructions.py  # synapse instructions command
 │   ├── list.py          # synapse list command
