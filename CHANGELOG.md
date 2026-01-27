@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-01-27
+
+### Changed
+
+- Simplify A2A reply flow with Reply Stack automation
+  - Remove `--reply-to` option from `synapse send` command
+  - Add `--from` flag to `synapse reply` for sandboxed environments (Codex)
+  - Simplify message format from `[A2A:<task_id>:<sender_id>]` to `A2A: <message>`
+- Agents no longer need to track task_id or sender_id for replies
+
+### Documentation
+
+- Add "Agent Ignorance Principle" to project philosophy
+  - Agents operate as if standalone; Synapse handles all routing
+- Update all agent skills and templates with simplified format
+- Remove internal implementation details from skill references
+
 ## [0.3.6] - 2026-01-25
 
 ### Added
