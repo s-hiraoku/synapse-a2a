@@ -24,10 +24,12 @@ HOW TO REPLY:
 Use `synapse reply` to respond to the last received message:
 
 ```bash
-synapse reply "<your reply>" --from <your_agent_type>
+synapse reply "<your reply>" --from <agent_type>
 ```
 
-The reply stack automatically tracks who sent you a message. The `--from` flag is required in sandboxed environments (like Codex).
+The reply stack automatically tracks who sent you a message.
+- `--from`: Your agent type (e.g., `claude`, `codex`, `gemini`, `opencode`, `copilot`)
+- Required in sandboxed environments (like Codex)
 
 Example - Question received:
   A2A: What is the project structure?
@@ -51,7 +53,7 @@ Target formats (in priority order):
 - Agent type: `gemini` (only when single instance exists)
 
 Parameters:
-- `--from, -f`: Your agent ID (for reply identification) - **always include this**
+- `--from, -f`: Your agent type (e.g., `claude`, `codex`) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
