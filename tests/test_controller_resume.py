@@ -79,9 +79,9 @@ class TestResumeMode:
         controller_normal.master_fd = 1
         controller_normal.running = True
 
-        # Mock settings to return some files
+        # Mock settings to return some file paths
         mock_settings = Mock()
-        mock_settings.get_instruction_files.return_value = ["gemini.md"]
+        mock_settings.get_instruction_file_paths.return_value = [".synapse/gemini.md"]
 
         with patch("synapse.controller.get_settings", return_value=mock_settings):
             # Speed up the test by reducing delays

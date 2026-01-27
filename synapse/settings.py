@@ -357,6 +357,99 @@ class SynapseSettings:
 
         return files
 
+    def get_instruction_file_paths(
+        self, agent_type: str, user_dir: Path | None = None
+    ) -> list[str]:
+        """
+        Get the list of instruction file paths with correct directory prefixes.
+
+        Unlike get_instruction_files() which returns just filenames, this method
+        returns display paths that correctly indicate whether the file is in the
+        project directory (.synapse/) or user directory (~/.synapse/).
+
+        Args:
+            agent_type: The agent type (claude, gemini, codex).
+            user_dir: Optional custom user directory for testing (default: Path.home()).
+
+        Returns:
+            List of display paths (e.g., [".synapse/default.md", "~/.synapse/delegate.md"])
+        """
+        paths: list[str] = []
+        home = user_dir if user_dir else Path.home()
+
+        # Helper to check if file exists with custom user_dir
+        def file_exists(filename: str) -> bool:
+            project_path = Path.cwd() / ".synapse" / filename
+            user_path = home / ".synapse" / filename
+            return project_path.exists() or user_path.exists()
+
+        # Check agent-specific file
+        agent_instruction = self.instructions.get(agent_type, "")
+        if (
+            isinstance(agent_instruction, str)
+            and agent_instruction.endswith(".md")
+            and file_exists(agent_instruction)
+        ):
+            display_path = self._get_file_display_path(agent_instruction, user_dir)
+            if display_path:
+                paths.append(display_path)
+
+        # Check default file (only if agent-specific is not set)
+        if not agent_instruction:
+            default_instruction = self.instructions.get("default", "")
+            if (
+                isinstance(default_instruction, str)
+                and default_instruction.endswith(".md")
+                and file_exists(default_instruction)
+            ):
+                display_path = self._get_file_display_path(default_instruction, user_dir)
+                if display_path:
+                    paths.append(display_path)
+
+        # Delegation (when enabled)
+        if self.is_delegation_enabled() and file_exists("delegate.md"):
+            display_path = self._get_file_display_path("delegate.md", user_dir)
+            if display_path:
+                paths.append(display_path)
+
+        # File safety
+        if self._is_file_safety_enabled() and file_exists("file-safety.md"):
+            display_path = self._get_file_display_path("file-safety.md", user_dir)
+            if display_path:
+                paths.append(display_path)
+
+        return paths
+
+    def _get_file_display_path(
+        self, filename: str, user_dir: Path | None = None
+    ) -> str | None:
+        """
+        Get the display path for an instruction file.
+
+        Checks if the file exists in project or user directory and returns
+        the appropriate display path.
+
+        Args:
+            filename: The filename to check (e.g., "default.md")
+            user_dir: Optional custom user directory for testing.
+
+        Returns:
+            Display path like ".synapse/default.md" or "~/.synapse/default.md",
+            or None if file doesn't exist in either location.
+        """
+        project_path = Path.cwd() / ".synapse" / filename
+        home = user_dir if user_dir else Path.home()
+        user_path = home / ".synapse" / filename
+
+        # Project directory takes precedence
+        if project_path.exists():
+            return f".synapse/{filename}"
+
+        if user_path.exists():
+            return f"~/.synapse/{filename}"
+
+        return None
+
     def _is_valid_md_file(self, instruction: object) -> bool:
         """Check if instruction is a valid .md filename that exists."""
         return (

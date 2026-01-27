@@ -485,12 +485,13 @@ class TerminalController:
         )
 
         # Get instruction files to read from settings
+        # Use get_instruction_file_paths to get correct paths for project/user directories
         settings = get_settings()
         agent_type = self.agent_type or "unknown"
-        instruction_files = settings.get_instruction_files(agent_type)
+        instruction_file_paths = settings.get_instruction_file_paths(agent_type)
 
         # Skip if no instruction files configured
-        if not instruction_files:
+        if not instruction_file_paths:
             logging.info(
                 f"[{self.agent_id}] No initial instructions configured, skipping."
             )
@@ -500,7 +501,8 @@ class TerminalController:
 
         # Build a short message pointing to the instruction files
         # This avoids PTY paste buffer issues with large inputs
-        file_list = "\n".join(f"  - .synapse/{f}" for f in instruction_files)
+        # Paths already include directory prefix (.synapse/ or ~/.synapse/)
+        file_list = "\n".join(f"  - {f}" for f in instruction_file_paths)
         short_message = (
             f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
             f"Agent: {self.agent_id} | Port: {self.port}\n\n"
@@ -514,7 +516,7 @@ class TerminalController:
         prefixed = format_a2a_message(short_message)
 
         logging.info(
-            f"[{self.agent_id}] Sending file reference instruction: {instruction_files}"
+            f"[{self.agent_id}] Sending file reference instruction: {instruction_file_paths}"
         )
 
         # Wait for agent to be fully ready
