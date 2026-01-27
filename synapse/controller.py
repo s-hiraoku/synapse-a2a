@@ -13,7 +13,6 @@ import sys
 import termios
 import threading
 import time
-import uuid
 from collections.abc import Callable
 
 from synapse.compliance import (
@@ -501,8 +500,6 @@ class TerminalController:
 
         # Build a short message pointing to the instruction files
         # This avoids PTY paste buffer issues with large inputs
-        task_id = str(uuid.uuid4())[:8]
-
         file_list = "\n".join(f"  - .synapse/{f}" for f in instruction_files)
         short_message = (
             f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
@@ -514,7 +511,7 @@ class TerminalController:
             f"Replace {{{{agent_id}}}} with {self.agent_id} and "
             f"{{{{port}}}} with {self.port} when following instructions."
         )
-        prefixed = format_a2a_message(task_id, "synapse-system", short_message)
+        prefixed = format_a2a_message(short_message)
 
         logging.info(
             f"[{self.agent_id}] Sending file reference instruction: {instruction_files}"

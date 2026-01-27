@@ -14,9 +14,9 @@ try:
 
     HAS_QUESTIONARY = True
 except ImportError:
-    questionary = None  # type: ignore
-    Choice = None  # type: ignore
-    Separator = None  # type: ignore
+    questionary = None
+    Choice = None
+    Separator = None
     HAS_QUESTIONARY = False
 
 from synapse.settings import (
@@ -680,7 +680,7 @@ class RichConfigCommand:
         status_bar: str | None = None,
     ) -> int | None:
         """Show a menu and return the selected index, or None if cancelled."""
-        from simple_term_menu import TerminalMenu  # type: ignore
+        from simple_term_menu import TerminalMenu
 
         if status_bar is None:
             status_bar = "\n  [↑/↓] Move  [Enter] Select  [ESC/q] Back  [1-9] Jump"

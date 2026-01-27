@@ -26,6 +26,7 @@ from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
 from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
 from synapse.registry import AgentRegistry, is_port_open
+from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
@@ -493,7 +494,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     message = args.message
     priority = args.priority
     sender = getattr(args, "sender", None)
-    reply_to = getattr(args, "reply_to", None)
     want_response = getattr(args, "want_response", None)
 
     # Get the a2a.py tool path from installed package
@@ -516,8 +516,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Add sender if specified
     if sender:
         cmd.extend(["--from", sender])
-    if reply_to:
-        cmd.extend(["--reply-to", reply_to])
 
     # Pass response flag to a2a.py (unified with a2a.py send)
     if want_response is True:
@@ -525,6 +523,34 @@ def cmd_send(args: argparse.Namespace) -> None:
     elif want_response is False:
         cmd.append("--no-response")
     # If None, don't pass any flag (a2a.py defaults to not waiting)
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
+
+def cmd_reply(args: argparse.Namespace) -> None:
+    """Reply to the last received A2A message using the reply stack."""
+    message = args.message
+    sender = getattr(args, "sender", None)
+
+    # Get the a2a.py tool path from installed package
+    import synapse
+
+    package_dir = Path(synapse.__file__).parent
+    a2a_tool = package_dir / "tools" / "a2a.py"
+
+    cmd = [
+        sys.executable,
+        str(a2a_tool),
+        "reply",
+        message,
+    ]
+
+    # Add sender if specified
+    if sender:
+        cmd.extend(["--from", sender])
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
@@ -1548,6 +1574,15 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     with open(profile_path) as f:
         config = yaml.safe_load(f)
 
+    command = config.get("command")
+    if not command:
+        print(f"Error: Profile '{profile}' is missing 'command' field.")
+        sys.exit(1)
+    if not resolve_command_path(command):
+        print(f"Error: Required command '{command}' is not installed or not on PATH.")
+        print("  Hint: Install it and try again.")
+        sys.exit(1)
+
     # Load submit sequence from profile (decode escape sequences)
     submit_seq = config.get("submit_sequence", "\n").encode().decode("unicode_escape")
     startup_delay = config.get("startup_delay", 3)
@@ -1922,11 +1957,6 @@ Priority levels:
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
     )
-    p_send.add_argument(
-        "--reply-to",
-        dest="reply_to",
-        help="Reply to a specific task ID (attach response without sending to PTY)",
-    )
     # Response control: mutually exclusive group (unified with a2a.py send)
     response_group = p_send.add_mutually_exclusive_group()
     response_group.add_argument(
@@ -1943,6 +1973,24 @@ Priority levels:
         help="Do not wait for response (fire and forget)",
     )
     p_send.set_defaults(func=cmd_send)
+
+    # reply - Reply to last received A2A message
+    p_reply = subparsers.add_parser(
+        "reply",
+        help="Reply to the last received A2A message",
+        description="Reply to the last received A2A message using the reply stack.",
+        epilog="""Examples:
+  synapse reply "Here is my response"      Reply to the last message
+  synapse reply "Task completed!"          Send completion reply
+  synapse reply "Done" --from codex        Reply with explicit sender (for sandboxed envs)""",
+    )
+    p_reply.add_argument(
+        "--from",
+        dest="sender",
+        help="Your agent ID (required in sandboxed environments like Codex)",
+    )
+    p_reply.add_argument("message", help="Reply message content")
+    p_reply.set_defaults(func=cmd_reply)
 
     # instructions - Manage and send initial instructions
     p_instructions = subparsers.add_parser(

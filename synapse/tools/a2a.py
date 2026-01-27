@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -7,6 +8,8 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+
+import requests
 
 from synapse.a2a_client import A2AClient
 from synapse.history import HistoryManager
@@ -327,7 +330,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     settings = get_settings()
     flow = settings.get_a2a_flow()
     want_response = getattr(args, "want_response", None)
-    reply_to = getattr(args, "reply_to", None)
 
     # Flow modes: roundtrip always waits, oneway never waits, auto uses flag
     # Default to False (not waiting) for safety - see issue #96
@@ -348,7 +350,6 @@ def cmd_send(args: argparse.Namespace) -> None:
         timeout=60,
         sender_info=sender_info or None,
         response_expected=response_expected,
-        in_reply_to=reply_to,
         uds_path=uds_path if isinstance(uds_path, str) else None,
         local_only=local_only,
         registry=reg,
@@ -386,6 +387,98 @@ def cmd_send(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_reply(args: argparse.Namespace) -> None:
+    """Reply to the last message using the reply stack.
+
+    This command pops the reply target from the local agent's reply stack
+    and sends the reply message to the original sender.
+    """
+    # Determine own endpoint from sender info
+    explicit_sender = getattr(args, "sender", None)
+    sender_info = build_sender_info(explicit_sender)
+    my_endpoint = sender_info.get("sender_endpoint")
+
+    if not my_endpoint:
+        print(
+            "Error: Cannot determine my endpoint. Are you running in a synapse agent?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Peek reply target from my agent's reply stack (don't pop yet)
+    try:
+        resp = requests.get(f"{my_endpoint}/reply-stack/peek", timeout=5)
+    except requests.RequestException as e:
+        print(f"Error: Failed to get reply target: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if resp.status_code == 404:
+        print(
+            "Error: No reply target. No pending messages to reply to.", file=sys.stderr
+        )
+        sys.exit(1)
+    elif resp.status_code != 200:
+        print(
+            f"Error: Failed to get reply target: HTTP {resp.status_code}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    target = resp.json()
+    target_endpoint = target.get("sender_endpoint")
+    target_uds_path = target.get("sender_uds_path")
+    task_id = target.get("sender_task_id")  # May be None
+
+    if not target_endpoint and not target_uds_path:
+        print("Error: Reply target has no endpoint", file=sys.stderr)
+        sys.exit(1)
+
+    # Send reply using A2AClient (prefer UDS if available)
+    client = A2AClient()
+    if target_uds_path:
+        # Use UDS for reply
+        result = client.send_to_local(
+            endpoint=target_endpoint or "",
+            message=args.message,
+            priority=3,  # Normal priority for replies
+            sender_info=sender_info,
+            response_expected=False,  # Reply doesn't expect a reply back
+            in_reply_to=task_id,
+            uds_path=target_uds_path,
+        )
+    else:
+        # Use HTTP for reply
+        result = client.send_to_local(
+            endpoint=target_endpoint or "",
+            message=args.message,
+            priority=3,  # Normal priority for replies
+            sender_info=sender_info,
+            response_expected=False,  # Reply doesn't expect a reply back
+            in_reply_to=task_id,
+        )
+
+    if not result:
+        print("Error: Failed to send reply", file=sys.stderr)
+        sys.exit(1)
+
+    # Only pop from stack after successful send
+    with contextlib.suppress(requests.RequestException):
+        requests.get(f"{my_endpoint}/reply-stack/pop", timeout=5)
+
+    # Display target info (prefer UDS path if no HTTP endpoint)
+    if target_endpoint and ":" in target_endpoint:
+        target_short = target_endpoint.split(":")[-1]
+    elif target_endpoint:
+        target_short = target_endpoint
+    elif target_uds_path:
+        target_short = Path(target_uds_path).name
+    else:
+        target_short = "unknown"
+    print(f"Reply sent to {target_short}")
+    if task_id:
+        print(f"  In reply to task: {task_id[:8]}...")
+
+
 def main() -> None:
     """Parse command-line arguments and execute A2A client operations."""
     parser = argparse.ArgumentParser(description="Synapse A2A Client Tool")
@@ -413,11 +506,6 @@ def main() -> None:
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
     )
-    p_send.add_argument(
-        "--reply-to",
-        dest="reply_to",
-        help="Reply to a specific task ID (attach response without sending to PTY)",
-    )
     # Response control: mutually exclusive group
     response_group = p_send.add_mutually_exclusive_group()
     response_group.add_argument(
@@ -435,6 +523,15 @@ def main() -> None:
     )
     p_send.add_argument("message", help="Content of the message")
 
+    # reply command - simplified reply to last message
+    p_reply = subparsers.add_parser("reply", help="Reply to the last received message")
+    p_reply.add_argument(
+        "--from",
+        dest="sender",
+        help="Your agent ID (required in sandboxed environments like Codex)",
+    )
+    p_reply.add_argument("message", help="Reply message content")
+
     args = parser.parse_args()
 
     if args.command == "list":
@@ -443,6 +540,8 @@ def main() -> None:
         cmd_cleanup(args)
     elif args.command == "send":
         cmd_send(args)
+    elif args.command == "reply":
+        cmd_reply(args)
 
 
 if __name__ == "__main__":

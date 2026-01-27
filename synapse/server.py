@@ -8,13 +8,12 @@ from typing import Any
 
 import uvicorn
 import yaml
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
 
-from synapse.a2a_compat import Message, TaskStore, TextPart, create_a2a_router
-from synapse.compliance import ComplianceBlockedError
+from synapse.a2a_compat import create_a2a_router
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry, resolve_uds_path
+from synapse.utils import resolve_command_path
 
 # Global controller and registry instances (for standalone mode)
 controller: TerminalController | None = None
@@ -61,6 +60,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     tool_args = tool_args_str.split("\x00") if tool_args_str else []
 
     profile = load_profile(profile_name)
+
+    command = profile.get("command")
+    if not command:
+        print(f"Error: Profile '{profile_name}' is missing 'command' field.")
+        sys.exit(1)
+    if not resolve_command_path(command):
+        print(f"Error: Required command '{command}' is not installed or not on PATH.")
+        print("  Hint: Install it and try again.")
+        sys.exit(1)
 
     # Load submit sequence from profile (decode escape sequences)
     submit_sequence = (
@@ -159,57 +167,6 @@ app = FastAPI(
 )
 
 
-class MessageRequest(BaseModel):
-    priority: int
-    content: str
-
-
-def _send_legacy_message(
-    ctrl: TerminalController | None,
-    task_store: TaskStore,
-    msg: MessageRequest,
-    submit_seq: str,
-) -> dict:
-    """Send a legacy /message request using a TaskStore for tracking."""
-    if not ctrl:
-        raise HTTPException(status_code=503, detail="Agent not running")
-
-    # Convert to A2A Message format internally
-    a2a_message = Message(role="user", parts=[TextPart(text=msg.content)])
-
-    # Create task for tracking
-    task = task_store.create(a2a_message)
-
-    if msg.priority >= 5:
-        ctrl.interrupt()
-
-    # Update task status to working
-    task_store.update_status(task.id, "working")
-
-    # Use the profile's submit sequence (e.g., \r for TUI apps, \n for readline)
-    try:
-        ctrl.write(msg.content, submit_seq=submit_seq)
-    except ComplianceBlockedError as e:
-        task_store.update_status(task.id, "failed")
-        raise HTTPException(
-            status_code=403,
-            detail=f"Blocked by compliance policy: {e.message}",
-        ) from e
-    except Exception as e:
-        task_store.update_status(task.id, "failed")
-        raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}") from e
-
-    return {"status": "sent", "priority": msg.priority, "task_id": task.id}
-
-
-def _get_standalone_task_store() -> TaskStore:
-    """Return the singleton TaskStore for standalone mode."""
-    global standalone_task_store
-    if standalone_task_store is None:
-        standalone_task_store = TaskStore()
-    return standalone_task_store
-
-
 def create_app(
     ctrl: TerminalController,
     reg: AgentRegistry,
@@ -225,13 +182,6 @@ def create_app(
         version="1.0.0",
     )
 
-    task_store = TaskStore()
-
-    @new_app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-    async def send_message(msg: MessageRequest) -> dict:
-        """Send message to agent (Synapse original API). DEPRECATED."""
-        return _send_legacy_message(ctrl, task_store, msg, submit_seq)
-
     @new_app.get("/status", tags=["Synapse Original"])
     async def get_status() -> dict:
         """Get agent status (Synapse original API)"""
@@ -243,24 +193,6 @@ def create_app(
     new_app.include_router(a2a_router)
 
     return new_app
-
-
-# Global task store for standalone mode
-standalone_task_store: TaskStore | None = None
-
-
-@app.post("/message", tags=["Synapse Original (Deprecated)"], deprecated=True)
-async def send_message(msg: MessageRequest) -> dict:
-    """
-    Send message to agent (Synapse original API).
-
-    DEPRECATED: Use /tasks/send or /tasks/send-priority instead.
-    This endpoint now creates A2A tasks internally for consistency.
-    """
-    if not controller:
-        raise HTTPException(status_code=503, detail="Agent not running")
-    task_store = _get_standalone_task_store()
-    return _send_legacy_message(controller, task_store, msg, submit_sequence)
 
 
 @app.get("/status")

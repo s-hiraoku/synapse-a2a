@@ -6,11 +6,13 @@ env:
   TERM: "xterm-256color"
 
 # Multi-strategy idle detection configuration
-# Gemini: Use timeout-based detection (more reliable than pattern matching)
-# Pattern matching is unreliable because prompt patterns may appear in conversation history
+# Gemini: Use hybrid strategy - pattern for first idle (UI ready), timeout for subsequent
+# BRACKETED_PASTE_MODE indicates the TUI input area is ready to receive input
 idle_detection:
-  strategy: "timeout"
-  timeout: 3.0               # 3.0 seconds of no output = idle
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"  # ESC[?2004h = TUI input ready
+  pattern_use: "startup_only"      # Only use pattern for first READY detection
+  timeout: 3.0                     # 3.0 seconds of no output = idle (after first)
 
 # WAITING status detection (user input prompts)
 # DISABLED: Current regex-based detection causes false positives

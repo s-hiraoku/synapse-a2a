@@ -524,7 +524,7 @@ def _get_pyperclip() -> Any:
     global pyperclip
     if pyperclip is None:
         try:
-            import pyperclip as _pyperclip  # type: ignore
+            import pyperclip as _pyperclip
 
             pyperclip = _pyperclip
         except ImportError:
