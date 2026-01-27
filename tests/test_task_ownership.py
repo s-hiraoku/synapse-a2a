@@ -184,31 +184,12 @@ class TestReceiverDisplaysSenderTaskId:
 
     def test_pty_output_format(self):
         """PTY output should use the correct format."""
-        sender_task_id = "abc12345"
-        sender_id = "synapse-claude-8100"
         message = "Hello from Claude"
 
-        formatted = format_a2a_message(sender_task_id, sender_id, message)
+        formatted = format_a2a_message(message)
 
-        # Should contain sender's task ID in the prefix
-        assert f"[A2A:{sender_task_id}:{sender_id}]" in formatted
-        assert message in formatted
-
-    def test_pty_output_uses_sender_task_id_not_receiver(self):
-        """PTY should display sender's task ID, not a receiver-generated one."""
-        # When a message arrives with sender_task_id in metadata,
-        # the PTY output should use that ID, not generate a new one
-
-        sender_task_id = "sender-task-xyz"
-        sender_id = "synapse-claude-8100"
-        message = "Please analyze this"
-
-        formatted = format_a2a_message(sender_task_id, sender_id, message)
-
-        # The formatted message should contain the SENDER's task ID
-        assert sender_task_id in formatted
-        # It should NOT contain any other task ID format
-        assert formatted.startswith(f"[A2A:{sender_task_id}:")
+        # Should have A2A prefix and message content
+        assert formatted == "A2A: Hello from Claude"
 
     def test_server_endpoint_uses_sender_task_id(self):
         """Server endpoint should use sender_task_id from metadata for PTY output."""
@@ -259,14 +240,13 @@ class TestReceiverDisplaysSenderTaskId:
 
         assert response.status_code == 200
 
-        # Verify controller.write was called with sender's task ID
+        # Verify controller.write was called with A2A prefixed message
         mock_controller.write.assert_called_once()
         call_args = mock_controller.write.call_args
         written_content = call_args[0][0]
 
-        # The written content should contain sender's task ID, not receiver's
-        # With response_expected=True, the :R flag should be present
-        assert f"[A2A:{sender_task_id[:8]}:{sender_id}:R]" in written_content
+        # PTY output includes A2A prefix
+        assert written_content == "A2A: Test message"
 
 
 # ============================================================

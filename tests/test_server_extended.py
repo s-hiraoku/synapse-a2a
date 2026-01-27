@@ -124,6 +124,33 @@ class TestServerExtended:
                 "timeout": 1.5,
             }
 
+    @pytest.mark.asyncio
+    async def test_lifespan_missing_command_exits(self, capsys):
+        """Should exit with helpful message when command is missing."""
+        app = FastAPI()
+        missing_command_profile = {
+            "command": "codex",
+            "args": [],
+            "submit_sequence": "\n",
+        }
+
+        with (
+            patch("synapse.server.load_profile", return_value=missing_command_profile),
+            patch("synapse.server.AgentRegistry"),
+            patch("synapse.server.TerminalController"),
+            patch("synapse.server.create_a2a_router"),
+            patch("synapse.server.resolve_command_path", return_value=None),
+            patch.dict(os.environ, {"SYNAPSE_PORT": "9000"}, clear=True),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            async with lifespan(app):
+                pass
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "codex" in captured.out
+        assert "not installed" in captured.out
+
     @patch("uvicorn.Server")
     @patch("threading.Thread")
     def test_run_dual_server(self, mock_thread, mock_server):

@@ -514,9 +514,9 @@ class TestReplyToFlowIntegration:
         assert send_response.status_code == 200
         codex_controller.write.assert_called_once()
 
-        # Verify sender_task_id is displayed in PTY output
+        # Verify A2A prefixed message is displayed
         write_call = codex_controller.write.call_args[0][0]
-        assert sender_task_id[:8] in write_call  # First 8 chars of task ID
+        assert write_call == "A2A: Please help me"
 
         # Step 3: Codex replies via --reply-to
         reply_payload = {

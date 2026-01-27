@@ -492,54 +492,6 @@ class TestCmdSend:
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
     @patch("synapse.tools.a2a.AgentRegistry")
-    def test_cmd_send_passes_reply_to(
-        self,
-        mock_registry_cls,
-        mock_sender,
-        mock_running,
-        mock_port,
-        mock_client_cls,
-    ):
-        """Should pass reply_to through to client.send_to_local."""
-        mock_registry = MagicMock()
-        mock_registry.list_agents.return_value = {
-            "synapse-claude-8100": {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "pid": 1234,
-                "endpoint": "http://localhost:8100",
-            }
-        }
-        mock_registry_cls.return_value = mock_registry
-
-        mock_client = MagicMock()
-        mock_client.send_to_local.return_value = MagicMock(
-            id="task-123", status="working"
-        )
-        mock_client_cls.return_value = mock_client
-
-        args = argparse.Namespace(
-            target="claude",
-            message="hello",
-            priority=1,
-            sender=None,
-            want_response=None,
-            reply_to="task-123",
-        )
-
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
-            mock_settings.return_value.get_a2a_flow.return_value = "auto"
-            cmd_send(args)
-
-        call_kwargs = mock_client.send_to_local.call_args.kwargs
-        assert call_kwargs["in_reply_to"] == "task-123"
-
-    @patch("synapse.tools.a2a.A2AClient")
-    @patch("synapse.tools.a2a.is_port_open", return_value=True)
-    @patch("synapse.tools.a2a.is_process_running", return_value=True)
-    @patch("synapse.tools.a2a.build_sender_info", return_value={})
-    @patch("synapse.tools.a2a.AgentRegistry")
     def test_cmd_send_no_response_flag(
         self,
         mock_registry_cls,
@@ -1233,3 +1185,319 @@ class TestSentMessageHistory:
         call_kwargs = mock_history.save_observation.call_args[1]
         assert call_kwargs["agent_name"] == "claude"
         assert "sender" in call_kwargs["metadata"]
+
+
+# ============================================================
+# synapse reply Command Tests
+# ============================================================
+
+
+class TestCmdReply:
+    """Test cmd_reply() function."""
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_success(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should reply to the last sender successfully."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info returns endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response (first call)
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 200
+        mock_peek_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "abc12345",
+        }
+        # Mock the GET /reply-stack/pop response (second call after success)
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+
+        # Mock the client
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello back!")
+        cmd_reply(args)
+
+        # Verify reply was sent to correct endpoint
+        mock_client.send_to_local.assert_called_once()
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["endpoint"] == "http://localhost:8110"
+        assert call_kwargs["in_reply_to"] == "abc12345"
+        assert call_kwargs["message"] == "Hello back!"
+
+        # Verify peek was called first, then pop after success
+        assert len(mock_requests_get.call_args_list) == 2
+        assert "/reply-stack/peek" in mock_requests_get.call_args_list[0][0][0]
+        assert "/reply-stack/pop" in mock_requests_get.call_args_list[1][0][0]
+
+        captured = capsys.readouterr()
+        assert "Reply sent" in captured.out
+
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_no_sender(
+        self,
+        mock_requests_get,
+        mock_sender,
+        capsys,
+    ):
+        """Should error when sender endpoint cannot be determined."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info missing endpoint
+        mock_sender.return_value = {}
+
+        args = argparse.Namespace(message="Hello back!")
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Cannot determine my endpoint" in captured.err
+
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_empty_stack(
+        self,
+        mock_requests_get,
+        mock_sender,
+        capsys,
+    ):
+        """Should error when reply stack is empty."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info with endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response - 404 means empty
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 404
+        mock_requests_get.return_value = mock_peek_response
+
+        args = argparse.Namespace(message="Hello back!")
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No reply target" in captured.err
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_without_task_id(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should reply without in_reply_to when sender_task_id is missing."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info returns endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response - no task_id
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 200
+        mock_peek_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            # No sender_task_id
+        }
+        # Second call (pop) returns 200
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+
+        # Mock the client
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Reply without task ID")
+        cmd_reply(args)
+
+        # Verify reply was sent without in_reply_to
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["in_reply_to"] is None
+
+    @patch("synapse.tools.a2a.cmd_reply")
+    @patch("sys.argv", ["a2a.py", "reply", "Hello back!"])
+    def test_main_reply_command(self, mock_cmd):
+        """main() should route to cmd_reply for 'reply' command."""
+        main()
+        mock_cmd.assert_called_once()
+        args = mock_cmd.call_args[0][0]
+        assert args.message == "Hello back!"
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_send_failure_preserves_target(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should preserve reply target when send fails (peek before pop)."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info returns endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response (first call)
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 200
+        mock_peek_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "abc12345",
+        }
+        mock_requests_get.return_value = mock_peek_response
+
+        # Mock the client - send fails
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = None  # Failure
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello back!")
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Failed to send reply" in captured.err
+
+        # Verify peek was called (not pop), so target is preserved for retry
+        # First call should be to /reply-stack/peek
+        assert "/reply-stack/peek" in mock_requests_get.call_args_list[0][0][0]
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_uds_path_support(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should use UDS path for reply when available."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info returns endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response with UDS path
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 200
+        mock_peek_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_uds_path": "/tmp/synapse-a2a/gemini-8110.sock",
+            "sender_task_id": "abc12345",
+        }
+        # Second call (pop) returns 200
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+
+        # Mock the client
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello via UDS!")
+        cmd_reply(args)
+
+        # Verify UDS path was passed to send_to_local
+        mock_client.send_to_local.assert_called_once()
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
+
+        captured = capsys.readouterr()
+        assert "Reply sent" in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_uds_only_no_http(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should work with UDS-only sender (no HTTP endpoint)."""
+        from synapse.tools.a2a import cmd_reply
+
+        # Setup: sender info returns endpoint
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        # Mock the GET /reply-stack/peek response - UDS only, no HTTP
+        mock_peek_response = MagicMock()
+        mock_peek_response.status_code = 200
+        mock_peek_response.json.return_value = {
+            "sender_endpoint": None,  # No HTTP endpoint
+            "sender_uds_path": "/tmp/synapse-a2a/gemini-8110.sock",
+            "sender_task_id": "abc12345",
+        }
+        # Second call (pop) returns 200
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+
+        # Mock the client
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello UDS-only!")
+        cmd_reply(args)
+
+        # Verify UDS path was used
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
+        assert call_kwargs["endpoint"] == ""  # Empty when no HTTP

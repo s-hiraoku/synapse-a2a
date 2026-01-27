@@ -286,8 +286,8 @@ class TestA2ARouterEndpoints:
         assert data["task"]["status"] in ["submitted", "working"]
         mock_controller.write.assert_called_once()
 
-    def test_tasks_send_prefixes_sender_id(self, client, mock_controller):
-        """/tasks/send should prefix sender_id in controller.write content."""
+    def test_tasks_send_outputs_plain_message(self, client, mock_controller):
+        """/tasks/send should output message with A2A prefix for agent identification."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {"sender": {"sender_id": "synapse-claude-8100"}},
@@ -298,9 +298,8 @@ class TestA2ARouterEndpoints:
         assert response.status_code == 200
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        assert write_args[0][0].startswith("[A2A:")
-        assert ":synapse-claude-8100]" in write_args[0][0]
-        assert write_args[0][0].endswith("Hello")
+        # PTY output includes A2A prefix
+        assert write_args[0][0] == "A2A: Hello"
 
     def test_tasks_send_priority_endpoint(self, client, mock_controller):
         """POST /tasks/send-priority should handle priority."""
@@ -314,8 +313,10 @@ class TestA2ARouterEndpoints:
         mock_controller.interrupt.assert_called_once()
         mock_controller.write.assert_called_once()
 
-    def test_tasks_send_priority_prefixes_sender_id(self, client, mock_controller):
-        """/tasks/send-priority should prefix sender_id in controller.write content."""
+    def test_tasks_send_priority_outputs_message_with_prefix(
+        self, client, mock_controller
+    ):
+        """/tasks/send-priority should output message with A2A prefix."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Urgent!"}]},
             "metadata": {"sender": {"sender_id": "synapse-gemini-8110"}},
@@ -327,9 +328,8 @@ class TestA2ARouterEndpoints:
         mock_controller.interrupt.assert_called_once()
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        assert write_args[0][0].startswith("[A2A:")
-        assert ":synapse-gemini-8110]" in write_args[0][0]
-        assert write_args[0][0].endswith("Urgent!")
+        # PTY output includes A2A prefix
+        assert write_args[0][0] == "A2A: Urgent!"
 
     def test_tasks_send_reply_to_updates_existing_task(self, client, mock_controller):
         """POST /tasks/send with in_reply_to should complete existing task."""
@@ -668,3 +668,222 @@ class TestSSEStreaming:
         assert response.status_code == 200
         data = response.json()
         assert data["capabilities"]["streaming"] is True
+
+
+# ============================================================
+# Reply Stack Tests
+# ============================================================
+
+
+class TestReplyStackEndpoints:
+    """Test Reply Stack endpoints in A2A router."""
+
+    @pytest.fixture
+    def mock_controller(self):
+        """Create mock controller."""
+        controller = MagicMock()
+        controller.status = "BUSY"
+        controller.get_context.return_value = ""
+        controller.write = MagicMock()
+        controller.interrupt = MagicMock()
+        return controller
+
+    @pytest.fixture
+    def client(self, mock_controller):
+        """Create test client with mock controller."""
+        from fastapi import FastAPI
+
+        # Clear the global reply stack before each test
+        from synapse.reply_stack import get_reply_stack
+
+        get_reply_stack().clear()
+
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller,
+            agent_type="test",
+            port=8000,
+            submit_seq="\n",
+            agent_id="test-agent",
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_reply_stack_pop_empty_returns_404(self, client, mock_controller):  # noqa: ARG002
+        """GET /reply-stack/pop should return 404 when stack is empty."""
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 404
+        assert "No reply target" in response.json()["detail"]
+
+    def test_reply_stack_peek_empty_returns_404(self, client, mock_controller):  # noqa: ARG002
+        """GET /reply-stack/peek should return 404 when stack is empty."""
+        response = client.get("/reply-stack/peek")
+        assert response.status_code == 404
+        assert "No reply target" in response.json()["detail"]
+
+    def test_reply_stack_push_on_message_receive(self, client, mock_controller):  # noqa: ARG002
+        """Receiving a message should push sender info to reply stack."""
+        # Send a message with sender info
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "sender_task_id": "abc12345-uuid",
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Now pop should return the sender info
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sender_endpoint"] == "http://localhost:8100"
+        assert data["sender_task_id"] == "abc12345-uuid"
+
+    def test_reply_stack_pop_removes_entry(self, client, mock_controller):  # noqa: ARG002
+        """Pop should remove the entry from the stack."""
+        # Send a message
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {"sender_endpoint": "http://localhost:8100"},
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # First pop succeeds
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 200
+
+        # Second pop returns 404
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 404
+
+    def test_reply_stack_peek_does_not_remove(self, client, mock_controller):  # noqa: ARG002
+        """Peek should return the entry without removing it."""
+        # Send a message
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {"sender_endpoint": "http://localhost:8110"},
+                "sender_task_id": "task-xyz",
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Peek twice - should return same data
+        response1 = client.get("/reply-stack/peek")
+        assert response1.status_code == 200
+        data1 = response1.json()
+
+        response2 = client.get("/reply-stack/peek")
+        assert response2.status_code == 200
+        data2 = response2.json()
+
+        assert data1 == data2
+
+        # Pop should still work
+        response3 = client.get("/reply-stack/pop")
+        assert response3.status_code == 200
+        assert response3.json() == data1
+
+    def test_reply_stack_lifo_order(self, client, mock_controller):  # noqa: ARG002
+        """Stack should follow LIFO order."""
+        # Send multiple messages
+        for port in [8100, 8110, 8120]:
+            payload = {
+                "message": {"role": "user", "parts": [{"type": "text", "text": "Hi"}]},
+                "metadata": {
+                    "sender": {"sender_endpoint": f"http://localhost:{port}"},
+                },
+            }
+            client.post("/tasks/send", json=payload)
+
+        # Pop should return in reverse order (LIFO)
+        resp1 = client.get("/reply-stack/pop")
+        assert resp1.json()["sender_endpoint"] == "http://localhost:8120"
+
+        resp2 = client.get("/reply-stack/pop")
+        assert resp2.json()["sender_endpoint"] == "http://localhost:8110"
+
+        resp3 = client.get("/reply-stack/pop")
+        assert resp3.json()["sender_endpoint"] == "http://localhost:8100"
+
+    def test_message_without_sender_endpoint_not_pushed(self, client, mock_controller):  # noqa: ARG002
+        """Message without sender_endpoint should not be pushed to stack."""
+        # Send a message without sender_endpoint
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {"sender_id": "some-agent"},  # No endpoint
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Stack should be empty
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 404
+
+
+class TestA2APrefixedPTYOutput:
+    """Test that PTY output includes A2A prefix for agent identification."""
+
+    @pytest.fixture
+    def mock_controller(self):
+        """Create mock controller."""
+        controller = MagicMock()
+        controller.status = "BUSY"
+        controller.get_context.return_value = ""
+        controller.write = MagicMock()
+        controller.interrupt = MagicMock()
+        return controller
+
+    @pytest.fixture
+    def client(self, mock_controller):
+        """Create test client with mock controller."""
+        from fastapi import FastAPI
+
+        from synapse.reply_stack import get_reply_stack
+
+        get_reply_stack().clear()
+
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller,
+            agent_type="test",
+            port=8000,
+            submit_seq="\n",
+            agent_id="test-agent",
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_pty_output_has_a2a_prefix(self, client, mock_controller):
+        """PTY output should include A2A prefix for agent identification."""
+        payload = {
+            "message": {
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hello, agent!"}],
+            },
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "sender_task_id": "abc12345",
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Verify controller.write was called with A2A prefixed message
+        mock_controller.write.assert_called_once()
+        call_args = mock_controller.write.call_args
+        written_content = (
+            call_args[0][0] if call_args[0] else call_args[1].get("content", "")
+        )
+
+        # Should have A2A prefix
+        assert written_content == "A2A: Hello, agent!"

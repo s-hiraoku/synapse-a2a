@@ -102,75 +102,23 @@ class TestFormatA2AMessage:
 
     def test_basic_format(self):
         """Should format message with A2A prefix."""
-        result = format_a2a_message("task123", "sender456", "Hello")
-        assert result == "[A2A:task123:sender456] Hello"
+        result = format_a2a_message("Hello")
+        assert result == "A2A: Hello"
 
     def test_empty_content(self):
         """Should handle empty content."""
-        result = format_a2a_message("task", "sender", "")
-        assert result == "[A2A:task:sender] "
+        result = format_a2a_message("")
+        assert result == "A2A: "
 
     def test_multiline_content(self):
         """Should preserve multiline content."""
-        result = format_a2a_message("task", "sender", "Line 1\nLine 2")
-        assert result == "[A2A:task:sender] Line 1\nLine 2"
+        result = format_a2a_message("Line 1\nLine 2")
+        assert result == "A2A: Line 1\nLine 2"
 
-    def test_special_characters_in_ids(self):
-        """Should handle special characters in IDs."""
-        result = format_a2a_message("task-123", "agent_claude-8100", "Test")
-        assert result == "[A2A:task-123:agent_claude-8100] Test"
-
-    def test_uuid_like_task_id(self):
-        """Should handle UUID-like task IDs."""
-        task_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-        result = format_a2a_message(task_id, "sender", "Content")
-        assert result == f"[A2A:{task_id}:sender] Content"
-
-    def test_content_with_brackets(self):
-        """Should handle content containing brackets."""
-        result = format_a2a_message("task", "sender", "[INFO] Test message")
-        assert result == "[A2A:task:sender] [INFO] Test message"
-
-    def test_content_with_colons(self):
-        """Should handle content containing colons."""
-        result = format_a2a_message("task", "sender", "Key: Value")
-        assert result == "[A2A:task:sender] Key: Value"
-
-    def test_response_expected_false_no_flag(self):
-        """Should not add :R flag when response_expected is False."""
-        result = format_a2a_message(
-            "task123", "sender456", "Hello", response_expected=False
-        )
-        assert result == "[A2A:task123:sender456] Hello"
-        assert ":R]" not in result
-
-    def test_response_expected_true_adds_r_flag(self):
-        """Should add :R flag when response_expected is True."""
-        result = format_a2a_message(
-            "task123", "sender456", "Hello", response_expected=True
-        )
-        assert result == "[A2A:task123:sender456:R] Hello"
-        assert ":R]" in result
-
-    def test_response_expected_default_is_false(self):
-        """Default response_expected should be False (no :R flag)."""
-        result = format_a2a_message("task", "sender", "Content")
-        assert result == "[A2A:task:sender] Content"
-        assert ":R]" not in result
-
-    def test_r_flag_with_special_characters(self):
-        """Should handle :R flag with special characters in content."""
-        result = format_a2a_message(
-            "task-id", "agent_claude-8100", "Test: [info]", response_expected=True
-        )
-        assert result == "[A2A:task-id:agent_claude-8100:R] Test: [info]"
-
-    def test_r_flag_with_multiline_content(self):
-        """Should handle :R flag with multiline content."""
-        result = format_a2a_message(
-            "task", "sender", "Line 1\nLine 2", response_expected=True
-        )
-        assert result == "[A2A:task:sender:R] Line 1\nLine 2"
+    def test_content_with_special_characters(self):
+        """Should handle special characters in content."""
+        result = format_a2a_message("[INFO] Test: value")
+        assert result == "A2A: [INFO] Test: value"
 
 
 class TestGetIsoTimestamp:
