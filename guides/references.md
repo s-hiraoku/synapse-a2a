@@ -24,6 +24,7 @@ flowchart TB
         stop["stop"]
         list["list"]
         send["send"]
+        reply["reply"]
         logs["logs"]
         instructions["instructions"]
         external["external"]
@@ -190,7 +191,7 @@ synapse list
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message> [--priority N] [--response | --no-response] [--reply-to <task_id>]
+synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | --no-response]
 ```
 
 **ターゲット指定方法**:
@@ -205,11 +206,10 @@ synapse send <target> <message> [--priority N] [--response | --no-response] [--r
 |------|------|------|
 | `target` | Yes | 送信先エージェント（上記形式） |
 | `message` | Yes | メッセージ内容 |
-| `--from`, `-f` | No | 送信元エージェントID |
+| `--from`, `-f` | No | 送信元エージェントID（常に指定推奨） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
-| `--response` | No | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要（デフォルト） |
-| `--reply-to` | No | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例**:
 
