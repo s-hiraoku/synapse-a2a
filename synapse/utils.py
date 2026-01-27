@@ -4,6 +4,8 @@ Synapse A2A Utility Functions
 This module provides common utility functions used across the codebase.
 """
 
+import os
+import shutil
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -36,29 +38,19 @@ def extract_text_from_parts(parts: list[Any]) -> str:
     return "\n".join(text_contents)
 
 
-def format_a2a_message(
-    task_id: str,
-    sender_id: str,
-    content: str,
-    response_expected: bool = False,
-) -> str:
+def format_a2a_message(content: str) -> str:
     """
-    Format a message with A2A task prefix.
+    Format a message with A2A prefix.
 
-    Creates the standard format: [A2A:<task_id>:<sender_id>] <content>
-    Or with :R flag: [A2A:<task_id>:<sender_id>:R] <content> when response expected.
+    Creates the simple format: A2A: <content>
 
     Args:
-        task_id: Task identifier (caller should truncate if needed)
-        sender_id: Sender identifier
         content: Message content
-        response_expected: If True, append :R flag to indicate reply is required
 
     Returns:
         Formatted message string with A2A prefix
     """
-    flag = ":R" if response_expected else ""
-    return f"[A2A:{task_id}:{sender_id}{flag}] {content}"
+    return f"A2A: {content}"
 
 
 def get_iso_timestamp() -> str:
@@ -81,3 +73,30 @@ def generate_task_id() -> str:
         A UUID-based task ID string (first 8 characters for brevity).
     """
     return str(uuid4())[:8]
+
+
+def resolve_command_path(command: str) -> str | None:
+    """
+    Resolve a command name to an executable path.
+
+    Args:
+        command: Command string from a profile (e.g., "codex").
+
+    Returns:
+        Resolved executable path if found, otherwise None.
+    """
+    if not command:
+        return None
+
+    cmd = command.strip()
+    if not cmd:
+        return None
+
+    cmd_name = cmd.split()[0]
+    if os.path.sep in cmd_name or (os.altsep and os.altsep in cmd_name):
+        cmd_path = os.path.expanduser(cmd_name)
+        if os.path.isfile(cmd_path) and os.access(cmd_path, os.X_OK):
+            return cmd_path
+        return None
+
+    return shutil.which(cmd_name)

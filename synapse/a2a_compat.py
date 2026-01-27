@@ -32,6 +32,7 @@ from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
 from synapse.output_parser import parse_output
 from synapse.registry import AgentRegistry
+from synapse.reply_stack import get_reply_stack
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
@@ -382,6 +383,7 @@ async def _send_response_to_sender(
     task: Task,
     sender_endpoint: str,
     self_agent_id: str,
+    sender_task_id: str | None = None,
 ) -> bool:
     """
     Send task response back to the original sender.
@@ -393,6 +395,7 @@ async def _send_response_to_sender(
         task: The completed task with artifacts
         sender_endpoint: The endpoint URL of the sender agent
         self_agent_id: This agent's ID for sender identification
+        sender_task_id: The task ID on the sender's server (for in_reply_to)
 
     Returns:
         True if response was sent successfully, False otherwise
@@ -411,6 +414,9 @@ async def _send_response_to_sender(
         )
 
     # Build A2A request payload
+    # Use sender_task_id (the task ID on sender's server) for in_reply_to
+    # This ensures the reply is correctly routed back to the sender's waiting task
+    reply_to_id = sender_task_id if sender_task_id else task.id
     payload = {
         "message": {"role": "agent", "parts": response_parts},
         "metadata": {
@@ -418,7 +424,7 @@ async def _send_response_to_sender(
                 "sender_id": self_agent_id,
             },
             "response_expected": False,  # Response to response not needed
-            "in_reply_to": task.id,  # Reference to original task
+            "in_reply_to": reply_to_id,  # Reference to sender's task
         },
     }
 
@@ -567,31 +573,26 @@ def create_a2a_router(
         if priority >= 5:
             controller.interrupt()
 
-        # Send to PTY with A2A task reference for sender identification
-        try:
-            sender_id = "unknown"
-            # Use sender's task ID for PTY output (if available), not receiver's task ID
-            # This enables --reply-to to work correctly across agents
-            display_task_id = task.id[:8]  # Default to receiver's task ID
-            if request.metadata:
-                sender_id = request.metadata.get("sender", {}).get(
-                    "sender_id", "unknown"
+        # Push sender info to reply stack for simplified reply routing
+        if request.metadata:
+            sender_info = request.metadata.get("sender", {})
+            sender_endpoint = sender_info.get("sender_endpoint")
+            sender_uds_path = sender_info.get("sender_uds_path")
+            sender_task_id = request.metadata.get("sender_task_id")
+            if sender_endpoint or sender_uds_path:
+                reply_stack = get_reply_stack()
+                reply_stack.push(
+                    {
+                        "sender_endpoint": sender_endpoint,
+                        "sender_uds_path": sender_uds_path,
+                        "sender_task_id": sender_task_id,
+                    }
                 )
-                # Prefer sender_task_id for PTY display
-                sender_task_id = request.metadata.get("sender_task_id")
-                if sender_task_id:
-                    display_task_id = sender_task_id[:8]
-            response_expected = (
-                request.metadata.get("response_expected", False)
-                if request.metadata
-                else False
-            )
-            prefixed_content = format_a2a_message(
-                display_task_id,
-                sender_id,
-                text_content,
-                response_expected=response_expected,
-            )
+
+        # Send to PTY with A2A prefix
+        # Format: A2A: <message>
+        try:
+            prefixed_content = format_a2a_message(text_content)
             controller.write(prefixed_content, submit_seq=submit_seq)
         except ComplianceBlockedError as e:
             task_store.update_status(task.id, "failed")
@@ -799,6 +800,7 @@ def create_a2a_router(
                     response_expected = metadata.get("response_expected", False)
                     sender_info = metadata.get("sender", {})
                     sender_endpoint = sender_info.get("sender_endpoint")
+                    sender_task_id = metadata.get("sender_task_id")
 
                     if response_expected and sender_endpoint:
                         # Send response asynchronously
@@ -807,6 +809,7 @@ def create_a2a_router(
                                 updated_task,
                                 sender_endpoint,
                                 agent_id or "unknown",
+                                sender_task_id=sender_task_id,
                             )
                         )
 
@@ -1214,5 +1217,53 @@ def create_a2a_router(
             )
             for d in deliveries
         ]
+
+    # --------------------------------------------------------
+    # Reply Stack (Synapse Extension)
+    # --------------------------------------------------------
+
+    class ReplyTarget(BaseModel):
+        """Reply target information."""
+
+        sender_endpoint: str | None = None
+        sender_uds_path: str | None = None
+        sender_task_id: str | None = None
+
+    @router.get("/reply-stack/pop", response_model=ReplyTarget)
+    async def pop_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+        """
+        Pop the last reply target from the stack.
+
+        Returns the sender endpoint (HTTP and/or UDS) and task ID for sending a reply.
+        Returns 404 if the stack is empty.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        reply_stack = get_reply_stack()
+        info = reply_stack.pop()
+        if not info:
+            raise HTTPException(status_code=404, detail="No reply target")
+        return ReplyTarget(
+            sender_endpoint=info.get("sender_endpoint"),
+            sender_uds_path=info.get("sender_uds_path"),
+            sender_task_id=info.get("sender_task_id"),
+        )
+
+    @router.get("/reply-stack/peek", response_model=ReplyTarget)
+    async def peek_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+        """
+        Peek at the last reply target without removing it.
+
+        Returns 404 if the stack is empty.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        reply_stack = get_reply_stack()
+        info = reply_stack.peek()
+        if not info:
+            raise HTTPException(status_code=404, detail="No reply target")
+        return ReplyTarget(
+            sender_endpoint=info.get("sender_endpoint"),
+            sender_uds_path=info.get("sender_uds_path"),
+            sender_task_id=info.get("sender_task_id"),
+        )
 
     return router

@@ -27,7 +27,7 @@ AFTER YOUR EDIT IS COMPLETE
 
 Run BOTH commands:
 ```bash
-synapse file-safety record <file_path> {{agent_id}} <task_id> --type MODIFY --intent "what you changed"
+synapse file-safety record <file_path> {{agent_id}} --type MODIFY --intent "what you changed"
 synapse file-safety unlock <file_path> {{agent_id}}
 ```
 
@@ -39,7 +39,7 @@ BEFORE EDIT:
   synapse file-safety lock src/foo.py {{agent_id}} --intent "Fix bug"
 
 AFTER EDIT:
-  synapse file-safety record src/foo.py {{agent_id}} task-123 --type MODIFY --intent "Fixed null check"
+  synapse file-safety record src/foo.py {{agent_id}} --type MODIFY --intent "Fixed null check"
   synapse file-safety unlock src/foo.py {{agent_id}}
 
 CHECK WHO HAS LOCKS:

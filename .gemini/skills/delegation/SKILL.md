@@ -162,10 +162,10 @@ synapse send gemini "Analyze this code" --response --from claude
 synapse send gemini "Status update?" --priority 4 --from claude
 
 # Reply to a --response request
-synapse send claude "Here is the analysis..." --reply-to <task_id> --from gemini
+synapse reply "Here is the analysis..." --from gemini
 ```
 
-**Important:** When responding to a `--response` request, the receiver MUST use `--reply-to <task_id>` to link the response.
+**Important:** When responding to a `--response` request, the receiver MUST use `synapse reply` to send the response.
 
 ## Modes
 

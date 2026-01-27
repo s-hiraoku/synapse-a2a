@@ -317,7 +317,7 @@ gemini     8110     READY      12347    -                                       
 ### 2.4 メッセージ送信
 
 ```bash
-synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-response] [--reply-to <task_id>]
+synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--response | --no-response]
 ```
 
 **オプション**:
@@ -325,30 +325,42 @@ synapse send <agent> "メッセージ" [--priority <n>] [--response | --no-respo
 | オプション | 短縮形 | デフォルト | 説明 |
 |-----------|--------|-----------|------|
 | `target` | - | 必須 | 送信先エージェント |
+| `--from` | `-f` | - | 送信元エージェントID（常に指定推奨） |
 | `--priority` | `-p` | 1 | 優先度 (1-5) |
-| `--response` | - | - | Roundtrip - 送信側が待機、受信側は `--reply-to` で返信必須 |
+| `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | - | デフォルト | Oneway - 送りっぱなし、返信不要 |
-| `--reply-to` | - | - | 特定タスクIDへの返信（`--response` への返信時に使用） |
 
 **例**:
 
 ```bash
 # 通常送信
-synapse send codex "設計を書いて" --priority 1
+synapse send codex "設計を書いて" --priority 1 --from claude
 
 # 緊急停止
-synapse send claude "処理を止めて" --priority 5
+synapse send claude "処理を止めて" --priority 5 --from codex
 
 # 応答を待つ（roundtrip）
-synapse send codex "結果を教えて" --response
+synapse send codex "結果を教えて" --response --from claude
+```
 
-# --response への返信（task_idは [A2A:task_id:sender] から取得）
-synapse send claude "結果です..." --reply-to abc123 --from codex
+### 2.5 メッセージへの返信
+
+```bash
+synapse reply "返信メッセージ" --from <your_agent_type>
+```
+
+Reply Stack を使用して、最後に受信したメッセージの送信者に自動的に返信します。
+
+**例**:
+
+```bash
+synapse reply "分析結果です..." --from codex
+synapse reply "タスク完了しました" --from gemini
 ```
 
 ---
 
-### 2.5 ログ表示
+### 2.6 ログ表示
 
 ```bash
 # 最新 50 行を表示

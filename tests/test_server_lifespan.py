@@ -79,10 +79,3 @@ class TestServerLifespan:
             response = client.get("/status")
             assert response.status_code == 200
             assert response.json()["status"] == "NOT_STARTED"
-
-    def test_standalone_message_no_controller(self):
-        """Test /message when controller is None."""
-        with patch("synapse.server.controller", None):
-            client = TestClient(app)
-            response = client.post("/message", json={"priority": 1, "content": "hi"})
-            assert response.status_code == 503

@@ -101,15 +101,8 @@ class TestUtils:
         """Format A2A message with prefix."""
         from synapse.utils import format_a2a_message
 
-        result = format_a2a_message("task123", "sender-id", "Hello world")
-        assert result == "[A2A:task123:sender-id] Hello world"
-
-    def test_format_a2a_message_with_short_task_id(self) -> None:
-        """Format A2A message with full task ID (truncation is caller's responsibility)."""
-        from synapse.utils import format_a2a_message
-
-        result = format_a2a_message("abcd1234", "synapse-system", "Message")
-        assert result == "[A2A:abcd1234:synapse-system] Message"
+        result = format_a2a_message("Hello world")
+        assert result == "A2A: Hello world"
 
     def test_get_iso_timestamp(self) -> None:
         """Generate ISO timestamp with Z suffix."""

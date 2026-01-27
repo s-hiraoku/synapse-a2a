@@ -102,6 +102,30 @@ class TestCmdRunInteractive:
         mock_dependencies["registry"].unregister.assert_called()
         mock_dependencies["controller"].stop.assert_called()
 
+    def test_run_interactive_missing_command_exits_with_message(
+        self, mock_dependencies, capsys
+    ):
+        """Should exit with a helpful message when command is missing."""
+        mock_dependencies["yaml"].return_value = {
+            "command": "codex",
+            "submit_sequence": "\n",
+            "idle_regex": r"\$",
+            "args": [],
+        }
+
+        with (
+            patch("synapse.cli.resolve_command_path", return_value=None),
+            patch("synapse.cli.time.sleep"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            cmd_run_interactive("codex", 8120)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "codex" in captured.out
+        assert "not installed" in captured.out
+        mock_dependencies["ctrl_cls"].assert_not_called()
+
 
 # ============================================================
 # ListCommand._get_agent_data Tests

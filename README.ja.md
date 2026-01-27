@@ -627,7 +627,7 @@ synapse history cleanup --days 30 --dry-run
 エージェント間通信には `synapse send` を使用。サンドボックス環境でも動作。
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
 ```
 
 **ターゲット形式：**
@@ -646,9 +646,8 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 |------------|--------|------|
 | `--from` | `-f` | 送信者エージェント ID（返信識別用） |
 | `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT 送信） |
-| `--response` | - | ラウンドトリップ - 送信者が待機、受信者は `--reply-to` で返信必須 |
+| `--response` | - | ラウンドトリップ - 送信者が待機、受信者は `synapse reply` で返信 |
 | `--no-response` | - | ワンウェイ - ファイア&フォーゲット、返信不要（デフォルト） |
-| `--reply-to` | - | 特定のタスク ID に返信（`--response` への応答時に使用） |
 
 **例：**
 
@@ -664,12 +663,19 @@ synapse send claude "Stop!" --priority 5 --from codex
 
 # 応答を待つ（ラウンドトリップ）
 synapse send gemini "これを分析して" --response --from claude
-
-# --response への返信（task_id は [A2A:task_id:sender] から取得）
-synapse send claude "分析結果..." --reply-to abc123 --from gemini
 ```
 
-**重要:** 送信者を識別するため常に `--from` を使用。`--response` への返信時は `--reply-to <task_id>` でレスポンスをリンク。
+**重要:** 送信者を識別するため常に `--from` を使用。
+
+### synapse reply コマンド
+
+受信したメッセージに返信：
+
+```bash
+synapse reply "<message>" --from <your_agent_type>
+```
+
+`--from` フラグはサンドボックス環境（Codex 等）で必須。
 
 ### 低レベル A2A ツール
 
@@ -799,34 +805,26 @@ A2A メッセージの送信者は `metadata.sender` で識別できます。
 
 ### PTY 出力形式
 
-```
-[A2A:<task_id>:<sender_id>:R] <message>   ← レスポンス必須（:R フラグ）
-[A2A:<task_id>:<sender_id>] <message>     ← レスポンス不要
-```
-
-**:R フラグ**: 送信者が `--response` を使用した場合、`:R` フラグが付加されます。存在する場合、`--reply-to` で返信が必須です。
-
-**短縮タスク ID**: PTY は 8 文字の短縮 task_id を表示します。`--reply-to` は短縮 ID とフル UUID の両方を受け付けます。
-
-例：
+メッセージはシンプルな `A2A:` プレフィックス付きで届きます：
 
 ```
-[A2A:54241e7e:synapse-claude-8100:R] この設計をレビューして  ← レスポンス必須
-[A2A:abc12345:synapse-claude-8100] テストを実行して         ← レスポンス不要
+A2A: <message content>
 ```
 
-返信例：
-```bash
-# :R フラグあり → --reply-to 必須
-synapse send claude "レビュー結果..." --reply-to 54241e7e --from gemini
+### 返信処理
 
-# :R フラグなし → タスクを実行するだけ、--reply-to 不要
-```
-
-### Task API での確認
+Synapse が返信ルーティングを自動管理します。エージェントは単に `synapse reply` を使用：
 
 ```bash
-curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
+synapse reply "返信メッセージ" --from <your_agent_type>
+```
+
+フレームワークが送信者情報を内部的に追跡し、返信を自動ルーティングします。
+
+### Task API での確認（開発用）
+
+```bash
+curl -s http://localhost:8120/tasks/<id> | jq '.metadata.sender'
 ```
 
 レスポンス：

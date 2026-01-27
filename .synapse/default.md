@@ -15,44 +15,36 @@ A2A COMMUNICATION PROTOCOL
 ================================================================================
 
 HOW TO RECEIVE AND REPLY TO A2A MESSAGES:
-Input format: [A2A:<task_id>:<sender_id>] <message>
+Input format:
+  A2A: <message>
 
-WHEN TO USE --reply-to:
-The sender's message content tells you whether they expect a reply:
+Messages arrive as plain text with "A2A: " prefix.
 
-**Sender expects reply** (questions, requests):
-- "What is your status?" → reply with `--reply-to`
-- "Please analyze this code" → reply with `--reply-to`
-- "Can you help with X?" → reply with `--reply-to`
-
-**Sender does NOT expect reply** (notifications, delegated tasks):
-- "FYI: Build completed" → no reply needed
-- "Run tests and commit" → do the task, no reply needed
-
-**Rule: Match your reply style to the sender's message intent**
+HOW TO REPLY:
+Use `synapse reply` to respond to the last received message:
 
 ```bash
-# If sender asked a question or requested something → use --reply-to
-synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
-
-# If sender delegated a task → just do the task, no --reply-to needed
-# (send a new message only if you have questions or need to report completion)
+synapse reply "<your reply>" --from <agent_type>
 ```
 
-Example - Received question:
-  [A2A:abc12345:synapse-claude-8100] What is the project structure?
-Reply with:
-  synapse send claude "The project has src/, tests/, docs/ directories..." --reply-to abc12345 --from codex
+The reply stack automatically tracks who sent you a message.
+- `--from`: Your agent type (e.g., `claude`, `codex`, `gemini`, `opencode`, `copilot`)
+- Required in sandboxed environments (like Codex)
 
-Example - Received delegation:
-  [A2A:xyz67890:synapse-claude-8100] Run the tests and fix any failures
+Example - Question received:
+  A2A: What is the project structure?
+Reply with:
+  synapse reply "The project has src/, tests/, docs/ directories..." --from codex
+
+Example - Delegation received:
+  A2A: Run the tests and fix any failures
 Action: Just do the task. No reply needed unless you have questions.
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
 ```
 
 Target formats (in priority order):
@@ -61,11 +53,10 @@ Target formats (in priority order):
 - Agent type: `gemini` (only when single instance exists)
 
 Parameters:
-- `--from, -f`: Your agent ID (for reply identification) - **always include this**
+- `--from, -f`: Your agent type (e.g., `claude`, `codex`) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
+- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
-- `--reply-to`: Attach response to a specific task ID (use this when replying to `--response` requests)
 
 CHOOSING --response vs --no-response:
 - Use `--response` when you NEED a reply (questions, requests for analysis, status checks)
@@ -102,7 +93,7 @@ synapse send codex "STOP" --priority 5 --from claude
 synapse send codex "What is your current status?" --response --from claude
 ```
 
-AVAILABLE AGENTS: claude, gemini, codex
+AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot
 LIST COMMAND: synapse list
 
 For advanced features (history, file-safety, delegation), use synapse-a2a skill.
