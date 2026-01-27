@@ -446,6 +446,7 @@ synapse claude -- --resume
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
+| `synapse reply <message>` | Reply to the last received A2A message |
 | `synapse instructions show` | Show instruction content |
 | `synapse instructions files` | List instruction files |
 | `synapse instructions send` | Resend initial instructions |
@@ -633,7 +634,7 @@ synapse history cleanup --days 30 --dry-run
 Use `synapse send` for inter-agent communication. Works in sandboxed environments.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
 ```
 
 **Target Formats:**
@@ -652,9 +653,8 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 |--------|-------|-------------|
 | `--from` | `-f` | Sender agent ID (for reply identification) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
-| `--response` | - | Roundtrip - sender waits, receiver MUST reply with `--reply-to` |
+| `--response` | - | Roundtrip - sender waits, receiver replies with `synapse reply` |
 | `--no-response` | - | Oneway - fire and forget, no reply needed (default) |
-| `--reply-to` | - | Reply to specific task ID (use when responding to `--response`) |
 
 **Examples:**
 
@@ -670,12 +670,19 @@ synapse send claude "Stop!" --priority 5 --from codex
 
 # Wait for response (roundtrip)
 synapse send gemini "Analyze this" --response --from claude
-
-# Reply to --response (task_id from [A2A:task_id:sender])
-synapse send claude "Analysis result..." --reply-to abc123 --from gemini
 ```
 
-**Important:** Always use `--from` to identify the sender. When replying to `--response`, use `--reply-to <task_id>` to link the response.
+**Important:** Always use `--from` to identify the sender.
+
+### synapse reply Command
+
+Reply to the last received message:
+
+```bash
+synapse reply "<message>" --from <your_agent_type>
+```
+
+The `--from` flag is required in sandboxed environments (like Codex).
 
 ### Low-Level A2A Tool
 
@@ -687,6 +694,9 @@ python -m synapse.tools.a2a list
 
 # Send message
 python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
+
+# Reply to last received message (uses reply stack)
+python -m synapse.tools.a2a reply "Here is my response"
 ```
 
 ---
@@ -705,6 +715,13 @@ python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
 | `/status` | GET | READY/PROCESSING status |
+
+### Synapse Extensions
+
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/reply-stack/pop` | GET | Pop last sender info from reply stack |
+| `/reply-stack/peek` | GET | View last sender info without removing |
 
 ### External Agents
 
@@ -805,34 +822,26 @@ The sender of A2A messages can be identified via `metadata.sender`.
 
 ### PTY Output Format
 
-```
-[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
-[A2A:<task_id>:<sender_id>] <message>     ← No response required
-```
-
-**:R Flag**: When the sender uses `--response`, the `:R` flag is appended. When present, you MUST reply with `--reply-to`.
-
-**Short Task IDs**: PTY displays 8-character short task_ids. `--reply-to` accepts both short IDs and full UUIDs.
-
-Examples:
+Messages are sent to the agent's PTY with a simple `A2A:` prefix:
 
 ```
-[A2A:54241e7e:synapse-claude-8100:R] Please review this design  ← Response required
-[A2A:abc12345:synapse-claude-8100] Run the tests               ← No response required
+A2A: <message content>
 ```
 
-Reply examples:
-```bash
-# :R flag present → --reply-to required
-synapse send claude "Review result..." --reply-to 54241e7e --from gemini
+### Reply Handling
 
-# No :R flag → just do the task, no --reply-to needed
-```
-
-### Task API Verification
+Synapse automatically manages reply routing. Agents simply use `synapse reply`:
 
 ```bash
-curl -s http://localhost:8120/tasks/{task_id} | jq '.metadata.sender'
+synapse reply "Here is my response" --from <your_agent_type>
+```
+
+The framework internally tracks sender information and routes replies automatically.
+
+### Task API Verification (Development)
+
+```bash
+curl -s http://localhost:8120/tasks/<id> | jq '.metadata.sender'
 ```
 
 Response:

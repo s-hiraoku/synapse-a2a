@@ -80,8 +80,8 @@ synapse send codex "Process this" --from claude --no-response
 # Send to specific instance when multiple agents of same type exist
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
-# Reply to a --response request (receiver MUST use --reply-to)
-synapse send claude "Result here" --reply-to <task_id> --from gemini
+# Reply to a received message
+synapse reply "Result here" --from gemini
 
 # Low-level A2A tool
 python -m synapse.tools.a2a list
@@ -94,7 +94,7 @@ python -m synapse.tools.a2a send --target claude --priority 1 "message"
 
 - Standard endpoints: `/.well-known/agent.json`, `/tasks/send`, `/tasks/{id}`
 - Extensions use `x-` prefix (e.g., `x-synapse-context`)
-- PTY output format: `[A2A:<task_id>:<sender_id>] <message>`
+- PTY output format: `A2A: <message>`
 
 Reference: https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/
 
@@ -122,7 +122,7 @@ synapse/
 
 **Startup Sequence**:
 
-1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `[A2A:id:synapse-system]` prefix
+1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix
 
 **@Agent Routing**:
 User types `@codex review this` → InputRouter detects pattern → A2AClient.send_to_local() → POST /tasks/send-priority to target agent
@@ -199,17 +199,20 @@ idle_detection:
 - **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
 - See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
 
-### Gemini - Pattern Strategy
+### Gemini - Hybrid Strategy
 
-Gemini uses consistent text prompts:
+Gemini uses hybrid strategy - pattern for first idle (UI ready), timeout for subsequent:
 
 ```yaml
 # synapse/profiles/gemini.yaml
 idle_detection:
-  strategy: "pattern"
-  pattern: "(> |\\*)"          # Gemini prompt patterns
-  timeout: 1.5                 # Fallback if pattern fails
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"  # ESC[?2004h = TUI input ready
+  pattern_use: "startup_only"      # Only use pattern for first READY detection
+  timeout: 3.0                     # 3.0 seconds of no output = idle (after first)
 ```
+
+**Why hybrid?**: BRACKETED_PASTE_MODE indicates the TUI input area is ready. Pattern detection is used only for startup; subsequent idle states use timeout-based detection for reliability.
 
 ### Codex - Pattern Strategy
 

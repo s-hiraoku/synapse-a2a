@@ -224,7 +224,33 @@ synapse send claude "結果です..." --reply-to abc123 --from codex
 
 ---
 
-### 1.7 synapse logs
+### 1.7 synapse reply
+
+最後に受信したA2Aメッセージに返信します。Reply Stackを使用して、送信者情報を自動的に取得します。
+
+```bash
+synapse reply <message>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `message` | Yes | 返信メッセージ内容 |
+
+**例**:
+
+```bash
+synapse reply "分析結果です..."
+synapse reply "タスク完了しました"
+```
+
+**動作**:
+1. 自身のエージェントのReply Stackから送信者情報を取得
+2. 送信者のエンドポイントに返信を送信
+3. 成功後、スタックから送信者情報をポップ
+
+---
+
+### 1.8 synapse logs
 
 エージェントのログを表示します。
 
@@ -248,7 +274,7 @@ synapse logs gemini -n 100
 
 ---
 
-### 1.8 synapse instructions
+### 1.9 synapse instructions
 
 初期インストラクションを管理・送信します。
 
@@ -256,7 +282,7 @@ synapse logs gemini -n 100
 synapse instructions <command> [options]
 ```
 
-#### 1.8.1 synapse instructions show
+#### 1.9.1 synapse instructions show
 
 エージェントのインストラクション内容を表示します。
 
@@ -276,7 +302,7 @@ synapse instructions show claude
 synapse instructions show gemini
 ```
 
-#### 1.8.2 synapse instructions files
+#### 1.9.2 synapse instructions files
 
 エージェントが読み込むインストラクションファイル一覧を表示します。
 
@@ -302,7 +328,7 @@ Instruction files for 'claude':
   - .synapse/file-safety.md
 ```
 
-#### 1.8.3 synapse instructions send
+#### 1.9.3 synapse instructions send
 
 実行中のエージェントに初期インストラクションを送信します。
 
@@ -338,7 +364,7 @@ synapse instructions send claude --preview
 
 ---
 
-### 1.9 synapse external
+### 1.10 synapse external
 
 外部 Google A2A エージェントを管理します。
 
@@ -346,7 +372,7 @@ synapse instructions send claude --preview
 synapse external <command> [options]
 ```
 
-#### 1.8.1 synapse external add
+#### 1.10.1 synapse external add
 
 外部エージェントを発見して登録します。
 
@@ -366,7 +392,7 @@ synapse external add https://agent.example.com
 synapse external add http://localhost:9000 --alias myagent
 ```
 
-#### 1.8.2 synapse external list
+#### 1.10.2 synapse external list
 
 登録済み外部エージェントの一覧を表示します。
 
@@ -383,7 +409,7 @@ myagent         My Agent             http://localhost:9000                    20
 example         Example Agent        https://agent.example.com                Never
 ```
 
-#### 1.8.3 synapse external remove
+#### 1.10.3 synapse external remove
 
 外部エージェントを登録解除します。
 
@@ -395,7 +421,7 @@ synapse external remove <alias>
 |------|------|------|
 | `alias` | Yes | 削除するエージェントの alias |
 
-#### 1.8.4 synapse external send
+#### 1.10.4 synapse external send
 
 外部エージェントにメッセージを送信します。
 
@@ -416,7 +442,7 @@ synapse external send myagent "Hello!"
 synapse external send myagent "Process this" --wait
 ```
 
-#### 1.8.5 synapse external info
+#### 1.10.5 synapse external info
 
 外部エージェントの詳細情報を表示します。
 
@@ -447,7 +473,7 @@ Skills:
 
 ---
 
-### 1.10 synapse config
+### 1.11 synapse config
 
 インタラクティブな TUI で設定を編集します。
 
@@ -497,7 +523,7 @@ synapse config --scope project  # プロジェクト設定を直接編集
 
 ---
 
-### 1.11 synapse config show
+### 1.12 synapse config show
 
 現在の設定を表示します（読み取り専用）。
 
