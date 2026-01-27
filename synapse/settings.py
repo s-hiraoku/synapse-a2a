@@ -402,7 +402,9 @@ class SynapseSettings:
                 and default_instruction.endswith(".md")
                 and file_exists(default_instruction)
             ):
-                display_path = self._get_file_display_path(default_instruction, user_dir)
+                display_path = self._get_file_display_path(
+                    default_instruction, user_dir
+                )
                 if display_path:
                     paths.append(display_path)
 
