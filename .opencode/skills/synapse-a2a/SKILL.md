@@ -14,7 +14,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter) |
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
-| Reply to request | `synapse send <target> "<response>" --reply-to <task_id> --from <sender>` |
+| Reply to last message | `synapse reply "<response>" --from <agent>` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Check file locks | `synapse file-safety locks` |
@@ -67,7 +67,7 @@ synapse send gemini "What is the best approach?" --response --from claude
 synapse send codex "Run tests and fix failures" --from claude
 ```
 
-### Roundtrip Communication (--response / --reply-to)
+### Roundtrip Communication (--response)
 
 For request-response patterns:
 
@@ -75,51 +75,36 @@ For request-response patterns:
 # Sender: Wait for response (blocks until reply received)
 synapse send gemini "Analyze this data" --response --from claude
 
-# Receiver: Reply to the request (use task_id from [A2A:task_id:sender])
-synapse send claude "Analysis result: ..." --reply-to <task_id> --from gemini
+# Receiver: Reply using the reply stack
+synapse reply "Analysis result: ..." --from gemini
 ```
 
-The `--response` flag makes the sender wait. The receiver MUST use `--reply-to` with the task_id to link the response.
+The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
 
-**Short Task IDs & :R Flag:** PTY displays 8-character short IDs. When the sender used `--response`, a `:R` suffix appears after the sender_id to indicate a reply is required:
-- With `--response`: `[A2A:54241e7e:synapse-claude-8100:R]` - reply required
-- Without `--response`: `[A2A:54241e7e:synapse-claude-8100]` - no reply needed
-
-Use the task_id (not including `:R`) with `--reply-to`:
-- Short ID: `--reply-to 54241e7e`
-- Full UUID: `--reply-to 54241e7e-1234-5678-abcd-ef1234567890`
+**Reply Stack:** Synapse automatically tracks sender info when you receive messages. Use `synapse reply` for responses - it automatically knows who to reply to.
 
 ## Receiving and Replying to Messages
 
-When you receive an A2A message, it appears as:
-```
-[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
-[A2A:<task_id>:<sender_id>] <message>     ← No response required
-```
+When you receive an A2A message, it appears as plain text - the message content is sent directly to your terminal without any prefix.
 
-**When to use --reply-to:**
+**Replying to Messages:**
 
-| PTY Format | Action |
-|------------|--------|
-| `:R` flag present | **MUST** reply with `--reply-to <task_id>` |
-| No `:R` flag | Do NOT use `--reply-to` (send new message if needed) |
+Synapse uses a **Reply Stack** to track sender information. When you receive a message, the sender's info is automatically stored. To reply:
 
 ```bash
-# :R flag present → use --reply-to (task_id only, not including :R)
-synapse send claude "Here is my analysis..." --reply-to abc12345 --from gemini
-
-# If sender delegated a task → just do the task, no --reply-to needed
+# Use the reply command (--from is required in sandboxed environments)
+synapse reply "Here is my analysis..." --from <your_agent_type>
 ```
 
 **Example - Question:**
 ```
-Received: [A2A:abc12345:synapse-claude-8100] What is the project structure?
-Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
+Received: What is the project structure?
+Reply:    synapse reply "The project has src/, tests/..." --from codex
 ```
 
 **Example - Delegation:**
 ```
-Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
+Received: Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 

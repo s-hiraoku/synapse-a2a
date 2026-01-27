@@ -102,40 +102,26 @@ synapse stop claude --all
 
 ## Receiving Messages
 
-When you receive an A2A message, it appears in one of these formats:
+When you receive an A2A message, it appears as plain text - the message content is sent directly to your terminal.
 
-```
-[A2A:<task_id>:<sender_id>:R] <message>   ← Response required (:R flag)
-[A2A:<task_id>:<sender_id>] <message>     ← No response required
-```
+**Reply Stack:** Synapse automatically tracks sender information when you receive messages. The sender's endpoint and task ID are stored in a reply stack, allowing simplified replies.
 
-**The `:R` flag indicates the sender expects a reply.** When present, you MUST use `--reply-to` to respond.
-
-**Note:** PTY displays 8-character short task IDs (e.g., `[A2A:54241e7e:sender:R]`). Use this short ID directly with `--reply-to`.
-
-**When to use --reply-to:**
-
-| PTY Format | Action |
-|------------|--------|
-| `:R` flag present | **MUST** reply with `--reply-to <task_id>` |
-| No `:R` flag | Do NOT use `--reply-to` (send new message if needed) |
+**Replying to messages:**
 
 ```bash
-# :R flag present → use --reply-to
-synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
-
-# No :R flag → just do the task, no --reply-to needed
+# Use the reply command (--from is required in sandboxed environments)
+synapse reply "<your reply>" --from <your_agent_type>
 ```
 
-**Example - Response Required (:R flag):**
+**Example - Question received:**
 ```
-Received: [A2A:abc12345:synapse-claude-8100:R] What is the project structure?
-Reply:    synapse send claude "The project has src/, tests/..." --reply-to abc12345 --from gemini
+Received: What is the project structure?
+Reply:    synapse reply "The project has src/, tests/..." --from codex
 ```
 
-**Example - No Response Required (no :R flag):**
+**Example - Delegation received:**
 ```
-Received: [A2A:xyz67890:synapse-claude-8100] Run the tests and fix failures
+Received: Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -146,7 +132,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--reply-to <task_id>]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
 ```
 
 **Target Formats (in priority order):**
@@ -160,9 +146,8 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 **Parameters:**
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
-- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `--reply-to`
+- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
 - `--no-response`: Oneway mode - fire and forget, no reply expected (default)
-- `--reply-to`: Attach response to a specific task ID (use when replying to `--response` requests). Accepts short IDs (8-char prefix shown in PTY) or full UUID.
 
 **Choosing --response vs --no-response:**
 
@@ -189,9 +174,6 @@ synapse send claude-8100 "What is your status?" --response --from gemini
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from claude
-
-# Reply to a --response request (use task_id from [A2A:task_id:sender])
-synapse send codex "Here is my analysis..." --reply-to abc123 --from gemini
 ```
 
 **Important:** Always use `--from` to identify yourself.
@@ -213,14 +195,25 @@ Examples:
 
 > **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
 
+### Reply Command
+
+Reply to the last received message using the reply stack:
+
+```bash
+synapse reply "<message>" --from <your_agent_type>
+```
+
+This automatically pops the last sender from the reply stack and sends your message to them. The `--from` flag is required in sandboxed environments (like Codex).
+
 ### A2A Tool (Advanced)
 
 For advanced use cases or external scripts:
 
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
-python -m synapse.tools.a2a list       # List agents
-python -m synapse.tools.a2a cleanup    # Cleanup stale entries
+python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT>  # Reply to last received message
+python -m synapse.tools.a2a list                # List agents
+python -m synapse.tools.a2a cleanup             # Cleanup stale entries
 ```
 
 ## Task History
