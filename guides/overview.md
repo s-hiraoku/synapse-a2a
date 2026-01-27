@@ -165,7 +165,7 @@ sequenceDiagram
     Agent-->>Controller: output (initializing...)
     Controller->>Controller: 5. detect READY state
     Controller->>Agent: 6. send initial instructions
-    Note over Agent: [A2A:init:synapse-system] ...
+    Note over Agent: A2A: <initial instructions>
 ```
 
 ### @Agent メッセージ送信フロー
@@ -418,16 +418,16 @@ submitted → working → completed
                    → input_required → working
 ```
 
-### 送信元識別
+### メッセージ形式
 
 PTY 出力形式:
 ```
-[A2A:<task_id>:<sender_id>] <message>
+A2A: <message>
 ```
 
 例:
 ```
-[A2A:abc12345:synapse-claude-8100] この設計をレビューしてください
+A2A: この設計をレビューしてください
 ```
 
 ---

@@ -553,9 +553,12 @@ def cmd_reply(args: argparse.Namespace) -> None:
         cmd.extend(["--from", sender])
 
     result = subprocess.run(cmd, capture_output=True, text=True)
-    print(result.stdout)
+    if result.stdout:
+        print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
 
 
 # ============================================================

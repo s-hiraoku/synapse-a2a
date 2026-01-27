@@ -219,7 +219,6 @@ synapse send codex "設計して" -p 1 --from claude
 synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5 --from claude
 synapse send codex "結果を教えて" --response --from claude
-synapse send claude "結果です..." --reply-to abc123 --from codex
 ```
 
 ---
@@ -229,18 +228,19 @@ synapse send claude "結果です..." --reply-to abc123 --from codex
 最後に受信したA2Aメッセージに返信します。Reply Stackを使用して、送信者情報を自動的に取得します。
 
 ```bash
-synapse reply <message>
+synapse reply <message> [--from AGENT_ID]
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `message` | Yes | 返信メッセージ内容 |
+| `--from`, `-f` | No | 送信元エージェントID（サンドボックス環境で必須） |
 
 **例**:
 
 ```bash
-synapse reply "分析結果です..."
-synapse reply "タスク完了しました"
+synapse reply "分析結果です..." --from codex
+synapse reply "タスク完了しました" --from gemini
 ```
 
 **動作**:

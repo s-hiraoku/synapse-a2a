@@ -7,7 +7,7 @@
 Synapse A2A では、2つの方法でエージェント間通信ができます：
 
 1. **@agent パターン（ユーザー用）** - PTY での対話的入力
-2. **a2a.py send コマンド（AIエージェント用）** - 明示的なフラグ制御
+2. **synapse send コマンド（AIエージェント用）** - 明示的なフラグ制御
 
 通信の応答動作は `a2a.flow` 設定で制御します。
 
@@ -49,7 +49,7 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--reply-to <TASK_ID>]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
 ```
 
 ### パラメータ
@@ -57,11 +57,10 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | パラメータ | 説明 |
 |-----------|------|
 | `target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
-| `--from, -f` | 送信元エージェントID（返信先特定用） |
+| `--from, -f` | 送信元エージェントID（返信先特定用）- **常に指定推奨** |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
-| `--response` | Roundtripモード - 送信側が待機、**受信側は `--reply-to` で返信必須** |
+| `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
 | `--no-response` | Onewayモード - 送りっぱなし、返信不要（デフォルト） |
-| `--reply-to` | 特定のタスクIDへの返信として紐付け（`--response` への返信時に使用） |
 
 ### 例
 
@@ -77,12 +76,9 @@ synapse send codex "STOP" --priority 5 --from claude
 
 # 応答を待つ（roundtrip）
 synapse send gemini "分析して" --response --from claude
-
-# --response リクエストへの返信（task_idは [A2A:task_id:sender] から取得）
-synapse send claude "分析結果です..." --reply-to abc123 --from gemini
 ```
 
-**重要:** `--from` オプションで送信元を指定してください。`--response` への返信時は `--reply-to <task_id>` を使用して返信を紐付けます。
+**重要:** `--from` オプションで送信元を常に指定してください。
 
 ---
 
@@ -92,57 +88,51 @@ AIエージェントとしてA2Aメッセージを受信した場合の返信方
 
 ### 受信メッセージの形式
 
+メッセージは `A2A:` プレフィックス付きのプレーンテキストで届きます：
+
 ```text
-[A2A:<task_id>:<sender_id>:R] <message>   ← 返信必須（:R フラグあり）
-[A2A:<task_id>:<sender_id>] <message>     ← 返信不要
+A2A: <message>
 ```
 
-**:R フラグについて:**
-- 送信側が `--response` を使用した場合（`response_expected=true`）、PTY 出力に `:R` フラグが付与されます
-- 例: `[A2A:54241e7e:synapse-claude-8100:R]` - 返信が必要
-- 例: `[A2A:54241e7e:synapse-claude-8100]` - 返信不要
+### 返信方法
 
-**Note:** PTY では 8 文字の短い task_id が表示されます。`--reply-to` はこの短い ID でも完全な UUID でも指定できます。
-
-### 返信のルール
-
-`:R` フラグの有無で返信方法が決まります：
-
-| PTY 表示 | 意味 | アクション |
-|----------|------|-----------|
-| `:R` フラグあり | `response_expected=true` | **必ず** `--reply-to <task_id>` で返信 |
-| `:R` フラグなし | `response_expected=false` | `--reply-to` は使用しない |
+`synapse reply` コマンドを使用して返信します：
 
 ```bash
-# :R フラグがある場合 → --reply-to を使用（task_id のみ、:R は含めない）
-synapse send <sender_type> "<your reply>" --reply-to <task_id> --from <your_agent_type>
-
-# :R フラグがない場合 → タスクを実行し、必要なら新規メッセージとして送信
-synapse send <sender_type> "<your reply>" --from <your_agent_type>
+synapse reply "<your reply>" --from <your_agent_type>
 ```
+
+**Reply Stack:** Synapse は送信者情報を自動的に追跡します。`synapse reply` を使うと、最後にメッセージを送ってきたエージェントに自動的に返信されます。
 
 ### 受信・返信の例
 
-**例1: 返信が必要な場合（:R フラグあり）**
+**例1: 質問を受信した場合**
 
 受信メッセージ：
 ```text
-[A2A:abc12345:synapse-claude-8100:R] このコードをレビューして
+A2A: このコードをレビューして
 ```
 
-返信（`--reply-to` 必須）：
+返信：
 ```bash
-synapse send claude "レビュー結果です..." --reply-to abc12345 --from gemini
+synapse reply "レビュー結果です..." --from gemini
 ```
 
-**例2: 返信が不要な場合（:R フラグなし）**
+**例2: タスク委任を受信した場合**
 
 受信メッセージ：
 ```text
-[A2A:xyz67890:synapse-claude-8100] テストを実行してコミットして
+A2A: テストを実行してコミットして
 ```
 
-アクション：タスクを実行。`--reply-to` は使用しない。
+アクション：タスクを実行。返信は不要（質問がある場合のみ返信）。
+
+### --response フラグと返信の関係
+
+| 送信側 | 受信側のアクション |
+|--------|-------------------|
+| `--response` 使用 | **必ず** `synapse reply` で返信 |
+| `--no-response` (デフォルト) | タスク実行のみ、返信不要 |
 
 ### いつ --response を使うか
 
@@ -205,51 +195,6 @@ synapse send claude "レビュー結果です..." --reply-to abc12345 --from gem
 1. 対象エージェントに SIGINT を送信
 2. 短時間待機
 3. メッセージを送信
-
----
-
-## 送信元識別
-
-A2A メッセージには送信元情報が自動的に付与されます。
-
-### PTY 出力形式
-
-```text
-[A2A:<task_id>:<sender_id>] <message>
-```
-
-### 例
-
-```text
-[A2A:abc12345:synapse-claude-8100] この設計をレビューしてください
-```
-
-### metadata 構造
-
-```json
-{
-  "message": {
-    "role": "user",
-    "parts": [{"type": "text", "text": "メッセージ"}]
-  },
-  "metadata": {
-    "sender": {
-      "sender_id": "synapse-claude-8100",
-      "sender_type": "claude",
-      "sender_endpoint": "http://localhost:8100",
-      "sender_uds_path": "/tmp/synapse-claude-8100.sock"
-    },
-    "sender_task_id": "abc12345-...",
-    "response_expected": true
-  }
-}
-```
-
-### --reply-to の仕組み
-
-`--response` フラグ使用時、送信元エージェントのサーバーにタスクが作成され、その `sender_task_id` が受信側に送られます。受信側が `--reply-to <task_id>` で返信すると、送信元サーバーの該当タスクが完了状態になり、結果が取得できます。
-
-技術的な詳細は [docs/TASK_OWNERSHIP_DESIGN.md](../docs/TASK_OWNERSHIP_DESIGN.md) を参照してください。
 
 ---
 
