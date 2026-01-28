@@ -309,7 +309,7 @@ class TestSubmitSequence:
 
         captured_submit_seq = []
 
-        def mock_write(data, submit_seq=None, bypass_compliance=False):
+        def mock_write(data, submit_seq=None):
             captured_submit_seq.append(submit_seq)
 
         ctrl.write = mock_write  # type: ignore[method-assign]

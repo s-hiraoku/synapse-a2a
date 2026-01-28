@@ -2,19 +2,10 @@
 
 import os
 import re
-import shlex
 from collections.abc import Callable
 from datetime import datetime
 
 from synapse.a2a_client import A2AClient, get_client
-from synapse.compliance import (
-    ActionType,
-    ComplianceSettings,
-    Decision,
-    PolicyEngine,
-    copy_to_clipboard,
-    format_manual_display,
-)
 from synapse.registry import (
     AgentRegistry,
     get_valid_uds_path,
@@ -80,12 +71,6 @@ class InputRouter:
         self.self_agent_id = self_agent_id
         self.self_agent_type = self_agent_type
         self.self_port = self_port
-
-        # Compliance settings
-        self._compliance_settings = ComplianceSettings.load()
-        self._policy_engine = PolicyEngine.for_provider(
-            self_agent_type or "unknown", self._compliance_settings
-        )
 
     def parse_at_mention(self, line: str) -> tuple[str, str] | None:
         """
@@ -231,30 +216,6 @@ class InputRouter:
         """Send a message to another agent via A2A."""
         log("INFO", f"Sending to {agent_name}: {message}")
         self.is_external_agent = False
-
-        # Compliance check for routing
-        route_decision = self._policy_engine.check(ActionType.ROUTE_OUTPUT)
-        if route_decision == Decision.DENY:
-            mode = self._compliance_settings.get_effective_mode(
-                self.self_agent_type or "unknown"
-            )
-            # In manual/prefill mode, copy command to clipboard instead
-            # Use shlex.quote for safe shell escaping
-            safe_message = shlex.quote(message)
-            safe_from = shlex.quote(self.self_agent_id or "unknown")
-            cmd = f"synapse send {agent_name} {safe_message} --from {safe_from}"
-            clipboard_ok = copy_to_clipboard(cmd)
-            display = format_manual_display(cmd, clipboard_ok)
-            log("INFO", f"[Compliance:{mode}] Route blocked\n{display}")
-            if clipboard_ok:
-                self.last_response = (
-                    f"[Compliance:{mode}] Routing blocked. Command copied to clipboard."
-                )
-            else:
-                self.last_response = (
-                    f"[Compliance:{mode}] Routing blocked. Clipboard unavailable."
-                )
-            return False
 
         # Determine response_expected based on a2a.flow setting
         settings = get_settings()

@@ -51,10 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Press `/` to filter agents by TYPE or DIR
   - Press `k` to kill selected agent (with confirmation)
   - ESC clears filter, `q` quits
-- Compliance/permissions check system (Issue #159)
-  - Block dangerous commands via `.synapse/compliance.yaml`
-  - Integrate compliance checks into controller and input router
-  - Return 403 status for blocked operations with proper error handling
 
 ### Fixed
 
