@@ -722,3 +722,145 @@ class TestResumeFlags:
 
         # But "--resume=XXX" should match "--resume"
         assert settings.is_resume_mode("claude", ["--resume=XXX"]) is True
+
+
+class TestInstructionFilePaths:
+    """Test get_instruction_file_paths returns correct paths for project and user directories."""
+
+    def setup_method(self):
+        """Clear environment variables that affect instruction generation."""
+        if "SYNAPSE_FILE_SAFETY_ENABLED" in os.environ:
+            del os.environ["SYNAPSE_FILE_SAFETY_ENABLED"]
+
+    def test_file_in_project_directory_only(self):
+        """When file exists only in project dir, return .synapse/ path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create project .synapse directory with instruction file
+            project_synapse = Path(tmpdir) / ".synapse"
+            project_synapse.mkdir()
+            (project_synapse / "default.md").write_text("Project instruction")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "default.md"},
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                paths = settings.get_instruction_file_paths("claude")
+                assert len(paths) == 1
+                assert paths[0] == ".synapse/default.md"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_in_user_directory_only(self):
+        """When file exists only in user dir, return ~/.synapse/ path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create fake user home with .synapse directory
+            fake_home = Path(tmpdir) / "fake_home"
+            user_synapse = fake_home / ".synapse"
+            user_synapse.mkdir(parents=True)
+            (user_synapse / "default.md").write_text("User instruction")
+
+            # Create project directory without instruction file
+            project_dir = Path(tmpdir) / "project"
+            project_dir.mkdir()
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "default.md"},
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_dir)
+                # Use custom home directory for testing
+                paths = settings.get_instruction_file_paths(
+                    "claude", user_dir=fake_home
+                )
+                assert len(paths) == 1
+                assert paths[0] == "~/.synapse/default.md"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_in_both_directories_prefers_project(self):
+        """When file exists in both dirs, prefer project dir."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create fake user home
+            fake_home = Path(tmpdir) / "fake_home"
+            user_synapse = fake_home / ".synapse"
+            user_synapse.mkdir(parents=True)
+            (user_synapse / "default.md").write_text("User instruction")
+
+            # Create project directory with instruction file
+            project_dir = Path(tmpdir) / "project"
+            project_synapse = project_dir / ".synapse"
+            project_synapse.mkdir(parents=True)
+            (project_synapse / "default.md").write_text("Project instruction")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "default.md"},
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_dir)
+                paths = settings.get_instruction_file_paths(
+                    "claude", user_dir=fake_home
+                )
+                assert len(paths) == 1
+                # Project dir takes precedence
+                assert paths[0] == ".synapse/default.md"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_multiple_files_different_locations(self):
+        """Test multiple files from different locations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create fake user home with delegate.md
+            fake_home = Path(tmpdir) / "fake_home"
+            user_synapse = fake_home / ".synapse"
+            user_synapse.mkdir(parents=True)
+            (user_synapse / "delegate.md").write_text("User delegate")
+
+            # Create project directory with default.md
+            project_dir = Path(tmpdir) / "project"
+            project_synapse = project_dir / ".synapse"
+            project_synapse.mkdir(parents=True)
+            (project_synapse / "default.md").write_text("Project default")
+
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "default.md"},
+                delegation={"enabled": True},
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(project_dir)
+                paths = settings.get_instruction_file_paths(
+                    "claude", user_dir=fake_home
+                )
+                # Should have default.md from project and delegate.md from user
+                assert ".synapse/default.md" in paths
+                assert "~/.synapse/delegate.md" in paths
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_not_found_in_either_location(self):
+        """When file doesn't exist anywhere, return empty list."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = SynapseSettings(
+                env={},
+                instructions={"default": "nonexistent.md"},
+            )
+
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                paths = settings.get_instruction_file_paths("claude")
+                assert len(paths) == 0
+            finally:
+                os.chdir(original_cwd)

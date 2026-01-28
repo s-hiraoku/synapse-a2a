@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-a2a"
-version = "0.3.7"
+version = "0.3.8"
 description = "Agent-to-Agent communication protocol for CLI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,6 +38,7 @@ dev = [
     "types-pyyaml>=6.0.12.20250915",
     "ty>=0.0.1a7",
     "pre-commit>=4.0.0",
+    "types-pyperclip>=1.9.0.20250801",
 ]
 grpc = [
     "grpcio>=1.60.0",

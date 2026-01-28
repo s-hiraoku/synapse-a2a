@@ -1118,7 +1118,7 @@ wheels = [
 
 [[package]]
 name = "synapse-a2a"
-version = "0.3.6"
+version = "0.3.7"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -1144,6 +1144,7 @@ dev = [
     { name = "responses" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "types-pyperclip" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
@@ -1178,6 +1179,7 @@ dev = [
     { name = "responses", specifier = ">=0.23.0" },
     { name = "ruff", specifier = ">=0.8.0" },
     { name = "ty", specifier = ">=0.0.1a7" },
+    { name = "types-pyperclip", specifier = ">=1.9.0.20250801" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "types-requests", specifier = ">=2.32.4.20250913" },
 ]
@@ -1259,6 +1261,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/14/f7/ff97f37f0a75db9495ddbc47738ec4339837867c4bfa145bdcfbd0d1eb2f/ty-0.0.8-py3-none-win32.whl", hash = "sha256:d7f460ad6fc9325e9cc8ea898949bbd88141b4609d1088d7ede02ce2ef06e776", size = 9254675 },
     { url = "https://files.pythonhosted.org/packages/af/51/eba5d83015e04630002209e3590c310a0ff1d26e1815af204a322617a42e/ty-0.0.8-py3-none-win_amd64.whl", hash = "sha256:1641fb8dedc3d2da43279d21c3c7c1f80d84eae5c264a1e8daa544458e433c19", size = 10131382 },
     { url = "https://files.pythonhosted.org/packages/38/1c/0d8454ff0f0f258737ecfe84f6e508729191d29663b404832f98fa5626b7/ty-0.0.8-py3-none-win_arm64.whl", hash = "sha256:ec74f022f315bede478ecae1277a01ab618e6500c1d68450d7883f5cd6ed554a", size = 9636374 },
+]
+
+[[package]]
+name = "types-pyperclip"
+version = "1.9.0.20250801"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/7d/144cc18484621f31b1c04f2b4e6b1cd925a25573f72f00770f0030061cd4/types_pyperclip-1.9.0.20250801.tar.gz", hash = "sha256:37eb1b8f6989ccc1ec2f80e2984316f74ccd2aedb385331c210252928ffc3a1f", size = 7202 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/6e/af02c7af8178f2d3933b26560b5428236fcfa78966dbb4a52220f1b2253b/types_pyperclip-1.9.0.20250801-py3-none-any.whl", hash = "sha256:73ad08721a2380506549027d5b13a8b360db909a2480649e728a37d836c36456", size = 7606 },
 ]
 
 [[package]]

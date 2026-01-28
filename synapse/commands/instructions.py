@@ -151,9 +151,10 @@ class InstructionsCommand:
         settings = self._settings_factory()
         effective_type = agent_type or "default"
 
-        files = settings.get_instruction_files(effective_type)
+        # Use get_instruction_file_paths to get correct paths for project/user directories
+        file_paths = settings.get_instruction_file_paths(effective_type)
 
-        if not files:
+        if not file_paths:
             self._print(f"No instruction files configured for '{effective_type}'.")
             self._print("")
             self._print("Configure instructions in .synapse/settings.json:")
@@ -161,8 +162,9 @@ class InstructionsCommand:
             return
 
         self._print(f"Instruction files for '{effective_type}':")
-        for f in files:
-            self._print(f"  - .synapse/{f}")
+        # Paths already include directory prefix (.synapse/ or ~/.synapse/)
+        for f in file_paths:
+            self._print(f"  - {f}")
 
     def send(self, target: str, preview: bool = False) -> bool:
         """
@@ -206,19 +208,21 @@ class InstructionsCommand:
             return False
 
         # Get instruction files for the message prefix
-        files = settings.get_instruction_files(profile)
+        # Use get_instruction_file_paths to get correct paths for project/user directories
+        file_paths = settings.get_instruction_file_paths(profile)
 
         # Build the message (same format as controller._send_identity_instruction)
         task_id = str(uuid.uuid4())[:8]
-        if files:
+        if file_paths:
             # Send compact message pointing to files
             message = (
                 f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
                 f"Agent: {agent_id} | Port: {port}\n\n"
                 f"IMPORTANT: Read your full instructions from these files:\n"
             )
-            for f in files:
-                message += f"  - .synapse/{f}\n"
+            # Paths already include directory prefix (.synapse/ or ~/.synapse/)
+            for f in file_paths:
+                message += f"  - {f}\n"
             message += (
                 f"\nRead these files NOW to get your delegation rules, "
                 f"A2A protocol, and other guidelines.\n"
