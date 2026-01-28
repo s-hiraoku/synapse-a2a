@@ -325,8 +325,10 @@ synapse instructions files claude
 ```
 Instruction files for 'claude':
   - .synapse/default.md
-  - .synapse/file-safety.md
+  - ~/.synapse/delegate.md
 ```
+
+ファイルの場所に応じて `.synapse/`（プロジェクト）または `~/.synapse/`（ユーザー）が表示されます。
 
 #### 1.9.3 synapse instructions send
 

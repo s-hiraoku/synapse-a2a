@@ -364,6 +364,9 @@ synapse instructions show  # Shows default
 
 # List instruction files used
 synapse instructions files claude
+# Output shows file locations:
+#   - .synapse/default.md       (project directory)
+#   - ~/.synapse/delegate.md    (user directory)
 
 # Send initial instructions to a running agent (useful after --resume)
 synapse instructions send claude

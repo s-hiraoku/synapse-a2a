@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-01-28
+
+### Fixed
+
+- Fix instruction file path display to correctly show user directory (`~/.synapse/`) vs project directory (`.synapse/`)
+  - `synapse instructions files` now shows accurate file locations
+  - `synapse instructions send` references correct paths in messages
+  - Project directory takes precedence when file exists in both locations
+
+### Documentation
+
+- Update `guides/references.md` and skill references with new output examples
+
+### Tests
+
+- Add `TestInstructionFilePaths` test class for path resolution logic
+
+### Chores
+
+- Add `types-pyperclip` dev dependency for mypy type checking
+
 ## [0.3.7] - 2026-01-27
 
 ### Changed
