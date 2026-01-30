@@ -1567,7 +1567,14 @@ def cmd_run_interactive(
     port: int,
     tool_args: list | None = None,
 ) -> None:
-    """Run an agent in interactive mode with input routing.
+    """Run an agent in interactive mode with A2A server.
+
+    Handles agent I/O directly via PTY. The approval flow determines whether
+    to show a confirmation prompt before sending initial instructions
+    (approvalMode: "required") or skip it (approvalMode: "auto").
+
+    Waits for agent TUI readiness using either input_ready_pattern detection
+    or timeout-based fallback before sending initial instructions.
 
     Args:
         profile: Agent profile name (claude, codex, gemini, etc.)
@@ -1646,6 +1653,15 @@ def cmd_run_interactive(
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Show startup animation before approval prompt
+    from synapse.startup_tui import show_startup_animation
+
+    show_startup_animation(
+        agent_type=profile,
+        agent_id=agent_id,
+        port=port,
+    )
+
     # Check if approval is required for initial instructions
     skip_initial_instructions = is_resume
     if not is_resume and synapse_settings.should_require_approval():
@@ -1697,15 +1713,6 @@ def cmd_run_interactive(
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
-
-    # Show startup animation
-    from synapse.startup_tui import show_startup_animation
-
-    show_startup_animation(
-        agent_type=profile,
-        agent_id=agent_id,
-        port=port,
-    )
 
     try:
         # Start the API server in background (TCP + UDS)

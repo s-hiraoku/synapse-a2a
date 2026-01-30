@@ -30,6 +30,7 @@
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],
     "gemini": ["--resume"],
-    "opencode": ["--continue", "-c"]
+    "opencode": ["--continue", "-c"],
+    "copilot": ["--continue", "-c"]
   }
 }
