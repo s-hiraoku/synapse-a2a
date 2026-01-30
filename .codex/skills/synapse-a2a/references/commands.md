@@ -102,9 +102,17 @@ synapse stop claude --all
 
 ## Receiving Messages
 
-When you receive an A2A message, it appears as plain text - the message content is sent directly to your terminal.
+When you receive an A2A message, it appears with the `A2A:` prefix:
 
-**Reply Stack:** Synapse automatically tracks sender information when you receive messages. The sender's endpoint and task ID are stored in a reply stack, allowing simplified replies.
+**Message Formats:**
+```
+A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
+A2A: <message>                    <- Reply is optional (delegation/notification)
+```
+
+If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
+
+**Reply Tracking:** Synapse automatically tracks senders who expect a reply (`[REPLY EXPECTED]` messages). Use `synapse reply` for responses - it automatically knows who to reply to.
 
 **Replying to messages:**
 
@@ -113,15 +121,15 @@ When you receive an A2A message, it appears as plain text - the message content 
 synapse reply "<your reply>" --from <your_agent_type>
 ```
 
-**Example - Question received:**
+**Example - Question received (MUST reply):**
 ```
-Received: What is the project structure?
+Received: A2A: [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..." --from codex
 ```
 
-**Example - Delegation received:**
+**Example - Delegation received (no reply needed):**
 ```
-Received: Run the tests and fix failures
+Received: A2A: Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -178,32 +186,15 @@ synapse send codex "STOP" --priority 5 --from claude
 
 **Important:** Always use `--from` to identify yourself.
 
-### @Agent Pattern (User Input)
-
-When typing directly in the terminal (not from agent code), you can use:
-
-```text
-@<agent_name> <message>
-```
-
-Examples:
-```text
-@codex Please refactor this file
-@gemini Research this API
-@claude-8100 Review this code
-```
-
-> **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
-
 ### Reply Command
 
-Reply to the last received message using the reply stack:
+Reply to the last received message:
 
 ```bash
 synapse reply "<message>" --from <your_agent_type>
 ```
 
-This automatically pops the last sender from the reply stack and sends your message to them. The `--from` flag is required in sandboxed environments (like Codex).
+Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is required in sandboxed environments (like Codex).
 
 ### A2A Tool (Advanced)
 

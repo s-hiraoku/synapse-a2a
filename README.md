@@ -694,7 +694,7 @@ python -m synapse.tools.a2a list
 # Send message
 python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 
-# Reply to last received message (uses reply stack)
+# Reply to last received message (uses reply tracking)
 python -m synapse.tools.a2a reply "Here is my response"
 ```
 
@@ -719,8 +719,8 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
-| `/reply-stack/pop` | GET | Pop last sender info from reply stack |
-| `/reply-stack/peek` | GET | View last sender info without removing |
+| `/reply-stack/get` | GET | Get sender info without removing (for peek before send) |
+| `/reply-stack/pop` | GET | Pop sender info from reply map (for `synapse reply`) |
 
 ### External Agents
 

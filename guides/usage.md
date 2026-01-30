@@ -381,7 +381,7 @@ synapse send codex "結果を教えて" --response --from claude
 synapse reply "返信メッセージ" --from <your_agent_type>
 ```
 
-Reply Stack を使用して、最後に受信したメッセージの送信者に自動的に返信します。
+Synapseは返信を期待する送信者情報を自動的に追跡し、適切な送信者に返信します。
 
 **例**:
 

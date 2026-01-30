@@ -531,7 +531,7 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 
 def cmd_reply(args: argparse.Namespace) -> None:
-    """Reply to the last received A2A message using the reply stack."""
+    """Reply to the last received A2A message using reply tracking."""
     message = args.message
     sender = getattr(args, "sender", None)
 
@@ -2013,7 +2013,7 @@ Priority levels:
     p_reply = subparsers.add_parser(
         "reply",
         help="Reply to the last received A2A message",
-        description="Reply to the last received A2A message using the reply stack.",
+        description="Reply to the last received A2A message using reply tracking.",
         epilog="""Examples:
   synapse reply "Here is my response"      Reply to the last message
   synapse reply "Task completed!"          Send completion reply
