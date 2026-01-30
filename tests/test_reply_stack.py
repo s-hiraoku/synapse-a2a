@@ -85,18 +85,30 @@ class TestReplyStack:
         assert stack.pop("synapse-claude-8100") is None
         assert stack.get("synapse-claude-8100") is None
 
-    def test_pop_any_returns_arbitrary_entry(self) -> None:
-        """Test that pop() without sender_id returns any entry."""
+    def test_pop_any_returns_last_entry_lifo(self) -> None:
+        """Test that pop() without sender_id returns the last added entry (LIFO)."""
         stack = ReplyStack()
-        info: SenderInfo = {
+        info1: SenderInfo = {
             "sender_endpoint": "http://localhost:8100",
             "sender_task_id": "abc",
         }
-        stack.set("synapse-claude-8100", info)
+        info2: SenderInfo = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "def",
+        }
+        stack.set("synapse-claude-8100", info1)
+        stack.set("synapse-gemini-8110", info2)
 
-        # pop() without arg should return the entry
+        # pop() should return the last added entry (LIFO - gemini)
         result = stack.pop()
-        assert result == info
+        assert result == info2
+
+        # pop() again should return the first entry (claude)
+        result = stack.pop()
+        assert result == info1
+
+        # Stack should now be empty
+        assert stack.is_empty()
 
         # Should be empty now
         assert stack.is_empty() is True
@@ -146,26 +158,26 @@ class TestReplyStack:
         senders = stack.list_senders()
         assert set(senders) == {"synapse-claude-8100", "synapse-gemini-8110"}
 
-    def test_peek_first(self) -> None:
-        """Test peek_first returns first entry without removing."""
+    def test_peek_last(self) -> None:
+        """Test peek_last returns last (most recently added) entry without removing."""
         stack = ReplyStack()
         stack.set("synapse-claude-8100", {"sender_endpoint": "http://localhost:8100"})
         stack.set("synapse-gemini-8110", {"sender_endpoint": "http://localhost:8110"})
 
-        # Peek should return one entry without removing
-        info = stack.peek_first()
+        # Peek should return the last added entry (gemini - LIFO)
+        info = stack.peek_last()
         assert info is not None
-        assert "sender_endpoint" in info
+        assert info["sender_endpoint"] == "http://localhost:8110"
 
         # Entry should still exist after peek
         assert not stack.is_empty()
         senders = stack.list_senders()
         assert len(senders) == 2
 
-    def test_peek_first_empty(self) -> None:
-        """Test peek_first returns None when empty."""
+    def test_peek_last_empty(self) -> None:
+        """Test peek_last returns None when empty."""
         stack = ReplyStack()
-        assert stack.peek_first() is None
+        assert stack.peek_last() is None
 
     def test_thread_safety(self) -> None:
         """Test thread-safe operations."""

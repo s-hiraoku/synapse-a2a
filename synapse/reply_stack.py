@@ -38,8 +38,10 @@ class ReplyStack:
         self._lock = threading.Lock()
 
     def set(self, sender_id: str, sender_info: SenderInfo) -> None:
-        """Store sender info by sender_id. Overwrites if exists."""
+        """Store sender info by sender_id. Overwrites and moves to end if exists."""
         with self._lock:
+            # Remove existing entry first to ensure it moves to end
+            self._map.pop(sender_id, None)
             self._map[sender_id] = sender_info
 
     def get(self, sender_id: str) -> SenderInfo | None:
@@ -52,7 +54,7 @@ class ReplyStack:
         Pop and return sender info.
 
         Args:
-            sender_id: If provided, pop specific sender. Otherwise pop any entry.
+            sender_id: If provided, pop specific sender. Otherwise pop last entry (LIFO).
 
         Returns:
             SenderInfo or None if not found/empty.
@@ -60,10 +62,11 @@ class ReplyStack:
         with self._lock:
             if sender_id is not None:
                 return self._map.pop(sender_id, None)
-            # Pop any entry if no sender_id specified
+            # Pop last entry (most recently added) if no sender_id specified
             if self._map:
-                key = next(iter(self._map))
-                return self._map.pop(key)
+                # popitem() returns (key, value) and removes last item in Python 3.7+
+                _, info = self._map.popitem()
+                return info
             return None
 
     def is_empty(self) -> bool:
@@ -81,16 +84,17 @@ class ReplyStack:
         with self._lock:
             return list(self._map.keys())
 
-    def peek_first(self) -> SenderInfo | None:
+    def peek_last(self) -> SenderInfo | None:
         """
-        Peek at the first entry without removing it.
+        Peek at the last entry (most recently added) without removing it.
 
         Returns:
-            SenderInfo of the first entry, or None if empty.
+            SenderInfo of the last entry, or None if empty.
         """
         with self._lock:
             if self._map:
-                key = next(iter(self._map))
+                # Get last key using reversed iterator
+                key = next(reversed(self._map))
                 return self._map[key]
             return None
 
