@@ -388,9 +388,9 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 
 def cmd_reply(args: argparse.Namespace) -> None:
-    """Reply to the last message using the reply stack.
+    """Reply to the last message using the reply map.
 
-    This command pops the reply target from the local agent's reply stack
+    This command retrieves the reply target from the local agent's reply map
     and sends the reply message to the original sender.
     """
     # Determine own endpoint from sender info
@@ -405,9 +405,9 @@ def cmd_reply(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    # Peek reply target from my agent's reply stack (don't pop yet)
+    # Get reply target from my agent's reply map (don't pop yet)
     try:
-        resp = requests.get(f"{my_endpoint}/reply-stack/peek", timeout=5)
+        resp = requests.get(f"{my_endpoint}/reply-stack/get", timeout=5)
     except requests.RequestException as e:
         print(f"Error: Failed to get reply target: {e}", file=sys.stderr)
         sys.exit(1)

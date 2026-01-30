@@ -81,6 +81,19 @@ class ReplyStack:
         with self._lock:
             return list(self._map.keys())
 
+    def peek_first(self) -> SenderInfo | None:
+        """
+        Peek at the first entry without removing it.
+
+        Returns:
+            SenderInfo of the first entry, or None if empty.
+        """
+        with self._lock:
+            if self._map:
+                key = next(iter(self._map))
+                return self._map[key]
+            return None
+
 
 # Global reply stack instance
 _reply_stack: ReplyStack | None = None

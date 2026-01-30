@@ -756,8 +756,14 @@ class TestReplyStackEndpoints:
         app.include_router(router)
         return TestClient(app)
 
+    def test_reply_stack_get_empty_returns_404(self, client, mock_controller):  # noqa: ARG002
+        """GET /reply-stack/get should return 404 when map is empty."""
+        response = client.get("/reply-stack/get")
+        assert response.status_code == 404
+        assert "No reply target" in response.json()["detail"]
+
     def test_reply_stack_pop_empty_returns_404(self, client, mock_controller):  # noqa: ARG002
-        """GET /reply-stack/pop should return 404 when stack is empty."""
+        """GET /reply-stack/pop should return 404 when map is empty."""
         response = client.get("/reply-stack/pop")
         assert response.status_code == 404
         assert "No reply target" in response.json()["detail"]
@@ -802,6 +808,31 @@ class TestReplyStackEndpoints:
         # Stack should be empty
         response = client.get("/reply-stack/pop")
         assert response.status_code == 404
+
+    def test_reply_stack_get_does_not_remove_entry(self, client, mock_controller):  # noqa: ARG002
+        """GET /reply-stack/get should NOT remove the entry."""
+        # Send a message with response_expected=True
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "response_expected": True,
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # First get succeeds
+        response = client.get("/reply-stack/get")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sender_endpoint"] == "http://localhost:8100"
+
+        # Second get still succeeds (entry not removed)
+        response = client.get("/reply-stack/get")
+        assert response.status_code == 200
 
     def test_reply_stack_pop_removes_entry(self, client, mock_controller):  # noqa: ARG002
         """Pop should remove the entry from the map."""

@@ -146,6 +146,27 @@ class TestReplyStack:
         senders = stack.list_senders()
         assert set(senders) == {"synapse-claude-8100", "synapse-gemini-8110"}
 
+    def test_peek_first(self) -> None:
+        """Test peek_first returns first entry without removing."""
+        stack = ReplyStack()
+        stack.set("synapse-claude-8100", {"sender_endpoint": "http://localhost:8100"})
+        stack.set("synapse-gemini-8110", {"sender_endpoint": "http://localhost:8110"})
+
+        # Peek should return one entry without removing
+        info = stack.peek_first()
+        assert info is not None
+        assert "sender_endpoint" in info
+
+        # Entry should still exist after peek
+        assert not stack.is_empty()
+        senders = stack.list_senders()
+        assert len(senders) == 2
+
+    def test_peek_first_empty(self) -> None:
+        """Test peek_first returns None when empty."""
+        stack = ReplyStack()
+        assert stack.peek_first() is None
+
     def test_thread_safety(self) -> None:
         """Test thread-safe operations."""
         import threading

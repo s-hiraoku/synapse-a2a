@@ -1233,13 +1233,34 @@ def create_a2a_router(
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
 
+    @router.get("/reply-stack/get", response_model=ReplyTarget)
+    async def get_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+        """
+        Get a reply target without removing it.
+
+        Returns the first available sender endpoint (HTTP and/or UDS) and task ID.
+        Does NOT remove the entry - use /reply-stack/pop after successful reply.
+        Returns 404 if no reply targets exist.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        reply_stack = get_reply_stack()
+        info = reply_stack.peek_first()
+        if not info:
+            raise HTTPException(status_code=404, detail="No reply target")
+        return ReplyTarget(
+            sender_endpoint=info.get("sender_endpoint"),
+            sender_uds_path=info.get("sender_uds_path"),
+            sender_task_id=info.get("sender_task_id"),
+        )
+
     @router.get("/reply-stack/pop", response_model=ReplyTarget)
     async def pop_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
         """
-        Pop the last reply target from the stack.
+        Pop a reply target from the map.
 
-        Returns the sender endpoint (HTTP and/or UDS) and task ID for sending a reply.
-        Returns 404 if the stack is empty.
+        Returns the first available sender endpoint (HTTP and/or UDS) and task ID.
+        Removes the entry after returning.
+        Returns 404 if no reply targets exist.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
