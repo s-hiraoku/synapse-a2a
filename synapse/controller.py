@@ -9,11 +9,9 @@ import shutil
 import signal
 import struct
 import subprocess
-import sys
 import termios
 import threading
 import time
-from collections.abc import Callable
 
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
@@ -23,7 +21,6 @@ from synapse.config import (
     STARTUP_DELAY,
     WRITE_PROCESSING_DELAY,
 )
-from synapse.input_router import InputRouter
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.status import DONE_TIMEOUT_SECONDS
@@ -48,6 +45,7 @@ class TerminalController:
         args: list | None = None,
         port: int | None = None,
         skip_initial_instructions: bool = False,
+        input_ready_pattern: str | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -140,14 +138,7 @@ class TerminalController:
         )
         self._done_time: float | None = None  # Track when DONE status was set
         self._skip_initial_instructions = skip_initial_instructions
-
-        # InputRouter for parsing agent output and routing @Agent commands
-        self.input_router = InputRouter(
-            registry=self.registry,
-            self_agent_id=agent_id,
-            self_agent_type=agent_type,
-            self_port=port,
-        )
+        self._input_ready_pattern = input_ready_pattern
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -179,25 +170,6 @@ class TerminalController:
         with self.lock:
             self._last_output_time = time.time()
 
-    def _execute_a2a_action(
-        self, action_func: Callable[[], bool], agent_name: str
-    ) -> None:
-        """Execute A2A action in a thread and write feedback to PTY."""
-        try:
-            success = action_func()
-            feedback = self.input_router.get_feedback_message(agent_name, success)
-
-            # Log the feedback for debugging
-            logging.debug(f"A2A action for {agent_name}: success={success}")
-
-            # In interactive mode, write feedback to stdout so user can see it
-            if self.interactive and feedback:
-                sys.stdout.write(feedback)
-                sys.stdout.flush()
-
-        except Exception as e:
-            logging.error(f"A2A action failed for {agent_name}: {e}")
-
     def _monitor_output(self) -> None:
         """Monitor and process output from the controlled process PTY."""
         try:
@@ -215,22 +187,10 @@ class TerminalController:
 
                         self._check_idle_state(data)
 
-                        # Process output through InputRouter to detect @Agent commands
-                        # Don't modify data stream - subprocess output is redirected
-                        text = data.decode("utf-8", errors="replace")
-                        for char in text:
-                            _, action = self.input_router.process_char(char)
-                            if action:
-                                # Execute action in thread
-                                threading.Thread(
-                                    target=self._execute_a2a_action,
-                                    args=(action, self.input_router.pending_agent),
-                                    daemon=True,
-                                ).start()
-
                         # Debug logging for PTY output analysis
                         # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
                         if os.environ.get("SYNAPSE_DEBUG_PTY"):
+                            text = data.decode("utf-8", errors="replace")
                             self._log_pty_output(data, text)
 
                     except OSError:
@@ -499,10 +459,53 @@ class TerminalController:
         )
 
         # Wait for agent to be fully ready
+        # For TUI apps, we need to wait until the input prompt appears
+        if self._input_ready_pattern:
+            # Pattern-based detection: wait for specific prompt character
+            input_ready_timeout = 10.0  # Max wait time for input area
+            input_ready_wait = 0.0
+            input_ready_interval = 0.5
+
+            pattern_bytes = self._input_ready_pattern.encode()
+            logging.info(
+                f"[{self.agent_id}] Waiting for input pattern: {self._input_ready_pattern!r} "
+                f"(bytes: {pattern_bytes!r})"
+            )
+
+            while input_ready_wait < input_ready_timeout:
+                time.sleep(input_ready_interval)
+                input_ready_wait += input_ready_interval
+
+                # Check if input prompt is visible in recent output
+                with self.lock:
+                    recent_output = self.output_buffer[-2000:]
+
+                # Check for the configured pattern
+                if pattern_bytes in recent_output:
+                    logging.info(
+                        f"[{self.agent_id}] Input prompt '{self._input_ready_pattern}' "
+                        f"detected after {input_ready_wait:.1f}s"
+                    )
+                    break
+            else:
+                logging.warning(
+                    f"[{self.agent_id}] Input prompt '{self._input_ready_pattern}' "
+                    f"not detected after {input_ready_timeout}s, proceeding anyway"
+                )
+        else:
+            # No pattern configured: use timeout-based detection (e.g., OpenCode)
+            # The IDLE detection already waited, just add a small stabilization delay
+            logging.info(
+                f"[{self.agent_id}] No input_ready_pattern configured, "
+                "using timeout-based detection"
+            )
+
+        # Additional delay to ensure TUI is stable
         time.sleep(POST_WRITE_IDLE_DELAY)
 
         try:
-            self.write(prefixed, self._submit_seq)
+            result = self.write(prefixed, self._submit_seq)
+            logging.info(f"[{self.agent_id}] Write result: {result}")
             self._identity_sent = True
         except Exception as e:
             logging.error(f"Failed to send initial instructions: {e}")
@@ -592,8 +595,7 @@ class TerminalController:
 
     def run_interactive(self) -> None:
         """
-        Run in interactive mode with input routing.
-        Human's input is monitored for @Agent patterns.
+        Run in interactive mode.
         Includes background thread for periodic idle detection.
         """
         self.interactive = True

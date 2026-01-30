@@ -12,6 +12,11 @@ idle_detection:
   pattern_use: "never"       # No pattern detection for OpenCode
   timeout: 1.0               # 1.0 second of no output = idle
 
+# Input ready detection for initial instructions
+# OpenCode uses full-screen Bubble Tea TUI with always-visible input area
+# No specific pattern - TUI occupies entire terminal, ready when idle
+# input_ready_pattern: not set (use timeout-based detection only)
+
 # WAITING status detection (user input prompts)
 # OpenCode uses Bubble Tea TUI with selection UI
 # Detects numbered lists, checkboxes, and confirmation prompts

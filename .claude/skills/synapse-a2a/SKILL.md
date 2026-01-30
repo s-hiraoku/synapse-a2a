@@ -184,6 +184,7 @@ In `synapse list`, you can interact with agents:
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
 - **Settings**: Configure via `settings.json` (`synapse init`)
+- **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 
 ## References
 

@@ -180,10 +180,11 @@ In `synapse list`, you can interact with agents:
 
 ## Key Features
 
-- **Agent Communication**: @agent pattern, priority control, response handling
+- **Agent Communication**: `synapse send` command, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
 - **Settings**: Configure via `settings.json` (`synapse init`)
+- **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 
 ## References
 

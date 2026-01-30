@@ -167,40 +167,6 @@ class TestControllerPTY:
             t.join(timeout=1.0)
 
 
-class TestControllerInputRouting:
-    """Tests for input routing integration in _monitor_output."""
-
-    @pytest.fixture
-    def mock_dependencies(self):
-        with (
-            patch("synapse.controller.pty.openpty", return_value=(10, 11)),
-            patch("synapse.controller.subprocess.Popen") as mock_popen,
-            patch("synapse.controller.os") as mock_os,
-            patch("synapse.controller.select.select", return_value=([10], [], [])),
-        ):
-            mock_popen.return_value.poll.return_value = None
-            mock_os.read.return_value = b"Hello @Agent"
-
-            yield mock_os
-
-    def test_monitor_output_routes_commands(self, mock_dependencies):
-        """Test that _monitor_output routes @Agent commands."""
-        controller = TerminalController(command="bash")
-
-        # Mock input router
-        controller.input_router = MagicMock()
-        controller.input_router.process_char.return_value = (None, None)
-
-        # Start
-        controller.start()
-        time.sleep(0.1)
-        controller.running = False
-        controller.thread.join(timeout=1.0)
-
-        # Verify process_char called for input data
-        assert controller.input_router.process_char.called
-
-
 class TestInteractiveCallbacks:
     """Tests for interactive mode callbacks."""
 

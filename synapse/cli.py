@@ -1562,8 +1562,18 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
     print("=" * 60)
 
 
-def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) -> None:
-    """Run an agent in interactive mode with input routing."""
+def cmd_run_interactive(
+    profile: str,
+    port: int,
+    tool_args: list | None = None,
+) -> None:
+    """Run an agent in interactive mode with input routing.
+
+    Args:
+        profile: Agent profile name (claude, codex, gemini, etc.)
+        port: Port number for the A2A server.
+        tool_args: Arguments to pass to the underlying CLI tool.
+    """
     tool_args = tool_args or []
 
     # Load profile
@@ -1605,6 +1615,9 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     # Parse waiting detection config
     waiting_detection = config.get("waiting_detection", {})
 
+    # Parse input ready pattern for initial instruction timing
+    input_ready_pattern = config.get("input_ready_pattern")
+
     # Merge profile args with CLI tool args
     profile_args = config.get("args", [])
     all_args = profile_args + tool_args
@@ -1633,6 +1646,23 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Check if approval is required for initial instructions
+    skip_initial_instructions = is_resume
+    if not is_resume and synapse_settings.should_require_approval():
+        from synapse.approval import prompt_for_approval
+
+        response = prompt_for_approval(
+            agent_id=agent_id,
+            port=port,
+        )
+
+        if response == "abort":
+            print("\x1b[33m[Synapse]\x1b[0m Aborted by user")
+            sys.exit(0)
+        elif response == "skip":
+            print("\x1b[32m[Synapse]\x1b[0m Starting without initial instructions")
+            skip_initial_instructions = True
+
     # Set SYNAPSE env vars for sender identification (same as server.py)
     env["SYNAPSE_AGENT_ID"] = agent_id
     env["SYNAPSE_AGENT_TYPE"] = profile
@@ -1654,7 +1684,8 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
         submit_seq=submit_seq,
         startup_delay=startup_delay,
         port=port,
-        skip_initial_instructions=is_resume,
+        skip_initial_instructions=skip_initial_instructions,
+        input_ready_pattern=input_ready_pattern,
     )
 
     # Handle Ctrl+C gracefully
@@ -1667,20 +1698,14 @@ def cmd_run_interactive(profile: str, port: int, tool_args: list | None = None) 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
-    print(f"\x1b[32m[Synapse]\x1b[0m Starting {profile} on port {port}")
-    print(f"\x1b[32m[Synapse]\x1b[0m Submit sequence: {repr(submit_seq)}")
-    msg = "Use @Agent 'message' to send (response expected by default)"
-    print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
-    msg2 = "Use @Agent --non-response 'message' to send without response"
-    print(f"\x1b[32m[Synapse]\x1b[0m {msg2}")
-    print("\x1b[32m[Synapse]\x1b[0m Press Ctrl+C twice to exit")
-    print()
-    print("\x1b[32m[Synapse]\x1b[0m Google A2A endpoints:")
-    print(
-        f"\x1b[32m[Synapse]\x1b[0m   Agent Card: http://localhost:{port}/.well-known/agent.json"
+    # Show startup animation
+    from synapse.startup_tui import show_startup_animation
+
+    show_startup_animation(
+        agent_type=profile,
+        agent_id=agent_id,
+        port=port,
     )
-    print(f"\x1b[32m[Synapse]\x1b[0m   Tasks API:  http://localhost:{port}/tasks/send")
-    print()
 
     try:
         # Start the API server in background (TCP + UDS)

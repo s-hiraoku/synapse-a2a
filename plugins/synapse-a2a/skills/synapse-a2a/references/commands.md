@@ -178,23 +178,6 @@ synapse send codex "STOP" --priority 5 --from claude
 
 **Important:** Always use `--from` to identify yourself.
 
-### @Agent Pattern (User Input)
-
-When typing directly in the terminal (not from agent code), you can use:
-
-```text
-@<agent_name> <message>
-```
-
-Examples:
-```text
-@codex Please refactor this file
-@gemini Research this API
-@claude-8100 Review this code
-```
-
-> **Note**: The `@agent` pattern only works for user input. Agents should use `synapse send` command.
-
 ### Reply Command
 
 Reply to the last received message using the reply stack:
@@ -320,6 +303,7 @@ synapse config show --scope project    # Show project settings only
 **TUI Categories:**
 - **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, etc.
 - **Instructions**: Agent-specific initial instruction files
+- **Approval Mode**: `required` (prompt before sending) or `auto` (no prompt)
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
 - **Delegation**: Enable/disable task delegation
 - **Resume Flags**: CLI flags that indicate session resume mode
@@ -339,7 +323,8 @@ synapse reset
     "SYNAPSE_HISTORY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
-  }
+  },
+  "approvalMode": "required"
 }
 ```
 
@@ -351,6 +336,13 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+
+**approvalMode:**
+
+| Value | Description |
+|-------|-------------|
+| `required` | Show approval prompt before sending initial instructions (default) |
+| `auto` | Skip approval prompt, send instructions automatically |
 
 ## Instructions Management
 

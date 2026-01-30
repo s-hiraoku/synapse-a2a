@@ -219,6 +219,8 @@ flowchart TD
 | Claude | 8100-8109 | `claude.yaml` |
 | Gemini | 8110-8119 | `gemini.yaml` |
 | Codex | 8120-8129 | `codex.yaml` |
+| OpenCode | 8130-8139 | `opencode.yaml` |
+| Copilot | 8140-8149 | `copilot.yaml` |
 | Dummy | 8190-8199 | `dummy.yaml` |
 
 ### 主要コマンド

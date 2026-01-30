@@ -5,7 +5,7 @@
     "SYNAPSE_API_KEYS": "",
     "SYNAPSE_ADMIN_KEY": "",
     "SYNAPSE_ALLOW_LOCALHOST": "true",
-    "SYNAPSE_USE_HTTPS": "true",
+    "SYNAPSE_USE_HTTPS": "false",
     "SYNAPSE_WEBHOOK_SECRET": "",
     "SYNAPSE_WEBHOOK_TIMEOUT": "10",
     "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
@@ -16,8 +16,10 @@
     "default": "default.md",
     "claude": "",
     "gemini": "gemini.md",
-    "codex": ""
+    "codex": "",
+    "opencode": ""
   },
+  "approvalMode": "required",
   "a2a": {
     "flow": "auto"
   },
@@ -27,6 +29,7 @@
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],
-    "gemini": ["--resume"]
+    "gemini": ["--resume"],
+    "opencode": ["--continue", "-c"]
   }
 }

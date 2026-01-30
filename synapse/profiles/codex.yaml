@@ -11,6 +11,10 @@ idle_detection:
   strategy: "timeout"
   timeout: 3.0               # 3.0 seconds of no output = idle
 
+# Input ready detection for initial instructions
+# Wait for this pattern before sending instructions to ensure TUI is ready
+input_ready_pattern: "›"                       # Codex shows › when ready for input
+
 # WAITING status detection (user input prompts)
 # DISABLED: Current regex-based detection causes false positives
 # where WAITING status gets stuck because patterns remain in output buffer

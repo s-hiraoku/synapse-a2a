@@ -14,6 +14,10 @@ idle_detection:
   pattern_use: "startup_only"      # Only use pattern for first READY detection
   timeout: 3.0                     # 3.0 seconds of no output = idle (after first)
 
+# Input ready detection for initial instructions
+# Wait for this pattern before sending instructions to ensure TUI is ready
+input_ready_pattern: ">"                       # Gemini shows > in input box when ready
+
 # WAITING status detection (user input prompts)
 # DISABLED: Current regex-based detection causes false positives
 # where WAITING status gets stuck because patterns remain in output buffer

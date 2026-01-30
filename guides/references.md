@@ -519,9 +519,10 @@ synapse config --scope project  # プロジェクト設定を直接編集
 |----------|----------|
 | Environment Variables | `env.SYNAPSE_*` 環境変数 |
 | Instructions | `instructions.{default,claude,gemini,codex,opencode}` |
+| Approval Mode | `approvalMode` (required/auto) |
 | A2A Protocol | `a2a.flow` (auto/roundtrip/oneway) |
 | Delegation | `delegation.enabled` |
-| Resume Flags | `resume_flags.{claude,codex,gemini,opencode}` |
+| Resume Flags | `resume_flags.{claude,codex,gemini,opencode,copilot}` |
 
 ---
 
@@ -560,6 +561,7 @@ Current settings (merged from all scopes):
     "default": "[SYNAPSE INSTRUCTIONS...]",
     ...
   },
+  "approvalMode": "required",
   "a2a": { "flow": "auto" },
   "delegation": { "enabled": false },
   "resume_flags": { ... }
