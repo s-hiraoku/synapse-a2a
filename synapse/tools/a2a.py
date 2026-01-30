@@ -71,6 +71,27 @@ def is_descendant_of(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> 
     return False
 
 
+def get_ancestor_distance(child_pid: int, ancestor_pid: int, max_depth: int = 15) -> int | None:
+    """Get the distance (number of hops) from child to ancestor.
+
+    Returns the number of parent traversals needed to reach ancestor_pid,
+    or None if ancestor_pid is not an ancestor of child_pid.
+    """
+    current = child_pid
+    distance = 0
+    for _ in range(max_depth):
+        if current == ancestor_pid:
+            return distance
+        if current <= 1:
+            return None
+        parent = get_parent_pid(current)
+        if parent == 0 or parent == current:
+            return None
+        current = parent
+        distance += 1
+    return None
+
+
 def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]:
     """Extract sender info fields from agent registry entry.
 
@@ -124,16 +145,26 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
         return {"sender_id": explicit_sender}
 
     # Primary method: Registry PID matching
-    # Find which agent's process is an ancestor of current process
+    # Find the CLOSEST ancestor agent (shortest PID distance)
+    # This ensures we select the correct agent when multiple agents are running
     try:
         reg = AgentRegistry()
         agents = reg.list_agents()
         current_pid = os.getpid()
 
+        best_match: tuple[str, dict] | None = None
+        best_distance = float("inf")
+
         for agent_id, info in agents.items():
             agent_pid = info.get("pid")
-            if agent_pid and is_descendant_of(current_pid, agent_pid):
-                return _extract_sender_info_from_agent(agent_id, info)
+            if agent_pid:
+                distance = get_ancestor_distance(current_pid, agent_pid)
+                if distance is not None and distance < best_distance:
+                    best_distance = distance
+                    best_match = (agent_id, info)
+
+        if best_match:
+            return _extract_sender_info_from_agent(best_match[0], best_match[1])
     except Exception:
         pass
 

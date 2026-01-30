@@ -219,7 +219,8 @@ class TestBuildSenderInfoWithEndpointInfo:
         }
         monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
         monkeypatch.setattr(
-            "synapse.tools.a2a.is_descendant_of", lambda child, parent: True
+            "synapse.tools.a2a.get_ancestor_distance",
+            lambda child, ancestor, max_depth=15: 2,  # Return distance (is ancestor)
         )
         monkeypatch.setattr("os.getpid", lambda: 12346)
 

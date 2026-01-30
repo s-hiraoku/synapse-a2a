@@ -131,8 +131,8 @@ class TestBuildSenderInfo:
         assert result == {"sender_id": "my-agent"}
 
     @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
-    def test_auto_detect_from_registry(self, mock_is_descendant, mock_registry_cls):
+    @patch("synapse.tools.a2a.get_ancestor_distance")
+    def test_auto_detect_from_registry(self, mock_get_distance, mock_registry_cls):
         """Should auto-detect sender from registry PID matching."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -144,7 +144,7 @@ class TestBuildSenderInfo:
             }
         }
         mock_registry_cls.return_value = mock_registry
-        mock_is_descendant.return_value = True
+        mock_get_distance.return_value = 2  # Return distance (not None = is ancestor)
 
         result = build_sender_info()
 
@@ -153,8 +153,8 @@ class TestBuildSenderInfo:
         assert result["sender_endpoint"] == "http://localhost:8100"
 
     @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
-    def test_no_match_returns_empty(self, mock_is_descendant, mock_registry_cls):
+    @patch("synapse.tools.a2a.get_ancestor_distance")
+    def test_no_match_returns_empty(self, mock_get_distance, mock_registry_cls):
         """Should return empty dict when no matching agent."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {}

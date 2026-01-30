@@ -24,10 +24,10 @@ class TestBuildSenderInfo:
             }
         }
 
-        # Mock is_descendant_of to return True for the matching agent
+        # Mock get_ancestor_distance to return distance for the matching agent
         with (
             patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", return_value=True),
+            patch("synapse.tools.a2a.get_ancestor_distance", return_value=2),
         ):
             sender = build_sender_info()
 
@@ -58,10 +58,10 @@ class TestBuildSenderInfo:
             }
         }
 
-        # Mock is_descendant_of to return False (no match)
+        # Mock get_ancestor_distance to return None (no match)
         with (
             patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", return_value=False),
+            patch("synapse.tools.a2a.get_ancestor_distance", return_value=None),
         ):
             sender = build_sender_info()
             assert sender == {}
@@ -93,18 +93,157 @@ class TestBuildSenderInfo:
             },
         }
 
-        # Mock is_descendant_of to return True only for gemini's PID
-        def mock_is_descendant(child, ancestor):
-            return ancestor == 12346  # Only match gemini
+        # Mock get_ancestor_distance to return distance only for gemini's PID
+        def mock_get_ancestor_distance(child, ancestor, max_depth=15):
+            if ancestor == 12346:  # Only match gemini
+                return 2
+            return None
 
         with (
             patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant),
+            patch(
+                "synapse.tools.a2a.get_ancestor_distance",
+                side_effect=mock_get_ancestor_distance,
+            ),
         ):
             sender = build_sender_info()
 
             assert sender["sender_id"] == "synapse-gemini-8110"
             assert sender["sender_type"] == "gemini"
+
+    def test_pid_matching_selects_closest_ancestor(self):
+        """PID matching should select the closest ancestor when multiple agents match."""
+        from synapse.tools.a2a import build_sender_info
+
+        mock_registry = MagicMock()
+        # Multiple copilot agents running
+        mock_registry.list_agents.return_value = {
+            "synapse-copilot-8140": {
+                "agent_id": "synapse-copilot-8140",
+                "agent_type": "copilot",
+                "endpoint": "http://localhost:8140",
+                "pid": 1000,
+            },
+            "synapse-copilot-8141": {
+                "agent_id": "synapse-copilot-8141",
+                "agent_type": "copilot",
+                "endpoint": "http://localhost:8141",
+                "pid": 2000,
+            },
+            "synapse-copilot-8142": {
+                "agent_id": "synapse-copilot-8142",
+                "agent_type": "copilot",
+                "endpoint": "http://localhost:8142",
+                "pid": 3000,
+            },
+        }
+
+        # Mock get_ancestor_distance: copilot-8141 is the closest ancestor
+        def mock_get_ancestor_distance(child, ancestor, max_depth=15):
+            if ancestor == 1000:  # copilot-8140 is far ancestor
+                return 5
+            elif ancestor == 2000:  # copilot-8141 is closest
+                return 1
+            elif ancestor == 3000:  # copilot-8142 is medium distance
+                return 3
+            return None
+
+        with (
+            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
+            patch(
+                "synapse.tools.a2a.get_ancestor_distance",
+                side_effect=mock_get_ancestor_distance,
+            ),
+        ):
+            sender = build_sender_info()
+
+            # Should select copilot-8141 (distance=1, closest)
+            assert sender["sender_id"] == "synapse-copilot-8141"
+            assert sender["sender_type"] == "copilot"
+            assert sender["sender_endpoint"] == "http://localhost:8141"
+
+    def test_pid_matching_only_one_match(self):
+        """When only one agent is ancestor, it should be selected regardless of order."""
+        from synapse.tools.a2a import build_sender_info
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-copilot-8140": {
+                "agent_id": "synapse-copilot-8140",
+                "agent_type": "copilot",
+                "endpoint": "http://localhost:8140",
+                "pid": 1000,
+            },
+            "synapse-copilot-8141": {
+                "agent_id": "synapse-copilot-8141",
+                "agent_type": "copilot",
+                "endpoint": "http://localhost:8141",
+                "pid": 2000,
+            },
+        }
+
+        # Only copilot-8140 is an ancestor
+        def mock_get_ancestor_distance(child, ancestor, max_depth=15):
+            if ancestor == 1000:
+                return 2
+            return None  # copilot-8141 is not an ancestor
+
+        with (
+            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
+            patch(
+                "synapse.tools.a2a.get_ancestor_distance",
+                side_effect=mock_get_ancestor_distance,
+            ),
+        ):
+            sender = build_sender_info()
+
+            assert sender["sender_id"] == "synapse-copilot-8140"
+            assert sender["sender_endpoint"] == "http://localhost:8140"
+
+
+class TestGetAncestorDistance:
+    """Test get_ancestor_distance function."""
+
+    def test_returns_zero_when_same_pid(self):
+        """Distance should be 0 when child equals ancestor."""
+        from synapse.tools.a2a import get_ancestor_distance
+
+        result = get_ancestor_distance(1000, 1000)
+        assert result == 0
+
+    def test_returns_one_for_direct_parent(self):
+        """Distance should be 1 for direct parent."""
+        from synapse.tools.a2a import get_ancestor_distance
+
+        # Mock get_parent_pid to return the ancestor as direct parent
+        with patch("synapse.tools.a2a.get_parent_pid", return_value=2000):
+            result = get_ancestor_distance(1000, 2000)
+            assert result == 1
+
+    def test_returns_none_when_not_ancestor(self):
+        """Should return None when ancestor_pid is not an ancestor."""
+        from synapse.tools.a2a import get_ancestor_distance
+
+        # Mock get_parent_pid to return init (1) as parent
+        with patch("synapse.tools.a2a.get_parent_pid", return_value=1):
+            result = get_ancestor_distance(1000, 9999)
+            assert result is None
+
+    def test_returns_correct_distance_for_grandparent(self):
+        """Distance should be 2 for grandparent."""
+        from synapse.tools.a2a import get_ancestor_distance
+
+        # Mock chain: 1000 -> 2000 -> 3000
+        def mock_get_parent(pid):
+            if pid == 1000:
+                return 2000
+            elif pid == 2000:
+                return 3000
+            return 1  # init
+
+        with patch("synapse.tools.a2a.get_parent_pid", side_effect=mock_get_parent):
+            result = get_ancestor_distance(1000, 3000)
+            assert result == 2
 
 
 # ============================================================
