@@ -141,15 +141,7 @@ If no rules match, the `fallback` behavior is applied.
 
 ## Delegating Tasks
 
-Use the `@agent` pattern to send tasks to other agents:
-
-```text
-@codex Please refactor this function
-@gemini Research the latest API changes
-@claude Review this design document
-```
-
-For programmatic delegation (from AI agents):
+Use `synapse send` to delegate tasks to other agents:
 
 ```bash
 # Fire and forget (default)

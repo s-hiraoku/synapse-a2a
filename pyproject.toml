@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-a2a"
-version = "0.3.8"
+version = "0.3.9"
 description = "Agent-to-Agent communication protocol for CLI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -89,6 +89,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
+ignore_missing_imports = true
 exclude = [
     "synapse/proto/a2a_pb2.py",
     "synapse/proto/a2a_pb2_grpc.py",

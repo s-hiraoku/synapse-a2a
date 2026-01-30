@@ -88,6 +88,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "gemini": get_gemini_instructions(),
         "codex": "",
     },
+    "approvalMode": "required",  # "auto" | "required"
     "a2a": {
         "flow": "auto",  # "roundtrip" | "oneway" | "auto"
     },
@@ -175,6 +176,7 @@ class SynapseSettings:
 
     env: dict[str, str] = field(default_factory=dict)
     instructions: dict[str, str] = field(default_factory=dict)
+    approval_mode: str = field(default_factory=lambda: "required")
     a2a: dict[str, str] = field(default_factory=dict)
     delegation: dict[str, Any] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
@@ -185,6 +187,7 @@ class SynapseSettings:
         return cls(
             env=dict(DEFAULT_SETTINGS["env"]),
             instructions=dict(DEFAULT_SETTINGS["instructions"]),
+            approval_mode=DEFAULT_SETTINGS["approvalMode"],
             a2a=dict(DEFAULT_SETTINGS["a2a"]),
             delegation=dict(DEFAULT_SETTINGS["delegation"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
@@ -246,6 +249,7 @@ class SynapseSettings:
         return cls(
             env=merged.get("env", {}),
             instructions=merged.get("instructions", {}),
+            approval_mode=merged.get("approvalMode", "required"),
             a2a=merged.get("a2a", {}),
             delegation=merged.get("delegation", {}),
             resume_flags=merged.get("resume_flags", {}),
@@ -612,6 +616,27 @@ class SynapseSettings:
                 if flag.startswith("-") and arg.startswith(flag + "="):
                     return True
         return False
+
+    def get_approval_mode(self) -> str:
+        """
+        Get the approval mode setting.
+
+        Returns:
+            Approval mode: "auto" (no confirmation) or "required" (show prompt).
+            Invalid values fall back to "required".
+        """
+        if self.approval_mode in ("auto", "required"):
+            return self.approval_mode
+        return "required"
+
+    def should_require_approval(self) -> bool:
+        """
+        Determine if approval is required.
+
+        Returns:
+            True if user approval is required before sending messages.
+        """
+        return self.get_approval_mode() == "required"
 
 
 def get_settings() -> SynapseSettings:

@@ -589,9 +589,15 @@ def create_a2a_router(
                 )
 
         # Send to PTY with A2A prefix
-        # Format: A2A: <message>
+        # Format: A2A: [REPLY EXPECTED] <message> (if response expected)
+        # Or: A2A: <message> (if no response expected)
         try:
-            prefixed_content = format_a2a_message(text_content)
+            reply_expected = False
+            if request.metadata:
+                reply_expected = request.metadata.get("response_expected", False)
+            prefixed_content = format_a2a_message(
+                text_content, reply_expected=reply_expected
+            )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
             task_store.update_status(task.id, "failed")

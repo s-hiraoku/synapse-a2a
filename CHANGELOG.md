@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2026-01-30
+
+### Added
+
+- Add approval mode for initial instructions (#165)
+  - New `approvalMode` setting: `"auto"` (skip prompt) or `"required"` (show preview before sending)
+  - Show instruction preview with file list before agent startup
+  - Support `[Y/n/s]` prompt for approve, cancel, or skip options
+  - Add `--auto-approve` and `--require-approval` CLI flags
+- Add startup TUI animation with animated Synapse logo
+  - Left-to-right sweep animation effect
+  - Display quick reference commands after logo
+- Add `input_ready_pattern` profile setting for TUI ready detection
+  - Detect when agent's input area is ready before sending instructions
+  - Pattern-based detection (e.g., `❯` for Claude) or timeout-based fallback
+
+### Removed
+
+- Remove @Agent pattern feature
+  - Delete `input_router.py` and all @Agent routing code
+  - Use `synapse send` command exclusively for inter-agent communication
+  - Simplify controller by removing input parsing and action execution
+
+### Documentation
+
+- Update all skill files with `approvalMode` settings
+- Update README and guides to use `synapse send` instead of @Agent syntax
+
 ## [0.3.8] - 2026-01-28
 
 ### Fixed

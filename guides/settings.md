@@ -218,6 +218,7 @@ Codex もプラグインには対応していませんが、展開された skil
     "gemini": "[SYNAPSE INSTRUCTIONS...]",
     "codex": ""
   },
+  "approvalMode": "required",
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],
@@ -404,6 +405,48 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 委任を有効にするには、`.synapse/delegate.md` に委任ルールを記述してください。
 
 詳細は [delegation.md](delegation.md) を参照してください。
+
+## 承認モード (approvalMode)
+
+初期インストラクション送信前に確認プロンプトを表示するかを制御します。
+
+### 設定値
+
+| 設定 | 説明 |
+|------|------|
+| `approvalMode: required` | 起動時に確認プロンプトを表示（デフォルト） |
+| `approvalMode: auto` | プロンプトなしで自動的にインストラクションを送信 |
+
+### プロンプト表示
+
+`required` 設定時、以下のようなプロンプトが表示されます：
+
+```
+[Synapse] Agent: synapse-claude-8100 | Port: 8100
+[Synapse] Initial instructions will be sent to configure A2A communication.
+
+Proceed? [Y/n/s(skip)]:
+```
+
+### 選択肢
+
+| 入力 | 動作 |
+|------|------|
+| `Y` または Enter | 初期インストラクションを送信してエージェントを起動 |
+| `n` | 起動を中止 |
+| `s` | 初期インストラクションなしでエージェントを起動 |
+
+### 例
+
+```json
+{
+  "approvalMode": "auto"
+}
+```
+
+**ユースケース**:
+- **チーム環境**: `required` で各メンバーが確認できるようにする
+- **自動化/CI**: `auto` でプロンプトをスキップする
 
 ## ユースケース
 

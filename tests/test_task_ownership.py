@@ -245,8 +245,9 @@ class TestReceiverDisplaysSenderTaskId:
         call_args = mock_controller.write.call_args
         written_content = call_args[0][0]
 
-        # PTY output includes A2A prefix
-        assert written_content == "A2A: Test message"
+        # PTY output includes A2A prefix and [REPLY EXPECTED] marker
+        # when response_expected is True
+        assert written_content == "A2A: [REPLY EXPECTED] Test message"
 
 
 # ============================================================

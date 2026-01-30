@@ -84,7 +84,7 @@ flowchart LR
 | -------- | ------- |
 | **A2A Compliant** | All communication uses Message/Part + Task format, Agent Card discovery |
 | **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
-| **@Agent Syntax** | Send messages directly with `@claude`, `@codex-8120` |
+| **synapse send** | Send messages between agents via `synapse send <agent> "message"` |
 | **Sender Identification** | Auto-identify sender via `metadata.sender` + PID matching |
 | **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
 | **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
@@ -181,18 +181,18 @@ Ports are auto-assigned:
 
 ### 4. Inter-Agent Communication
 
-Use `@Agent` in the terminal to send messages:
+Use `synapse send` to send messages between agents:
 
-```text
-@codex Please review this design
-@gemini Suggest API improvements
+```bash
+synapse send codex "Please review this design" --from claude
+synapse send gemini "Suggest API improvements" --from claude
 ```
 
-For multiple instances of the same type, use `@type-port` format:
+For multiple instances of the same type, use type-port format:
 
-```text
-@codex-8120 Handle this task
-@codex-8121 Handle that task
+```bash
+synapse send codex-8120 "Handle this task" --from claude
+synapse send codex-8121 "Handle that task" --from claude
 ```
 
 ### 5. HTTP API
@@ -218,7 +218,7 @@ While coding with **Claude**, quickly query **Gemini** (better at web search) fo
 
 ```bash
 # In Claude's terminal:
-@gemini Summarize the new f-string features in Python 3.12
+synapse send gemini "Summarize the new f-string features in Python 3.12" --from claude
 ```
 
 ### 2. Cross-Review Designs (Intermediate)
@@ -226,7 +226,7 @@ Get feedback on your design from agents with different perspectives.
 
 ```bash
 # After Claude drafts a design:
-@gemini Critically review this design from scalability and maintainability perspectives
+synapse send gemini "Critically review this design from scalability and maintainability perspectives" --from claude
 ```
 
 ### 3. TDD Pair Programming (Intermediate)
@@ -237,7 +237,7 @@ Separate "test writer" and "implementer" for robust code.
 Create unit tests for auth.py - normal case and token expiration case.
 
 # Terminal 2 (Claude):
-@codex-8120 Implement auth.py to pass the tests you created
+synapse send codex-8120 "Implement auth.py to pass the tests you created" --from claude
 ```
 
 ### 4. Security Audit (Specialized)
@@ -248,7 +248,7 @@ Have an agent with a security expert role audit your code before committing.
 You are a security engineer. Review only for vulnerabilities (SQLi, XSS, etc.)
 
 # After writing code:
-@gemini Audit the current changes (git diff)
+synapse send gemini "Audit the current changes (git diff)" --from claude
 ```
 
 ### 5. Auto-Fix from Error Logs (Advanced)
@@ -259,7 +259,7 @@ Pass error logs to an agent for automatic fix suggestions.
 pytest > error.log
 
 # Ask agent to fix
-@claude Read error.log and fix the issue in synapse/server.py
+synapse send claude "Read error.log and fix the issue in synapse/server.py" --from gemini
 ```
 
 ### 6. Language/Framework Migration (Advanced)
@@ -270,7 +270,7 @@ Distribute large refactoring work across agents.
 Read legacy_api.js and create TypeScript type definitions
 
 # Terminal 2 (Codex):
-@claude Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts
+synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts" --from codex
 ```
 
 ### Comparison with SSH Remote
@@ -281,7 +281,7 @@ Read legacy_api.js and create TypeScript type definitions
 | Programmatic task submission | △ requires expect etc. | ◎ HTTP API |
 | Multiple simultaneous clients | △ multiple sessions | ◎ single endpoint |
 | Real-time progress notifications | ✗ | ◎ SSE/Webhook |
-| Automatic inter-agent coordination | ✗ | ◎ @Agent syntax |
+| Automatic inter-agent coordination | ✗ | ◎ synapse send |
 
 > **Note**: SSH is often sufficient for individual CLI use. Synapse shines when you need automation, coordination, and multi-agent collaboration.
 
@@ -296,7 +296,6 @@ Read legacy_api.js and create TypeScript type definitions
 With skills installed, Claude automatically understands and executes:
 
 - **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from claude`
-- **@agent pattern**: Direct sending from user input via `@codex Fix this`
 - **Priority control**: Message sending with Priority 1-5 (5 = emergency stop)
 - **Task delegation**: Automatic task routing with `delegation.enabled`
 - **File Safety**: Prevent multi-agent conflicts with file locking and change tracking
@@ -313,7 +312,7 @@ npx skills add s-hiraoku/synapse-a2a
 
 | Skill | Description |
 |-------|-------------|
-| **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, @agent routing, priority, A2A protocol, history, File Safety, settings |
+| **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
 | **delegation** | Automatic task delegation setup: `delegation.enabled`, pre-checks, error handling, File Safety integration |
 
 ### Directory Structure
@@ -1204,6 +1203,7 @@ synapse config show --scope user
     "gemini": "",
     "codex": ""
   },
+  "approvalMode": "required",
   "a2a": {
     "flow": "auto"
   },
@@ -1243,6 +1243,29 @@ synapse config show --scope user
 |---------|-------|-------------|
 | `enabled` | `true` | Load `.synapse/delegate.md` and enable delegation rules |
 | `enabled` | `false` | Disable delegation (default) |
+
+### Approval Mode (approvalMode)
+
+Controls whether to show a confirmation prompt before sending initial instructions.
+
+| Setting | Description |
+|---------|-------------|
+| `required` | Show approval prompt at startup (default) |
+| `auto` | Send instructions automatically without prompting |
+
+When set to `required`, you'll see a prompt like:
+
+```
+[Synapse] Agent: synapse-claude-8100 | Port: 8100
+[Synapse] Initial instructions will be sent to configure A2A communication.
+
+Proceed? [Y/n/s(skip)]:
+```
+
+Options:
+- **Y** (or Enter): Send initial instructions and start agent
+- **n**: Abort startup
+- **s**: Start agent without sending initial instructions
 
 ### Initial Instructions (instructions)
 

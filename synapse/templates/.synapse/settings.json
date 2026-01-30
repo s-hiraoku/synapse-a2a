@@ -19,6 +19,7 @@
     "codex": "",
     "opencode": ""
   },
+  "approvalMode": "required",
   "a2a": {
     "flow": "auto"
   },
@@ -29,11 +30,7 @@
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],
     "gemini": ["--resume"],
-    "opencode": ["--continue", "-c"]
-  },
-  "defaultMode": "auto",
-  "providers": {},
-  "ui": {
-    "warningBanner": "always"
+    "opencode": ["--continue", "-c"],
+    "copilot": ["--continue", "-c"]
   }
 }

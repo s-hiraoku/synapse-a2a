@@ -107,7 +107,6 @@ synapse/
 ├── server.py        # FastAPI server with A2A endpoints
 ├── a2a_compat.py    # A2A protocol implementation (Agent Card, Task API)
 ├── a2a_client.py    # Client for communicating with other A2A agents
-├── input_router.py  # @Agent pattern detection and routing
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
@@ -123,9 +122,6 @@ synapse/
 **Startup Sequence**:
 
 1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix
-
-**@Agent Routing**:
-User types `@codex review this` → InputRouter detects pattern → A2AClient.send_to_local() → POST /tasks/send-priority to target agent
 
 **Agent Status System**:
 
@@ -301,7 +297,7 @@ synapse list
 **Observing TRANSPORT column**:
 ```bash
 # In Terminal 1 (Claude), send message to Gemini:
-@gemini hello
+synapse send gemini "hello" --from claude
 
 # In Terminal 3, observe:
 # - Claude shows "UDS→" (sending via UDS)

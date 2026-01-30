@@ -120,6 +120,22 @@ class TestFormatA2AMessage:
         result = format_a2a_message("[INFO] Test: value")
         assert result == "A2A: [INFO] Test: value"
 
+    def test_reply_expected_true(self):
+        """Should include [REPLY EXPECTED] marker when reply_expected=True."""
+        result = format_a2a_message("What is the status?", reply_expected=True)
+        assert result == "A2A: [REPLY EXPECTED] What is the status?"
+
+    def test_reply_expected_false(self):
+        """Should not include marker when reply_expected=False."""
+        result = format_a2a_message("FYI: done", reply_expected=False)
+        assert result == "A2A: FYI: done"
+
+    def test_reply_expected_default(self):
+        """Should not include marker by default (reply_expected=False)."""
+        result = format_a2a_message("Hello")
+        assert result == "A2A: Hello"
+        assert "[REPLY EXPECTED]" not in result
+
 
 class TestGetIsoTimestamp:
     """Tests for get_iso_timestamp function."""

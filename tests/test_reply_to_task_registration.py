@@ -514,9 +514,10 @@ class TestReplyToFlowIntegration:
         assert send_response.status_code == 200
         codex_controller.write.assert_called_once()
 
-        # Verify A2A prefixed message is displayed
+        # Verify A2A prefixed message is displayed with [REPLY EXPECTED] marker
+        # when response_expected is True
         write_call = codex_controller.write.call_args[0][0]
-        assert write_call == "A2A: Please help me"
+        assert write_call == "A2A: [REPLY EXPECTED] Please help me"
 
         # Step 3: Codex replies via --reply-to
         reply_payload = {

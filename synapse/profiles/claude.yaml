@@ -18,6 +18,11 @@ idle_detection:
   pattern_use: "startup_only"                  # Only check pattern at startup
   timeout: 0.5                                 # 500ms no output = idle (fallback)
 
+# Input ready detection for initial instructions
+# Disabled: ❯ pattern may not reliably appear in all Claude Code versions
+# Rely on timeout-based idle detection (0.5s) instead
+# input_ready_pattern: "❯"
+
 # WAITING status detection (user input prompts)
 # DISABLED: Current regex-based detection causes false positives
 # where WAITING status gets stuck because patterns remain in output buffer

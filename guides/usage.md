@@ -47,12 +47,44 @@ synapse claude --port 8100
 
 **起動時の表示**:
 
+起動時にアニメーション付きのバナーが表示されます：
+
 ```
-[Synapse] Starting claude on port 8100
-[Synapse] Submit sequence: '\r'
-[Synapse] Use @Agent to send messages to other agents
-[Synapse] Use @Agent 'message' to get response here
-[Synapse] Press Ctrl+C twice to exit
+ ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗ ███████╗███████╗
+ ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔════╝
+ ███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝███████╗█████╗
+ ╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ╚════██║██╔══╝
+ ███████║   ██║   ██║ ╚████║██║  ██║██║     ███████║███████╗
+ ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
+
+ Agent-to-Agent Communication Framework
+
+ ────────────────────────────────────────────────────────────
+
+ Agent Configuration
+   Type:     claude
+   ID:       synapse-claude-8100
+   Port:     8100
+
+ A2A Endpoints
+   Agent Card: http://localhost:8100/.well-known/agent.json
+   Tasks API:  http://localhost:8100/tasks/send
+
+ Quick Reference
+   synapse list              Show running agents
+   synapse send <agent> "msg"  Send message to agent
+   Ctrl+C (twice)            Exit
+
+ ────────────────────────────────────────────────────────────
+```
+
+続いて承認プロンプト（`approvalMode: required` の場合）が表示されます：
+
+```
+[Synapse] Agent: synapse-claude-8100 | Port: 8100
+[Synapse] Initial instructions will be sent to configure A2A communication.
+
+Proceed? [Y/n/s(skip)]:
 ```
 
 **ショートカット構文**:
