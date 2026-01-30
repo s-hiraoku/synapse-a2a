@@ -1,110 +1,179 @@
 """Tests for ReplyStack class."""
 
-from synapse.reply_stack import ReplyStack
+from synapse.reply_stack import ReplyStack, SenderInfo
 
 
 class TestReplyStack:
-    """Test cases for ReplyStack."""
+    """Test cases for ReplyStack with Map-based storage."""
 
-    def test_push_and_pop(self) -> None:
-        """Test basic push and pop operations."""
+    def test_set_and_get_by_sender_id(self) -> None:
+        """Test basic set and get operations by sender_id."""
         stack = ReplyStack()
-        sender_info = {
+        sender_info: SenderInfo = {
             "sender_endpoint": "http://localhost:8100",
             "sender_task_id": "abc12345",
         }
-        stack.push(sender_info)
-        result = stack.pop()
+        stack.set("synapse-claude-8100", sender_info)
+        result = stack.get("synapse-claude-8100")
         assert result == sender_info
 
+    def test_get_nonexistent_returns_none(self) -> None:
+        """Test get on nonexistent sender returns None."""
+        stack = ReplyStack()
+        assert stack.get("nonexistent") is None
+
+    def test_multiple_senders_coexist(self) -> None:
+        """Test that multiple senders can coexist in the map."""
+        stack = ReplyStack()
+        info_claude: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "id1",
+        }
+        info_gemini: SenderInfo = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "id2",
+        }
+        info_codex: SenderInfo = {
+            "sender_endpoint": "http://localhost:8120",
+            "sender_task_id": "id3",
+        }
+
+        stack.set("synapse-claude-8100", info_claude)
+        stack.set("synapse-gemini-8110", info_gemini)
+        stack.set("synapse-codex-8120", info_codex)
+
+        # All three should be retrievable
+        assert stack.get("synapse-claude-8100") == info_claude
+        assert stack.get("synapse-gemini-8110") == info_gemini
+        assert stack.get("synapse-codex-8120") == info_codex
+
+    def test_same_sender_overwrites(self) -> None:
+        """Test that same sender_id overwrites previous entry."""
+        stack = ReplyStack()
+        info1: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "first",
+        }
+        info2: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "second",
+        }
+
+        stack.set("synapse-claude-8100", info1)
+        stack.set("synapse-claude-8100", info2)
+
+        # Should have the second value
+        result = stack.get("synapse-claude-8100")
+        assert result == info2
+        assert result is not None
+        assert result["sender_task_id"] == "second"
+
+    def test_pop_removes_entry(self) -> None:
+        """Test that pop returns and removes the entry."""
+        stack = ReplyStack()
+        info: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "abc",
+        }
+        stack.set("synapse-claude-8100", info)
+
+        # Pop should return and remove
+        result = stack.pop("synapse-claude-8100")
+        assert result == info
+
+        # Second pop should return None
+        assert stack.pop("synapse-claude-8100") is None
+        assert stack.get("synapse-claude-8100") is None
+
+    def test_pop_any_returns_arbitrary_entry(self) -> None:
+        """Test that pop() without sender_id returns any entry."""
+        stack = ReplyStack()
+        info: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "abc",
+        }
+        stack.set("synapse-claude-8100", info)
+
+        # pop() without arg should return the entry
+        result = stack.pop()
+        assert result == info
+
+        # Should be empty now
+        assert stack.is_empty() is True
+
     def test_pop_empty_returns_none(self) -> None:
-        """Test pop on empty stack returns None."""
+        """Test that pop on empty map returns None."""
         stack = ReplyStack()
         assert stack.pop() is None
-
-    def test_lifo_order(self) -> None:
-        """Test that stack follows LIFO order."""
-        stack = ReplyStack()
-        info1 = {"sender_endpoint": "http://localhost:8100", "sender_task_id": "id1"}
-        info2 = {"sender_endpoint": "http://localhost:8110", "sender_task_id": "id2"}
-        info3 = {"sender_endpoint": "http://localhost:8120", "sender_task_id": "id3"}
-
-        stack.push(info1)
-        stack.push(info2)
-        stack.push(info3)
-
-        assert stack.pop() == info3
-        assert stack.pop() == info2
-        assert stack.pop() == info1
-        assert stack.pop() is None
-
-    def test_peek_returns_top_without_removing(self) -> None:
-        """Test that peek returns top element without removing it."""
-        stack = ReplyStack()
-        info = {"sender_endpoint": "http://localhost:8100", "sender_task_id": "abc"}
-        stack.push(info)
-
-        # Peek should return the same element multiple times
-        assert stack.peek() == info
-        assert stack.peek() == info
-        # Pop should still return it
-        assert stack.pop() == info
-        assert stack.peek() is None
+        assert stack.pop("nonexistent") is None
 
     def test_is_empty(self) -> None:
         """Test is_empty method."""
         stack = ReplyStack()
         assert stack.is_empty() is True
 
-        stack.push({"sender_endpoint": "http://localhost:8100"})
+        stack.set("synapse-claude-8100", {"sender_endpoint": "http://localhost:8100"})
         assert stack.is_empty() is False
 
-        stack.pop()
+        stack.pop("synapse-claude-8100")
         assert stack.is_empty() is True
 
     def test_clear(self) -> None:
         """Test clear method removes all items."""
         stack = ReplyStack()
-        stack.push({"sender_endpoint": "http://localhost:8100"})
-        stack.push({"sender_endpoint": "http://localhost:8110"})
+        stack.set("synapse-claude-8100", {"sender_endpoint": "http://localhost:8100"})
+        stack.set("synapse-gemini-8110", {"sender_endpoint": "http://localhost:8110"})
 
         stack.clear()
         assert stack.is_empty() is True
-        assert stack.pop() is None
+        assert stack.get("synapse-claude-8100") is None
+        assert stack.get("synapse-gemini-8110") is None
 
     def test_partial_sender_info(self) -> None:
         """Test handling of partial sender info (missing some fields)."""
         stack = ReplyStack()
         # Only endpoint, no task_id
-        info = {"sender_endpoint": "http://localhost:8100"}
-        stack.push(info)
-        assert stack.pop() == info
+        info: SenderInfo = {"sender_endpoint": "http://localhost:8100"}
+        stack.set("synapse-claude-8100", info)
+        assert stack.get("synapse-claude-8100") == info
+
+    def test_list_senders(self) -> None:
+        """Test listing all sender IDs."""
+        stack = ReplyStack()
+        stack.set("synapse-claude-8100", {"sender_endpoint": "http://localhost:8100"})
+        stack.set("synapse-gemini-8110", {"sender_endpoint": "http://localhost:8110"})
+
+        senders = stack.list_senders()
+        assert set(senders) == {"synapse-claude-8100", "synapse-gemini-8110"}
 
     def test_thread_safety(self) -> None:
         """Test thread-safe operations."""
         import threading
 
         stack = ReplyStack()
-        errors = []
+        errors: list[Exception] = []
 
-        def push_items() -> None:
+        def set_items() -> None:
             try:
                 for i in range(100):
-                    stack.push({"sender_endpoint": f"http://localhost:{8100 + i}"})
+                    stack.set(
+                        f"agent-{i % 10}",
+                        {"sender_endpoint": f"http://localhost:{8100 + i}"},
+                    )
             except Exception as e:
                 errors.append(e)
 
-        def pop_items() -> None:
+        def get_items() -> None:
             try:
-                for _ in range(100):
-                    stack.pop()  # May return None, that's ok
+                for i in range(100):
+                    stack.get(f"agent-{i % 10}")  # May return None, that's ok
             except Exception as e:
                 errors.append(e)
 
         threads = []
         for _ in range(5):
-            threads.append(threading.Thread(target=push_items))
-            threads.append(threading.Thread(target=pop_items))
+            threads.append(threading.Thread(target=set_items))
+            threads.append(threading.Thread(target=get_items))
 
         for t in threads:
             t.start()
@@ -133,6 +202,12 @@ class TestReplyStackGlobal:
         # Clear first to ensure clean state
         stack.clear()
 
-        info = {"sender_endpoint": "http://localhost:8100", "sender_task_id": "test123"}
-        stack.push(info)
-        assert stack.pop() == info
+        info: SenderInfo = {
+            "sender_endpoint": "http://localhost:8100",
+            "sender_task_id": "test123",
+        }
+        stack.set("synapse-claude-8100", info)
+        assert stack.get("synapse-claude-8100") == info
+
+        # Cleanup
+        stack.clear()

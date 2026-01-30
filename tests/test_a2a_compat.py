@@ -762,15 +762,9 @@ class TestReplyStackEndpoints:
         assert response.status_code == 404
         assert "No reply target" in response.json()["detail"]
 
-    def test_reply_stack_peek_empty_returns_404(self, client, mock_controller):  # noqa: ARG002
-        """GET /reply-stack/peek should return 404 when stack is empty."""
-        response = client.get("/reply-stack/peek")
-        assert response.status_code == 404
-        assert "No reply target" in response.json()["detail"]
-
-    def test_reply_stack_push_on_message_receive(self, client, mock_controller):  # noqa: ARG002
-        """Receiving a message should push sender info to reply stack."""
-        # Send a message with sender info
+    def test_reply_stack_stores_on_response_expected(self, client, mock_controller):  # noqa: ARG002
+        """Receiving a message with response_expected=True should store sender info."""
+        # Send a message with response_expected=True
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
@@ -779,6 +773,7 @@ class TestReplyStackEndpoints:
                     "sender_endpoint": "http://localhost:8100",
                 },
                 "sender_task_id": "abc12345-uuid",
+                "response_expected": True,
             },
         }
         client.post("/tasks/send", json=payload)
@@ -790,13 +785,35 @@ class TestReplyStackEndpoints:
         assert data["sender_endpoint"] == "http://localhost:8100"
         assert data["sender_task_id"] == "abc12345-uuid"
 
-    def test_reply_stack_pop_removes_entry(self, client, mock_controller):  # noqa: ARG002
-        """Pop should remove the entry from the stack."""
-        # Send a message
+    def test_reply_stack_not_stored_without_response_expected(self, client, mock_controller):  # noqa: ARG002
+        """Messages without response_expected=True should NOT be stored."""
+        # Send a message without response_expected
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
-                "sender": {"sender_endpoint": "http://localhost:8100"},
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Stack should be empty
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 404
+
+    def test_reply_stack_pop_removes_entry(self, client, mock_controller):  # noqa: ARG002
+        """Pop should remove the entry from the map."""
+        # Send a message with response_expected=True
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "response_expected": True,
             },
         }
         client.post("/tasks/send", json=payload)
@@ -809,68 +826,49 @@ class TestReplyStackEndpoints:
         response = client.get("/reply-stack/pop")
         assert response.status_code == 404
 
-    def test_reply_stack_peek_does_not_remove(self, client, mock_controller):  # noqa: ARG002
-        """Peek should return the entry without removing it."""
-        # Send a message
-        payload = {
-            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
-            "metadata": {
-                "sender": {"sender_endpoint": "http://localhost:8110"},
-                "sender_task_id": "task-xyz",
-            },
-        }
-        client.post("/tasks/send", json=payload)
-
-        # Peek twice - should return same data
-        response1 = client.get("/reply-stack/peek")
-        assert response1.status_code == 200
-        data1 = response1.json()
-
-        response2 = client.get("/reply-stack/peek")
-        assert response2.status_code == 200
-        data2 = response2.json()
-
-        assert data1 == data2
-
-        # Pop should still work
-        response3 = client.get("/reply-stack/pop")
-        assert response3.status_code == 200
-        assert response3.json() == data1
-
-    def test_reply_stack_lifo_order(self, client, mock_controller):  # noqa: ARG002
-        """Stack should follow LIFO order."""
-        # Send multiple messages
-        for port in [8100, 8110, 8120]:
+    def test_reply_stack_multiple_senders_coexist(self, client, mock_controller):  # noqa: ARG002
+        """Multiple senders can coexist in the map."""
+        # Send messages from different senders
+        for sender_id, port in [
+            ("synapse-claude-8100", 8100),
+            ("synapse-gemini-8110", 8110),
+        ]:
             payload = {
                 "message": {"role": "user", "parts": [{"type": "text", "text": "Hi"}]},
                 "metadata": {
-                    "sender": {"sender_endpoint": f"http://localhost:{port}"},
+                    "sender": {
+                        "sender_id": sender_id,
+                        "sender_endpoint": f"http://localhost:{port}",
+                    },
+                    "response_expected": True,
                 },
             }
             client.post("/tasks/send", json=payload)
 
-        # Pop should return in reverse order (LIFO)
+        # Both entries should be retrievable (pop returns any)
         resp1 = client.get("/reply-stack/pop")
-        assert resp1.json()["sender_endpoint"] == "http://localhost:8120"
+        assert resp1.status_code == 200
 
         resp2 = client.get("/reply-stack/pop")
-        assert resp2.json()["sender_endpoint"] == "http://localhost:8110"
+        assert resp2.status_code == 200
 
+        # Now empty
         resp3 = client.get("/reply-stack/pop")
-        assert resp3.json()["sender_endpoint"] == "http://localhost:8100"
+        assert resp3.status_code == 404
 
-    def test_message_without_sender_endpoint_not_pushed(self, client, mock_controller):  # noqa: ARG002
-        """Message without sender_endpoint should not be pushed to stack."""
-        # Send a message without sender_endpoint
+    def test_message_without_sender_id_not_stored(self, client, mock_controller):  # noqa: ARG002
+        """Message without sender_id should not be stored."""
+        # Send a message without sender_id
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
-                "sender": {"sender_id": "some-agent"},  # No endpoint
+                "sender": {"sender_endpoint": "http://localhost:8100"},  # No sender_id
+                "response_expected": True,
             },
         }
         client.post("/tasks/send", json=payload)
 
-        # Stack should be empty
+        # Stack should be empty (no sender_id to use as key)
         response = client.get("/reply-stack/pop")
         assert response.status_code == 404
 

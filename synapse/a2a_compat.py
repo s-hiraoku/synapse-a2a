@@ -573,30 +573,35 @@ def create_a2a_router(
             controller.interrupt()
 
         # Push sender info to reply stack for simplified reply routing
+        # Only store if response_expected=True (sender is waiting for reply)
         if request.metadata:
-            sender_info = request.metadata.get("sender", {})
-            sender_endpoint = sender_info.get("sender_endpoint")
-            sender_uds_path = sender_info.get("sender_uds_path")
-            sender_task_id = request.metadata.get("sender_task_id")
-            if sender_endpoint or sender_uds_path:
-                reply_stack = get_reply_stack()
-                reply_stack.push(
-                    {
-                        "sender_endpoint": sender_endpoint,
-                        "sender_uds_path": sender_uds_path,
-                        "sender_task_id": sender_task_id,
-                    }
-                )
+            response_expected = request.metadata.get("response_expected", False)
+            if response_expected:
+                sender_info = request.metadata.get("sender", {})
+                sender_id = sender_info.get("sender_id")
+                sender_endpoint = sender_info.get("sender_endpoint")
+                sender_uds_path = sender_info.get("sender_uds_path")
+                sender_task_id = request.metadata.get("sender_task_id")
+                if sender_id and (sender_endpoint or sender_uds_path):
+                    reply_stack = get_reply_stack()
+                    reply_stack.set(
+                        sender_id,
+                        {
+                            "sender_endpoint": sender_endpoint,
+                            "sender_uds_path": sender_uds_path,
+                            "sender_task_id": sender_task_id,
+                        },
+                    )
 
         # Send to PTY with A2A prefix
         # Format: A2A: [REPLY EXPECTED] <message> (if response expected)
         # Or: A2A: <message> (if no response expected)
         try:
-            reply_expected = False
+            response_expected = False
             if request.metadata:
-                reply_expected = request.metadata.get("response_expected", False)
+                response_expected = request.metadata.get("response_expected", False)
             prefixed_content = format_a2a_message(
-                text_content, reply_expected=reply_expected
+                text_content, response_expected=response_expected
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
@@ -1239,24 +1244,6 @@ def create_a2a_router(
         """
         reply_stack = get_reply_stack()
         info = reply_stack.pop()
-        if not info:
-            raise HTTPException(status_code=404, detail="No reply target")
-        return ReplyTarget(
-            sender_endpoint=info.get("sender_endpoint"),
-            sender_uds_path=info.get("sender_uds_path"),
-            sender_task_id=info.get("sender_task_id"),
-        )
-
-    @router.get("/reply-stack/peek", response_model=ReplyTarget)
-    async def peek_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
-        """
-        Peek at the last reply target without removing it.
-
-        Returns 404 if the stack is empty.
-        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
-        """
-        reply_stack = get_reply_stack()
-        info = reply_stack.peek()
         if not info:
             raise HTTPException(status_code=404, detail="No reply target")
         return ReplyTarget(

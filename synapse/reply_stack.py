@@ -1,9 +1,15 @@
 """
 Reply Stack for A2A Message Routing
 
-This module provides a stack-based mechanism for tracking reply targets.
-When an agent receives a message, the sender info is pushed to the stack.
-When the agent wants to reply, it pops from the stack to get the target.
+This module provides a map-based mechanism for tracking reply targets.
+When an agent receives a message with response_expected=True, the sender info
+is stored by sender_id. When the agent wants to reply, it retrieves by sender_id.
+
+Key features:
+- Map-based storage (sender_id -> SenderInfo)
+- Multiple senders can coexist without overwriting each other
+- Same sender's new message overwrites the previous entry
+- Thread-safe operations
 """
 
 import threading
@@ -20,44 +26,60 @@ class SenderInfo(TypedDict, total=False):
 
 class ReplyStack:
     """
-    Thread-safe stack for tracking reply targets.
+    Thread-safe map for tracking reply targets by sender_id.
 
-    When a message is received from another agent, the sender info is pushed.
-    When replying, pop to get the target endpoint and task ID.
+    When a message is received from another agent with response_expected=True,
+    the sender info is stored using sender_id as the key. When replying,
+    pop by sender_id to get the target endpoint and task ID.
     """
 
     def __init__(self) -> None:
-        self._stack: list[SenderInfo] = []
+        self._map: dict[str, SenderInfo] = {}
         self._lock = threading.Lock()
 
-    def push(self, sender_info: SenderInfo) -> None:
-        """Push sender info onto the stack."""
+    def set(self, sender_id: str, sender_info: SenderInfo) -> None:
+        """Store sender info by sender_id. Overwrites if exists."""
         with self._lock:
-            self._stack.append(sender_info)
+            self._map[sender_id] = sender_info
 
-    def pop(self) -> SenderInfo | None:
-        """Pop and return the top sender info, or None if empty."""
+    def get(self, sender_id: str) -> SenderInfo | None:
+        """Get sender info by sender_id without removing it."""
         with self._lock:
-            if self._stack:
-                return self._stack.pop()
-            return None
+            return self._map.get(sender_id)
 
-    def peek(self) -> SenderInfo | None:
-        """Return the top sender info without removing it."""
+    def pop(self, sender_id: str | None = None) -> SenderInfo | None:
+        """
+        Pop and return sender info.
+
+        Args:
+            sender_id: If provided, pop specific sender. Otherwise pop any entry.
+
+        Returns:
+            SenderInfo or None if not found/empty.
+        """
         with self._lock:
-            if self._stack:
-                return self._stack[-1]
+            if sender_id is not None:
+                return self._map.pop(sender_id, None)
+            # Pop any entry if no sender_id specified
+            if self._map:
+                key = next(iter(self._map))
+                return self._map.pop(key)
             return None
 
     def is_empty(self) -> bool:
-        """Check if the stack is empty."""
+        """Check if the map is empty."""
         with self._lock:
-            return len(self._stack) == 0
+            return len(self._map) == 0
 
     def clear(self) -> None:
-        """Clear all items from the stack."""
+        """Clear all items from the map."""
         with self._lock:
-            self._stack.clear()
+            self._map.clear()
+
+    def list_senders(self) -> list[str]:
+        """Return list of all sender IDs currently stored."""
+        with self._lock:
+            return list(self._map.keys())
 
 
 # Global reply stack instance
