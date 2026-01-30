@@ -791,7 +791,9 @@ class TestReplyStackEndpoints:
         assert data["sender_endpoint"] == "http://localhost:8100"
         assert data["sender_task_id"] == "abc12345-uuid"
 
-    def test_reply_stack_not_stored_without_response_expected(self, client, mock_controller):  # noqa: ARG002
+    def test_reply_stack_not_stored_without_response_expected(
+        self, client, mock_controller
+    ):  # noqa: ARG002
         """Messages without response_expected=True should NOT be stored."""
         # Send a message without response_expected
         payload = {
