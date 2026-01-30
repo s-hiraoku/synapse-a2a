@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from synapse.settings import (
     DEFAULT_SETTINGS,
@@ -16,15 +16,19 @@ from synapse.settings import (
 
 # questionary is optional (used by legacy ConfigCommand)
 HAS_QUESTIONARY = False
-try:
+if TYPE_CHECKING:
     import questionary
     from questionary import Choice, Separator
+else:
+    try:
+        import questionary
+        from questionary import Choice, Separator
 
-    HAS_QUESTIONARY = True
-except ImportError:
-    questionary = None
-    Choice = None
-    Separator = None
+        HAS_QUESTIONARY = True
+    except ImportError:
+        questionary = None  # type: ignore[assignment]
+        Choice = None  # type: ignore[assignment,misc]
+        Separator = None  # type: ignore[assignment,misc]
 
 # Sentinel value for "Back to main menu" choice
 # Note: questionary.Choice(title, value=None) uses title as value, not None

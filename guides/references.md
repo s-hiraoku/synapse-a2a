@@ -225,7 +225,7 @@ synapse send codex "結果を教えて" --response --from claude
 
 ### 1.7 synapse reply
 
-最後に受信したA2Aメッセージに返信します。Reply Stackを使用して、送信者情報を自動的に取得します。
+最後に受信したA2Aメッセージに返信します。Synapseは返信を期待するメッセージの送信者情報を自動的に追跡します。
 
 ```bash
 synapse reply <message> [--from AGENT_ID]
@@ -244,9 +244,9 @@ synapse reply "タスク完了しました" --from gemini
 ```
 
 **動作**:
-1. 自身のエージェントのReply Stackから送信者情報を取得
+1. 自身のエージェントの返信追跡マップから送信者情報を取得
 2. 送信者のエンドポイントに返信を送信
-3. 成功後、スタックから送信者情報をポップ
+3. 成功後、送信者情報を削除
 
 ---
 

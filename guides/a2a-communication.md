@@ -102,7 +102,7 @@ A2A: <message>
 synapse reply "<your reply>" --from <your_agent_type>
 ```
 
-**Reply Stack:** Synapse は送信者情報を自動的に追跡します。`synapse reply` を使うと、最後にメッセージを送ってきたエージェントに自動的に返信されます。
+**返信追跡:** Synapseは`[REPLY EXPECTED]`マーカー付きメッセージの送信者情報を自動的に追跡します。`synapse reply`を使うと、返信を期待しているエージェントに自動的に返信されます。
 
 ### 受信・返信の例
 

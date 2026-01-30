@@ -11,11 +11,13 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import threading
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 import httpx
@@ -31,12 +33,16 @@ from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
 from synapse.output_parser import parse_output
 from synapse.registry import AgentRegistry
+from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
     get_webhook_registry,
 )
+
+if TYPE_CHECKING:
+    from synapse.a2a_client import ExternalAgent
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -47,6 +53,89 @@ TaskState = Literal[
     "failed",  # Task failed
     "canceled",  # Task was canceled
 ]
+
+
+# ============================================================
+# Helper Functions (Refactored)
+# ============================================================
+
+
+@dataclass
+class SenderInfo:
+    """Extracted sender information from metadata."""
+
+    sender_id: str | None = None
+    sender_endpoint: str | None = None
+    sender_uds_path: str | None = None
+    sender_task_id: str | None = None
+
+    def has_reply_target(self) -> bool:
+        """Check if there's enough info to send a reply."""
+        return bool(self.sender_id and (self.sender_endpoint or self.sender_uds_path))
+
+    def to_reply_stack_entry(self) -> ReplyStackSenderInfo:
+        """Convert to SenderInfo TypedDict for reply stack storage."""
+        entry: ReplyStackSenderInfo = {}
+        if self.sender_endpoint:
+            entry["sender_endpoint"] = self.sender_endpoint
+        if self.sender_uds_path:
+            entry["sender_uds_path"] = self.sender_uds_path
+        if self.sender_task_id:
+            entry["sender_task_id"] = self.sender_task_id
+        return entry
+
+
+def _extract_sender_info(metadata: dict[str, Any] | None) -> SenderInfo:
+    """Extract sender info from request/task metadata.
+
+    Args:
+        metadata: The metadata dict containing sender info
+
+    Returns:
+        SenderInfo dataclass with extracted values
+    """
+    if not metadata:
+        return SenderInfo()
+
+    sender = metadata.get("sender", {})
+    return SenderInfo(
+        sender_id=sender.get("sender_id"),
+        sender_endpoint=sender.get("sender_endpoint"),
+        sender_uds_path=sender.get("sender_uds_path"),
+        sender_task_id=metadata.get("sender_task_id"),
+    )
+
+
+def _dispatch_task_event(event_type: str, payload: dict[str, Any]) -> None:
+    """Dispatch a task event asynchronously via webhook.
+
+    Args:
+        event_type: Event type (e.g., "task.completed", "task.failed")
+        payload: Event payload dict
+    """
+    asyncio.create_task(dispatch_event(get_webhook_registry(), event_type, payload))
+
+
+def _convert_agent_to_info(agent: "ExternalAgent") -> "ExternalAgentInfo":
+    """Convert ExternalAgent object to ExternalAgentInfo response model.
+
+    Args:
+        agent: ExternalAgent object from A2A client
+
+    Returns:
+        ExternalAgentInfo for API response
+    """
+    # ExternalAgentInfo is defined later in this file
+    return ExternalAgentInfo(
+        name=agent.name,
+        alias=agent.alias,
+        url=agent.url,
+        description=agent.description,
+        capabilities=agent.capabilities,
+        skills=agent.skills,
+        added_at=agent.added_at,
+        last_seen=agent.last_seen,
+    )
 
 
 def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
@@ -126,8 +215,6 @@ def _save_task_to_history(
             metadata=metadata,
         )
     except Exception as e:
-        import sys
-
         print(f"Warning: Failed to save task to history: {e}", file=sys.stderr)
 
 
@@ -573,30 +660,26 @@ def create_a2a_router(
             controller.interrupt()
 
         # Push sender info to reply stack for simplified reply routing
-        if request.metadata:
-            sender_info = request.metadata.get("sender", {})
-            sender_endpoint = sender_info.get("sender_endpoint")
-            sender_uds_path = sender_info.get("sender_uds_path")
-            sender_task_id = request.metadata.get("sender_task_id")
-            if sender_endpoint or sender_uds_path:
+        # Only store if response_expected=True (sender is waiting for reply)
+        response_expected = (
+            request.metadata.get("response_expected", False)
+            if request.metadata
+            else False
+        )
+        if response_expected:
+            sender_info = _extract_sender_info(request.metadata)
+            if sender_info.has_reply_target() and sender_info.sender_id:
                 reply_stack = get_reply_stack()
-                reply_stack.push(
-                    {
-                        "sender_endpoint": sender_endpoint,
-                        "sender_uds_path": sender_uds_path,
-                        "sender_task_id": sender_task_id,
-                    }
+                reply_stack.set(
+                    sender_info.sender_id, sender_info.to_reply_stack_entry()
                 )
 
         # Send to PTY with A2A prefix
         # Format: A2A: [REPLY EXPECTED] <message> (if response expected)
         # Or: A2A: <message> (if no response expected)
         try:
-            reply_expected = False
-            if request.metadata:
-                reply_expected = request.metadata.get("response_expected", False)
             prefixed_content = format_a2a_message(
-                text_content, reply_expected=reply_expected
+                text_content, response_expected=response_expected
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
@@ -745,25 +828,17 @@ def create_a2a_router(
                         ),
                     )
                     # Dispatch webhook for failed task
-                    error_payload = {
-                        "task_id": task_id,
-                        "error": {"code": error.code, "message": error.message},
-                    }
-                    asyncio.create_task(
-                        dispatch_event(
-                            get_webhook_registry(), "task.failed", error_payload
-                        )
+                    _dispatch_task_event(
+                        "task.failed",
+                        {
+                            "task_id": task_id,
+                            "error": {"code": error.code, "message": error.message},
+                        },
                     )
                 else:
                     task_store.update_status(task_id, "completed")
                     # Dispatch webhook for completed task
-                    asyncio.create_task(
-                        dispatch_event(
-                            get_webhook_registry(),
-                            "task.completed",
-                            {"task_id": task_id},
-                        )
-                    )
+                    _dispatch_task_event("task.completed", {"task_id": task_id})
 
                 # Parse and add output as structured artifacts (before history saving)
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
@@ -797,18 +872,16 @@ def create_a2a_router(
                     # Send response back to sender if response_expected
                     metadata = updated_task.metadata or {}
                     response_expected = metadata.get("response_expected", False)
-                    sender_info = metadata.get("sender", {})
-                    sender_endpoint = sender_info.get("sender_endpoint")
-                    sender_task_id = metadata.get("sender_task_id")
+                    sender_info = _extract_sender_info(metadata)
 
-                    if response_expected and sender_endpoint:
+                    if response_expected and sender_info.sender_endpoint:
                         # Send response asynchronously
                         asyncio.create_task(
                             _send_response_to_sender(
                                 updated_task,
-                                sender_endpoint,
+                                sender_info.sender_endpoint,
                                 agent_id or "unknown",
-                                sender_task_id=sender_task_id,
+                                sender_task_id=sender_info.sender_task_id,
                             )
                         )
 
@@ -851,11 +924,7 @@ def create_a2a_router(
         task_store.update_status(task_id, "canceled")
 
         # Dispatch webhook for canceled task
-        asyncio.create_task(
-            dispatch_event(
-                get_webhook_registry(), "task.canceled", {"task_id": task_id}
-            )
-        )
+        _dispatch_task_event("task.canceled", {"task_id": task_id})
 
         # Save to history
         updated_task = task_store.get(task_id)
@@ -986,16 +1055,7 @@ def create_a2a_router(
                 status_code=400, detail=f"Failed to discover agent at {request.url}"
             )
 
-        return ExternalAgentInfo(
-            name=agent.name,
-            alias=agent.alias,
-            url=agent.url,
-            description=agent.description,
-            capabilities=agent.capabilities,
-            skills=agent.skills,
-            added_at=agent.added_at,
-            last_seen=agent.last_seen,
-        )
+        return _convert_agent_to_info(agent)
 
     @router.get("/external/agents", response_model=list[ExternalAgentInfo])
     async def list_external_agents(
@@ -1008,19 +1068,7 @@ def create_a2a_router(
         client = get_client()
         agents = client.list_agents()
 
-        return [
-            ExternalAgentInfo(
-                name=agent.name,
-                alias=agent.alias,
-                url=agent.url,
-                description=agent.description,
-                capabilities=agent.capabilities,
-                skills=agent.skills,
-                added_at=agent.added_at,
-                last_seen=agent.last_seen,
-            )
-            for agent in agents
-        ]
+        return [_convert_agent_to_info(agent) for agent in agents]
 
     @router.get("/external/agents/{alias}", response_model=ExternalAgentInfo)
     async def get_external_agent(
@@ -1036,16 +1084,7 @@ def create_a2a_router(
         if not agent:
             raise HTTPException(status_code=404, detail=f"Agent '{alias}' not found")
 
-        return ExternalAgentInfo(
-            name=agent.name,
-            alias=agent.alias,
-            url=agent.url,
-            description=agent.description,
-            capabilities=agent.capabilities,
-            skills=agent.skills,
-            added_at=agent.added_at,
-            last_seen=agent.last_seen,
-        )
+        return _convert_agent_to_info(agent)
 
     @router.delete("/external/agents/{alias}")
     async def remove_external_agent(
@@ -1228,17 +1267,18 @@ def create_a2a_router(
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
 
-    @router.get("/reply-stack/pop", response_model=ReplyTarget)
-    async def pop_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+    @router.get("/reply-stack/get", response_model=ReplyTarget)
+    async def get_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
         """
-        Pop the last reply target from the stack.
+        Get a reply target without removing it.
 
-        Returns the sender endpoint (HTTP and/or UDS) and task ID for sending a reply.
-        Returns 404 if the stack is empty.
+        Returns the most recently received sender endpoint (HTTP and/or UDS) and task ID.
+        Does NOT remove the entry - use /reply-stack/pop after successful reply.
+        Returns 404 if no reply targets exist.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
-        info = reply_stack.pop()
+        info = reply_stack.peek_last()
         if not info:
             raise HTTPException(status_code=404, detail="No reply target")
         return ReplyTarget(
@@ -1247,16 +1287,18 @@ def create_a2a_router(
             sender_task_id=info.get("sender_task_id"),
         )
 
-    @router.get("/reply-stack/peek", response_model=ReplyTarget)
-    async def peek_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+    @router.get("/reply-stack/pop", response_model=ReplyTarget)
+    async def pop_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
         """
-        Peek at the last reply target without removing it.
+        Pop a reply target from the map.
 
-        Returns 404 if the stack is empty.
+        Returns the first available sender endpoint (HTTP and/or UDS) and task ID.
+        Removes the entry after returning.
+        Returns 404 if no reply targets exist.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
-        info = reply_stack.peek()
+        info = reply_stack.pop()
         if not info:
             raise HTTPException(status_code=404, detail="No reply target")
         return ReplyTarget(

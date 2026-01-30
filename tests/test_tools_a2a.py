@@ -1214,17 +1214,17 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response (first call)
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 200
-        mock_peek_response.json.return_value = {
+        # Mock the GET /reply-stack/get response (first call)
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_task_id": "abc12345",
         }
         # Mock the GET /reply-stack/pop response (second call after success)
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1243,9 +1243,9 @@ class TestCmdReply:
         assert call_kwargs["in_reply_to"] == "abc12345"
         assert call_kwargs["message"] == "Hello back!"
 
-        # Verify peek was called first, then pop after success
+        # Verify get was called first, then pop after success
         assert len(mock_requests_get.call_args_list) == 2
-        assert "/reply-stack/peek" in mock_requests_get.call_args_list[0][0][0]
+        assert "/reply-stack/get" in mock_requests_get.call_args_list[0][0][0]
         assert "/reply-stack/pop" in mock_requests_get.call_args_list[1][0][0]
 
         captured = capsys.readouterr()
@@ -1291,10 +1291,10 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response - 404 means empty
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 404
-        mock_requests_get.return_value = mock_peek_response
+        # Mock the GET /reply-stack/get response - 404 means empty
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 404
+        mock_requests_get.return_value = mock_get_response
 
         args = argparse.Namespace(message="Hello back!")
 
@@ -1324,17 +1324,17 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response - no task_id
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 200
-        mock_peek_response.json.return_value = {
+        # Mock the GET /reply-stack/get response - no task_id
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             # No sender_task_id
         }
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1378,14 +1378,14 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response (first call)
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 200
-        mock_peek_response.json.return_value = {
+        # Mock the GET /reply-stack/get response (first call)
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_task_id": "abc12345",
         }
-        mock_requests_get.return_value = mock_peek_response
+        mock_requests_get.return_value = mock_get_response
 
         # Mock the client - send fails
         mock_client = MagicMock()
@@ -1402,8 +1402,8 @@ class TestCmdReply:
         assert "Failed to send reply" in captured.err
 
         # Verify peek was called (not pop), so target is preserved for retry
-        # First call should be to /reply-stack/peek
-        assert "/reply-stack/peek" in mock_requests_get.call_args_list[0][0][0]
+        # First call should be to /reply-stack/get
+        assert "/reply-stack/get" in mock_requests_get.call_args_list[0][0][0]
 
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.build_sender_info")
@@ -1424,10 +1424,10 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response with UDS path
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 200
-        mock_peek_response.json.return_value = {
+        # Mock the GET /reply-stack/get response with UDS path
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_uds_path": "/tmp/synapse-a2a/gemini-8110.sock",
             "sender_task_id": "abc12345",
@@ -1435,7 +1435,7 @@ class TestCmdReply:
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1474,10 +1474,10 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/peek response - UDS only, no HTTP
-        mock_peek_response = MagicMock()
-        mock_peek_response.status_code = 200
-        mock_peek_response.json.return_value = {
+        # Mock the GET /reply-stack/get response - UDS only, no HTTP
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
             "sender_endpoint": None,  # No HTTP endpoint
             "sender_uds_path": "/tmp/synapse-a2a/gemini-8110.sock",
             "sender_task_id": "abc12345",
@@ -1485,7 +1485,7 @@ class TestCmdReply:
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_peek_response, mock_pop_response]
+        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
 
         # Mock the client
         mock_client = MagicMock()

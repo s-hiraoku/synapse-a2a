@@ -27,7 +27,7 @@ Use `synapse reply` to respond to the last received message:
 synapse reply "<your reply>" --from <agent_type>
 ```
 
-The reply stack automatically tracks who sent you a message.
+Synapse automatically tracks senders who expect a reply (messages with `[REPLY EXPECTED]` marker).
 - `--from`: Your agent type (e.g., `claude`, `codex`, `gemini`, `opencode`, `copilot`)
 - Required in sandboxed environments (like Codex)
 

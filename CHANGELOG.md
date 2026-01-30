@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.10] - 2026-01-30
+
+### Added
+
+- Add `[REPLY EXPECTED]` marker to A2A message format
+  - Messages sent with `--response` flag now include `A2A: [REPLY EXPECTED] <message>`
+  - Receiving agents can identify when a reply is required vs optional
+  - Messages without the marker indicate delegation/notification (no reply needed)
+- Add `/reply-stack/get` endpoint for peek-before-send pattern
+  - Get sender info without removing (use with `/reply-stack/pop` after successful reply)
+
+### Changed
+
+- Refactor reply stack from LIFO stack to map-based storage
+  - Multiple senders can coexist without overwriting each other
+  - Same sender's new message overwrites previous entry
+  - Only store sender info when `response_expected=True`
+- Unify parameter naming: `reply_expected` → `response_expected` in `format_a2a_message()`
+  - Consistent with `response_expected` metadata field used throughout the codebase
+
+### Documentation
+
+- Update all skill files with `[REPLY EXPECTED]` message format documentation
+- Update guides and README with new message format examples
+- Update terminology from "reply stack" to "reply tracking" in user-facing docs
+
 ## [0.3.9] - 2026-01-30
 
 ### Added

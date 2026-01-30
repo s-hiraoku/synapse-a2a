@@ -75,36 +75,44 @@ For request-response patterns:
 # Sender: Wait for response (blocks until reply received)
 synapse send gemini "Analyze this data" --response --from claude
 
-# Receiver: Reply using the reply stack
+# Receiver: Reply to the sender
 synapse reply "Analysis result: ..." --from gemini
 ```
 
 The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
 
-**Reply Stack:** Synapse automatically tracks sender info when you receive messages. Use `synapse reply` for responses - it automatically knows who to reply to.
+**Reply Tracking:** Synapse automatically tracks senders who expect a reply (`[REPLY EXPECTED]` messages). Use `synapse reply` for responses - it automatically knows who to reply to.
 
 ## Receiving and Replying to Messages
 
-When you receive an A2A message, it appears as plain text - the message content is sent directly to your terminal without any prefix.
+When you receive an A2A message, it appears with the `A2A:` prefix:
 
-**Replying to Messages:**
+**Message Formats:**
+```
+A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
+A2A: <message>                    <- Reply is optional (delegation/notification)
+```
 
-Synapse uses a **Reply Stack** to track sender information. When you receive a message, the sender's info is automatically stored. To reply:
+If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
+
+**Reply Tracking:** Synapse stores sender info only for messages with `[REPLY EXPECTED]` marker. Multiple senders can be tracked simultaneously (each sender has one entry).
+
+**Replying to messages:**
 
 ```bash
 # Use the reply command (--from is required in sandboxed environments)
 synapse reply "Here is my analysis..." --from <your_agent_type>
 ```
 
-**Example - Question:**
+**Example - Question received (MUST reply):**
 ```
-Received: What is the project structure?
+Received: A2A: [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..." --from codex
 ```
 
-**Example - Delegation:**
+**Example - Delegation received (no reply needed):**
 ```
-Received: Run the tests and fix failures
+Received: A2A: Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -180,7 +188,7 @@ In `synapse list`, you can interact with agents:
 
 ## Key Features
 
-- **Agent Communication**: @agent pattern, priority control, response handling
+- **Agent Communication**: `synapse send` command, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
 - **Settings**: Configure via `settings.json` (`synapse init`)

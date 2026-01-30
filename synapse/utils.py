@@ -38,21 +38,21 @@ def extract_text_from_parts(parts: list[Any]) -> str:
     return "\n".join(text_contents)
 
 
-def format_a2a_message(content: str, reply_expected: bool = False) -> str:
+def format_a2a_message(content: str, response_expected: bool = False) -> str:
     """
     Format a message with A2A prefix.
 
-    Creates the format: A2A: [REPLY EXPECTED] <content> (if reply expected)
-    Or simply: A2A: <content> (if no reply expected)
+    Creates the format: A2A: [REPLY EXPECTED] <content> (if response expected)
+    Or simply: A2A: <content> (if no response expected)
 
     Args:
         content: Message content
-        reply_expected: Whether the sender expects a reply
+        response_expected: Whether the sender expects a response
 
     Returns:
         Formatted message string with A2A prefix and optional reply marker
     """
-    if reply_expected:
+    if response_expected:
         return f"A2A: [REPLY EXPECTED] {content}"
     return f"A2A: {content}"
 
