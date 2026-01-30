@@ -7,7 +7,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from synapse.settings import (
+    DEFAULT_SETTINGS,
+    SynapseSettings,
+    get_settings,
+    load_settings,
+)
+
 # questionary is optional (used by legacy ConfigCommand)
+HAS_QUESTIONARY = False
 try:
     import questionary
     from questionary import Choice, Separator
@@ -17,14 +25,6 @@ except ImportError:
     questionary = None
     Choice = None
     Separator = None
-    HAS_QUESTIONARY = False
-
-from synapse.settings import (
-    DEFAULT_SETTINGS,
-    SynapseSettings,
-    get_settings,
-    load_settings,
-)
 
 # Sentinel value for "Back to main menu" choice
 # Note: questionary.Choice(title, value=None) uses title as value, not None
