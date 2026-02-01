@@ -97,7 +97,8 @@ def _validate_explicit_sender(sender: str) -> str | None:
     Returns:
         Error message string if invalid, None if valid.
     """
-    if re.match(r"^synapse-\w+-\d+$", sender):
+    # Pattern allows hyphens in type segment (e.g., synapse-gpt-4-8120)
+    if re.match(r"^synapse-[\w-]+-\d+$", sender):
         return None
 
     # Check if it's a type or custom name and provide helpful error
