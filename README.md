@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1331%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
@@ -91,6 +91,7 @@ flowchart LR
 | **External Integration** | Communicate with other Google A2A agents |
 | **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
+| **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), terminal jump with Enter/j key |
 
 ---
@@ -427,12 +428,52 @@ synapse gemini
 synapse opencode
 synapse copilot
 
+# Start with custom name and role
+synapse claude --name my-claude --role "code reviewer"
+
+# Skip interactive name/role setup
+synapse claude --no-setup
+
 # Specify port
 synapse claude --port 8105
 
 # Pass arguments to CLI tool
 synapse claude -- --resume
 ```
+
+### Agent Naming
+
+Assign custom names and roles to agents for easier identification and management:
+
+```bash
+# Interactive setup (default when starting agent)
+synapse claude
+# → Prompts for name and role
+
+# Skip interactive setup
+synapse claude --no-setup
+
+# Set name and role via CLI options
+synapse claude --name my-claude --role "code reviewer"
+
+# After agent is running, change name/role
+synapse rename synapse-claude-8100 --name my-claude --role "test writer"
+synapse rename my-claude --role "documentation"  # Change role only
+synapse rename my-claude --clear                 # Clear name and role
+```
+
+Once named, use the custom name for all operations:
+
+```bash
+synapse send my-claude "Review this code" --from codex
+synapse jump my-claude
+synapse kill my-claude
+```
+
+**Name vs ID:**
+- **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
+- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **Target resolution**: Name has highest priority when matching targets
 
 ### Command List
 
@@ -441,6 +482,9 @@ synapse claude -- --resume
 | `synapse <profile>` | Start in foreground |
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
+| `synapse kill <target>` | Kill agent immediately |
+| `synapse jump <target>` | Jump to agent's terminal |
+| `synapse rename <target>` | Assign name/role to agent |
 | `synapse --version` | Show version |
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
@@ -640,6 +684,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 | Format | Example | Description |
 |--------|---------|-------------|
+| Custom name | `my-claude` | Highest priority, use when agent has a name |
 | Agent type | `claude` | Only works when single instance exists |
 | Type-port | `claude-8100` | Use when multiple instances of same type |
 | Full ID | `synapse-claude-8100` | Complete agent ID |
@@ -1088,6 +1133,18 @@ synapse list
 ```
 
 The display automatically updates when agent status changes (via file watcher) with a 10-second fallback polling interval.
+
+### Display Columns
+
+| Column | Description |
+|--------|-------------|
+| TYPE | Agent type (claude, gemini, codex, etc.) |
+| NAME | Custom name (if assigned) |
+| ROLE | Agent role description (if assigned) |
+| PORT | HTTP port number |
+| STATUS | Current status (READY, WAITING, PROCESSING, DONE) |
+| WORKING_DIR | Current working directory |
+| TRANSPORT | Communication transport indicator |
 
 ### Status States
 

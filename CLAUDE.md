@@ -48,9 +48,24 @@ synapse gemini
 synapse opencode
 synapse copilot
 
+# Run agent with name and role
+synapse claude --name my-claude --role "code reviewer"
+synapse gemini --name test-writer --role "test specialist"
+
+# Skip interactive name/role setup
+synapse claude --no-setup
+
 # List agents (Rich TUI with event-driven auto-update)
 synapse list                              # Show all running agents with auto-refresh on changes
-# Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, k kill (with confirm), / filter by TYPE/DIR, ESC clear, q quit
+# Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, k kill (with confirm), / filter by TYPE/NAME/DIR, ESC clear, q quit
+
+# Agent management by name
+synapse kill my-claude                    # Kill agent by custom name
+synapse kill my-claude -f                 # Kill without confirmation
+synapse jump my-claude                    # Jump to terminal by name
+synapse rename claude --name my-claude    # Assign name to agent
+synapse rename my-claude --role reviewer  # Update role only
+synapse rename my-claude --clear          # Clear name and role
 
 # Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
 SYNAPSE_HISTORY_ENABLED=true synapse claude
@@ -73,7 +88,8 @@ synapse config show                       # Show merged settings (read-only)
 synapse config show --scope user          # Show user settings only
 
 # Send messages (--response waits for reply, --no-response sends only)
-# Target formats: agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
+# Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
+synapse send my-claude "Review this code" --from gemini --response
 synapse send gemini "Analyze this" --from claude --response
 synapse send codex "Process this" --from claude --no-response
 
@@ -87,6 +103,22 @@ synapse reply "Result here" --from gemini
 python -m synapse.tools.a2a list
 python -m synapse.tools.a2a send --target claude --priority 1 "message"
 ```
+
+## Target Resolution
+
+When using `synapse send`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
+
+1. **Custom name** (highest priority): `my-claude`
+2. **Full agent ID**: `synapse-claude-8100`
+3. **Type-port shorthand**: `claude-8100`
+4. **Agent type** (only if single instance): `claude`
+
+Custom names are case-sensitive. Agent type resolution is fuzzy (partial match).
+
+**Name vs ID:**
+- **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
+- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **`synapse list` NAME column**: Shows custom name if set, otherwise agent type
 
 ## Core Design Principle
 
@@ -332,6 +364,11 @@ pytest
 pytest tests/test_cmd_list_watch.py -v   # List command tests
 pytest tests/test_registry.py -v
 pytest tests/test_controller_registry_sync.py -v
+
+# Tests for agent naming (v0.3.11)
+pytest tests/test_agent_naming.py -v     # Name/role registry tests
+pytest tests/test_cli_kill_jump.py -v    # Kill/jump/rename commands
+pytest tests/test_tools_a2a_resolve.py -v # Target resolution tests
 
 # Tests specifically for bug fixes
 pytest tests/test_cmd_list_watch.py::TestSilentFailures -v

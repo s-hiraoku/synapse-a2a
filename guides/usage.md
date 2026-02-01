@@ -245,6 +245,9 @@ flowchart TB
 | `synapse <profile>` | インタラクティブ起動（ショートカット） |
 | `synapse start <profile>` | バックグラウンド起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
+| `synapse kill <target>` | エージェント即時終了 |
+| `synapse jump <target>` | エージェントのターミナルにジャンプ |
+| `synapse rename <target>` | エージェントに名前・ロールを設定 |
 | `synapse --version` | バージョン情報表示 |
 | `synapse list` | 実行中エージェント一覧 |
 | `synapse send` | メッセージ送信 |
@@ -261,6 +264,12 @@ flowchart TB
 # インタラクティブ起動
 synapse claude --port 8100
 
+# 名前とロールを指定して起動（対話型セットアップをスキップ）
+synapse claude --name my-claude --role "コードレビュー担当"
+
+# 対話型セットアップをスキップ（名前・ロールなし）
+synapse claude --no-setup
+
 # バックグラウンド起動
 synapse start claude --port 8100
 
@@ -275,7 +284,59 @@ synapse stop synapse-claude-8100
 
 # 全インスタンスを停止
 synapse stop claude --all
+
+# エージェントを即時終了
+synapse kill claude
+synapse kill my-claude    # カスタム名で指定
+
+# エージェントのターミナルにジャンプ
+synapse jump claude
+synapse jump my-claude    # カスタム名で指定
 ```
+
+### 2.2.1 エージェント命名
+
+エージェントにカスタム名とロールを設定できます。
+
+```bash
+# 起動時に対話形式で設定（デフォルト動作）
+synapse claude
+# → 名前とロールの入力プロンプトが表示される
+
+# CLI オプションで設定
+synapse claude --name my-claude --role "コードレビュー担当"
+
+# 対話型セットアップをスキップ
+synapse claude --no-setup
+
+# 起動後に名前・ロールを変更
+synapse rename synapse-claude-8100 --name my-claude --role "テスト担当"
+synapse rename my-claude --role "ドキュメント担当"  # ロールのみ変更
+synapse rename my-claude --clear                    # 名前・ロールをクリア
+```
+
+**名前を設定すると、すべての操作で使用可能:**
+
+```bash
+synapse send my-claude "コードをレビューして" --from codex
+synapse kill my-claude
+synapse jump my-claude
+```
+
+**ターゲット解決の優先順位:**
+
+1. カスタム名（最優先）: `my-claude`
+2. エージェントID: `synapse-claude-8100`
+3. タイプ-ポート短縮形: `claude-8100`
+4. タイプ（インスタンスが1つの場合のみ）: `claude`
+
+**名前 vs ID:**
+
+| 用途 | 使用される値 |
+|-----|-------------|
+| 表示・プロンプト | 名前があれば名前、なければID（例: `Kill my-claude?`） |
+| 内部処理 | 常にエージェントID（`synapse-claude-8100`） |
+| `synapse list` NAME列 | カスタム名、なければタイプ |
 
 ---
 
@@ -315,17 +376,30 @@ synapse list                      # 自動更新 Rich TUI
 **出力例（Rich TUI モード）**:
 
 ```
-╭─────────────── Synapse A2A v0.2.30 - Agent List ───────────────╮
-│ ╭───┬────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
-│ │ # │ TYPE   │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
-│ ├───┼────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
-│ │ 1 │ claude │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
-│ │ 2 │ gemini │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
-│ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
-│ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
+╭─────────────── Synapse A2A v0.3.11 - Agent List ───────────────╮
+│ ╭───┬────────┬───────────┬─────────────────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
+│ │ # │ TYPE   │ NAME      │ ROLE                │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
+│ ├───┼────────┼───────────┼─────────────────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
+│ │ 1 │ claude │ my-claude │ コードレビュー担当  │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
+│ │ 2 │ gemini │ -         │ -                   │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
+│ │ 3 │ codex  │ tester    │ テスト担当          │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
+│ ╰───┴────────┴───────────┴─────────────────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
 [1-3/↑↓: select] [Enter/j: jump] [k: kill] [/: filter] [ESC: clear] [q: quit]
 ```
+
+**表示カラム:**
+
+| カラム | 説明 |
+|--------|------|
+| TYPE | エージェントタイプ (claude, gemini, codex など) |
+| NAME | カスタム名（設定されている場合） |
+| ROLE | ロール説明（設定されている場合） |
+| PORT | HTTP ポート番号 |
+| STATUS | 現在のステータス (READY, WAITING, PROCESSING, DONE) |
+| TRANSPORT | 通信トランスポート表示 |
+| PID | プロセスID |
+| WORKING_DIR | 作業ディレクトリ |
 
 > **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
 > - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中

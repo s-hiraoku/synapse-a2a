@@ -17,6 +17,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply to last message | `synapse reply "<response>" --from <agent>` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
+| Kill agent | `synapse kill <target>` (with confirmation, use `-f` to force) |
+| Jump to terminal | `synapse jump <target>` |
+| Rename agent | `synapse rename <target> --name <name> --role <role>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
@@ -41,11 +44,12 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 **Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
 
 **Target Resolution (Matching Priority):**
-1. Exact ID: `synapse-claude-8100` (direct match)
-2. Type-port: `claude-8100`, `codex-8120`, `opencode-8130`, `copilot-8140` (shorthand)
-3. Type only: `claude`, `gemini`, `codex`, `opencode`, `copilot` (only if single instance)
+1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
+2. Exact ID: `synapse-claude-8100` (direct match)
+3. Type-port: `claude-8100`, `codex-8120`, `opencode-8130`, `copilot-8140` (shorthand)
+4. Type only: `claude`, `gemini`, `codex`, `opencode`, `copilot` (only if single instance)
 
-**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use type-port shorthand (e.g., `claude-8100`) instead.
+**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use custom name (e.g., `my-claude`) or type-port shorthand (e.g., `claude-8100`) instead.
 
 ### Choosing --response vs --no-response
 
@@ -149,11 +153,11 @@ synapse send codex "STOP" --priority 5
 
 ```bash
 synapse list
-# Output:
-# NAME                  TYPE    STATUS      PORT   WORKING_DIR
-# synapse-claude-8100   claude  READY       8100   my-project
-# synapse-gemini-8110   gemini  WAITING     8110   my-project  # <- needs user input
-# synapse-codex-8120    codex   PROCESSING  8120   my-project  # <- busy
+# Output (NAME column shows custom name if set, otherwise agent ID):
+# NAME        TYPE    STATUS      PORT   WORKING_DIR
+# my-claude   claude  READY       8100   my-project      # <- has custom name
+# gemini      gemini  WAITING     8110   my-project      # <- no custom name, shows type
+# codex       codex   PROCESSING  8120   my-project      # <- busy
 ```
 
 **Status meanings:**
@@ -186,8 +190,39 @@ In `synapse list`, you can interact with agents:
 
 **Use case:** When an agent shows `WAITING` status, use terminal jump to quickly respond to its selection prompt.
 
+## Agent Naming
+
+Assign custom names and roles to agents for easier identification:
+
+```bash
+# Start with name and role
+synapse claude --name my-claude --role "code reviewer"
+
+# Skip interactive name/role setup
+synapse claude --no-setup
+
+# Update name/role after agent is running
+synapse rename synapse-claude-8100 --name my-claude --role "test writer"
+synapse rename my-claude --role "documentation"  # Change role only
+synapse rename my-claude --clear                 # Clear name and role
+```
+
+Once named, use the custom name for all operations:
+
+```bash
+synapse send my-claude "Review this code" --from codex
+synapse jump my-claude
+synapse kill my-claude
+```
+
+**Name vs ID:**
+- **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
+- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **Target resolution**: Name has highest priority when matching targets
+
 ## Key Features
 
+- **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
