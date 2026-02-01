@@ -144,8 +144,12 @@ class TestCreateTaskEndpoint:
         assert data["task"]["status"] == "completed"
         assert data["task"]["artifacts"][0]["data"]["content"] == "Answer!"
 
-        # 4. Controller.write should NOT be called (reply doesn't go to PTY)
-        mock_controller.write.assert_not_called()
+        # 4. v0.3.13+: Controller.write SHOULD be called
+        # Reply is written to PTY so agent can see and continue conversation
+        mock_controller.write.assert_called_once()
+        write_call = mock_controller.write.call_args[0][0]
+        assert "A2A REPLY from" in write_call
+        assert "Answer!" in write_call
 
 
 # ============================================================
@@ -542,5 +546,9 @@ class TestReplyToFlowIntegration:
         assert data["task"]["status"] == "completed"
         assert data["task"]["artifacts"][0]["data"]["content"] == "Here is my help!"
 
-        # Claude's controller should NOT have write called (reply goes to task, not PTY)
-        claude_controller.write.assert_not_called()
+        # v0.3.13+: Claude's controller SHOULD have write called
+        # Reply is written to PTY so the agent can see it and continue conversation
+        claude_controller.write.assert_called_once()
+        write_call = claude_controller.write.call_args[0][0]
+        assert "A2A REPLY from synapse-codex-8120" in write_call
+        assert "Here is my help!" in write_call

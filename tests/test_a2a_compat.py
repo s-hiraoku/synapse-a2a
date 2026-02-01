@@ -402,7 +402,12 @@ class TestA2ARouterEndpoints:
         assert data["task"]["id"] == task_id
         assert data["task"]["status"] == "completed"
         assert data["task"]["artifacts"][0]["data"]["content"] == "Reply text"
-        mock_controller.write.assert_not_called()
+
+        # v0.3.13+: Reply IS written to PTY so agent can continue conversation
+        mock_controller.write.assert_called_once()
+        write_call = mock_controller.write.call_args[0][0]
+        assert "A2A REPLY from" in write_call
+        assert "Reply text" in write_call
 
     def test_tasks_get_endpoint(self, client, mock_controller):
         """GET /tasks/{id} should return task status."""

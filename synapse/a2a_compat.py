@@ -163,9 +163,9 @@ def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> s
         code_data = artifact.data if isinstance(artifact.data, dict) else {}
         language = code_data.get("metadata", {}).get("language", "text")
         content = code_data.get("content", str(artifact.data))
-        if use_markdown:
-            return f"```{language}\n{content}\n```"
-        return f"[Code: {language}]\n{content}"
+        prefix = f"```{language}\n" if use_markdown else f"[Code: {language}]\n"
+        suffix = "\n```" if use_markdown else ""
+        return f"{prefix}{content}{suffix}"
 
     if artifact.type == "text":
         if isinstance(artifact.data, str):
@@ -637,6 +637,19 @@ def create_a2a_router(
                 full_task_id, Artifact(type="text", data={"content": text_content})
             )
             task_store.update_status(full_task_id, "completed")
+
+            # Write reply to PTY so the agent can see it and continue conversation
+            # This is the key feature for v0.3.13 - enables natural agent-to-agent conversation
+            if controller:
+                # Get sender info for display
+                sender_info = _extract_sender_info(metadata)
+                sender_id = sender_info.sender_id or "unknown"
+
+                # Format as A2A reply message with sender context
+                reply_prefix = f"A2A REPLY from {sender_id}: "
+                prefixed_content = reply_prefix + text_content + "\n"
+                controller.write(prefixed_content, submit_seq=submit_seq)
+
             updated_task = task_store.get(full_task_id)
             if not updated_task:
                 raise HTTPException(
@@ -654,6 +667,13 @@ def create_a2a_router(
 
         # Update to working
         task_store.update_status(task.id, "working")
+
+        # Update current task preview in registry (for synapse list display)
+        if registry and agent_id:
+            preview = (
+                text_content[:30] + "..." if len(text_content) > 30 else text_content
+            )
+            registry.update_current_task(agent_id, preview)
 
         # Priority 5 = interrupt first
         if priority >= 5:
@@ -858,6 +878,10 @@ def create_a2a_router(
                         task_store.add_artifact(
                             task_id, Artifact(type="text", data=recent_context)
                         )
+
+                # Clear task preview in registry (task is done)
+                if registry and agent_id:
+                    registry.update_current_task(agent_id, None)
 
                 # Save to history after all task updates are complete
                 updated_task = task_store.get(task_id)

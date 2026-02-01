@@ -123,6 +123,7 @@ class ListCommand:
                 "endpoint": info.get("endpoint", "-"),
                 "tty_device": info.get("tty_device"),
                 "zellij_pane_id": info.get("zellij_pane_id"),
+                "current_task_preview": info.get("current_task_preview"),
             }
 
             # Include transport info
@@ -490,20 +491,18 @@ class ListCommand:
                                 selected_row = int(key)
                                 needs_refresh = True
                             # Arrow keys for navigation
-                            elif key == "UP":
-                                if current_agents:
-                                    if selected_row is None:
-                                        selected_row = len(current_agents)
-                                    elif selected_row > 1:
-                                        selected_row -= 1
-                                    needs_refresh = True
-                            elif key == "DOWN":
-                                if current_agents:
-                                    if selected_row is None:
-                                        selected_row = 1
-                                    elif selected_row < len(current_agents):
-                                        selected_row += 1
-                                    needs_refresh = True
+                            elif key == "UP" and current_agents:
+                                if selected_row is None:
+                                    selected_row = len(current_agents)
+                                elif selected_row > 1:
+                                    selected_row -= 1
+                                needs_refresh = True
+                            elif key == "DOWN" and current_agents:
+                                if selected_row is None:
+                                    selected_row = 1
+                                elif selected_row < len(current_agents):
+                                    selected_row += 1
+                                needs_refresh = True
                             # Enter or 'j' key triggers terminal jump
                             elif (
                                 key in ("\r", "\n", "j", "J")
@@ -599,10 +598,10 @@ class ListCommand:
                     lines.append(f"  {agent_type}: {start}-{end}")
                 self._print("\n".join(lines))
             else:
-                # Simple table output with NAME, ROLE, ID columns
+                # Simple table output with NAME, ROLE, ID, CURRENT columns
                 header = (
                     f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
-                    f"{'PORT':<8} {'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
+                    f"{'PORT':<8} {'STATUS':<12} {'CURRENT':<35} {'PID':<8} {'ENDPOINT'}"
                 )
                 self._print(header)
                 self._print("-" * len(header))
@@ -610,6 +609,7 @@ class ListCommand:
                     name = agent.get("name") or "-"
                     role = agent.get("role") or "-"
                     agent_id = agent.get("agent_id", "-")
+                    current = agent.get("current_task_preview") or "-"
                     self._print(
                         f"{agent['agent_type']:<10} "
                         f"{name:<16} "
@@ -617,6 +617,7 @@ class ListCommand:
                         f"{agent_id:<24} "
                         f"{agent['port']:<8} "
                         f"{agent['status']:<12} "
+                        f"{current:<35} "
                         f"{agent['pid']:<8} "
                         f"{agent['endpoint']}"
                     )
