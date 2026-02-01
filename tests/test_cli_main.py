@@ -22,7 +22,9 @@ class TestCliMain:
             main()
 
         mock_install.assert_called_once()
-        mock_run_interactive.assert_called_once_with("claude", 8100, [])
+        mock_run_interactive.assert_called_once_with(
+            "claude", 8100, [], name=None, role=None, no_setup=False
+        )
 
     @patch("synapse.cli.cmd_run_interactive")
     @patch("synapse.cli.PortManager")
@@ -35,7 +37,9 @@ class TestCliMain:
         with patch.object(sys, "argv", ["synapse", "claude", "--port", "8105"]):
             main()
 
-        mock_run_interactive.assert_called_once_with("claude", 8105, [])
+        mock_run_interactive.assert_called_once_with(
+            "claude", 8105, [], name=None, role=None, no_setup=False
+        )
 
     @patch("synapse.cli.cmd_run_interactive")
     @patch("synapse.cli.PortManager")
@@ -52,7 +56,7 @@ class TestCliMain:
             main()
 
         mock_run_interactive.assert_called_once_with(
-            "claude", 8100, ["--model", "opus"]
+            "claude", 8100, ["--model", "opus"], name=None, role=None, no_setup=False
         )
 
     @patch("synapse.cli.cmd_start")
@@ -211,3 +215,79 @@ class TestCliMain:
         assert args.file_safety_command == "lock"
         assert args.file == "file.py"
         assert args.agent == "claude"
+
+    @patch("synapse.cli.cmd_run_interactive")
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_name_and_role(
+        self, mock_install, mock_registry, mock_pm, mock_run_interactive
+    ):
+        """synapse claude --name my-claude --role reviewer should pass name/role."""
+        mock_pm_inst = mock_pm.return_value
+        mock_pm_inst.get_available_port.return_value = 8100
+
+        with patch.object(
+            sys,
+            "argv",
+            ["synapse", "claude", "--name", "my-claude", "--role", "reviewer"],
+        ):
+            main()
+
+        mock_run_interactive.assert_called_once_with(
+            "claude", 8100, [], name="my-claude", role="reviewer", no_setup=False
+        )
+
+    @patch("synapse.cli.cmd_run_interactive")
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_no_setup(
+        self, mock_install, mock_registry, mock_pm, mock_run_interactive
+    ):
+        """synapse claude --no-setup should skip interactive setup."""
+        mock_pm_inst = mock_pm.return_value
+        mock_pm_inst.get_available_port.return_value = 8100
+
+        with patch.object(sys, "argv", ["synapse", "claude", "--no-setup"]):
+            main()
+
+        mock_run_interactive.assert_called_once_with(
+            "claude", 8100, [], name=None, role=None, no_setup=True
+        )
+
+    @patch("synapse.cli.cmd_kill")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_kill(self, mock_install, mock_cmd_kill):
+        """synapse kill claude should call cmd_kill."""
+        with patch.object(sys, "argv", ["synapse", "kill", "claude"]):
+            main()
+
+        mock_cmd_kill.assert_called_once()
+        args = mock_cmd_kill.call_args[0][0]
+        assert args.target == "claude"
+
+    @patch("synapse.cli.cmd_jump")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_jump(self, mock_install, mock_cmd_jump):
+        """synapse jump claude should call cmd_jump."""
+        with patch.object(sys, "argv", ["synapse", "jump", "claude"]):
+            main()
+
+        mock_cmd_jump.assert_called_once()
+        args = mock_cmd_jump.call_args[0][0]
+        assert args.target == "claude"
+
+    @patch("synapse.cli.cmd_rename")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_rename(self, mock_install, mock_cmd_rename):
+        """synapse rename claude --name my-claude should call cmd_rename."""
+        with patch.object(
+            sys, "argv", ["synapse", "rename", "claude", "--name", "my-claude"]
+        ):
+            main()
+
+        mock_cmd_rename.assert_called_once()
+        args = mock_cmd_rename.call_args[0][0]
+        assert args.target == "claude"
+        assert args.name == "my-claude"
