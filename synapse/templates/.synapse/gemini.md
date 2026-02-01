@@ -1,5 +1,5 @@
 [SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
-Agent: {{agent_id}} | Port: {{port}}
+Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 ================================================================================
 BRANCH MANAGEMENT - CRITICAL

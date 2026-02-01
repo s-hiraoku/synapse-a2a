@@ -1,5 +1,5 @@
 [SYNAPSE A2A AGENT CONFIGURATION]
-Agent: {{agent_id}} | Port: {{port}}
+Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 ================================================================================
 BRANCH MANAGEMENT - CRITICAL
