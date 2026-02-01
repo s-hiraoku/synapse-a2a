@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11] - 2026-02-01
+
+### Added
+
+- Add Agent Naming feature for easy agent identification (#171)
+  - `--name` and `--role` options for `synapse <profile>` command
+  - `--no-setup` flag to skip interactive name/role prompts
+  - `synapse rename <target> --name <name> --role <role>` command
+  - `synapse rename <target> --clear` to remove name and role
+  - Custom names have highest priority in target resolution
+- Add `synapse kill <target>` command with confirmation dialog
+  - Kill by custom name, agent ID, type-port, or agent type
+  - `-f` flag for force kill without confirmation
+- Add `synapse jump <target>` command for terminal navigation
+  - Jump by custom name, agent ID, or agent type
+  - Supports iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+### Changed
+
+- Update target resolution priority order:
+  1. Custom name (highest priority, exact match, case-sensitive)
+  2. Full agent ID (`synapse-claude-8100`)
+  3. Type-port shorthand (`claude-8100`)
+  4. Agent type (only if single instance)
+- Display shows name if set, internal processing uses agent ID
+  - Prompts show name (e.g., `Kill my-claude (PID: 1234)?`)
+  - `synapse list` NAME column shows custom name or agent type
+
+### Documentation
+
+- Update all skill files with Agent Naming documentation
+- Add "Name vs ID" specification to README, CLAUDE.md, and guides
+- Update target resolution examples in all documentation
+
 ## [0.3.10] - 2026-01-30
 
 ### Added
