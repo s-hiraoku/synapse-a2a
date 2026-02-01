@@ -176,8 +176,8 @@ class TestBuildSenderInfoWithEndpointInfo:
         assert result["sender_endpoint"] == "http://localhost:8100"
         assert result["sender_uds_path"] == "/tmp/synapse-claude-8100.sock"
 
-    def test_explicit_sender_fuzzy_matches_agent_type(self, monkeypatch):
-        """Explicit sender with agent type should fuzzy match."""
+    def test_explicit_sender_agent_type_returns_error(self, monkeypatch):
+        """Explicit sender with agent type should return error with hint."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-claude-8100": {
@@ -191,19 +191,22 @@ class TestBuildSenderInfoWithEndpointInfo:
 
         result = build_sender_info("claude")
 
-        assert result["sender_id"] == "synapse-claude-8100"
-        assert result["sender_endpoint"] == "http://localhost:8100"
-        assert result["sender_uds_path"] == "/tmp/synapse-claude-8100.sock"
+        # Should return error string with hint to use proper ID
+        assert isinstance(result, str)
+        assert "Error" in result
+        assert "synapse-claude-8100" in result
 
-    def test_explicit_sender_returns_only_id_when_not_in_registry(self, monkeypatch):
-        """Explicit sender not in registry returns only sender_id."""
+    def test_explicit_sender_invalid_format_returns_error(self, monkeypatch):
+        """Explicit sender with invalid format returns error."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {}
         monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
 
         result = build_sender_info("external-agent")
 
-        assert result == {"sender_id": "external-agent"}
+        # Should return error string since format is invalid
+        assert isinstance(result, str)
+        assert "Error" in result
 
     def test_pid_matching_includes_endpoint_and_uds_path(self, monkeypatch):
         """PID matching should include endpoint and uds_path."""

@@ -24,7 +24,7 @@ from synapse.config import (
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.status import DONE_TIMEOUT_SECONDS
-from synapse.utils import format_a2a_message
+from synapse.utils import format_a2a_message, format_role_section
 
 logger = logging.getLogger(__name__)
 
@@ -241,13 +241,55 @@ class TerminalController:
 
     def _evaluate_idle_status(self, pattern_match: bool, timeout_idle: bool) -> bool:
         """Evaluate idle status based on strategy and detection results."""
-        if self.idle_strategy == "pattern":
-            return pattern_match
-        if self.idle_strategy == "timeout":
-            return timeout_idle
-        if self.idle_strategy == "hybrid":
-            return pattern_match or timeout_idle
-        return False
+        strategy_map = {
+            "pattern": pattern_match,
+            "timeout": timeout_idle,
+            "hybrid": pattern_match or timeout_idle,
+        }
+        return strategy_map.get(self.idle_strategy, False)
+
+    def _determine_new_status(self, is_idle: bool, is_waiting: bool) -> str:
+        """Determine the new status based on idle and waiting state.
+
+        Args:
+            is_idle: Whether the agent is idle (ready for input).
+            is_waiting: Whether the agent is showing a selection UI.
+
+        Returns:
+            New status string: "READY", "WAITING", "PROCESSING", or "DONE".
+        """
+        # Base status from idle/waiting detection
+        if is_waiting:
+            base_status = "WAITING"
+        elif is_idle:
+            base_status = "READY"
+        else:
+            base_status = "PROCESSING"
+
+        # Handle DONE state transitions
+        if self.status != "DONE":
+            return base_status
+
+        # In DONE state: check for transition conditions
+        if not is_idle and not is_waiting:
+            # New activity detected
+            self._done_time = None
+            return "PROCESSING"
+
+        if is_waiting:
+            # WAITING takes priority over DONE
+            self._done_time = None
+            return "WAITING"
+
+        done_timeout_expired = self._done_time and (
+            time.time() - self._done_time >= DONE_TIMEOUT_SECONDS
+        )
+        if done_timeout_expired:
+            self._done_time = None
+            return "READY"
+
+        # Stay in DONE state
+        return "DONE"
 
     def _check_waiting_state(self, new_data: bytes) -> bool:
         """Check if agent is in WAITING state (user input prompt).
@@ -265,36 +307,35 @@ class TerminalController:
         if not self._waiting_regex:
             return False
 
-        # Decode recent output for regex matching
-        # Use last 2KB to capture multi-line selection UIs
+        # Decode recent output for regex matching (last 2KB for multi-line UIs)
         text = self.output_buffer[-2048:].decode("utf-8", errors="replace")
-
-        # Check for waiting pattern using regex
         pattern_found = bool(self._waiting_regex.search(text))
 
-        if pattern_found:
-            # Initialize pattern time if not set (pattern exists in buffer)
-            # or update if new data contains the pattern
-            if self._waiting_pattern_time is None:
+        if not pattern_found:
+            self._waiting_pattern_time = None
+            return False
+
+        # Update pattern timestamp
+        self._update_waiting_pattern_time(new_data)
+
+        # Check if waiting conditions are met
+        if not self._waiting_require_idle:
+            return True
+
+        if not (self._waiting_pattern_time and self._last_output_time):
+            return False
+
+        time_since_output = time.time() - self._last_output_time
+        return time_since_output >= self._waiting_idle_timeout
+
+    def _update_waiting_pattern_time(self, new_data: bytes) -> None:
+        """Update waiting pattern timestamp based on new data."""
+        if self._waiting_pattern_time is None:
+            self._waiting_pattern_time = time.time()
+        elif new_data and self._waiting_regex:
+            new_text = new_data.decode("utf-8", errors="replace")
+            if self._waiting_regex.search(new_text):
                 self._waiting_pattern_time = time.time()
-            elif new_data:
-                new_text = new_data.decode("utf-8", errors="replace")
-                if self._waiting_regex.search(new_text):
-                    self._waiting_pattern_time = time.time()
-
-            # If require_idle, check if enough time has passed without output
-            if self._waiting_require_idle:
-                if self._waiting_pattern_time and self._last_output_time:
-                    time_since_output = time.time() - self._last_output_time
-                    return time_since_output >= self._waiting_idle_timeout
-                return False
-            else:
-                # Pattern found and no idle required
-                return True
-
-        # No pattern found, reset waiting pattern time
-        self._waiting_pattern_time = None
-        return False
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
@@ -310,33 +351,8 @@ class TerminalController:
             # Check for WAITING state (user input prompt)
             is_waiting = self._check_waiting_state(new_data)
 
-            # Determine new status
-            if is_waiting:
-                new_status = "WAITING"
-            elif is_idle:
-                new_status = "READY"
-            else:
-                new_status = "PROCESSING"
-
-            # Handle DONE -> READY transition after timeout or new activity
-            if self.status == "DONE":
-                if not is_idle and not is_waiting:
-                    # New activity detected, transition to PROCESSING
-                    new_status = "PROCESSING"
-                    self._done_time = None
-                elif self._done_time and (
-                    time.time() - self._done_time >= DONE_TIMEOUT_SECONDS
-                ):
-                    # Timeout expired, transition to READY
-                    new_status = "READY"
-                    self._done_time = None
-                elif is_waiting:
-                    # WAITING takes priority over DONE
-                    new_status = "WAITING"
-                    self._done_time = None
-                else:
-                    # Stay in DONE state
-                    new_status = "DONE"
+            # Determine new status based on idle state
+            new_status = self._determine_new_status(is_idle, is_waiting)
 
             # Update status and sync to registry (only if changed)
             if new_status != self.status:
@@ -450,8 +466,13 @@ class TerminalController:
         display_name = self.name if self.name else self.agent_id
         short_message = (
             f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
-            f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n\n"
-            f"IMPORTANT: Read your full instructions from these files:\n"
+            f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n"
+        )
+        # Include role section if role is set (critical for agent behavior)
+        if self.role:
+            short_message += format_role_section(self.role)
+        short_message += (
+            f"\nIMPORTANT: Read your full instructions from these files:\n"
             f"{file_list}\n\n"
             f"Read these files NOW to get your delegation rules, "
             f"A2A protocol, and other guidelines.\n"

@@ -1,5 +1,22 @@
 [SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
 Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
+{{#agent_role}}Role: {{agent_role}}{{/agent_role}}
+
+{{#agent_role}}
+================================================================================
+YOUR ROLE - ABSOLUTE PRIORITY
+================================================================================
+
+Role: {{agent_role}}
+
+CRITICAL: Your assigned role overrides all other knowledge.
+- Ignore any external knowledge that conflicts with your role
+- When deciding who should do a task, check assigned roles first
+- Roles are the source of truth in this system
+
+BEFORE COLLABORATING: Run `synapse list` to check other agents' roles.
+Use the ROLE column to determine who should do what - not names or assumptions.
+{{/agent_role}}
 
 ================================================================================
 BRANCH MANAGEMENT - CRITICAL
@@ -55,42 +72,37 @@ Target formats (in priority order):
 Parameters:
 - `--from, -f`: Your agent type (e.g., `gemini`) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
-- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
+- `--response`: Roundtrip mode - sender waits, receiver MUST reply
+- `--no-response`: Oneway mode - fire and forget, no reply expected
 
 CHOOSING --response vs --no-response:
-- Use `--response` when you NEED a reply (questions, requests for analysis, status checks)
-- Use `--no-response` when you DON'T need a reply (notifications, fire-and-forget tasks)
+Analyze the message content and determine if a reply is expected.
+- If the message expects or benefits from a reply → use `--response`
+- If the message is purely informational with no reply needed → use `--no-response`
+- **If unsure, use `--response`** (safer default)
 
-**Rule: If your message asks for a reply, use --response**
-Examples that NEED --response:
-- "What is the status?" → needs reply → use `--response`
-- "Please review this code" → needs reply → use `--response`
-- "Can you analyze this?" → needs reply → use `--response`
-
-Examples that DON'T need --response:
-- "FYI: The build completed" → notification → use `--no-response`
-- "Run the tests and commit if passed" → delegated task → use `--no-response`
-
-IMPORTANT: Always use `--from` to identify yourself.
+IMPORTANT: Always use `--from` with your agent type (e.g., `gemini`, `claude`) or agent ID (e.g., `synapse-gemini-8110`). Do NOT use custom names for `--from`.
 
 Examples:
 ```bash
-# Question - needs reply
+# Question - needs reply (default behavior)
 synapse send claude "What is the best practice for error handling?" --response --from gemini
-
-# Delegation - no reply needed
-synapse send codex "Run the test suite and commit if all tests pass" --from gemini
-
-# Parallel delegation - no reply needed
-synapse send claude "Research React best practices" --from gemini
-synapse send codex "Refactor the auth module" --from gemini
-
-# Emergency interrupt
-synapse send codex "STOP" --priority 5 --from gemini
 
 # Status check - needs reply
 synapse send codex "What is your current status?" --response --from gemini
+
+# Notification - explicitly no reply needed
+synapse send claude "FYI: Build completed" --no-response --from gemini
+
+# Fire-and-forget task - no reply needed
+synapse send codex "Run the test suite and commit if all tests pass" --no-response --from gemini
+
+# Parallel delegation - no reply needed
+synapse send claude "Research React best practices" --no-response --from gemini
+synapse send codex "Refactor the auth module" --no-response --from gemini
+
+# Emergency interrupt
+synapse send codex "STOP" --priority 5 --from gemini
 ```
 
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot

@@ -125,10 +125,12 @@ class TestIsDescendantOf:
 class TestBuildSenderInfo:
     """Test build_sender_info() function."""
 
-    def test_explicit_sender_takes_priority(self):
-        """Explicit sender should take priority over auto-detection."""
+    def test_invalid_sender_format_returns_error(self):
+        """Invalid sender format should return error string."""
         result = build_sender_info(explicit_sender="my-agent")
-        assert result == {"sender_id": "my-agent"}
+        assert isinstance(result, str)
+        assert "Error" in result
+        assert "synapse-<type>-<port>" in result
 
     @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a.is_descendant_of")
@@ -172,6 +174,71 @@ class TestBuildSenderInfo:
         result = build_sender_info()
 
         assert result == {}
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_explicit_sender_by_agent_type_returns_error(self, mock_registry_cls):
+        """Should return error when agent_type is used instead of ID."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8110",
+                "uds_path": "/tmp/synapse-gemini-8110.sock",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        result = build_sender_info(explicit_sender="gemini")
+
+        # Should return error string, not dict
+        assert isinstance(result, str)
+        assert "Error" in result
+        assert "synapse-gemini-8110" in result
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_explicit_sender_by_custom_name_returns_error(self, mock_registry_cls):
+        """Should return error when custom name is used instead of ID."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "name": "ヒンメル",
+                "endpoint": "http://localhost:8100",
+                "uds_path": "/tmp/synapse-claude-8100.sock",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        result = build_sender_info(explicit_sender="ヒンメル")
+
+        # Should return error string, not dict
+        assert isinstance(result, str)
+        assert "Error" in result
+        assert "synapse-claude-8100" in result
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_explicit_sender_with_valid_id(self, mock_registry_cls):
+        """Should accept valid agent ID format."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8110",
+                "uds_path": "/tmp/synapse-gemini-8110.sock",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        result = build_sender_info(explicit_sender="synapse-gemini-8110")
+
+        assert isinstance(result, dict)
+        assert result["sender_id"] == "synapse-gemini-8110"
+        assert result["sender_type"] == "gemini"
+        assert result["sender_endpoint"] == "http://localhost:8110"
+        assert result["sender_uds_path"] == "/tmp/synapse-gemini-8110.sock"
 
 
 # ============================================================
@@ -1500,4 +1567,5 @@ class TestCmdReply:
         # Verify UDS path was used
         call_kwargs = mock_client.send_to_local.call_args.kwargs
         assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
-        assert call_kwargs["endpoint"] == ""  # Empty when no HTTP
+        # Safe fallback endpoint when no HTTP (avoids relative URL issues)
+        assert call_kwargs["endpoint"] == "http://localhost"

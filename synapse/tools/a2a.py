@@ -91,40 +91,42 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
     return sender_info
 
 
-def build_sender_info(explicit_sender: str | None = None) -> dict:
-    """
-    Build sender info using Registry PID matching.
+def _validate_explicit_sender(sender: str) -> str | None:
+    """Validate explicit sender format and return helpful error if invalid.
 
-    Identifies the sender by checking which registered agent's PID
-    is an ancestor of the current process.
-
-    Returns dict with sender_id, sender_type, sender_endpoint, sender_uds_path.
+    Returns:
+        Error message string if invalid, None if valid.
     """
-    # Explicit --from flag takes priority
-    if explicit_sender:
-        # Even with explicit sender, look up endpoint and uds_path from registry
-        try:
-            reg = AgentRegistry()
-            agents = reg.list_agents()
-            # Try exact match first
-            if explicit_sender in agents:
-                return _extract_sender_info_from_agent(
-                    explicit_sender, agents[explicit_sender]
+    # Pattern allows hyphens in type segment (e.g., synapse-gpt-4-8120)
+    if re.match(r"^synapse-[\w-]+-\d+$", sender):
+        return None
+
+    # Check if it's a type or custom name and provide helpful error
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        for agent_id, info in agents.items():
+            if info.get("name") == sender:
+                return (
+                    f"Error: --from requires agent ID, not custom name.\n"
+                    f"Use: --from {agent_id}"
                 )
-            # Try fuzzy match by agent_type
-            for agent_id, info in agents.items():
-                agent_type = info.get("agent_type", "").lower()
-                if (
-                    explicit_sender.lower() in agent_id.lower()
-                    or explicit_sender.lower() == agent_type
-                ):
-                    return _extract_sender_info_from_agent(agent_id, info)
-        except Exception:
-            pass
-        return {"sender_id": explicit_sender}
+            if info.get("agent_type", "").lower() == sender.lower():
+                return (
+                    f"Error: --from requires agent ID, not agent type.\n"
+                    f"Use: --from {agent_id}"
+                )
+    except Exception:
+        pass
 
-    # Primary method: Registry PID matching
-    # Find which agent's process is an ancestor of current process
+    return (
+        "Error: --from requires agent ID format (synapse-<type>-<port>).\n"
+        "Example: --from synapse-claude-8100"
+    )
+
+
+def _find_sender_by_pid() -> dict[str, str]:
+    """Find sender info by matching current process ancestry to registered agents."""
     try:
         reg = AgentRegistry()
         agents = reg.list_agents()
@@ -136,8 +138,44 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
                 return _extract_sender_info_from_agent(agent_id, info)
     except Exception:
         pass
-
     return {}
+
+
+def build_sender_info(explicit_sender: str | None = None) -> dict | str:
+    """
+    Build sender info using Registry PID matching.
+
+    Identifies the sender by checking which registered agent's PID
+    is an ancestor of the current process.
+
+    Args:
+        explicit_sender: Must be an agent ID (e.g., synapse-claude-8100).
+                        TYPE (claude) and custom names are not allowed.
+
+    Returns:
+        dict with sender_id, sender_type, sender_endpoint, sender_uds_path.
+        Returns error string if explicit_sender is invalid format.
+    """
+    if not explicit_sender:
+        return _find_sender_by_pid()
+
+    # Validate explicit sender format
+    error = _validate_explicit_sender(explicit_sender)
+    if error:
+        return error
+
+    # Look up endpoint and uds_path from registry
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        if explicit_sender in agents:
+            return _extract_sender_info_from_agent(
+                explicit_sender, agents[explicit_sender]
+            )
+    except Exception:
+        pass
+
+    return {"sender_id": explicit_sender}
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -334,20 +372,20 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Build sender metadata
     sender_info = build_sender_info(getattr(args, "sender", None))
 
-    # Send request using Google A2A protocol
+    # Check if build_sender_info returned an error
+    if isinstance(sender_info, str):
+        print(sender_info, file=sys.stderr)
+        sys.exit(1)
+
     # Determine response_expected based on a2a.flow setting and flags
     settings = get_settings()
     flow = settings.get_a2a_flow()
     want_response = getattr(args, "want_response", None)
 
     # Flow modes: roundtrip always waits, oneway never waits, auto uses flag
-    # Default to False (not waiting) for safety - see issue #96
-    if flow == "oneway":
-        response_expected = False
-    elif flow == "roundtrip":
-        response_expected = True
-    else:  # auto
-        response_expected = want_response if want_response is not None else False
+    flow_defaults = {"oneway": False, "roundtrip": True}
+    default_response = want_response if want_response is not None else True
+    response_expected = flow_defaults.get(flow, default_response)
 
     # Add metadata (sender info and response_expected)
     client = A2AClient()
@@ -396,6 +434,17 @@ def cmd_send(args: argparse.Namespace) -> None:
     )
 
 
+def _get_target_display_name(endpoint: str | None, uds_path: str | None) -> str:
+    """Get a short display name for the target agent."""
+    if endpoint and ":" in endpoint:
+        return endpoint.split(":")[-1]
+    if endpoint:
+        return endpoint
+    if uds_path:
+        return Path(uds_path).name
+    return "unknown"
+
+
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last message using the reply map.
 
@@ -405,6 +454,12 @@ def cmd_reply(args: argparse.Namespace) -> None:
     # Determine own endpoint from sender info
     explicit_sender = getattr(args, "sender", None)
     sender_info = build_sender_info(explicit_sender)
+
+    # Handle error case from build_sender_info
+    if isinstance(sender_info, str):
+        print(sender_info, file=sys.stderr)
+        sys.exit(1)
+
     my_endpoint = sender_info.get("sender_endpoint")
 
     if not my_endpoint:
@@ -443,28 +498,26 @@ def cmd_reply(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Send reply using A2AClient (prefer UDS if available)
+    # sender_info is guaranteed to be dict here (str case exits above)
+    # Normalize endpoint: use None if empty to let send_to_local use UDS-only
+    # or provide a safe fallback to avoid building relative URLs on HTTP fallback
+    normalized_endpoint: str | None = None
+    if target_endpoint:
+        normalized_endpoint = target_endpoint
+    elif target_uds_path:
+        # UDS-only: no HTTP endpoint needed, but provide safe default if HTTP fallback occurs
+        normalized_endpoint = None
+
     client = A2AClient()
-    if target_uds_path:
-        # Use UDS for reply
-        result = client.send_to_local(
-            endpoint=target_endpoint or "",
-            message=args.message,
-            priority=3,  # Normal priority for replies
-            sender_info=sender_info,
-            response_expected=False,  # Reply doesn't expect a reply back
-            in_reply_to=task_id,
-            uds_path=target_uds_path,
-        )
-    else:
-        # Use HTTP for reply
-        result = client.send_to_local(
-            endpoint=target_endpoint or "",
-            message=args.message,
-            priority=3,  # Normal priority for replies
-            sender_info=sender_info,
-            response_expected=False,  # Reply doesn't expect a reply back
-            in_reply_to=task_id,
-        )
+    result = client.send_to_local(
+        endpoint=normalized_endpoint or "http://localhost",
+        message=args.message,
+        priority=3,  # Normal priority for replies
+        sender_info=sender_info if isinstance(sender_info, dict) else None,
+        response_expected=False,  # Reply doesn't expect a reply back
+        in_reply_to=task_id,
+        uds_path=target_uds_path if target_uds_path else None,
+    )
 
     if not result:
         print("Error: Failed to send reply", file=sys.stderr)
@@ -475,14 +528,7 @@ def cmd_reply(args: argparse.Namespace) -> None:
         requests.get(f"{my_endpoint}/reply-stack/pop", timeout=5)
 
     # Display target info (prefer UDS path if no HTTP endpoint)
-    if target_endpoint and ":" in target_endpoint:
-        target_short = target_endpoint.split(":")[-1]
-    elif target_endpoint:
-        target_short = target_endpoint
-    elif target_uds_path:
-        target_short = Path(target_uds_path).name
-    else:
-        target_short = "unknown"
+    target_short = _get_target_display_name(target_endpoint, target_uds_path)
     print(f"Reply sent to {target_short}")
     if task_id:
         print(f"  In reply to task: {task_id[:8]}...")

@@ -304,6 +304,48 @@ class TestSynapseSettings:
         # Role should be empty string when not provided
         assert result == "Role: []"
 
+    def test_get_instruction_conditional_section_with_role(self):
+        """Get instruction includes conditional section when role is set."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Header\n{{#agent_role}}Role: {{agent_role}}{{/agent_role}}\nFooter",
+            },
+        )
+        result = settings.get_instruction(
+            "claude", "synapse-claude-8100", 8100, role="reviewer"
+        )
+        assert result == "Header\nRole: reviewer\nFooter"
+
+    def test_get_instruction_conditional_section_without_role(self):
+        """Get instruction removes conditional section when role is not set."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Header\n{{#agent_role}}Role: {{agent_role}}{{/agent_role}}\nFooter",
+            },
+        )
+        result = settings.get_instruction("claude", "synapse-claude-8100", 8100)
+        assert result == "Header\n\nFooter"
+
+    def test_get_instruction_conditional_section_multiline(self):
+        """Get instruction handles multiline conditional sections."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Start\n{{#agent_role}}Line1\nLine2\nRole: {{agent_role}}{{/agent_role}}\nEnd",
+            },
+        )
+        # With role
+        result = settings.get_instruction(
+            "claude", "synapse-claude-8100", 8100, role="tester"
+        )
+        assert result == "Start\nLine1\nLine2\nRole: tester\nEnd"
+
+        # Without role
+        result = settings.get_instruction("claude", "synapse-claude-8100", 8100)
+        assert result == "Start\n\nEnd"
+
     def test_load_with_scope_merging(self):
         """Test loading settings with scope merging."""
         with tempfile.TemporaryDirectory() as tmpdir:

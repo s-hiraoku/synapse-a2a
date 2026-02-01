@@ -94,17 +94,14 @@ class RichRenderer:
         # Add columns in order with fixed widths to prevent table resizing
         table.add_column("TYPE", style="cyan", width=12)
         table.add_column("NAME", style="magenta", min_width=10, max_width=16)
-        table.add_column("PORT", justify="right", width=5)
+        table.add_column("ID", style="dim", min_width=20, max_width=24)
+        table.add_column("ROLE", min_width=10, max_width=20)
         table.add_column("STATUS", min_width=12)
         table.add_column("TRANSPORT", min_width=10)
-        table.add_column("PID", justify="right", width=6)
-        table.add_column("ROLE", min_width=10, max_width=20)
         table.add_column("WORKING_DIR", min_width=20, max_width=30)
 
         if show_file_safety:
             table.add_column("EDITING FILE", min_width=15, max_width=25)
-
-        table.add_column("ENDPOINT", min_width=30, no_wrap=True)
 
         # Add rows
         for idx, agent in enumerate(agents, start=1):
@@ -123,19 +120,16 @@ class RichRenderer:
                 [
                     Text(agent.get("agent_type", "unknown"), style=type_style),
                     agent.get("name") or "-",
-                    str(agent.get("port", "-")),
+                    agent.get("agent_id") or "-",
+                    agent.get("role") or "-",
                     self._format_status(agent.get("status", "-")),
                     agent.get("transport", "-"),
-                    str(agent.get("pid", "-")),
-                    agent.get("role") or "-",
                     agent.get("working_dir", "-"),
                 ]
             )
 
             if show_file_safety:
                 row.append(agent.get("editing_file", "-"))
-
-            row.append(agent.get("endpoint", "-"))
 
             # Highlight selected row
             row_style = "on grey23" if is_selected else None

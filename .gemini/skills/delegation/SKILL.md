@@ -141,15 +141,7 @@ If no rules match, the `fallback` behavior is applied.
 
 ## Delegating Tasks
 
-Use the `@agent` pattern to send tasks to other agents:
-
-```text
-@codex Please refactor this function
-@gemini Research the latest API changes
-@claude Review this design document
-```
-
-For programmatic delegation (from AI agents):
+Use `synapse send` to delegate tasks to other agents:
 
 ```bash
 # Fire and forget (default)
@@ -163,7 +155,16 @@ synapse send gemini "Status update?" --priority 4 --from claude
 
 # Reply to a --response request
 synapse reply "Here is the analysis..." --from gemini
+
+# Send to agent by custom name (if assigned)
+synapse send my-codex "Write tests for auth.py" --from claude
 ```
+
+**Target Resolution Priority:**
+1. Custom name: `my-codex` (highest, exact match, case-sensitive)
+2. Exact ID: `synapse-codex-8120`
+3. Type-port: `codex-8120`
+4. Type only: `codex` (only if single instance)
 
 **Important:** When responding to a `--response` request, the receiver MUST use `synapse reply` to send the response.
 
@@ -216,6 +217,28 @@ Before delegating any task:
 | 3 | Normal tasks (default) |
 | 4 | Urgent follow-ups |
 | 5 | Critical/emergency tasks |
+
+## Agent Naming
+
+Assign custom names and roles to agents for easier identification:
+
+```bash
+# Start with name and role
+synapse claude --name my-reviewer --role "code reviewer"
+
+# After agent is running
+synapse rename synapse-claude-8100 --name my-reviewer --role "code reviewer"
+
+# Use custom name in delegation
+synapse send my-reviewer "Review this PR" --from claude
+synapse jump my-reviewer
+synapse kill my-reviewer
+```
+
+**Name vs ID:**
+- **Display/Prompts**: Shows name if set (e.g., `Kill my-reviewer?`)
+- **Internal**: Uses agent ID (`synapse-claude-8100`)
+- **`synapse list`**: NAME column shows custom name or agent type
 
 ## Available Agents
 

@@ -31,8 +31,6 @@ The framework automatically handles routing - you don't need to know where the m
 |----------|--------|-------------|
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | Send message |
-| `/tasks/send-priority` | POST | Send with priority |
-| `/tasks/create` | POST | Create task (no PTY send, for `--response`) |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
@@ -42,6 +40,8 @@ The framework automatically handles routing - you don't need to know where the m
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt) |
+| `/tasks/create` | POST | Create task without PTY send (for `--response`) |
 | `/reply-stack/get` | GET | Get sender info without removing (peek before send) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (for `synapse reply`) |
 

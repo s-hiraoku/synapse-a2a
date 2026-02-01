@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.12] - 2026-02-01
+
+### Changed
+
+- Refactor internal code for improved maintainability
+  - Extract `format_role_section()` utility to reduce duplication between controller.py and instructions.py
+  - Simplify `_evaluate_idle_status()` with dictionary lookup in controller.py
+  - Extract `_determine_new_status()` helper for cleaner status transition logic
+  - Simplify flow determination in tools/a2a.py with dictionary lookup
+  - Extract sender validation helpers in tools/a2a.py
+
+### Fixed
+
+- Fix ruff linter errors in cli.py and instructions.py
+  - Replace `try-except-pass` with `contextlib.suppress()` for cleaner exception handling
+  - Remove extraneous f-string prefix from string without placeholders
+
+### Documentation
+
+- Synchronize `.synapse/` templates with source templates
+  - Add role section (`{{#agent_role}}`) to default.md and gemini.md
+  - Update `--response` / `--no-response` guidance with safer default recommendation
+- Update skill files with consistent documentation across all agent directories
+  - Sync synapse-a2a and delegation skills to .claude/, .codex/, .gemini/, .opencode/
+
 ## [0.3.11] - 2026-02-01
 
 ### Added

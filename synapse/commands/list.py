@@ -599,18 +599,22 @@ class ListCommand:
                     lines.append(f"  {agent_type}: {start}-{end}")
                 self._print("\n".join(lines))
             else:
-                # Simple table output with NAME column
+                # Simple table output with NAME, ROLE, ID columns
                 header = (
-                    f"{'TYPE':<10} {'NAME':<16} {'PORT':<8} "
-                    f"{'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
+                    f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
+                    f"{'PORT':<8} {'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
                 )
                 self._print(header)
                 self._print("-" * len(header))
                 for agent in agents:
                     name = agent.get("name") or "-"
+                    role = agent.get("role") or "-"
+                    agent_id = agent.get("agent_id", "-")
                     self._print(
                         f"{agent['agent_type']:<10} "
                         f"{name:<16} "
+                        f"{role:<16} "
+                        f"{agent_id:<24} "
                         f"{agent['port']:<8} "
                         f"{agent['status']:<12} "
                         f"{agent['pid']:<8} "

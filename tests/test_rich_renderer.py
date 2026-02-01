@@ -121,7 +121,7 @@ class TestRichRendererTableStructure:
         assert table.box == box.ROUNDED
 
     def test_table_has_required_columns(self):
-        """Table should have TYPE, PORT, STATUS, TRANSPORT, PID, WORKING_DIR, ENDPOINT columns."""
+        """Table should have TYPE, NAME, ID, ROLE, STATUS, TRANSPORT, WORKING_DIR columns."""
         console = Console(file=StringIO(), force_terminal=True)
         renderer = RichRenderer(console=console)
 
@@ -129,6 +129,8 @@ class TestRichRendererTableStructure:
             {
                 "agent_id": "synapse-claude-8100",
                 "agent_type": "claude",
+                "name": "my-claude",
+                "role": "reviewer",
                 "port": 8100,
                 "status": "READY",
                 "transport": "-",
@@ -142,12 +144,16 @@ class TestRichRendererTableStructure:
 
         column_headers = [col.header for col in table.columns]
         assert "TYPE" in column_headers
-        assert "PORT" in column_headers
+        assert "NAME" in column_headers
+        assert "ID" in column_headers
+        assert "ROLE" in column_headers
         assert "STATUS" in column_headers
         assert "TRANSPORT" in column_headers
-        assert "PID" in column_headers
         assert "WORKING_DIR" in column_headers
-        assert "ENDPOINT" in column_headers
+        # PORT, PID, ENDPOINT are in detail panel, not main table
+        assert "PORT" not in column_headers
+        assert "PID" not in column_headers
+        assert "ENDPOINT" not in column_headers
 
     def test_transport_column_always_present(self):
         """TRANSPORT column should always be present."""
@@ -308,13 +314,14 @@ class TestRichRendererMultipleAgents:
         assert "claude" in output
         assert "gemini" in output
         assert "codex" in output
-        assert "8100" in output
-        assert "8110" in output
-        assert "8120" in output
+        # IDs should be displayed (not ports, which are in detail panel)
+        assert "synapse-claude-8100" in output
+        assert "synapse-gemini-8110" in output
+        assert "synapse-codex-8120" in output
 
     def test_multiple_agents_with_different_transport_states(self):
         """Multiple agents with different transport states."""
-        console = Console(file=StringIO(), force_terminal=True)
+        console = Console(file=StringIO(), force_terminal=True, width=200)
         renderer = RichRenderer(console=console)
 
         agents = [

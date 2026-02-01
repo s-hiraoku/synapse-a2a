@@ -36,12 +36,14 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --from claude
-synapse send claude "What is the status?" --from codex
-synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
+synapse send gemini "Please review this code" --response --from claude
+synapse send claude "What is the status?" --response --from codex
+synapse send codex-8120 "Fix this bug" --response --priority 3 --from gemini
 ```
 
-**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.
+**Important:**
+- Always use `--from` with your **agent type** (e.g., `claude`, `codex`, `gemini`) or **agent ID** (e.g., `synapse-claude-8100`). Do NOT use custom names for `--from`.
+- By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
 
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
@@ -53,22 +55,17 @@ synapse send codex-8120 "Fix this bug" --priority 3 --from gemini
 
 ### Choosing --response vs --no-response
 
-**Rule: If your message asks for a reply, use --response**
-
-| Message Type | Flag | Example |
-|--------------|------|---------|
-| Question | `--response` | "What is the status?" |
-| Request for analysis | `--response` | "Please review this code" |
-| Status check | `--response` | "Are you ready?" |
-| Notification | `--no-response` | "FYI: Build completed" |
-| Delegated task | `--no-response` | "Run tests and commit" |
+Analyze the message content and determine if a reply is expected:
+- If the message expects or benefits from a reply → use `--response`
+- If the message is purely informational with no reply needed → use `--no-response`
+- **If unsure, use `--response`** (safer default)
 
 ```bash
-# Question - needs reply
+# Message that expects a reply
 synapse send gemini "What is the best approach?" --response --from claude
 
-# Delegation - no reply needed
-synapse send codex "Run tests and fix failures" --from claude
+# Purely informational, no reply needed
+synapse send codex "FYI: Build completed" --no-response --from claude
 ```
 
 ### Roundtrip Communication (--response)
@@ -104,7 +101,8 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 **Replying to messages:**
 
 ```bash
-# Use the reply command (--from is required in sandboxed environments)
+# Use the reply command
+# --from: Use your agent type (claude, codex, gemini, etc.) or agent ID
 synapse reply "Here is my analysis..." --from <your_agent_type>
 ```
 
@@ -130,14 +128,14 @@ Action:   Just do the task. No reply needed unless you have questions.
 | 5 | Interrupt | Emergency (sends SIGINT first) |
 
 ```bash
-# Normal priority (default)
-synapse send gemini "Analyze this"
+# Normal priority (default) - with response
+synapse send gemini "Analyze this" --response --from claude
 
-# Higher priority
-synapse send claude "Urgent review needed" --priority 4
+# Higher priority - urgent request
+synapse send claude "Urgent review needed" --response --priority 4 --from codex
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5
+synapse send codex "STOP" --priority 5 --from claude
 ```
 
 ## Agent Status

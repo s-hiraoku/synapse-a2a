@@ -32,15 +32,18 @@ synapse list
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Output columns:**
-- Agent name and type
-- Status (READY / WAITING / PROCESSING / DONE)
-- Port number
-- Working directory (truncated in TUI, full path in detail panel)
+- **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
+- **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
+- **STATUS**: READY / WAITING / PROCESSING / DONE
+- **PORT**: HTTP port number
+- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
 - **TRANSPORT** (watch mode only): Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
+
+**Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).
 
 ### Start Agents
 
@@ -51,6 +54,12 @@ synapse gemini
 synapse codex
 synapse opencode
 synapse copilot
+
+# With custom name and role
+synapse claude --name my-claude --role "code reviewer"
+
+# Skip interactive name/role setup
+synapse claude --no-setup
 
 # With specific port
 synapse claude --port 8101
@@ -89,6 +98,57 @@ synapse stop synapse-claude-8100
 # Stop all instances of a profile
 synapse stop claude --all
 ```
+
+### Kill Agents
+
+```bash
+# Kill by custom name (highest priority)
+synapse kill my-claude
+
+# Kill by agent ID
+synapse kill synapse-claude-8100
+
+# Kill by agent type (only if single instance)
+synapse kill claude
+
+# Force kill without confirmation
+synapse kill my-claude -f
+```
+
+### Jump to Terminal
+
+```bash
+# Jump by custom name
+synapse jump my-claude
+
+# Jump by agent ID
+synapse jump synapse-claude-8100
+
+# Jump by agent type (only if single instance)
+synapse jump claude
+```
+
+**Supported Terminals:** iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+### Rename Agents
+
+Assign or update custom names and roles for running agents:
+
+```bash
+# Set name and role
+synapse rename synapse-claude-8100 --name my-claude --role "code reviewer"
+
+# Update role only (use current name)
+synapse rename my-claude --role "test writer"
+
+# Clear name and role
+synapse rename my-claude --clear
+```
+
+**Name vs ID:**
+- Custom names are for **display and user-facing operations** (prompts, `synapse list` output)
+- Agent ID (`synapse-claude-8100`) is used **internally** for registry and processing
+- Target resolution: name has highest priority when matching
 
 ### Port Ranges
 
@@ -147,6 +207,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 | Format | Example | Description |
 |--------|---------|-------------|
+| Custom name | `my-claude` | Highest priority, exact match, case-sensitive |
 | Full ID | `synapse-claude-8100` | Always works, unique identifier |
 | Type-port | `claude-8100` | Use when multiple agents of same type |
 | Agent type | `claude` | Only when single instance exists |
@@ -154,10 +215,15 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 **Parameters:**
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
-- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
-- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
+- `--response`: Roundtrip mode - sender waits, receiver MUST reply
+- `--no-response`: Oneway mode - fire and forget, no reply expected
 
 **Choosing --response vs --no-response:**
+
+Analyze the message content and determine if a reply is expected:
+- If the message expects or benefits from a reply → use `--response`
+- If the message is purely informational with no reply needed → use `--no-response`
+- **If unsure, use `--response`** (safer default)
 
 | Message Type | Flag | Example |
 |--------------|------|---------|
@@ -166,8 +232,6 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Status check | `--response` | "Are you ready?" |
 | Notification | `--no-response` | "FYI: Build completed" |
 | Delegated task | `--no-response` | "Run tests and commit" |
-
-**Rule: If your message asks for a reply, use --response**
 
 **Examples:**
 ```bash

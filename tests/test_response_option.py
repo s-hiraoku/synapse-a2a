@@ -127,8 +127,8 @@ class TestSynapseSendResponseFlags:
 class TestA2aSendResponseFlags:
     """Tests for a2a.py send command response flags."""
 
-    def test_a2a_send_default_no_wait(self):
-        """a2a.py send should default to NOT waiting for response in auto mode."""
+    def test_a2a_send_default_waits(self):
+        """a2a.py send should default to waiting for response in auto mode."""
         from synapse.tools.a2a import cmd_send
 
         mock_args = argparse.Namespace(
@@ -170,9 +170,9 @@ class TestA2aSendResponseFlags:
 
             cmd_send(mock_args)
 
-            # Default should be False (not waiting)
+            # Default should be True (waiting for response)
             call_kwargs = mock_client.send_to_local.call_args.kwargs
-            assert call_kwargs["response_expected"] is False
+            assert call_kwargs["response_expected"] is True
 
     def test_a2a_send_response_flag_waits(self):
         """a2a.py send with --response should wait for response."""
