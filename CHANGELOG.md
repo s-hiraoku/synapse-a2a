@@ -5,57 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.14] - 2026-02-01
-
-### Fixed
-
-- Fix agent type regex to allow hyphens (e.g., `synapse-gpt-4-8120`)
-  - Previously, agent types with hyphens in their names failed validation
-  - Updated pattern from `^synapse-\w+-\d+$` to `^synapse-[\w-]+-\d+$`
-
-- Normalize endpoint in `synapse reply` to avoid relative URL issues
-  - When replying via UDS-only path, use `"http://localhost"` as fallback endpoint
-  - Prevents "Invalid URL" errors when only UDS path is available
-
-### Documentation
-
-- Update all documentation for v0.3.13 history default change
-  - Update README.md, README.ja.md, CLAUDE.md, guides/*.md
-  - Update all skill references to show history enabled by default
-  - Update examples to show how to disable instead of enable
-  - Update CLI help text to reflect history is now default
-
-- Sync plugin skills across all agent directories
-  - Keep .claude/, .codex/, .gemini/, .opencode/, and plugins/ in sync
-  - Update API reference to move Synapse-specific endpoints to Extensions section
-
-## [0.3.13] - 2026-02-01
+## [0.3.15] - 2026-02-01
 
 ### Added
 
-- Add reply PTY injection for natural agent-to-agent conversation (#180)
-  - When agent A sends a message with `--response` and agent B replies,
-    the reply is now written to agent A's PTY as `A2A REPLY from <sender>: <message>`
-  - Enables agents to see replies and continue conversations naturally
-  - Previously, replies only updated the TaskStore without PTY display
-
-- Add CURRENT column to `synapse list` display (#181)
-  - Shows first 30 characters of the current task being processed
-  - Helps users understand what each agent is working on
-  - Displays "-" when agent is READY or no task is active
+- File Safety instructions in default agent instructions (#168)
+  - Add mandatory checklist for file locking before edits
+  - Include lock/unlock commands in agent initial instructions
+  - Prevents agents from forgetting to use file locking
 
 ### Changed
 
-- Enable history by default (#182)
+- Simplify code in core modules for improved readability
+  - Extract `_format_ambiguous_target_error` helper in tools/a2a.py
+  - Consolidate backspace key handling in list.py
+  - Use walrus operator for regex match in registry.py
+  - Simplify file path lookup in settings.py
+
+### Documentation
+
+- Improve file-safety.md with mandatory checklist and quick reference
+- Update README test badge (1331 → 1389 tests)
+- Add Task History and CURRENT column to Features table
+
+## [0.3.14] - 2026-02-01
+
+### Added
+
+- Reply PTY injection for natural agent-to-agent conversation
+  - When agent A sends a message with `--response` and agent B replies,
+    the reply is written to agent A's PTY as `A2A: <message>`
+  - Uses standard A2A: prefix for protocol consistency
+
+- CURRENT column in `synapse list` display
+  - Shows first 30 characters of the current task being processed
+  - Helps users understand what each agent is working on
+
+- History enabled by default
   - Task history is now enabled without setting environment variables
   - To disable, set `SYNAPSE_HISTORY_ENABLED=false` explicitly
-  - Previously required `SYNAPSE_HISTORY_ENABLED=true` to enable
 
-### Technical
+### Fixed
 
-- Add `update_current_task()` method to AgentRegistry
-  - Stores truncated task preview (30 chars + "...")
-  - Automatically cleared when task completes
+- Use standard `A2A: ` prefix for PTY reply messages (protocol compliance)
+- Task preview truncation to max 30 chars total (27 + "...")
+- Handle undefined variables in conditional template sections
+- Remove trailing newline from PTY reply content (let submit_seq handle it)
+- Fix agent type regex to allow hyphens (e.g., `synapse-gpt-4-8120`)
+- Normalize endpoint in `synapse reply` to avoid relative URL issues
+- Fix `.serena/project.yml` empty base_modes/default_modes keys
+
+### Documentation
+
+- Update all documentation for history default change
+- Update commands.md Output columns (ID, ROLE, CURRENT columns added)
+- Sync skill files across all agent directories
+
+## [0.3.13] - 2026-02-01
+
+### Note
+
+Features originally planned for v0.3.13 were consolidated into v0.3.14.
+See v0.3.14 for reply PTY injection, CURRENT column, and history default changes.
 
 ## [0.3.12] - 2026-02-01
 

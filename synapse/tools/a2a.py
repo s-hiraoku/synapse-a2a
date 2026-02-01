@@ -270,8 +270,6 @@ def _resolve_target_agent(
     Returns:
         Tuple of (agent_info, error_message). If successful, error_message is None.
     """
-    target_lower = target.lower()
-
     # Priority 1: Custom name (exact match, case-sensitive)
     for info in agents.values():
         if info.get("name") == target:
@@ -281,11 +279,13 @@ def _resolve_target_agent(
     if target in agents:
         return agents[target], None
 
+    target_lower = target.lower()
+
     # Priority 3: Type-port shorthand (e.g., claude-8100, gpt-4-8120)
     type_port_match = re.match(r"^([\w-]+)-(\d+)$", target_lower)
     if type_port_match:
-        target_type = type_port_match.group(1)
-        target_port = int(type_port_match.group(2))
+        target_type, port_str = type_port_match.groups()
+        target_port = int(port_str)
         for info in agents.values():
             if (
                 info.get("agent_type", "").lower() == target_type
@@ -302,21 +302,30 @@ def _resolve_target_agent(
         return matches[0], None
 
     if len(matches) > 1:
-        agent_ids = [m.get("agent_id", "unknown") for m in matches]
-        # Include custom names in hint
-        options = []
-        for m in matches:
-            name = m.get("name")
-            if name:
-                options.append(name)
-            elif m.get("port"):
-                options.append(f"{m.get('agent_type', 'unknown')}-{m['port']}")
-        error = f"Ambiguous target '{target}'. Found: {agent_ids}"
-        if options:
-            error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
-        return None, error
+        return None, _format_ambiguous_target_error(target, matches)
 
     return None, f"No agent found matching '{target}'"
+
+
+def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
+    """Format error message for ambiguous target resolution.
+
+    Args:
+        target: The original target string.
+        matches: List of matching agent info dicts.
+
+    Returns:
+        Formatted error message with hints.
+    """
+    agent_ids = [m.get("agent_id", "unknown") for m in matches]
+    options = [
+        m.get("name") or f"{m.get('agent_type', 'unknown')}-{m.get('port', '?')}"
+        for m in matches
+    ]
+    error = f"Ambiguous target '{target}'. Found: {agent_ids}"
+    if options:
+        error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
+    return error
 
 
 def cmd_send(args: argparse.Namespace) -> None:
@@ -435,9 +444,14 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 
 def _get_target_display_name(endpoint: str | None, uds_path: str | None) -> str:
-    """Get a short display name for the target agent."""
+    """Get a short display name for the target agent.
+
+    Extracts port from endpoint URL or socket name from UDS path.
+    """
+    if endpoint and ":" in endpoint:
+        return endpoint.rsplit(":", 1)[-1]
     if endpoint:
-        return endpoint.split(":")[-1] if ":" in endpoint else endpoint
+        return endpoint
     if uds_path:
         return Path(uds_path).name
     return "unknown"

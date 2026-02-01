@@ -2,6 +2,16 @@
 
 File Safety prevents conflicts when multiple agents edit the same files.
 
+## MANDATORY: Checklist Before Edit/Write
+
+Before using Edit, Write, sed, awk, or ANY file modification:
+
+- [ ] Check locks: `synapse file-safety locks`
+- [ ] Lock file: `synapse file-safety lock <file> <agent_id> --intent "..."`
+- [ ] Verify lock: `synapse file-safety locks`
+
+**If lock fails (another agent has it): DO NOT edit. Work on something else.**
+
 ## Enable File Safety
 
 ```bash
@@ -13,6 +23,15 @@ synapse claude
 synapse init
 # Edit .synapse/settings.json
 ```
+
+## Quick Reference
+
+| Action        | Command                                                    |
+|---------------|------------------------------------------------------------|
+| Check locks   | `synapse file-safety locks`                                |
+| Lock file     | `synapse file-safety lock <file> <agent_id> --intent "..."` |
+| Unlock file   | `synapse file-safety unlock <file> <agent_id>`             |
+| Record change | `synapse file-safety record <file> <agent_id> --type MODIFY` |
 
 ## Commands
 
@@ -67,7 +86,7 @@ synapse file-safety cleanup --days 30 --force
 synapse file-safety debug
 ```
 
-## Workflow
+## Complete Workflow
 
 ### Before Editing
 
@@ -76,9 +95,14 @@ synapse file-safety debug
    synapse file-safety locks
    ```
 
-2. Acquire lock:
+2. Acquire lock (REQUIRED):
    ```bash
    synapse file-safety lock /path/to/file.py <agent_name> --intent "Description"
+   ```
+
+3. Verify you have the lock:
+   ```bash
+   synapse file-safety locks
    ```
 
 ### After Editing
@@ -105,6 +129,13 @@ Error: File is locked by gemini (expires: 2026-01-09T12:00:00)
 1. Wait for lock to expire
 2. Work on different files first
 3. Coordinate with lock holder: `@gemini What's your progress?`
+
+## Why This Matters
+
+- Without locks, two agents editing the same file = DATA LOSS
+- Your changes may be overwritten without warning
+- Other agents' work may be destroyed
+- **EVERY EDIT NEEDS A LOCK. NO EXCEPTIONS.**
 
 ## Storage
 

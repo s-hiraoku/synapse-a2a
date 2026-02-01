@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1331%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
@@ -92,7 +92,8 @@ flowchart LR
 | **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
-| **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), terminal jump with Enter/j key |
+| **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
+| **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
 
 ---
 

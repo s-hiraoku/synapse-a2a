@@ -61,7 +61,6 @@ class ListCommand:
         """
         pid = info.get("pid")
         port = info.get("port")
-        status = info.get("status", "-")
 
         # Check 1: PID must be alive
         if pid and not self._is_process_alive(pid):
@@ -70,8 +69,9 @@ class ListCommand:
 
         # Check 2: Port must be open (agent server responding)
         # Skip port check for PROCESSING agents (server may still be starting)
+        is_starting = info.get("status", "-") == "PROCESSING"
         if (
-            status != "PROCESSING"
+            not is_starting
             and port
             and not self._is_port_open("localhost", port, timeout=0.5)
         ):
@@ -441,78 +441,77 @@ class ListCommand:
                                 if key == "\x1b":  # ESC - cancel filter
                                     filter_mode = False
                                     filter_input = ""
-                                    needs_refresh = True
                                 elif key in ("\r", "\n"):  # Enter - apply filter
                                     filter_mode = False
                                     active_filter = filter_input
                                     filter_input = ""
-                                    selected_row = None  # Reset selection
-                                    needs_refresh = True
-                                elif key == "\x7f" or key == "\b":  # Backspace
+                                    selected_row = None
+                                elif key in ("\x7f", "\b"):  # Backspace
                                     filter_input = filter_input[:-1]
-                                    needs_refresh = True
                                 elif len(key) == 1 and key.isprintable():
                                     filter_input += key
-                                    needs_refresh = True
+                                needs_refresh = True
+
                             # Handle kill confirmation mode
                             elif kill_confirm_agent is not None:
                                 if key in ("y", "Y"):
-                                    # Confirm kill
                                     self._kill_agent(registry, kill_confirm_agent)
                                     selected_row = None
                                     kill_confirm_agent = None
-                                    change_event.set()  # Refresh display
+                                    change_event.set()
                                     needs_refresh = True
                                 elif key in ("n", "N", "\x1b"):
-                                    # Cancel on n, N, or ESC only
                                     kill_confirm_agent = None
                                     needs_refresh = True
-                                # Other keys: ignore, stay in confirmation mode
-                            # Normal mode
-                            # q key to quit
+
+                            # Normal mode - quit
                             elif key in ("q", "Q"):
                                 break
-                            # '/' key enters filter mode
+
+                            # Normal mode - enter filter
                             elif key == "/":
                                 filter_mode = True
-                                filter_input = (
-                                    active_filter  # Start with current filter
-                                )
+                                filter_input = active_filter
                                 needs_refresh = True
-                            # ESC key: first clears filter, then clears selection
+
+                            # Normal mode - ESC clears filter or selection
                             elif key == "\x1b":
                                 if active_filter:
                                     active_filter = ""
                                 elif selected_row is not None:
                                     selected_row = None
                                 needs_refresh = True
-                            # Number keys for direct selection
+
+                            # Normal mode - number keys for selection
                             elif key.isdigit() and key != "0":
                                 selected_row = int(key)
                                 needs_refresh = True
-                            # Arrow keys for navigation
+
+                            # Normal mode - arrow navigation
                             elif key == "UP" and current_agents:
                                 if selected_row is None:
                                     selected_row = len(current_agents)
                                 elif selected_row > 1:
                                     selected_row -= 1
                                 needs_refresh = True
+
                             elif key == "DOWN" and current_agents:
                                 if selected_row is None:
                                     selected_row = 1
                                 elif selected_row < len(current_agents):
                                     selected_row += 1
                                 needs_refresh = True
-                            # Enter or 'j' key triggers terminal jump
+
+                            # Normal mode - terminal jump (requires selection)
                             elif (
                                 key in ("\r", "\n", "j", "J")
                                 and jump_available
                                 and selected_row is not None
                                 and 1 <= selected_row <= len(current_agents)
                             ):
-                                agent = current_agents[selected_row - 1]
-                                jump_to_terminal(agent)
-                            # 'k' key triggers kill confirmation mode
+                                jump_to_terminal(current_agents[selected_row - 1])
+
+                            # Normal mode - kill confirmation (requires selection)
                             elif (
                                 key in ("k", "K")
                                 and selected_row is not None

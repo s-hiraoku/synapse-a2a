@@ -380,8 +380,7 @@ class AgentRegistry:
             return agents[target]
 
         # Priority 3: Type-port shorthand (e.g., "claude-8100")
-        match = re.match(r"^([\w-]+)-(\d+)$", target)
-        if match:
+        if match := re.match(r"^([\w-]+)-(\d+)$", target):
             agent_type, port_str = match.groups()
             port = int(port_str)
             for info in agents.values():
@@ -392,11 +391,7 @@ class AgentRegistry:
         type_matches = [
             info for info in agents.values() if info.get("agent_type") == target
         ]
-        if len(type_matches) == 1:
-            return type_matches[0]
-
-        # Not found or ambiguous
-        return None
+        return type_matches[0] if len(type_matches) == 1 else None
 
     def is_name_unique(self, name: str, exclude_agent_id: str | None = None) -> bool:
         """Check if a name is unique across all agents.

@@ -2,6 +2,25 @@
 
 When delegating file modification tasks, use File Safety to prevent conflicts.
 
+## MANDATORY: Lock Required Before Delegation
+
+Before delegating ANY file edit task:
+
+- [ ] Check locks: `synapse file-safety locks`
+- [ ] If unlocked, lock first: `synapse file-safety lock <file> <agent_id> --intent "..."`
+- [ ] Include lock info in delegation message
+
+**Skipping locks = potential data loss when multiple agents edit files.**
+
+## Quick Reference
+
+| Action        | Command                                                    |
+|---------------|------------------------------------------------------------|
+| Check locks   | `synapse file-safety locks`                                |
+| Lock file     | `synapse file-safety lock <file> <agent_id> --intent "..."` |
+| Unlock file   | `synapse file-safety unlock <file> <agent_id>`             |
+| Record change | `synapse file-safety record <file> <agent_id> --type MODIFY` |
+
 ## Before Delegation
 
 ```bash
@@ -82,3 +101,10 @@ Error: Could not acquire lock for /path/to/file.py
 - Check if file exists
 - Check permissions
 - Retry after brief delay
+
+## Why This Matters
+
+- Without locks, two agents editing the same file = DATA LOSS
+- Your changes may be overwritten without warning
+- Other agents' work may be destroyed
+- **EVERY EDIT NEEDS A LOCK. NO EXCEPTIONS.**
