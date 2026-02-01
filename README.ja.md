@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1331%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > CLI エージェント（Claude Code, Codex, Gemini, GitHub Copilot CLI）を**そのまま**に、Google A2A Protocol 経由でエージェント間連携を実現するフレームワーク
@@ -92,7 +92,8 @@ flowchart LR
 | **タスク委譲** | 自然言語ルールで他エージェントへタスクを自動転送 |
 | **File Safety** | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` で表示可能） |
 | **エージェント命名** | カスタム名とロールで識別しやすく（`synapse send my-claude "hello"`） |
-| **エージェントモニター** | リアルタイムステータス（READY/WAITING/PROCESSING/DONE）、Enter/j でターミナルジャンプ |
+| **エージェントモニター** | リアルタイムステータス（READY/WAITING/PROCESSING/DONE）、CURRENT タスクプレビュー、ターミナルジャンプ |
+| **タスク履歴** | 検索・エクスポート・統計機能付きの自動タスク追跡（デフォルトで有効） |
 
 ---
 
