@@ -36,6 +36,12 @@ LIST COMMAND: synapse list
 
 SKILL: For advanced A2A features, use synapse-a2a skill
 
+FILE SAFETY (Multi-Agent Coordination):
+- Before editing ANY file, check: synapse file-safety locks
+- If another agent has lock, WAIT or coordinate with them
+- Lock before edit: synapse file-safety lock <file> {{agent_id}}
+- Unlock after edit: synapse file-safety unlock <file> {{agent_id}}
+
 TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
   synapse history list [--agent <name>] [--limit <n>]    - List tasks
   synapse history search <keywords>                       - Search by keywords
@@ -58,6 +64,12 @@ Use: synapse send <AGENT> "<MESSAGE>" --from {{agent_id}}
 
 AVAILABLE AGENTS: claude, gemini, codex
 LIST COMMAND: synapse list
+
+FILE SAFETY (Multi-Agent Coordination):
+- Before editing ANY file, check: synapse file-safety locks
+- If another agent has lock, WAIT or coordinate with them
+- Lock before edit: synapse file-safety lock <file> {{agent_id}}
+- Unlock after edit: synapse file-safety unlock <file> {{agent_id}}
 
 TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
   synapse history list [--agent <name>] [--limit <n>]    - List tasks
@@ -411,6 +423,9 @@ class SynapseSettings:
         paths: list[str] = []
         home = user_dir if user_dir else Path.home()
 
+        def is_md_file(value: object) -> bool:
+            return isinstance(value, str) and value.endswith(".md")
+
         def add_if_exists(filename: str) -> None:
             """Add file to paths if it exists in project or user directory."""
             project_path = Path.cwd() / ".synapse" / filename
@@ -421,18 +436,15 @@ class SynapseSettings:
             if display_path:
                 paths.append(display_path)
 
-        def is_md_file(value: object) -> bool:
-            return isinstance(value, str) and value.endswith(".md")
-
         # Check agent-specific file
         agent_instruction = self.instructions.get(agent_type, "")
-        if is_md_file(agent_instruction) and isinstance(agent_instruction, str):
+        if is_md_file(agent_instruction):
             add_if_exists(agent_instruction)
 
         # Check default file (only if agent-specific is not set)
         if not agent_instruction:
             default_instruction = self.instructions.get("default", "")
-            if is_md_file(default_instruction) and isinstance(default_instruction, str):
+            if is_md_file(default_instruction):
                 add_if_exists(default_instruction)
 
         # Delegation (when enabled)
@@ -452,7 +464,7 @@ class SynapseSettings:
         Get the display path for an instruction file.
 
         Checks if the file exists in project or user directory and returns
-        the appropriate display path.
+        the appropriate display path. Project directory takes precedence.
 
         Args:
             filename: The filename to check (e.g., "default.md")
@@ -462,17 +474,15 @@ class SynapseSettings:
             Display path like ".synapse/default.md" or "~/.synapse/default.md",
             or None if file doesn't exist in either location.
         """
-        project_path = Path.cwd() / ".synapse" / filename
-        home = user_dir if user_dir else Path.home()
-        user_path = home / ".synapse" / filename
+        home = user_dir or Path.home()
+        locations = [
+            (Path.cwd() / ".synapse" / filename, f".synapse/{filename}"),
+            (home / ".synapse" / filename, f"~/.synapse/{filename}"),
+        ]
 
-        # Project directory takes precedence
-        if project_path.exists():
-            return f".synapse/{filename}"
-
-        if user_path.exists():
-            return f"~/.synapse/{filename}"
-
+        for path, display in locations:
+            if path.exists():
+                return display
         return None
 
     def _is_valid_md_file(self, instruction: object) -> bool:
@@ -574,12 +584,12 @@ class SynapseSettings:
         Returns:
             File content if found, empty string otherwise.
         """
-        from pathlib import Path
+        search_paths = [
+            Path.cwd() / ".synapse" / filename,
+            Path.home() / ".synapse" / filename,
+        ]
 
-        project_path = Path.cwd() / ".synapse" / filename
-        user_path = Path.home() / ".synapse" / filename
-
-        for path in [project_path, user_path]:
+        for path in search_paths:
             if path.exists():
                 try:
                     return path.read_text(encoding="utf-8")
