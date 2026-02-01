@@ -224,20 +224,26 @@ def _resolve_target_agent(
     """Resolve target agent from name/id.
 
     Matching priority:
-    1. Exact match on agent_id (e.g., synapse-claude-8100)
-    2. Match on type-port shorthand (e.g., claude-8100)
-    3. Match on agent_type if only one exists (e.g., claude)
+    1. Custom name (exact match, case-sensitive)
+    2. Exact match on agent_id (e.g., synapse-claude-8100)
+    3. Match on type-port shorthand (e.g., claude-8100)
+    4. Match on agent_type if only one exists (e.g., claude)
 
     Returns:
         Tuple of (agent_info, error_message). If successful, error_message is None.
     """
     target_lower = target.lower()
 
-    # Priority 1: Exact match by ID
+    # Priority 1: Custom name (exact match, case-sensitive)
+    for info in agents.values():
+        if info.get("name") == target:
+            return info, None
+
+    # Priority 2: Exact match by ID
     if target in agents:
         return agents[target], None
 
-    # Priority 2: Type-port shorthand (e.g., claude-8100, gpt-4-8120)
+    # Priority 3: Type-port shorthand (e.g., claude-8100, gpt-4-8120)
     type_port_match = re.match(r"^([\w-]+)-(\d+)$", target_lower)
     if type_port_match:
         target_type = type_port_match.group(1)
@@ -249,7 +255,7 @@ def _resolve_target_agent(
             ):
                 return info, None
 
-    # Priority 3: Fuzzy match by agent_type
+    # Priority 4: Fuzzy match by agent_type
     matches = [
         a for a in agents.values() if target_lower in a.get("agent_type", "").lower()
     ]
@@ -259,11 +265,14 @@ def _resolve_target_agent(
 
     if len(matches) > 1:
         agent_ids = [m.get("agent_id", "unknown") for m in matches]
-        options = [
-            f"{m.get('agent_type', 'unknown')}-{m['port']}"
-            for m in matches
-            if m.get("port")
-        ]
+        # Include custom names in hint
+        options = []
+        for m in matches:
+            name = m.get("name")
+            if name:
+                options.append(name)
+            elif m.get("port"):
+                options.append(f"{m.get('agent_type', 'unknown')}-{m['port']}")
         error = f"Ambiguous target '{target}'. Found: {agent_ids}"
         if options:
             error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
