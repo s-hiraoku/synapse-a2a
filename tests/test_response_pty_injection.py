@@ -60,11 +60,11 @@ class TestReplyToExistingTask:
         """Reply should be written to PTY with standard A2A: prefix."""
         # When an agent receives a reply (in_reply_to is set):
         # - The reply should be written to the sender's PTY
-        # - Format: "A2A: <message>\n" (standard prefix for protocol consistency)
+        # - Format: "A2A: <message>" (no trailing \n, submit_seq handles submission)
         # - This enables the agent to see the reply and continue the conversation
 
         message = "Here is my analysis of the code"
-        expected_format = f"A2A: {message}\n"
+        expected_format = f"A2A: {message}"
 
         assert expected_format.startswith("A2A: ")
         assert message in expected_format

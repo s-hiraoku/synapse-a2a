@@ -642,7 +642,8 @@ def create_a2a_router(
             # This is the key feature for v0.3.13 - enables natural agent-to-agent conversation
             if controller:
                 # Use standard A2A: prefix for consistency with message protocol
-                prefixed_content = "A2A: " + text_content + "\n"
+                # Let controller.write's submit_seq handle the submission (no trailing \n)
+                prefixed_content = "A2A: " + text_content
                 controller.write(prefixed_content, submit_seq=submit_seq)
 
             updated_task = task_store.get(full_task_id)
