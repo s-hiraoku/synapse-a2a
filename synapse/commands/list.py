@@ -113,6 +113,8 @@ class ListCommand:
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),
+                "name": info.get("name"),
+                "role": info.get("role"),
                 "port": info.get("port", "-"),
                 "status": info.get("status", "-"),
                 "pid": pid or "-",
@@ -146,7 +148,7 @@ class ListCommand:
 
             agents_list.append(agent_data)
 
-        # Apply filter (partial match, case-insensitive) to TYPE and WORKING_DIR
+        # Apply filter (partial match, case-insensitive) to TYPE, NAME, and WORKING_DIR
         if working_dir_filter:
             filter_lower = working_dir_filter.lower()
             agents_list = [
@@ -154,6 +156,7 @@ class ListCommand:
                 for a in agents_list
                 if filter_lower in a["working_dir_full"].lower()
                 or filter_lower in a.get("agent_type", "").lower()
+                or filter_lower in (a.get("name") or "").lower()
             ]
 
         # Get stale locks
@@ -596,15 +599,18 @@ class ListCommand:
                     lines.append(f"  {agent_type}: {start}-{end}")
                 self._print("\n".join(lines))
             else:
-                # Simple table output
+                # Simple table output with NAME column
                 header = (
-                    f"{'TYPE':<10} {'PORT':<8} {'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
+                    f"{'TYPE':<10} {'NAME':<16} {'PORT':<8} "
+                    f"{'STATUS':<12} {'PID':<8} {'ENDPOINT'}"
                 )
                 self._print(header)
                 self._print("-" * len(header))
                 for agent in agents:
+                    name = agent.get("name") or "-"
                     self._print(
                         f"{agent['agent_type']:<10} "
+                        f"{name:<16} "
                         f"{agent['port']:<8} "
                         f"{agent['status']:<12} "
                         f"{agent['pid']:<8} "

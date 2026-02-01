@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def get_default_instructions() -> str:
     """Get default bootstrap instructions with SKILL line."""
     return """[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
-Agent: {{agent_id}} | Port: {{port}}
+Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 HOW TO RECEIVE A2A MESSAGES:
 Input format: [A2A:task_id:sender_id] message
@@ -47,7 +47,7 @@ TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
 def get_gemini_instructions() -> str:
     """Get Gemini-specific instructions without SKILL line."""
     return """[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]
-Agent: {{agent_id}} | Port: {{port}}
+Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 HOW TO RECEIVE A2A MESSAGES:
 Input format: [A2A:task_id:sender_id] message
@@ -255,7 +255,14 @@ class SynapseSettings:
             resume_flags=merged.get("resume_flags", {}),
         )
 
-    def get_instruction(self, agent_type: str, agent_id: str, port: int) -> str | None:
+    def get_instruction(
+        self,
+        agent_type: str,
+        agent_id: str,
+        port: int,
+        name: str | None = None,
+        role: str | None = None,
+    ) -> str | None:
         """
         Get the instruction for a specific agent type.
 
@@ -268,6 +275,8 @@ class SynapseSettings:
             agent_type: The agent type (claude, gemini, codex).
             agent_id: The agent ID for placeholder replacement.
             port: The port number for placeholder replacement.
+            name: Optional custom name for the agent (used in {{agent_name}}).
+            role: Optional role description for the agent (used in {{agent_role}}).
 
         Returns:
             The instruction string with placeholders replaced, or None.
@@ -275,7 +284,7 @@ class SynapseSettings:
         Note:
             Delegation rules should be manually included in the instructions
             section of .synapse/settings.json if needed. This function only
-            handles placeholder replacement ({{agent_id}}, {{port}}).
+            handles placeholder replacement ({{agent_id}}, {{port}}, etc.).
 
             To enable delegation, configure:
             .synapse/settings.json: {"delegation": {"enabled": true}}
@@ -284,6 +293,12 @@ class SynapseSettings:
             - String: "line1\\nline2" (escaped newlines)
             - Array: ["line1", "line2"] (joined with newlines, easier to read)
             - Filename: "default.md" (loads from .synapse/<filename>)
+
+        Placeholders:
+            - {{agent_id}}: The internal agent ID (e.g., synapse-claude-8100)
+            - {{agent_name}}: Custom name if set, otherwise falls back to agent_id
+            - {{agent_role}}: Role description if set, otherwise empty string
+            - {{port}}: The port number
         """
 
         # Try agent-specific first
@@ -309,6 +324,12 @@ class SynapseSettings:
         instruction = self._append_optional_instructions(instruction)
 
         # Replace placeholders
+        # agent_name defaults to agent_id if not set (for display purposes)
+        display_name = name if name else agent_id
+        display_role = role if role else ""
+
+        instruction = instruction.replace("{{agent_name}}", display_name)
+        instruction = instruction.replace("{{agent_role}}", display_role)
         instruction = instruction.replace("{{agent_id}}", agent_id)
         instruction = instruction.replace("{{port}}", str(port))
 

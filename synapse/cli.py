@@ -148,6 +148,143 @@ def cmd_stop(args: argparse.Namespace) -> None:
     _stop_agent(registry, target)
 
 
+def cmd_kill(args: argparse.Namespace) -> None:
+    """Kill a running agent by name, ID, or type."""
+    target = args.target
+    force = getattr(args, "force", False)
+
+    registry = AgentRegistry()
+    agent_info = registry.resolve_agent(target)
+
+    if agent_info is None:
+        # Check if multiple agents of same type
+        agents = registry.get_live_agents()
+        type_matches = [
+            info for info in agents.values() if info.get("agent_type") == target
+        ]
+        if len(type_matches) > 1:
+            print(
+                f"Ambiguous target '{target}': multiple agents of type '{target}' running."
+            )
+            print("Use agent ID or name instead:")
+            for info in type_matches:
+                name = info.get("name")
+                name_str = f" ({name})" if name else ""
+                print(f"  {info['agent_id']}{name_str}")
+            sys.exit(1)
+        else:
+            print(f"Agent not found: {target}")
+            print("Run 'synapse list' to see running agents.")
+            sys.exit(1)
+
+    agent_id: str = agent_info["agent_id"]
+    name = agent_info.get("name")
+    pid = agent_info.get("pid")
+
+    # Display info and ask for confirmation
+    display_name = name if name else agent_id
+    if not force:
+        try:
+            confirm = (
+                input(f"Kill {display_name} (PID: {pid})? [y/N]: ").strip().lower()
+            )
+            if confirm != "y":
+                print("Aborted.")
+                return
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            return
+
+    if pid:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            print(f"Killed {display_name} (PID: {pid})")
+            registry.unregister(agent_id)
+        except ProcessLookupError:
+            print(f"Process {pid} not found. Cleaning up registry...")
+            registry.unregister(agent_id)
+    else:
+        print(f"No PID found for {display_name}")
+
+
+def cmd_jump(args: argparse.Namespace) -> None:
+    """Jump to the terminal of a running agent."""
+    from synapse.terminal_jump import jump_to_terminal
+
+    target = args.target
+    registry = AgentRegistry()
+    agent_info = registry.resolve_agent(target)
+
+    if agent_info is None:
+        print(f"Agent not found: {target}")
+        print("Run 'synapse list' to see running agents.")
+        sys.exit(1)
+
+    agent_id = agent_info.get("agent_id")
+    name = agent_info.get("name")
+    tty_device = agent_info.get("tty_device")
+
+    display_name = name if name else agent_id
+
+    if not tty_device and not agent_info.get("zellij_pane_id"):
+        print(f"No TTY device available for {display_name}.")
+        print(
+            "Terminal jump requires the agent to have a TTY device or Zellij pane ID."
+        )
+        sys.exit(1)
+
+    if jump_to_terminal(agent_info):
+        print(f"Jumped to {display_name}")
+    else:
+        print(f"Failed to jump to {display_name}")
+        print("Make sure your terminal supports this feature.")
+        print("Supported: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij")
+        sys.exit(1)
+
+
+def cmd_rename(args: argparse.Namespace) -> None:
+    """Assign or update name/role for a running agent."""
+    target = args.target
+    new_name = getattr(args, "name", None)
+    new_role = getattr(args, "role", None)
+    clear = getattr(args, "clear", False)
+
+    registry = AgentRegistry()
+    agent_info = registry.resolve_agent(target)
+
+    if agent_info is None:
+        print(f"Agent not found: {target}")
+        print("Run 'synapse list' to see running agents.")
+        sys.exit(1)
+
+    agent_id: str = agent_info["agent_id"]
+
+    # Check name uniqueness if setting a new name
+    if new_name and not registry.is_name_unique(new_name, exclude_agent_id=agent_id):
+        print(f"Name '{new_name}' is already taken by another agent.")
+        sys.exit(1)
+
+    # Update name and/or role
+    result = registry.update_name(agent_id, new_name, role=new_role, clear=clear)
+
+    if result:
+        if clear:
+            print(f"Cleared name and role for {agent_id}")
+        else:
+            updated = []
+            if new_name:
+                updated.append(f"name='{new_name}'")
+            if new_role:
+                updated.append(f"role='{new_role}'")
+            if updated:
+                print(f"Updated {agent_id}: {', '.join(updated)}")
+            else:
+                print(f"No changes made to {agent_id}")
+    else:
+        print(f"Failed to update {agent_id}")
+        sys.exit(1)
+
+
 def _clear_screen() -> None:
     """Clear terminal screen (cross-platform)."""
     os.system("cls" if os.name == "nt" else "clear")
@@ -1562,10 +1699,57 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
     print("=" * 60)
 
 
+def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str | None]:
+    """Interactively prompt for agent name and role.
+
+    Args:
+        agent_id: The agent ID (e.g., synapse-claude-8100).
+        port: The port number.
+
+    Returns:
+        Tuple of (name, role), either or both may be None.
+    """
+    print("\n\x1b[32m[Synapse]\x1b[0m Agent Setup")
+    print("=" * 80)
+    print(f"Agent ID: {agent_id} | Port: {port}")
+    print()
+    print("Would you like to give this agent a name? (optional)")
+    print("Name allows you to call this agent by name instead of ID.")
+    print('Example: synapse send my-claude "hello"')
+    print()
+
+    try:
+        name = input("Name [Enter to skip]: ").strip() or None
+
+        print()
+        print("Would you like to assign a role? (optional)")
+        print("Role is a free-form description of this agent's responsibility.")
+        print('Example: "test writer", "code reviewer", "documentation"')
+        print()
+
+        role = input("Role [Enter to skip]: ").strip() or None
+
+        print("=" * 80)
+        if name or role:
+            name_str = name if name else agent_id
+            role_str = f" | Role: {role}" if role else ""
+            print(f"Agent: {name_str}{role_str}")
+        print()
+
+        return name, role
+
+    except (EOFError, KeyboardInterrupt):
+        print("\n\x1b[33m[Synapse]\x1b[0m Setup skipped")
+        return None, None
+
+
 def cmd_run_interactive(
     profile: str,
     port: int,
     tool_args: list | None = None,
+    name: str | None = None,
+    role: str | None = None,
+    no_setup: bool = False,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -1580,6 +1764,9 @@ def cmd_run_interactive(
         profile: Agent profile name (claude, codex, gemini, etc.)
         port: Port number for the A2A server.
         tool_args: Arguments to pass to the underlying CLI tool.
+        name: Optional custom name for the agent.
+        role: Optional role description for the agent.
+        no_setup: If True, skip interactive setup prompt.
     """
     tool_args = tool_args or []
 
@@ -1662,6 +1849,12 @@ def cmd_run_interactive(
         port=port,
     )
 
+    # Interactive agent setup (name/role) if not provided via CLI
+    agent_name = name
+    agent_role = role
+    if not no_setup and name is None and role is None and sys.stdin.isatty():
+        agent_name, agent_role = interactive_agent_setup(agent_id, port)
+
     # Check if approval is required for initial instructions
     skip_initial_instructions = is_resume
     if not is_resume and synapse_settings.should_require_approval():
@@ -1702,6 +1895,8 @@ def cmd_run_interactive(
         port=port,
         skip_initial_instructions=skip_initial_instructions,
         input_ready_pattern=input_ready_pattern,
+        name=name,
+        role=role,
     )
 
     # Handle Ctrl+C gracefully
@@ -1757,7 +1952,14 @@ def cmd_run_interactive(
         time.sleep(1)
 
         # Register agent after listeners are up (UDS first, then TCP)
-        registry.register(agent_id, profile, port, status="PROCESSING")
+        registry.register(
+            agent_id,
+            profile,
+            port,
+            status="PROCESSING",
+            name=agent_name,
+            role=agent_role,
+        )
 
         # Initial instructions are sent via on_first_idle callback
         # when the agent reaches IDLE state (detected by idle_regex)
@@ -1777,7 +1979,8 @@ def main() -> None:
     # Install A2A skills if not present
     install_skills()
 
-    # Check for shortcut: synapse claude [--port PORT] [-- TOOL_ARGS...]
+    # Check for shortcut: synapse claude [--port PORT] [--name NAME] [--role ROLE]
+    #                     [--no-setup] [-- TOOL_ARGS...]
     if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
         profile = sys.argv[1]
 
@@ -1790,16 +1993,28 @@ def main() -> None:
             synapse_args = sys.argv[2:]
             tool_args = []
 
+        # Helper to parse a flag with value
+        def parse_arg(flag: str) -> str | None:
+            if flag in synapse_args:
+                idx = synapse_args.index(flag)
+                if idx + 1 < len(synapse_args):
+                    return synapse_args[idx + 1]
+            return None
+
         # Parse --port from synapse_args
         port = None
-        if "--port" in synapse_args:
-            idx = synapse_args.index("--port")
-            if idx + 1 < len(synapse_args):
-                try:
-                    port = int(synapse_args[idx + 1])
-                except ValueError:
-                    print(f"Invalid port: {synapse_args[idx + 1]}")
-                    sys.exit(1)
+        port_str = parse_arg("--port")
+        if port_str:
+            try:
+                port = int(port_str)
+            except ValueError:
+                print(f"Invalid port: {port_str}")
+                sys.exit(1)
+
+        # Parse --name and --role from synapse_args
+        name = parse_arg("--name") or parse_arg("-n")
+        role = parse_arg("--role") or parse_arg("-r")
+        no_setup = "--no-setup" in synapse_args
 
         # Auto-select available port if not specified
         if port is None:
@@ -1812,7 +2027,9 @@ def main() -> None:
                 sys.exit(1)
 
         assert port is not None  # Type narrowing for mypy/ty
-        cmd_run_interactive(profile, port, tool_args)
+        cmd_run_interactive(
+            profile, port, tool_args, name=name, role=role, no_setup=no_setup
+        )
         return
 
     from importlib.metadata import version
@@ -1914,6 +2131,111 @@ Tip: Copy the agent ID from 'synapse list' output for precise control.""",
         help="Stop all instances of the specified profile (ignored for agent IDs)",
     )
     p_stop.set_defaults(func=cmd_stop)
+
+    # kill
+    p_kill = subparsers.add_parser(
+        "kill",
+        help="Kill a running agent immediately",
+        description="""Kill a running agent by name, ID, or type.
+
+Target resolution priority:
+  1. Custom name (my-claude) - highest priority
+  2. Full agent ID (synapse-claude-8100)
+  3. Type-port shorthand (claude-8100)
+  4. Type (claude) - only if single instance""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse kill my-claude            Kill agent by custom name
+  synapse kill synapse-claude-8100  Kill agent by ID
+  synapse kill claude-8100          Kill agent by type-port
+  synapse kill claude               Kill agent by type (if only one)
+  synapse kill claude -f            Kill without confirmation
+
+Tip: Use 'synapse list' to see running agents with their names and IDs.""",
+    )
+    p_kill.add_argument(
+        "target",
+        metavar="TARGET",
+        help="Agent name, ID (synapse-claude-8100), type-port (claude-8100), or type",
+    )
+    p_kill.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Kill without confirmation prompt",
+    )
+    p_kill.set_defaults(func=cmd_kill)
+
+    # jump
+    p_jump = subparsers.add_parser(
+        "jump",
+        help="Jump to an agent's terminal",
+        description="""Jump to the terminal window running a specific agent.
+
+Target resolution priority:
+  1. Custom name (my-claude) - highest priority
+  2. Full agent ID (synapse-claude-8100)
+  3. Type-port shorthand (claude-8100)
+  4. Type (claude) - only if single instance
+
+Supported terminals: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse jump my-claude            Jump by custom name
+  synapse jump synapse-claude-8100  Jump by agent ID
+  synapse jump claude-8100          Jump by type-port
+  synapse jump claude               Jump by type (if only one)""",
+    )
+    p_jump.add_argument(
+        "target",
+        metavar="TARGET",
+        help="Agent name, ID (synapse-claude-8100), type-port (claude-8100), or type",
+    )
+    p_jump.set_defaults(func=cmd_jump)
+
+    # rename
+    p_rename = subparsers.add_parser(
+        "rename",
+        help="Assign name and role to an agent",
+        description="""Assign or update a custom name and/or role for a running agent.
+
+Name allows you to call an agent by a custom name instead of its ID.
+Role is a free-form description of the agent's responsibility.
+
+Target resolution priority:
+  1. Custom name (my-claude) - highest priority
+  2. Full agent ID (synapse-claude-8100)
+  3. Type-port shorthand (claude-8100)
+  4. Type (claude) - only if single instance""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse rename synapse-claude-8100 --name my-claude
+  synapse rename my-claude --role "Code reviewer"
+  synapse rename claude --name reviewer --role "Reviews all PRs"
+  synapse rename my-claude --clear    Clear name and role""",
+    )
+    p_rename.add_argument(
+        "target",
+        metavar="TARGET",
+        help="Agent name, ID (synapse-claude-8100), type-port (claude-8100), or type",
+    )
+    p_rename.add_argument(
+        "--name",
+        "-n",
+        help="Custom name for the agent",
+    )
+    p_rename.add_argument(
+        "--role",
+        "-r",
+        help="Role description for the agent",
+    )
+    p_rename.add_argument(
+        "--clear",
+        "-c",
+        action="store_true",
+        help="Clear name and role",
+    )
+    p_rename.set_defaults(func=cmd_rename)
 
     # list
     p_list = subparsers.add_parser(
