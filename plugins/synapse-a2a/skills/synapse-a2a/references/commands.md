@@ -215,10 +215,15 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 **Parameters:**
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
 - `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
-- `--response`: Roundtrip mode - sender waits, **receiver MUST reply** using `synapse reply`
-- `--no-response`: Oneway mode - fire and forget, no reply expected (default)
+- `--response`: Roundtrip mode - sender waits, receiver MUST reply
+- `--no-response`: Oneway mode - fire and forget, no reply expected
 
 **Choosing --response vs --no-response:**
+
+Analyze the message content and determine if a reply is expected:
+- If the message expects or benefits from a reply → use `--response`
+- If the message is purely informational with no reply needed → use `--no-response`
+- **If unsure, use `--response`** (safer default)
 
 | Message Type | Flag | Example |
 |--------------|------|---------|
@@ -227,8 +232,6 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Status check | `--response` | "Are you ready?" |
 | Notification | `--no-response` | "FYI: Build completed" |
 | Delegated task | `--no-response` | "Run tests and commit" |
-
-**Rule: If your message asks for a reply, use --response**
 
 **Examples:**
 ```bash

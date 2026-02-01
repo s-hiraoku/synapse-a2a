@@ -23,6 +23,28 @@ synapse reply "<your response>" --from <your_agent_type>
 
 The framework automatically handles routing - you don't need to know where the message came from.
 
+## API Endpoints
+
+### A2A Compliant
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/.well-known/agent.json` | GET | Agent Card |
+| `/tasks/send` | POST | Send message |
+| `/tasks/send-priority` | POST | Send with priority |
+| `/tasks/create` | POST | Create task (no PTY send, for `--response`) |
+| `/tasks/{id}` | GET | Get task status |
+| `/tasks` | GET | List tasks |
+| `/tasks/{id}/cancel` | POST | Cancel task |
+| `/status` | GET | READY/PROCESSING status |
+
+### Synapse Extensions
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/reply-stack/get` | GET | Get sender info without removing (peek before send) |
+| `/reply-stack/pop` | GET | Pop sender info from reply map (for `synapse reply`) |
+
 ## Priority Levels
 
 | Priority | Use Case |
@@ -46,7 +68,7 @@ Error: No agent found matching 'xyz'
 ```text
 Error: Ambiguous target 'codex'. Multiple agents found.
 ```
-**Solution:** Use specific identifier like `codex-8120`.
+**Solution:** Use custom name (e.g., `my-codex`) or specific identifier (e.g., `codex-8120`).
 
 ### Agent Not Responding
 
