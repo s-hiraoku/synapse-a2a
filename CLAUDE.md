@@ -67,11 +67,11 @@ synapse rename claude --name my-claude    # Assign name to agent
 synapse rename my-claude --role reviewer  # Update role only
 synapse rename my-claude --clear          # Clear name and role
 
-# Task history (enable with SYNAPSE_HISTORY_ENABLED=true)
-SYNAPSE_HISTORY_ENABLED=true synapse claude
+# Task history (enabled by default, v0.3.13+)
 synapse history list                      # Show recent task history
 synapse history list --agent claude       # Filter by agent
 synapse history show <task_id>            # Show task details
+# To disable: SYNAPSE_HISTORY_ENABLED=false synapse claude
 
 # Instructions management (for --resume mode or recovery)
 synapse instructions show                 # Show default instruction
@@ -173,7 +173,7 @@ Status transitions:
 
 Dead processes are automatically cleaned up from the registry and not displayed in `synapse list`.
 
-**Terminal Jump** (in `synapse list --watch`):
+**Terminal Jump** (in `synapse list`):
 - Use ↑/↓ to select agent row
 - Press Enter or j to jump to that agent's terminal window
 - Supported terminals: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
@@ -379,14 +379,18 @@ pytest tests/test_cmd_list_watch.py::TestFileWatcher -v
 
 ## Multi-Agent Management with History
 
-### Enabling History Tracking
+### History Tracking
+
+History is enabled by default (v0.3.13+). Just start agents normally:
 
 ```bash
-# Start agents with history enabled
-SYNAPSE_HISTORY_ENABLED=true synapse claude
-SYNAPSE_HISTORY_ENABLED=true synapse gemini
-SYNAPSE_HISTORY_ENABLED=true synapse codex
-SYNAPSE_HISTORY_ENABLED=true synapse opencode
+synapse claude
+synapse gemini
+synapse codex
+synapse opencode
+
+# To disable history:
+SYNAPSE_HISTORY_ENABLED=false synapse claude
 ```
 
 ### Monitoring Delegated Tasks

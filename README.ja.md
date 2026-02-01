@@ -537,11 +537,11 @@ synapse external send other "このタスクを処理して"
 
 過去のエージェント実行結果を検索、閲覧、分析。
 
-**有効化：**
+**注意:** v0.3.13 以降、履歴はデフォルトで有効です。無効化する場合：
 
 ```bash
-# 環境変数で有効化
-export SYNAPSE_HISTORY_ENABLED=true
+# 環境変数で無効化
+export SYNAPSE_HISTORY_ENABLED=false
 synapse claude
 ```
 
@@ -628,10 +628,9 @@ synapse history cleanup --days 30 --dry-run
 - 保存内容: タスク ID、エージェント名、入力、出力、ステータス、メタデータ
 - 自動インデックス: agent_name, timestamp, task_id
 
-**設定：**
+**設定：** v0.3.13 以降、履歴はデフォルトで有効です。
 
-- **有効化**: `SYNAPSE_HISTORY_ENABLED=true`
-- **無効化**: `SYNAPSE_HISTORY_ENABLED=false`（デフォルト）
+- **無効化**: `SYNAPSE_HISTORY_ENABLED=false`
 
 ### synapse send コマンド（推奨）
 
@@ -1209,7 +1208,7 @@ synapse config show --scope user
 
 | 変数 | 説明 | デフォルト |
 |------|------|----------|
-| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
+| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `true` (v0.3.13+) |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety を有効化 | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File Safety DB パス | `~/.synapse/file_safety.db` |
 | `SYNAPSE_AUTH_ENABLED` | API 認証を有効化 | `false` |

@@ -576,11 +576,11 @@ synapse external send other "Process this task"
 
 Search, browse, and analyze past agent execution results.
 
-**Enable:**
+**Note:** History is enabled by default since v0.3.13. To disable:
 
 ```bash
-# Enable via environment variable
-export SYNAPSE_HISTORY_ENABLED=true
+# Disable via environment variable
+export SYNAPSE_HISTORY_ENABLED=false
 synapse claude
 ```
 
@@ -669,8 +669,8 @@ synapse history cleanup --days 30 --dry-run
 
 **Settings:**
 
-- **Enable**: `SYNAPSE_HISTORY_ENABLED=true`
-- **Disable**: `SYNAPSE_HISTORY_ENABLED=false` (default)
+- **Enabled by default** (v0.3.13+)
+- **Disable**: `SYNAPSE_HISTORY_ENABLED=false`
 
 ### synapse send Command (Recommended)
 
@@ -1274,7 +1274,7 @@ synapse config show --scope user
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SYNAPSE_HISTORY_ENABLED` | Enable task history | `false` |
+| `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_AUTH_ENABLED` | Enable API authentication | `false` |

@@ -200,7 +200,7 @@ Codex もプラグインには対応していませんが、展開された skil
 ```json
 {
   "env": {
-    "SYNAPSE_HISTORY_ENABLED": "false",
+    "SYNAPSE_HISTORY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_ENABLED": "false",
     "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
     "SYNAPSE_AUTH_ENABLED": "false",
@@ -242,7 +242,7 @@ Codex もプラグインには対応していませんが、展開された skil
 
 | 変数 | 説明 | デフォルト |
 |------|------|-----------|
-| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `false` |
+| `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `true` (v0.3.13+) |
 | `SYNAPSE_AUTH_ENABLED` | API Key 認証を有効化 | `false` |
 | `SYNAPSE_API_KEYS` | 有効な API キー（カンマ区切り） | - |
 | `SYNAPSE_ADMIN_KEY` | 管理者用 API キー | - |
@@ -252,12 +252,14 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
 
-### 例: 履歴を常に有効にする
+### 例: 履歴を無効にする
+
+v0.3.13 以降、履歴はデフォルトで有効です。無効にする場合：
 
 ```json
 {
   "env": {
-    "SYNAPSE_HISTORY_ENABLED": "true"
+    "SYNAPSE_HISTORY_ENABLED": "false"
   }
 }
 ```

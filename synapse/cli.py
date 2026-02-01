@@ -2075,12 +2075,12 @@ enabling seamless inter-agent communication and task delegation.""",
   synapse claude                    Start Claude agent (interactive mode)
   synapse gemini --port 8111        Start Gemini on specific port
   synapse claude -- --continue      Pass --continue flag to Claude Code
-  synapse list -w                   Watch running agents in real-time
+  synapse list                      Watch running agents (Rich TUI)
   synapse send codex "Review this"  Send message to Codex agent
   synapse history list              View task history
 
 Environment Variables:
-  SYNAPSE_HISTORY_ENABLED=true      Enable task history tracking
+  SYNAPSE_HISTORY_ENABLED=false     Disable task history (enabled by default)
   SYNAPSE_FILE_SAFETY_ENABLED=true  Enable file locking for multi-agent safety
   SYNAPSE_AUTH_ENABLED=true         Enable API key authentication
 
