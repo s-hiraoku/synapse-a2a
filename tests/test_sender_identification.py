@@ -35,14 +35,16 @@ class TestBuildSenderInfo:
             assert sender["sender_type"] == "claude"
             assert sender["sender_endpoint"] == "http://localhost:8100"
 
-    def test_explicit_sender_overrides_auto(self):
-        """--from flag should override auto-detection and return only sender_id."""
+    def test_explicit_sender_invalid_format_returns_error(self):
+        """--from flag with invalid format should return error."""
         from synapse.tools.a2a import build_sender_info
 
         sender = build_sender_info(explicit_sender="external-agent")
 
-        # Explicit sender returns only sender_id (no other fields)
-        assert sender == {"sender_id": "external-agent"}
+        # Invalid format returns error string
+        assert isinstance(sender, str)
+        assert "Error" in sender
+        assert "synapse-<type>-<port>" in sender
 
     def test_empty_when_no_matching_agent(self):
         """Should return empty dict when no agent matches via PID."""
@@ -66,12 +68,14 @@ class TestBuildSenderInfo:
             sender = build_sender_info()
             assert sender == {}
 
-    def test_explicit_sender_without_registry(self):
-        """--from flag works even without registry."""
+    def test_explicit_sender_valid_id_without_registry(self):
+        """--from flag with valid ID format works even without registry."""
         from synapse.tools.a2a import build_sender_info
 
-        sender = build_sender_info(explicit_sender="manual-sender")
-        assert sender == {"sender_id": "manual-sender"}
+        sender = build_sender_info(explicit_sender="synapse-manual-9999")
+        # Valid format but not in registry - still returns dict with sender_id
+        assert isinstance(sender, dict)
+        assert sender["sender_id"] == "synapse-manual-9999"
 
     def test_pid_matching_finds_correct_agent(self):
         """PID matching should find the correct agent among multiple."""

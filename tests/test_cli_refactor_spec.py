@@ -131,7 +131,8 @@ class TestCliRefactorSpec:
             assert "claude" in output
             assert "8100" in output
             assert "IDLE" in output
-            assert "12345" in output
+            assert "12345" in output  # PID column
+            assert "synapse-claude-8100" in output  # ID column
 
     # =========================================================================
     # Stop Command Specification
