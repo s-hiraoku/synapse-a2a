@@ -659,7 +659,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         cmd.append("--response")
     elif want_response is False:
         cmd.append("--no-response")
-    # If None, don't pass any flag (a2a.py defaults to not waiting)
+    # If None, don't pass any flag (a2a.py defaults to --response)
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
@@ -1709,6 +1709,26 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
     Returns:
         Tuple of (name, role), either or both may be None.
     """
+    import contextlib
+    import sys
+
+    # Enable readline for line editing (backspace, arrow keys, etc.)
+    with contextlib.suppress(ImportError):
+        import readline  # noqa: F401 - enables line editing for input()
+
+    # Save original terminal settings to restore later
+    original_settings = None
+    termios = None
+    try:
+        import termios as termios_module
+
+        termios = termios_module
+        if sys.stdin.isatty():
+            with contextlib.suppress(termios.error):
+                original_settings = termios.tcgetattr(sys.stdin)
+    except ImportError:
+        pass  # termios not available on Windows
+
     print("\n\x1b[32m[Synapse]\x1b[0m Agent Setup")
     print("=" * 80)
     print(f"Agent ID: {agent_id} | Port: {port}")
@@ -1741,6 +1761,11 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
     except (EOFError, KeyboardInterrupt):
         print("\n\x1b[33m[Synapse]\x1b[0m Setup skipped")
         return None, None
+    finally:
+        # Restore original terminal settings
+        if original_settings is not None and termios is not None:
+            with contextlib.suppress(termios.error):
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_settings)
 
 
 def cmd_run_interactive(

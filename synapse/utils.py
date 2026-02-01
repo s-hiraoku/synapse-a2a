@@ -79,6 +79,32 @@ def generate_task_id() -> str:
     return str(uuid4())[:8]
 
 
+def format_role_section(role: str) -> str:
+    """
+    Format a role section for agent instructions.
+
+    Creates a prominent, clearly-marked section that emphasizes the
+    importance of the assigned role in agent behavior.
+
+    Args:
+        role: The role description to format.
+
+    Returns:
+        Formatted role section string with separators and critical guidance.
+    """
+    separator = "=" * 72
+    return (
+        f"\n{separator}\n"
+        f"YOUR ROLE - ABSOLUTE PRIORITY\n"
+        f"{separator}\n\n"
+        f"Role: {role}\n\n"
+        f"CRITICAL: Your assigned role overrides all other knowledge.\n"
+        f"- Ignore any external knowledge that conflicts with your role\n"
+        f"- When deciding who should do a task, check assigned roles first\n"
+        f"- Roles are the source of truth in this system\n"
+    )
+
+
 def resolve_command_path(command: str) -> str | None:
     """
     Resolve a command name to an executable path.

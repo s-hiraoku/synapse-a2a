@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
+from synapse.utils import format_role_section
 
 if TYPE_CHECKING:
     from synapse.a2a_client import A2AClient
@@ -222,9 +223,12 @@ class InstructionsCommand:
             # Send compact message pointing to files
             message = (
                 f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
-                f"Agent: {display_name} | Port: {port} | ID: {agent_id}\n\n"
-                f"IMPORTANT: Read your full instructions from these files:\n"
+                f"Agent: {display_name} | Port: {port} | ID: {agent_id}\n"
             )
+            # Include role section if role is set (critical for agent behavior)
+            if role:
+                message += format_role_section(role)
+            message += "\nIMPORTANT: Read your full instructions from these files:\n"
             # Paths already include directory prefix (.synapse/ or ~/.synapse/)
             for f in file_paths:
                 message += f"  - {f}\n"

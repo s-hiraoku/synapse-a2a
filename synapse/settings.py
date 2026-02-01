@@ -328,6 +328,15 @@ class SynapseSettings:
         display_name = name if name else agent_id
         display_role = role if role else ""
 
+        # Process conditional sections: {{#var}}content{{/var}}
+        # If var is truthy, include content; otherwise remove entire section
+        instruction = self._process_conditional_sections(
+            instruction,
+            {
+                "agent_role": display_role,
+            },
+        )
+
         instruction = instruction.replace("{{agent_name}}", display_name)
         instruction = instruction.replace("{{agent_role}}", display_role)
         instruction = instruction.replace("{{agent_id}}", agent_id)
@@ -402,48 +411,37 @@ class SynapseSettings:
         paths: list[str] = []
         home = user_dir if user_dir else Path.home()
 
-        # Helper to check if file exists with custom user_dir
-        def file_exists(filename: str) -> bool:
+        def add_if_exists(filename: str) -> None:
+            """Add file to paths if it exists in project or user directory."""
             project_path = Path.cwd() / ".synapse" / filename
             user_path = home / ".synapse" / filename
-            return project_path.exists() or user_path.exists()
+            if not (project_path.exists() or user_path.exists()):
+                return
+            display_path = self._get_file_display_path(filename, user_dir)
+            if display_path:
+                paths.append(display_path)
+
+        def is_md_file(value: object) -> bool:
+            return isinstance(value, str) and value.endswith(".md")
 
         # Check agent-specific file
         agent_instruction = self.instructions.get(agent_type, "")
-        if (
-            isinstance(agent_instruction, str)
-            and agent_instruction.endswith(".md")
-            and file_exists(agent_instruction)
-        ):
-            display_path = self._get_file_display_path(agent_instruction, user_dir)
-            if display_path:
-                paths.append(display_path)
+        if is_md_file(agent_instruction) and isinstance(agent_instruction, str):
+            add_if_exists(agent_instruction)
 
         # Check default file (only if agent-specific is not set)
         if not agent_instruction:
             default_instruction = self.instructions.get("default", "")
-            if (
-                isinstance(default_instruction, str)
-                and default_instruction.endswith(".md")
-                and file_exists(default_instruction)
-            ):
-                display_path = self._get_file_display_path(
-                    default_instruction, user_dir
-                )
-                if display_path:
-                    paths.append(display_path)
+            if is_md_file(default_instruction) and isinstance(default_instruction, str):
+                add_if_exists(default_instruction)
 
         # Delegation (when enabled)
-        if self.is_delegation_enabled() and file_exists("delegate.md"):
-            display_path = self._get_file_display_path("delegate.md", user_dir)
-            if display_path:
-                paths.append(display_path)
+        if self.is_delegation_enabled():
+            add_if_exists("delegate.md")
 
         # File safety
-        if self._is_file_safety_enabled() and file_exists("file-safety.md"):
-            display_path = self._get_file_display_path("file-safety.md", user_dir)
-            if display_path:
-                paths.append(display_path)
+        if self._is_file_safety_enabled():
+            add_if_exists("file-safety.md")
 
         return paths
 
@@ -526,6 +524,35 @@ class SynapseSettings:
                 instruction = instruction + "\n\n" + file_safety_content
 
         return instruction
+
+    def _process_conditional_sections(
+        self, text: str, variables: dict[str, str]
+    ) -> str:
+        """
+        Process Mustache-style conditional sections.
+
+        Supports {{#var}}content{{/var}} syntax:
+        - If var is truthy (non-empty string), include content
+        - If var is falsy (empty string or not in variables), remove entire section
+
+        Args:
+            text: The template text to process.
+            variables: Dict of variable names to their values.
+
+        Returns:
+            Processed text with conditional sections resolved.
+        """
+        import re
+
+        for var_name, value in variables.items():
+            # Pattern: {{#var}}...{{/var}} (non-greedy, multiline)
+            pattern = rf"\{{\{{#{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
+            if value:  # truthy: keep content
+                text = re.sub(pattern, r"\1", text, flags=re.DOTALL)
+            else:  # falsy: remove entire section
+                text = re.sub(pattern, "", text, flags=re.DOTALL)
+
+        return text
 
     def _load_instruction_file(self, filename: str) -> str:
         """
@@ -627,16 +654,15 @@ class SynapseSettings:
         if not flags:
             return False
 
-        for arg in tool_args:
-            for flag in flags:
-                # Exact match (e.g., "--resume" matches "--resume")
-                if arg == flag:
-                    return True
-                # Value form match (e.g., "--resume=abc" matches "--resume")
-                # Only for flags starting with "-" (not positional like "resume")
-                if flag.startswith("-") and arg.startswith(flag + "="):
-                    return True
-        return False
+        def matches_flag(arg: str, flag: str) -> bool:
+            # Exact match (e.g., "--resume" matches "--resume")
+            if arg == flag:
+                return True
+            # Value form match (e.g., "--resume=abc" matches "--resume")
+            # Only for flags starting with "-" (not positional like "resume")
+            return flag.startswith("-") and arg.startswith(flag + "=")
+
+        return any(matches_flag(arg, flag) for arg in tool_args for flag in flags)
 
     def get_approval_mode(self) -> str:
         """
