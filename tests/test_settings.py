@@ -247,6 +247,63 @@ class TestSynapseSettings:
         result = settings.get_instruction("claude", "synapse-claude-8100", 8100)
         assert result == "Agent: synapse-claude-8100 Port: 8100"
 
+    def test_get_instruction_with_name_and_role(self):
+        """Get instruction replaces name and role placeholders."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Name: {{agent_name}} Role: {{agent_role}} ID: {{agent_id}}",
+            },
+        )
+        result = settings.get_instruction(
+            "claude",
+            "synapse-claude-8100",
+            8100,
+            name="my-claude",
+            role="code reviewer",
+        )
+        assert result == "Name: my-claude Role: code reviewer ID: synapse-claude-8100"
+
+    def test_get_instruction_with_name_only(self):
+        """Get instruction uses agent_id when name not provided."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Display: {{agent_name}} Internal: {{agent_id}}",
+            },
+        )
+        result = settings.get_instruction(
+            "claude", "synapse-claude-8100", 8100, name=None
+        )
+        # When name is None, agent_name should default to agent_id
+        assert result == "Display: synapse-claude-8100 Internal: synapse-claude-8100"
+
+    def test_get_instruction_with_role_only(self):
+        """Get instruction handles role without name."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Name: {{agent_name}} Role: {{agent_role}}",
+            },
+        )
+        result = settings.get_instruction(
+            "claude", "synapse-claude-8100", 8100, role="reviewer"
+        )
+        # Name defaults to agent_id, role is set
+        assert result == "Name: synapse-claude-8100 Role: reviewer"
+
+    def test_get_instruction_role_defaults_to_empty(self):
+        """Get instruction uses empty string for role when not provided."""
+        settings = SynapseSettings(
+            env={},
+            instructions={
+                "default": "Role: [{{agent_role}}]",
+            },
+        )
+        result = settings.get_instruction("claude", "synapse-claude-8100", 8100)
+        # Role should be empty string when not provided
+        assert result == "Role: []"
+
     def test_load_with_scope_merging(self):
         """Test loading settings with scope merging."""
         with tempfile.TemporaryDirectory() as tmpdir:

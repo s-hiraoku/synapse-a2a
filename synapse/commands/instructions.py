@@ -198,10 +198,14 @@ class InstructionsCommand:
         # Get instruction content
         settings = self._settings_factory()
         port = agent_info.get("port", 0)
+        name = agent_info.get("name")
+        role = agent_info.get("role")
         # profile and agent_id are guaranteed to be non-None here (checked above)
         assert profile is not None
         assert agent_id is not None
-        instruction = settings.get_instruction(profile, agent_id, port)
+        instruction = settings.get_instruction(
+            profile, agent_id, port, name=name, role=role
+        )
 
         if not instruction:
             self._print(f"Error: No instruction configured for '{profile}'.")
@@ -213,11 +217,12 @@ class InstructionsCommand:
 
         # Build the message (same format as controller._send_identity_instruction)
         task_id = str(uuid.uuid4())[:8]
+        display_name = name if name else agent_id
         if file_paths:
             # Send compact message pointing to files
             message = (
                 f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
-                f"Agent: {agent_id} | Port: {port}\n\n"
+                f"Agent: {display_name} | Port: {port} | ID: {agent_id}\n\n"
                 f"IMPORTANT: Read your full instructions from these files:\n"
             )
             # Paths already include directory prefix (.synapse/ or ~/.synapse/)

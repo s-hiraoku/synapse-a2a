@@ -46,6 +46,8 @@ class TerminalController:
         port: int | None = None,
         skip_initial_instructions: bool = False,
         input_ready_pattern: str | None = None,
+        name: str | None = None,
+        role: str | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -139,6 +141,8 @@ class TerminalController:
         self._done_time: float | None = None  # Track when DONE status was set
         self._skip_initial_instructions = skip_initial_instructions
         self._input_ready_pattern = input_ready_pattern
+        self.name = name
+        self.role = role
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -442,14 +446,17 @@ class TerminalController:
         # This avoids PTY paste buffer issues with large inputs
         # Paths already include directory prefix (.synapse/ or ~/.synapse/)
         file_list = "\n".join(f"  - {f}" for f in instruction_file_paths)
+        # Use custom name for display, fall back to agent_id
+        display_name = self.name if self.name else self.agent_id
         short_message = (
             f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
-            f"Agent: {self.agent_id} | Port: {self.port}\n\n"
+            f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n\n"
             f"IMPORTANT: Read your full instructions from these files:\n"
             f"{file_list}\n\n"
             f"Read these files NOW to get your delegation rules, "
             f"A2A protocol, and other guidelines.\n"
-            f"Replace {{{{agent_id}}}} with {self.agent_id} and "
+            f"Replace {{{{agent_id}}}} with {self.agent_id}, "
+            f"{{{{agent_name}}}} with {display_name}, and "
             f"{{{{port}}}} with {self.port} when following instructions."
         )
         prefixed = format_a2a_message(short_message)

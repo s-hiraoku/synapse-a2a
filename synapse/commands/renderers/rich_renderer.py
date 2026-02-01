@@ -93,10 +93,12 @@ class RichRenderer:
 
         # Add columns in order with fixed widths to prevent table resizing
         table.add_column("TYPE", style="cyan", width=12)
+        table.add_column("NAME", style="magenta", min_width=10, max_width=16)
         table.add_column("PORT", justify="right", width=5)
         table.add_column("STATUS", min_width=12)
         table.add_column("TRANSPORT", min_width=10)
         table.add_column("PID", justify="right", width=6)
+        table.add_column("ROLE", min_width=10, max_width=20)
         table.add_column("WORKING_DIR", min_width=20, max_width=30)
 
         if show_file_safety:
@@ -120,10 +122,12 @@ class RichRenderer:
             row.extend(
                 [
                     Text(agent.get("agent_type", "unknown"), style=type_style),
+                    agent.get("name") or "-",
                     str(agent.get("port", "-")),
                     self._format_status(agent.get("status", "-")),
                     agent.get("transport", "-"),
                     str(agent.get("pid", "-")),
+                    agent.get("role") or "-",
                     agent.get("working_dir", "-"),
                 ]
             )
@@ -155,7 +159,9 @@ class RichRenderer:
         # Add all fields with full values (no truncation)
         fields = [
             ("Agent ID", agent.get("agent_id", "-")),
+            ("Name", agent.get("name") or "-"),
             ("Type", agent.get("agent_type", "-")),
+            ("Role", agent.get("role") or "-"),
             ("Port", str(agent.get("port", "-"))),
             ("Status", agent.get("status", "-")),
             ("PID", str(agent.get("pid", "-"))),

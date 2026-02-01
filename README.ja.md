@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-915%20passed-brightgreen.svg)](#テスト)
+[![Tests](https://img.shields.io/badge/tests-1331%20passed-brightgreen.svg)](#テスト)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > CLI エージェント（Claude Code, Codex, Gemini, GitHub Copilot CLI）を**そのまま**に、Google A2A Protocol 経由でエージェント間連携を実現するフレームワーク
@@ -91,6 +91,7 @@ flowchart LR
 | **外部連携** | 他の Google A2A エージェントと通信 |
 | **タスク委譲** | 自然言語ルールで他エージェントへタスクを自動転送 |
 | **File Safety** | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` で表示可能） |
+| **エージェント命名** | カスタム名とロールで識別しやすく（`synapse send my-claude "hello"`） |
 | **エージェントモニター** | リアルタイムステータス（READY/WAITING/PROCESSING/DONE）、Enter/j でターミナルジャンプ |
 
 ---
@@ -423,6 +424,12 @@ synapse codex
 synapse gemini
 synapse copilot
 
+# カスタム名とロールを指定して起動
+synapse claude --name my-claude --role "コードレビュー担当"
+
+# 対話型セットアップをスキップ
+synapse claude --no-setup
+
 # ポート指定
 synapse claude --port 8105
 
@@ -437,10 +444,14 @@ synapse claude -- --resume
 | `synapse <profile>` | フォアグラウンドで起動 |
 | `synapse start <profile>` | バックグラウンドで起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID 指定可能） |
+| `synapse kill <target>` | エージェント即時終了 |
+| `synapse jump <target>` | エージェントのターミナルにジャンプ |
+| `synapse rename <target>` | エージェントに名前・ロールを設定 |
 | `synapse --version` | バージョン表示 |
 | `synapse list` | 実行中のエージェント一覧（自動更新 Rich TUI、ターミナルジャンプ対応） |
 | `synapse logs <profile>` | ログ表示 |
 | `synapse send <target> <message>` | メッセージ送信 |
+| `synapse reply <message>` | 最後に受信した A2A メッセージに返信 |
 | `synapse instructions show` | 指示内容を表示 |
 | `synapse instructions files` | 指示ファイル一覧 |
 | `synapse instructions send` | 初期指示を再送信 |

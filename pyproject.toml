@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-a2a"
-version = "0.3.10"
+version = "0.3.11"
 description = "Agent-to-Agent communication protocol for CLI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -73,6 +73,9 @@ exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SIM117"]  # Allow nested with statements in tests for readability
 
 [tool.ruff.format]
 quote-style = "double"

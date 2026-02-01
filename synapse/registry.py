@@ -84,6 +84,8 @@ class AgentRegistry:
         port: int,
         status: str = "PROCESSING",
         tty_device: str | None = None,
+        name: str | None = None,
+        role: str | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -93,6 +95,8 @@ class AgentRegistry:
             port: Port number for HTTP endpoint.
             status: Initial status (READY, WAITING, PROCESSING, or DONE).
             tty_device: TTY device path (e.g., /dev/ttys001) for terminal jump.
+            name: Custom name for the agent (optional).
+            role: Role description for the agent (optional).
 
         Returns:
             Path to the created registry file.
@@ -107,6 +111,12 @@ class AgentRegistry:
             "endpoint": f"http://localhost:{port}",
             "uds_path": str(resolve_uds_path(agent_id)),
         }
+
+        # Add optional name and role
+        if name:
+            data["name"] = name
+        if role:
+            data["role"] = role
 
         # Add tty_device if available (for terminal jump feature)
         if tty_device:
@@ -338,3 +348,108 @@ class AgentRegistry:
                 return last_transport
 
         return None
+
+    def resolve_agent(self, target: str) -> dict | None:
+        """Resolve an agent by name, ID, type-port, or type.
+
+        Resolution priority (highest to lowest):
+        1. Custom name (exact match)
+        2. Full agent ID (exact match)
+        3. Type-port shorthand (e.g., "claude-8100")
+        4. Type (only if single agent of that type)
+
+        Args:
+            target: The target string to resolve.
+
+        Returns:
+            Agent info dict if found, None if not found or ambiguous.
+        """
+        import re
+
+        agents = self.get_live_agents()
+        if not agents:
+            return None
+
+        # Priority 1: Custom name (exact match)
+        for info in agents.values():
+            if info.get("name") == target:
+                return info
+
+        # Priority 2: Full agent ID (exact match)
+        if target in agents:
+            return agents[target]
+
+        # Priority 3: Type-port shorthand (e.g., "claude-8100")
+        match = re.match(r"^([\w-]+)-(\d+)$", target)
+        if match:
+            agent_type, port_str = match.groups()
+            port = int(port_str)
+            for info in agents.values():
+                if info.get("agent_type") == agent_type and info.get("port") == port:
+                    return info
+
+        # Priority 4: Type (only if single agent of that type)
+        type_matches = [
+            info for info in agents.values() if info.get("agent_type") == target
+        ]
+        if len(type_matches) == 1:
+            return type_matches[0]
+
+        # Not found or ambiguous
+        return None
+
+    def is_name_unique(self, name: str, exclude_agent_id: str | None = None) -> bool:
+        """Check if a name is unique across all agents.
+
+        Args:
+            name: The name to check.
+            exclude_agent_id: Optional agent ID to exclude from the check
+                              (useful when updating own name).
+
+        Returns:
+            True if the name is unique, False otherwise.
+        """
+        agents = self.list_agents()
+        for agent_id, info in agents.items():
+            if exclude_agent_id and agent_id == exclude_agent_id:
+                continue
+            if info.get("name") == name:
+                return False
+        return True
+
+    def update_name(
+        self,
+        agent_id: str,
+        name: str | None,
+        role: str | None = None,
+        clear: bool = False,
+    ) -> bool:
+        """Update the name and/or role of a registered agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            name: New name value (None to keep current, or clear if clear=True).
+            role: New role value (None to keep current, or clear if clear=True).
+            clear: If True, clear both name and role when they are None.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_name_role(data: dict) -> None:
+            if clear:
+                if name is None:
+                    data.pop("name", None)
+                else:
+                    data["name"] = name
+                if role is None:
+                    data.pop("role", None)
+                else:
+                    data["role"] = role
+            else:
+                if name is not None:
+                    data["name"] = name
+                if role is not None:
+                    data["role"] = role
+
+        return self._atomic_update(agent_id, set_name_role, "name/role")
