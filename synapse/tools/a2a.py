@@ -436,10 +436,8 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 def _get_target_display_name(endpoint: str | None, uds_path: str | None) -> str:
     """Get a short display name for the target agent."""
-    if endpoint and ":" in endpoint:
-        return endpoint.split(":")[-1]
     if endpoint:
-        return endpoint
+        return endpoint.split(":")[-1] if ":" in endpoint else endpoint
     if uds_path:
         return Path(uds_path).name
     return "unknown"
@@ -580,14 +578,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "list":
-        cmd_list(args)
-    elif args.command == "cleanup":
-        cmd_cleanup(args)
-    elif args.command == "send":
-        cmd_send(args)
-    elif args.command == "reply":
-        cmd_reply(args)
+    commands = {
+        "list": cmd_list,
+        "cleanup": cmd_cleanup,
+        "send": cmd_send,
+        "reply": cmd_reply,
+    }
+    commands[args.command](args)
 
 
 if __name__ == "__main__":
