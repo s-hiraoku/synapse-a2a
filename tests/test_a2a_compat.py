@@ -406,7 +406,7 @@ class TestA2ARouterEndpoints:
         # v0.3.13+: Reply IS written to PTY so agent can continue conversation
         mock_controller.write.assert_called_once()
         write_call = mock_controller.write.call_args[0][0]
-        assert "A2A REPLY from" in write_call
+        assert write_call.startswith("A2A: ")
         assert "Reply text" in write_call
 
     def test_tasks_get_endpoint(self, client, mock_controller):

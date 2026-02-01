@@ -56,26 +56,24 @@ class TestReplyToExistingTask:
         in_reply_to = "abc12345"  # 8-char prefix from PTY display
         assert len(in_reply_to) == 8
 
-    def test_reply_writes_to_pty_with_sender_context(self) -> None:
-        """Reply should be written to PTY with sender context for conversation."""
+    def test_reply_writes_to_pty_with_standard_prefix(self) -> None:
+        """Reply should be written to PTY with standard A2A: prefix."""
         # When an agent receives a reply (in_reply_to is set):
         # - The reply should be written to the sender's PTY
-        # - Format: "A2A REPLY from <sender_id>: <message>\n"
+        # - Format: "A2A: <message>\n" (standard prefix for protocol consistency)
         # - This enables the agent to see the reply and continue the conversation
 
-        sender_id = "synapse-codex-8120"
         message = "Here is my analysis of the code"
-        expected_format = f"A2A REPLY from {sender_id}: {message}\n"
+        expected_format = f"A2A: {message}\n"
 
-        assert "A2A REPLY from" in expected_format
-        assert sender_id in expected_format
+        assert expected_format.startswith("A2A: ")
         assert message in expected_format
 
     def test_new_message_writes_to_pty(self) -> None:
         """When in_reply_to is NOT set, should write to PTY."""
-        # This is the normal flow: no in_reply_to means new request
-        # The message should be written to PTY for the agent to process
-        pass  # Tested via integration tests
+        import pytest
+
+        pytest.skip("Requires integration PTY fixture")
 
 
 class TestReplyMessageFormat:

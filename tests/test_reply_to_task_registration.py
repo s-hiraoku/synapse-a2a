@@ -148,7 +148,7 @@ class TestCreateTaskEndpoint:
         # Reply is written to PTY so agent can see and continue conversation
         mock_controller.write.assert_called_once()
         write_call = mock_controller.write.call_args[0][0]
-        assert "A2A REPLY from" in write_call
+        assert write_call.startswith("A2A: ")
         assert "Answer!" in write_call
 
 
@@ -550,5 +550,5 @@ class TestReplyToFlowIntegration:
         # Reply is written to PTY so the agent can see it and continue conversation
         claude_controller.write.assert_called_once()
         write_call = claude_controller.write.call_args[0][0]
-        assert "A2A REPLY from synapse-codex-8120" in write_call
+        assert write_call.startswith("A2A: ")
         assert "Here is my help!" in write_call

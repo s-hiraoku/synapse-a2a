@@ -641,13 +641,8 @@ def create_a2a_router(
             # Write reply to PTY so the agent can see it and continue conversation
             # This is the key feature for v0.3.13 - enables natural agent-to-agent conversation
             if controller:
-                # Get sender info for display
-                sender_info = _extract_sender_info(metadata)
-                sender_id = sender_info.sender_id or "unknown"
-
-                # Format as A2A reply message with sender context
-                reply_prefix = f"A2A REPLY from {sender_id}: "
-                prefixed_content = reply_prefix + text_content + "\n"
+                # Use standard A2A: prefix for consistency with message protocol
+                prefixed_content = "A2A: " + text_content + "\n"
                 controller.write(prefixed_content, submit_seq=submit_seq)
 
             updated_task = task_store.get(full_task_id)

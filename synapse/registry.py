@@ -465,11 +465,11 @@ class AgentRegistry:
         Returns:
             True if updated successfully, False otherwise.
         """
-        # Truncate long previews
+        # Truncate long previews to max 30 chars total (including "...")
         truncated_preview: str | None = None
         if task_preview is not None:
             if len(task_preview) > 30:
-                truncated_preview = task_preview[:30] + "..."
+                truncated_preview = task_preview[:27] + "..."
             else:
                 truncated_preview = task_preview
 

@@ -34,13 +34,15 @@ synapse list
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
+- **ID**: Full agent ID (e.g., `synapse-claude-8100`)
+- **ROLE**: Role description if set
 - **STATUS**: READY / WAITING / PROCESSING / DONE
-- **PORT**: HTTP port number
-- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
-- **TRANSPORT** (watch mode only): Communication method during inter-agent messages
+- **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
+- **TRANSPORT**: Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
+- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
 
 **Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).

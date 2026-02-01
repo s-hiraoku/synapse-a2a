@@ -2439,7 +2439,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
         help="View and manage task history",
         description="""View and manage A2A task history.
 
-Requires SYNAPSE_HISTORY_ENABLED=true to be set.""",
+History is enabled by default (v0.3.13+). To disable: SYNAPSE_HISTORY_ENABLED=false""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse history list                  List recent tasks
