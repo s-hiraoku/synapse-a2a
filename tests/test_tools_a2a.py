@@ -1567,4 +1567,5 @@ class TestCmdReply:
         # Verify UDS path was used
         call_kwargs = mock_client.send_to_local.call_args.kwargs
         assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
-        assert call_kwargs["endpoint"] == ""  # Empty when no HTTP
+        # Safe fallback endpoint when no HTTP (avoids relative URL issues)
+        assert call_kwargs["endpoint"] == "http://localhost"

@@ -499,9 +499,18 @@ def cmd_reply(args: argparse.Namespace) -> None:
 
     # Send reply using A2AClient (prefer UDS if available)
     # sender_info is guaranteed to be dict here (str case exits above)
+    # Normalize endpoint: use None if empty to let send_to_local use UDS-only
+    # or provide a safe fallback to avoid building relative URLs on HTTP fallback
+    normalized_endpoint: str | None = None
+    if target_endpoint:
+        normalized_endpoint = target_endpoint
+    elif target_uds_path:
+        # UDS-only: no HTTP endpoint needed, but provide safe default if HTTP fallback occurs
+        normalized_endpoint = None
+
     client = A2AClient()
     result = client.send_to_local(
-        endpoint=target_endpoint or "",
+        endpoint=normalized_endpoint or "http://localhost",
         message=args.message,
         priority=3,  # Normal priority for replies
         sender_info=sender_info if isinstance(sender_info, dict) else None,
