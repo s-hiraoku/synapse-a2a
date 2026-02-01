@@ -34,13 +34,15 @@ synapse list
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
+- **ID**: Full agent ID (e.g., `synapse-claude-8100`)
+- **ROLE**: Role description if set
 - **STATUS**: READY / WAITING / PROCESSING / DONE
-- **PORT**: HTTP port number
-- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
-- **TRANSPORT** (watch mode only): Communication method during inter-agent messages
+- **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
+- **TRANSPORT**: Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
+- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
 
 **Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).
@@ -64,14 +66,12 @@ synapse claude --no-setup
 # With specific port
 synapse claude --port 8101
 
-# With history enabled
-SYNAPSE_HISTORY_ENABLED=true synapse claude
+# History is enabled by default (v0.3.13+)
+# To disable history:
+SYNAPSE_HISTORY_ENABLED=false synapse claude
 
 # With File Safety enabled
 SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
-
-# With all features
-SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # Resume mode (skip initial instructions)
 # Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode/Copilot use --continue
@@ -214,7 +214,11 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 **Parameters:**
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
-- `--priority, -p`: 1-2 low, 3 normal, 4 urgent, 5 critical (default: 1)
+- `--priority, -p`: Priority level 1-5 (default: 1)
+  - 1-2: Low priority, background tasks
+  - 3: Normal tasks
+  - 4: Urgent follow-ups
+  - 5: Critical/emergency (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, receiver MUST reply
 - `--no-response`: Oneway mode - fire and forget, no reply expected
 
@@ -273,7 +277,7 @@ python -m synapse.tools.a2a cleanup             # Cleanup stale entries
 
 ## Task History
 
-Enable with `SYNAPSE_HISTORY_ENABLED=true`.
+Enabled by default (v0.3.13+). To disable: `SYNAPSE_HISTORY_ENABLED=false`.
 
 ### List History
 
@@ -404,7 +408,7 @@ synapse reset
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SYNAPSE_HISTORY_ENABLED` | Enable task history | `false` |
+| `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` (v0.3.13+) |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |

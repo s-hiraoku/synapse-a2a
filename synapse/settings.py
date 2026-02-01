@@ -544,6 +544,7 @@ class SynapseSettings:
         """
         import re
 
+        # Process known variables
         for var_name, value in variables.items():
             # Pattern: {{#var}}...{{/var}} (non-greedy, multiline)
             pattern = rf"\{{\{{#{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
@@ -551,6 +552,11 @@ class SynapseSettings:
                 text = re.sub(pattern, r"\1", text, flags=re.DOTALL)
             else:  # falsy: remove entire section
                 text = re.sub(pattern, "", text, flags=re.DOTALL)
+
+        # Remove any remaining unprocessed conditional sections (undefined variables)
+        # This prevents template syntax from appearing in final output
+        remaining_pattern = r"\{\{#\w+\}\}.*?\{\{/\w+\}\}"
+        text = re.sub(remaining_pattern, "", text, flags=re.DOTALL)
 
         return text
 

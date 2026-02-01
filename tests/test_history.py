@@ -404,14 +404,14 @@ class TestHistoryEnvVariable:
         finally:
             del os.environ["SYNAPSE_HISTORY_ENABLED"]
 
-    def test_disabled_when_env_not_set(self, temp_db_path):
-        """Should be disabled by default when env var not set."""
+    def test_enabled_when_env_not_set(self, temp_db_path):
+        """Should be enabled by default when env var not set (v0.3.13+)."""
         # Ensure env var is not set
         if "SYNAPSE_HISTORY_ENABLED" in os.environ:
             del os.environ["SYNAPSE_HISTORY_ENABLED"]
 
         manager = HistoryManager.from_env(db_path=temp_db_path)
-        assert manager.enabled is False
+        assert manager.enabled is True
 
 
 # ============================================================

@@ -5,14 +5,14 @@
 ### Start Multiple Agents
 
 ```bash
-# Terminal 1: Start Claude with all features
-SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
+# Terminal 1: Start Claude with File Safety (History is enabled by default since v0.3.13)
+SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
 # Terminal 2: Start Codex
-SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse codex
+SYNAPSE_FILE_SAFETY_ENABLED=true synapse codex
 
 # Terminal 3: Start OpenCode
-SYNAPSE_HISTORY_ENABLED=true SYNAPSE_FILE_SAFETY_ENABLED=true synapse opencode
+SYNAPSE_FILE_SAFETY_ENABLED=true synapse opencode
 
 # Terminal 4: Monitor
 synapse list

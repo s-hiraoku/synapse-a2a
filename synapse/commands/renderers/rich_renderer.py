@@ -97,6 +97,7 @@ class RichRenderer:
         table.add_column("ID", style="dim", min_width=20, max_width=24)
         table.add_column("ROLE", min_width=10, max_width=20)
         table.add_column("STATUS", min_width=12)
+        table.add_column("CURRENT", min_width=20, max_width=35)
         table.add_column("TRANSPORT", min_width=10)
         table.add_column("WORKING_DIR", min_width=20, max_width=30)
 
@@ -123,6 +124,7 @@ class RichRenderer:
                     agent.get("agent_id") or "-",
                     agent.get("role") or "-",
                     self._format_status(agent.get("status", "-")),
+                    agent.get("current_task_preview") or "-",
                     agent.get("transport", "-"),
                     agent.get("working_dir", "-"),
                 ]
@@ -167,6 +169,8 @@ class RichRenderer:
         ]
 
         # Add optional fields
+        if agent.get("current_task_preview"):
+            fields.append(("Current Task", agent.get("current_task_preview", "-")))
         if "transport" in agent:
             fields.append(("Transport", agent.get("transport", "-")))
         if "editing_file" in agent:

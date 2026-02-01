@@ -67,8 +67,9 @@ class HistoryManager:
         """Create HistoryManager from environment variables.
 
         Respects SYNAPSE_HISTORY_ENABLED environment variable.
-        - "true", "1": enabled
-        - "false", "0", not set: disabled
+        - Default (not set): enabled
+        - "true", "1", any other value: enabled
+        - "false", "0": disabled
 
         Args:
             db_path: Path to SQLite database file
@@ -76,8 +77,8 @@ class HistoryManager:
         Returns:
             HistoryManager instance with enabled status from env var
         """
-        env_val = os.environ.get("SYNAPSE_HISTORY_ENABLED", "false").lower()
-        enabled = env_val in ("true", "1")
+        env_val = os.environ.get("SYNAPSE_HISTORY_ENABLED", "true").lower()
+        enabled = env_val not in ("false", "0")
         return cls(db_path=db_path, enabled=enabled)
 
     def _init_db(self) -> None:
@@ -327,6 +328,25 @@ class HistoryManager:
                 print(f"Warning: Failed to search observations: {e}", file=sys.stderr)
                 return []
 
+    def _run_vacuum(self, conn: sqlite3.Connection, cursor: sqlite3.Cursor) -> float:
+        """Run VACUUM and return space reclaimed in MB.
+
+        Args:
+            conn: SQLite connection
+            cursor: SQLite cursor
+
+        Returns:
+            Space reclaimed in megabytes, or 0.0 if VACUUM fails
+        """
+        try:
+            size_before = Path(self.db_path).stat().st_size
+            cursor.execute("VACUUM")
+            conn.commit()
+            size_after = Path(self.db_path).stat().st_size
+            return (size_before - size_after) / (1024 * 1024)
+        except (OSError, sqlite3.Error):
+            return 0.0
+
     def cleanup_old_observations(
         self,
         days: int,
@@ -349,7 +369,6 @@ class HistoryManager:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
 
-                # Delete observations older than N days
                 cursor.execute(
                     f"""DELETE FROM observations
                        WHERE timestamp < datetime('now', '-{days} days')"""
@@ -357,18 +376,9 @@ class HistoryManager:
                 deleted_count = cursor.rowcount
                 conn.commit()
 
-                # VACUUM to reclaim space
                 vacuum_reclaimed_mb = 0.0
                 if vacuum and deleted_count > 0:
-                    try:
-                        size_before = Path(self.db_path).stat().st_size
-                        cursor.execute("VACUUM")
-                        conn.commit()
-                        size_after = Path(self.db_path).stat().st_size
-                        vacuum_reclaimed_mb = (size_before - size_after) / (1024 * 1024)
-                    except (OSError, sqlite3.Error):
-                        # If VACUUM fails, still report the deletion
-                        vacuum_reclaimed_mb = 0.0
+                    vacuum_reclaimed_mb = self._run_vacuum(conn, cursor)
 
                 conn.close()
 
@@ -377,8 +387,6 @@ class HistoryManager:
                     "vacuum_reclaimed_mb": vacuum_reclaimed_mb,
                 }
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to cleanup observations: {e}", file=sys.stderr)
                 return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
 
@@ -441,17 +449,9 @@ class HistoryManager:
                     if current_size_mb <= max_size_mb or total_rows == 0:
                         break
 
-                # VACUUM to reclaim space
                 vacuum_reclaimed_mb = 0.0
                 if vacuum and deleted_count > 0:
-                    try:
-                        size_before = Path(self.db_path).stat().st_size
-                        cursor.execute("VACUUM")
-                        conn.commit()
-                        size_after = Path(self.db_path).stat().st_size
-                        vacuum_reclaimed_mb = (size_before - size_after) / (1024 * 1024)
-                    except (OSError, sqlite3.Error):
-                        vacuum_reclaimed_mb = 0.0
+                    vacuum_reclaimed_mb = self._run_vacuum(conn, cursor)
 
                 conn.close()
 
@@ -460,8 +460,6 @@ class HistoryManager:
                     "vacuum_reclaimed_mb": vacuum_reclaimed_mb,
                 }
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to cleanup by size: {e}", file=sys.stderr)
                 return {"deleted_count": 0, "vacuum_reclaimed_mb": 0}
 
@@ -593,8 +591,6 @@ class HistoryManager:
                     "date_range_days": date_range_days,
                 }
             except sqlite3.Error as e:
-                import sys
-
                 print(f"Warning: Failed to get statistics: {e}", file=sys.stderr)
                 return {}
 

@@ -453,3 +453,30 @@ class AgentRegistry:
                     data["role"] = role
 
         return self._atomic_update(agent_id, set_name_role, "name/role")
+
+    def update_current_task(self, agent_id: str, task_preview: str | None) -> bool:
+        """Update current task preview for an agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            task_preview: Task preview text (truncated to 30 chars + "..."),
+                         or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        # Truncate long previews to max 30 chars total (including "...")
+        truncated_preview: str | None = None
+        if task_preview is not None:
+            if len(task_preview) > 30:
+                truncated_preview = task_preview[:27] + "..."
+            else:
+                truncated_preview = task_preview
+
+        def set_task_preview(data: dict) -> None:
+            if truncated_preview is None:
+                data.pop("current_task_preview", None)
+            else:
+                data["current_task_preview"] = truncated_preview
+
+        return self._atomic_update(agent_id, set_task_preview, "current_task_preview")

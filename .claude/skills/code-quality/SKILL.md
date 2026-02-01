@@ -16,7 +16,7 @@ This skill runs code quality tools (ruff, mypy, pytest) and optionally simplifie
 ### Options
 
 - `--all` or `-a`: Run on all synapse/ files (default: recently modified files only)
-- `--simplify` or `-s`: Also run code-simplifier agent after checks pass
+- `--no-simplify`: Skip code-simplifier agent (by default, code-simplifier runs after checks pass)
 - `--fix` or `-f`: Auto-fix ruff issues with `--fix` flag
 - `--test` or `-t`: Run pytest after linting passes
 - `--full`: Run all checks including tests (equivalent to `--fix --test`)
@@ -68,9 +68,9 @@ pytest tests/ -v
 
 Report any test failures.
 
-### Step 5: Run Code Simplifier (Optional)
+### Step 5: Run Code Simplifier (Default)
 
-If `--simplify` flag is provided AND all previous checks passed:
+By default, run code-simplifier after all checks pass. Skip with `--no-simplify` flag.
 
 Use the `code-simplifier:code-simplifier` agent to simplify the recently modified code:
 
@@ -88,7 +88,7 @@ Summarize:
 - Ruff status (pass/fail, errors fixed if --fix)
 - Mypy status (pass/fail)
 - Pytest status (pass/fail, skipped if not run)
-- Code simplifier status (if run)
+- Code simplifier status (run by default, skipped if --no-simplify)
 
 ## Error Handling
 
@@ -120,19 +120,19 @@ When errors are found:
 /code-quality --test
 ```
 
-### Full quality check with simplification
+### Skip code simplification
 ```
-/code-quality --simplify --test
+/code-quality --no-simplify
 ```
 
 ### Shorthand
 ```
-/lint          # Same as /code-quality
+/lint          # Same as /code-quality (includes simplification)
 /check         # Same as /code-quality
-/lint -s       # With simplification
 /lint -a -f    # All files with auto-fix
 /lint -t       # With tests
 /lint --full   # Full check (--fix --test)
+/lint --no-simplify  # Skip simplification
 ```
 
 ## Tool Configuration
