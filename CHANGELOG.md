@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.15] - 2026-02-01
 
+### Added
+
+- File Safety instructions in default agent instructions (#168)
+  - Add mandatory checklist for file locking before edits
+  - Include lock/unlock commands in agent initial instructions
+  - Prevents agents from forgetting to use file locking
+
 ### Changed
 
 - Simplify code in core modules for improved readability
@@ -17,9 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Improve file-safety.md with mandatory checklist and quick reference
 - Update README test badge (1331 → 1389 tests)
 - Add Task History and CURRENT column to Features table
-- Update CHANGELOG v0.3.14 with accurate release notes
 
 ## [0.3.14] - 2026-02-01
 
