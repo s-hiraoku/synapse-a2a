@@ -31,6 +31,11 @@ from synapse.config import CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
+from synapse.long_message import (
+    LongMessageStore,
+    format_file_reference,
+    get_long_message_store,
+)
 from synapse.output_parser import parse_output
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
@@ -136,6 +141,36 @@ def _convert_agent_to_info(agent: "ExternalAgent") -> "ExternalAgentInfo":
         added_at=agent.added_at,
         last_seen=agent.last_seen,
     )
+
+
+def _prepare_pty_message(
+    store: LongMessageStore,
+    task_id: str,
+    content: str,
+    response_expected: bool = False,
+) -> tuple[str, bool]:
+    """Prepare message content for PTY, storing to file if too long.
+
+    If the content exceeds the TUI character limit, it is stored in a file
+    and a reference message is returned instead.
+
+    Args:
+        store: LongMessageStore instance
+        task_id: Task ID for file naming
+        content: Original message content
+        response_expected: Whether sender expects a response
+
+    Returns:
+        Tuple of (pty_text, used_file_storage) where pty_text is the content
+        to send to PTY and used_file_storage indicates if a file was created.
+    """
+    if not store.needs_file_storage(content):
+        return content, False
+
+    file_path = store.store_message(task_id, content)
+    reference = format_file_reference(file_path, response_expected)
+    logger.info(f"Long message stored to {file_path} for task {task_id[:8]}")
+    return reference, True
 
 
 def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
@@ -406,7 +441,7 @@ class TaskStore:
                 if task_id.lower().startswith(prefix_lower)
             ]
 
-            if len(matches) == 0:
+            if not matches:
                 return None
             if len(matches) == 1:
                 return matches[0]
@@ -639,12 +674,11 @@ def create_a2a_router(
             task_store.update_status(full_task_id, "completed")
 
             # Write reply to PTY so the agent can see it and continue conversation
-            # This is the key feature for v0.3.13 - enables natural agent-to-agent conversation
             if controller:
-                # Use standard A2A: prefix for consistency with message protocol
-                # Let controller.write's submit_seq handle the submission (no trailing \n)
-                prefixed_content = "A2A: " + text_content
-                controller.write(prefixed_content, submit_seq=submit_seq)
+                pty_text, _ = _prepare_pty_message(
+                    get_long_message_store(), full_task_id, text_content
+                )
+                controller.write("A2A: " + pty_text, submit_seq=submit_seq)
 
             updated_task = task_store.get(full_task_id)
             if not updated_task:
@@ -677,11 +711,8 @@ def create_a2a_router(
 
         # Push sender info to reply stack for simplified reply routing
         # Only store if response_expected=True (sender is waiting for reply)
-        response_expected = (
-            request.metadata.get("response_expected", False)
-            if request.metadata
-            else False
-        )
+        metadata = request.metadata or {}
+        response_expected = metadata.get("response_expected", False)
         if response_expected:
             sender_info = _extract_sender_info(request.metadata)
             if sender_info.has_reply_target() and sender_info.sender_id:
@@ -690,12 +721,17 @@ def create_a2a_router(
                     sender_info.sender_id, sender_info.to_reply_stack_entry()
                 )
 
+        # Prepare message for PTY (may store to file if too long)
+        pty_text, used_file = _prepare_pty_message(
+            get_long_message_store(), task.id, text_content, response_expected
+        )
+
         # Send to PTY with A2A prefix
-        # Format: A2A: [REPLY EXPECTED] <message> (if response expected)
-        # Or: A2A: <message> (if no response expected)
+        # For file references, [REPLY EXPECTED] marker is already in pty_text
         try:
             prefixed_content = format_a2a_message(
-                text_content, response_expected=response_expected
+                pty_text,
+                response_expected=response_expected if not used_file else False,
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
