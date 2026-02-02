@@ -121,7 +121,7 @@ class TestRichRendererTableStructure:
         assert table.box == box.ROUNDED
 
     def test_table_has_required_columns(self):
-        """Table should have TYPE, NAME, ID, ROLE, STATUS, TRANSPORT, WORKING_DIR columns."""
+        """Table should have default columns: ID, NAME, STATUS, CURRENT, TRANSPORT, WORKING_DIR."""
         console = Console(file=StringIO(), force_terminal=True)
         renderer = RichRenderer(console=console)
 
@@ -143,13 +143,13 @@ class TestRichRendererTableStructure:
         table = renderer.build_table(agents)
 
         column_headers = [col.header for col in table.columns]
-        assert "TYPE" in column_headers
-        assert "NAME" in column_headers
+        # Default columns from settings: ID, NAME, STATUS, CURRENT, TRANSPORT, WORKING_DIR
         assert "ID" in column_headers
-        assert "ROLE" in column_headers
+        assert "NAME" in column_headers
         assert "STATUS" in column_headers
         assert "TRANSPORT" in column_headers
         assert "WORKING_DIR" in column_headers
+        # TYPE, ROLE are available but not in default columns
         # PORT, PID, ENDPOINT are in detail panel, not main table
         assert "PORT" not in column_headers
         assert "PID" not in column_headers
@@ -388,10 +388,15 @@ class TestRichRendererFileSafety:
             }
         ]
 
-        table = renderer.build_table(agents, show_file_safety=True)
+        # Pass columns that include EDITING_FILE
+        table = renderer.build_table(
+            agents,
+            show_file_safety=True,
+            columns=["ID", "NAME", "STATUS", "EDITING_FILE"],
+        )
 
         column_headers = [col.header for col in table.columns]
-        assert "EDITING FILE" in column_headers
+        assert "EDITING_FILE" in column_headers
 
         console.print(table)
         output = console.file.getvalue()
