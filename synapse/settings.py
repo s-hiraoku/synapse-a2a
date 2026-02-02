@@ -93,6 +93,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "SYNAPSE_WEBHOOK_SECRET": "",
         "SYNAPSE_WEBHOOK_TIMEOUT": "10",
         "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
+        # Long message file storage settings
+        # Messages exceeding threshold are stored in files instead of PTY paste
+        "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",  # Character count (TUI limit ~200-300)
+        "SYNAPSE_LONG_MESSAGE_TTL": "3600",  # File retention in seconds (1 hour)
+        "SYNAPSE_LONG_MESSAGE_DIR": "",  # Default: /tmp/synapse-a2a/messages/
     },
     "instructions": {
         "default": get_default_instructions(),
@@ -421,9 +426,10 @@ class SynapseSettings:
             List of display paths (e.g., [".synapse/default.md", "~/.synapse/delegate.md"])
         """
         paths: list[str] = []
-        home = user_dir if user_dir else Path.home()
+        home = user_dir or Path.home()
 
-        def is_md_file(value: object) -> bool:
+        def is_md_filename(value: object) -> bool:
+            """Check if value is a string ending with .md (filename only, no existence check)."""
             return isinstance(value, str) and value.endswith(".md")
 
         def add_if_exists(filename: str) -> None:
@@ -438,13 +444,13 @@ class SynapseSettings:
 
         # Check agent-specific file
         agent_instruction = self.instructions.get(agent_type, "")
-        if is_md_file(agent_instruction):
+        if is_md_filename(agent_instruction):
             add_if_exists(agent_instruction)
 
         # Check default file (only if agent-specific is not set)
         if not agent_instruction:
             default_instruction = self.instructions.get("default", "")
-            if is_md_file(default_instruction):
+            if is_md_filename(default_instruction):
                 add_if_exists(default_instruction)
 
         # Delegation (when enabled)
@@ -487,11 +493,9 @@ class SynapseSettings:
 
     def _is_valid_md_file(self, instruction: object) -> bool:
         """Check if instruction is a valid .md filename that exists."""
-        return (
-            isinstance(instruction, str)
-            and instruction.endswith(".md")
-            and self._instruction_file_exists(instruction)
-        )
+        if not isinstance(instruction, str) or not instruction.endswith(".md"):
+            return False
+        return self._instruction_file_exists(instruction)
 
     def _is_file_safety_enabled(self) -> bool:
         """Check if file safety is enabled via env var or settings."""
@@ -648,9 +652,7 @@ class SynapseSettings:
             List of CLI flags that indicate resume mode.
         """
         flags = self.resume_flags.get(agent_type, [])
-        if isinstance(flags, list):
-            return flags
-        return []
+        return flags if isinstance(flags, list) else []
 
     def is_resume_mode(self, agent_type: str, tool_args: list[str]) -> bool:
         """
