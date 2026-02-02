@@ -1139,13 +1139,25 @@ The display automatically updates when agent status changes (via file watcher) w
 
 | Column | Description |
 |--------|-------------|
-| TYPE | Agent type (claude, gemini, codex, etc.) |
+| ID | Agent ID (e.g., `synapse-claude-8100`) |
 | NAME | Custom name (if assigned) |
+| TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
-| PORT | HTTP port number |
 | STATUS | Current status (READY, WAITING, PROCESSING, DONE) |
-| WORKING_DIR | Current working directory |
+| CURRENT | Current task preview |
 | TRANSPORT | Communication transport indicator |
+| WORKING_DIR | Current working directory |
+| EDITING_FILE | File being edited (File Safety enabled only) |
+
+**Customize columns** in `settings.json`:
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
 
 ### Status States
 

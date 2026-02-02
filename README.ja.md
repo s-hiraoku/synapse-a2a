@@ -1083,6 +1083,30 @@ synapse list
 
 ファイルウォッチャーによりエージェントのステータス変更時に自動更新されます（2秒間隔のフォールバックポーリング）。
 
+### 表示カラム
+
+| カラム | 説明 |
+|--------|------|
+| ID | エージェントID（例: `synapse-claude-8100`） |
+| NAME | カスタム名（設定時） |
+| TYPE | エージェント種別（claude, gemini, codex 等） |
+| ROLE | 役割説明（設定時） |
+| STATUS | 現在の状態（READY, WAITING, PROCESSING, DONE） |
+| CURRENT | 現在のタスクプレビュー |
+| TRANSPORT | 通信状態インジケータ |
+| WORKING_DIR | 作業ディレクトリ |
+| EDITING_FILE | 編集中のファイル（File Safety有効時のみ） |
+
+**カラムのカスタマイズ**（`settings.json`）:
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
+
 ### ステータス状態
 
 | ステータス | 色 | 意味 |

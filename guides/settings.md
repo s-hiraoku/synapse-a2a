@@ -229,6 +229,9 @@ Codex もプラグインには対応していませんが、展開された skil
   },
   "delegation": {
     "enabled": false
+  },
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
   }
 }
 ```
@@ -385,6 +388,48 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 ```
 
 詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+
+## リスト表示設定 (list)
+
+`synapse list` コマンドで表示するカラムをカスタマイズできます。
+
+### 利用可能なカラム
+
+| カラム | 説明 |
+|--------|------|
+| `ID` | エージェントID（例: `synapse-claude-8100`） |
+| `NAME` | カスタム名 |
+| `TYPE` | エージェント種別（claude, gemini, codex 等） |
+| `ROLE` | エージェントの役割説明 |
+| `STATUS` | 現在の状態（READY, PROCESSING 等） |
+| `CURRENT` | 現在のタスクプレビュー |
+| `TRANSPORT` | 通信状態（UDS/TCP） |
+| `WORKING_DIR` | 作業ディレクトリ |
+| `EDITING_FILE` | 編集中のファイル（File Safety有効時のみ） |
+
+### デフォルト設定
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
+
+### カスタマイズ例
+
+コンパクトな表示にする場合：
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "EDITING_FILE"]
+  }
+}
+```
+
+**Note**: `EDITING_FILE` カラムは `SYNAPSE_FILE_SAFETY_ENABLED=true` の場合のみ表示されます。
 
 ## 委任設定 (delegation)
 

@@ -35,5 +35,8 @@
     "gemini": ["--resume"],
     "opencode": ["--continue", "-c"],
     "copilot": ["--continue", "-c"]
+  },
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
   }
 }
