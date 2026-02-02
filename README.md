@@ -1291,8 +1291,9 @@ synapse config show --scope user
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Lock history retention days | `30` |
 | `SYNAPSE_AUTH_ENABLED` | Enable API authentication | `false` |
 | `SYNAPSE_API_KEYS` | API keys (comma-separated) | - |
 | `SYNAPSE_ADMIN_KEY` | Admin key | - |

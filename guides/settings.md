@@ -254,6 +254,9 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook 署名用シークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety 機能を有効化 | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | SQLite データベースファイルのパス | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | ロック履歴の保持日数 | `30` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |

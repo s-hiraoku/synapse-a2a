@@ -1237,8 +1237,9 @@ synapse config show --scope user
 | 変数 | 説明 | デフォルト |
 |------|------|----------|
 | `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `true` (v0.3.13+) |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety を有効化 | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | File Safety DB パス | `~/.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety を有効化 | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File Safety DB パス | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | ロック履歴の保持日数 | `30` |
 | `SYNAPSE_AUTH_ENABLED` | API 認証を有効化 | `false` |
 | `SYNAPSE_API_KEYS` | API キー（カンマ区切り） | - |
 | `SYNAPSE_ADMIN_KEY` | 管理者キー | - |
