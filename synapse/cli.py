@@ -896,38 +896,60 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         return
 
     agent_id, agent_type, pid = _resolve_agent_info(args.agent)
+    wait = getattr(args, "wait", False)
+    wait_timeout = getattr(args, "wait_timeout", None)
+    wait_interval = getattr(args, "wait_interval", 2.0)
+    start_time = time.monotonic()
 
-    result = manager.acquire_lock(
-        file_path=args.file,
-        agent_id=agent_id,
-        agent_type=agent_type,
-        task_id=args.task_id if hasattr(args, "task_id") else None,
-        duration_seconds=args.duration if hasattr(args, "duration") else None,
-        intent=args.intent if hasattr(args, "intent") else None,
-        pid=pid,
-    )
+    while True:
+        result = manager.acquire_lock(
+            file_path=args.file,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            task_id=args.task_id if hasattr(args, "task_id") else None,
+            duration_seconds=args.duration if hasattr(args, "duration") else None,
+            intent=args.intent if hasattr(args, "intent") else None,
+            pid=pid,
+        )
 
-    status = result["status"]
-    if status == LockStatus.ACQUIRED:
-        print(f"Lock acquired on {args.file}")
-        print(f"Expires at: {result.get('expires_at')}")
-    elif status == LockStatus.RENEWED:
-        print(f"Lock renewed on {args.file}")
-        print(f"New expiration: {result.get('expires_at')}")
-    elif status == LockStatus.ALREADY_LOCKED:
-        print(
-            f"File is already locked by {result.get('lock_holder')}",
-            file=sys.stderr,
-        )
-        print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
-        sys.exit(1)
-    elif status == LockStatus.FAILED:
-        print(
-            f"Failed to acquire lock: {result.get('error', 'unknown error')}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    else:
+        status = result["status"]
+        if status == LockStatus.ACQUIRED:
+            print(f"Lock acquired on {args.file}")
+            print(f"Expires at: {result.get('expires_at')}")
+            return
+        if status == LockStatus.RENEWED:
+            print(f"Lock renewed on {args.file}")
+            print(f"New expiration: {result.get('expires_at')}")
+            return
+        if status == LockStatus.ALREADY_LOCKED:
+            if not wait:
+                print(
+                    f"File is already locked by {result.get('lock_holder')}",
+                    file=sys.stderr,
+                )
+                print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
+                sys.exit(1)
+            if (
+                wait_timeout is not None
+                and (time.monotonic() - start_time) >= wait_timeout
+            ):
+                print(f"Timed out waiting for lock on {args.file}")
+                sys.exit(1)
+            lock_holder = result.get("lock_holder")
+            if lock_holder:
+                print(f"Waiting for lock on {args.file} (held by {lock_holder})...")
+            else:
+                print(f"Waiting for lock on {args.file}...")
+            if result.get("expires_at"):
+                print(f"Current lock expires at: {result.get('expires_at')}")
+            time.sleep(max(0.0, float(wait_interval)))
+            continue
+        if status == LockStatus.FAILED:
+            print(
+                f"Failed to acquire lock: {result.get('error', 'unknown error')}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         print(f"Unexpected lock status: {status}", file=sys.stderr)
         sys.exit(1)
 
@@ -2792,6 +2814,23 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         type=int,
         default=300,
         help="Lock duration in seconds (default: 300)",
+    )
+    p_fs_lock.add_argument(
+        "--wait",
+        action="store_true",
+        help="Wait until the lock becomes available",
+    )
+    p_fs_lock.add_argument(
+        "--wait-timeout",
+        type=float,
+        default=None,
+        help="Max seconds to wait for the lock (default: wait forever)",
+    )
+    p_fs_lock.add_argument(
+        "--wait-interval",
+        type=float,
+        default=2.0,
+        help="Seconds between lock retry attempts (default: 2.0)",
     )
     p_fs_lock.add_argument("--intent", help="Description of intended changes")
     p_fs_lock.set_defaults(func=cmd_file_safety_lock)
