@@ -2,31 +2,54 @@
 
 from io import StringIO
 
+import pytest
 from rich.console import Console
 
 from synapse.commands.renderers.rich_renderer import RichRenderer
 
 
+def _make_agent(
+    agent_type: str = "claude",
+    port: int = 8100,
+    status: str = "READY",
+    transport: str = "-",
+    pid: int = 12345,
+    working_dir: str = "/tmp",
+    **overrides,
+) -> dict:
+    """Create a test agent dictionary with sensible defaults."""
+    agent = {
+        "agent_id": f"synapse-{agent_type}-{port}",
+        "agent_type": agent_type,
+        "port": port,
+        "status": status,
+        "transport": transport,
+        "pid": pid,
+        "working_dir": working_dir,
+        "endpoint": f"http://localhost:{port}",
+    }
+    agent.update(overrides)
+    return agent
+
+
+@pytest.fixture
+def console() -> Console:
+    """Create a Console that captures output to a StringIO."""
+    return Console(file=StringIO(), force_terminal=True)
+
+
+@pytest.fixture
+def renderer(console: Console) -> RichRenderer:
+    """Create a RichRenderer with the test console."""
+    return RichRenderer(console=console)
+
+
 class TestRichRendererStatusColors:
     """Tests for status color mapping."""
 
-    def test_ready_status_is_green(self):
+    def test_ready_status_is_green(self, console, renderer):
         """READY status should be displayed in green."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(status="READY")]
 
         table = renderer.build_table(agents)
 
@@ -39,23 +62,9 @@ class TestRichRendererStatusColors:
         # Bold green color code should be present (\x1b[1;32m = bold green)
         assert "\x1b[1;32m" in output
 
-    def test_processing_status_is_yellow(self):
+    def test_processing_status_is_yellow(self, console, renderer):
         """PROCESSING status should be displayed in yellow."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "PROCESSING",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(status="PROCESSING")]
 
         table = renderer.build_table(agents)
 
@@ -66,23 +75,9 @@ class TestRichRendererStatusColors:
         # Bold yellow color code should be present (\x1b[1;33m = bold yellow)
         assert "\x1b[1;33m" in output
 
-    def test_unknown_status_default_style(self):
+    def test_unknown_status_default_style(self, console, renderer):
         """Unknown status should use default styling."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "UNKNOWN",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(status="UNKNOWN")]
 
         table = renderer.build_table(agents)
         console.print(table)
@@ -95,23 +90,9 @@ class TestRichRendererStatusColors:
 class TestRichRendererTableStructure:
     """Tests for table structure and borders."""
 
-    def test_table_has_rounded_box_style(self):
+    def test_table_has_rounded_box_style(self, renderer):
         """Table should use ROUNDED box style."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         table = renderer.build_table(agents)
 
@@ -120,25 +101,9 @@ class TestRichRendererTableStructure:
 
         assert table.box == box.ROUNDED
 
-    def test_table_has_required_columns(self):
+    def test_table_has_required_columns(self, renderer):
         """Table should have default columns: ID, NAME, STATUS, CURRENT, TRANSPORT, WORKING_DIR."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "name": "my-claude",
-                "role": "reviewer",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(name="my-claude", role="reviewer")]
 
         table = renderer.build_table(agents)
 
@@ -155,23 +120,9 @@ class TestRichRendererTableStructure:
         assert "PID" not in column_headers
         assert "ENDPOINT" not in column_headers
 
-    def test_transport_column_always_present(self):
+    def test_transport_column_always_present(self, renderer):
         """TRANSPORT column should always be present."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "UDS→",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(transport="UDS→")]
 
         table = renderer.build_table(agents)
 
@@ -182,23 +133,9 @@ class TestRichRendererTableStructure:
 class TestRichRendererPanel:
     """Tests for panel structure."""
 
-    def test_build_panel_contains_table(self):
+    def test_build_panel_contains_table(self, console, renderer):
         """Panel should contain the table."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         table = renderer.build_table(agents)
         panel = renderer.build_panel(
@@ -214,13 +151,9 @@ class TestRichRendererPanel:
         assert "Synapse A2A" in output
         assert "2026-01-18 12:00:00" in output
 
-    def test_panel_has_title_and_subtitle(self):
+    def test_panel_has_title_and_subtitle(self, console, renderer):
         """Panel should display title and subtitle."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = []
-        table = renderer.build_table(agents)
+        table = renderer.build_table([])
         panel = renderer.build_panel(
             table,
             title="Test Title",
@@ -237,26 +170,18 @@ class TestRichRendererPanel:
 class TestRichRendererEmptyState:
     """Tests for empty agent list handling."""
 
-    def test_empty_agents_shows_message(self):
+    def test_empty_agents_shows_message(self, console, renderer):
         """Empty agent list should show 'No agents running' message."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = []
-        table = renderer.build_table(agents)
+        table = renderer.build_table([])
 
         console.print(table)
         output = console.file.getvalue()
 
         assert "No agents running" in output
 
-    def test_empty_agents_shows_port_ranges(self):
+    def test_empty_agents_shows_port_ranges(self, console, renderer):
         """Empty agent list should show port ranges."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = []
-        table = renderer.build_table(agents)
+        table = renderer.build_table([])
 
         console.print(table)
         output = console.file.getvalue()
@@ -268,42 +193,14 @@ class TestRichRendererEmptyState:
 class TestRichRendererMultipleAgents:
     """Tests for multiple agent display."""
 
-    def test_multiple_agents_rendered(self):
+    def test_multiple_agents_rendered(self, console, renderer):
         """Multiple agents should all be rendered in the table."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            },
-            {
-                "agent_id": "synapse-gemini-8110",
-                "agent_type": "gemini",
-                "port": 8110,
-                "status": "PROCESSING",
-                "transport": "-",
-                "pid": 12346,
-                "working_dir": "/home",
-                "endpoint": "http://localhost:8110",
-            },
-            {
-                "agent_id": "synapse-codex-8120",
-                "agent_type": "codex",
-                "port": 8120,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12347,
-                "working_dir": "/var",
-                "endpoint": "http://localhost:8120",
-            },
+            _make_agent("claude", 8100, status="READY", pid=12345, working_dir="/tmp"),
+            _make_agent(
+                "gemini", 8110, status="PROCESSING", pid=12346, working_dir="/home"
+            ),
+            _make_agent("codex", 8120, status="READY", pid=12347, working_dir="/var"),
         ]
 
         table = renderer.build_table(agents)
@@ -325,36 +222,23 @@ class TestRichRendererMultipleAgents:
         renderer = RichRenderer(console=console)
 
         agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "PROCESSING",
-                "transport": "UDS→",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            },
-            {
-                "agent_id": "synapse-gemini-8110",
-                "agent_type": "gemini",
-                "port": 8110,
-                "status": "PROCESSING",
-                "transport": "→UDS",
-                "pid": 12346,
-                "working_dir": "/home",
-                "endpoint": "http://localhost:8110",
-            },
-            {
-                "agent_id": "synapse-codex-8120",
-                "agent_type": "codex",
-                "port": 8120,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12347,
-                "working_dir": "/var",
-                "endpoint": "http://localhost:8120",
-            },
+            _make_agent(
+                "claude",
+                8100,
+                status="PROCESSING",
+                transport="UDS→",
+                pid=12345,
+                working_dir="/tmp",
+            ),
+            _make_agent(
+                "gemini",
+                8110,
+                status="PROCESSING",
+                transport="→UDS",
+                pid=12346,
+                working_dir="/home",
+            ),
+            _make_agent("codex", 8120, status="READY", pid=12347, working_dir="/var"),
         ]
 
         table = renderer.build_table(agents)
@@ -374,19 +258,7 @@ class TestRichRendererFileSafety:
         console = Console(file=StringIO(), force_terminal=True, width=200)
         renderer = RichRenderer(console=console)
 
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "PROCESSING",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-                "editing_file": "test.py",
-            }
-        ]
+        agents = [_make_agent(status="PROCESSING", editing_file="test.py")]
 
         # Pass columns that include EDITING_FILE
         table = renderer.build_table(
@@ -402,23 +274,9 @@ class TestRichRendererFileSafety:
         output = console.file.getvalue()
         assert "test.py" in output
 
-    def test_no_editing_file_column_when_disabled(self):
+    def test_no_editing_file_column_when_disabled(self, console, renderer):
         """Should not show EDITING FILE column when show_file_safety=False."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         table = renderer.build_table(agents, show_file_safety=False)
 
@@ -429,11 +287,8 @@ class TestRichRendererFileSafety:
 class TestRichRendererFooter:
     """Tests for footer display."""
 
-    def test_build_footer_contains_exit_hint(self):
+    def test_build_footer_contains_exit_hint(self, console, renderer):
         """Footer should contain q exit hint."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         footer = renderer.build_footer()
 
         console.print(footer)
@@ -446,11 +301,8 @@ class TestRichRendererFooter:
 class TestRichRendererStaleLocksWarning:
     """Tests for stale locks warning display."""
 
-    def test_stale_locks_warning_displayed(self):
+    def test_stale_locks_warning_displayed(self, console, renderer):
         """Stale locks warning should be displayed when present."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         stale_locks = [
             {"file_path": "/tmp/test.py", "pid": 99999, "agent_id": "dead-agent"}
         ]
@@ -463,11 +315,8 @@ class TestRichRendererStaleLocksWarning:
         assert "stale" in output.lower()
         assert "1" in output  # count
 
-    def test_no_warning_when_no_stale_locks(self):
+    def test_no_warning_when_no_stale_locks(self, renderer):
         """No warning should be shown when there are no stale locks."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         warning = renderer.build_stale_locks_warning([])
 
         assert warning is None
@@ -476,78 +325,31 @@ class TestRichRendererStaleLocksWarning:
 class TestRichRendererInteractiveMode:
     """Tests for interactive mode with row selection."""
 
-    def test_row_numbers_shown_when_interactive(self):
+    def test_row_numbers_shown_when_interactive(self, renderer):
         """Row numbers should be shown when show_row_numbers=True."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         table = renderer.build_table(agents, show_row_numbers=True)
 
         column_headers = [col.header for col in table.columns]
         assert "#" in column_headers
 
-    def test_row_numbers_hidden_when_not_interactive(self):
+    def test_row_numbers_hidden_when_not_interactive(self, renderer):
         """Row numbers should be hidden when show_row_numbers=False."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         table = renderer.build_table(agents, show_row_numbers=False)
 
         column_headers = [col.header for col in table.columns]
         assert "#" not in column_headers
 
-    def test_selected_row_highlighted(self):
+    def test_selected_row_highlighted(self, console, renderer):
         """Selected row should have different styling."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            },
-            {
-                "agent_id": "synapse-gemini-8110",
-                "agent_type": "gemini",
-                "port": 8110,
-                "status": "PROCESSING",
-                "transport": "-",
-                "pid": 12346,
-                "working_dir": "/home",
-                "endpoint": "http://localhost:8110",
-            },
+            _make_agent("claude", 8100, pid=12345, working_dir="/tmp"),
+            _make_agent(
+                "gemini", 8110, status="PROCESSING", pid=12346, working_dir="/home"
+            ),
         ]
 
         table = renderer.build_table(agents, show_row_numbers=True, selected_row=1)
@@ -563,20 +365,11 @@ class TestRichRendererInteractiveMode:
 class TestRichRendererDetailPanel:
     """Tests for detail panel display."""
 
-    def test_detail_panel_shows_full_path(self):
+    def test_detail_panel_shows_full_path(self, console, renderer):
         """Detail panel should show full working directory path."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agent = {
-            "agent_id": "synapse-claude-8100",
-            "agent_type": "claude",
-            "port": 8100,
-            "status": "READY",
-            "pid": 12345,
-            "working_dir": "/Volumes/SSD/ghq/github.com/s-hiraoku/very-long-path",
-            "endpoint": "http://localhost:8100",
-        }
+        agent = _make_agent(
+            working_dir="/Volumes/SSD/ghq/github.com/s-hiraoku/very-long-path"
+        )
 
         panel = renderer.build_detail_panel(agent)
 
@@ -587,21 +380,9 @@ class TestRichRendererDetailPanel:
         assert "very-long-path" in output
         assert "Agent Details" in output
 
-    def test_detail_panel_includes_all_fields(self):
+    def test_detail_panel_includes_all_fields(self, console, renderer):
         """Detail panel should include all agent fields."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
-        agent = {
-            "agent_id": "synapse-claude-8100",
-            "agent_type": "claude",
-            "port": 8100,
-            "status": "READY",
-            "pid": 12345,
-            "working_dir": "/tmp",
-            "endpoint": "http://localhost:8100",
-            "transport": "UDS→",
-        }
+        agent = _make_agent(transport="UDS→")
 
         panel = renderer.build_detail_panel(agent)
 
@@ -619,11 +400,8 @@ class TestRichRendererDetailPanel:
 class TestRichRendererInteractiveFooter:
     """Tests for interactive footer."""
 
-    def test_footer_shows_key_hints_when_interactive(self):
+    def test_footer_shows_key_hints_when_interactive(self, console, renderer):
         """Footer should show number key hints in interactive mode."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         footer = renderer.build_footer(
             interactive=True, agent_count=3, has_selection=True
         )
@@ -635,11 +413,8 @@ class TestRichRendererInteractiveFooter:
         assert "ESC" in output  # clear filter/selection
         assert "q" in output
 
-    def test_footer_minimal_when_not_interactive(self):
+    def test_footer_minimal_when_not_interactive(self, console, renderer):
         """Footer should be minimal in non-interactive mode."""
-        console = Console(file=StringIO(), force_terminal=True)
-        renderer = RichRenderer(console=console)
-
         footer = renderer.build_footer(interactive=False, agent_count=3)
 
         console.print(footer)
@@ -657,18 +432,7 @@ class TestRichRendererDisplayInteractive:
         console = Console(file=StringIO(), force_terminal=True, width=150)
         renderer = RichRenderer(console=console)
 
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/Volumes/SSD/ghq/github.com/full/path/here",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent(working_dir="/Volumes/SSD/ghq/github.com/full/path/here")]
 
         display = renderer.render_display(
             agents=agents,
@@ -691,18 +455,7 @@ class TestRichRendererDisplayInteractive:
         console = Console(file=StringIO(), force_terminal=True, width=150)
         renderer = RichRenderer(console=console)
 
-        agents = [
-            {
-                "agent_id": "synapse-claude-8100",
-                "agent_type": "claude",
-                "port": 8100,
-                "status": "READY",
-                "transport": "-",
-                "pid": 12345,
-                "working_dir": "/tmp",
-                "endpoint": "http://localhost:8100",
-            }
-        ]
+        agents = [_make_agent()]
 
         display = renderer.render_display(
             agents=agents,

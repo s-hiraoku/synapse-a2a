@@ -1340,57 +1340,65 @@ def cmd_auth_generate_key(args: argparse.Namespace) -> None:
 # ============================================================
 
 
-def _prompt_scope_selection() -> str | None:
+def _prompt_menu_selection(
+    title: str, options: dict[str, str], prompt_hint: str
+) -> str | None:
     """
-    Prompt user to select a scope for settings.
+    Generic menu selection prompt.
+
+    Args:
+        title: Title displayed above the menu.
+        options: Dict mapping key (e.g., "1") to display label.
+        prompt_hint: Hint shown in the input prompt (e.g., "[1/2/q]").
 
     Returns:
-        "user", "project", or None if cancelled.
+        The selected value (e.g., "user", "project") or None if cancelled.
     """
-    print("\n? Where do you want to create settings.json?")
-    print("  [1] User scope (~/.synapse/settings.json)")
-    print("  [2] Project scope (./.synapse/settings.json)")
-    print("  [q] Cancel")
+    # Build options mapping: {"1": "user", "2": "project", "q": None}
+    key_to_value: dict[str, str | None] = {}
+    print(f"\n? {title}")
+    for key, label in options.items():
+        if key == "q":
+            key_to_value["q"] = None
+        else:
+            # Extract value from label like "User scope (~/.synapse/...)" -> "user"
+            value = label.split()[0].lower()
+            key_to_value[key] = value
+        print(f"  [{key}] {label}")
     print()
 
     while True:
-        choice = input("Enter choice [1/2/q]: ").strip().lower()
-        if choice == "1":
-            return "user"
-        elif choice == "2":
-            return "project"
-        elif choice == "q":
-            return None
-        else:
-            print("Invalid choice. Please enter 1, 2, or q.")
+        choice = input(f"Enter choice {prompt_hint}: ").strip().lower()
+        if choice in key_to_value:
+            return key_to_value[choice]
+        print(f"Invalid choice. Please enter one of: {', '.join(key_to_value.keys())}.")
+
+
+def _prompt_scope_selection() -> str | None:
+    """Prompt user to select a scope for settings."""
+    return _prompt_menu_selection(
+        title="Where do you want to create settings.json?",
+        options={
+            "1": "User scope (~/.synapse/settings.json)",
+            "2": "Project scope (./.synapse/settings.json)",
+            "q": "Cancel",
+        },
+        prompt_hint="[1/2/q]",
+    )
 
 
 def _prompt_reset_scope_selection() -> str | None:
-    """
-    Prompt user to select which settings to reset.
-
-    Returns:
-        "user", "project", "both", or None if cancelled.
-    """
-    print("\n? Which settings do you want to reset?")
-    print("  [1] User scope (~/.synapse/settings.json)")
-    print("  [2] Project scope (./.synapse/settings.json)")
-    print("  [3] Both")
-    print("  [q] Cancel")
-    print()
-
-    while True:
-        choice = input("Enter choice [1/2/3/q]: ").strip().lower()
-        if choice == "1":
-            return "user"
-        elif choice == "2":
-            return "project"
-        elif choice == "3":
-            return "both"
-        elif choice == "q":
-            return None
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or q.")
+    """Prompt user to select which settings to reset."""
+    return _prompt_menu_selection(
+        title="Which settings do you want to reset?",
+        options={
+            "1": "User scope (~/.synapse/settings.json)",
+            "2": "Project scope (./.synapse/settings.json)",
+            "3": "Both",
+            "q": "Cancel",
+        },
+        prompt_hint="[1/2/3/q]",
+    )
 
 
 def _write_default_settings(path: Path) -> bool:
