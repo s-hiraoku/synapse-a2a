@@ -108,6 +108,31 @@ def test_get_agent_data_file_safety_shows_locked_file(list_command, mock_registr
         assert claude_agent["editing_file"] == "important_file.py"
 
 
+def test_get_agent_data_file_safety_falls_back_to_agent_id(list_command, mock_registry):
+    """Test fallback to agent_id when PID lookup returns no locks."""
+    with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
+        fsm_instance = MockFSM.from_env.return_value
+        fsm_instance.enabled = True
+        fsm_instance.get_stale_locks.return_value = []
+
+        def mock_list_locks(
+            agent_name=None, *, pid=None, agent_type=None, include_stale=True
+        ):
+            if pid == 12345:
+                return []
+            if agent_name == "synapse-claude-8100":
+                return [{"file_path": "/path/to/fallback_file.py"}]
+            return []
+
+        fsm_instance.list_locks.side_effect = mock_list_locks
+
+        agents, _, show_file_safety = list_command._get_agent_data(mock_registry)
+
+        assert show_file_safety is True
+        claude_agent = next(a for a in agents if a["agent_type"] == "claude")
+        assert claude_agent["editing_file"] == "fallback_file.py"
+
+
 def test_get_agent_data_shows_only_one_locked_file(list_command, mock_registry):
     """Test that only first locked file is shown when multiple locked."""
     with patch("synapse.commands.list.FileSafetyManager") as MockFSM:
@@ -133,3 +158,30 @@ def test_get_agent_data_shows_only_one_locked_file(list_command, mock_registry):
         # Should show only first file
         assert claude_agent["editing_file"] == "file1.py"
         assert "file2.py" not in claude_agent["editing_file"]
+
+
+def test_non_tty_header_uses_editing_file_label(mock_registry, capsys):
+    """Non-TTY list output should label the column as EDITING_FILE."""
+    list_cmd = ListCommand(
+        registry_factory=MagicMock(return_value=mock_registry),
+        is_process_alive=lambda pid: True,
+        is_port_open=lambda host, port, timeout=0.5: True,
+        clear_screen=MagicMock(),
+        time_module=MagicMock(),
+        print_func=print,
+    )
+    args = MagicMock()
+
+    with (
+        patch("synapse.commands.list.FileSafetyManager") as MockFSM,
+        patch("sys.stdout.isatty", return_value=False),
+    ):
+        fsm_instance = MockFSM.from_env.return_value
+        fsm_instance.enabled = True
+        fsm_instance.list_locks.return_value = []
+        fsm_instance.get_stale_locks.return_value = []
+
+        list_cmd.run(args)
+
+    captured = capsys.readouterr()
+    assert "EDITING_FILE" in captured.out
