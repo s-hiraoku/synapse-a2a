@@ -1073,6 +1073,9 @@ synapse file-safety locks
 # Acquire lock
 synapse file-safety lock /path/to/file.py claude --intent "Refactoring"
 
+# Wait for lock to be released
+synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
+
 # Release lock
 synapse file-safety unlock /path/to/file.py claude
 

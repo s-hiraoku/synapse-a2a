@@ -205,6 +205,9 @@ synapse file-safety lock /path/to/file.py claude \
   --task-id "task-123" \
   --duration 600 \
   --intent "Refactoring authentication module"
+
+# ロック解放まで待機
+synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
 ```
 
 **オプション:**
@@ -214,6 +217,9 @@ synapse file-safety lock /path/to/file.py claude \
 | `--task-id` | タスク ID | なし |
 | `--duration` | ロック時間（秒） | 300 |
 | `--intent` | 変更の意図 | なし |
+| `--wait` | ロック解放まで待機 | false |
+| `--wait-timeout` | 待機の上限（秒、指定なしで無制限） | なし |
+| `--wait-interval` | 再試行間隔（秒） | 2.0 |
 
 **出力例:**
 

@@ -1021,6 +1021,9 @@ synapse file-safety locks
 # ロック取得
 synapse file-safety lock /path/to/file.py claude --intent "リファクタリング"
 
+# ロック解放待ち
+synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
+
 # ロック解除
 synapse file-safety unlock /path/to/file.py claude
 
