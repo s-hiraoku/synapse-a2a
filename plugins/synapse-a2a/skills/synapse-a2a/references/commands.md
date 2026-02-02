@@ -383,6 +383,7 @@ synapse config show --scope project    # Show project settings only
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
 - **Delegation**: Enable/disable task delegation
 - **Resume Flags**: CLI flags that indicate session resume mode
+- **List Display**: Configure `synapse list` columns
 
 ### Reset Settings
 
@@ -400,7 +401,10 @@ synapse reset
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
-  "approvalMode": "required"
+  "approvalMode": "required",
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
 }
 ```
 
@@ -416,6 +420,22 @@ synapse reset
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
+
+**list.columns:**
+
+Configure which columns to display in `synapse list`:
+
+| Column | Description |
+|--------|-------------|
+| `ID` | Agent ID (e.g., `synapse-claude-8100`) |
+| `NAME` | Custom name if set |
+| `TYPE` | Agent type (claude, gemini, etc.) |
+| `ROLE` | Role description |
+| `STATUS` | READY/WAITING/PROCESSING/DONE |
+| `CURRENT` | Current task preview |
+| `TRANSPORT` | UDS/TCP communication status |
+| `WORKING_DIR` | Working directory |
+| `EDITING_FILE` | Currently locked file (requires file-safety) |
 
 **approvalMode:**
 
