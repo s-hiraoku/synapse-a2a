@@ -412,6 +412,9 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 
 **approvalMode:**
 

@@ -145,19 +145,19 @@ Use `synapse send` to delegate tasks to other agents:
 
 ```bash
 # Fire and forget (default)
-synapse send codex "Refactor this function" --from claude
+synapse send codex "Refactor this function" --from synapse-claude-8100
 
 # Wait for response (roundtrip)
-synapse send gemini "Analyze this code" --response --from claude
+synapse send gemini "Analyze this code" --response --from synapse-claude-8100
 
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --from claude
+synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100
 
 # Reply to a --response request
-synapse reply "Here is the analysis..." --from gemini
+synapse reply "Here is the analysis..." --from synapse-gemini-8110
 
 # Send to agent by custom name (if assigned)
-synapse send my-codex "Write tests for auth.py" --from claude
+synapse send my-codex "Write tests for auth.py" --from synapse-claude-8100
 ```
 
 **Target Resolution Priority:**
@@ -230,7 +230,7 @@ synapse claude --name my-reviewer --role "code reviewer"
 synapse rename synapse-claude-8100 --name my-reviewer --role "code reviewer"
 
 # Use custom name in delegation
-synapse send my-reviewer "Review this PR" --from claude
+synapse send my-reviewer "Review this PR" --from synapse-claude-8100
 synapse jump my-reviewer
 synapse kill my-reviewer
 ```

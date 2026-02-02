@@ -23,7 +23,7 @@ synapse gemini --port 8110
 claude> @gemini 明日の天気は？                      # デフォルトで回答を待つ
 
 # 回答を待たずに送信する場合は synapse send を使用
-$ synapse send gemini "ログを記録して" --from claude --no-response
+$ synapse send gemini "ログを記録して" --from synapse-claude-8100 --no-response
 ```
 
 ## Architecture

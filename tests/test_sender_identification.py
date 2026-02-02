@@ -46,6 +46,27 @@ class TestBuildSenderInfo:
         assert "Error" in sender
         assert "synapse-<type>-<port>" in sender
 
+    def test_explicit_sender_type_returns_error(self):
+        """--from flag with agent type should return error."""
+        from synapse.tools.a2a import build_sender_info
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 12345,
+            },
+        }
+
+        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry):
+            sender = build_sender_info(explicit_sender="claude")
+
+            assert isinstance(sender, str)
+            assert "agent type" in sender.lower()
+            assert "synapse-claude-8100" in sender
+
     def test_empty_when_no_matching_agent(self):
         """Should return empty dict when no agent matches via PID."""
         from synapse.tools.a2a import build_sender_info

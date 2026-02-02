@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.16] - 2026-02-02
+
+### Added
+
+- Long message file storage for TUI input limits
+  - Messages exceeding ~200 characters are automatically stored in temporary files
+  - Agents receive a file reference message instead of truncated content
+  - Files are automatically cleaned up after TTL expires (default: 1 hour)
+  - Configurable via `SYNAPSE_LONG_MESSAGE_THRESHOLD`, `SYNAPSE_LONG_MESSAGE_TTL`, `SYNAPSE_LONG_MESSAGE_DIR`
+
+### Documentation
+
+- Add long message handling documentation to skills and guides
+- Update settings.md with new environment variables (Japanese)
+- Sync plugin skills with long message feature documentation
+
 ## [0.3.15] - 2026-02-01
 
 ### Added

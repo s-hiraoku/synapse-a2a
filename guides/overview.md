@@ -389,11 +389,11 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 
 **例:**
 ```bash
-synapse send gemini "分析結果を教えて" --from claude
-synapse send codex "テストを実行して" --from claude
+synapse send gemini "分析結果を教えて" --from synapse-claude-8100
+synapse send codex "テストを実行して" --from synapse-claude-8100
 ```
 
-**重要:** `--from` オプションで送信元を指定してください。受信側が返信先を特定できます。
+**重要:** `--from` オプションで送信元エージェントIDを指定してください。受信側が返信先を特定できます。
 
 ### 応答制御（a2a.flow 設定）
 

@@ -251,6 +251,9 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook 署名用シークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |
 
 ### 例: 履歴を無効にする
 

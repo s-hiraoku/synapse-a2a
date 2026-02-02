@@ -318,7 +318,7 @@ synapse rename my-claude --clear                    # 名前・ロールをク�
 **名前を設定すると、すべての操作で使用可能:**
 
 ```bash
-synapse send my-claude "コードをレビューして" --from codex
+synapse send my-claude "コードをレビューして" --from synapse-codex-8121
 synapse kill my-claude
 synapse jump my-claude
 ```
@@ -440,19 +440,19 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 
 ```bash
 # 通常送信
-synapse send codex "設計を書いて" --priority 1 --from claude
+synapse send codex "設計を書いて" --priority 1 --from synapse-claude-8100
 
 # 緊急停止
-synapse send claude "処理を止めて" --priority 5 --from codex
+synapse send claude "処理を止めて" --priority 5 --from synapse-codex-8121
 
 # 応答を待つ（roundtrip）
-synapse send codex "結果を教えて" --response --from claude
+synapse send codex "結果を教えて" --response --from synapse-claude-8100
 ```
 
 ### 2.5 メッセージへの返信
 
 ```bash
-synapse reply "返信メッセージ" --from <your_agent_type>
+synapse reply "返信メッセージ" --from <your_agent_id>
 ```
 
 Synapseは返信を期待する送信者情報を自動的に追跡し、適切な送信者に返信します。
@@ -460,8 +460,8 @@ Synapseは返信を期待する送信者情報を自動的に追跡し、適切�
 **例**:
 
 ```bash
-synapse reply "分析結果です..." --from codex
-synapse reply "タスク完了しました" --from gemini
+synapse reply "分析結果です..." --from synapse-codex-8121
+synapse reply "タスク完了しました" --from synapse-gemini-8110
 ```
 
 ---

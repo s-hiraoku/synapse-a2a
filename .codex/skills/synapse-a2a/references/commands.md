@@ -178,13 +178,13 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 
 ```bash
 # Use the reply command (--from is required in sandboxed environments)
-synapse reply "<your reply>" --from <your_agent_type>
+synapse reply "<your reply>" --from <your_agent_id>
 ```
 
 **Example - Question received (MUST reply):**
 ```
 Received: A2A: [REPLY EXPECTED] What is the project structure?
-Reply:    synapse reply "The project has src/, tests/..." --from codex
+Reply:    synapse reply "The project has src/, tests/..." --from synapse-codex-8121
 ```
 
 **Example - Delegation received (no reply needed):**
@@ -240,26 +240,26 @@ Analyze the message content and determine if a reply is expected:
 **Examples:**
 ```bash
 # Question - needs reply
-synapse send gemini "What is the best approach?" --response --from codex
+synapse send gemini "What is the best approach?" --response --from synapse-codex-8121
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit" --from claude
+synapse send codex "Fix this bug and commit" --from synapse-claude-8100
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response --from gemini
+synapse send claude-8100 "What is your status?" --response --from synapse-gemini-8110
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from claude
+synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
 
-**Important:** Always use `--from` to identify yourself.
+**Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
 ### Reply Command
 
 Reply to the last received message:
 
 ```bash
-synapse reply "<message>" --from <your_agent_type>
+synapse reply "<message>" --from <your_agent_id>
 ```
 
 Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is required in sandboxed environments (like Codex).
@@ -412,6 +412,9 @@ synapse reset
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 
 **approvalMode:**
 

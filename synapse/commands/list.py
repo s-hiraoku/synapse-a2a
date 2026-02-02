@@ -590,7 +590,7 @@ class ListCommand:
         # Check if stdout is a TTY
         if not sys.stdout.isatty():
             # Non-interactive mode: single output
-            agents, _, _ = self._get_agent_data(registry)
+            agents, _, show_file_safety = self._get_agent_data(registry)
             if not agents:
                 lines = ["No agents running.", "", "Port ranges:"]
                 for agent_type, (start, end) in sorted(PORT_RANGES.items()):
@@ -598,10 +598,18 @@ class ListCommand:
                 self._print("\n".join(lines))
             else:
                 # Simple table output with NAME, ROLE, ID, CURRENT columns
-                header = (
-                    f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
-                    f"{'PORT':<8} {'STATUS':<12} {'CURRENT':<35} {'PID':<8} {'ENDPOINT'}"
-                )
+                # Include EDITING FILE column if file safety is enabled
+                if show_file_safety:
+                    header = (
+                        f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
+                        f"{'PORT':<8} {'STATUS':<12} {'EDITING':<20} "
+                        f"{'CURRENT':<35} {'PID':<8} {'ENDPOINT'}"
+                    )
+                else:
+                    header = (
+                        f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
+                        f"{'PORT':<8} {'STATUS':<12} {'CURRENT':<35} {'PID':<8} {'ENDPOINT'}"
+                    )
                 self._print(header)
                 self._print("-" * len(header))
                 for agent in agents:
@@ -609,17 +617,32 @@ class ListCommand:
                     role = agent.get("role") or "-"
                     agent_id = agent.get("agent_id", "-")
                     current = agent.get("current_task_preview") or "-"
-                    self._print(
-                        f"{agent['agent_type']:<10} "
-                        f"{name:<16} "
-                        f"{role:<16} "
-                        f"{agent_id:<24} "
-                        f"{agent['port']:<8} "
-                        f"{agent['status']:<12} "
-                        f"{current:<35} "
-                        f"{agent['pid']:<8} "
-                        f"{agent['endpoint']}"
-                    )
+                    editing_file = agent.get("editing_file") or "-"
+                    if show_file_safety:
+                        self._print(
+                            f"{agent['agent_type']:<10} "
+                            f"{name:<16} "
+                            f"{role:<16} "
+                            f"{agent_id:<24} "
+                            f"{agent['port']:<8} "
+                            f"{agent['status']:<12} "
+                            f"{editing_file:<20} "
+                            f"{current:<35} "
+                            f"{agent['pid']:<8} "
+                            f"{agent['endpoint']}"
+                        )
+                    else:
+                        self._print(
+                            f"{agent['agent_type']:<10} "
+                            f"{name:<16} "
+                            f"{role:<16} "
+                            f"{agent_id:<24} "
+                            f"{agent['port']:<8} "
+                            f"{agent['status']:<12} "
+                            f"{current:<35} "
+                            f"{agent['pid']:<8} "
+                            f"{agent['endpoint']}"
+                        )
             return
 
         # Get version for display

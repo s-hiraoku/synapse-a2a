@@ -66,16 +66,16 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 
 ```bash
 # 通常のメッセージ送信
-synapse send gemini "分析結果を教えて" --from claude
+synapse send gemini "分析結果を教えて" --from synapse-claude-8100
 
 # 転送のみ（fire-and-forget）
-synapse send codex "テストを実行して" --from claude
+synapse send codex "テストを実行して" --from synapse-claude-8100
 
 # 緊急割り込み（Priority 5）
-synapse send codex "STOP" --priority 5 --from claude
+synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 
 # 応答を待つ（roundtrip）
-synapse send gemini "分析して" --response --from claude
+synapse send gemini "分析して" --response --from synapse-claude-8100
 ```
 
 **重要:** `--from` オプションで送信元を常に指定してください。
@@ -99,7 +99,7 @@ A2A: <message>
 `synapse reply` コマンドを使用して返信します：
 
 ```bash
-synapse reply "<your reply>" --from <your_agent_type>
+synapse reply "<your reply>" --from <your_agent_id>
 ```
 
 **返信追跡:** Synapseは`[REPLY EXPECTED]`マーカー付きメッセージの送信者情報を自動的に追跡します。`synapse reply`を使うと、返信を期待しているエージェントに自動的に返信されます。
@@ -115,7 +115,7 @@ A2A: このコードをレビューして
 
 返信：
 ```bash
-synapse reply "レビュー結果です..." --from gemini
+synapse reply "レビュー結果です..." --from synapse-gemini-8110
 ```
 
 **例2: タスク委任を受信した場合**
@@ -203,7 +203,7 @@ A2A: テストを実行してコミットして
 ### 結果を統合して報告
 
 ```bash
-synapse send codex "ファイルを修正して" --response --from claude
+synapse send codex "ファイルを修正して" --response --from synapse-claude-8100
 ```
 
 結果を待ち、完了後に統合して報告できます。
@@ -211,8 +211,8 @@ synapse send codex "ファイルを修正して" --response --from claude
 ### 並列タスク実行
 
 ```bash
-synapse send gemini "APIドキュメントを調査して" --from claude
-synapse send codex "テストを書いて" --from claude
+synapse send gemini "APIドキュメントを調査して" --from synapse-claude-8100
+synapse send codex "テストを書いて" --from synapse-claude-8100
 ```
 
 複数のタスクを並列で実行し、各エージェントが独立して作業を進めます。

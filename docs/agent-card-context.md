@@ -66,8 +66,8 @@ Agent Card (`/.well-known/agent.json`) に以下の拡張フィールドを追�
         "5": "EMERGENCY INTERRUPT (sends SIGINT before message)"
       },
       "examples": {
-        "send_message": "synapse send gemini \"message\" --from claude",
-        "emergency_interrupt": "synapse send gemini \"STOP\" --priority 5 --from claude",
+        "send_message": "synapse send gemini \"message\" --from synapse-claude-8100",
+        "emergency_interrupt": "synapse send gemini \"STOP\" --priority 5 --from synapse-claude-8100",
         "list_agents": "synapse list"
       }
     }
@@ -160,7 +160,7 @@ AI エージェントは起動時にブートストラップメッセージを�
 ランタイム中に動的な通知を行うための `--silent` フラグ：
 
 ```bash
-synapse send self "新しいエージェントが参加しました" --silent --from claude
+synapse send self "新しいエージェントが参加しました" --silent --from synapse-claude-8100
 ```
 
 - TaskStore に保存されるが PTY には書き込まれない

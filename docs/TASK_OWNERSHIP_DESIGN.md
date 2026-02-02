@@ -16,14 +16,14 @@ synapse claude --port 8100
 synapse codex --port 8120
 
 # Terminal 3: Claude から Codex にメッセージ送信
-synapse send codex "分析して" --response --from claude
+synapse send codex "分析して" --response --from synapse-claude-8100
 # → sender_task_id: abc12345 が生成される
 
 # Codex の PTY に表示:
 # [A2A:abc12345:synapse-claude-8100] 分析して
 
 # Codex で返信しようとすると失敗:
-synapse send claude "結果です" --reply-to abc12345 --from codex
+synapse send claude "結果です" --reply-to abc12345 --from synapse-codex-8120
 # Error: Task abc12345 not found  ← 常に失敗！
 ```
 
@@ -58,7 +58,7 @@ POST /tasks/send-priority to target
 ```
 新しいフロー:
 
-[synapse send codex "msg" --response --from claude]
+[synapse send codex "msg" --response --from synapse-claude-8100]
     ↓
 1. POST /tasks/create to Claude's server (localhost:8100)
    → Claude の task_store に sender_task_id が作成される（永続的）
@@ -69,7 +69,7 @@ POST /tasks/send-priority to target
 3. Codex の PTY に表示:
    [A2A:abc12345:synapse-claude-8100] msg
     ↓
-4. synapse send claude "reply" --reply-to abc12345 --from codex
+4. synapse send claude "reply" --reply-to abc12345 --from synapse-codex-8120
     ↓
 5. POST /tasks/send to Claude's server
    → metadata に in_reply_to=abc12345 を含める
