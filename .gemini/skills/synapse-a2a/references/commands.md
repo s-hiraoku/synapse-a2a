@@ -383,6 +383,7 @@ synapse config show --scope project    # Show project settings only
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
 - **Delegation**: Enable/disable task delegation
 - **Resume Flags**: CLI flags that indicate session resume mode
+- **List Display**: Configure `synapse list` columns
 
 ### Reset Settings
 
@@ -400,7 +401,10 @@ synapse reset
     "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
-  "approvalMode": "required"
+  "approvalMode": "required",
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
 }
 ```
 
