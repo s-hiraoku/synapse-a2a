@@ -119,6 +119,12 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "codex": ["resume"],  # codex resume [--last | <SESSION_ID>]
         "gemini": ["--resume", "-r"],  # gemini --resume/-r [<index|UUID>]
     },
+    "list": {
+        # Columns to display in synapse list command
+        # Available: ID, NAME, TYPE, ROLE, STATUS, CURRENT, TRANSPORT,
+        #            WORKING_DIR, EDITING_FILE (requires file-safety enabled)
+        "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"],
+    },
 }
 
 
@@ -197,6 +203,7 @@ class SynapseSettings:
     a2a: dict[str, str] = field(default_factory=dict)
     delegation: dict[str, Any] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
+    list_config: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -208,6 +215,7 @@ class SynapseSettings:
             a2a=dict(DEFAULT_SETTINGS["a2a"]),
             delegation=dict(DEFAULT_SETTINGS["delegation"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
+            list_config=dict(DEFAULT_SETTINGS["list"]),
         )
 
     @classmethod
@@ -270,6 +278,7 @@ class SynapseSettings:
             a2a=merged.get("a2a", {}),
             delegation=merged.get("delegation", {}),
             resume_flags=merged.get("resume_flags", {}),
+            list_config=merged.get("list", {}),
         )
 
     def get_instruction(
@@ -702,6 +711,30 @@ class SynapseSettings:
             True if user approval is required before sending messages.
         """
         return self.get_approval_mode() == "required"
+
+    def get_list_columns(self) -> list[str]:
+        """
+        Get the list of columns to display in synapse list command.
+
+        Available columns:
+        - ID: Agent ID (e.g., synapse-claude-8100)
+        - NAME: Custom agent name
+        - TYPE: Agent type (claude, gemini, codex, etc.)
+        - ROLE: Agent role description
+        - STATUS: Current status (READY, PROCESSING, etc.)
+        - CURRENT: Current task preview
+        - TRANSPORT: Transport status (UDS/TCP)
+        - WORKING_DIR: Working directory
+        - EDITING_FILE: File being edited (requires file-safety enabled)
+
+        Returns:
+            List of column names in display order.
+        """
+        columns = self.list_config.get("columns", [])
+        if not columns:
+            # Fall back to default
+            columns = DEFAULT_SETTINGS["list"]["columns"]
+        return list(columns)
 
 
 def get_settings() -> SynapseSettings:

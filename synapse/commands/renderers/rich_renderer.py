@@ -61,12 +61,28 @@ class RichRenderer:
 
         return table
 
+    # Column definitions: name -> (style, min_width, max_width, data_key)
+    COLUMN_DEFS: dict[str, tuple[str | None, int, int | None, str]] = {
+        "ID": ("dim", 20, 24, "agent_id"),
+        "NAME": ("magenta", 10, 16, "name"),
+        "TYPE": ("cyan", 8, 12, "agent_type"),
+        "ROLE": (None, 10, 20, "role"),
+        "STATUS": (None, 12, None, "status"),
+        "CURRENT": (None, 20, 35, "current_task_preview"),
+        "TRANSPORT": (None, 10, None, "transport"),
+        "WORKING_DIR": (None, 20, 30, "working_dir"),
+        "EDITING_FILE": (None, 15, 25, "editing_file"),
+    }
+
+    DEFAULT_COLUMNS = ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+
     def build_table(
         self,
         agents: list[dict[str, Any]],
         show_file_safety: bool = False,
         show_row_numbers: bool = False,
         selected_row: int | None = None,
+        columns: list[str] | None = None,
     ) -> Table:
         """Build a Rich table from agent data.
 
@@ -75,9 +91,11 @@ class RichRenderer:
                 - agent_type, port, status, pid, working_dir, endpoint
                 - transport (always included)
                 - editing_file (optional, for file safety)
-            show_file_safety: If True, include EDITING FILE column.
+            show_file_safety: If True, allow EDITING_FILE column.
             show_row_numbers: If True, add row numbers for selection.
             selected_row: If set, highlight this row (1-indexed).
+            columns: List of column names to display. If None or empty,
+                uses DEFAULT_COLUMNS.
 
         Returns:
             Rich Table object.
@@ -85,24 +103,37 @@ class RichRenderer:
         if not agents:
             return self._build_empty_table()
 
+        # Determine which columns to show
+        display_columns = columns if columns else self.DEFAULT_COLUMNS
+        if not display_columns:
+            display_columns = self.DEFAULT_COLUMNS
+
+        # Filter to valid columns only
+        valid_columns = []
+        for col in display_columns:
+            col_upper = col.upper()
+            if col_upper not in self.COLUMN_DEFS:
+                continue
+            # EDITING_FILE requires file-safety to be enabled
+            if col_upper == "EDITING_FILE" and not show_file_safety:
+                continue
+            valid_columns.append(col_upper)
+
         table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
 
         # Add row number column if enabled
         if show_row_numbers:
             table.add_column("#", justify="right", style="dim", width=2)
 
-        # Add columns in order with fixed widths to prevent table resizing
-        table.add_column("TYPE", style="cyan", width=12)
-        table.add_column("NAME", style="magenta", min_width=10, max_width=16)
-        table.add_column("ID", style="dim", min_width=20, max_width=24)
-        table.add_column("ROLE", min_width=10, max_width=20)
-        table.add_column("STATUS", min_width=12)
-        table.add_column("CURRENT", min_width=20, max_width=35)
-        table.add_column("TRANSPORT", min_width=10)
-        table.add_column("WORKING_DIR", min_width=20, max_width=30)
-
-        if show_file_safety:
-            table.add_column("EDITING FILE", min_width=15, max_width=25)
+        # Add configured columns
+        for col_name in valid_columns:
+            style, min_width, max_width, _ = self.COLUMN_DEFS[col_name]
+            kwargs: dict[str, Any] = {"min_width": min_width}
+            if style:
+                kwargs["style"] = style
+            if max_width:
+                kwargs["max_width"] = max_width
+            table.add_column(col_name, **kwargs)
 
         # Add rows
         for idx, agent in enumerate(agents, start=1):
@@ -115,23 +146,14 @@ class RichRenderer:
 
             # Determine row style based on selection
             is_selected = idx == selected_row
-            type_style = "bold cyan" if is_selected else "cyan"
 
-            row.extend(
-                [
-                    Text(agent.get("agent_type", "unknown"), style=type_style),
-                    agent.get("name") or "-",
-                    agent.get("agent_id") or "-",
-                    agent.get("role") or "-",
-                    self._format_status(agent.get("status", "-")),
-                    agent.get("current_task_preview") or "-",
-                    agent.get("transport", "-"),
-                    agent.get("working_dir", "-"),
-                ]
-            )
-
-            if show_file_safety:
-                row.append(agent.get("editing_file", "-"))
+            # Add data for each column
+            for col_name in valid_columns:
+                _, _, _, data_key = self.COLUMN_DEFS[col_name]
+                if col_name == "STATUS":
+                    row.append(self._format_status(agent.get(data_key, "-")))
+                else:
+                    row.append(agent.get(data_key) or "-")
 
             # Highlight selected row
             row_style = "on grey23" if is_selected else None
@@ -331,6 +353,7 @@ class RichRenderer:
         kill_confirm_agent: dict[str, Any] | None = None,
         filter_mode: bool = False,
         filter_text: str = "",
+        columns: list[str] | None = None,
     ) -> RenderableType:
         """Build the complete display.
 
@@ -338,7 +361,7 @@ class RichRenderer:
             agents: List of agent dictionaries.
             version: Package version string.
             timestamp: Current timestamp string.
-            show_file_safety: If True, include EDITING FILE column.
+            show_file_safety: If True, allow EDITING_FILE column.
             stale_locks: List of stale lock dictionaries (optional).
             interactive: If True, enable number key selection.
             selected_row: Currently selected row (1-indexed), or None.
@@ -346,6 +369,7 @@ class RichRenderer:
             kill_confirm_agent: If set, show kill confirmation for this agent.
             filter_mode: If True, show filter input mode.
             filter_text: Current filter text.
+            columns: List of column names to display. If None, uses defaults.
 
         Returns:
             Rich renderable for the complete display.
@@ -355,6 +379,7 @@ class RichRenderer:
             show_file_safety=show_file_safety,
             show_row_numbers=interactive,
             selected_row=selected_row,
+            columns=columns,
         )
 
         # Build title with filter indicator

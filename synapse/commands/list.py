@@ -387,8 +387,13 @@ class ListCommand:
         from rich.live import Live
 
         from synapse.commands.renderers.rich_renderer import RichRenderer
+        from synapse.settings import get_settings
 
         renderer = RichRenderer(console=console)
+
+        # Load column configuration from settings
+        settings = get_settings()
+        list_columns = settings.get_list_columns()
 
         # Set up non-blocking input for interactive mode
         saved_terminal = self._setup_nonblocking_input()
@@ -567,6 +572,7 @@ class ListCommand:
                             kill_confirm_agent=kill_confirm_agent,
                             filter_mode=filter_mode,
                             filter_text=display_filter,
+                            columns=list_columns,
                         )
 
                         live.update(display, refresh=True)
