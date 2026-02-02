@@ -92,22 +92,22 @@ synapse send <agent> "<message>" [--from <sender>] [--priority <1-5>] [--respons
 Examples:
 ```bash
 # Normal task (priority 3, fire and forget)
-synapse send codex "Refactor src/auth.py" --priority 3 --from claude
+synapse send codex "Refactor src/auth.py" --priority 3 --from synapse-claude-8100
 
 # Wait for response (roundtrip)
-synapse send gemini "Analyze this code" --response --from claude
+synapse send gemini "Analyze this code" --response --from synapse-claude-8100
 
 # Urgent follow-up (priority 4)
-synapse send gemini "Status update?" --priority 4 --from claude
+synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100
 
 # Critical task (priority 5 - sends SIGINT first)
-synapse send codex "URGENT: Fix production bug" --priority 5 --from claude
+synapse send codex "URGENT: Fix production bug" --priority 5 --from synapse-claude-8100
 
 # Reply to a --response request
-synapse reply "Analysis result: ..." --from gemini
+synapse reply "Analysis result: ..." --from synapse-gemini-8110
 ```
 
-**Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply. When replying to a `--response` request, use `synapse reply --from <your_agent_type>`.
+**Important:** Always use `--from` with your agent ID so the recipient knows who sent the message and can reply. When replying to a `--response` request, use `synapse reply --from <your_agent_id>`.
 
 ### Method 2: @Agent Pattern (User Input Only)
 

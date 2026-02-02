@@ -293,7 +293,7 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 
 スキルをインストールすると、Claude は自動的に以下を理解して実行します：
 
-- **synapse send**: `synapse send codex "Fix this" --from claude` でエージェント間通信
+- **synapse send**: `synapse send codex "Fix this" --from synapse-claude-8100` でエージェント間通信
 - **@agent パターン**: `@codex Fix this` でユーザー入力から直接送信
 - **優先度制御**: Priority 1-5 でのメッセージ送信（5 = 緊急停止）
 - **タスク委譲**: `delegation.enabled` での自動タスクルーティング
@@ -664,16 +664,16 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 ```bash
 # メッセージ送信（単一インスタンス）
-synapse send claude "Hello" --priority 1 --from codex
+synapse send claude "Hello" --priority 1 --from synapse-codex-8121
 
 # 特定のインスタンスに送信（同タイプが複数の場合）
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
 # 緊急停止
-synapse send claude "Stop!" --priority 5 --from codex
+synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
 
 # 応答を待つ（ラウンドトリップ）
-synapse send gemini "これを分析して" --response --from claude
+synapse send gemini "これを分析して" --response --from synapse-claude-8100
 ```
 
 **重要:** 送信者を識別するため常に `--from` を使用。
@@ -683,7 +683,7 @@ synapse send gemini "これを分析して" --response --from claude
 受信したメッセージに返信：
 
 ```bash
-synapse reply "<message>" --from <your_agent_type>
+synapse reply "<message>" --from <your_agent_id>
 ```
 
 `--from` フラグはサンドボックス環境（Codex 等）で必須。
@@ -827,7 +827,7 @@ A2A: <message content>
 Synapse が返信ルーティングを自動管理します。エージェントは単に `synapse reply` を使用：
 
 ```bash
-synapse reply "返信メッセージ" --from <your_agent_type>
+synapse reply "返信メッセージ" --from <your_agent_id>
 ```
 
 フレームワークが送信者情報を内部的に追跡し、返信を自動ルーティングします。

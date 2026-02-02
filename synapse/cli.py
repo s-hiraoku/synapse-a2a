@@ -2364,7 +2364,7 @@ Priority levels:
         epilog="""Examples:
   synapse reply "Here is my response"      Reply to the last message
   synapse reply "Task completed!"          Send completion reply
-  synapse reply "Done" --from codex        Reply with explicit sender (for sandboxed envs)""",
+  synapse reply "Done" --from synapse-codex-8121  Reply with explicit sender (for sandboxed envs)""",
     )
     p_reply.add_argument(
         "--from",

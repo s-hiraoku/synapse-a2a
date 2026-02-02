@@ -30,10 +30,10 @@ synapse list
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --from claude
+synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from claude
+synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
 
 ### Fire-and-forget (No Response Expected)
@@ -72,7 +72,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --from claude
+   synapse send gemini "What's your progress on src/auth.py?" --from synapse-claude-8100
 ```
 
 ## Collaborative Development
@@ -137,12 +137,12 @@ git diff
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --from <your-agent>
+   synapse send <agent> "Status?" --priority 4 --from <your_agent_id>
    ```
 
 3. Emergency stop:
    ```bash
-   synapse send <agent> "STOP" --priority 5 --from <your-agent>
+   synapse send <agent> "STOP" --priority 5 --from <your_agent_id>
    ```
 
 ### Agent Not Found

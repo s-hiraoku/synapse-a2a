@@ -18,7 +18,7 @@ A2A: <message content>
 Use `synapse reply` to respond:
 
 ```bash
-synapse reply "<your response>" --from <your_agent_type>
+synapse reply "<your response>" --from <your_agent_id>
 ```
 
 The framework automatically handles routing - you don't need to know where the message came from.
