@@ -409,8 +409,9 @@ synapse reset
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` (v0.3.13+) |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Lock history retention days | `30` |
 | `SYNAPSE_UDS_DIR` | UDS socket directory | `/tmp/synapse-a2a/` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
