@@ -167,7 +167,7 @@ When you receive an A2A message, it appears with the `A2A:` prefix:
 **Message Formats:**
 ```
 A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
-A2A: <message>                    <- Reply is optional (delegation/notification)
+A2A: <message>                    <- Reply is optional (one-way notification)
 ```
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
@@ -358,7 +358,7 @@ synapse init
 #     Project scope (./.synapse/)
 ```
 
-Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, delegate.md, file-safety.md).
+Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md).
 
 ### Edit Settings (Interactive TUI)
 
@@ -381,7 +381,6 @@ synapse config show --scope project    # Show project settings only
 - **Instructions**: Agent-specific initial instruction files
 - **Approval Mode**: `required` (prompt before sending) or `auto` (no prompt)
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
-- **Delegation**: Enable/disable task delegation
 - **Resume Flags**: CLI flags that indicate session resume mode
 - **List Display**: Configure `synapse list` columns
 
@@ -458,7 +457,6 @@ synapse instructions show  # Shows default
 synapse instructions files claude
 # Output shows file locations:
 #   - .synapse/default.md       (project directory)
-#   - ~/.synapse/delegate.md    (user directory)
 
 # Send initial instructions to a running agent (useful after --resume)
 synapse instructions send claude

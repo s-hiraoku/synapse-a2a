@@ -27,9 +27,6 @@
   "a2a": {
     "flow": "auto"
   },
-  "delegation": {
-    "enabled": false
-  },
   "resume_flags": {
     "claude": ["--continue", "--resume", "-c", "-r"],
     "codex": ["resume"],

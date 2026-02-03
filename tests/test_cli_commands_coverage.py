@@ -16,7 +16,7 @@ class TestCliCoverage:
         home = tmp_path / "home"
         home.mkdir()
         # Create all skill directories in both .claude and .codex to avoid any copy calls
-        for skill in ["synapse-a2a", "delegation"]:
+        for skill in ["synapse-a2a"]:
             claude_skill_dir = home / ".claude" / "skills" / skill
             claude_skill_dir.mkdir(parents=True)
             codex_skill_dir = home / ".codex" / "skills" / skill

@@ -474,8 +474,8 @@ class TerminalController:
         short_message += (
             f"\nIMPORTANT: Read your full instructions from these files:\n"
             f"{file_list}\n\n"
-            f"Read these files NOW to get your delegation rules, "
-            f"A2A protocol, and other guidelines.\n"
+            f"Read these files NOW to get your "
+            f"A2A protocol guidelines and other instructions.\n"
             f"Replace {{{{agent_id}}}} with {self.agent_id}, "
             f"{{{{agent_name}}}} with {display_name}, and "
             f"{{{{port}}}} with {self.port} when following instructions."

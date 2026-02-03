@@ -332,7 +332,6 @@ synapse instructions files claude
 ```
 Instruction files for 'claude':
   - .synapse/default.md
-  - ~/.synapse/delegate.md
 ```
 
 ファイルの場所に応じて `.synapse/`（プロジェクト）または `~/.synapse/`（ユーザー）が表示されます。
@@ -514,7 +513,6 @@ synapse config --scope project  # プロジェクト設定を直接編集
   ❯ Environment Variables - Configure SYNAPSE_* environment variables
     Instructions - Configure agent-specific instruction files
     A2A Protocol - Configure inter-agent communication settings
-    Delegation - Configure task delegation settings
     Resume Flags - Configure CLI flags that indicate resume mode
     Save and exit
     Exit without saving
@@ -528,7 +526,6 @@ synapse config --scope project  # プロジェクト設定を直接編集
 | Instructions | `instructions.{default,claude,gemini,codex,opencode}` |
 | Approval Mode | `approvalMode` (required/auto) |
 | A2A Protocol | `a2a.flow` (auto/roundtrip/oneway) |
-| Delegation | `delegation.enabled` |
 | Resume Flags | `resume_flags.{claude,codex,gemini,opencode,copilot}` |
 
 ---
@@ -570,7 +567,6 @@ Current settings (merged from all scopes):
   },
   "approvalMode": "required",
   "a2a": { "flow": "auto" },
-  "delegation": { "enabled": false },
   "resume_flags": { ... }
 }
 ```

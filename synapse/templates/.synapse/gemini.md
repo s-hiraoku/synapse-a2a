@@ -25,7 +25,7 @@ BRANCH MANAGEMENT - CRITICAL
 - **Do NOT change branches during active work** - Stay on the current branch
 - **If branch change is needed**, ask the user for confirmation first
 - Before switching, ensure all changes are committed or stashed
-- When receiving delegated tasks, work on the same branch as the delegating agent
+- When receiving tasks from other agents, work on the same branch as the sender
 
 ================================================================================
 A2A COMMUNICATION PROTOCOL
@@ -97,7 +97,7 @@ synapse send claude "FYI: Build completed" --no-response --from gemini
 # Fire-and-forget task - no reply needed
 synapse send codex "Run the test suite and commit if all tests pass" --no-response --from gemini
 
-# Parallel delegation - no reply needed
+# Parallel tasks - no reply needed
 synapse send claude "Research React best practices" --no-response --from gemini
 synapse send codex "Refactor the auth module" --no-response --from gemini
 
@@ -114,8 +114,7 @@ SKILLS
 
 Gemini has access to skills in `.gemini/skills/`. Available skills:
 - **synapse-a2a**: Inter-agent communication guidance
-- **delegation**: Task delegation configuration
 
 Skills are automatically loaded when relevant tasks are detected.
 
-For advanced features (history, file-safety, delegation), refer to synapse documentation or use the relevant skill.
+For advanced features (history, file-safety), refer to synapse documentation or use the relevant skill.

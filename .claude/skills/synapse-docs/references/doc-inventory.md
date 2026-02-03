@@ -24,7 +24,6 @@
 | `usage.md` | 使い方詳細、CLIコマンド | コマンド追加・変更、新機能 |
 | `settings.md` | `.synapse/settings.json` 設定ガイド | 設定項目追加・変更 |
 | `profiles.md` | プロファイル設定（YAML） | プロファイル形式変更 |
-| `delegation.md` | タスク委任ルール | 委任機能の変更 |
 | `architecture.md` | 内部アーキテクチャ | コンポーネント追加・変更 |
 | `agent-identity.md` | エージェント識別・ルーティング | ID形式変更、ルーティング変更 |
 | `references.md` | API/CLIリファレンス | エンドポイント追加、コマンド追加 |
@@ -61,7 +60,6 @@
 | `settings.json` | 設定ファイルテンプレート | 設定項目追加・デフォルト値変更 |
 | `default.md` | 全エージェント共通の初期インストラクション | A2Aプロトコル説明の変更 |
 | `gemini.md` | Gemini用初期インストラクション | Gemini固有の指示変更 |
-| `delegate.md` | タスク委任ルールテンプレート | 委任機能の変更 |
 | `file-safety.md` | File Safety指示テンプレート | File Safety機能の変更 |
 
 ## plugins/synapse-a2a/ ディレクトリ
@@ -74,8 +72,6 @@ Claude Code プラグイン。
 | `.claude-plugin/plugin.json` | プラグインメタデータ | バージョン更新、スキル追加 |
 | `skills/synapse-a2a/SKILL.md` | synapse-a2aスキル本体 | A2A機能変更、コマンド追加 |
 | `skills/synapse-a2a/references/*.md` | スキルリファレンス | 詳細仕様の変更 |
-| `skills/delegation/SKILL.md` | delegationスキル本体 | 委任機能変更 |
-| `skills/delegation/references/*.md` | 委任リファレンス | 委任仕様の変更 |
 
 ## 同期が必要なファイル群
 

@@ -110,9 +110,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "a2a": {
         "flow": "auto",  # "roundtrip" | "oneway" | "auto"
     },
-    "delegation": {
-        "enabled": False,
-    },
     "resume_flags": {
         # Flags that indicate context resume (skip initial instructions)
         # Customize per agent in .synapse/settings.json
@@ -202,7 +199,7 @@ class SynapseSettings:
     """
     Synapse settings container.
 
-    Manages environment variables, initial instructions, and delegation settings
+    Manages environment variables, initial instructions, and other settings
     loaded from .synapse/settings.json files.
     """
 
@@ -210,7 +207,6 @@ class SynapseSettings:
     instructions: dict[str, str] = field(default_factory=dict)
     approval_mode: str = field(default_factory=lambda: "required")
     a2a: dict[str, str] = field(default_factory=dict)
-    delegation: dict[str, Any] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
     list_config: dict[str, Any] = field(default_factory=dict)
 
@@ -222,7 +218,6 @@ class SynapseSettings:
             instructions=dict(DEFAULT_SETTINGS["instructions"]),
             approval_mode=DEFAULT_SETTINGS["approvalMode"],
             a2a=dict(DEFAULT_SETTINGS["a2a"]),
-            delegation=dict(DEFAULT_SETTINGS["delegation"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
             list_config=dict(DEFAULT_SETTINGS["list"]),
         )
@@ -285,7 +280,6 @@ class SynapseSettings:
             instructions=merged.get("instructions", {}),
             approval_mode=merged.get("approvalMode", "required"),
             a2a=merged.get("a2a", {}),
-            delegation=merged.get("delegation", {}),
             resume_flags=merged.get("resume_flags", {}),
             list_config=merged.get("list", {}),
         )
@@ -315,14 +309,6 @@ class SynapseSettings:
 
         Returns:
             The instruction string with placeholders replaced, or None.
-
-        Note:
-            Delegation rules should be manually included in the instructions
-            section of .synapse/settings.json if needed. This function only
-            handles placeholder replacement ({{agent_id}}, {{port}}, etc.).
-
-            To enable delegation, configure:
-            .synapse/settings.json: {"delegation": {"enabled": true}}
 
         Supported instruction formats:
             - String: "line1\\nline2" (escaped newlines)
@@ -412,12 +398,6 @@ class SynapseSettings:
 
         # Add optional files based on settings
 
-        # Delegation (when enabled)
-        if self.is_delegation_enabled() and self._instruction_file_exists(
-            "delegate.md"
-        ):
-            files.append("delegate.md")
-
         # File safety
         if self._is_file_safety_enabled() and self._instruction_file_exists(
             "file-safety.md"
@@ -441,7 +421,7 @@ class SynapseSettings:
             user_dir: Optional custom user directory for testing (default: Path.home()).
 
         Returns:
-            List of display paths (e.g., [".synapse/default.md", "~/.synapse/delegate.md"])
+            List of display paths (e.g., [".synapse/default.md", "~/.synapse/gemini.md"])
         """
         paths: list[str] = []
         home = user_dir or Path.home()
@@ -470,10 +450,6 @@ class SynapseSettings:
             default_instruction = self.instructions.get("default", "")
             if is_md_filename(default_instruction):
                 add_if_exists(default_instruction)
-
-        # Delegation (when enabled)
-        if self.is_delegation_enabled():
-            add_if_exists("delegate.md")
 
         # File safety
         if self._is_file_safety_enabled():
@@ -646,15 +622,6 @@ class SynapseSettings:
             Flow mode: "roundtrip", "oneway", or "auto"
         """
         return self.a2a.get("flow", "auto")
-
-    def is_delegation_enabled(self) -> bool:
-        """
-        Check if delegation is enabled.
-
-        Returns:
-            True if delegation is enabled, False otherwise.
-        """
-        return bool(self.delegation.get("enabled", False))
 
     def get_resume_flags(self, agent_type: str) -> list[str]:
         """

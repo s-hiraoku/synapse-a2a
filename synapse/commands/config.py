@@ -48,10 +48,6 @@ SETTING_CATEGORIES = {
         "name": "A2A Protocol",
         "description": "Configure inter-agent communication settings",
     },
-    "delegation": {
-        "name": "Delegation",
-        "description": "Configure task delegation settings",
-    },
     "resume_flags": {
         "name": "Resume Flags",
         "description": "Configure CLI flags that indicate resume mode",
@@ -292,39 +288,6 @@ class ConfigCommand:
 
         return (None, None)
 
-    def _prompt_delegation_setting(
-        self, current_settings: dict[str, Any]
-    ) -> tuple[str | None, Any]:
-        """Prompt user to edit delegation settings."""
-        delegation = current_settings.get("delegation", {})
-        current_enabled = delegation.get("enabled", False)
-
-        choices = [
-            Choice(
-                f"enabled - Task delegation enabled: {current_enabled}",
-                value="enabled",
-            ),
-            Separator(),
-            Choice("Back to main menu", value=_BACK_SENTINEL),
-        ]
-
-        selected_key = self._questionary.select(
-            "Select delegation setting to edit:",
-            choices=choices,
-        ).ask()
-
-        if selected_key is None or selected_key == _BACK_SENTINEL:
-            return (None, None)
-
-        if selected_key == "enabled":
-            new_value = self._questionary.confirm(
-                "Enable task delegation?",
-                default=current_enabled,
-            ).ask()
-            return ("enabled", new_value)
-
-        return (None, None)
-
     def _prompt_resume_flags_setting(
         self, current_settings: dict[str, Any]
     ) -> tuple[str | None, list[str] | None]:
@@ -538,14 +501,6 @@ class ConfigCommand:
                     )
                     modified = True
 
-            elif category == "delegation":
-                key, value = self._prompt_delegation_setting(current_settings)
-                if key is not None:
-                    current_settings = self._update_settings(
-                        current_settings, "delegation", key, value
-                    )
-                    modified = True
-
             elif category == "resume_flags":
                 rf_key, rf_value = self._prompt_resume_flags_setting(current_settings)
                 if rf_key is not None:
@@ -582,7 +537,6 @@ class ConfigCommand:
                             for k, v in settings.instructions.items()
                         },
                         "a2a": settings.a2a,
-                        "delegation": settings.delegation,
                         "resume_flags": settings.resume_flags,
                         "list": settings.list_config,
                     },

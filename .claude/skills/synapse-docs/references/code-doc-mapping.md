@@ -44,7 +44,6 @@
 |---------------|-----------------|---------|
 | `templates/.synapse/settings.json` | `guides/settings.md`, `README.md` | 設定項目、デフォルト値 |
 | `templates/.synapse/default.md` | `guides/settings.md` | 初期インストラクション |
-| `templates/.synapse/delegate.md` | `guides/delegation.md` | 委任ルールテンプレート |
 | `templates/.synapse/file-safety.md` | `docs/file-safety.md` | File Safety指示 |
 
 ## plugins/ ディレクトリ
@@ -53,7 +52,6 @@
 |---------------|-----------------|---------|
 | `plugins/synapse-a2a/.claude-plugin/plugin.json` | `plugins/synapse-a2a/README.md`, `README.md` | プラグインバージョン、メタデータ |
 | `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md` | 同期: `.claude/skills/`, `.codex/skills/` | スキル内容 |
-| `plugins/synapse-a2a/skills/delegation/SKILL.md` | 同期: `.claude/skills/`, `.codex/skills/` | 委任スキル内容 |
 
 ## tests/ ディレクトリ
 

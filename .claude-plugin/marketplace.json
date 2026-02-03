@@ -14,7 +14,7 @@
   "plugins": [
     {
       "name": "synapse-a2a",
-      "description": "Complete plugin for Synapse A2A multi-agent framework including inter-agent communication, task delegation, file safety, and history management",
+      "description": "Complete plugin for Synapse A2A multi-agent framework including inter-agent communication, file safety, and history management",
       "source": "./plugins/synapse-a2a",
       "strict": false
     }

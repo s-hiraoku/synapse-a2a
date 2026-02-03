@@ -22,22 +22,11 @@ Comprehensive guidance for inter-agent communication:
 - Settings management (`synapse init`, `settings.json`)
 - Agent monitoring (`synapse list --watch`)
 
-### delegation
-
-Configure automatic task delegation between agents:
-
-- **Orchestrator mode**: Claude analyzes, delegates, integrates results
-- **Passthrough mode**: Direct forwarding without processing
-- Pre-delegation checklist (agent status, file locks)
-- File Safety integration
-- Error handling and recovery
-
 ## Usage
 
 Once installed, Claude will automatically use these skills when relevant tasks are detected:
 
 - Sending messages to other agents
-- Configuring task delegation
 - Managing file locks in multi-agent environments
 - Viewing task history
 
@@ -50,4 +39,3 @@ Once installed, Claude will automatically use these skills when relevant tasks a
 
 - [Synapse A2A Documentation](https://github.com/s-hiraoku/synapse-a2a)
 - [File Safety Guide](https://github.com/s-hiraoku/synapse-a2a/blob/main/docs/file-safety.md)
-- [Delegation Guide](https://github.com/s-hiraoku/synapse-a2a/blob/main/guides/delegation.md)

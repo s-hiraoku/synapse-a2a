@@ -296,7 +296,6 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 - **synapse send**: `synapse send codex "Fix this" --from synapse-claude-8100` でエージェント間通信
 - **@agent パターン**: `@codex Fix this` でユーザー入力から直接送信
 - **優先度制御**: Priority 1-5 でのメッセージ送信（5 = 緊急停止）
-- **タスク委譲**: `delegation.enabled` での自動タスクルーティング
 - **File Safety**: ファイルロックと変更追跡でマルチエージェント競合を防止
 - **履歴管理**: タスク履歴の検索、エクスポート、統計
 
@@ -312,7 +311,6 @@ npx skills add s-hiraoku/synapse-a2a
 | スキル | 説明 |
 |--------|------|
 | **synapse-a2a** | エージェント間通信の総合ガイド：`synapse send`、@agent ルーティング、優先度、A2A プロトコル、履歴、File Safety、設定 |
-| **delegation** | 自動タスク委譲設定：`delegation.enabled`、事前チェック、エラーハンドリング、File Safety 連携 |
 
 ### ディレクトリ構造
 
@@ -322,8 +320,7 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        ├── synapse-a2a/SKILL.md
-        └── delegation/SKILL.md
+        └── synapse-a2a/SKILL.md
 ```
 
 詳しくは [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照。
@@ -1205,7 +1202,6 @@ synapse config show --scope user
 | `settings.json` | 環境変数と初期指示の設定 |
 | `default.md` | 全エージェント共通の初期指示 |
 | `gemini.md` | Gemini 固有の初期指示 |
-| `delegate.md` | タスク委譲ルール |
 | `file-safety.md` | File Safety 指示 |
 
 ### settings.json 構造
@@ -1225,9 +1221,6 @@ synapse config show --scope user
   },
   "a2a": {
     "flow": "auto"
-  },
-  "delegation": {
-    "enabled": false
   }
 }
 ```
@@ -1259,13 +1252,6 @@ synapse config show --scope user
 | `flow` | `roundtrip` | 常に結果を待つ |
 | `flow` | `oneway` | 常に転送のみ（待たない） |
 | `flow` | `auto` | AI エージェントがタスクごとに判断（デフォルト） |
-
-### 委譲設定 (delegation)
-
-| 設定 | 値 | 説明 |
-|------|-----|------|
-| `enabled` | `true` | `.synapse/delegate.md` を読み込み、委譲ルールを有効化 |
-| `enabled` | `false` | 委譲を無効化（デフォルト） |
 
 ### 初期指示 (instructions)
 
@@ -1453,7 +1439,6 @@ pip install synapse-a2a[grpc]
 | [guides/architecture.md](guides/architecture.md) | アーキテクチャ詳細 |
 | [guides/enterprise.md](guides/enterprise.md) | エンタープライズ機能 |
 | [guides/troubleshooting.md](guides/troubleshooting.md) | トラブルシューティング |
-| [guides/delegation.md](guides/delegation.md) | タスク委譲ガイド |
 | [docs/file-safety.md](docs/file-safety.md) | ファイル競合防止 |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | 設計思想 |
 

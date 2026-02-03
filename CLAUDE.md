@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Do NOT change branches during active work** - Stay on the current branch until the task is complete
 - **If branch change is needed**, always ask the user for confirmation first
 - Before switching branches, ensure all changes are committed or stashed
-- When delegating to other agents, they must work on the same branch
+- When sending tasks to other agents, they must work on the same branch
 
 ## Project Overview
 
@@ -452,8 +452,8 @@ synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100 --r
 
 ### Best Practices
 
-- Always check `synapse list` before delegating to ensure agents are READY
+- Always check `synapse list` before sending tasks to ensure agents are READY
 - Use `git log` and `git status` to verify completed work
-- Track task IDs from delegation responses for follow-up
+- Track task IDs from responses for follow-up
 - Use `--priority 4-5` for urgent status checks
 - Monitor `synapse list` during active orchestration (auto-updates on registry changes)

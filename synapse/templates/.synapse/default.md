@@ -25,7 +25,7 @@ BRANCH MANAGEMENT - CRITICAL
 - **Do NOT change branches during active work** - Stay on the current branch
 - **If branch change is needed**, ask the user for confirmation first
 - Before switching, ensure all changes are committed or stashed
-- When receiving delegated tasks, work on the same branch as the delegating agent
+- When receiving tasks from other agents, work on the same branch as the sender
 
 ================================================================================
 A2A COMMUNICATION PROTOCOL
@@ -97,7 +97,7 @@ synapse send gemini "FYI: Build completed" --no-response --from claude
 # Fire-and-forget task - no reply needed
 synapse send codex "Run the test suite and commit if all tests pass" --no-response --from claude
 
-# Parallel delegation - no reply needed
+# Parallel tasks - no reply needed
 synapse send gemini "Research React best practices" --no-response --from claude
 synapse send codex "Refactor the auth module" --no-response --from claude
 
@@ -108,4 +108,4 @@ synapse send codex "STOP" --priority 5 --from claude
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot
 LIST COMMAND: synapse list
 
-For advanced features (history, file-safety, delegation), use synapse-a2a skill.
+For advanced features (history, file-safety), use synapse-a2a skill.

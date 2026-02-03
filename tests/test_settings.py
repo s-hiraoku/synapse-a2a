@@ -918,12 +918,6 @@ class TestInstructionFilePaths:
     def test_multiple_files_different_locations(self):
         """Test multiple files from different locations."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create fake user home with delegate.md
-            fake_home = Path(tmpdir) / "fake_home"
-            user_synapse = fake_home / ".synapse"
-            user_synapse.mkdir(parents=True)
-            (user_synapse / "delegate.md").write_text("User delegate")
-
             # Create project directory with default.md
             project_dir = Path(tmpdir) / "project"
             project_synapse = project_dir / ".synapse"
@@ -933,18 +927,16 @@ class TestInstructionFilePaths:
             settings = SynapseSettings(
                 env={},
                 instructions={"default": "default.md"},
-                delegation={"enabled": True},
             )
 
             original_cwd = os.getcwd()
             try:
                 os.chdir(project_dir)
                 paths = settings.get_instruction_file_paths(
-                    "claude", user_dir=fake_home
+                    "claude", user_dir=Path(tmpdir) / "fake_home"
                 )
-                # Should have default.md from project and delegate.md from user
+                # Should have default.md from project
                 assert ".synapse/default.md" in paths
-                assert "~/.synapse/delegate.md" in paths
             finally:
                 os.chdir(original_cwd)
 
