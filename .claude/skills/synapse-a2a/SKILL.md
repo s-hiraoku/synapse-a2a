@@ -23,7 +23,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
-| Edit settings (TUI) | `synapse config` |
+| Edit settings (TUI) | `synapse config` (includes List Display for column config) |
 | View settings | `synapse config show [--scope user\|project]` |
 | Show instructions | `synapse instructions show <agent>` |
 | Send instructions | `synapse instructions send <agent> [--preview]` |
