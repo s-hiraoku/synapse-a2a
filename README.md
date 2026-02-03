@@ -1052,6 +1052,7 @@ sequenceDiagram
 | **Change Tracking** | Records who changed what and when |
 | **Context Injection** | Provides recent change history on read |
 | **Pre-write Validation** | Checks lock status before writing |
+| **List Integration** | Active locks visible in `synapse list` EDITING_FILE column |
 
 ### Enable
 

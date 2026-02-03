@@ -223,7 +223,7 @@ synapse kill my-claude
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
-- **File Safety**: Lock files to prevent conflicts (`synapse file-safety`)
+- **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 
