@@ -896,38 +896,65 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
         return
 
     agent_id, agent_type, pid = _resolve_agent_info(args.agent)
+    wait = getattr(args, "wait", False)
+    wait_timeout = getattr(args, "wait_timeout", None)
+    wait_interval = getattr(args, "wait_interval", 2.0)
+    start_time = time.monotonic()
 
-    result = manager.acquire_lock(
-        file_path=args.file,
-        agent_id=agent_id,
-        agent_type=agent_type,
-        task_id=args.task_id if hasattr(args, "task_id") else None,
-        duration_seconds=args.duration if hasattr(args, "duration") else None,
-        intent=args.intent if hasattr(args, "intent") else None,
-        pid=pid,
-    )
+    while True:
+        result = manager.acquire_lock(
+            file_path=args.file,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            task_id=args.task_id if hasattr(args, "task_id") else None,
+            duration_seconds=args.duration if hasattr(args, "duration") else None,
+            intent=args.intent if hasattr(args, "intent") else None,
+            pid=pid,
+        )
 
-    status = result["status"]
-    if status == LockStatus.ACQUIRED:
-        print(f"Lock acquired on {args.file}")
-        print(f"Expires at: {result.get('expires_at')}")
-    elif status == LockStatus.RENEWED:
-        print(f"Lock renewed on {args.file}")
-        print(f"New expiration: {result.get('expires_at')}")
-    elif status == LockStatus.ALREADY_LOCKED:
-        print(
-            f"File is already locked by {result.get('lock_holder')}",
-            file=sys.stderr,
-        )
-        print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
-        sys.exit(1)
-    elif status == LockStatus.FAILED:
-        print(
-            f"Failed to acquire lock: {result.get('error', 'unknown error')}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    else:
+        status = result["status"]
+        if status == LockStatus.ACQUIRED:
+            print(f"Lock acquired on {args.file}")
+            print(f"Expires at: {result.get('expires_at')}")
+            return
+        if status == LockStatus.RENEWED:
+            print(f"Lock renewed on {args.file}")
+            print(f"New expiration: {result.get('expires_at')}")
+            return
+        if status == LockStatus.ALREADY_LOCKED:
+            if not wait:
+                print(
+                    f"File is already locked by {result.get('lock_holder')}",
+                    file=sys.stderr,
+                )
+                print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
+                sys.exit(1)
+            # Check timeout before sleeping
+            elapsed = time.monotonic() - start_time
+            if wait_timeout is not None and elapsed >= wait_timeout:
+                print(f"Timed out waiting for lock on {args.file}")
+                sys.exit(1)
+            lock_holder = result.get("lock_holder")
+            if lock_holder:
+                print(f"Waiting for lock on {args.file} (held by {lock_holder})...")
+            else:
+                print(f"Waiting for lock on {args.file}...")
+            if result.get("expires_at"):
+                print(f"Current lock expires at: {result.get('expires_at')}")
+            # Clamp sleep to remaining time to avoid oversleeping past timeout
+            if wait_timeout is not None:
+                remaining = wait_timeout - elapsed
+                sleep_time = min(float(wait_interval), max(0.0, remaining))
+            else:
+                sleep_time = max(0.0, float(wait_interval))
+            time.sleep(sleep_time)
+            continue
+        if status == LockStatus.FAILED:
+            print(
+                f"Failed to acquire lock: {result.get('error', 'unknown error')}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         print(f"Unexpected lock status: {status}", file=sys.stderr)
         sys.exit(1)
 
@@ -1318,57 +1345,65 @@ def cmd_auth_generate_key(args: argparse.Namespace) -> None:
 # ============================================================
 
 
-def _prompt_scope_selection() -> str | None:
+def _prompt_menu_selection(
+    title: str, options: dict[str, str], prompt_hint: str
+) -> str | None:
     """
-    Prompt user to select a scope for settings.
+    Generic menu selection prompt.
+
+    Args:
+        title: Title displayed above the menu.
+        options: Dict mapping key (e.g., "1") to display label.
+        prompt_hint: Hint shown in the input prompt (e.g., "[1/2/q]").
 
     Returns:
-        "user", "project", or None if cancelled.
+        The selected value (e.g., "user", "project") or None if cancelled.
     """
-    print("\n? Where do you want to create settings.json?")
-    print("  [1] User scope (~/.synapse/settings.json)")
-    print("  [2] Project scope (./.synapse/settings.json)")
-    print("  [q] Cancel")
+    # Build options mapping: {"1": "user", "2": "project", "q": None}
+    key_to_value: dict[str, str | None] = {}
+    print(f"\n? {title}")
+    for key, label in options.items():
+        if key == "q":
+            key_to_value["q"] = None
+        else:
+            # Extract value from label like "User scope (~/.synapse/...)" -> "user"
+            value = label.split()[0].lower()
+            key_to_value[key] = value
+        print(f"  [{key}] {label}")
     print()
 
     while True:
-        choice = input("Enter choice [1/2/q]: ").strip().lower()
-        if choice == "1":
-            return "user"
-        elif choice == "2":
-            return "project"
-        elif choice == "q":
-            return None
-        else:
-            print("Invalid choice. Please enter 1, 2, or q.")
+        choice = input(f"Enter choice {prompt_hint}: ").strip().lower()
+        if choice in key_to_value:
+            return key_to_value[choice]
+        print(f"Invalid choice. Please enter one of: {', '.join(key_to_value.keys())}.")
+
+
+def _prompt_scope_selection() -> str | None:
+    """Prompt user to select a scope for settings."""
+    return _prompt_menu_selection(
+        title="Where do you want to create settings.json?",
+        options={
+            "1": "User scope (~/.synapse/settings.json)",
+            "2": "Project scope (./.synapse/settings.json)",
+            "q": "Cancel",
+        },
+        prompt_hint="[1/2/q]",
+    )
 
 
 def _prompt_reset_scope_selection() -> str | None:
-    """
-    Prompt user to select which settings to reset.
-
-    Returns:
-        "user", "project", "both", or None if cancelled.
-    """
-    print("\n? Which settings do you want to reset?")
-    print("  [1] User scope (~/.synapse/settings.json)")
-    print("  [2] Project scope (./.synapse/settings.json)")
-    print("  [3] Both")
-    print("  [q] Cancel")
-    print()
-
-    while True:
-        choice = input("Enter choice [1/2/3/q]: ").strip().lower()
-        if choice == "1":
-            return "user"
-        elif choice == "2":
-            return "project"
-        elif choice == "3":
-            return "both"
-        elif choice == "q":
-            return None
-        else:
-            print("Invalid choice. Please enter 1, 2, 3, or q.")
+    """Prompt user to select which settings to reset."""
+    return _prompt_menu_selection(
+        title="Which settings do you want to reset?",
+        options={
+            "1": "User scope (~/.synapse/settings.json)",
+            "2": "Project scope (./.synapse/settings.json)",
+            "3": "Both",
+            "q": "Cancel",
+        },
+        prompt_hint="[1/2/3/q]",
+    )
 
 
 def _write_default_settings(path: Path) -> bool:
@@ -2364,7 +2399,7 @@ Priority levels:
         epilog="""Examples:
   synapse reply "Here is my response"      Reply to the last message
   synapse reply "Task completed!"          Send completion reply
-  synapse reply "Done" --from codex        Reply with explicit sender (for sandboxed envs)""",
+  synapse reply "Done" --from synapse-codex-8121  Reply with explicit sender (for sandboxed envs)""",
     )
     p_reply.add_argument(
         "--from",
@@ -2792,6 +2827,23 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         type=int,
         default=300,
         help="Lock duration in seconds (default: 300)",
+    )
+    p_fs_lock.add_argument(
+        "--wait",
+        action="store_true",
+        help="Wait until the lock becomes available",
+    )
+    p_fs_lock.add_argument(
+        "--wait-timeout",
+        type=float,
+        default=None,
+        help="Max seconds to wait for the lock (default: wait forever)",
+    )
+    p_fs_lock.add_argument(
+        "--wait-interval",
+        type=float,
+        default=2.0,
+        help="Seconds between lock retry attempts (default: 2.0)",
     )
     p_fs_lock.add_argument("--intent", help="Description of intended changes")
     p_fs_lock.set_defaults(func=cmd_file_safety_lock)

@@ -186,15 +186,15 @@ Ports are auto-assigned:
 Use `synapse send` to send messages between agents:
 
 ```bash
-synapse send codex "Please review this design" --from claude
-synapse send gemini "Suggest API improvements" --from claude
+synapse send codex "Please review this design" --from synapse-claude-8100
+synapse send gemini "Suggest API improvements" --from synapse-claude-8100
 ```
 
 For multiple instances of the same type, use type-port format:
 
 ```bash
-synapse send codex-8120 "Handle this task" --from claude
-synapse send codex-8121 "Handle that task" --from claude
+synapse send codex-8120 "Handle this task" --from synapse-claude-8100
+synapse send codex-8121 "Handle that task" --from synapse-claude-8100
 ```
 
 ### 5. HTTP API
@@ -220,7 +220,7 @@ While coding with **Claude**, quickly query **Gemini** (better at web search) fo
 
 ```bash
 # In Claude's terminal:
-synapse send gemini "Summarize the new f-string features in Python 3.12" --from claude
+synapse send gemini "Summarize the new f-string features in Python 3.12" --from synapse-claude-8100
 ```
 
 ### 2. Cross-Review Designs (Intermediate)
@@ -228,7 +228,7 @@ Get feedback on your design from agents with different perspectives.
 
 ```bash
 # After Claude drafts a design:
-synapse send gemini "Critically review this design from scalability and maintainability perspectives" --from claude
+synapse send gemini "Critically review this design from scalability and maintainability perspectives" --from synapse-claude-8100
 ```
 
 ### 3. TDD Pair Programming (Intermediate)
@@ -239,7 +239,7 @@ Separate "test writer" and "implementer" for robust code.
 Create unit tests for auth.py - normal case and token expiration case.
 
 # Terminal 2 (Claude):
-synapse send codex-8120 "Implement auth.py to pass the tests you created" --from claude
+synapse send codex-8120 "Implement auth.py to pass the tests you created" --from synapse-claude-8100
 ```
 
 ### 4. Security Audit (Specialized)
@@ -250,7 +250,7 @@ Have an agent with a security expert role audit your code before committing.
 You are a security engineer. Review only for vulnerabilities (SQLi, XSS, etc.)
 
 # After writing code:
-synapse send gemini "Audit the current changes (git diff)" --from claude
+synapse send gemini "Audit the current changes (git diff)" --from synapse-claude-8100
 ```
 
 ### 5. Auto-Fix from Error Logs (Advanced)
@@ -261,7 +261,7 @@ Pass error logs to an agent for automatic fix suggestions.
 pytest > error.log
 
 # Ask agent to fix
-synapse send claude "Read error.log and fix the issue in synapse/server.py" --from gemini
+synapse send claude "Read error.log and fix the issue in synapse/server.py" --from synapse-gemini-8110
 ```
 
 ### 6. Language/Framework Migration (Advanced)
@@ -272,7 +272,7 @@ Distribute large refactoring work across agents.
 Read legacy_api.js and create TypeScript type definitions
 
 # Terminal 2 (Codex):
-synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts" --from codex
+synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts" --from synapse-codex-8121
 ```
 
 ### Comparison with SSH Remote
@@ -297,7 +297,7 @@ synapse send claude "Use the type definitions you created to rewrite legacy_api.
 
 With skills installed, Claude automatically understands and executes:
 
-- **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from claude`
+- **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from synapse-claude-8100`
 - **Priority control**: Message sending with Priority 1-5 (5 = emergency stop)
 - **Task delegation**: Automatic task routing with `delegation.enabled`
 - **File Safety**: Prevent multi-agent conflicts with file locking and change tracking
@@ -466,7 +466,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from codex
+synapse send my-claude "Review this code" --from synapse-codex-8121
 synapse jump my-claude
 synapse kill my-claude
 ```
@@ -705,26 +705,26 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 
 ```bash
 # Send message (single instance)
-synapse send claude "Hello" --priority 1 --from codex
+synapse send claude "Hello" --priority 1 --from synapse-codex-8121
 
 # Send to specific instance (multiple of same type)
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
 # Emergency stop
-synapse send claude "Stop!" --priority 5 --from codex
+synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
 
 # Wait for response (roundtrip)
-synapse send gemini "Analyze this" --response --from claude
+synapse send gemini "Analyze this" --response --from synapse-claude-8100
 ```
 
-**Important:** Always use `--from` to identify the sender.
+**Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
 ### synapse reply Command
 
 Reply to the last received message:
 
 ```bash
-synapse reply "<message>" --from <your_agent_type>
+synapse reply "<message>" --from <your_agent_id>
 ```
 
 The `--from` flag is required in sandboxed environments (like Codex).
@@ -878,7 +878,7 @@ A2A: <message content>
 Synapse automatically manages reply routing. Agents simply use `synapse reply`:
 
 ```bash
-synapse reply "Here is my response" --from <your_agent_type>
+synapse reply "Here is my response" --from <your_agent_id>
 ```
 
 The framework internally tracks sender information and routes replies automatically.
@@ -1073,6 +1073,9 @@ synapse file-safety locks
 # Acquire lock
 synapse file-safety lock /path/to/file.py claude --intent "Refactoring"
 
+# Wait for lock to be released
+synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
+
 # Release lock
 synapse file-safety unlock /path/to/file.py claude
 
@@ -1139,13 +1142,25 @@ The display automatically updates when agent status changes (via file watcher) w
 
 | Column | Description |
 |--------|-------------|
-| TYPE | Agent type (claude, gemini, codex, etc.) |
+| ID | Agent ID (e.g., `synapse-claude-8100`) |
 | NAME | Custom name (if assigned) |
+| TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
-| PORT | HTTP port number |
 | STATUS | Current status (READY, WAITING, PROCESSING, DONE) |
-| WORKING_DIR | Current working directory |
+| CURRENT | Current task preview |
 | TRANSPORT | Communication transport indicator |
+| WORKING_DIR | Current working directory |
+| EDITING_FILE | File being edited (File Safety enabled only) |
+
+**Customize columns** in `settings.json`:
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
 
 ### Status States
 
@@ -1276,8 +1291,9 @@ synapse config show --scope user
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `~/.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Lock history retention days | `30` |
 | `SYNAPSE_AUTH_ENABLED` | Enable API authentication | `false` |
 | `SYNAPSE_API_KEYS` | API keys (comma-separated) | - |
 | `SYNAPSE_ADMIN_KEY` | Admin key | - |
@@ -1286,6 +1302,9 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook secret | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 
 ### A2A Communication Settings (a2a)
 

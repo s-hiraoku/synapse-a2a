@@ -23,7 +23,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | Initialize settings | `synapse init` |
-| Edit settings (TUI) | `synapse config` |
+| Edit settings (TUI) | `synapse config` (includes List Display for column config) |
 | View settings | `synapse config show [--scope user\|project]` |
 | Show instructions | `synapse instructions show <agent>` |
 | Send instructions | `synapse instructions send <agent> [--preview]` |
@@ -36,13 +36,13 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --response --from claude
-synapse send claude "What is the status?" --response --from codex
-synapse send codex-8120 "Fix this bug" --response --priority 3 --from gemini
+synapse send gemini "Please review this code" --response --from synapse-claude-8100
+synapse send claude "What is the status?" --response --from synapse-codex-8121
+synapse send codex-8120 "Fix this bug" --response --priority 3 --from synapse-gemini-8110
 ```
 
 **Important:**
-- Always use `--from` with your **agent type** (e.g., `claude`, `codex`, `gemini`) or **agent ID** (e.g., `synapse-claude-8100`). Do NOT use custom names for `--from`.
+- Always use `--from` with your **agent ID** (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
 - By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
 
 **Target Resolution (Matching Priority):**
@@ -62,10 +62,10 @@ Analyze the message content and determine if a reply is expected:
 
 ```bash
 # Message that expects a reply
-synapse send gemini "What is the best approach?" --response --from claude
+synapse send gemini "What is the best approach?" --response --from synapse-claude-8100
 
 # Purely informational, no reply needed
-synapse send codex "FYI: Build completed" --no-response --from claude
+synapse send codex "FYI: Build completed" --no-response --from synapse-claude-8100
 ```
 
 ### Roundtrip Communication (--response)
@@ -74,10 +74,10 @@ For request-response patterns:
 
 ```bash
 # Sender: Wait for response (blocks until reply received)
-synapse send gemini "Analyze this data" --response --from claude
+synapse send gemini "Analyze this data" --response --from synapse-claude-8100
 
 # Receiver: Reply to sender
-synapse reply "Analysis result: ..." --from gemini
+synapse reply "Analysis result: ..." --from synapse-gemini-8110
 ```
 
 The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
@@ -102,14 +102,14 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 
 ```bash
 # Use the reply command
-# --from: Use your agent type (claude, codex, gemini, etc.) or agent ID
-synapse reply "Here is my analysis..." --from <your_agent_type>
+# --from: Use your agent ID (synapse-<type>-<port>)
+synapse reply "Here is my analysis..." --from <your_agent_id>
 ```
 
 **Example - Question received (MUST reply):**
 ```
 Received: A2A: [REPLY EXPECTED] What is the project structure?
-Reply:    synapse reply "The project has src/, tests/..." --from codex
+Reply:    synapse reply "The project has src/, tests/..." --from synapse-codex-8121
 ```
 
 **Example - Delegation received (no reply needed):**
@@ -129,13 +129,13 @@ Action:   Just do the task. No reply needed unless you have questions.
 
 ```bash
 # Normal priority (default) - with response
-synapse send gemini "Analyze this" --response --from claude
+synapse send gemini "Analyze this" --response --from synapse-claude-8100
 
 # Higher priority - urgent request
-synapse send claude "Urgent review needed" --response --priority 4 --from codex
+synapse send claude "Urgent review needed" --response --priority 4 --from synapse-codex-8121
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from claude
+synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
 
 ## Agent Status
@@ -208,7 +208,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from codex
+synapse send my-claude "Review this code" --from synapse-codex-8121
 synapse jump my-claude
 synapse kill my-claude
 ```

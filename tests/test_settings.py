@@ -141,7 +141,7 @@ class TestSynapseSettings:
     def test_from_defaults(self):
         """Create settings from defaults."""
         settings = SynapseSettings.from_defaults()
-        assert settings.env["SYNAPSE_HISTORY_ENABLED"] == "false"
+        assert settings.env["SYNAPSE_HISTORY_ENABLED"] == "true"
         assert "default" in settings.instructions
 
     def test_get_instruction_for_agent_specific(self):

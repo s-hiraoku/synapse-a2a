@@ -47,7 +47,7 @@ Code reviews stay with Claude.
 - File Safety: src/auth.py - not locked ✓
 
 Delegating coding task to Codex...
-synapse send codex "Please implement user authentication. Target file: src/auth.py" --response --from claude
+synapse send codex "Please implement user authentication. Target file: src/auth.py" --response --from synapse-claude-8100
 
 [Codex processing... monitor with synapse list]
 
@@ -99,7 +99,7 @@ If agent doesn't respond within reasonable time:
 
 2. If PROCESSING for too long, send priority 4-5 follow-up:
    ```bash
-   synapse send <agent> "Status update?" --priority 4 --from <your-agent>
+   synapse send <agent> "Status update?" --priority 4 --from <your_agent_id>
    ```
 
 3. If agent appears stuck, inform user and suggest alternatives

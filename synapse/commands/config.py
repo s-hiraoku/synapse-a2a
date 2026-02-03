@@ -56,6 +56,10 @@ SETTING_CATEGORIES = {
         "name": "Resume Flags",
         "description": "Configure CLI flags that indicate resume mode",
     },
+    "list": {
+        "name": "List Display",
+        "description": "Configure synapse list column display",
+    },
 }
 
 # Boolean environment variables (will show as toggle)
@@ -371,6 +375,54 @@ class ConfigCommand:
 
         return (selected_key, new_value)
 
+    def _prompt_list_setting(
+        self, current_settings: dict[str, Any]
+    ) -> tuple[str | None, list[str] | None]:
+        """Prompt user to edit list display settings."""
+        list_config = current_settings.get("list", {})
+        default_config = DEFAULT_SETTINGS.get("list", {})
+
+        # Available columns
+        available_columns = [
+            "ID",
+            "NAME",
+            "TYPE",
+            "ROLE",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ]
+
+        current_columns = list_config.get("columns", default_config.get("columns", []))
+        current_str = ", ".join(current_columns) if current_columns else ""
+
+        # Show available columns
+        self._print(f"\nAvailable columns: {', '.join(available_columns)}")
+        self._print("(EDITING_FILE requires file-safety to be enabled)\n")
+
+        new_value_str = self._questionary.text(
+            "Enter columns to display (comma-separated):",
+            default=current_str,
+        ).ask()
+
+        if new_value_str is None:
+            return (None, None)
+
+        # Parse and validate columns
+        new_columns = []
+        for col in new_value_str.split(","):
+            col = col.strip().upper()
+            if col in available_columns:
+                new_columns.append(col)
+
+        if not new_columns:
+            self._print("No valid columns specified. Using defaults.")
+            return (None, None)
+
+        return ("columns", new_columns)
+
     def _update_settings(
         self,
         settings: dict[str, Any],
@@ -502,6 +554,14 @@ class ConfigCommand:
                     )
                     modified = True
 
+            elif category == "list":
+                list_key, list_value = self._prompt_list_setting(current_settings)
+                if list_key is not None:
+                    current_settings = self._update_settings(
+                        current_settings, "list", list_key, list_value
+                    )
+                    modified = True
+
     def show(self, scope: str | None = None) -> None:
         """Show current settings (non-interactive).
 
@@ -524,6 +584,7 @@ class ConfigCommand:
                         "a2a": settings.a2a,
                         "delegation": settings.delegation,
                         "resume_flags": settings.resume_flags,
+                        "list": settings.list_config,
                     },
                     indent=2,
                 )
@@ -827,6 +888,8 @@ class RichConfigCommand:
             self._edit_flow_value(title, category, key)
         elif key == "enabled":
             self._edit_enabled_value(title, category, key)
+        elif category == "list" and key == "columns":
+            self._edit_list_columns_value(current, category, key)
         else:
             self._edit_text_value(display_key, current, category, key)
 
@@ -882,3 +945,60 @@ class RichConfigCommand:
         new_value = Prompt.ask("Value", default=str(current) if current else "")
         if new_value.lower() != "c":
             self._update_setting(category, key, new_value if new_value else "")
+
+    def _edit_list_columns_value(self, current: Any, category: str, key: str) -> None:
+        """Edit list.columns value using Rich Prompt."""
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+
+        available_columns = [
+            "ID",
+            "NAME",
+            "TYPE",
+            "ROLE",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ]
+
+        # Format current value for display
+        if isinstance(current, list):
+            current_str = ", ".join(current)
+        else:
+            current_str = str(current) if current else ""
+
+        console = Console()
+        console.clear()
+        console.print(
+            Panel(
+                f"Available: [cyan]{', '.join(available_columns)}[/cyan]\n"
+                f"Current: [yellow]{current_str or '(not set)'}[/yellow]\n"
+                "[dim](EDITING_FILE requires file-safety enabled)[/dim]",
+                title="List Columns",
+                border_style="yellow",
+            )
+        )
+        console.print()
+        console.print("[dim]Enter columns (comma-separated), or 'c' to cancel[/dim]")
+        console.print()
+        new_value_str = Prompt.ask("Columns", default=current_str)
+
+        if new_value_str.lower() == "c":
+            return
+
+        # Parse and validate columns
+        new_columns = []
+        for col in new_value_str.split(","):
+            col = col.strip().upper()
+            if col in available_columns:
+                new_columns.append(col)
+
+        # Use defaults if no valid columns specified
+        if not new_columns:
+            new_columns = DEFAULT_SETTINGS.get("list", {}).get("columns", [])
+            console.print("[yellow]No valid columns. Using defaults.[/yellow]")
+
+        self._update_setting(category, key, new_columns)

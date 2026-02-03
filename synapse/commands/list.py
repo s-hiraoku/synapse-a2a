@@ -133,19 +133,18 @@ class ListCommand:
             agent_data["transport"] = transport
 
             if show_file_safety:
-                agent_type = info.get("agent_type", "")
-                if pid:
-                    locks = file_safety.list_locks(pid=pid, include_stale=False)
-                else:
+                # Try PID first, then fall back to agent_id for CLI-acquired locks
+                locks = (
+                    file_safety.list_locks(pid=pid, include_stale=False) if pid else []
+                )
+                if not locks and agent_id:
                     locks = file_safety.list_locks(
-                        agent_type=agent_type, include_stale=False
+                        agent_name=agent_id, include_stale=False
                     )
-                editing_file = "-"
-                if locks:
-                    file_path = locks[0].get("file_path")
-                    if file_path:
-                        editing_file = os.path.basename(file_path)
-                agent_data["editing_file"] = editing_file
+                first_lock_path = locks[0].get("file_path") if locks else None
+                agent_data["editing_file"] = (
+                    os.path.basename(first_lock_path) if first_lock_path else "-"
+                )
 
             agents_list.append(agent_data)
 
@@ -387,8 +386,13 @@ class ListCommand:
         from rich.live import Live
 
         from synapse.commands.renderers.rich_renderer import RichRenderer
+        from synapse.settings import get_settings
 
         renderer = RichRenderer(console=console)
+
+        # Load column configuration from settings
+        settings = get_settings()
+        list_columns = settings.get_list_columns()
 
         # Set up non-blocking input for interactive mode
         saved_terminal = self._setup_nonblocking_input()
@@ -567,6 +571,7 @@ class ListCommand:
                             kill_confirm_agent=kill_confirm_agent,
                             filter_mode=filter_mode,
                             filter_text=display_filter,
+                            columns=list_columns,
                         )
 
                         live.update(display, refresh=True)
@@ -590,36 +595,55 @@ class ListCommand:
         # Check if stdout is a TTY
         if not sys.stdout.isatty():
             # Non-interactive mode: single output
-            agents, _, _ = self._get_agent_data(registry)
+            agents, _, show_file_safety = self._get_agent_data(registry)
             if not agents:
                 lines = ["No agents running.", "", "Port ranges:"]
                 for agent_type, (start, end) in sorted(PORT_RANGES.items()):
                     lines.append(f"  {agent_type}: {start}-{end}")
                 self._print("\n".join(lines))
             else:
-                # Simple table output with NAME, ROLE, ID, CURRENT columns
-                header = (
-                    f"{'TYPE':<10} {'NAME':<16} {'ROLE':<16} {'ID':<24} "
-                    f"{'PORT':<8} {'STATUS':<12} {'CURRENT':<35} {'PID':<8} {'ENDPOINT'}"
+                # Simple table output - build columns dynamically
+                columns = [
+                    ("TYPE", 10),
+                    ("NAME", 16),
+                    ("ROLE", 16),
+                    ("ID", 24),
+                    ("PORT", 8),
+                    ("STATUS", 12),
+                ]
+                if show_file_safety:
+                    columns.append(("EDITING_FILE", 20))
+                columns.extend([("CURRENT", 35), ("PID", 8), ("ENDPOINT", 0)])
+
+                header = " ".join(
+                    f"{name:<{width}}" if width else name for name, width in columns
                 )
                 self._print(header)
                 self._print("-" * len(header))
+
                 for agent in agents:
-                    name = agent.get("name") or "-"
-                    role = agent.get("role") or "-"
-                    agent_id = agent.get("agent_id", "-")
-                    current = agent.get("current_task_preview") or "-"
-                    self._print(
-                        f"{agent['agent_type']:<10} "
-                        f"{name:<16} "
-                        f"{role:<16} "
-                        f"{agent_id:<24} "
-                        f"{agent['port']:<8} "
-                        f"{agent['status']:<12} "
-                        f"{current:<35} "
-                        f"{agent['pid']:<8} "
-                        f"{agent['endpoint']}"
+                    values = [
+                        (agent["agent_type"], 10),
+                        (agent.get("name") or "-", 16),
+                        (agent.get("role") or "-", 16),
+                        (agent.get("agent_id", "-"), 24),
+                        (agent["port"], 8),
+                        (agent["status"], 12),
+                    ]
+                    if show_file_safety:
+                        values.append((agent.get("editing_file") or "-", 20))
+                    values.extend(
+                        [
+                            (agent.get("current_task_preview") or "-", 35),
+                            (agent["pid"], 8),
+                            (agent["endpoint"], 0),
+                        ]
                     )
+                    row = " ".join(
+                        f"{val:<{width}}" if width else str(val)
+                        for val, width in values
+                    )
+                    self._print(row)
             return
 
         # Get version for display

@@ -41,17 +41,17 @@ HOW TO REPLY:
 Use `synapse reply` to respond to the last received message:
 
 ```bash
-synapse reply "<your reply>" --from <agent_type>
+synapse reply "<your reply>" --from <agent_id>
 ```
 
 Synapse automatically tracks senders who expect a reply (messages with `[REPLY EXPECTED]` marker).
-- `--from`: Your agent type (e.g., `claude`, `codex`, `gemini`, `opencode`, `copilot`)
+- `--from`: Your agent ID (format: `synapse-<type>-<port>`)
 - Required in sandboxed environments (like Codex)
 
 Example - Question received:
   A2A: What is the project structure?
 Reply with:
-  synapse reply "The project has src/, tests/, docs/ directories..." --from codex
+  synapse reply "The project has src/, tests/, docs/ directories..." --from {{agent_id}}
 
 Example - Delegation received:
   A2A: Run the tests and fix any failures
@@ -70,7 +70,7 @@ Target formats (in priority order):
 - Agent type: `gemini` (only when single instance exists)
 
 Parameters:
-- `--from, -f`: Your agent type (e.g., `claude`, `codex`) - **always include this**
+- `--from, -f`: Your agent ID (format: `synapse-<type>-<port>`) - **always include this**
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, receiver MUST reply
 - `--no-response`: Oneway mode - fire and forget, no reply expected
@@ -81,28 +81,28 @@ Analyze the message content and determine if a reply is expected.
 - If the message is purely informational with no reply needed → use `--no-response`
 - **If unsure, use `--response`** (safer default)
 
-IMPORTANT: Always use `--from` with your agent type (e.g., `claude`, `codex`) or agent ID (e.g., `synapse-claude-8100`). Do NOT use custom names for `--from`.
+IMPORTANT: Always use `--from` with your agent ID (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
 
 Examples:
 ```bash
 # Question - needs reply (default behavior)
-synapse send gemini "What is the best practice for error handling?" --response --from claude
+synapse send gemini "What is the best practice for error handling?" --response --from {{agent_id}}
 
 # Status check - needs reply
-synapse send codex "What is your current status?" --response --from claude
+synapse send codex "What is your current status?" --response --from {{agent_id}}
 
 # Notification - explicitly no reply needed
-synapse send gemini "FYI: Build completed" --no-response --from claude
+synapse send gemini "FYI: Build completed" --no-response --from {{agent_id}}
 
 # Fire-and-forget task - no reply needed
-synapse send codex "Run the test suite and commit if all tests pass" --no-response --from claude
+synapse send codex "Run the test suite and commit if all tests pass" --no-response --from {{agent_id}}
 
 # Parallel delegation - no reply needed
-synapse send gemini "Research React best practices" --no-response --from claude
-synapse send codex "Refactor the auth module" --no-response --from claude
+synapse send gemini "Research React best practices" --no-response --from {{agent_id}}
+synapse send codex "Refactor the auth module" --no-response --from {{agent_id}}
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from claude
+synapse send codex "STOP" --priority 5 --from {{agent_id}}
 ```
 
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot

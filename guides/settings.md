@@ -229,6 +229,9 @@ Codex もプラグインには対応していませんが、展開された skil
   },
   "delegation": {
     "enabled": false
+  },
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
   }
 }
 ```
@@ -251,6 +254,12 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook 署名用シークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety 機能を有効化 | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | SQLite データベースファイルのパス | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | ロック履歴の保持日数 | `30` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |
 
 ### 例: 履歴を無効にする
 
@@ -382,6 +391,48 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 ```
 
 詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+
+## リスト表示設定 (list)
+
+`synapse list` コマンドで表示するカラムをカスタマイズできます。
+
+### 利用可能なカラム
+
+| カラム | 説明 |
+|--------|------|
+| `ID` | エージェントID（例: `synapse-claude-8100`） |
+| `NAME` | カスタム名 |
+| `TYPE` | エージェント種別（claude, gemini, codex 等） |
+| `ROLE` | エージェントの役割説明 |
+| `STATUS` | 現在の状態（READY, PROCESSING 等） |
+| `CURRENT` | 現在のタスクプレビュー |
+| `TRANSPORT` | 通信状態（UDS/TCP） |
+| `WORKING_DIR` | 作業ディレクトリ |
+| `EDITING_FILE` | 編集中のファイル（File Safety有効時のみ） |
+
+### デフォルト設定
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
+
+### カスタマイズ例
+
+コンパクトな表示にする場合：
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "EDITING_FILE"]
+  }
+}
+```
+
+**Note**: `EDITING_FILE` カラムは `SYNAPSE_FILE_SAFETY_ENABLED=true` の場合のみ表示されます。
 
 ## 委任設定 (delegation)
 

@@ -32,7 +32,7 @@ You are an elite systems architect specializing in agent orchestration and the A
 
 Always use the `synapse send` command for inter-agent communication:
 ```bash
-synapse send <agent> "<message>" --priority <1-5> --from <your-agent>
+synapse send <agent> "<message>" --priority <1-5> --from <your_agent_id>
 ```
 
 **Important:** Always use `--from` to identify yourself so the recipient knows who sent the message and can reply.

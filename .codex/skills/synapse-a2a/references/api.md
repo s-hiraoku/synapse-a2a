@@ -18,7 +18,7 @@ A2A: <message content>
 Use `synapse reply` to respond:
 
 ```bash
-synapse reply "<your response>" --from <your_agent_type>
+synapse reply "<your response>" --from <your_agent_id>
 ```
 
 The framework automatically handles routing - you don't need to know where the message came from.
@@ -53,6 +53,26 @@ The framework automatically handles routing - you don't need to know where the m
 | 3 | Normal tasks (default) |
 | 4 | Urgent follow-ups |
 | 5 | Emergency interrupt (sends SIGINT first) |
+
+## Long Message Handling
+
+Messages exceeding the TUI input limit (~200-300 characters) are automatically stored in temporary files. The agent receives a reference message instead:
+
+```text
+[LONG MESSAGE - FILE ATTACHED]
+The full message content is stored at: /tmp/synapse-a2a/messages/<task_id>.txt
+Please read this file to get the complete message.
+```
+
+**Configuration:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
+
+**Cleanup:** Files are automatically cleaned up after TTL expires.
 
 ## Error Handling
 

@@ -214,11 +214,11 @@ synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | -
 **例**:
 
 ```bash
-synapse send claude "Hello!" --from codex
-synapse send codex "設計して" -p 1 --from claude
+synapse send claude "Hello!" --from synapse-codex-8121
+synapse send codex "設計して" -p 1 --from synapse-claude-8100
 synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
-synapse send gemini "止まれ" -p 5 --from claude
-synapse send codex "結果を教えて" --response --from claude
+synapse send gemini "止まれ" -p 5 --from synapse-claude-8100
+synapse send codex "結果を教えて" --response --from synapse-claude-8100
 ```
 
 ---
@@ -239,8 +239,8 @@ synapse reply <message> [--from AGENT_ID]
 **例**:
 
 ```bash
-synapse reply "分析結果です..." --from codex
-synapse reply "タスク完了しました" --from gemini
+synapse reply "分析結果です..." --from synapse-codex-8121
+synapse reply "タスク完了しました" --from synapse-gemini-8110
 ```
 
 **動作**:
@@ -972,7 +972,7 @@ curl -X POST http://localhost:8100/external/discover \
 
 > **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください:
 > ```bash
-> synapse send codex "バックグラウンドで処理して" --from claude --no-response
+> synapse send codex "バックグラウンドで処理して" --from synapse-claude-8100 --no-response
 > ```
 
 ### 3.4 フィードバック表示

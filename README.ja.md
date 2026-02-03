@@ -293,7 +293,7 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 
 スキルをインストールすると、Claude は自動的に以下を理解して実行します：
 
-- **synapse send**: `synapse send codex "Fix this" --from claude` でエージェント間通信
+- **synapse send**: `synapse send codex "Fix this" --from synapse-claude-8100` でエージェント間通信
 - **@agent パターン**: `@codex Fix this` でユーザー入力から直接送信
 - **優先度制御**: Priority 1-5 でのメッセージ送信（5 = 緊急停止）
 - **タスク委譲**: `delegation.enabled` での自動タスクルーティング
@@ -664,16 +664,16 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 ```bash
 # メッセージ送信（単一インスタンス）
-synapse send claude "Hello" --priority 1 --from codex
+synapse send claude "Hello" --priority 1 --from synapse-codex-8121
 
 # 特定のインスタンスに送信（同タイプが複数の場合）
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
 # 緊急停止
-synapse send claude "Stop!" --priority 5 --from codex
+synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
 
 # 応答を待つ（ラウンドトリップ）
-synapse send gemini "これを分析して" --response --from claude
+synapse send gemini "これを分析して" --response --from synapse-claude-8100
 ```
 
 **重要:** 送信者を識別するため常に `--from` を使用。
@@ -683,7 +683,7 @@ synapse send gemini "これを分析して" --response --from claude
 受信したメッセージに返信：
 
 ```bash
-synapse reply "<message>" --from <your_agent_type>
+synapse reply "<message>" --from <your_agent_id>
 ```
 
 `--from` フラグはサンドボックス環境（Codex 等）で必須。
@@ -827,7 +827,7 @@ A2A: <message content>
 Synapse が返信ルーティングを自動管理します。エージェントは単に `synapse reply` を使用：
 
 ```bash
-synapse reply "返信メッセージ" --from <your_agent_type>
+synapse reply "返信メッセージ" --from <your_agent_id>
 ```
 
 フレームワークが送信者情報を内部的に追跡し、返信を自動ルーティングします。
@@ -1021,6 +1021,9 @@ synapse file-safety locks
 # ロック取得
 synapse file-safety lock /path/to/file.py claude --intent "リファクタリング"
 
+# ロック解放待ち
+synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
+
 # ロック解除
 synapse file-safety unlock /path/to/file.py claude
 
@@ -1082,6 +1085,30 @@ synapse list
 ```
 
 ファイルウォッチャーによりエージェントのステータス変更時に自動更新されます（2秒間隔のフォールバックポーリング）。
+
+### 表示カラム
+
+| カラム | 説明 |
+|--------|------|
+| ID | エージェントID（例: `synapse-claude-8100`） |
+| NAME | カスタム名（設定時） |
+| TYPE | エージェント種別（claude, gemini, codex 等） |
+| ROLE | 役割説明（設定時） |
+| STATUS | 現在の状態（READY, WAITING, PROCESSING, DONE） |
+| CURRENT | 現在のタスクプレビュー |
+| TRANSPORT | 通信状態インジケータ |
+| WORKING_DIR | 作業ディレクトリ |
+| EDITING_FILE | 編集中のファイル（File Safety有効時のみ） |
+
+**カラムのカスタマイズ**（`settings.json`）:
+
+```json
+{
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+  }
+}
+```
 
 ### ステータス状態
 
@@ -1210,8 +1237,9 @@ synapse config show --scope user
 | 変数 | 説明 | デフォルト |
 |------|------|----------|
 | `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `true` (v0.3.13+) |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety を有効化 | `false` |
-| `SYNAPSE_FILE_SAFETY_DB_PATH` | File Safety DB パス | `~/.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety を有効化 | `true` |
+| `SYNAPSE_FILE_SAFETY_DB_PATH` | File Safety DB パス | `.synapse/file_safety.db` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | ロック履歴の保持日数 | `30` |
 | `SYNAPSE_AUTH_ENABLED` | API 認証を有効化 | `false` |
 | `SYNAPSE_API_KEYS` | API キー（カンマ区切り） | - |
 | `SYNAPSE_ADMIN_KEY` | 管理者キー | - |
@@ -1220,6 +1248,9 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook シークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
+| `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
+| `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
+| `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |
 
 ### A2A 通信設定 (a2a)
 

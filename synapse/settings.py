@@ -82,8 +82,9 @@ TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
 # Default settings template
 DEFAULT_SETTINGS: dict[str, Any] = {
     "env": {
-        "SYNAPSE_HISTORY_ENABLED": "false",
-        "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+        "SYNAPSE_HISTORY_ENABLED": "true",
+        "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+        "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
         "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
         "SYNAPSE_AUTH_ENABLED": "false",
         "SYNAPSE_API_KEYS": "",
@@ -93,6 +94,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "SYNAPSE_WEBHOOK_SECRET": "",
         "SYNAPSE_WEBHOOK_TIMEOUT": "10",
         "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
+        # Long message file storage settings
+        # Messages exceeding threshold are stored in files instead of PTY paste
+        "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",  # Character count (TUI limit ~200-300)
+        "SYNAPSE_LONG_MESSAGE_TTL": "3600",  # File retention in seconds (1 hour)
+        "SYNAPSE_LONG_MESSAGE_DIR": "",  # Default: /tmp/synapse-a2a/messages/
     },
     "instructions": {
         "default": get_default_instructions(),
@@ -113,6 +119,20 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "claude": ["--continue", "--resume", "-c", "-r"],
         "codex": ["resume"],  # codex resume [--last | <SESSION_ID>]
         "gemini": ["--resume", "-r"],  # gemini --resume/-r [<index|UUID>]
+    },
+    "list": {
+        # Columns to display in synapse list command
+        # Available: ID, NAME, TYPE, ROLE, STATUS, CURRENT, TRANSPORT,
+        #            WORKING_DIR, EDITING_FILE (requires file-safety enabled)
+        "columns": [
+            "ID",
+            "NAME",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ],
     },
 }
 
@@ -192,6 +212,7 @@ class SynapseSettings:
     a2a: dict[str, str] = field(default_factory=dict)
     delegation: dict[str, Any] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
+    list_config: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -203,6 +224,7 @@ class SynapseSettings:
             a2a=dict(DEFAULT_SETTINGS["a2a"]),
             delegation=dict(DEFAULT_SETTINGS["delegation"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
+            list_config=dict(DEFAULT_SETTINGS["list"]),
         )
 
     @classmethod
@@ -265,6 +287,7 @@ class SynapseSettings:
             a2a=merged.get("a2a", {}),
             delegation=merged.get("delegation", {}),
             resume_flags=merged.get("resume_flags", {}),
+            list_config=merged.get("list", {}),
         )
 
     def get_instruction(
@@ -421,9 +444,10 @@ class SynapseSettings:
             List of display paths (e.g., [".synapse/default.md", "~/.synapse/delegate.md"])
         """
         paths: list[str] = []
-        home = user_dir if user_dir else Path.home()
+        home = user_dir or Path.home()
 
-        def is_md_file(value: object) -> bool:
+        def is_md_filename(value: object) -> bool:
+            """Check if value is a string ending with .md (filename only, no existence check)."""
             return isinstance(value, str) and value.endswith(".md")
 
         def add_if_exists(filename: str) -> None:
@@ -438,13 +462,13 @@ class SynapseSettings:
 
         # Check agent-specific file
         agent_instruction = self.instructions.get(agent_type, "")
-        if is_md_file(agent_instruction):
+        if is_md_filename(agent_instruction):
             add_if_exists(agent_instruction)
 
         # Check default file (only if agent-specific is not set)
         if not agent_instruction:
             default_instruction = self.instructions.get("default", "")
-            if is_md_file(default_instruction):
+            if is_md_filename(default_instruction):
                 add_if_exists(default_instruction)
 
         # Delegation (when enabled)
@@ -487,11 +511,9 @@ class SynapseSettings:
 
     def _is_valid_md_file(self, instruction: object) -> bool:
         """Check if instruction is a valid .md filename that exists."""
-        return (
-            isinstance(instruction, str)
-            and instruction.endswith(".md")
-            and self._instruction_file_exists(instruction)
-        )
+        if not isinstance(instruction, str) or not instruction.endswith(".md"):
+            return False
+        return self._instruction_file_exists(instruction)
 
     def _is_file_safety_enabled(self) -> bool:
         """Check if file safety is enabled via env var or settings."""
@@ -648,9 +670,7 @@ class SynapseSettings:
             List of CLI flags that indicate resume mode.
         """
         flags = self.resume_flags.get(agent_type, [])
-        if isinstance(flags, list):
-            return flags
-        return []
+        return flags if isinstance(flags, list) else []
 
     def is_resume_mode(self, agent_type: str, tool_args: list[str]) -> bool:
         """
@@ -700,6 +720,30 @@ class SynapseSettings:
             True if user approval is required before sending messages.
         """
         return self.get_approval_mode() == "required"
+
+    def get_list_columns(self) -> list[str]:
+        """
+        Get the list of columns to display in synapse list command.
+
+        Available columns:
+        - ID: Agent ID (e.g., synapse-claude-8100)
+        - NAME: Custom agent name
+        - TYPE: Agent type (claude, gemini, codex, etc.)
+        - ROLE: Agent role description
+        - STATUS: Current status (READY, PROCESSING, etc.)
+        - CURRENT: Current task preview
+        - TRANSPORT: Transport status (UDS/TCP)
+        - WORKING_DIR: Working directory
+        - EDITING_FILE: File being edited (requires file-safety enabled)
+
+        Returns:
+            List of column names in display order.
+        """
+        columns = self.list_config.get("columns", [])
+        if not columns:
+            # Fall back to default
+            columns = DEFAULT_SETTINGS["list"]["columns"]
+        return list(columns)
 
 
 def get_settings() -> SynapseSettings:

@@ -15,22 +15,31 @@ from synapse.cli import (
 from synapse.file_safety import LockStatus
 
 
+def _extract_printed_output(mock_print: MagicMock) -> str:
+    """Extract all printed output from a mock print object."""
+    return "\n".join(call.args[0] for call in mock_print.call_args_list if call.args)
+
+
+@pytest.fixture
+def mock_args():
+    """Create a mock args object for file-safety commands."""
+    args = MagicMock(spec=argparse.Namespace)
+    args.file = "test.py"
+    args.agent = "claude"
+    args.limit = 50
+    args.task_id = "task-1"
+    args.duration = 300
+    args.intent = "Refactoring"
+    args.wait = False
+    args.wait_timeout = None
+    args.wait_interval = 2.0
+    args.force = False
+    args.days = 30
+    return args
+
+
 class TestCliFileSafetyCommands:
     """Tests for file-safety CLI commands."""
-
-    @pytest.fixture
-    def mock_args(self):
-        """Create a mock args object."""
-        args = MagicMock(spec=argparse.Namespace)
-        args.file = "test.py"
-        args.agent = "claude"
-        args.limit = 50
-        args.task_id = "task-1"
-        args.duration = 300
-        args.intent = "Refactoring"
-        args.force = False
-        args.days = 30
-        return args
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
@@ -49,11 +58,9 @@ class TestCliFileSafetyCommands:
         cmd_file_safety_status(mock_args)
 
         mock_fm_inst.get_statistics.assert_called_once()
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "FILE SAFETY STATISTICS" in printed_output
-        assert "Active Locks:        1" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "FILE SAFETY STATISTICS" in output
+        assert "Active Locks:        1" in output
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
@@ -72,11 +79,9 @@ class TestCliFileSafetyCommands:
         cmd_file_safety_locks(mock_args)
 
         mock_fm_inst.list_locks.assert_called_once()
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "test.py" in printed_output
-        assert "claude" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "test.py" in output
+        assert "claude" in output
 
     @patch("synapse.registry.AgentRegistry")
     @patch("synapse.file_safety.FileSafetyManager")
@@ -104,10 +109,8 @@ class TestCliFileSafetyCommands:
             intent="Refactoring",
             pid=None,
         )
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "Lock acquired on test.py" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "Lock acquired on test.py" in output
 
     @patch("synapse.registry.AgentRegistry")
     @patch("synapse.file_safety.FileSafetyManager")
@@ -205,6 +208,78 @@ class TestCliFileSafetyCommands:
             pid=None,
         )
 
+    @patch("synapse.cli.time.sleep")
+    @patch("synapse.registry.AgentRegistry")
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_waits_until_acquired(
+        self, mock_print, mock_fm, mock_registry, mock_sleep, mock_args
+    ):
+        """cmd_file_safety_lock should wait and retry until lock is acquired."""
+        mock_args.wait = True
+        mock_args.wait_interval = 0
+
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.side_effect = [
+            {
+                "status": LockStatus.ALREADY_LOCKED,
+                "lock_holder": "synapse-claude-8100",
+                "expires_at": "2026-01-09 11:00:00",
+            },
+            {"status": LockStatus.ACQUIRED, "expires_at": "2026-01-09 11:05:00"},
+        ]
+
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
+
+        cmd_file_safety_lock(mock_args)
+
+        assert mock_fm_inst.acquire_lock.call_count == 2
+        output = _extract_printed_output(mock_print)
+        assert "Waiting" in output
+        assert "Lock acquired on test.py" in output
+
+    @patch("synapse.cli.time.sleep")
+    @patch("synapse.cli.time.monotonic")
+    @patch("synapse.registry.AgentRegistry")
+    @patch("synapse.file_safety.FileSafetyManager")
+    @patch("builtins.print")
+    def test_cmd_file_safety_lock_wait_times_out(
+        self,
+        mock_print,
+        mock_fm,
+        mock_registry,
+        mock_monotonic,
+        mock_sleep,
+        mock_args,
+    ):
+        """cmd_file_safety_lock should exit when wait timeout is exceeded."""
+        mock_args.wait = True
+        mock_args.wait_interval = 0
+        mock_args.wait_timeout = 1.0
+
+        mock_fm_inst = mock_fm.from_env.return_value
+        mock_fm_inst.enabled = True
+        mock_fm_inst.acquire_lock.return_value = {
+            "status": LockStatus.ALREADY_LOCKED,
+            "lock_holder": "synapse-claude-8100",
+            "expires_at": "2026-01-09 11:00:00",
+        }
+
+        mock_monotonic.side_effect = [0.0, 2.0]
+
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
+
+        with pytest.raises(SystemExit):
+            cmd_file_safety_lock(mock_args)
+
+        output = _extract_printed_output(mock_print)
+        assert "Timed out waiting for lock on test.py" in output
+
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
     def test_cmd_file_safety_unlock(self, mock_print, mock_fm, mock_args):
@@ -216,10 +291,8 @@ class TestCliFileSafetyCommands:
         cmd_file_safety_unlock(mock_args)
 
         mock_fm_inst.release_lock.assert_called_once_with("test.py", "claude")
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "Lock released on test.py" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "Lock released on test.py" in output
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
@@ -239,10 +312,8 @@ class TestCliFileSafetyCommands:
         cmd_file_safety_history(mock_args)
 
         mock_fm_inst.get_file_history.assert_called_once_with("test.py", limit=50)
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "Modification history for: test.py" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "Modification history for: test.py" in output
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
@@ -264,10 +335,8 @@ class TestCliFileSafetyCommands:
         mock_fm_inst.get_recent_modifications.assert_called_once_with(
             limit=50, agent_name="claude"
         )
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "test.py" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "test.py" in output
 
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
@@ -283,29 +352,13 @@ class TestCliFileSafetyCommands:
 
         mock_fm_inst.cleanup_old_modifications.assert_called_once_with(days=30)
         mock_fm_inst.cleanup_expired_locks.assert_called_once()
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "Deleted 10 modification records older than 30 days" in printed_output
-        assert "Cleaned up 5 expired locks" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "Deleted 10 modification records older than 30 days" in output
+        assert "Cleaned up 5 expired locks" in output
 
 
 class TestCliFileSafetyErrorCases:
     """Tests for error cases in file-safety CLI commands."""
-
-    @pytest.fixture
-    def mock_args(self):
-        """Create a mock args object."""
-        args = MagicMock(spec=argparse.Namespace)
-        args.file = "test.py"
-        args.agent = "claude"
-        args.limit = 50
-        args.task_id = "task-1"
-        args.duration = 300
-        args.intent = "Refactoring"
-        args.force = False
-        args.days = 30
-        return args
 
     # ===== Tests for disabled manager state =====
 
@@ -418,10 +471,8 @@ class TestCliFileSafetyErrorCases:
             cmd_file_safety_lock(mock_args)
 
         assert exc_info.value.code == 1
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "File is already locked by gemini" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "File is already locked by gemini" in output
 
     # ===== Tests for FAILED status =====
 
@@ -440,11 +491,9 @@ class TestCliFileSafetyErrorCases:
             cmd_file_safety_lock(mock_args)
 
         assert exc_info.value.code == 1
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "Failed to acquire lock" in printed_output
-        assert "database is locked" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "Failed to acquire lock" in output
+        assert "database is locked" in output
 
     # ===== Tests for unlock failure =====
 
@@ -460,10 +509,8 @@ class TestCliFileSafetyErrorCases:
             cmd_file_safety_unlock(mock_args)
 
         assert exc_info.value.code == 1
-        printed_output = "\n".join(
-            call.args[0] for call in mock_print.call_args_list if call.args
-        )
-        assert "No lock found for test.py by claude" in printed_output
+        output = _extract_printed_output(mock_print)
+        assert "No lock found for test.py by claude" in output
 
     # ===== Tests for empty data =====
 
