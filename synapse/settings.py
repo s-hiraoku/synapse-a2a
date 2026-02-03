@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from synapse.utils import get_role_content
+
 logger = logging.getLogger(__name__)
 
 
@@ -347,7 +349,9 @@ class SynapseSettings:
         # Replace placeholders
         # agent_name defaults to agent_id if not set (for display purposes)
         display_name = name if name else agent_id
-        display_role = role if role else ""
+        # Role may be a string or @file reference - get_role_content handles both
+        role_content = get_role_content(role) if role else None
+        display_role = role_content if role_content else ""
 
         # Process conditional sections: {{#var}}content{{/var}}
         # If var is truthy, include content; otherwise remove entire section

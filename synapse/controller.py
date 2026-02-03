@@ -24,7 +24,7 @@ from synapse.config import (
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.status import DONE_TIMEOUT_SECONDS
-from synapse.utils import format_a2a_message, format_role_section
+from synapse.utils import format_a2a_message, format_role_section, get_role_content
 
 logger = logging.getLogger(__name__)
 
@@ -469,8 +469,11 @@ class TerminalController:
             f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n"
         )
         # Include role section if role is set (critical for agent behavior)
+        # Role may be a string or @file reference - get_role_content handles both
         if self.role:
-            short_message += format_role_section(self.role)
+            role_content = get_role_content(self.role)
+            if role_content:
+                short_message += format_role_section(role_content)
         short_message += (
             f"\nIMPORTANT: Read your full instructions from these files:\n"
             f"{file_list}\n\n"

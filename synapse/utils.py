@@ -7,8 +7,15 @@ This module provides common utility functions used across the codebase.
 import os
 import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+
+class RoleFileNotFoundError(Exception):
+    """Raised when a role file reference points to a non-existent file."""
+
+    pass
 
 
 def extract_text_from_parts(parts: list[Any]) -> str:
@@ -130,3 +137,115 @@ def resolve_command_path(command: str) -> str | None:
         return None
 
     return shutil.which(cmd_name)
+
+
+# ============================================================================
+# Role file reference functions
+# ============================================================================
+
+
+def is_role_file_reference(role: str | None) -> bool:
+    """
+    Check if a role value is a file reference (starts with @).
+
+    Args:
+        role: The role value to check.
+
+    Returns:
+        True if the role is a file reference, False otherwise.
+    """
+    if not role or not isinstance(role, str):
+        return False
+    # Must start with @ followed by a non-whitespace character
+    return role.startswith("@") and len(role) > 1 and not role[1].isspace()
+
+
+def extract_role_file_path(role: str | None) -> str | None:
+    """
+    Extract the file path from a role file reference.
+
+    Args:
+        role: The role value (e.g., "@./roles/reviewer.md").
+
+    Returns:
+        The file path without the @ prefix, or None if not a file reference.
+    """
+    if not is_role_file_reference(role):
+        return None
+    return role[1:]  # Remove @ prefix
+
+
+def resolve_role_value(
+    role: str | None, agent_id: str, registry_dir: Path
+) -> str | None:
+    """
+    Resolve a role value, copying file if it's a file reference.
+
+    If role starts with @, the referenced file is copied to the registry's
+    roles directory and the new path (with @ prefix) is returned.
+
+    Args:
+        role: The role value (string or @file reference).
+        agent_id: The agent ID (used for naming the copied file).
+        registry_dir: Path to the registry directory.
+
+    Returns:
+        The resolved role value:
+        - Original string if not a file reference
+        - "@{copied_path}" if file reference
+        - None if role is None
+
+    Raises:
+        RoleFileNotFoundError: If the referenced file does not exist.
+    """
+    if role is None:
+        return None
+
+    if not is_role_file_reference(role):
+        return role
+
+    # Extract and expand the file path (role[1:] is safe here due to is_role_file_reference check)
+    file_path_str = role[1:]  # Remove @ prefix
+    file_path = Path(os.path.expanduser(file_path_str)).resolve()
+
+    if not file_path.exists():
+        raise RoleFileNotFoundError(f"Role file not found: {file_path}")
+
+    # Create roles directory if needed
+    roles_dir = registry_dir / "roles"
+    roles_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy file to registry with agent-specific name
+    dest_path = roles_dir / f"{agent_id}-role.md"
+    shutil.copy2(file_path, dest_path)
+
+    return f"@{dest_path}"
+
+
+def get_role_content(role: str | None) -> str | None:
+    """
+    Get the actual role content, reading from file if it's a reference.
+
+    Args:
+        role: The role value (string or @file reference).
+
+    Returns:
+        The role content as a string, or None if role is None.
+
+    Raises:
+        RoleFileNotFoundError: If the referenced file does not exist.
+    """
+    if role is None:
+        return None
+
+    if not is_role_file_reference(role):
+        return role
+
+    # Read from file (role[1:] is safe here due to is_role_file_reference check)
+    file_path_str = role[1:]  # Remove @ prefix
+    file_path = Path(os.path.expanduser(file_path_str))
+
+    if not file_path.exists():
+        raise RoleFileNotFoundError(f"Role file not found: {file_path}")
+
+    return file_path.read_text(encoding="utf-8")
