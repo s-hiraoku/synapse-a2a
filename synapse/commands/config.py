@@ -888,6 +888,8 @@ class RichConfigCommand:
             self._edit_flow_value(title, category, key)
         elif key == "enabled":
             self._edit_enabled_value(title, category, key)
+        elif category == "list" and key == "columns":
+            self._edit_list_columns_value(current, category, key)
         else:
             self._edit_text_value(display_key, current, category, key)
 
@@ -943,3 +945,60 @@ class RichConfigCommand:
         new_value = Prompt.ask("Value", default=str(current) if current else "")
         if new_value.lower() != "c":
             self._update_setting(category, key, new_value if new_value else "")
+
+    def _edit_list_columns_value(self, current: Any, category: str, key: str) -> None:
+        """Edit list.columns value using Rich Prompt."""
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+
+        available_columns = [
+            "ID",
+            "NAME",
+            "TYPE",
+            "ROLE",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ]
+
+        # Format current value for display
+        if isinstance(current, list):
+            current_str = ", ".join(current)
+        else:
+            current_str = str(current) if current else ""
+
+        console = Console()
+        console.clear()
+        console.print(
+            Panel(
+                f"Available: [cyan]{', '.join(available_columns)}[/cyan]\n"
+                f"Current: [yellow]{current_str or '(not set)'}[/yellow]\n"
+                "[dim](EDITING_FILE requires file-safety enabled)[/dim]",
+                title="List Columns",
+                border_style="yellow",
+            )
+        )
+        console.print()
+        console.print("[dim]Enter columns (comma-separated), or 'c' to cancel[/dim]")
+        console.print()
+        new_value_str = Prompt.ask("Columns", default=current_str)
+
+        if new_value_str.lower() == "c":
+            return
+
+        # Parse and validate columns
+        new_columns = []
+        for col in new_value_str.split(","):
+            col = col.strip().upper()
+            if col in available_columns:
+                new_columns.append(col)
+
+        # Use defaults if no valid columns specified
+        if not new_columns:
+            new_columns = DEFAULT_SETTINGS.get("list", {}).get("columns", [])
+            console.print("[yellow]No valid columns. Using defaults.[/yellow]")
+
+        self._update_setting(category, key, new_columns)

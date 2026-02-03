@@ -929,10 +929,9 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
                 )
                 print(f"Expires at: {result.get('expires_at')}", file=sys.stderr)
                 sys.exit(1)
-            if (
-                wait_timeout is not None
-                and (time.monotonic() - start_time) >= wait_timeout
-            ):
+            # Check timeout before sleeping
+            elapsed = time.monotonic() - start_time
+            if wait_timeout is not None and elapsed >= wait_timeout:
                 print(f"Timed out waiting for lock on {args.file}")
                 sys.exit(1)
             lock_holder = result.get("lock_holder")
@@ -942,7 +941,13 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
                 print(f"Waiting for lock on {args.file}...")
             if result.get("expires_at"):
                 print(f"Current lock expires at: {result.get('expires_at')}")
-            time.sleep(max(0.0, float(wait_interval)))
+            # Clamp sleep to remaining time to avoid oversleeping past timeout
+            if wait_timeout is not None:
+                remaining = wait_timeout - elapsed
+                sleep_time = min(float(wait_interval), max(0.0, remaining))
+            else:
+                sleep_time = max(0.0, float(wait_interval))
+            time.sleep(sleep_time)
             continue
         if status == LockStatus.FAILED:
             print(

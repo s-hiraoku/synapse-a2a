@@ -74,7 +74,15 @@ class RichRenderer:
         "EDITING_FILE": (None, 15, 25, "editing_file"),
     }
 
-    DEFAULT_COLUMNS = ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+    DEFAULT_COLUMNS = [
+        "ID",
+        "NAME",
+        "STATUS",
+        "CURRENT",
+        "TRANSPORT",
+        "WORKING_DIR",
+        "EDITING_FILE",
+    ]
 
     def build_table(
         self,
@@ -118,6 +126,13 @@ class RichRenderer:
             if col_upper == "EDITING_FILE" and not show_file_safety:
                 continue
             valid_columns.append(col_upper)
+
+        # Fallback to defaults if no valid columns remain
+        if not valid_columns:
+            for col in self.DEFAULT_COLUMNS:
+                if col == "EDITING_FILE" and not show_file_safety:
+                    continue
+                valid_columns.append(col)
 
         table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
 

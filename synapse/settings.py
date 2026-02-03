@@ -82,8 +82,9 @@ TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
 # Default settings template
 DEFAULT_SETTINGS: dict[str, Any] = {
     "env": {
-        "SYNAPSE_HISTORY_ENABLED": "false",
-        "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+        "SYNAPSE_HISTORY_ENABLED": "true",
+        "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+        "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
         "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
         "SYNAPSE_AUTH_ENABLED": "false",
         "SYNAPSE_API_KEYS": "",
@@ -123,7 +124,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         # Columns to display in synapse list command
         # Available: ID, NAME, TYPE, ROLE, STATUS, CURRENT, TRANSPORT,
         #            WORKING_DIR, EDITING_FILE (requires file-safety enabled)
-        "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"],
+        "columns": [
+            "ID",
+            "NAME",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ],
     },
 }
 

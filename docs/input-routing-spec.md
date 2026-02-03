@@ -14,7 +14,7 @@ Synapseでラップされたエージェントにおいて、人間の入力を�
 
 ```bash
 # Terminal 1: Claudeを起動
-synapse claude
+synapse claude --port 8100
 
 # Terminal 2: Geminiを起動
 synapse gemini --port 8110

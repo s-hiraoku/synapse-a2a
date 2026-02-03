@@ -25,7 +25,15 @@ class TestListColumnsSettings:
     def test_default_columns_order(self) -> None:
         """Default columns should be in expected order."""
         columns = DEFAULT_SETTINGS["list"]["columns"]
-        expected = ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+        expected = [
+            "ID",
+            "NAME",
+            "STATUS",
+            "CURRENT",
+            "TRANSPORT",
+            "WORKING_DIR",
+            "EDITING_FILE",
+        ]
         assert columns == expected
 
     def test_synapse_settings_has_list_columns(self) -> None:
@@ -39,6 +47,7 @@ class TestListColumnsSettings:
             "CURRENT",
             "TRANSPORT",
             "WORKING_DIR",
+            "EDITING_FILE",
         ]
 
     def test_custom_columns_from_settings_file(self, tmp_path: Path) -> None:
