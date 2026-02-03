@@ -119,7 +119,7 @@ synapse copilot --port 8140
 
 ```bash
 synapse list
-synapse send --target codex --priority 1 "設計を書いて"
+synapse send codex "設計を書いて" --priority 1
 ```
 
 CLI は内部で A2A 形式のメッセージを送信します（`/tasks/send-priority` エンドポイント）。

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.18] - 2026-02-04
+
+### Documentation
+
+- Add column descriptions to `synapse list --help` including EDITING_FILE requirement (#179)
+- Add "Integration with synapse list" section to `synapse file-safety --help`
+- Expand `synapse file-safety locks` help to mention EDITING_FILE column
+- Add "List Integration" feature to README File Safety table
+- Sync File Safety documentation across plugin skills
+
+### Changed
+
+- Simplify CLI with constants and data-driven patterns
+  - Extract HISTORY_DISABLED_MSG and FILE_SAFETY_DISABLED_MSG constants
+  - Consolidate subcommand help into subcommand_parsers dict
+  - Use `name or agent_id` instead of ternary expressions
+
 ## [0.3.17] - 2026-02-03
 
 ### Fixed

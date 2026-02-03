@@ -180,9 +180,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
     agent_id: str = agent_info["agent_id"]
     name = agent_info.get("name")
     pid = agent_info.get("pid")
-
-    # Display info and ask for confirmation
-    display_name = name if name else agent_id
+    display_name = name or agent_id
     if not force:
         try:
             confirm = (
@@ -223,8 +221,7 @@ def cmd_jump(args: argparse.Namespace) -> None:
     agent_id = agent_info.get("agent_id")
     name = agent_info.get("name")
     tty_device = agent_info.get("tty_device")
-
-    display_name = name if name else agent_id
+    display_name = name or agent_id
 
     if not tty_device and not agent_info.get("zellij_pane_id"):
         print(f"No TTY device available for {display_name}.")
@@ -325,6 +322,12 @@ def cmd_logs(args: argparse.Namespace) -> None:
 # ============================================================
 
 
+HISTORY_DISABLED_MSG = "History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true"
+FILE_SAFETY_DISABLED_MSG = (
+    "File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true"
+)
+
+
 def _get_history_manager() -> HistoryManager:
     """Get HistoryManager with settings env applied.
 
@@ -367,7 +370,7 @@ def cmd_history_list(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     observations = manager.list_observations(
@@ -392,7 +395,7 @@ def cmd_history_show(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     observation = manager.get_observation(args.task_id)
@@ -430,7 +433,7 @@ def cmd_history_search(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     observations = manager.search_observations(
@@ -460,7 +463,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     # Validate arguments
@@ -538,7 +541,7 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     stats = manager.get_statistics(agent_name=args.agent if args.agent else None)
@@ -595,7 +598,7 @@ def cmd_history_export(args: argparse.Namespace) -> None:
     manager = _get_history_manager()
 
     if not manager.enabled:
-        print("History is disabled. Enable with: SYNAPSE_HISTORY_ENABLED=true")
+        print(HISTORY_DISABLED_MSG)
         return
 
     # Get export format
@@ -743,7 +746,7 @@ def cmd_file_safety_status(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     stats = manager.get_statistics()
@@ -790,13 +793,13 @@ def cmd_file_safety_locks(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     # Get locks with stale information
     locks = manager.list_locks(
-        agent_name=args.agent if hasattr(args, "agent") and args.agent else None,
-        agent_type=args.type if hasattr(args, "type") and args.type else None,
+        agent_name=getattr(args, "agent", None),
+        agent_type=getattr(args, "type", None),
         include_stale=True,
     )
 
@@ -892,7 +895,7 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     agent_id, agent_type, pid = _resolve_agent_info(args.agent)
@@ -906,9 +909,9 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
             file_path=args.file,
             agent_id=agent_id,
             agent_type=agent_type,
-            task_id=args.task_id if hasattr(args, "task_id") else None,
-            duration_seconds=args.duration if hasattr(args, "duration") else None,
-            intent=args.intent if hasattr(args, "intent") else None,
+            task_id=getattr(args, "task_id", None),
+            duration_seconds=getattr(args, "duration", None),
+            intent=getattr(args, "intent", None),
             pid=pid,
         )
 
@@ -966,7 +969,7 @@ def cmd_file_safety_unlock(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     force = getattr(args, "force", False)
@@ -1000,7 +1003,7 @@ def cmd_file_safety_cleanup_locks(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     # First show what will be cleaned
@@ -1036,7 +1039,7 @@ def cmd_file_safety_history(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     history = manager.get_file_history(args.file, limit=args.limit)
@@ -1064,12 +1067,12 @@ def cmd_file_safety_recent(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     mods = manager.get_recent_modifications(
         limit=args.limit,
-        agent_name=args.agent if hasattr(args, "agent") and args.agent else None,
+        agent_name=getattr(args, "agent", None),
     )
 
     if not mods:
@@ -1096,7 +1099,7 @@ def cmd_file_safety_record(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     record_id = manager.record_modification(
@@ -1125,7 +1128,7 @@ def cmd_file_safety_cleanup(args: argparse.Namespace) -> None:
     manager = FileSafetyManager.from_env()
 
     if not manager.enabled:
-        print("File safety is disabled. Enable with: SYNAPSE_FILE_SAFETY_ENABLED=true")
+        print(FILE_SAFETY_DISABLED_MSG)
         return
 
     # Confirm
@@ -1786,9 +1789,8 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
 
         print("=" * 80)
         if name or role:
-            name_str = name if name else agent_id
             role_str = f" | Role: {role}" if role else ""
-            print(f"Agent: {name_str}{role_str}")
+            print(f"Agent: {name or agent_id}{role_str}")
         print()
 
         return name, role
@@ -2306,6 +2308,18 @@ Target resolution priority:
         epilog="""Examples:
   synapse list              Show running agents (Rich TUI with auto-update)
 
+Columns:
+  ID            Agent identifier
+  NAME          Custom name (set via synapse rename)
+  STATUS        Current status (READY, PROCESSING, etc.)
+  CURRENT       Current task preview
+  TRANSPORT     Transport status (UDS/TCP)
+  WORKING_DIR   Working directory
+  EDITING_FILE  File being edited (requires SYNAPSE_FILE_SAFETY_ENABLED=true)
+
+  Customize columns: synapse config → list.columns
+  Manage file locks: synapse file-safety locks
+
 Interactive controls:
   1-9         Select agent by number
   ↑/↓         Navigate selection
@@ -2793,7 +2807,11 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
   synapse file-safety unlock src/main.py myagent  Release lock
   synapse file-safety recent       Show recent modifications
   synapse file-safety history src/main.py  Show file history
-  synapse file-safety debug        Show troubleshooting info""",
+  synapse file-safety debug        Show troubleshooting info
+
+Integration with synapse list:
+  When file-safety is enabled, active locks appear in the EDITING_FILE column
+  of 'synapse list', showing which file each agent is currently editing.""",
     )
     file_safety_subparsers = p_file_safety.add_subparsers(
         dest="file_safety_command", metavar="SUBCOMMAND"
@@ -2807,7 +2825,8 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
 
     # file-safety locks
     p_fs_locks = file_safety_subparsers.add_parser(
-        "locks", help="List active file locks"
+        "locks",
+        help="List active file locks (also shown in 'synapse list' EDITING_FILE column)",
     )
     p_fs_locks.add_argument("--agent", "-a", help="Filter by agent name")
     p_fs_locks.add_argument(
@@ -2939,37 +2958,25 @@ Requires SYNAPSE_FILE_SAFETY_ENABLED=true to be set.""",
         parser.print_help()
         sys.exit(1)
 
-    # Handle history subcommand without action
-    if args.command == "history" and (
-        not hasattr(args, "history_command") or args.history_command is None
-    ):
-        p_history.print_help()
-        sys.exit(1)
+    # Map of subcommands that require a subcommand action
+    subcommand_parsers = {
+        "history": ("history_command", p_history),
+        "external": ("external_command", p_external),
+        "auth": ("auth_command", p_auth),
+        "instructions": ("instructions_command", p_instructions),
+    }
 
-    # Handle external subcommand without action
-    if args.command == "external" and (
-        not hasattr(args, "external_command") or args.external_command is None
-    ):
-        p_external.print_help()
-        sys.exit(1)
-
-    # Handle auth subcommand without action
-    if args.command == "auth" and (
-        not hasattr(args, "auth_command") or args.auth_command is None
-    ):
-        p_auth.print_help()
-        sys.exit(1)
-
-    # Handle instructions subcommand without action
-    if args.command == "instructions" and (
-        not hasattr(args, "instructions_command") or args.instructions_command is None
-    ):
-        p_instructions.print_help()
-        sys.exit(1)
+    # Handle subcommands without action (print help)
+    if args.command in subcommand_parsers:
+        attr_name, subparser = subcommand_parsers[args.command]
+        if getattr(args, attr_name, None) is None:
+            subparser.print_help()
+            sys.exit(1)
 
     # Handle file-safety subcommand without action (show status by default)
-    if args.command == "file-safety" and (
-        not hasattr(args, "file_safety_command") or args.file_safety_command is None
+    if (
+        args.command == "file-safety"
+        and getattr(args, "file_safety_command", None) is None
     ):
         cmd_file_safety_status(args)
         return
