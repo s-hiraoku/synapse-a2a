@@ -233,8 +233,8 @@ class InstructionsCommand:
             for f in file_paths:
                 message += f"  - {f}\n"
             message += (
-                f"\nRead these files NOW to get your delegation rules, "
-                f"A2A protocol, and other guidelines.\n"
+                f"\nRead these files NOW to get your "
+                f"A2A protocol guidelines and other instructions.\n"
                 f"Replace {{{{agent_id}}}} with {agent_id} and "
                 f"{{{{port}}}} with {port} when following instructions."
             )

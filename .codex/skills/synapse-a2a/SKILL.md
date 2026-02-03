@@ -91,7 +91,7 @@ When you receive an A2A message, it appears with the `A2A:` prefix:
 **Message Formats:**
 ```
 A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
-A2A: <message>                    <- Reply is optional (delegation/notification)
+A2A: <message>                    <- Reply is optional (one-way notification)
 ```
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.

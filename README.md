@@ -136,7 +136,7 @@ pip install -e .
 
 **Installing skills is strongly recommended to get the most out of Synapse A2A.**
 
-Skills help Claude automatically understand Synapse A2A features: @agent messaging, task delegation, File Safety, and more.
+Skills help Claude automatically understand Synapse A2A features: @agent messaging, File Safety, and more.
 
 ```bash
 # Install via skills.sh (https://skills.sh/)
@@ -299,7 +299,6 @@ With skills installed, Claude automatically understands and executes:
 
 - **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from synapse-claude-8100`
 - **Priority control**: Message sending with Priority 1-5 (5 = emergency stop)
-- **Task delegation**: Automatic task routing with `delegation.enabled`
 - **File Safety**: Prevent multi-agent conflicts with file locking and change tracking
 - **History management**: Search, export, and statistics for task history
 
@@ -315,7 +314,6 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
-| **delegation** | Automatic task delegation setup: `delegation.enabled`, pre-checks, error handling, File Safety integration |
 
 ### Directory Structure
 
@@ -325,8 +323,7 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        ├── synapse-a2a/SKILL.md
-        └── delegation/SKILL.md
+        └── synapse-a2a/SKILL.md
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
@@ -1258,7 +1255,6 @@ synapse config show --scope user
 | `settings.json` | Environment variables and initial instruction settings |
 | `default.md` | Initial instructions common to all agents |
 | `gemini.md` | Gemini-specific initial instructions |
-| `delegate.md` | Task delegation rules |
 | `file-safety.md` | File Safety instructions |
 
 ### settings.json Structure
@@ -1279,9 +1275,6 @@ synapse config show --scope user
   "approvalMode": "required",
   "a2a": {
     "flow": "auto"
-  },
-  "delegation": {
-    "enabled": false
   }
 }
 ```
@@ -1313,13 +1306,6 @@ synapse config show --scope user
 | `flow` | `roundtrip` | Always wait for result |
 | `flow` | `oneway` | Always forward only (don't wait) |
 | `flow` | `auto` | AI agent decides per task (default) |
-
-### Delegation Settings (delegation)
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| `enabled` | `true` | Load `.synapse/delegate.md` and enable delegation rules |
-| `enabled` | `false` | Disable delegation (default) |
 
 ### Approval Mode (approvalMode)
 
@@ -1530,7 +1516,6 @@ See [guides/enterprise.md](guides/enterprise.md) for details.
 | [guides/architecture.md](guides/architecture.md) | Architecture details |
 | [guides/enterprise.md](guides/enterprise.md) | Enterprise features |
 | [guides/troubleshooting.md](guides/troubleshooting.md) | Troubleshooting |
-| [guides/delegation.md](guides/delegation.md) | Task delegation guide |
 | [docs/file-safety.md](docs/file-safety.md) | File conflict prevention |
 | [docs/project-philosophy.md](docs/project-philosophy.md) | Design philosophy |
 

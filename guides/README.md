@@ -36,7 +36,6 @@ flowchart TD
     subgraph Configuration["設定"]
         Settings["settings.md<br/>.synapse 設定"]
         Profiles["profiles.md<br/>プロファイル設定"]
-        Delegation["delegation.md<br/>委任ルール"]
         Enterprise["enterprise.md<br/>エンタープライズ機能"]
     end
 
@@ -127,13 +126,6 @@ flowchart TD
   - `env`: 環境変数
 - デフォルトプロファイル（claude, codex, gemini, dummy）
 - カスタムプロファイルの作成方法
-
-### [delegation.md](delegation.md)
-**委任ルールとモード**
-
-- orchestrator / passthrough / off の違い
-- ルール記述の書き方と例
-- 委任結果の取り扱い
 
 ### [enterprise.md](enterprise.md)
 **エンタープライズ機能ガイド**
@@ -301,7 +293,6 @@ guides/
 ├── usage.md               # 使い方詳細
 ├── settings.md            # .synapse 設定ガイド
 ├── profiles.md            # プロファイル設定
-├── delegation.md          # 委任ルールとモード
 ├── enterprise.md          # エンタープライズ機能（認証・Webhook・gRPC）
 ├── architecture.md        # アーキテクチャ
 ├── agent-identity.md      # エージェント識別とルーティング

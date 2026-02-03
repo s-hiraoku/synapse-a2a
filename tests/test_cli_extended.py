@@ -31,7 +31,6 @@ class TestCliExtended:
         source_skills.mkdir()
         (source_skills / "synapse-a2a").mkdir()
         (source_skills / "synapse-a2a" / "skill.json").touch()
-        (source_skills / "delegation").mkdir()
 
         # Setup target structure (home dir)
         home_dir = tmp_path / "home"
@@ -51,11 +50,9 @@ class TestCliExtended:
         # Verify copies
         claude_skills = home_dir / ".claude" / "skills"
         assert (claude_skills / "synapse-a2a").exists()
-        assert (claude_skills / "delegation").exists()
 
         codex_skills = home_dir / ".codex" / "skills"
         assert (codex_skills / "synapse-a2a").exists()
-        assert (codex_skills / "delegation").exists()
 
     def test_stop_agent_cleans_registry_on_process_error(self):
         """Test _stop_agent removes from registry if process not found."""

@@ -38,7 +38,7 @@ def install_skills() -> None:
         import synapse
 
         package_dir = Path(synapse.__file__).parent
-        skills_to_install = ["synapse-a2a", "delegation"]
+        skills_to_install = ["synapse-a2a"]
 
         for skill_name in skills_to_install:
             claude_target = Path.home() / ".claude" / "skills" / skill_name
@@ -2103,7 +2103,7 @@ def main() -> None:
         description="""Synapse A2A - Multi-Agent Collaboration Framework
 
 Synapse wraps CLI agents (Claude Code, Codex, Gemini) with Google A2A Protocol,
-enabling seamless inter-agent communication and task delegation.""",
+enabling seamless inter-agent communication.""",
         prog="synapse",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:

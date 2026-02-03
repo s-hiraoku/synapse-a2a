@@ -37,13 +37,10 @@ Read the following files to understand current implementation and documentation:
    - `README.md` - Main documentation
    - `guides/usage.md` - Usage guide
    - `guides/settings.md` - Settings documentation
-   - `guides/delegation.md` - Delegation guide
 
 3. **Current Skills**:
    - `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md`
    - `plugins/synapse-a2a/skills/synapse-a2a/references/*.md`
-   - `plugins/synapse-a2a/skills/delegation/SKILL.md`
-   - `plugins/synapse-a2a/skills/delegation/references/*.md`
 
 ### Step 2: Identify Gaps
 
@@ -72,14 +69,6 @@ Update skill files to match current state:
 - Endpoint paths
 - Request/response formats
 - Extension endpoints
-
-**delegation/SKILL.md**:
-- Delegation patterns
-- Command examples
-
-**delegation/references/modes.md**:
-- Communication methods
-- A2A patterns
 
 ### Step 4: Verify Consistency
 

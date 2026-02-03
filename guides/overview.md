@@ -134,7 +134,6 @@ flowchart TB
 | | A2A Flow設定 | roundtrip/oneway/auto で通信方式を制御 | `settings.json` |
 | | Priority Interrupt | Priority 5 で SIGINT 送信（緊急停止） | 常時 |
 | | 外部エージェント連携 | 他の A2A エージェントと通信 | 常時 |
-| **委任** | 自動委任 | delegate.md に基づくタスク自動振り分け | `delegation.enabled: true` |
 | **履歴** | タスク履歴 | 過去の実行結果を保存・検索 | `SYNAPSE_HISTORY_ENABLED=true` |
 | **安全** | ファイルロック | 排他制御で競合防止 | `SYNAPSE_FILE_SAFETY_ENABLED=true` |
 | | 変更追跡 | 誰が何を変更したか記録 | 同上 |
@@ -320,9 +319,6 @@ CREATE TABLE file_modifications (
   },
   "a2a": {
     "flow": "auto"
-  },
-  "delegation": {
-    "enabled": false
   }
 }
 ```
@@ -354,7 +350,6 @@ CREATE TABLE file_modifications (
 |----------|-------------|------|
 | `default.md` | `instructions.default` が `default.md` の場合 | 全エージェント共通の指示 |
 | `gemini.md` | `instructions.gemini` が `gemini.md` の場合 | Gemini専用の指示 |
-| `delegate.md` | `delegation.enabled` が `true` の場合 | 委任ルール |
 | `file-safety.md` | `SYNAPSE_FILE_SAFETY_ENABLED=true` | ファイル安全ルール |
 
 ---
@@ -552,6 +547,5 @@ synapse
 | [settings.md](settings.md) | 設定詳細 |
 | [architecture.md](architecture.md) | アーキテクチャ詳細 |
 | [a2a-communication.md](a2a-communication.md) | A2A通信と応答制御 |
-| [delegation.md](delegation.md) | 委任ガイド |
 | [../docs/file-safety.md](../docs/file-safety.md) | File Safety 詳細 |
 | [troubleshooting.md](troubleshooting.md) | トラブルシューティング |

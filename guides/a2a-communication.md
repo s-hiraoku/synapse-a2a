@@ -264,5 +264,4 @@ synapse send codex "テストを書いて" --from synapse-claude-8100
 ## 関連ドキュメント
 
 - [settings.md](settings.md) - 設定ファイルの詳細
-- [delegation.md](delegation.md) - 自動タスク委任
 - [usage.md](usage.md) - 使い方詳細

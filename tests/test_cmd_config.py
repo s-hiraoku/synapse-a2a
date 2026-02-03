@@ -212,35 +212,6 @@ class TestConfigRun:
         saved = json.loads(settings_path.read_text())
         assert saved["a2a"]["flow"] == "roundtrip"
 
-    def test_edit_delegation_enabled(self, temp_synapse_dir: Path) -> None:
-        """Should save delegation enabled setting correctly."""
-        settings_path = temp_synapse_dir / "settings.json"
-
-        output_lines: list[str] = []
-        mock_q = MockQuestionary(
-            [
-                "user",  # scope selection
-                "delegation",  # main menu - delegation category
-                "enabled",  # delegation setting selection
-                True,  # new value (confirm)
-                "save",  # main menu - save
-            ]
-        )
-
-        cmd = ConfigCommand(
-            print_func=lambda s: output_lines.append(s),
-            questionary_module=mock_q,
-        )
-
-        with patch.object(cmd, "_get_settings_path") as mock_path:
-            mock_path.return_value = settings_path
-            result = cmd.run()
-
-        assert result is True
-
-        saved = json.loads(settings_path.read_text())
-        assert saved["delegation"]["enabled"] is True
-
     def test_edit_instructions_setting(self, temp_synapse_dir: Path) -> None:
         """Should save instructions setting correctly."""
         settings_path = temp_synapse_dir / "settings.json"
@@ -492,7 +463,6 @@ class TestRichConfigCommand:
         assert "env" in keys
         assert "instructions" in keys
         assert "a2a" in keys
-        assert "delegation" in keys
         assert "resume_flags" in keys
 
     def test_get_setting_keys(self) -> None:
@@ -509,16 +479,6 @@ class TestRichConfigCommand:
         cmd._update_setting("env", "SYNAPSE_HISTORY_ENABLED", "true")
 
         assert cmd._current_settings["env"]["SYNAPSE_HISTORY_ENABLED"] == "true"
-        assert cmd._modified is True
-
-    def test_update_setting_delegation(self) -> None:
-        """Should update delegation setting correctly (boolean)."""
-        cmd = RichConfigCommand()
-        cmd._current_settings = {}
-
-        cmd._update_setting("delegation", "enabled", True)
-
-        assert cmd._current_settings["delegation"]["enabled"] is True
         assert cmd._modified is True
 
     def test_update_setting_resume_flags(self) -> None:
@@ -591,16 +551,16 @@ class TestRichConfigCommand:
 
         cmd = RichConfigCommand(scope="user")
 
-        # Mock _select_menu to return "Save and exit" option (index 7 for 6 categories + separator)
-        # Categories: env, instructions, a2a, delegation, resume_flags, list (6)
-        # Separator at index 6, Save at index 7, Quit at index 8
+        # Mock _select_menu to return "Save and exit" option (index 6 for 5 categories + separator)
+        # Categories: env, instructions, a2a, resume_flags, list (5)
+        # Separator at index 5, Save at index 6, Quit at index 7
         def mock_select_menu(
             title: str, items: list[str], cursor_index: int = 0
         ) -> int:
             # Set modified flag and settings before returning save
             cmd._modified = True
             cmd._current_settings = initial_settings
-            return 7
+            return 6
 
         with (
             patch.object(cmd, "_select_menu", side_effect=mock_select_menu),
@@ -623,11 +583,11 @@ class TestRichConfigCommand:
         cmd = RichConfigCommand(scope="user")
         cmd._modified = False
 
-        # Mock _select_menu to return "Exit without saving" option (index 8)
-        # Categories: env, instructions, a2a, delegation, resume_flags, list (6)
-        # Separator at index 6, Save at index 7, Quit at index 8
+        # Mock _select_menu to return "Exit without saving" option (index 7)
+        # Categories: env, instructions, a2a, resume_flags, list (5)
+        # Separator at index 5, Save at index 6, Quit at index 7
         with (
-            patch.object(cmd, "_select_menu", return_value=8),
+            patch.object(cmd, "_select_menu", return_value=7),
             patch("synapse.commands.config.load_settings", return_value={}),
         ):
             result = cmd.run()
@@ -702,15 +662,3 @@ class TestRichConfigCommand:
 
         assert cmd._current_settings["a2a"]["flow"] == "roundtrip"
 
-    def test_edit_value_enabled_setting(self) -> None:
-        """_edit_value should set enabled setting correctly."""
-        from unittest.mock import patch
-
-        cmd = RichConfigCommand()
-        cmd._current_settings = {"delegation": {}}
-
-        # Mock _select_menu to return 0 (true option)
-        with patch.object(cmd, "_select_menu", return_value=0):
-            cmd._edit_value("delegation", "enabled")
-
-        assert cmd._current_settings["delegation"]["enabled"] is True

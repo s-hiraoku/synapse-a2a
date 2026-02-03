@@ -64,7 +64,6 @@ $ synapse init
 | `settings.json` | 環境変数・初期インストラクション設定 |
 | `default.md` | 全エージェント共通の初期インストラクション |
 | `gemini.md` | Gemini 用の初期インストラクション |
-| `delegate.md` | タスク委任ルール |
 | `file-safety.md` | File Safety の指示 |
 
 既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます：
@@ -112,7 +111,6 @@ Editing: /Users/you/.synapse/settings.json
   ❯ Environment Variables - Configure SYNAPSE_* environment variables
     Instructions - Configure agent-specific instruction files
     A2A Protocol - Configure inter-agent communication settings
-    Delegation - Configure task delegation settings
     Resume Flags - Configure CLI flags that indicate resume mode
     ────────────────────────────────────────────
     Save and exit
@@ -126,7 +124,6 @@ Editing: /Users/you/.synapse/settings.json
 | Environment Variables | `SYNAPSE_HISTORY_ENABLED` などの環境変数 |
 | Instructions | エージェント別の初期インストラクション |
 | A2A Protocol | `flow` モード（auto/roundtrip/oneway） |
-| Delegation | タスク委任の有効/無効 |
 | Resume Flags | セッション再開を示すフラグ |
 
 **オプション**:
@@ -153,7 +150,6 @@ Current settings (merged from all scopes):
   },
   "instructions": { ... },
   "a2a": { "flow": "auto" },
-  "delegation": { "enabled": false },
   "resume_flags": { ... }
 }
 ```
@@ -226,9 +222,6 @@ Codex もプラグインには対応していませんが、展開された skil
   },
   "a2a": {
     "flow": "auto"
-  },
-  "delegation": {
-    "enabled": false
   },
   "list": {
     "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
@@ -433,31 +426,6 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 ```
 
 **Note**: `EDITING_FILE` カラムは `SYNAPSE_FILE_SAFETY_ENABLED=true` の場合のみ表示されます。
-
-## 委任設定 (delegation)
-
-自動タスク委任を制御します。
-
-### 設定値
-
-| 設定 | 説明 |
-|------|------|
-| `enabled: true` | `.synapse/delegate.md` を読み込み、委任ルールを有効化 |
-| `enabled: false` | 委任を無効化（デフォルト） |
-
-### 例
-
-```json
-{
-  "delegation": {
-    "enabled": true
-  }
-}
-```
-
-委任を有効にするには、`.synapse/delegate.md` に委任ルールを記述してください。
-
-詳細は [delegation.md](delegation.md) を参照してください。
 
 ## 承認モード (approvalMode)
 
