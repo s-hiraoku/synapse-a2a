@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.19] - 2026-02-04
+
+### Removed
+
+- **Delegation feature** - Remove auto-routing based on delegate.md rules
+  - `synapse/delegation.py` and related tests
+  - `delegate.md` template files
+  - Delegation skill directories across all agent configs
+  - `guides/delegation.md` guide
+  - Delegation settings from settings.py and config TUI
+
+### Changed
+
+- Recommend using `--name` and `--role` flags (v0.3.11) for assigning specialized roles to agents instead of model-type-based delegation
+
+### Documentation
+
+- Update README and guides to remove delegation references
+- Clarify one-way notifications vs delegated tasks
+
 ## [0.3.18] - 2026-02-04
 
 ### Documentation

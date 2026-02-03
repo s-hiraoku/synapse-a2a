@@ -421,7 +421,7 @@ class SynapseSettings:
             user_dir: Optional custom user directory for testing (default: Path.home()).
 
         Returns:
-            List of display paths (e.g., [".synapse/default.md", "~/.synapse/delegate.md"])
+            List of display paths (e.g., [".synapse/default.md", "~/.synapse/gemini.md"])
         """
         paths: list[str] = []
         home = user_dir or Path.home()
