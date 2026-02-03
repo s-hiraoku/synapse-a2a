@@ -661,4 +661,3 @@ class TestRichConfigCommand:
             cmd._edit_value("a2a", "flow")
 
         assert cmd._current_settings["a2a"]["flow"] == "roundtrip"
-
