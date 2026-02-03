@@ -1,12 +1,14 @@
 # Task Ownership Design
 
-このドキュメントは、`--reply-to`オプションが動作しない問題を解決するための設計変更について説明します。
+このドキュメントは、返信追跡（`in_reply_to`）が動作しない問題を解決するための設計変更について説明します。
 
 ## 問題概要
 
 ### 症状
 
-`synapse send` コマンドで `--response` フラグを使用してメッセージを送信し、受信側が `--reply-to` で返信しようとすると、常に「Task not found」エラーが発生します。
+`synapse send` コマンドで `--response` フラグを使用してメッセージを送信し、受信側が `synapse reply` で返信しようとすると、常に「Task not found」エラーが発生します。
+
+> **Note**: `--reply-to` は CLI には存在せず、`synapse reply` が `in_reply_to` を内部で付与します。
 
 ```bash
 # Terminal 1: Claude 起動
@@ -23,7 +25,7 @@ synapse send codex "分析して" --response --from synapse-claude-8100
 # [A2A:abc12345:synapse-claude-8100] 分析して
 
 # Codex で返信しようとすると失敗:
-synapse send claude "結果です" --reply-to abc12345 --from synapse-codex-8120
+synapse reply "結果です" --from synapse-codex-8120
 # Error: Task abc12345 not found  ← 常に失敗！
 ```
 
@@ -44,7 +46,7 @@ POST /tasks/send-priority to target
     ↓
 プロセス終了 → task_store も消滅！ ← 問題点
     ↓
-後で --reply-to で参照しても見つからない
+後で `synapse reply` で参照しても見つからない
 ```
 
 `synapse send` コマンドは短命なCLIプロセスとして実行されるため、タスクを作成してもプロセス終了とともにメモリから消えてしまいます。
@@ -69,10 +71,10 @@ POST /tasks/send-priority to target
 3. Codex の PTY に表示:
    [A2A:abc12345:synapse-claude-8100] msg
     ↓
-4. synapse send claude "reply" --reply-to abc12345 --from synapse-codex-8120
+4. synapse reply "reply" --from synapse-codex-8120
     ↓
 5. POST /tasks/send to Claude's server
-   → metadata に in_reply_to=abc12345 を含める
+   → metadata に in_reply_to=abc12345 を含める（synapse reply が自動付与）
     ↓
 6. Claude のサーバーで task_store.get(abc12345) → 見つかる！
     ↓
@@ -192,7 +194,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
 }
 ```
 
-### 返信時 (--reply-to)
+### 返信時 (in_reply_to)
 
 ```json
 {
@@ -212,8 +214,8 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
 ## シーケンス図
 
 ```
-synapse send            Claude Server           Codex Server           synapse send
-(--response)            (port 8100)             (port 8120)            (--reply-to)
+synapse send            Claude Server           Codex Server           synapse reply
+(--response)            (port 8100)             (port 8120)            (in_reply_to)
      |                       |                       |                      |
      |  POST /tasks/create   |                       |                      |
      | --------------------> |                       |                      |

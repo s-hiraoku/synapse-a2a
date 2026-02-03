@@ -60,7 +60,7 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | `--from, -f` | 送信元エージェントID（返信先特定用）- **常に指定推奨** |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
-| `--no-response` | Onewayモード - 送りっぱなし、返信不要（デフォルト） |
+| `--no-response` | Onewayモード - 送りっぱなし、返信不要 |
 
 ### 例
 
@@ -69,7 +69,7 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 synapse send gemini "分析結果を教えて" --from synapse-claude-8100
 
 # 転送のみ（fire-and-forget）
-synapse send codex "テストを実行して" --from synapse-claude-8100
+synapse send codex "テストを実行して" --from synapse-claude-8100 --no-response
 
 # 緊急割り込み（Priority 5）
 synapse send codex "STOP" --priority 5 --from synapse-claude-8100
@@ -132,7 +132,7 @@ A2A: テストを実行してコミットして
 | 送信側 | 受信側のアクション |
 |--------|-------------------|
 | `--response` 使用 | **必ず** `synapse reply` で返信 |
-| `--no-response` (デフォルト) | タスク実行のみ、返信不要 |
+| `--no-response` | タスク実行のみ、返信不要 |
 
 ### いつ --response を使うか
 
@@ -142,7 +142,7 @@ A2A: テストを実行してコミットして
 - タスク完了を確認したい
 - ユーザーへの報告に結果を統合する
 
-**--response を使わない場合（デフォルト）：**
+**--no-response を使う場合：**
 - バックグラウンドで実行するタスク
 - 別の手段で結果を受け取る
 - 並列で複数タスクを委譲する
@@ -159,7 +159,7 @@ A2A: テストを実行してコミットして
 |--------|------|
 | `roundtrip` | 常に結果を待つ（フラグは無視） |
 | `oneway` | 常に転送のみ（フラグは無視） |
-| `auto` | AIエージェントがフラグで制御（デフォルト） |
+| `auto` | フラグで制御（フラグなしは待つ、デフォルト） |
 
 ### 設定例
 
@@ -177,9 +177,9 @@ A2A: テストを実行してコミットして
 |------------|-----------|------------|
 | `roundtrip` | 待つ | 待つ |
 | `oneway` | 待たない | 待たない（上書き） |
-| `auto` | 待たない（デフォルト） | 待つ |
+| `auto` | 待つ（デフォルト） | 待つ |
 
-> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではAIエージェントが `--response` フラグで明示的に制御します。
+> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではフラグで制御され、フラグなしは待機になります。
 
 ---
 

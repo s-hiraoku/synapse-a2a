@@ -142,13 +142,13 @@ synapse list
 
 ```
 ╭─────────────── Synapse A2A v0.2.30 - Agent List ───────────────╮
-│ ╭───┬────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
-│ │ # │ TYPE   │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
-│ ├───┼────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
-│ │ 1 │ claude │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
-│ │ 2 │ gemini │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
-│ │ 3 │ codex  │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
-│ ╰───┴────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
+│ ╭───┬──────────────────────┬──────────┬────────────┬───────────┬───────────┬────────────┬──────────────╮ │
+│ │ # │ ID                   │ NAME     │ STATUS     │ CURRENT   │ TRANSPORT │ WORKING_DIR│ EDITING_FILE │ │
+│ ├───┼──────────────────────┼──────────┼────────────┼───────────┼───────────┼────────────┼──────────────┤ │
+│ │ 1 │ synapse-claude-8100  │ my-claude│ PROCESSING │ Reviewing │ UDS→      │ project    │ auth.py      │ │
+│ │ 2 │ synapse-gemini-8110  │ -        │ PROCESSING │ -         │ →UDS      │ other      │ -            │ │
+│ │ 3 │ synapse-codex-8120   │ tester   │ READY      │ -         │ -         │ third      │ -            │ │
+│ ╰───┴──────────────────────┴──────────┴────────────┴───────────┴───────────┴────────────┴──────────────┘ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
 [1-3/↑↓: select] [Enter/j: jump] [k: kill] [/: filter] [ESC: clear] [q: quit]
 ```
@@ -167,12 +167,17 @@ synapse list
 
 | 列 | 説明 |
 |----|------|
+| ID | エージェントID（例: `synapse-claude-8100`） |
+| NAME | カスタム名 |
 | TYPE | エージェントタイプ（プロファイル名） |
-| PORT | HTTP サーバーポート |
+| ROLE | エージェントの役割説明 |
 | STATUS | 現在の状態（READY/PROCESSING/DONE） |
 | TRANSPORT | 通信中の方式 |
-| PID | プロセス ID |
+| CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
+| EDITING_FILE | 編集中のファイル（File Safety 有効時のみ表示） |
+
+**Note**: 行を選択すると詳細パネルが表示され、Port/PID/Endpoint/フルパスなどが確認できます。
 
 **TRANSPORT 列の値**:
 
@@ -209,7 +214,9 @@ synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | -
 | `--from`, `-f` | No | 送信元エージェントID（常に指定推奨） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
-| `--no-response` | No | Oneway - 送りっぱなし、返信不要（デフォルト） |
+| `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
+
+**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。
 
 **例**:
 
@@ -551,7 +558,7 @@ Current settings (merged from all scopes):
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     ...
   },
   "instructions": {

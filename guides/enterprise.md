@@ -819,7 +819,7 @@ for event in stub.Subscribe(a2a_pb2.SubscribeRequest(task_id=response.task.id)):
 カスタムポート:
 
 ```bash
-synapse claude --port 9000  # REST: 9000, gRPC: 9001
+synapse claude --port 9000  # REST: 9000（gRPC は別起動）
 ```
 
 ### REST vs gRPC
@@ -881,10 +881,10 @@ export SYNAPSE_API_KEYS=new-key
 
 ```bash
 # ローカルのみ（デフォルト）
-synapse claude --host 127.0.0.1
+synapse claude --port 8100
 
-# 全インターフェース（LAN 内）
-synapse claude --host 0.0.0.0
+# 全インターフェースで待ち受けたい場合（CLI では未対応）
+python -m synapse.server --profile claude --port 8100 --host 0.0.0.0
 
 # 本番環境ではリバースプロキシ推奨
 # nginx → synapse (localhost)

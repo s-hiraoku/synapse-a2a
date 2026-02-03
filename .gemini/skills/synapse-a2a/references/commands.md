@@ -420,6 +420,22 @@ synapse reset
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 
+**list.columns:**
+
+Configure which columns to display in `synapse list`:
+
+| Column | Description |
+|--------|-------------|
+| `ID` | Agent ID (e.g., `synapse-claude-8100`) |
+| `NAME` | Custom name if set |
+| `TYPE` | Agent type (claude, gemini, etc.) |
+| `ROLE` | Role description |
+| `STATUS` | READY/WAITING/PROCESSING/DONE |
+| `CURRENT` | Current task preview |
+| `TRANSPORT` | UDS/TCP communication status |
+| `WORKING_DIR` | Working directory |
+| `EDITING_FILE` | Currently locked file (requires file-safety) |
+
 **approvalMode:**
 
 | Value | Description |

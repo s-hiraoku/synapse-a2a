@@ -427,7 +427,7 @@ flowchart LR
 
 ```bash
 # SIGINT を送ってからメッセージを書き込み
-synapse send --target claude --priority 5 "今すぐ止まれ"
+synapse send claude "今すぐ止まれ" --priority 5
 ```
 
 ---

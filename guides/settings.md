@@ -197,7 +197,7 @@ Codex もプラグインには対応していませんが、展開された skil
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
     "SYNAPSE_AUTH_ENABLED": "false",
     "SYNAPSE_API_KEYS": "",
@@ -224,7 +224,15 @@ Codex もプラグインには対応していませんが、展開された skil
     "flow": "auto"
   },
   "list": {
-    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+    "columns": [
+      "ID",
+      "NAME",
+      "STATUS",
+      "CURRENT",
+      "TRANSPORT",
+      "WORKING_DIR",
+      "EDITING_FILE"
+    ]
   }
 }
 ```
@@ -247,7 +255,7 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook 署名用シークレット | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook タイムアウト（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook リトライ回数 | `3` |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety 機能を有効化 | `true` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | File Safety 機能を有効化 | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | SQLite データベースファイルのパス | `.synapse/file_safety.db` |
 | `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | ロック履歴の保持日数 | `30` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
@@ -371,7 +379,7 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 |------|------|
 | `flow: roundtrip` | 常に結果を待つ |
 | `flow: oneway` | 常に転送のみ（結果を待たない） |
-| `flow: auto` | AIエージェントがタスクに応じて判断、またはフラグで明示的に制御（デフォルト） |
+| `flow: auto` | フラグで制御（フラグなしは待つ、デフォルト） |
 
 ### 例
 
@@ -408,7 +416,15 @@ Gemini は Claude Code の Skills に対応していないため、デフォル�
 ```json
 {
   "list": {
-    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
+    "columns": [
+      "ID",
+      "NAME",
+      "STATUS",
+      "CURRENT",
+      "TRANSPORT",
+      "WORKING_DIR",
+      "EDITING_FILE"
+    ]
   }
 }
 ```

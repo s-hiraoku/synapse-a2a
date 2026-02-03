@@ -228,7 +228,7 @@ synapse start claude --port 8100
 synapse list
 
 # メッセージ送信
-synapse send --target codex --priority 1 "メッセージ"
+synapse send codex "メッセージ" --priority 1
 
 # 停止
 synapse stop claude

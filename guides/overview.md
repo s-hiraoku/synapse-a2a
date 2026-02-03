@@ -329,7 +329,7 @@ CREATE TABLE file_modifications (
 |--------|------|
 | `roundtrip` | 常に結果を待つ |
 | `oneway` | 常に転送のみ（結果を待たない） |
-| `auto` | AIエージェントがタスクに応じて判断（デフォルト） |
+| `auto` | フラグで制御（フラグなしは待つ、デフォルト） |
 
 ### 環境変数一覧
 
@@ -396,7 +396,9 @@ synapse send codex "テストを実行して" --from synapse-claude-8100
 |----------------|------|------------------|
 | `roundtrip` | 常に待つ | 無視 |
 | `oneway` | 常に待たない | 無視 |
-| `auto` | フラグで制御 | `--response`=待つ、なし=待たない |
+| `auto` | フラグで制御 | `--response`=待つ、なし=待つ |
+
+**Note**: `a2a.flow=auto` の場合、待たない送信には `--no-response` を使用します。
 
 ### Priority レベル
 
