@@ -83,9 +83,9 @@ synapse claude
 
 ### ストレージ
 
-- **データベース**: デフォルトは `~/.synapse/file_safety.db` (SQLite)
+- **データベース**: デフォルトは `.synapse/file_safety.db` (SQLite, 作業ディレクトリ相対)
 - `SYNAPSE_FILE_SAFETY_DB_PATH`（環境変数または settings.json）で変更可能
-  - 例: `./.synapse/file_safety.db` でプロジェクト単位の管理
+  - 例: `~/.synapse/file_safety.db` でユーザー単位の管理
 - 初回実行時に自動作成されます
 
 ---
@@ -188,7 +188,7 @@ Run 'synapse file-safety cleanup-locks' to clean them up.
 ```
 
 > [!TIP]
-> `synapse list --watch` コマンドでも、各エージェントが現在ロックしているファイル（1つのみ）と stale ロックの警告を素早く確認できます。
+> `synapse list` コマンドでも、Rich TUI の自動更新で各エージェントが現在ロックしているファイル（1つのみ）と stale ロックの警告を素早く確認できます。
 
 ---
 
@@ -290,7 +290,7 @@ Cleaned up 2 stale lock(s).
 ```
 
 > [!TIP]
-> `synapse list --watch` コマンドで stale ロックが検出されると警告が表示されます。その場合、このコマンドでクリーンアップできます。
+> `synapse list` コマンドで stale ロックが検出されると警告が表示されます。その場合、このコマンドでクリーンアップできます。
 
 ---
 
@@ -422,7 +422,7 @@ synapse file-safety debug
 File Safety Debug Info
 ============================================================
 Enabled: True
-DB Path: /Users/user/.synapse/file_safety.db
+DB Path: .synapse/file_safety.db
 DB Exists: True
 DB Size: 12 KB
 Retention Days: 30
@@ -795,7 +795,7 @@ synapse file-safety cleanup --force
 ```
 
 > [!TIP]
-> `synapse list --watch` で stale ロックの警告が表示された場合は、`cleanup-locks` コマンドで自動的にクリーンアップできます。
+> `synapse list` で stale ロックの警告が表示された場合は、`cleanup-locks` コマンドで自動的にクリーンアップできます。
 
 ### データベースファイルが見つからない
 

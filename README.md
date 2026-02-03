@@ -699,7 +699,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--from` | `-f` | Sender agent ID (for reply identification) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
 | `--response` | - | Roundtrip - sender waits, receiver replies with `synapse reply` |
-| `--no-response` | - | Oneway - fire and forget, no reply needed (default) |
+| `--no-response` | - | Oneway - fire and forget, no reply needed |
 
 **Examples:**
 
@@ -716,6 +716,8 @@ synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
 # Wait for response (roundtrip)
 synapse send gemini "Analyze this" --response --from synapse-claude-8100
 ```
+
+**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.
 
 **Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
@@ -1120,7 +1122,7 @@ if not validation["allowed"]:
     print(f"Write blocked: {validation['reason']}")
 ```
 
-**Storage**: Default is `~/.synapse/file_safety.db` (SQLite). Change via `SYNAPSE_FILE_SAFETY_DB_PATH` (e.g., `./.synapse/file_safety.db` for per-project).
+**Storage**: Default is `.synapse/file_safety.db` (SQLite, relative to working directory). Change via `SYNAPSE_FILE_SAFETY_DB_PATH` (e.g., `~/.synapse/file_safety.db` for global).
 
 See [docs/file-safety.md](docs/file-safety.md) for details.
 
@@ -1268,7 +1270,7 @@ synapse config show --scope user
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
   "instructions": {
@@ -1292,7 +1294,7 @@ synapse config show --scope user
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SYNAPSE_HISTORY_ENABLED` | Enable task history | `true` |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `true` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | Enable file safety | `false` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | File safety DB path | `.synapse/file_safety.db` |
 | `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Lock history retention days | `30` |
 | `SYNAPSE_AUTH_ENABLED` | Enable API authentication | `false` |
@@ -1313,7 +1315,7 @@ synapse config show --scope user
 |---------|-------|-------------|
 | `flow` | `roundtrip` | Always wait for result |
 | `flow` | `oneway` | Always forward only (don't wait) |
-| `flow` | `auto` | AI agent decides per task (default) |
+| `flow` | `auto` | Flag-controlled; if omitted, waits by default |
 
 ### Delegation Settings (delegation)
 

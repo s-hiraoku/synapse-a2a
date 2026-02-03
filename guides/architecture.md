@@ -436,7 +436,7 @@ classDiagram
 | `record_modification()` | 誰が何を変更したか履歴を記録 |
 | `get_file_context()` | 最近の変更履歴を取得してコンテキスト注入 |
 
-**データベース**: デフォルトは `~/.synapse/file_safety.db`（`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能）
+**データベース**: デフォルトは `.synapse/file_safety.db`（`SYNAPSE_FILE_SAFETY_DB_PATH` で変更可能）
 
 ---
 

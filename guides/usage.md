@@ -346,19 +346,9 @@ synapse jump my-claude
 synapse list
 ```
 
-**出力例**:
-
-```
-TYPE       PORT     STATUS     PID      WORKING_DIR                                        ENDPOINT
---------------------------------------------------------------------------------------------------------------
-claude     8100     READY      12345    /home/user/projects/myapp                          http://localhost:8100
-codex      8120     PROCESSING 12346    /home/user/projects/myapp                          http://localhost:8120
-gemini     8110     READY      12347    -                                                  http://localhost:8110
-```
-
 **Rich TUI モード（デフォルト）**:
 
-`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（2秒間隔のフォールバックポーリング）。
+`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（10秒間隔のフォールバックポーリング）。
 
 ```bash
 synapse list                      # 自動更新 Rich TUI
@@ -377,46 +367,37 @@ synapse list                      # 自動更新 Rich TUI
 
 ```
 ╭─────────────── Synapse A2A v0.3.11 - Agent List ───────────────╮
-│ ╭───┬────────┬───────────┬─────────────────────┬──────┬────────────┬───────────┬───────┬─────────────────────╮ │
-│ │ # │ TYPE   │ NAME      │ ROLE                │ PORT │ STATUS     │ TRANSPORT │   PID │ WORKING_DIR         │ │
-│ ├───┼────────┼───────────┼─────────────────────┼──────┼────────────┼───────────┼───────┼─────────────────────┤ │
-│ │ 1 │ claude │ my-claude │ コードレビュー担当  │ 8100 │ PROCESSING │ UDS→      │ 12345 │ /home/user/project… │ │
-│ │ 2 │ gemini │ -         │ -                   │ 8110 │ PROCESSING │ →UDS      │ 12346 │ /home/user/other    │ │
-│ │ 3 │ codex  │ tester    │ テスト担当          │ 8120 │ READY      │ -         │ 12347 │ /home/user/third    │ │
-│ ╰───┴────────┴───────────┴─────────────────────┴──────┴────────────┴───────────┴───────┴─────────────────────╯ │
+│ ╭───┬──────────────────────┬──────────┬────────────┬───────────┬───────────┬────────────┬──────────────╮ │
+│ │ # │ ID                   │ NAME     │ STATUS     │ CURRENT   │ TRANSPORT │ WORKING_DIR│ EDITING_FILE │ │
+│ ├───┼──────────────────────┼──────────┼────────────┼───────────┼───────────┼────────────┼──────────────┤ │
+│ │ 1 │ synapse-claude-8100  │ my-claude│ PROCESSING │ Reviewing │ UDS→      │ project    │ auth.py      │ │
+│ │ 2 │ synapse-gemini-8110  │ -        │ PROCESSING │ -         │ →UDS      │ other      │ -            │ │
+│ │ 3 │ synapse-codex-8120   │ tester   │ READY      │ -         │ -         │ third      │ -            │ │
+│ ╰───┴──────────────────────┴──────────┴────────────┴───────────┴───────────┴────────────┴──────────────┘ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
 [1-3/↑↓: select] [Enter/j: jump] [k: kill] [/: filter] [ESC: clear] [q: quit]
 ```
 
-**表示カラム:**
+**表示カラム（`list.columns`）**:
 
 | カラム | 説明 |
 |--------|------|
-| TYPE | エージェントタイプ (claude, gemini, codex など) |
+| ID | エージェントID（例: `synapse-claude-8100`） |
 | NAME | カスタム名（設定されている場合） |
+| TYPE | エージェントタイプ (claude, gemini, codex など) |
 | ROLE | ロール説明（設定されている場合） |
-| PORT | HTTP ポート番号 |
 | STATUS | 現在のステータス (READY, WAITING, PROCESSING, DONE) |
 | TRANSPORT | 通信トランスポート表示 |
-| PID | プロセスID |
+| CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
+| EDITING_FILE | 編集中のファイル（File Safety有効時のみ表示） |
 
-> **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
-> - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中
-> - `→UDS` / `→TCP`: エージェントが UDS/TCP で受信中
-> - `-`: 通信なし
+**Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
+- `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中
+- `→UDS` / `→TCP`: エージェントが UDS/TCP で受信中
+- `-`: 通信なし
 
-**File Safety 機能が有効な場合の出力例**:
-
-```
-TYPE       PORT     STATUS     PID      WORKING_DIR                                        EDITING FILE                   ENDPOINT
-------------------------------------------------------------------------------------------------------------------------------------------
-claude     8100     READY      12345    /home/user/projects/myapp                          auth.py                        http://localhost:8100
-codex      8120     PROCESSING 12346    /home/user/projects/myapp                          -                              http://localhost:8120
-gemini     8110     READY      12347    -                                                  -                              http://localhost:8110
-```
-
-> **Note**: `WORKING_DIR` 列には各エージェントの作業ディレクトリが表示されます。File Safety 機能が有効な場合は、`EDITING FILE` 列に現在編集中のファイル名が追加で表示されます。
+**Note**: 行を選択すると詳細パネルが表示され、Port/PID/Endpoint/フルパスなどが確認できます。
 
 ---
 
@@ -434,7 +415,9 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 | `--from` | `-f` | - | 送信元エージェントID（常に指定推奨） |
 | `--priority` | `-p` | 1 | 優先度 (1-5) |
 | `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
-| `--no-response` | - | デフォルト | Oneway - 送りっぱなし、返信不要 |
+| `--no-response` | - | - | Oneway - 送りっぱなし、返信不要 |
+
+**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。待たない場合は `--no-response` を指定してください。
 
 **例**:
 
@@ -804,7 +787,7 @@ flowchart TB
 **CLI から**:
 
 ```bash
-synapse send --target claude --priority 5 "処理を止めて"
+synapse send claude "処理を止めて" --priority 5
 ```
 
 **HTTP API から**:
@@ -891,10 +874,10 @@ done
 curl http://localhost:8120/status
 
 # READY なのに作業が終わっていない場合に nudge
-synapse send --target codex --priority 1 "進捗を報告して"
+synapse send codex "進捗を報告して" --priority 1
 
 # 応答がない場合は緊急介入
-synapse send --target codex --priority 5 "状況を報告して"
+synapse send codex "状況を報告して" --priority 5
 ```
 
 ---
