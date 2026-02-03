@@ -591,16 +591,16 @@ class TestRichConfigCommand:
 
         cmd = RichConfigCommand(scope="user")
 
-        # Mock _select_menu to return "Save and exit" option (index 6 for 5 categories + separator)
-        # Categories: env, instructions, a2a, delegation, resume_flags (5)
-        # Separator at index 5, Save at index 6, Quit at index 7
+        # Mock _select_menu to return "Save and exit" option (index 7 for 6 categories + separator)
+        # Categories: env, instructions, a2a, delegation, resume_flags, list (6)
+        # Separator at index 6, Save at index 7, Quit at index 8
         def mock_select_menu(
             title: str, items: list[str], cursor_index: int = 0
         ) -> int:
             # Set modified flag and settings before returning save
             cmd._modified = True
             cmd._current_settings = initial_settings
-            return 6
+            return 7
 
         with (
             patch.object(cmd, "_select_menu", side_effect=mock_select_menu),
@@ -623,9 +623,11 @@ class TestRichConfigCommand:
         cmd = RichConfigCommand(scope="user")
         cmd._modified = False
 
-        # Mock _select_menu to return "Exit without saving" option (index 7)
+        # Mock _select_menu to return "Exit without saving" option (index 8)
+        # Categories: env, instructions, a2a, delegation, resume_flags, list (6)
+        # Separator at index 6, Save at index 7, Quit at index 8
         with (
-            patch.object(cmd, "_select_menu", return_value=7),
+            patch.object(cmd, "_select_menu", return_value=8),
             patch("synapse.commands.config.load_settings", return_value={}),
         ):
             result = cmd.run()
