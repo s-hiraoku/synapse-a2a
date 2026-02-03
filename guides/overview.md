@@ -304,7 +304,7 @@ CREATE TABLE file_modifications (
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
     "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
     "SYNAPSE_AUTH_ENABLED": "false",

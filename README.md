@@ -1270,7 +1270,7 @@ synapse config show --scope user
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
   "instructions": {

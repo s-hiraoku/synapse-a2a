@@ -561,7 +561,7 @@ Current settings (merged from all scopes):
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     ...
   },
   "instructions": {
