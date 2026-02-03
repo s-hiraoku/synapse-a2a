@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.17] - 2026-02-03
+
+### Fixed
+
+- Type error in `synapse list` file safety lock lookup (removed redundant variable reassignment)
+- Improve file-safety lock lookup with cleaner conditional expressions
+
+### Changed
+
+- Simplify non-interactive table output using data-driven column definitions
+- Add `create_mock_list_locks` helper to test file for reduced duplication
+- Add type annotations to test fixtures for better code quality
+
+### Documentation
+
+- Sync FILE_SAFETY env vars across documentation
+- Add list category to synapse config TUI documentation
+
 ## [0.3.16] - 2026-02-02
 
 ### Added
