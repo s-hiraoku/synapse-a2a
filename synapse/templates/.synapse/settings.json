@@ -19,7 +19,7 @@
   "instructions": {
     "default": "default.md",
     "claude": "",
-    "gemini": "gemini.md",
+    "gemini": "",
     "codex": "",
     "opencode": ""
   },
