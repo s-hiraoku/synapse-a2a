@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
-from synapse.utils import format_role_section
+from synapse.utils import RoleFileNotFoundError, format_role_section, get_role_content
 
 if TYPE_CHECKING:
     from synapse.a2a_client import A2AClient
@@ -226,8 +226,15 @@ class InstructionsCommand:
                 f"Agent: {display_name} | Port: {port} | ID: {agent_id}\n"
             )
             # Include role section if role is set (critical for agent behavior)
+            # Role may be a string or @file reference - get_role_content handles both
             if role:
-                message += format_role_section(role)
+                try:
+                    role_content = get_role_content(role)
+                    if role_content:
+                        message += format_role_section(role_content)
+                except RoleFileNotFoundError as e:
+                    self._print(f"Warning: Role file not found: {e}")
+                    self._print(f"Continuing without role content for: {role}")
             message += "\nIMPORTANT: Read your full instructions from these files:\n"
             # Paths already include directory prefix (.synapse/ or ~/.synapse/)
             for f in file_paths:

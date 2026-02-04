@@ -13,6 +13,7 @@ from rich.text import Text
 
 from synapse.port_manager import PORT_RANGES
 from synapse.status import STATUS_STYLES
+from synapse.utils import get_role_display
 
 
 class RichRenderer:
@@ -167,6 +168,9 @@ class RichRenderer:
                 _, _, _, data_key = self.COLUMN_DEFS[col_name]
                 if col_name == "STATUS":
                     row.append(self._format_status(agent.get(data_key, "-")))
+                elif col_name == "ROLE":
+                    # Show filename only for file references
+                    row.append(get_role_display(agent.get(data_key)) or "-")
                 else:
                     row.append(agent.get(data_key) or "-")
 
@@ -194,7 +198,7 @@ class RichRenderer:
             ("Agent ID", agent.get("agent_id", "-")),
             ("Name", agent.get("name") or "-"),
             ("Type", agent.get("agent_type", "-")),
-            ("Role", agent.get("role") or "-"),
+            ("Role", get_role_display(agent.get("role")) or "-"),
             ("Port", str(agent.get("port", "-"))),
             ("Status", agent.get("status", "-")),
             ("PID", str(agent.get("pid", "-"))),

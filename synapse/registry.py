@@ -8,6 +8,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from synapse.utils import is_role_file_reference, resolve_role_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -116,7 +118,12 @@ class AgentRegistry:
         if name:
             data["name"] = name
         if role:
-            data["role"] = role
+            # Resolve file reference if present (copies file to registry/roles/)
+            if is_role_file_reference(role):
+                resolved_role = resolve_role_value(role, agent_id, self.registry_dir)
+                data["role"] = resolved_role
+            else:
+                data["role"] = role
 
         # Add tty_device if available (for terminal jump feature)
         if tty_device:
@@ -425,11 +432,16 @@ class AgentRegistry:
             agent_id: The unique agent identifier.
             name: New name value (None to keep current, or clear if clear=True).
             role: New role value (None to keep current, or clear if clear=True).
+                  Can be a string or @file reference.
             clear: If True, clear both name and role when they are None.
 
         Returns:
             True if updated successfully, False otherwise.
         """
+        # Resolve role file reference if present (copies file to registry/roles/)
+        resolved_role = role
+        if role is not None and is_role_file_reference(role):
+            resolved_role = resolve_role_value(role, agent_id, self.registry_dir)
 
         def set_name_role(data: dict) -> None:
             if clear:
@@ -437,15 +449,15 @@ class AgentRegistry:
                     data.pop("name", None)
                 else:
                     data["name"] = name
-                if role is None:
+                if resolved_role is None:
                     data.pop("role", None)
                 else:
-                    data["role"] = role
+                    data["role"] = resolved_role
             else:
                 if name is not None:
                     data["name"] = name
-                if role is not None:
-                    data["role"] = role
+                if resolved_role is not None:
+                    data["role"] = resolved_role
 
         return self._atomic_update(agent_id, set_name_role, "name/role")
 
