@@ -15,6 +15,34 @@ from synapse.commands.list import ListCommand
 from synapse.registry import AgentRegistry
 
 
+def create_list_command(
+    is_process_alive=lambda p: True,
+    is_port_open=lambda host, port, timeout=0.5: True,
+    time_module=None,
+) -> ListCommand:
+    """Create a ListCommand with mock dependencies.
+
+    Args:
+        is_process_alive: Mock for process alive check.
+        is_port_open: Mock for port open check.
+        time_module: Optional mock time module. If None, uses a basic MagicMock.
+
+    Returns:
+        Configured ListCommand instance.
+    """
+    if time_module is None:
+        time_module = MagicMock()
+
+    return ListCommand(
+        registry_factory=lambda: MagicMock(spec=AgentRegistry),
+        is_process_alive=is_process_alive,
+        is_port_open=is_port_open,
+        clear_screen=lambda: None,
+        time_module=time_module,
+        print_func=print,
+    )
+
+
 @pytest.fixture
 def temp_registry_dir():
     """Create a temporary registry directory."""
@@ -35,24 +63,9 @@ def temp_registry(temp_registry_dir):
 class TestGetAgentData:
     """Tests for ListCommand._get_agent_data method."""
 
-    def _create_list_command(
-        self,
-        is_process_alive=lambda p: True,
-        is_port_open=lambda host, port, timeout=0.5: True,
-    ):
-        """Create a ListCommand with mock dependencies."""
-        return ListCommand(
-            registry_factory=lambda: MagicMock(spec=AgentRegistry),
-            is_process_alive=is_process_alive,
-            is_port_open=is_port_open,
-            clear_screen=lambda: None,
-            time_module=MagicMock(),
-            print_func=print,
-        )
-
     def test_empty_registry(self, temp_registry):
         """Should return empty list for no agents."""
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, stale_locks, show_file_safety = list_cmd._get_agent_data(temp_registry)
         assert agents == []
 
@@ -61,7 +74,7 @@ class TestGetAgentData:
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -76,7 +89,7 @@ class TestGetAgentData:
             "synapse-gemini-8110", "gemini", 8110, status="PROCESSING"
         )
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 2
@@ -89,7 +102,7 @@ class TestGetAgentData:
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
-        list_cmd = self._create_list_command(is_process_alive=lambda p: False)
+        list_cmd = create_list_command(is_process_alive=lambda p: False)
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         # Should return empty list
@@ -103,7 +116,7 @@ class TestGetAgentData:
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="READY")
 
-        list_cmd = self._create_list_command(
+        list_cmd = create_list_command(
             is_process_alive=lambda p: True,
             is_port_open=lambda host, port, timeout=0.5: False,
         )
@@ -117,7 +130,7 @@ class TestGetAgentData:
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
-        list_cmd = self._create_list_command(
+        list_cmd = create_list_command(
             is_process_alive=lambda p: True,
             is_port_open=lambda host, port, timeout=0.5: False,
         )
@@ -132,7 +145,7 @@ class TestGetAgentData:
         temp_registry.register(agent_id, "claude", 8100, status="READY")
         temp_registry.update_transport(agent_id, "UDS→")
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -603,28 +616,13 @@ class TestPartialJSONRead:
 class TestTransportDisplay:
     """Tests for TRANSPORT column in agent list."""
 
-    def _create_list_command(
-        self,
-        is_process_alive=lambda p: True,
-        is_port_open=lambda host, port, timeout=0.5: True,
-    ):
-        """Create a ListCommand with mock dependencies."""
-        return ListCommand(
-            registry_factory=lambda: MagicMock(spec=AgentRegistry),
-            is_process_alive=is_process_alive,
-            is_port_open=is_port_open,
-            clear_screen=lambda: None,
-            time_module=MagicMock(),
-            print_func=print,
-        )
-
     def test_transport_shows_sender_format(self, temp_registry):
         """Sender shows 'UDS→' when active_transport is set."""
         agent_id = "synapse-claude-8100"
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
         temp_registry.update_transport(agent_id, "UDS→")
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -636,7 +634,7 @@ class TestTransportDisplay:
         temp_registry.register(agent_id, "gemini", 8110, status="PROCESSING")
         temp_registry.update_transport(agent_id, "→UDS")
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -648,7 +646,7 @@ class TestTransportDisplay:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
         temp_registry.update_transport(agent_id, "TCP→")
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -660,7 +658,7 @@ class TestTransportDisplay:
         temp_registry.register(agent_id, "claude", 8100, status="READY")
         # No active_transport set
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 1
@@ -677,7 +675,7 @@ class TestTransportDisplay:
         temp_registry.update_transport(agent_id, "UDS→")
         temp_registry.update_transport(agent_id, None)  # Clear
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         # Should still show UDS→ due to retention (within 3s)
@@ -698,7 +696,7 @@ class TestTransportDisplay:
         temp_registry.update_transport("synapse-gemini-8110", "→UDS")
         # codex has no active transport
 
-        list_cmd = self._create_list_command()
+        list_cmd = create_list_command()
         agents, _, _ = list_cmd._get_agent_data(temp_registry)
 
         assert len(agents) == 3
@@ -787,17 +785,7 @@ class TestFileWatcher:
         """Should create file watcher for registry directory."""
         from threading import Event
 
-        from synapse.commands.list import ListCommand
-
-        list_cmd = ListCommand(
-            registry_factory=lambda: MagicMock(spec=AgentRegistry),
-            is_process_alive=lambda p: True,
-            is_port_open=lambda host, port, timeout=0.5: True,
-            clear_screen=lambda: None,
-            time_module=MagicMock(),
-            print_func=print,
-        )
-
+        list_cmd = create_list_command()
         change_event = Event()
         observer = list_cmd._create_file_watcher(temp_registry_dir, change_event)
 
@@ -816,3 +804,238 @@ class TestFileWatcher:
             # Cleanup
             observer.stop()
             observer.join()
+
+
+# ============================================================================
+# Tests for Port Check Retry (Race Condition Fix)
+# ============================================================================
+
+
+def _create_mock_time_module() -> MagicMock:
+    """Create a mock time module with sleep and time methods."""
+    mock_time = MagicMock()
+    mock_time.sleep = MagicMock()
+    mock_time.time = MagicMock(return_value=1000.0)
+    return mock_time
+
+
+class TestPortCheckRetry:
+    """Tests for port check retry logic in _is_agent_alive."""
+
+    def test_port_check_success_no_retry(self, temp_registry):
+        """Port check succeeds on first attempt, no retry needed."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        call_count = 0
+
+        def port_open_first_try(host, port, timeout=0.5):
+            nonlocal call_count
+            call_count += 1
+            return True
+
+        list_cmd = create_list_command(
+            is_port_open=port_open_first_try,
+            time_module=_create_mock_time_module(),
+        )
+        result = list_cmd._is_agent_alive(
+            temp_registry, agent_id, temp_registry.get_agent(agent_id)
+        )
+
+        assert result is True
+        assert call_count == 1  # Only one call, no retry
+
+    def test_port_check_retry_on_first_failure(self, temp_registry):
+        """Port check retries once after first failure."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        call_count = 0
+
+        def port_open_second_try(host, port, timeout=0.5):
+            nonlocal call_count
+            call_count += 1
+            return call_count >= 2  # Fail first, succeed second
+
+        list_cmd = create_list_command(
+            is_port_open=port_open_second_try,
+            time_module=_create_mock_time_module(),
+        )
+        result = list_cmd._is_agent_alive(
+            temp_registry, agent_id, temp_registry.get_agent(agent_id)
+        )
+
+        assert result is True
+        assert call_count == 2  # First check + retry
+
+    def test_port_check_unregister_after_both_failures(self, temp_registry):
+        """Agent unregistered after both port checks fail."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        call_count = 0
+
+        def port_always_closed(host, port, timeout=0.5):
+            nonlocal call_count
+            call_count += 1
+            return False
+
+        list_cmd = create_list_command(
+            is_port_open=port_always_closed,
+            time_module=_create_mock_time_module(),
+        )
+        result = list_cmd._is_agent_alive(
+            temp_registry, agent_id, temp_registry.get_agent(agent_id)
+        )
+
+        assert result is False
+        assert call_count == 2  # First check + retry
+        assert temp_registry.get_agent(agent_id) is None  # Unregistered
+
+    def test_recently_transitioned_agent_given_more_time(self, temp_registry):
+        """Agent that recently transitioned status gets longer grace period."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        # Update with recent timestamp
+        temp_registry.update_status(agent_id, "READY")
+
+        call_count = 0
+        timeouts_used = []
+
+        def track_timeout(host, port, timeout=0.5):
+            nonlocal call_count
+            call_count += 1
+            timeouts_used.append(timeout)
+            return call_count >= 2
+
+        list_cmd = create_list_command(
+            is_port_open=track_timeout,
+            time_module=_create_mock_time_module(),
+        )
+        result = list_cmd._is_agent_alive(
+            temp_registry, agent_id, temp_registry.get_agent(agent_id)
+        )
+
+        assert result is True
+        # Retry should use longer timeout
+        assert len(timeouts_used) == 2
+        assert timeouts_used[1] >= 1.0  # Retry uses 1.0s+ timeout
+
+    def test_processing_status_skips_port_check(self, temp_registry):
+        """PROCESSING agents skip port check entirely (existing behavior)."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        call_count = 0
+
+        def should_not_be_called(host, port, timeout=0.5):
+            nonlocal call_count
+            call_count += 1
+            return False
+
+        list_cmd = create_list_command(
+            is_port_open=should_not_be_called,
+            time_module=_create_mock_time_module(),
+        )
+        result = list_cmd._is_agent_alive(
+            temp_registry, agent_id, temp_registry.get_agent(agent_id)
+        )
+
+        assert result is True
+        assert call_count == 0  # Port check not called for PROCESSING
+
+
+# ============================================================================
+# Tests for Status Timestamp Feature
+# ============================================================================
+
+
+class TestStatusTimestamp:
+    """Tests for status_updated_at timestamp in registry."""
+
+    def test_update_status_sets_timestamp(self, temp_registry):
+        """update_status should set status_updated_at timestamp."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        before_time = time.time()
+        temp_registry.update_status(agent_id, "READY")
+        after_time = time.time()
+
+        agent_data = temp_registry.get_agent(agent_id)
+        assert "status_updated_at" in agent_data
+        assert before_time <= agent_data["status_updated_at"] <= after_time
+
+    def test_register_sets_initial_timestamp(self, temp_registry):
+        """register should set status_updated_at timestamp."""
+        agent_id = "synapse-claude-8100"
+        before_time = time.time()
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+        after_time = time.time()
+
+        agent_data = temp_registry.get_agent(agent_id)
+        assert "status_updated_at" in agent_data
+        assert before_time <= agent_data["status_updated_at"] <= after_time
+
+    def test_status_updated_at_changes_on_transition(self, temp_registry):
+        """status_updated_at should update on each status change."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
+
+        first_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
+        time.sleep(0.01)  # Ensure time passes
+
+        temp_registry.update_status(agent_id, "READY")
+        second_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
+
+        assert second_ts > first_ts
+
+
+# ============================================================================
+# Tests for Settings Validation
+# ============================================================================
+
+
+class TestSettingsValidation:
+    """Tests for settings validation and unknown key warnings."""
+
+    def test_unknown_settings_key_warning(self, tmp_path, caplog):
+        """Unknown settings keys should trigger warning log."""
+        import logging
+
+        from synapse.settings import SynapseSettings
+
+        # Create settings file with unknown key
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text('{"unknown_key": "value", "env": {}}')
+
+        with caplog.at_level(logging.WARNING):
+            SynapseSettings.load(
+                user_path=settings_file,
+                project_path=tmp_path / "nonexistent.json",
+                local_path=tmp_path / "nonexistent2.json",
+            )
+
+        # Check warning was logged
+        assert any("unknown_key" in record.message for record in caplog.records)
+
+    def test_known_settings_keys_no_warning(self, tmp_path, caplog):
+        """Known settings keys should not trigger warning."""
+        import logging
+
+        from synapse.settings import SynapseSettings
+
+        # Create settings file with known keys only
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text('{"env": {"SYNAPSE_HISTORY_ENABLED": "true"}}')
+
+        with caplog.at_level(logging.WARNING):
+            SynapseSettings.load(
+                user_path=settings_file,
+                project_path=tmp_path / "nonexistent.json",
+                local_path=tmp_path / "nonexistent2.json",
+            )
+
+        # No warning about unknown keys
+        assert not any("unknown" in record.message.lower() for record in caplog.records)

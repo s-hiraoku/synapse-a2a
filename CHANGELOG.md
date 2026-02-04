@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.20] - 2026-02-05
+
+### Fixed
+
+- **Race condition in `synapse list`** - Add retry logic for port checks during agent status transitions
+  - First port check uses 0.5s timeout, retry uses 1.0s timeout with 0.2s delay
+  - Prevents false "agent dead" detection during PROCESSING → READY transitions
+  - Improves reliability when multiple agents are starting simultaneously
+
+### Added
+
+- **Status timestamp tracking** - Add `status_updated_at` field to registry entries for debugging status transitions
+- **Settings validation warnings** - Log warnings for unknown top-level keys in settings.json files
+  - Helps catch typos and deprecated settings
+  - Known keys: `env`, `instructions`, `approvalMode`, `a2a`, `resume_flags`, `list`
+
+### Tests
+
+- Add `TestPortCheckRetry` test class for port check retry logic
+- Extract shared test helpers to reduce code duplication in test_cmd_list_watch.py
+
 ## [0.3.19] - 2026-02-04
 
 ### Removed

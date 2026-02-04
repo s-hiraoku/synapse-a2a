@@ -51,6 +51,9 @@ class ListCommand:
     ) -> bool:
         """Check if an agent is alive and unregister if dead.
 
+        Uses retry logic to handle race conditions when agents are
+        transitioning between states (e.g., PROCESSING -> READY).
+
         Args:
             registry: AgentRegistry instance for cleanup.
             agent_id: Agent identifier.
@@ -70,15 +73,23 @@ class ListCommand:
         # Check 2: Port must be open (agent server responding)
         # Skip port check for PROCESSING agents (server may still be starting)
         is_starting = info.get("status", "-") == "PROCESSING"
-        if (
-            not is_starting
-            and port
-            and not self._is_port_open("localhost", port, timeout=0.5)
-        ):
-            registry.unregister(agent_id)
-            return False
+        if is_starting or not port:
+            return True
 
-        return True
+        # First port check with short timeout
+        if self._is_port_open("localhost", port, timeout=0.5):
+            return True
+
+        # Port check failed - retry once with longer timeout
+        # This handles race conditions during status transitions
+        self._time.sleep(0.2)  # Brief delay before retry
+
+        if self._is_port_open("localhost", port, timeout=1.0):
+            return True
+
+        # Both checks failed - agent is truly dead
+        registry.unregister(agent_id)
+        return False
 
     def _get_agent_data(
         self,

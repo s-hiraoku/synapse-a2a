@@ -336,7 +336,7 @@ CREATE TABLE file_modifications (
 | 変数 | 説明 | デフォルト |
 |------|------|-----------|
 | `SYNAPSE_HISTORY_ENABLED` | タスク履歴を有効化 | `true` (v0.3.13+) |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | ファイル安全機能を有効化 | `false` |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | ファイル安全機能を有効化 | `true` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | file-safety DBパス | `.synapse/file_safety.db` |
 | `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | 変更履歴保持日数 | `30` |
 | `SYNAPSE_AUTH_ENABLED` | API認証を有効化 | `false` |

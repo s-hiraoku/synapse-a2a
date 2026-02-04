@@ -135,6 +135,32 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
 }
 
+# Known top-level settings keys for validation
+KNOWN_SETTINGS_KEYS: set[str] = {
+    "env",
+    "instructions",
+    "approvalMode",
+    "a2a",
+    "resume_flags",
+    "list",
+}
+
+
+def _warn_unknown_keys(settings: dict[str, Any], path: Path) -> None:
+    """
+    Log warnings for unknown top-level settings keys.
+
+    Args:
+        settings: The loaded settings dictionary.
+        path: Path to the settings file (for log message).
+    """
+    unknown_keys = set(settings.keys()) - KNOWN_SETTINGS_KEYS
+    for key in sorted(unknown_keys):
+        logger.warning(
+            f"Unknown settings key '{key}' in {path}. "
+            f"Known keys: {', '.join(sorted(KNOWN_SETTINGS_KEYS))}"
+        )
+
 
 def load_settings(path: Path) -> dict[str, Any]:
     """
@@ -153,7 +179,9 @@ def load_settings(path: Path) -> dict[str, Any]:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
-                return dict(data)
+                result = dict(data)
+                _warn_unknown_keys(result, path)
+                return result
             return {}
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to load settings from {path}: {e}")
