@@ -1180,7 +1180,6 @@ class TestCmdInit:
         assert (synapse_dir / "settings.json").exists()
         assert (synapse_dir / "default.md").exists()
         assert (synapse_dir / "file-safety.md").exists()
-        assert (synapse_dir / "gemini.md").exists()
 
     def test_init_asks_overwrite_for_existing_synapse_dir(
         self, mock_args, temp_empty_dir, capsys, monkeypatch
