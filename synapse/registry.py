@@ -108,6 +108,7 @@ class AgentRegistry:
             "agent_type": agent_type,
             "port": port,
             "status": status,
+            "status_updated_at": time.time(),
             "pid": os.getpid(),
             "working_dir": os.getcwd(),
             "endpoint": f"http://localhost:{port}",
@@ -242,6 +243,7 @@ class AgentRegistry:
 
         def set_status(data: dict) -> None:
             data["status"] = status
+            data["status_updated_at"] = time.time()
 
         return self._atomic_update(agent_id, set_status, "status")
 
