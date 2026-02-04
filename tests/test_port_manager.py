@@ -91,6 +91,26 @@ class TestIsProcessAlive:
         # PID 99999999 is very unlikely to exist
         assert is_process_alive(99999999) is False
 
+    def test_permission_error_returns_true(self):
+        """Should return True when PermissionError (process exists but no permission)."""
+        with patch("os.kill") as mock_kill:
+            mock_kill.side_effect = PermissionError("Operation not permitted")
+            # Process exists but we don't have permission to signal it
+            assert is_process_alive(1234) is True
+
+    def test_process_lookup_error_returns_false(self):
+        """Should return False when ProcessLookupError (process does not exist)."""
+        with patch("os.kill") as mock_kill:
+            mock_kill.side_effect = ProcessLookupError("No such process")
+            assert is_process_alive(1234) is False
+
+    def test_other_os_error_returns_false(self):
+        """Should return False for other OSError exceptions."""
+        with patch("os.kill") as mock_kill:
+            # ESRCH or other OS-level errors
+            mock_kill.side_effect = OSError(3, "No such process")
+            assert is_process_alive(1234) is False
+
 
 class TestPortManager:
     """Tests for PortManager class."""

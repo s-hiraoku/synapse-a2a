@@ -76,8 +76,12 @@ def is_process_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)  # Signal 0 checks if process exists
         return True
-    except (OSError, ProcessLookupError):
-        return False
+    except ProcessLookupError:
+        return False  # Process does not exist
+    except PermissionError:
+        return True  # Process exists but we don't have permission to signal it
+    except OSError:
+        return False  # Other OS errors (e.g., ESRCH)
 
 
 class PortManager:
