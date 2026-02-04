@@ -415,3 +415,34 @@ def test_multiple_agents_separate_role_files(registry, tmp_path):
     # Both should have same content
     assert get_role_content(info1["role"]) == role_content
     assert get_role_content(info2["role"]) == role_content
+
+
+# ============================================================================
+# Display helper tests
+# ============================================================================
+
+
+def test_get_role_display_string():
+    """Should return string as-is."""
+    from synapse.utils import get_role_display
+
+    assert get_role_display("Code reviewer") == "Code reviewer"
+
+
+def test_get_role_display_file_reference():
+    """Should return filename only for file references."""
+    from synapse.utils import get_role_display
+
+    assert (
+        get_role_display("@/home/user/.a2a/registry/roles/agent-role.md")
+        == "@agent-role.md"
+    )
+    assert get_role_display("@./roles/reviewer.md") == "@reviewer.md"
+    assert get_role_display("@~/docs/AGENTS.md") == "@AGENTS.md"
+
+
+def test_get_role_display_none():
+    """Should return None for None input."""
+    from synapse.utils import get_role_display
+
+    assert get_role_display(None) is None

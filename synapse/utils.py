@@ -249,3 +249,28 @@ def get_role_content(role: str | None) -> str | None:
         raise RoleFileNotFoundError(f"Role file not found: {file_path}")
 
     return file_path.read_text(encoding="utf-8")
+
+
+def get_role_display(role: str | None) -> str | None:
+    """
+    Get a display-friendly version of the role value.
+
+    For file references, returns just the filename with @ prefix.
+    For strings, returns as-is.
+
+    Args:
+        role: The role value (string or @file reference).
+
+    Returns:
+        Display-friendly role string, or None if role is None.
+    """
+    if role is None:
+        return None
+
+    if not is_role_file_reference(role):
+        return role
+
+    # Extract filename only for display
+    file_path_str = role[1:]  # Remove @ prefix
+    file_path = Path(file_path_str)
+    return f"@{file_path.name}"
