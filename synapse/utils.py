@@ -8,7 +8,7 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 from uuid import uuid4
 
 
@@ -144,15 +144,17 @@ def resolve_command_path(command: str) -> str | None:
 # ============================================================================
 
 
-def is_role_file_reference(role: str | None) -> bool:
+def is_role_file_reference(role: str | None) -> TypeGuard[str]:
     """
     Check if a role value is a file reference (starts with @).
+
+    This is a TypeGuard that narrows role to str when True.
 
     Args:
         role: The role value to check.
 
     Returns:
-        True if the role is a file reference, False otherwise.
+        True if the role is a file reference (and role is str), False otherwise.
     """
     if not role or not isinstance(role, str):
         return False
