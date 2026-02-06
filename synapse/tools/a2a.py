@@ -357,16 +357,12 @@ def _agents_in_current_working_dir(
     if not normalized_cwd:
         return []
 
-    targets: list[dict] = []
-    for agent in agents.values():
-        agent_id = agent.get("agent_id")
-        if sender_id and agent_id == sender_id:
-            continue
-
-        normalized_agent_wd = _normalize_working_dir(agent.get("working_dir"))
-        if normalized_agent_wd and normalized_agent_wd == normalized_cwd:
-            targets.append(agent)
-    return targets
+    return [
+        agent
+        for agent in agents.values()
+        if agent.get("agent_id") != sender_id
+        and _normalize_working_dir(agent.get("working_dir")) == normalized_cwd
+    ]
 
 
 def cmd_send(args: argparse.Namespace) -> None:
