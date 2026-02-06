@@ -468,7 +468,9 @@ class TestCmdSend:
         mock_args.want_response = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Task created", stderr="")
+            mock_run.return_value = MagicMock(
+                stdout="Task created", stderr="", returncode=0
+            )
             cmd_send(mock_args)
 
             call_args = mock_run.call_args
@@ -490,7 +492,7 @@ class TestCmdSend:
         mock_args.want_response = True
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -504,7 +506,7 @@ class TestCmdSend:
         mock_args.want_response = False
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -527,7 +529,9 @@ class TestCmdBroadcast:
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Sent: 2\nFailed: 0", stderr="")
+            mock_run.return_value = MagicMock(
+                stdout="Sent: 2\nFailed: 0", stderr="", returncode=0
+            )
             cmd_broadcast(mock_args)
 
             call_args = mock_run.call_args
@@ -548,7 +552,9 @@ class TestCmdBroadcast:
         mock_args.sender = "synapse-claude-8100"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            mock_run.return_value = MagicMock(
+                stdout="Sent: 1\nFailed: 0", stderr="", returncode=0
+            )
             cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -563,7 +569,9 @@ class TestCmdBroadcast:
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            mock_run.return_value = MagicMock(
+                stdout="Sent: 1\nFailed: 0", stderr="", returncode=0
+            )
             cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -577,7 +585,9 @@ class TestCmdBroadcast:
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            mock_run.return_value = MagicMock(
+                stdout="Sent: 1\nFailed: 0", stderr="", returncode=0
+            )
             cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
