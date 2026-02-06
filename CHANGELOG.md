@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.21] - 2026-02-06
+
+### Added
+
+- **`synapse broadcast` command** - Send messages to all agents in the same working directory
+  - `synapse broadcast "message" --from <agent_id>` - Send to all agents in current directory
+  - `--cwd <path>` option to target a specific working directory
+  - Useful for coordinating multiple agents working on the same project
+
+### Removed
+
+- **Gemini-specific instruction files** - Remove `gemini.md` templates in favor of unified default instructions
+
 ## [0.3.20] - 2026-02-05
 
 ### Fixed
