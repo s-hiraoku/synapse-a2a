@@ -628,113 +628,90 @@ def cmd_history_export(args: argparse.Namespace) -> None:
         print(exported_data)
 
 
-def cmd_send(args: argparse.Namespace) -> None:
-    """Send a message to an agent."""
-    target = args.target
-    message = args.message
-    priority = args.priority
-    sender = getattr(args, "sender", None)
-    want_response = getattr(args, "want_response", None)
-
-    # Get the a2a.py tool path from installed package
+def _get_a2a_tool_path() -> Path:
+    """Get the path to the a2a.py tool from installed package."""
     import synapse
 
-    package_dir = Path(synapse.__file__).parent
-    a2a_tool = package_dir / "tools" / "a2a.py"
+    return Path(synapse.__file__).parent / "tools" / "a2a.py"
 
-    cmd = [
-        sys.executable,
-        str(a2a_tool),
-        "send",
-        "--target",
-        target,
-        "--priority",
-        str(priority),
-        message,
-    ]
 
-    # Add sender if specified
+def _run_a2a_command(
+    cmd: list[str],
+    exit_on_error: bool = False,
+) -> None:
+    """Run an a2a.py command and print output."""
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    if exit_on_error and result.returncode != 0:
+        sys.exit(result.returncode)
+
+
+def _build_a2a_cmd(
+    subcommand: str,
+    message: str,
+    *,
+    target: str | None = None,
+    priority: int | None = None,
+    sender: str | None = None,
+    want_response: bool | None = None,
+) -> list[str]:
+    """Build command arguments for a2a.py subcommand."""
+    a2a_tool = _get_a2a_tool_path()
+    cmd = [sys.executable, str(a2a_tool), subcommand]
+
+    if target:
+        cmd.extend(["--target", target])
+    if priority is not None:
+        cmd.extend(["--priority", str(priority)])
+
+    cmd.append(message)
+
     if sender:
         cmd.extend(["--from", sender])
-
-    # Pass response flag to a2a.py (unified with a2a.py send)
     if want_response is True:
         cmd.append("--response")
     elif want_response is False:
         cmd.append("--no-response")
-    # If None, don't pass any flag (a2a.py defaults to --response)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
+    return cmd
+
+
+def cmd_send(args: argparse.Namespace) -> None:
+    """Send a message to an agent."""
+    cmd = _build_a2a_cmd(
+        "send",
+        args.message,
+        target=args.target,
+        priority=args.priority,
+        sender=getattr(args, "sender", None),
+        want_response=getattr(args, "want_response", None),
+    )
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
-    message = args.message
-    priority = args.priority
-    sender = getattr(args, "sender", None)
-    want_response = getattr(args, "want_response", None)
-
-    # Get the a2a.py tool path from installed package
-    import synapse
-
-    package_dir = Path(synapse.__file__).parent
-    a2a_tool = package_dir / "tools" / "a2a.py"
-
-    cmd = [
-        sys.executable,
-        str(a2a_tool),
+    cmd = _build_a2a_cmd(
         "broadcast",
-        "--priority",
-        str(priority),
-        message,
-    ]
-
-    if sender:
-        cmd.extend(["--from", sender])
-
-    if want_response is True:
-        cmd.append("--response")
-    elif want_response is False:
-        cmd.append("--no-response")
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
+        args.message,
+        priority=args.priority,
+        sender=getattr(args, "sender", None),
+        want_response=getattr(args, "want_response", None),
+    )
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last received A2A message using reply tracking."""
-    message = args.message
-    sender = getattr(args, "sender", None)
-
-    # Get the a2a.py tool path from installed package
-    import synapse
-
-    package_dir = Path(synapse.__file__).parent
-    a2a_tool = package_dir / "tools" / "a2a.py"
-
-    cmd = [
-        sys.executable,
-        str(a2a_tool),
+    cmd = _build_a2a_cmd(
         "reply",
-        message,
-    ]
-
-    # Add sender if specified
-    if sender:
-        cmd.extend(["--from", sender])
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.stdout:
-        print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
-    if result.returncode != 0:
-        sys.exit(result.returncode)
+        args.message,
+        sender=getattr(args, "sender", None),
+    )
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 # ============================================================
