@@ -77,7 +77,7 @@ class TestSynapseSendResponseFlags:
         mock_args.want_response = True
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -96,7 +96,7 @@ class TestSynapseSendResponseFlags:
         mock_args.want_response = False
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
@@ -115,7 +115,7 @@ class TestSynapseSendResponseFlags:
         mock_args.want_response = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Success", stderr="")
+            mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]

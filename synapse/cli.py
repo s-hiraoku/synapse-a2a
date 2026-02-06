@@ -642,9 +642,9 @@ def _run_a2a_command(
     """Run an a2a.py command and print output."""
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.stdout:
-        print(result.stdout)
+        print(result.stdout, end="")
     if result.stderr:
-        print(result.stderr, file=sys.stderr)
+        print(result.stderr, end="", file=sys.stderr)
     if exit_on_error and result.returncode != 0:
         sys.exit(result.returncode)
 
@@ -689,7 +689,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
     )
-    _run_a2a_command(cmd)
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
@@ -701,7 +701,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
     )
-    _run_a2a_command(cmd)
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_reply(args: argparse.Namespace) -> None:
