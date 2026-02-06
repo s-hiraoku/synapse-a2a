@@ -328,6 +328,47 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
     return error
 
 
+def _get_response_expected(want_response: bool | None) -> bool:
+    """Resolve response behavior from settings and CLI flags."""
+    settings = get_settings()
+    flow = settings.get_a2a_flow()
+    flow_defaults = {"oneway": False, "roundtrip": True}
+    default_response = want_response if want_response is not None else True
+    return flow_defaults.get(flow, default_response)
+
+
+def _normalize_working_dir(path_str: str | None) -> str | None:
+    """Normalize a working directory path for stable comparisons."""
+    if not path_str:
+        return None
+    try:
+        return str(Path(path_str).expanduser().resolve())
+    except OSError:
+        return os.path.abspath(os.path.expanduser(path_str))
+
+
+def _agents_in_current_working_dir(
+    agents: dict[str, dict],
+    cwd: str,
+    sender_id: str | None = None,
+) -> list[dict]:
+    """Return agents whose working_dir matches current working directory."""
+    normalized_cwd = _normalize_working_dir(cwd)
+    if not normalized_cwd:
+        return []
+
+    targets: list[dict] = []
+    for agent in agents.values():
+        agent_id = agent.get("agent_id")
+        if sender_id and agent_id == sender_id:
+            continue
+
+        normalized_agent_wd = _normalize_working_dir(agent.get("working_dir"))
+        if normalized_agent_wd and normalized_agent_wd == normalized_cwd:
+            targets.append(agent)
+    return targets
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
     reg = AgentRegistry()
@@ -387,14 +428,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Determine response_expected based on a2a.flow setting and flags
-    settings = get_settings()
-    flow = settings.get_a2a_flow()
-    want_response = getattr(args, "want_response", None)
-
-    # Flow modes: roundtrip always waits, oneway never waits, auto uses flag
-    flow_defaults = {"oneway": False, "roundtrip": True}
-    default_response = want_response if want_response is not None else True
-    response_expected = flow_defaults.get(flow, default_response)
+    response_expected = _get_response_expected(getattr(args, "want_response", None))
 
     # Add metadata (sender info and response_expected)
     client = A2AClient()
@@ -441,6 +475,93 @@ def cmd_send(args: argparse.Namespace) -> None:
         priority=args.priority,
         sender_info=sender_info,
     )
+
+
+def cmd_broadcast(args: argparse.Namespace) -> None:
+    """Broadcast a message to all agents in current working directory."""
+    reg = AgentRegistry()
+    agents = reg.list_agents()
+
+    sender_info = build_sender_info(getattr(args, "sender", None))
+    if isinstance(sender_info, str):
+        print(sender_info, file=sys.stderr)
+        sys.exit(1)
+
+    sender_id = sender_info.get("sender_id") if sender_info else None
+    recipients = _agents_in_current_working_dir(
+        agents=agents,
+        cwd=str(Path.cwd()),
+        sender_id=sender_id,
+    )
+
+    if not recipients:
+        print(
+            "Error: No agents found in current working directory",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    response_expected = _get_response_expected(getattr(args, "want_response", None))
+    client = A2AClient()
+    sent_count = 0
+    failed: list[tuple[str, str]] = []
+
+    for target_agent in recipients:
+        agent_id = target_agent.get("agent_id", "unknown")
+        pid = target_agent.get("pid")
+        port = target_agent.get("port")
+        endpoint = target_agent.get("endpoint")
+        uds_path = get_valid_uds_path(target_agent.get("uds_path"))
+
+        if not endpoint:
+            failed.append((agent_id, "missing endpoint"))
+            continue
+
+        if pid and not is_process_running(pid):
+            reg.unregister(agent_id)
+            failed.append((agent_id, f"process {pid} is no longer running"))
+            continue
+
+        if not uds_path and port and not is_port_open("localhost", port, timeout=1.0):
+            failed.append((agent_id, f"server on port {port} is not responding"))
+            continue
+
+        task = client.send_to_local(
+            endpoint=str(endpoint),
+            message=args.message,
+            priority=args.priority,
+            wait_for_completion=response_expected,
+            timeout=60,
+            sender_info=sender_info or None,
+            response_expected=response_expected,
+            uds_path=uds_path if isinstance(uds_path, str) else None,
+            local_only=False,
+            registry=reg,
+            sender_agent_id=sender_id,
+            target_agent_id=agent_id,
+        )
+
+        if not task:
+            failed.append((agent_id, "local send failed"))
+            continue
+
+        sent_count += 1
+        task_id = task.id or str(uuid.uuid4())
+        _record_sent_message(
+            task_id=task_id,
+            target_agent=target_agent,
+            message=args.message,
+            priority=args.priority,
+            sender_info=sender_info if sender_info else None,
+        )
+
+    print(f"Sent: {sent_count}")
+    print(f"Failed: {len(failed)}")
+    for agent_id, reason in failed:
+        print(f"  - {agent_id}: {reason}")
+
+    if failed:
+        sys.exit(1)
 
 
 def _get_target_display_name(endpoint: str | None, uds_path: str | None) -> str:
@@ -581,6 +702,35 @@ def main() -> None:
     )
     p_send.add_argument("message", help="Content of the message")
 
+    # broadcast command
+    p_broadcast = subparsers.add_parser(
+        "broadcast",
+        help="Send message to all agents in current working directory",
+    )
+    p_broadcast.add_argument(
+        "--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)"
+    )
+    p_broadcast.add_argument(
+        "--from",
+        dest="sender",
+        help="Sender Agent ID (auto-detected from env if not specified)",
+    )
+    broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
+    broadcast_response_group.add_argument(
+        "--response",
+        dest="want_response",
+        action="store_true",
+        default=None,
+        help="Wait for and receive response from recipients",
+    )
+    broadcast_response_group.add_argument(
+        "--no-response",
+        dest="want_response",
+        action="store_false",
+        help="Do not wait for response (fire and forget)",
+    )
+    p_broadcast.add_argument("message", help="Content of the message")
+
     # reply command - simplified reply to last message
     p_reply = subparsers.add_parser("reply", help="Reply to the last received message")
     p_reply.add_argument(
@@ -596,6 +746,7 @@ def main() -> None:
         "list": cmd_list,
         "cleanup": cmd_cleanup,
         "send": cmd_send,
+        "broadcast": cmd_broadcast,
         "reply": cmd_reply,
     }
     commands[args.command](args)

@@ -4,10 +4,11 @@
 
 ## 概要
 
-Synapse A2A では、2つの方法でエージェント間通信ができます：
+Synapse A2A では、3つの方法でエージェント間通信ができます：
 
 1. **@agent パターン（ユーザー用）** - PTY での対話的入力
 2. **synapse send コマンド（AIエージェント用）** - 明示的なフラグ制御
+3. **synapse broadcast コマンド（AIエージェント用）** - 同一 working dir への一括送信
 
 通信の応答動作は `a2a.flow` 設定で制御します。
 
@@ -79,6 +80,32 @@ synapse send gemini "分析して" --response --from synapse-claude-8100
 ```
 
 **重要:** `--from` オプションで送信元を常に指定してください。
+
+---
+
+## synapse broadcast コマンド
+
+現在の作業ディレクトリと一致する全エージェントへ同じメッセージを送信します。
+
+### 基本構文
+
+```bash
+synapse broadcast "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+```
+
+### 動作
+
+- `Path.cwd().resolve()` と各エージェントの `working_dir` 実パスが一致した対象に送信
+- `--from` 指定時は送信元自身（`sender_id`）を送信対象から除外
+- 一部失敗があっても残りへの送信は継続し、最後に成功/失敗件数を表示
+
+### 例
+
+```bash
+synapse broadcast "全員、現状を報告して" --from synapse-claude-8100
+synapse broadcast "緊急レビュー依頼" -p 4 --response --from synapse-codex-8120
+synapse broadcast "FYI: 先に進めてください" --no-response
+```
 
 ---
 

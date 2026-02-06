@@ -14,6 +14,7 @@ from synapse.cli import (
     _write_default_settings,
     cmd_auth_generate_key,
     cmd_auth_setup,
+    cmd_broadcast,
     cmd_external_add,
     cmd_external_info,
     cmd_external_list,
@@ -505,6 +506,79 @@ class TestCmdSend:
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="")
             cmd_send(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--no-response" in cmd
+
+
+# ==============================================================================
+# Tests for cmd_broadcast
+# ==============================================================================
+
+
+class TestCmdBroadcast:
+    """Tests for cmd_broadcast command."""
+
+    def test_broadcast_message(self, mock_args, capsys):
+        """Should broadcast message to agents in current working directory."""
+        mock_args.message = "Hello team"
+        mock_args.priority = 3
+        mock_args.want_response = None
+        mock_args.sender = None
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Sent: 2\nFailed: 0", stderr="")
+            cmd_broadcast(mock_args)
+
+            call_args = mock_run.call_args
+            cmd = call_args[0][0]
+            assert "broadcast" in cmd
+            assert "--priority" in cmd
+            assert "3" in cmd
+            assert "Hello team" in cmd
+
+        captured = capsys.readouterr()
+        assert "Sent: 2" in captured.out
+
+    def test_broadcast_with_sender(self, mock_args):
+        """Should pass --from flag to a2a.py broadcast."""
+        mock_args.message = "Hello team"
+        mock_args.priority = 1
+        mock_args.want_response = None
+        mock_args.sender = "synapse-claude-8100"
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            cmd_broadcast(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--from" in cmd
+            assert "synapse-claude-8100" in cmd
+
+    def test_broadcast_with_response_flag(self, mock_args):
+        """Should pass --response flag to a2a.py broadcast."""
+        mock_args.message = "Need responses"
+        mock_args.priority = 1
+        mock_args.want_response = True
+        mock_args.sender = None
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            cmd_broadcast(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "--response" in cmd
+
+    def test_broadcast_with_no_response_flag(self, mock_args):
+        """Should pass --no-response flag to a2a.py broadcast."""
+        mock_args.message = "FYI only"
+        mock_args.priority = 1
+        mock_args.want_response = False
+        mock_args.sender = None
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="Sent: 1\nFailed: 0", stderr="")
+            cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
             assert "--no-response" in cmd
