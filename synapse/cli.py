@@ -670,6 +670,42 @@ def cmd_send(args: argparse.Namespace) -> None:
         print(result.stderr, file=sys.stderr)
 
 
+def cmd_broadcast(args: argparse.Namespace) -> None:
+    """Broadcast a message to all agents in current working directory."""
+    message = args.message
+    priority = args.priority
+    sender = getattr(args, "sender", None)
+    want_response = getattr(args, "want_response", None)
+
+    # Get the a2a.py tool path from installed package
+    import synapse
+
+    package_dir = Path(synapse.__file__).parent
+    a2a_tool = package_dir / "tools" / "a2a.py"
+
+    cmd = [
+        sys.executable,
+        str(a2a_tool),
+        "broadcast",
+        "--priority",
+        str(priority),
+        message,
+    ]
+
+    if sender:
+        cmd.extend(["--from", sender])
+
+    if want_response is True:
+        cmd.append("--response")
+    elif want_response is False:
+        cmd.append("--no-response")
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
+
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last received A2A message using reply tracking."""
     message = args.message
@@ -2404,6 +2440,40 @@ Priority levels:
         help="Do not wait for response (fire and forget)",
     )
     p_send.set_defaults(func=cmd_send)
+
+    # broadcast
+    p_broadcast = subparsers.add_parser(
+        "broadcast",
+        help="Send a message to all agents in current working directory",
+        description="Broadcast an A2A message to running agents in the current working directory.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse broadcast "Status check"                Send to all agents in current directory
+  synapse broadcast "Urgent update" -p 4          Send urgent message
+  synapse broadcast "FYI only" --no-response      Fire-and-forget broadcast""",
+    )
+    p_broadcast.add_argument("message", help="Message to broadcast")
+    p_broadcast.add_argument(
+        "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
+    )
+    p_broadcast.add_argument(
+        "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
+    broadcast_response_group.add_argument(
+        "--response",
+        dest="want_response",
+        action="store_true",
+        default=None,
+        help="Wait for and receive responses from agents",
+    )
+    broadcast_response_group.add_argument(
+        "--no-response",
+        dest="want_response",
+        action="store_false",
+        help="Do not wait for responses (fire and forget)",
+    )
+    p_broadcast.set_defaults(func=cmd_broadcast)
 
     # reply - Reply to last received A2A message
     p_reply = subparsers.add_parser(

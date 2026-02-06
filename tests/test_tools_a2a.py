@@ -3,12 +3,14 @@
 import argparse
 import json
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from synapse.tools.a2a import (
     build_sender_info,
+    cmd_broadcast,
     cmd_cleanup,
     cmd_list,
     cmd_send,
@@ -755,6 +757,295 @@ class TestCmdSend:
 
 
 # ============================================================
+# cmd_broadcast Function Tests
+# ============================================================
+
+
+class TestCmdBroadcast:
+    """Test cmd_broadcast() function."""
+
+    @patch("synapse.tools.a2a._record_sent_message")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a.Path.cwd")
+    def test_cmd_broadcast_success_multiple_targets(
+        self,
+        mock_cwd,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        mock_record_history,
+        capsys,
+    ):
+        """Should send to all agents in the same working directory."""
+        mock_cwd.return_value = Path("/work/project")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1001,
+                "endpoint": "http://localhost:8100",
+                "working_dir": "/work/project",
+            },
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "port": 8110,
+                "pid": 1002,
+                "endpoint": "http://localhost:8110",
+                "working_dir": "/work/project",
+            },
+            "synapse-codex-8120": {
+                "agent_id": "synapse-codex-8120",
+                "agent_type": "codex",
+                "port": 8120,
+                "pid": 1003,
+                "endpoint": "http://localhost:8120",
+                "working_dir": "/work/other",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            message="hello team",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+
+        cmd_broadcast(args)
+
+        assert mock_client.send_to_local.call_count == 2
+        captured = capsys.readouterr()
+        assert "Sent: 2" in captured.out
+        assert "Failed: 0" in captured.out
+        assert mock_record_history.call_count == 2
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a.Path.cwd")
+    def test_cmd_broadcast_no_matching_agents(
+        self, mock_cwd, mock_registry_cls, capsys
+    ):
+        """Should error when no agents match current working directory."""
+        mock_cwd.return_value = Path("/work/project")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "working_dir": "/work/other",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        args = argparse.Namespace(
+            message="hello team",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_broadcast(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No agents found in current working directory" in captured.err
+
+    @patch("synapse.tools.a2a._record_sent_message")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch(
+        "synapse.tools.a2a.build_sender_info",
+        return_value={"sender_id": "synapse-claude-8100"},
+    )
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a.Path.cwd")
+    def test_cmd_broadcast_excludes_sender(
+        self,
+        mock_cwd,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        mock_record_history,
+    ):
+        """Should exclude sender from recipients when sender is in same cwd."""
+        mock_cwd.return_value = Path("/work/project")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1001,
+                "endpoint": "http://localhost:8100",
+                "working_dir": "/work/project",
+            },
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "port": 8110,
+                "pid": 1002,
+                "endpoint": "http://localhost:8110",
+                "working_dir": "/work/project",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-456", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            message="hello team",
+            priority=1,
+            sender="synapse-claude-8100",
+            want_response=None,
+        )
+
+        cmd_broadcast(args)
+        assert mock_client.send_to_local.call_count == 1
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert "8110" in call_kwargs["endpoint"]
+        assert mock_record_history.call_count == 1
+
+    @patch("synapse.tools.a2a._record_sent_message")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a.Path.cwd")
+    def test_cmd_broadcast_partial_failure_continues(
+        self,
+        mock_cwd,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        mock_record_history,
+        capsys,
+    ):
+        """Should continue sending and fail at end if any recipient fails."""
+        mock_cwd.return_value = Path("/work/project")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1001,
+                "endpoint": "http://localhost:8100",
+                "working_dir": "/work/project",
+            },
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "port": 8110,
+                "pid": 1002,
+                "endpoint": "http://localhost:8110",
+                "working_dir": "/work/project",
+            },
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.side_effect = [
+            MagicMock(id="task-123", status="completed", artifacts=[]),
+            None,
+        ]
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            message="hello team",
+            priority=1,
+            sender=None,
+            want_response=None,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_broadcast(args)
+
+        assert exc_info.value.code == 1
+        assert mock_client.send_to_local.call_count == 2
+        captured = capsys.readouterr()
+        assert "Sent: 1" in captured.out
+        assert "Failed: 1" in captured.out
+        assert mock_record_history.call_count == 1
+
+    @patch("synapse.tools.a2a._record_sent_message")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a.Path.cwd")
+    def test_cmd_broadcast_response_flag_applied(
+        self,
+        mock_cwd,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        mock_record_history,
+    ):
+        """Should apply response_expected=True for each recipient with --response."""
+        mock_cwd.return_value = Path("/work/project")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1001,
+                "endpoint": "http://localhost:8100",
+                "working_dir": "/work/project",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            message="hello team",
+            priority=1,
+            sender=None,
+            want_response=True,
+        )
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_broadcast(args)
+
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["response_expected"] is True
+
+
+# ============================================================
 # main Function Tests
 # ============================================================
 
@@ -831,6 +1122,15 @@ class TestMainFunction:
         main()
         args = mock_cmd.call_args[0][0]
         assert args.want_response is False
+
+    @patch("synapse.tools.a2a.cmd_broadcast")
+    @patch("sys.argv", ["a2a.py", "broadcast", "hello team"])
+    def test_main_broadcast_command(self, mock_cmd):
+        """main() should route to cmd_broadcast for 'broadcast' command."""
+        main()
+        mock_cmd.assert_called_once()
+        args = mock_cmd.call_args[0][0]
+        assert args.message == "hello team"
 
     @patch("sys.argv", ["a2a.py"])
     def test_main_no_command_exits(self):

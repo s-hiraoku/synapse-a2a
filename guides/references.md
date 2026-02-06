@@ -24,6 +24,7 @@ flowchart TB
         stop["stop"]
         list["list"]
         send["send"]
+        broadcast["broadcast"]
         reply["reply"]
         logs["logs"]
         instructions["instructions"]
@@ -226,6 +227,37 @@ synapse send codex "設計して" -p 1 --from synapse-claude-8100
 synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5 --from synapse-claude-8100
 synapse send codex "結果を教えて" --response --from synapse-claude-8100
+```
+
+---
+
+### 1.6.1 synapse broadcast
+
+現在の作業ディレクトリ（`working_dir`）と一致する全エージェントにメッセージを送信します。
+
+```bash
+synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-response]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `message` | Yes | 一括送信するメッセージ |
+| `--from`, `-f` | No | 送信元エージェントID（指定時は送信元自身を除外） |
+| `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
+| `--response` | No | Roundtrip - 各送信先で応答待ち |
+| `--no-response` | No | Oneway - 各送信先へ送りっぱなし |
+
+**一致ルール**:
+- `Path.cwd().resolve()` と各エージェントの `working_dir` 実パスが完全一致した場合のみ対象
+- 対象が0件の場合はエラー終了
+- 一部失敗しても残りには送信を継続し、最後に `Sent` / `Failed` を表示
+
+**例**:
+
+```bash
+synapse broadcast "進捗を報告してください" --from synapse-claude-8100
+synapse broadcast "緊急確認" -p 4 --response --from synapse-codex-8120
+synapse broadcast "FYI: CI通過" --no-response
 ```
 
 ---
