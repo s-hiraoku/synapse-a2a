@@ -42,6 +42,19 @@ synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 @gemini --no-response Log this completion event
 ```
 
+### Broadcast to All Agents
+
+```bash
+# Ask all agents in the same directory for a status check
+synapse broadcast "Status check - what are you working on?" --response --from synapse-claude-8100
+
+# Notify all agents of a completed build
+synapse broadcast "FYI: Build passed, main branch updated" --no-response --from synapse-claude-8100
+
+# Urgent broadcast to stop all work
+synapse broadcast "STOP: Critical bug found in shared module" --priority 4 --from synapse-claude-8100
+```
+
 ## File Coordination Example
 
 ### Delegating File Edit with Lock

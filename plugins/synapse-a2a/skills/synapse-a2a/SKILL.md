@@ -11,8 +11,9 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter) |
+| List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter by TYPE/NAME/DIR) |
 | Send message | `synapse send <target> "<message>" --from <sender>` |
+| Broadcast to cwd agents | `synapse broadcast "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to last message | `synapse reply "<response>" --from <agent>` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
@@ -83,6 +84,23 @@ synapse reply "Analysis result: ..." --from synapse-gemini-8110
 The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
 
 **Reply Tracking:** Synapse automatically tracks senders who expect a reply (`[REPLY EXPECTED]` messages). Use `synapse reply` for responses - it automatically knows who to reply to.
+
+### Broadcasting to All Agents
+
+Send a message to all agents sharing the same working directory:
+
+```bash
+# Broadcast status check to all cwd agents
+synapse broadcast "Status check" --from synapse-claude-8100
+
+# Urgent broadcast
+synapse broadcast "Urgent: stop all work" --priority 4 --from synapse-claude-8100
+
+# Fire-and-forget broadcast
+synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+```
+
+**Note:** Broadcast only targets agents in the **same working directory** as the sender. This prevents unintended messages to agents working on different projects.
 
 ## Receiving and Replying to Messages
 
@@ -174,7 +192,7 @@ In `synapse list`, you can interact with agents:
 | `↑/↓` | Navigate agent rows |
 | `Enter` or `j` | Jump to selected agent's terminal |
 | `k` | Kill selected agent (with confirmation) |
-| `/` | Filter by TYPE or WORKING_DIR |
+| `/` | Filter by TYPE, NAME, or WORKING_DIR |
 | `ESC` | Clear filter first, then selection |
 | `q` | Quit |
 
@@ -221,7 +239,7 @@ synapse kill my-claude
 ## Key Features
 
 - **Agent Naming**: Custom names and roles for easy identification
-- **Agent Communication**: `synapse send` command, priority control, response handling
+- **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **Settings**: Configure via `settings.json` (`synapse init`)
