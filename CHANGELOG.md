@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.22] - 2026-02-06
+
+### Fixed
+
+- **Extra newline in CLI output** - `synapse send` / `synapse broadcast` no longer print double newlines
+- **Error propagation** - `synapse send` and `synapse broadcast` now exit with non-zero code on failure (consistent with `synapse reply`)
+
+### Changed
+
+- **Refactor CLI a2a commands** - Extract shared helpers (`_get_a2a_tool_path`, `_run_a2a_command`, `_build_a2a_cmd`) to reduce duplication
+
+### Documentation
+
+- Add complete flags (`--from`, `--response`, `--no-response`) to broadcast command reference
+- Fix inconsistent `DIR` → `WORKING_DIR` naming in skill documentation
+
 ## [0.3.21] - 2026-02-06
 
 ### Added
