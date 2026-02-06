@@ -302,7 +302,7 @@ For advanced use cases or external scripts:
 
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
-python -m synapse.tools.a2a broadcast [--priority <1-5>] "<MESSAGE>"  # Broadcast to cwd agents
+python -m synapse.tools.a2a broadcast [--priority <1-5>] [--from <AGENT>] [--response | --no-response] "<MESSAGE>"  # Broadcast to cwd agents
 python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT>  # Reply to last received message
 python -m synapse.tools.a2a list                # List agents
 python -m synapse.tools.a2a cleanup             # Cleanup stale entries
