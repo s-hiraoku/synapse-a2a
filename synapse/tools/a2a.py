@@ -382,8 +382,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     port = target_agent.get("port")
     agent_id = target_agent["agent_id"]
     uds_path = get_valid_uds_path(target_agent.get("uds_path"))
-    # Allow HTTP fallback if UDS fails (don't set local_only=True)
-    local_only = False
 
     # Check if process is still alive
     if pid and not is_process_running(pid):
@@ -437,8 +435,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         timeout=60,
         sender_info=sender_info or None,
         response_expected=response_expected,
-        uds_path=uds_path if isinstance(uds_path, str) else None,
-        local_only=local_only,
+        uds_path=uds_path,
         registry=reg,
         sender_agent_id=sender_info.get("sender_id") if sender_info else None,
         target_agent_id=agent_id,
@@ -464,7 +461,6 @@ def cmd_send(args: argparse.Namespace) -> None:
                 indented = str(content).replace("\n", "\n    ")
                 print(f"    [{artifact_type}] {indented}")
 
-    # Record sent message to history
     _record_sent_message(
         task_id=task_id,
         target_agent=target_agent,
@@ -531,7 +527,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
             timeout=60,
             sender_info=sender_info or None,
             response_expected=response_expected,
-            uds_path=uds_path if isinstance(uds_path, str) else None,
+            uds_path=uds_path,
             local_only=False,
             registry=reg,
             sender_agent_id=sender_id,
@@ -549,7 +545,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
             target_agent=target_agent,
             message=args.message,
             priority=args.priority,
-            sender_info=sender_info if sender_info else None,
+            sender_info=sender_info or None,
         )
 
     print(f"Sent: {sent_count}")

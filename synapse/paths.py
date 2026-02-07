@@ -10,46 +10,54 @@ import os
 from pathlib import Path
 
 
+def _resolve_path(env_var: str, default: Path) -> str:
+    """Resolve a path from an environment variable or fall back to a default.
+
+    If the environment variable is set, its value is expanded
+    (``~`` and ``$VAR`` substitution) and returned. Otherwise the
+    *default* path is returned.
+
+    Args:
+        env_var: Name of the environment variable to check.
+        default: Default path when the environment variable is unset.
+
+    Returns:
+        Resolved path string.
+    """
+    env_path = os.environ.get(env_var)
+    if env_path:
+        return str(Path(os.path.expanduser(os.path.expandvars(env_path))))
+    return str(default)
+
+
 def get_history_db_path() -> str:
     """Get the path to the history database.
 
     Override with SYNAPSE_HISTORY_DB_PATH environment variable.
-
-    Returns:
-        Path string to the history database file.
     """
-    env_path = os.environ.get("SYNAPSE_HISTORY_DB_PATH")
-    if env_path:
-        expanded = os.path.expanduser(os.path.expandvars(env_path))
-        return str(Path(expanded))
-    return str(Path.home() / ".synapse" / "history" / "history.db")
+    return _resolve_path(
+        "SYNAPSE_HISTORY_DB_PATH",
+        Path.home() / ".synapse" / "history" / "history.db",
+    )
 
 
 def get_registry_dir() -> str:
     """Get the path to the agent registry directory.
 
     Override with SYNAPSE_REGISTRY_DIR environment variable.
-
-    Returns:
-        Path string to the registry directory.
     """
-    env_path = os.environ.get("SYNAPSE_REGISTRY_DIR")
-    if env_path:
-        expanded = os.path.expanduser(os.path.expandvars(env_path))
-        return str(Path(expanded))
-    return str(Path.home() / ".a2a" / "registry")
+    return _resolve_path(
+        "SYNAPSE_REGISTRY_DIR",
+        Path.home() / ".a2a" / "registry",
+    )
 
 
 def get_external_registry_dir() -> str:
     """Get the path to the external agent registry directory.
 
     Override with SYNAPSE_EXTERNAL_REGISTRY_DIR environment variable.
-
-    Returns:
-        Path string to the external registry directory.
     """
-    env_path = os.environ.get("SYNAPSE_EXTERNAL_REGISTRY_DIR")
-    if env_path:
-        expanded = os.path.expanduser(os.path.expandvars(env_path))
-        return str(Path(expanded))
-    return str(Path.home() / ".a2a" / "external")
+    return _resolve_path(
+        "SYNAPSE_EXTERNAL_REGISTRY_DIR",
+        Path.home() / ".a2a" / "external",
+    )

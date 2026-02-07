@@ -49,6 +49,6 @@ class TestA2AToolSend:
         mock_client.send_to_local.assert_called_once()
         call_kwargs = mock_client.send_to_local.call_args.kwargs
         assert call_kwargs.get("uds_path") == "/tmp/agent.sock"
-        # local_only=False to allow HTTP fallback if UDS fails
-        assert call_kwargs.get("local_only") is False
+        # local_only defaults to False (allows HTTP fallback if UDS fails)
+        assert call_kwargs.get("local_only", False) is False
         mock_port_open.assert_not_called()
