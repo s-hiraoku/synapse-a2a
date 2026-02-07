@@ -210,9 +210,11 @@ class TestSendToAgent:
 
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert call_args[0][0] == "http://localhost:8100/message"
-        assert call_args[1]["json"]["content"] == "hello"
-        assert call_args[1]["json"]["priority"] == 1
+        assert call_args[0][0] == "http://localhost:8100/tasks/send"
+        payload = call_args[1]["json"]
+        assert payload["message"]["role"] == "user"
+        assert payload["message"]["parts"][0]["type"] == "text"
+        assert payload["message"]["parts"][0]["text"] == "hello"
 
         captured = capsys.readouterr()
         assert "Sending to claude" in captured.out

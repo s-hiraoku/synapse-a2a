@@ -145,10 +145,22 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "list",
 }
 
+# Deprecated settings keys with migration messages
+DEPRECATED_SETTINGS_KEYS: dict[str, str] = {
+    "delegation": (
+        "The 'delegation' setting was removed in v0.3.19. "
+        "Use 'synapse send' for inter-agent communication. "
+        "You can safely remove this key from your settings."
+    ),
+}
+
 
 def _warn_unknown_keys(settings: dict[str, Any], path: Path) -> None:
     """
     Log warnings for unknown top-level settings keys.
+
+    Deprecated keys get a specific migration message.
+    Unknown keys get a generic warning with known keys listed.
 
     Args:
         settings: The loaded settings dictionary.
@@ -156,10 +168,16 @@ def _warn_unknown_keys(settings: dict[str, Any], path: Path) -> None:
     """
     unknown_keys = set(settings.keys()) - KNOWN_SETTINGS_KEYS
     for key in sorted(unknown_keys):
-        logger.warning(
-            f"Unknown settings key '{key}' in {path}. "
-            f"Known keys: {', '.join(sorted(KNOWN_SETTINGS_KEYS))}"
-        )
+        if key in DEPRECATED_SETTINGS_KEYS:
+            logger.warning(
+                f"Deprecated settings key '{key}' in {path}: "
+                f"{DEPRECATED_SETTINGS_KEYS[key]}"
+            )
+        else:
+            logger.warning(
+                f"Unknown settings key '{key}' in {path}. "
+                f"Known keys: {', '.join(sorted(KNOWN_SETTINGS_KEYS))}"
+            )
 
 
 def load_settings(path: Path) -> dict[str, Any]:

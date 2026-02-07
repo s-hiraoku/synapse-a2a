@@ -108,7 +108,9 @@ class ExternalAgentRegistry:
     """
 
     def __init__(self) -> None:
-        self.registry_dir = Path.home() / ".a2a" / "external"
+        from synapse.paths import get_external_registry_dir
+
+        self.registry_dir = Path(get_external_registry_dir())
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self._cache: dict[str, ExternalAgent] = {}
         self._lock = threading.Lock()

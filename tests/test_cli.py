@@ -28,6 +28,7 @@ from synapse.cli import (
     cmd_history_stats,
     cmd_init,
     cmd_logs,
+    cmd_reply,
     cmd_reset,
     cmd_send,
     cmd_start,
@@ -592,6 +593,55 @@ class TestCmdBroadcast:
 
             cmd = mock_run.call_args[0][0]
             assert "--no-response" in cmd
+
+
+# Tests for cmd_reply
+# ==============================================================================
+
+
+class TestCmdReply:
+    """Tests for cmd_reply command."""
+
+    def test_reply_forwards_to_sender_and_message(self, mock_args, capsys):
+        """Should forward message, --from, and --to to a2a.py reply."""
+        mock_args.message = "Done"
+        mock_args.sender = "synapse-codex-8121"
+        mock_args.to = "synapse-claude-8100"
+        mock_args.list_targets = False
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                stdout="Reply sent", stderr="", returncode=0
+            )
+            cmd_reply(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "reply" in cmd
+            assert "Done" in cmd
+            assert "--from" in cmd
+            assert "synapse-codex-8121" in cmd
+            assert "--to" in cmd
+            assert "synapse-claude-8100" in cmd
+
+    def test_reply_list_targets_without_message(self, mock_args, capsys):
+        """Should support --list-targets without appending empty message."""
+        mock_args.message = ""
+        mock_args.sender = "synapse-codex-8121"
+        mock_args.to = None
+        mock_args.list_targets = True
+
+        with patch("synapse.cli.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                stdout="Available reply targets:", stderr="", returncode=0
+            )
+            cmd_reply(mock_args)
+
+            cmd = mock_run.call_args[0][0]
+            assert "reply" in cmd
+            assert "--list-targets" in cmd
+            assert "--from" in cmd
+            assert "synapse-codex-8121" in cmd
+            assert "" not in cmd
 
 
 # ==============================================================================

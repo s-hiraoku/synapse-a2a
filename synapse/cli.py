@@ -343,7 +343,9 @@ def _get_history_manager() -> HistoryManager:
     settings.apply_env(env_dict)
     os.environ.update(env_dict)
 
-    db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+    from synapse.paths import get_history_db_path
+
+    db_path = get_history_db_path()
     return HistoryManager.from_env(db_path=db_path)
 
 
@@ -706,11 +708,21 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
 
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last received A2A message using reply tracking."""
-    cmd = _build_a2a_cmd(
-        "reply",
-        args.message,
-        sender=getattr(args, "sender", None),
-    )
+    message = args.message
+    sender = getattr(args, "sender", None)
+    to_sender = getattr(args, "to", None)
+    list_targets = getattr(args, "list_targets", False)
+
+    cmd = [sys.executable, str(_get_a2a_tool_path()), "reply"]
+    if sender:
+        cmd.extend(["--from", sender])
+    if to_sender:
+        cmd.extend(["--to", to_sender])
+    if list_targets:
+        cmd.append("--list-targets")
+    if message:
+        cmd.append(message)
+
     _run_a2a_command(cmd, exit_on_error=True)
 
 
@@ -2389,14 +2401,14 @@ Log files are stored in: ~/.synapse/logs/""",
 
 Priority levels:
   1-2  Low priority, background tasks
-  3    Normal tasks (default: 1)
+  3    Normal tasks (default)
   4    Urgent follow-ups
   5    Critical/emergency tasks""",
     )
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
     p_send.add_argument("message", help="Message to send")
     p_send.add_argument(
-        "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
+        "--priority", "-p", type=int, default=3, help="Priority level 1-5 (default: 3)"
     )
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
@@ -2460,14 +2472,27 @@ Priority levels:
         epilog="""Examples:
   synapse reply "Here is my response"      Reply to the last message
   synapse reply "Task completed!"          Send completion reply
-  synapse reply "Done" --from synapse-codex-8121  Reply with explicit sender (for sandboxed envs)""",
+  synapse reply "Done" --from synapse-codex-8121  Reply with explicit sender (for sandboxed envs)
+  synapse reply "Done" --to sender-agent-id       Reply to a specific sender
+  synapse reply --list-targets                     List available reply targets""",
     )
     p_reply.add_argument(
         "--from",
         dest="sender",
         help="Your agent ID (required in sandboxed environments like Codex)",
     )
-    p_reply.add_argument("message", help="Reply message content")
+    p_reply.add_argument(
+        "--to",
+        dest="to",
+        help="Reply to a specific sender ID (default: last message)",
+    )
+    p_reply.add_argument(
+        "--list-targets",
+        action="store_true",
+        default=False,
+        help="List available reply targets and exit",
+    )
+    p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
     p_reply.set_defaults(func=cmd_reply)
 
     # instructions - Manage and send initial instructions

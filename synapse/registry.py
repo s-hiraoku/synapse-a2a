@@ -71,7 +71,9 @@ def is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
 
 class AgentRegistry:
     def __init__(self) -> None:
-        self.registry_dir = Path.home() / ".a2a" / "registry"
+        from synapse.paths import get_registry_dir
+
+        self.registry_dir = Path(get_registry_dir())
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.hostname = socket.gethostname()
 

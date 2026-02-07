@@ -213,7 +213,7 @@ synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | -
 | `target` | Yes | 送信先エージェント（上記形式） |
 | `message` | Yes | メッセージ内容 |
 | `--from`, `-f` | No | 送信元エージェントID（常に指定推奨） |
-| `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
+| `--priority`, `-p` | No | 優先度 1-5（デフォルト: 3） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
 
@@ -267,23 +267,31 @@ synapse broadcast "FYI: CI通過" --no-response
 最後に受信したA2Aメッセージに返信します。Synapseは返信を期待するメッセージの送信者情報を自動的に追跡します。
 
 ```bash
-synapse reply <message> [--from AGENT_ID]
+synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets]
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `message` | Yes | 返信メッセージ内容 |
+| `message` | No | 返信メッセージ内容（`--list-targets` 使用時は省略可） |
 | `--from`, `-f` | No | 送信元エージェントID（サンドボックス環境で必須） |
+| `--to` | No | 返信先の sender_id を指定（複数の送信者がいる場合に使用） |
+| `--list-targets` | No | 返信可能なターゲット一覧を表示して終了 |
 
 **例**:
 
 ```bash
+# 最新の送信者に返信（デフォルト LIFO）
 synapse reply "分析結果です..." --from synapse-codex-8121
-synapse reply "タスク完了しました" --from synapse-gemini-8110
+
+# 特定の送信者に返信
+synapse reply "タスク完了しました" --from synapse-gemini-8110 --to synapse-claude-8100
+
+# 返信可能なターゲットを確認
+synapse reply --list-targets --from synapse-codex-8121
 ```
 
 **動作**:
-1. 自身のエージェントの返信追跡マップから送信者情報を取得
+1. 自身のエージェントの返信追跡マップから送信者情報を取得（`--to` 指定時は特定の送信者を取得）
 2. 送信者のエンドポイントに返信を送信
 3. 成功後、送信者情報を削除
 
@@ -632,6 +640,9 @@ flowchart LR
 | GET | `/tasks` | Task 一覧 |
 | POST | `/tasks/{id}/cancel` | Task キャンセル |
 | POST | `/tasks/send-priority` | Priority 付きメッセージ送信（Synapse 拡張） |
+| GET | `/reply-stack/list` | 返信可能な sender 一覧取得 |
+| GET | `/reply-stack/get` | 返信先 sender 情報取得（`?sender_id=` で指定可） |
+| GET | `/reply-stack/pop` | 返信先 sender 情報取得＋削除（`?sender_id=` で指定可） |
 
 #### 外部エージェント管理 API
 
@@ -718,7 +729,7 @@ Priority 付きでメッセージを送信します（Synapse 拡張）。
 **リクエスト**:
 
 ```http
-POST /tasks/send-priority?priority=1 HTTP/1.1
+POST /tasks/send-priority?priority=3 HTTP/1.1
 Host: localhost:8100
 Content-Type: application/json
 
@@ -732,7 +743,7 @@ Content-Type: application/json
 
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `priority` | int | No | 優先度（1-5、デフォルト: 1） |
+| `priority` | int | No | 優先度（1-5、デフォルト: 3） |
 
 **Priority の動作**:
 
@@ -745,7 +756,7 @@ Content-Type: application/json
 
 ```bash
 # 通常メッセージ
-curl -X POST "http://localhost:8100/tasks/send-priority?priority=1" \
+curl -X POST "http://localhost:8100/tasks/send-priority?priority=3" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}}'
 
@@ -1180,7 +1191,9 @@ env:
 | `~/.synapse/logs/` | ログディレクトリ |
 | `~/.synapse/logs/<profile>.log` | エージェントログ |
 | `~/.synapse/logs/input_router.log` | InputRouter ログ |
+| `~/.synapse/history/history.db` | タスク履歴データベース |
 | `synapse/profiles/*.yaml` | プロファイル定義 |
+| `synapse/paths.py` | パス管理（環境変数オーバーライド対応） |
 
 ---
 
@@ -1192,6 +1205,9 @@ env:
 |------|------|
 | `SYNAPSE_PROFILE` | デフォルトプロファイル（サーバーモード用） |
 | `SYNAPSE_PORT` | デフォルトポート（サーバーモード用） |
+| `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス（デフォルト: `~/.a2a/registry`） |
+| `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス（デフォルト: `~/.a2a/external`） |
+| `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス（デフォルト: `~/.synapse/history/history.db`） |
 
 ### 7.2 推奨プロファイル環境変数
 
