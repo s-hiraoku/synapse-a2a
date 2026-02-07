@@ -3,6 +3,7 @@
 import argparse
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from synapse.reply_stack import ReplyStack
@@ -246,3 +247,64 @@ class TestCliReplyWithToFlag:
         captured = capsys.readouterr()
         assert "sender-a" in captured.out
         assert "sender-b" in captured.out
+
+    @patch("synapse.tools.a2a.requests.get")
+    @patch("synapse.tools.a2a.build_sender_info")
+    def test_cli_reply_list_targets_http_error_exits(
+        self, mock_build, mock_get, capsys
+    ):
+        """--list-targets should exit 1 on non-200 response."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_build.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_get.return_value = mock_resp
+
+        args = argparse.Namespace(
+            message="unused",
+            sender="synapse-claude-8100",
+            to=None,
+            list_targets=True,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+        assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "Failed to list reply targets: HTTP 500" in captured.err
+
+    @patch("synapse.tools.a2a.requests.get")
+    @patch("synapse.tools.a2a.build_sender_info")
+    def test_cli_reply_list_targets_request_exception_exits(
+        self, mock_build, mock_get, capsys
+    ):
+        """--list-targets should exit 1 on request exception."""
+        from requests import RequestException
+
+        from synapse.tools.a2a import cmd_reply
+
+        mock_build.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+        mock_get.side_effect = RequestException("network down")
+
+        args = argparse.Namespace(
+            message="unused",
+            sender="synapse-claude-8100",
+            to=None,
+            list_targets=True,
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+        assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "Failed to list reply targets: network down" in captured.err

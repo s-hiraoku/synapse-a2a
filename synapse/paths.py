@@ -20,7 +20,8 @@ def get_history_db_path() -> str:
     """
     env_path = os.environ.get("SYNAPSE_HISTORY_DB_PATH")
     if env_path:
-        return env_path
+        expanded = os.path.expanduser(os.path.expandvars(env_path))
+        return str(Path(expanded))
     return str(Path.home() / ".synapse" / "history" / "history.db")
 
 
@@ -34,7 +35,8 @@ def get_registry_dir() -> str:
     """
     env_path = os.environ.get("SYNAPSE_REGISTRY_DIR")
     if env_path:
-        return env_path
+        expanded = os.path.expanduser(os.path.expandvars(env_path))
+        return str(Path(expanded))
     return str(Path.home() / ".a2a" / "registry")
 
 
@@ -48,5 +50,6 @@ def get_external_registry_dir() -> str:
     """
     env_path = os.environ.get("SYNAPSE_EXTERNAL_REGISTRY_DIR")
     if env_path:
-        return env_path
+        expanded = os.path.expanduser(os.path.expandvars(env_path))
+        return str(Path(expanded))
     return str(Path.home() / ".a2a" / "external")

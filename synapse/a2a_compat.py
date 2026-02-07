@@ -643,7 +643,7 @@ def create_a2a_router(
     router = APIRouter(tags=["Google A2A Compatible"])
 
     def _send_task_message(
-        request: SendMessageRequest, priority: int = 1
+        request: SendMessageRequest, priority: int = 3
     ) -> SendMessageResponse:
         """Create a task and send message to controller with optional priority."""
         # Extract text from message parts
@@ -1079,7 +1079,7 @@ def create_a2a_router(
 
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(  # noqa: B008
-        request: SendMessageRequest, priority: int = 1, _: Any = Depends(require_auth)
+        request: SendMessageRequest, priority: int = 3, _: Any = Depends(require_auth)
     ) -> SendMessageResponse:
         """
         Send a message with priority (Synapse extension).

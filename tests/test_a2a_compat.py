@@ -360,6 +360,16 @@ class TestA2ARouterEndpoints:
         mock_controller.interrupt.assert_called_once()
         mock_controller.write.assert_called_once()
 
+    def test_tasks_send_priority_query_default_is_3(self, client):
+        """OpenAPI for /tasks/send-priority should default priority query to 3."""
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+
+        schema = response.json()
+        params = schema["paths"]["/tasks/send-priority"]["post"]["parameters"]
+        priority_param = next(p for p in params if p["name"] == "priority")
+        assert priority_param["schema"]["default"] == 3
+
     def test_tasks_send_priority_outputs_message_with_prefix(
         self, client, mock_controller
     ):
@@ -550,6 +560,13 @@ class TestAgentCardSynapseExtension:
         synapse = response.json()["extensions"]["synapse"]
 
         assert synapse["priority_interrupt"] is True
+
+    def test_interrupt_skill_priority_default_is_3(self, client):
+        """Agent Card interrupt skill should advertise default priority=3."""
+        response = client.get("/.well-known/agent.json")
+        data = response.json()
+        interrupt_skill = next(s for s in data["skills"] if s["id"] == "interrupt")
+        assert interrupt_skill["parameters"]["priority"]["default"] == 3
 
     def test_synapse_extension_has_at_agent_syntax(self, client):
         """synapse extension should have at_agent_syntax field."""

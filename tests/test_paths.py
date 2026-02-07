@@ -50,6 +50,19 @@ class TestGetRegistryDir:
             result = get_registry_dir()
             assert result == "/tmp/test-registry"
 
+    def test_get_registry_dir_env_expands_user_and_vars(self):
+        """SYNAPSE_REGISTRY_DIR should expand ~ and $VAR."""
+        with patch.dict(
+            os.environ,
+            {
+                "SYNAPSE_REGISTRY_DIR": "~/$TEST_REG_DIR/registry",
+                "TEST_REG_DIR": "synapse-test",
+            },
+        ):
+            result = get_registry_dir()
+            expected = str(Path.home() / "synapse-test" / "registry")
+            assert result == expected
+
 
 class TestGetExternalRegistryDir:
     """Test get_external_registry_dir() function."""
@@ -70,6 +83,19 @@ class TestGetExternalRegistryDir:
             result = get_external_registry_dir()
             assert result == "/tmp/test-external"
 
+    def test_get_external_registry_dir_env_expands_user_and_vars(self):
+        """SYNAPSE_EXTERNAL_REGISTRY_DIR should expand ~ and $VAR."""
+        with patch.dict(
+            os.environ,
+            {
+                "SYNAPSE_EXTERNAL_REGISTRY_DIR": "~/$TEST_EXT_DIR/external",
+                "TEST_EXT_DIR": "synapse-test",
+            },
+        ):
+            result = get_external_registry_dir()
+            expected = str(Path.home() / "synapse-test" / "external")
+            assert result == expected
+
 
 class TestGetHistoryDbPathEnvOverride:
     """Test get_history_db_path() with environment variable override."""
@@ -81,3 +107,16 @@ class TestGetHistoryDbPathEnvOverride:
         ):
             result = get_history_db_path()
             assert result == "/tmp/test-history.db"
+
+    def test_get_history_db_path_env_expands_user_and_vars(self):
+        """SYNAPSE_HISTORY_DB_PATH should expand ~ and $VAR."""
+        with patch.dict(
+            os.environ,
+            {
+                "SYNAPSE_HISTORY_DB_PATH": "~/$TEST_HIST_DIR/history.db",
+                "TEST_HIST_DIR": "synapse-test",
+            },
+        ):
+            result = get_history_db_path()
+            expected = str(Path.home() / "synapse-test" / "history.db")
+            assert result == expected

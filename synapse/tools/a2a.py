@@ -620,8 +620,10 @@ def cmd_reply(args: argparse.Namespace) -> None:
                     f"Error: Failed to list reply targets: HTTP {resp.status_code}",
                     file=sys.stderr,
                 )
+                sys.exit(1)
         except requests.RequestException as e:
             print(f"Error: Failed to list reply targets: {e}", file=sys.stderr)
+            sys.exit(1)
         return
 
     if not getattr(args, "message", "").strip():
