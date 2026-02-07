@@ -1,6 +1,6 @@
 {
   "name": "synapse-a2a",
-  "version": "0.3.22",
+  "version": "0.3.23",
   "description": "Complete plugin for Synapse A2A multi-agent framework including inter-agent communication, file safety, and history management",
   "author": {
     "name": "s-hiraoku",

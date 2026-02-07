@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.23] - 2026-02-07
+
+### Added
+
+- **Reply target selection** - `synapse reply --to <sender_id>` to reply to a specific sender when multiple are pending
+- **Reply target listing** - `synapse reply --list-targets --from <agent>` to show all pending senders
+- **Configurable storage paths** - Override registry, external registry, and history DB paths via environment variables (`SYNAPSE_REGISTRY_DIR`, `SYNAPSE_EXTERNAL_REGISTRY_DIR`, `SYNAPSE_HISTORY_DB_PATH`)
+
+### Changed
+
+- **Simplify `paths.py`** - Extract `_resolve_path` helper to eliminate duplication across path resolution functions
+- **Simplify `cli.py`** - De-duplicate `registry.unregister` calls and remove redundant `else` after `return`
+- **Simplify `tools/a2a.py`** - Remove redundant `isinstance` type guards and unused variables
+- **Move inline imports to module level** in `settings.py` for consistency
+
+### Documentation
+
+- Add external agent management commands (add, list, info, send, remove) to plugin skills
+- Add authentication commands (setup, generate-key) to plugin skills
+- Add logs, reset, resume mode, and file-safety cleanup-locks/debug commands to plugin skills
+- Fix broadcast default priority documentation (3 → 1) to match implementation
+- Add `--response` mode task creation flow and external agent endpoints to API reference
+
 ## [0.3.22] - 2026-02-06
 
 ### Fixed
