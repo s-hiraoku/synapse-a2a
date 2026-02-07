@@ -19,6 +19,8 @@ Use `synapse reply` to respond:
 
 ```bash
 synapse reply "<your response>" --from <your_agent_id>
+synapse reply --list-targets --from <your_agent_id>
+synapse reply "<your response>" --from <your_agent_id> --to <sender_id>
 ```
 
 The framework automatically handles routing - you don't need to know where the message came from.
@@ -42,8 +44,9 @@ The framework automatically handles routing - you don't need to know where the m
 |----------|--------|-------------|
 | `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt) |
 | `/tasks/create` | POST | Create task without PTY send (for `--response`) |
-| `/reply-stack/get` | GET | Get sender info without removing (peek before send) |
-| `/reply-stack/pop` | GET | Pop sender info from reply map (for `synapse reply`) |
+| `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
+| `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
+| `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
 
 ## Priority Levels
 
