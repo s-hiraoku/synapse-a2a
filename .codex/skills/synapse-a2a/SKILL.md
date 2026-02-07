@@ -15,6 +15,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to last message | `synapse reply "<response>" --from <agent>` |
+| Reply to specific sender | `synapse reply "<response>" --from <agent> --to <sender_id>` |
+| List reply targets | `synapse reply --list-targets --from <agent>` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Kill agent | `synapse kill <target>` (with confirmation, use `-f` to force) |
@@ -104,6 +106,10 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 # Use the reply command
 # --from: Use your agent ID (synapse-<type>-<port>)
 synapse reply "Here is my analysis..." --from <your_agent_id>
+
+# When multiple senders are pending, inspect and choose target
+synapse reply --list-targets --from <your_agent_id>
+synapse reply "Here is my analysis..." --from <your_agent_id> --to <sender_id>
 ```
 
 **Example - Question received (MUST reply):**
@@ -226,6 +232,14 @@ synapse kill my-claude
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
+
+## Path Overrides
+
+When running multiple environments or tests, override storage paths via env vars:
+
+- `SYNAPSE_REGISTRY_DIR` (default: `~/.a2a/registry`)
+- `SYNAPSE_EXTERNAL_REGISTRY_DIR` (default: `~/.a2a/external`)
+- `SYNAPSE_HISTORY_DB_PATH` (default: `~/.synapse/history/history.db`)
 
 ## References
 
