@@ -28,8 +28,17 @@ Inter-agent communication framework via Google A2A Protocol.
 | Initialize settings | `synapse init` |
 | Edit settings (TUI) | `synapse config` (includes List Display for column config) |
 | View settings | `synapse config show [--scope user\|project]` |
+| Reset settings | `synapse reset [--scope user\|project\|both]` |
 | Show instructions | `synapse instructions show <agent>` |
 | Send instructions | `synapse instructions send <agent> [--preview]` |
+| View logs | `synapse logs <profile> [-f] [-n <lines>]` |
+| Add external agent | `synapse external add <url> [--alias <name>]` |
+| List external agents | `synapse external list` |
+| External agent info | `synapse external info <alias>` |
+| Send to external | `synapse external send <alias> "<message>" [--wait]` |
+| Remove external agent | `synapse external remove <alias>` |
+| Auth setup | `synapse auth setup` (generate keys + instructions) |
+| Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | Version info | `synapse --version` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
@@ -151,8 +160,10 @@ Action:   Just do the task. No reply needed unless you have questions.
 | 4 | Urgent | Follow-ups, status checks |
 | 5 | Interrupt | Emergency (sends SIGINT first) |
 
+Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
+
 ```bash
-# Normal priority (default) - with response
+# Normal priority (default: 3) - with response
 synapse send gemini "Analyze this" --response --from synapse-claude-8100
 
 # Higher priority - urgent request
@@ -242,12 +253,71 @@ synapse kill my-claude
 - **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
 - **Target resolution**: Name has highest priority when matching targets
 
+## External Agent Management
+
+Connect to external A2A-compatible agents over HTTP/HTTPS:
+
+```bash
+# Discover and add an external agent
+synapse external add https://agent.example.com --alias myagent
+
+# List registered external agents
+synapse external list
+
+# Show agent details (capabilities, skills)
+synapse external info myagent
+
+# Send message to external agent
+synapse external send myagent "Analyze this data"
+synapse external send myagent "Process file" --wait  # Wait for completion
+
+# Remove agent
+synapse external remove myagent
+```
+
+External agents are stored persistently in `~/.a2a/external/`.
+
+## Authentication
+
+Secure A2A communication with API key authentication:
+
+```bash
+# Interactive setup (generates keys + shows instructions)
+synapse auth setup
+
+# Generate API key(s)
+synapse auth generate-key
+synapse auth generate-key -n 3 -e  # 3 keys in export format
+
+# Enable authentication
+export SYNAPSE_AUTH_ENABLED=true
+export SYNAPSE_API_KEYS=<key>
+export SYNAPSE_ADMIN_KEY=<admin_key>
+synapse claude
+```
+
+## Resume Mode
+
+Start agents without sending initial instructions (for session recovery):
+
+```bash
+synapse claude -- --resume
+synapse gemini -- --resume
+synapse codex -- resume        # Codex: resume is a subcommand
+synapse opencode -- --continue
+synapse copilot -- --continue
+```
+
+To inject instructions later: `synapse instructions send <agent>`.
+
 ## Key Features
 
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
+- **External Agents**: Connect to external A2A agents (`synapse external`)
+- **Authentication**: API key-based security (`synapse auth`)
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 

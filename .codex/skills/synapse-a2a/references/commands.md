@@ -285,7 +285,7 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 **Parameters:**
 - `message`: Message to broadcast to all cwd agents
 - `--from, -f`: Sender agent ID (for reply identification)
-- `--priority, -p`: Priority level 1-5 (default: 3)
+- `--priority, -p`: Priority level 1-5 (default: 1)
 - `--response`: Wait for responses from all agents
 - `--no-response`: Fire-and-forget broadcast
 
@@ -520,6 +520,145 @@ synapse instructions send synapse-claude-8100
 ```
 
 **Use case:** If you started an agent with `--resume` (which skips initial instructions) and later need the A2A protocol information, use `synapse instructions send <agent>` to inject the instructions.
+
+## Logs
+
+View agent log output:
+
+```bash
+# Show last 50 lines of Claude logs
+synapse logs claude
+
+# Follow logs in real-time
+synapse logs gemini -f
+
+# Show last 100 lines
+synapse logs codex -n 100
+```
+
+**Parameters:**
+- `profile`: Agent profile name (claude, gemini, codex, opencode, copilot)
+- `-f, --follow`: Follow log output in real-time (like `tail -f`)
+- `-n, --lines`: Number of lines to show (default: 50)
+
+Log files are stored in `~/.synapse/logs/`.
+
+## External Agent Management
+
+Connect to and manage external A2A-compatible agents accessible via HTTP/HTTPS.
+
+### Add External Agent
+
+```bash
+# Discover and add by URL
+synapse external add https://agent.example.com
+
+# Add with custom alias
+synapse external add https://agent.example.com --alias myagent
+```
+
+**Parameters:**
+- `url`: Agent URL (must serve `/.well-known/agent.json`)
+- `--alias, -a`: Short alias for the agent (auto-generated from name if not specified)
+
+### List External Agents
+
+```bash
+synapse external list
+```
+
+Shows: ALIAS, NAME, URL, LAST SEEN.
+
+### Show Agent Details
+
+```bash
+synapse external info myagent
+```
+
+Shows: Name, Alias, URL, Description, Added date, Last Seen, Capabilities, Skills.
+
+### Send Message to External Agent
+
+```bash
+# Send message
+synapse external send myagent "Analyze this data"
+
+# Send and wait for completion
+synapse external send myagent "Process this file" --wait
+```
+
+**Parameters:**
+- `alias`: Agent alias
+- `message`: Message to send
+- `--wait, -w`: Wait for task completion
+
+### Remove External Agent
+
+```bash
+synapse external remove myagent
+```
+
+External agents are stored persistently in `~/.a2a/external/`.
+
+## Authentication
+
+Manage API key authentication for secure A2A communication.
+
+### Setup (Recommended)
+
+```bash
+synapse auth setup
+```
+
+Generates API key and admin key, then shows setup instructions including environment variable exports and curl examples.
+
+### Generate API Key
+
+```bash
+# Generate a single key
+synapse auth generate-key
+
+# Generate multiple keys
+synapse auth generate-key -n 3
+
+# Output in export format
+synapse auth generate-key -e
+synapse auth generate-key -n 3 -e
+```
+
+**Parameters:**
+- `-n, --count`: Number of keys to generate (default: 1)
+- `-e, --export`: Output in `export SYNAPSE_API_KEYS=...` format
+
+### Enable Authentication
+
+```bash
+export SYNAPSE_AUTH_ENABLED=true
+export SYNAPSE_API_KEYS=<key>
+export SYNAPSE_ADMIN_KEY=<admin_key>
+synapse claude
+```
+
+### Reset Settings
+
+```bash
+# Interactive scope selection
+synapse reset
+
+# Reset specific scope
+synapse reset --scope user
+synapse reset --scope project
+synapse reset --scope both
+
+# Force reset without confirmation
+synapse reset --scope both -f
+```
+
+**Parameters:**
+- `--scope`: Which settings to reset (`user`, `project`, or `both`)
+- `-f, --force`: Skip confirmation prompt
+
+Resets `settings.json` to defaults and re-copies skills from `.claude` to `.codex`.
 
 ## Storage Locations
 

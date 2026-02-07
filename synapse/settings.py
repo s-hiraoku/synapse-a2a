@@ -12,6 +12,8 @@ Scope priority (highest to lowest):
 
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -549,8 +551,6 @@ class SynapseSettings:
 
     def _is_file_safety_enabled(self) -> bool:
         """Check if file safety is enabled via env var or settings."""
-        import os
-
         file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
         if not file_safety_enabled:
             file_safety_enabled = self.env.get(
@@ -560,8 +560,6 @@ class SynapseSettings:
 
     def _instruction_file_exists(self, filename: str) -> bool:
         """Check if an instruction file exists in .synapse directory."""
-        from pathlib import Path
-
         project_path = Path.cwd() / ".synapse" / filename
         user_path = Path.home() / ".synapse" / filename
 
@@ -606,8 +604,6 @@ class SynapseSettings:
         Returns:
             Processed text with conditional sections resolved.
         """
-        import re
-
         # Process known variables
         for var_name, value in variables.items():
             # Pattern: {{#var}}...{{/var}} (non-greedy, multiline)

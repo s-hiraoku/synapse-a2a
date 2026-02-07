@@ -31,7 +31,13 @@ synapse init
 | Check locks   | `synapse file-safety locks`                                |
 | Lock file     | `synapse file-safety lock <file> <agent_id> --intent "..."` |
 | Unlock file   | `synapse file-safety unlock <file> <agent_id>`             |
-| Record change | `synapse file-safety record <file> <agent_id> --type MODIFY` |
+| Record change | `synapse file-safety record <file> <agent_id> <task_id> --type MODIFY` |
+| File history  | `synapse file-safety history <file> [--limit N]`           |
+| Recent changes| `synapse file-safety recent [--agent <name>] [--limit N]`  |
+| Status        | `synapse file-safety status`                               |
+| Cleanup old   | `synapse file-safety cleanup --days 30 [--force]`          |
+| Cleanup locks | `synapse file-safety cleanup-locks [--force]`              |
+| Debug info    | `synapse file-safety debug`                                |
 
 ## Commands
 
@@ -76,15 +82,45 @@ synapse file-safety record /path/to/file.py claude task-123 \
   --intent "Bug fix"
 ```
 
-### Cleanup and Debug
+### Cleanup Old Records
 
 ```bash
-# Clean old records
-synapse file-safety cleanup --days 30 --force
+# Clean records older than 30 days
+synapse file-safety cleanup --days 30
 
-# Debug info
+# Force cleanup without confirmation
+synapse file-safety cleanup --days 30 --force
+```
+
+### Cleanup Stale Locks
+
+Remove locks held by dead processes:
+
+```bash
+# Show and clean stale locks (prompts for confirmation)
+synapse file-safety cleanup-locks
+
+# Force cleanup without confirmation
+synapse file-safety cleanup-locks --force
+```
+
+Detects locks whose owning process (PID) is no longer running and removes them.
+
+### Debug
+
+Show troubleshooting information:
+
+```bash
 synapse file-safety debug
 ```
+
+Displays:
+- Environment variables (`SYNAPSE_FILE_SAFETY_ENABLED`, `SYNAPSE_FILE_SAFETY_RETENTION_DAYS`, etc.)
+- Settings file locations and status
+- Database path, enabled status, active locks count, total modifications
+- Instruction file locations
+- Log file locations
+- Debug tips (enable debug logging, file logging)
 
 ## Complete Workflow
 

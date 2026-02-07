@@ -90,18 +90,18 @@ def _stop_agent(registry: AgentRegistry, info: dict) -> None:
     agent_id = info.get("agent_id")
     pid = info.get("pid")
 
-    if pid:
-        try:
-            os.kill(pid, signal.SIGTERM)
-            print(f"Stopped {agent_id} (PID: {pid})")
-            if isinstance(agent_id, str):
-                registry.unregister(agent_id)
-        except ProcessLookupError:
-            print(f"Process {pid} not found. Cleaning up registry...")
-            if isinstance(agent_id, str):
-                registry.unregister(agent_id)
-    else:
+    if not pid:
         print(f"No PID found for {agent_id}")
+        return
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Stopped {agent_id} (PID: {pid})")
+    except ProcessLookupError:
+        print(f"Process {pid} not found. Cleaning up registry...")
+
+    if isinstance(agent_id, str):
+        registry.unregister(agent_id)
 
 
 def cmd_stop(args: argparse.Namespace) -> None:
@@ -117,9 +117,8 @@ def cmd_stop(args: argparse.Namespace) -> None:
         if agent_info:
             _stop_agent(registry, agent_info)
             return
-        else:
-            print(f"Agent not found: {target_id}")
-            sys.exit(1)
+        print(f"Agent not found: {target_id}")
+        sys.exit(1)
 
     # Otherwise, treat as profile name
     profile = target_id
@@ -171,11 +170,10 @@ def cmd_kill(args: argparse.Namespace) -> None:
                 name = info.get("name")
                 name_str = f" ({name})" if name else ""
                 print(f"  {info['agent_id']}{name_str}")
-            sys.exit(1)
         else:
             print(f"Agent not found: {target}")
             print("Run 'synapse list' to see running agents.")
-            sys.exit(1)
+        sys.exit(1)
 
     agent_id: str = agent_info["agent_id"]
     name = agent_info.get("name")
@@ -193,16 +191,17 @@ def cmd_kill(args: argparse.Namespace) -> None:
             print("\nAborted.")
             return
 
-    if pid:
-        try:
-            os.kill(pid, signal.SIGKILL)
-            print(f"Killed {display_name} (PID: {pid})")
-            registry.unregister(agent_id)
-        except ProcessLookupError:
-            print(f"Process {pid} not found. Cleaning up registry...")
-            registry.unregister(agent_id)
-    else:
+    if not pid:
         print(f"No PID found for {display_name}")
+        return
+
+    try:
+        os.kill(pid, signal.SIGKILL)
+        print(f"Killed {display_name} (PID: {pid})")
+    except ProcessLookupError:
+        print(f"Process {pid} not found. Cleaning up registry...")
+
+    registry.unregister(agent_id)
 
 
 def cmd_jump(args: argparse.Namespace) -> None:
