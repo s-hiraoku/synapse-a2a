@@ -1086,7 +1086,7 @@ class TestMainFunction:
         args = mock_cmd.call_args[0][0]
         assert args.target == "claude"
         assert args.message == "hello world"
-        assert args.priority == 1  # Default
+        assert args.priority == 3  # Default
 
     @patch("synapse.tools.a2a.cmd_send")
     @patch(
@@ -1717,6 +1717,32 @@ class TestCmdReply:
         call_kwargs = mock_client.send_to_local.call_args.kwargs
         assert call_kwargs["in_reply_to"] is None
 
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_requires_message_without_list_targets(
+        self,
+        mock_requests_get,
+        mock_sender,
+        capsys,
+    ):
+        """Should error when message is empty unless --list-targets is used."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        args = argparse.Namespace(message="", list_targets=False, to=None)
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Reply message is required" in captured.err
+        mock_requests_get.assert_not_called()
+
     @patch("synapse.tools.a2a.cmd_reply")
     @patch("sys.argv", ["a2a.py", "reply", "Hello back!"])
     def test_main_reply_command(self, mock_cmd):
@@ -1869,3 +1895,31 @@ class TestCmdReply:
         assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
         # Safe fallback endpoint when no HTTP (avoids relative URL issues)
         assert call_kwargs["endpoint"] == "http://localhost"
+
+
+# ============================================================
+# Priority Default Value Tests (Item 6)
+# ============================================================
+
+
+class TestPriorityDefault:
+    """Test that default priority is 3."""
+
+    @patch("synapse.tools.a2a.cmd_send")
+    @patch("sys.argv", ["a2a.py", "send", "--target", "claude", "hello"])
+    def test_send_default_priority_is_3(self, mock_cmd_send):
+        """main() parser should pass default priority=3 to cmd_send."""
+        main()
+        args = mock_cmd_send.call_args[0][0]
+        assert args.priority == 3
+
+    @patch("synapse.tools.a2a.cmd_send")
+    @patch(
+        "sys.argv",
+        ["a2a.py", "send", "--target", "claude", "--priority", "2", "hello"],
+    )
+    def test_send_explicit_priority_is_preserved(self, mock_cmd_send):
+        """Explicit --priority should override the default value."""
+        main()
+        args = mock_cmd_send.call_args[0][0]
+        assert args.priority == 2

@@ -20,7 +20,7 @@ synapse list
 - **Interactive row selection**: Press 1-9 or ↑/↓ to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
 - **Kill Agent**: Press `k` to terminate selected agent (with confirmation dialog)
-- **Filter**: Press `/` to filter by TYPE or WORKING_DIR
+- **Filter**: Press `/` to filter by TYPE, NAME, or WORKING_DIR
 - Press `ESC` to clear filter/selection, `q` to exit
 
 **Terminal Jump Supported Terminals:**
@@ -214,7 +214,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 **Parameters:**
 - `--from, -f`: Sender agent ID (for reply identification) - **always include this**
-- `--priority, -p`: Priority level 1-5 (default: 1)
+- `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks
   - 4: Urgent follow-ups
@@ -264,13 +264,58 @@ synapse reply "<message>" --from <your_agent_id>
 
 Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is required in sandboxed environments (like Codex).
 
+If multiple senders are pending, list and choose explicitly:
+
+```bash
+# Show tracked sender IDs
+synapse reply --list-targets --from <your_agent_id>
+
+# Reply to a specific sender
+synapse reply "<message>" --from <your_agent_id> --to <sender_id>
+```
+
+### Broadcast Command
+
+Send a message to all agents in the current working directory:
+
+```bash
+synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+```
+
+**Parameters:**
+- `message`: Message to broadcast to all cwd agents
+- `--from, -f`: Sender agent ID (for reply identification)
+- `--priority, -p`: Priority level 1-5 (default: 3)
+- `--response`: Wait for responses from all agents
+- `--no-response`: Fire-and-forget broadcast
+
+**Scope:** Only targets agents sharing the same working directory as the sender.
+
+**Examples:**
+```bash
+# Broadcast status check
+synapse broadcast "Status check" --from synapse-claude-8100
+
+# Urgent broadcast with priority
+synapse broadcast "Stop current work" --priority 4 --from synapse-claude-8100
+
+# Fire-and-forget notification
+synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+
+# Wait for responses from all agents
+synapse broadcast "What are you working on?" --response --from synapse-claude-8100
+```
+
 ### A2A Tool (Advanced)
 
 For advanced use cases or external scripts:
 
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
+python -m synapse.tools.a2a broadcast [--priority <1-5>] [--from <AGENT>] [--response | --no-response] "<MESSAGE>"  # Broadcast to cwd agents
 python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT>  # Reply to last received message
+python -m synapse.tools.a2a reply --list-targets --from <AGENT>
+python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT> --to <SENDER_ID>
 python -m synapse.tools.a2a list                # List agents
 python -m synapse.tools.a2a cleanup             # Cleanup stale entries
 ```
@@ -419,6 +464,12 @@ synapse reset
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
+| `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
+| `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
+| `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
+
+Deprecated key:
+- `delegation` was removed in v0.3.19. Use `synapse send` for inter-agent communication.
 
 **list.columns:**
 

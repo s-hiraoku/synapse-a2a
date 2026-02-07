@@ -89,7 +89,6 @@ flowchart LR
 | **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
 | **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
 | **External Integration** | Communicate with other Google A2A agents |
-| **Task Delegation** | Auto-forward tasks to other agents via natural language rules |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |

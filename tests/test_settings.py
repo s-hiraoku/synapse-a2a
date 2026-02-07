@@ -7,6 +7,7 @@ from pathlib import Path
 
 from synapse.settings import (
     DEFAULT_SETTINGS,
+    DEPRECATED_SETTINGS_KEYS,
     SynapseSettings,
     get_default_instructions,
     get_gemini_instructions,
@@ -955,3 +956,67 @@ class TestInstructionFilePaths:
                 assert len(paths) == 0
             finally:
                 os.chdir(original_cwd)
+
+
+class TestDeprecatedSettingsKeys:
+    """Test deprecated settings key warning behavior."""
+
+    def test_deprecated_delegation_key_shows_migration_message(self):
+        """'delegation' key should show migration message, not generic warning."""
+        import logging
+
+        settings_logger = logging.getLogger("synapse.settings")
+        records: list[logging.LogRecord] = []
+
+        class RecordHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        handler = RecordHandler()
+        handler.setLevel(logging.WARNING)
+        settings_logger.addHandler(handler)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"delegation": {"enabled": True}}, f)
+            f.flush()
+            try:
+                load_settings(Path(f.name))
+                assert any("removed in v0.3.19" in r.message for r in records)
+                assert any("synapse send" in r.message for r in records)
+            finally:
+                settings_logger.removeHandler(handler)
+                os.unlink(f.name)
+
+    def test_unknown_key_shows_generic_warning(self):
+        """Unknown key should show generic warning with list of known keys."""
+        import logging
+
+        settings_logger = logging.getLogger("synapse.settings")
+        records: list[logging.LogRecord] = []
+
+        class RecordHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        handler = RecordHandler()
+        handler.setLevel(logging.WARNING)
+        settings_logger.addHandler(handler)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"totally_unknown_key": "value"}, f)
+            f.flush()
+            try:
+                load_settings(Path(f.name))
+                assert any(
+                    "Unknown settings key 'totally_unknown_key'" in r.message
+                    for r in records
+                )
+                assert any("Known keys:" in r.message for r in records)
+            finally:
+                settings_logger.removeHandler(handler)
+                os.unlink(f.name)
+
+    def test_deprecated_settings_keys_dict_exists(self):
+        """DEPRECATED_SETTINGS_KEYS dict should exist and contain 'delegation'."""
+        assert isinstance(DEPRECATED_SETTINGS_KEYS, dict)
+        assert "delegation" in DEPRECATED_SETTINGS_KEYS

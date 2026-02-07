@@ -13,6 +13,7 @@ import requests
 
 from synapse.a2a_client import A2AClient
 from synapse.history import HistoryManager
+from synapse.paths import get_history_db_path
 from synapse.registry import (
     AgentRegistry,
     get_valid_uds_path,
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 def _get_history_manager() -> HistoryManager:
     """Get history manager instance from environment."""
-    db_path = str(Path.home() / ".synapse" / "history.db")
+    db_path = get_history_db_path()
     return HistoryManager.from_env(db_path)
 
 
@@ -579,6 +580,9 @@ def cmd_reply(args: argparse.Namespace) -> None:
 
     This command retrieves the reply target from the local agent's reply map
     and sends the reply message to the original sender.
+
+    Supports --to to reply to a specific sender and --list-targets to show
+    all available reply targets.
     """
     # Determine own endpoint from sender info
     explicit_sender = getattr(args, "sender", None)
@@ -598,9 +602,46 @@ def cmd_reply(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    # Handle --list-targets
+    if getattr(args, "list_targets", False):
+        try:
+            resp = requests.get(f"{my_endpoint}/reply-stack/list", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                sender_ids = data.get("sender_ids", [])
+                if sender_ids:
+                    print("Available reply targets:")
+                    for sid in sender_ids:
+                        print(f"  - {sid}")
+                else:
+                    print("No reply targets available.")
+            else:
+                print(
+                    f"Error: Failed to list reply targets: HTTP {resp.status_code}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        except requests.RequestException as e:
+            print(f"Error: Failed to list reply targets: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    if not getattr(args, "message", "").strip():
+        print(
+            "Error: Reply message is required unless --list-targets is used.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Build reply-stack/get URL with optional sender_id
+    to_sender = getattr(args, "to", None)
+    get_url = f"{my_endpoint}/reply-stack/get"
+    if to_sender:
+        get_url += f"?sender_id={to_sender}"
+
     # Get reply target from my agent's reply map (don't pop yet)
     try:
-        resp = requests.get(f"{my_endpoint}/reply-stack/get", timeout=5)
+        resp = requests.get(get_url, timeout=5)
     except requests.RequestException as e:
         print(f"Error: Failed to get reply target: {e}", file=sys.stderr)
         sys.exit(1)
@@ -644,8 +685,11 @@ def cmd_reply(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Only pop from stack after successful send
+    pop_url = f"{my_endpoint}/reply-stack/pop"
+    if to_sender:
+        pop_url += f"?sender_id={to_sender}"
     with contextlib.suppress(requests.RequestException):
-        requests.get(f"{my_endpoint}/reply-stack/pop", timeout=5)
+        requests.get(pop_url, timeout=5)
 
     # Display target info (prefer UDS path if no HTTP endpoint)
     target_short = _get_target_display_name(target_endpoint, target_uds_path)
@@ -674,7 +718,7 @@ def main() -> None:
         "--target", required=True, help="Target Agent ID or Type (e.g. 'claude')"
     )
     p_send.add_argument(
-        "--priority", type=int, default=1, help="Priority (1-5, 5=Interrupt)"
+        "--priority", type=int, default=3, help="Priority (1-5, default: 3)"
     )
     p_send.add_argument(
         "--from",
@@ -734,7 +778,18 @@ def main() -> None:
         dest="sender",
         help="Your agent ID (required in sandboxed environments like Codex)",
     )
-    p_reply.add_argument("message", help="Reply message content")
+    p_reply.add_argument(
+        "--to",
+        dest="to",
+        help="Reply to a specific sender ID (default: last message)",
+    )
+    p_reply.add_argument(
+        "--list-targets",
+        action="store_true",
+        default=False,
+        help="List available reply targets and exit",
+    )
+    p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
 
     args = parser.parse_args()
 

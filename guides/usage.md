@@ -413,7 +413,7 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 |-----------|--------|-----------|------|
 | `target` | - | 必須 | 送信先エージェント |
 | `--from` | `-f` | - | 送信元エージェントID（常に指定推奨） |
-| `--priority` | `-p` | 1 | 優先度 (1-5) |
+| `--priority` | `-p` | 3 | 優先度 (1-5) |
 | `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | - | - | Oneway - 送りっぱなし、返信不要 |
 
@@ -435,16 +435,30 @@ synapse send codex "結果を教えて" --response --from synapse-claude-8100
 ### 2.5 メッセージへの返信
 
 ```bash
-synapse reply "返信メッセージ" --from <your_agent_id>
+synapse reply "返信メッセージ" --from <your_agent_id> [--to SENDER_ID] [--list-targets]
 ```
 
 Synapseは返信を期待する送信者情報を自動的に追跡し、適切な送信者に返信します。
 
+**オプション**:
+
+| オプション | 説明 |
+|-----------|------|
+| `--from`, `-f` | 送信元エージェントID |
+| `--to` | 返信先の sender_id を指定（複数の送信者がいる場合に使用） |
+| `--list-targets` | 返信可能なターゲット一覧を表示 |
+
 **例**:
 
 ```bash
+# 最新の送信者に返信（デフォルト）
 synapse reply "分析結果です..." --from synapse-codex-8121
-synapse reply "タスク完了しました" --from synapse-gemini-8110
+
+# 特定の送信者に返信
+synapse reply "タスク完了しました" --from synapse-gemini-8110 --to synapse-claude-8100
+
+# 返信可能なターゲットを確認
+synapse reply --list-targets --from synapse-codex-8121
 ```
 
 ---

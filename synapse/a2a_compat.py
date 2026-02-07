@@ -16,7 +16,6 @@ import threading
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
@@ -37,6 +36,7 @@ from synapse.long_message import (
     get_long_message_store,
 )
 from synapse.output_parser import parse_output
+from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
@@ -493,7 +493,7 @@ class TaskStore:
 task_store = TaskStore()
 
 # Global history manager
-_history_db_path = str(Path.home() / ".synapse" / "history" / "history.db")
+_history_db_path = get_history_db_path()
 history_manager = HistoryManager.from_env(db_path=_history_db_path)
 
 # Logger for A2A operations
@@ -643,7 +643,7 @@ def create_a2a_router(
     router = APIRouter(tags=["Google A2A Compatible"])
 
     def _send_task_message(
-        request: SendMessageRequest, priority: int = 1
+        request: SendMessageRequest, priority: int = 3
     ) -> SendMessageResponse:
         """Create a task and send message to controller with optional priority."""
         # Extract text from message parts
@@ -801,7 +801,7 @@ def create_a2a_router(
                         "priority": {
                             "type": "integer",
                             "description": "Priority level (5 for interrupt)",
-                            "default": 1,
+                            "default": 3,
                         }
                     },
                 ),
@@ -1079,7 +1079,7 @@ def create_a2a_router(
 
     @router.post("/tasks/send-priority", response_model=SendMessageResponse)
     async def send_priority_message(  # noqa: B008
-        request: SendMessageRequest, priority: int = 1, _: Any = Depends(require_auth)
+        request: SendMessageRequest, priority: int = 3, _: Any = Depends(require_auth)
     ) -> SendMessageResponse:
         """
         Send a message with priority (Synapse extension).
@@ -1323,18 +1323,39 @@ def create_a2a_router(
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
 
+    class ReplyTargetList(BaseModel):
+        """List of reply target sender IDs."""
+
+        sender_ids: list[str]
+
+    @router.get("/reply-stack/list", response_model=ReplyTargetList)
+    async def list_reply_targets(
+        _: Any = Depends(require_auth),
+    ) -> ReplyTargetList:
+        """
+        List all sender IDs in the reply stack.
+
+        Returns a list of sender IDs that can be used with --to flag.
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        reply_stack = get_reply_stack()
+        return ReplyTargetList(sender_ids=reply_stack.list_senders())
+
     @router.get("/reply-stack/get", response_model=ReplyTarget)
-    async def get_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+    async def get_reply_target(
+        sender_id: str | None = None, _: Any = Depends(require_auth)
+    ) -> ReplyTarget:
         """
         Get a reply target without removing it.
 
-        Returns the most recently received sender endpoint (HTTP and/or UDS) and task ID.
+        If sender_id is provided, returns that specific sender's info.
+        Otherwise returns the most recently received sender (LIFO).
         Does NOT remove the entry - use /reply-stack/pop after successful reply.
         Returns 404 if no reply targets exist.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
-        info = reply_stack.peek_last()
+        info = reply_stack.get(sender_id) if sender_id else reply_stack.peek_last()
         if not info:
             raise HTTPException(status_code=404, detail="No reply target")
         return ReplyTarget(
@@ -1344,17 +1365,20 @@ def create_a2a_router(
         )
 
     @router.get("/reply-stack/pop", response_model=ReplyTarget)
-    async def pop_reply_target(_: Any = Depends(require_auth)) -> ReplyTarget:
+    async def pop_reply_target(
+        sender_id: str | None = None, _: Any = Depends(require_auth)
+    ) -> ReplyTarget:
         """
         Pop a reply target from the map.
 
-        Returns the first available sender endpoint (HTTP and/or UDS) and task ID.
+        If sender_id is provided, pops that specific sender's entry.
+        Otherwise pops the last entry (LIFO).
         Removes the entry after returning.
         Returns 404 if no reply targets exist.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
-        info = reply_stack.pop()
+        info = reply_stack.pop(sender_id)
         if not info:
             raise HTTPException(status_code=404, detail="No reply target")
         return ReplyTarget(

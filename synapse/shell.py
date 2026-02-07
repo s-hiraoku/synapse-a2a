@@ -78,8 +78,13 @@ class SynapseShell(cmd.Cmd):
         try:
             print(f"[Sending to {agent_name}...]")
             response = requests.post(
-                f"{endpoint}/message",
-                json={"content": message, "priority": 1},
+                f"{endpoint}/tasks/send",
+                json={
+                    "message": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": message}],
+                    }
+                },
                 timeout=10,
             )
             response.raise_for_status()
