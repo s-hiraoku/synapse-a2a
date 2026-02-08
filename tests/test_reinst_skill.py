@@ -69,7 +69,7 @@ def register_agent(
     pid: int | None = None,
 ) -> None:
     """Helper to create a registry entry."""
-    data = {
+    data: dict[str, object] = {
         "agent_id": agent_id,
         "agent_type": agent_type,
         "port": port,
@@ -83,44 +83,58 @@ def register_agent(
     (registry_dir / f"{agent_id}.json").write_text(json.dumps(data))
 
 
+def run_reinst(
+    cwd: Path,
+    *,
+    agent_id: str | None = None,
+    agent_type: str | None = None,
+    port: str | None = None,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run the reinst.py script with the given environment variables."""
+    env = os.environ.copy()
+    # Clear any existing synapse env vars
+    env.pop("SYNAPSE_AGENT_ID", None)
+    env.pop("SYNAPSE_AGENT_TYPE", None)
+    env.pop("SYNAPSE_PORT", None)
+
+    if agent_id is not None:
+        env["SYNAPSE_AGENT_ID"] = agent_id
+    if agent_type is not None:
+        env["SYNAPSE_AGENT_TYPE"] = agent_type
+    if port is not None:
+        env["SYNAPSE_PORT"] = port
+    if extra_env:
+        env.update(extra_env)
+
+    return subprocess.run(
+        [sys.executable, str(REINST_SCRIPT)],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=str(cwd),
+    )
+
+
 class TestEnvVarDetection:
     """Tests for environment variable detection in reinst.py."""
 
     def test_reads_env_vars(self, tmp_path: Path, temp_synapse_dir: Path) -> None:
         """Should read SYNAPSE_AGENT_ID, SYNAPSE_AGENT_TYPE, SYNAPSE_PORT."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
-        env["SYNAPSE_AGENT_TYPE"] = "claude"
-        env["SYNAPSE_PORT"] = "8100"
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            port="8100",
         )
 
         assert result.returncode == 0
-        output = result.stdout
-        assert "synapse-claude-8100" in output
-        assert "8100" in output
+        assert "synapse-claude-8100" in result.stdout
+        assert "8100" in result.stdout
 
     def test_missing_env_vars_exits_with_error(self, tmp_path: Path) -> None:
         """Should exit with error when required env vars are missing and no PID fallback."""
-        env = os.environ.copy()
-        # Remove synapse env vars if they exist
-        env.pop("SYNAPSE_AGENT_ID", None)
-        env.pop("SYNAPSE_AGENT_TYPE", None)
-        env.pop("SYNAPSE_PORT", None)
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
-        )
+        result = run_reinst(tmp_path)
 
         assert result.returncode != 0
         assert "error" in result.stderr.lower() or "not found" in result.stderr.lower()
@@ -143,24 +157,16 @@ class TestRegistryLookup:
             role="code reviewer",
         )
 
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
-        env["SYNAPSE_AGENT_TYPE"] = "claude"
-        env["SYNAPSE_PORT"] = "8100"
-        env["SYNAPSE_REGISTRY_DIR"] = str(temp_registry_dir)
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            port="8100",
+            extra_env={"SYNAPSE_REGISTRY_DIR": str(temp_registry_dir)},
         )
 
         assert result.returncode == 0
-        output = result.stdout
-        # name should appear in the output (replaces {{agent_name}})
-        assert "my-claude" in output
+        assert "my-claude" in result.stdout
 
     def test_works_without_registry(
         self,
@@ -168,24 +174,16 @@ class TestRegistryLookup:
         temp_synapse_dir: Path,
     ) -> None:
         """Should work even when registry lookup fails."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
-        env["SYNAPSE_AGENT_TYPE"] = "claude"
-        env["SYNAPSE_PORT"] = "8100"
-        env["SYNAPSE_REGISTRY_DIR"] = str(tmp_path / "nonexistent")
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            port="8100",
+            extra_env={"SYNAPSE_REGISTRY_DIR": str(tmp_path / "nonexistent")},
         )
 
         assert result.returncode == 0
-        output = result.stdout
-        # Should fall back to agent_id for display name
-        assert "synapse-claude-8100" in output
+        assert "synapse-claude-8100" in result.stdout
 
 
 class TestInstructionOutput:
@@ -197,27 +195,19 @@ class TestInstructionOutput:
         temp_synapse_dir: Path,
     ) -> None:
         """Should output instruction with all placeholders replaced."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-gemini-8110"
-        env["SYNAPSE_AGENT_TYPE"] = "gemini"
-        env["SYNAPSE_PORT"] = "8110"
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-gemini-8110",
+            agent_type="gemini",
+            port="8110",
         )
 
         assert result.returncode == 0
-        output = result.stdout
-        assert "synapse-gemini-8110" in output
-        assert "8110" in output
+        assert "synapse-gemini-8110" in result.stdout
+        assert "8110" in result.stdout
         # No unresolved placeholders
-        assert "{{agent_id}}" not in output
-        assert "{{port}}" not in output
-        assert "{{agent_name}}" not in output
+        for placeholder in ["{{agent_id}}", "{{port}}", "{{agent_name}}"]:
+            assert placeholder not in result.stdout
 
     def test_uses_default_instruction_when_no_agent_specific(
         self,
@@ -225,23 +215,16 @@ class TestInstructionOutput:
         temp_synapse_dir: Path,
     ) -> None:
         """Should use default instruction when no agent-specific one exists."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-codex-8120"
-        env["SYNAPSE_AGENT_TYPE"] = "codex"
-        env["SYNAPSE_PORT"] = "8120"
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-codex-8120",
+            agent_type="codex",
+            port="8120",
         )
 
         assert result.returncode == 0
-        output = result.stdout
-        assert "SYNAPSE INSTRUCTIONS" in output
-        assert "synapse-codex-8120" in output
+        assert "SYNAPSE INSTRUCTIONS" in result.stdout
+        assert "synapse-codex-8120" in result.stdout
 
 
 class TestPidFallback:
@@ -254,36 +237,22 @@ class TestPidFallback:
         temp_registry_dir: Path,
     ) -> None:
         """Should search registry by PID when env vars are not set."""
-        # Register with current PID
-        current_pid = os.getpid()
         register_agent(
             temp_registry_dir,
             agent_id="synapse-claude-8100",
             agent_type="claude",
             port=8100,
-            pid=current_pid,
+            pid=os.getpid(),
         )
 
-        env = os.environ.copy()
-        # No SYNAPSE_* env vars
-        env.pop("SYNAPSE_AGENT_ID", None)
-        env.pop("SYNAPSE_AGENT_TYPE", None)
-        env.pop("SYNAPSE_PORT", None)
-        env["SYNAPSE_REGISTRY_DIR"] = str(temp_registry_dir)
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            extra_env={"SYNAPSE_REGISTRY_DIR": str(temp_registry_dir)},
         )
 
         # PID fallback uses the script's own PID, which won't match the registry
-        # entry we created (which has the test process's PID). So this tests
-        # the fallback path but won't find a match.
-        # The important thing is it doesn't crash and shows a meaningful error.
-        # We can test the function directly for PID matching.
+        # entry we created (which has the test process's PID). The important thing
+        # is it doesn't crash and shows a meaningful error.
         assert (
             result.returncode != 0 or "error" in result.stderr.lower() or result.stdout
         )
@@ -294,42 +263,24 @@ class TestEdgeCases:
 
     def test_no_synapse_dir(self, tmp_path: Path) -> None:
         """Should handle missing .synapse directory gracefully."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
-        env["SYNAPSE_AGENT_TYPE"] = "claude"
-        env["SYNAPSE_PORT"] = "8100"
-
-        # Use a directory without .synapse
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
 
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(empty_dir),
+        result = run_reinst(
+            empty_dir,
+            agent_id="synapse-claude-8100",
+            agent_type="claude",
+            port="8100",
         )
 
-        # Should still output default instructions (from code defaults)
         assert result.returncode == 0
-        output = result.stdout
-        assert "synapse-claude-8100" in output
+        assert "synapse-claude-8100" in result.stdout
 
     def test_partial_env_vars(self, tmp_path: Path) -> None:
         """Should fail when only some env vars are set."""
-        env = os.environ.copy()
-        env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
-        # Missing SYNAPSE_AGENT_TYPE and SYNAPSE_PORT
-        env.pop("SYNAPSE_AGENT_TYPE", None)
-        env.pop("SYNAPSE_PORT", None)
-
-        result = subprocess.run(
-            [sys.executable, str(REINST_SCRIPT)],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=str(tmp_path),
+        result = run_reinst(
+            tmp_path,
+            agent_id="synapse-claude-8100",
         )
 
         # Should still work or show error, not crash

@@ -65,6 +65,15 @@ def _get_agent_info_from_registry(
         return None
 
 
+def _extract_name_role(
+    agent_info: dict[str, object],
+) -> tuple[str | None, str | None]:
+    """Extract name and role from an agent info dict."""
+    name = str(agent_info["name"]) if agent_info.get("name") else None
+    role = str(agent_info["role"]) if agent_info.get("role") else None
+    return name, role
+
+
 def _get_instruction(
     agent_type: str,
     agent_id: str,
@@ -160,8 +169,7 @@ def main() -> int:
             agent_id = str(agent_info.get("agent_id", agent_id))
             agent_type = str(agent_info.get("agent_type", agent_type))
             port_str = str(agent_info.get("port", port_str or "0"))
-            name = str(agent_info["name"]) if agent_info.get("name") else None
-            role = str(agent_info["role"]) if agent_info.get("role") else None
+            name, role = _extract_name_role(agent_info)
 
     # Validate we have the required info
     if not agent_id or not agent_type:
@@ -181,8 +189,7 @@ def main() -> int:
     if not name:
         agent_info = _get_agent_info_from_registry(agent_id, registry_dir)
         if agent_info:
-            name = str(agent_info["name"]) if agent_info.get("name") else None
-            role = str(agent_info["role"]) if agent_info.get("role") else None
+            name, role = _extract_name_role(agent_info)
 
     # Get and output the instruction
     instruction = _get_instruction(agent_type, agent_id, port, name, role)

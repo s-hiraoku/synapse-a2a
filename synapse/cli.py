@@ -63,18 +63,41 @@ def install_skills() -> None:
         pass
 
 
-def _copy_skill_to_agents(source_dir: Path, skill_name: str) -> None:
-    """Copy a skill from .claude to .agents (Codex/OpenCode use .agents/skills/)."""
+def _copy_skill_to_agents(
+    source_dir: Path,
+    skill_name: str,
+    *,
+    base_dir: Path | None = None,
+    force: bool = False,
+    quiet: bool = False,
+) -> str | None:
+    """Copy a skill to .agents/skills/ (Codex/OpenCode use .agents/skills/).
+
+    Args:
+        source_dir: Source skill directory to copy from.
+        skill_name: Name of the skill (used as target directory name).
+        base_dir: Base directory for .agents/. Defaults to Path.home().
+        force: If True, overwrite existing skill.
+        quiet: If True, suppress output messages.
+
+    Returns the destination path string if copied, None otherwise.
+    """
     try:
-        agents_target = Path.home() / ".agents" / "skills" / skill_name
-        if agents_target.exists():
-            return
+        target_base = base_dir or Path.home()
+        agents_target = target_base / ".agents" / "skills" / skill_name
+        if agents_target.exists() and not force:
+            return None
+        if agents_target.exists() and force:
+            shutil.rmtree(agents_target)
         agents_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(source_dir, agents_target)
-        print(f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {agents_target}")
+        if not quiet:
+            print(
+                f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {agents_target}"
+            )
+        return str(agents_target)
     except Exception:
-        # Silently ignore copy errors
-        pass
+        return None
 
 
 _START_COMMAND = StartCommand(subprocess_module=subprocess)
@@ -1539,15 +1562,10 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
 
 
 def _copy_claude_skills_to_agents(base_dir: Path, force: bool = False) -> list[str]:
-    """
-    Copy synapse-a2a skills from .claude to .agents directory.
-
-    Claude Code supports skills via skills.sh:
-        npx skills add s-hiraoku/synapse-a2a
+    """Copy synapse skills from .claude to .agents directory.
 
     Codex and OpenCode use .agents/skills/ for skill discovery, so this
-    function copies the skills from .claude/skills/synapse-a2a to
-    .agents/skills/synapse-a2a.
+    copies each skill from .claude/skills/<name> to .agents/skills/<name>.
 
     Args:
         base_dir: Base directory (e.g., Path.home() or Path.cwd())
@@ -1557,38 +1575,17 @@ def _copy_claude_skills_to_agents(base_dir: Path, force: bool = False) -> list[s
         List of paths where skills were copied to
     """
     installed: list[str] = []
+    skill_names = ["synapse-a2a", "synapse-reinst"]
 
-    # Source: .claude/skills/synapse-a2a (installed via plugin marketplace)
-    claude_skills_path = base_dir / ".claude" / "skills" / "synapse-a2a"
-
-    # Destination: .agents/skills/synapse-a2a
-    agents_skills_path = base_dir / ".agents" / "skills" / "synapse-a2a"
-
-    # Only copy if source exists
-    if not claude_skills_path.exists():
-        return installed
-
-    # Check if destination already exists
-    if agents_skills_path.exists() and not force:
-        return installed
-
-    # Copy skills to .agents
-    try:
-        import shutil
-
-        # Create parent directories
-        agents_skills_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Remove existing if force
-        if agents_skills_path.exists() and force:
-            shutil.rmtree(agents_skills_path)
-
-        # Copy directory tree
-        shutil.copytree(claude_skills_path, agents_skills_path)
-        installed.append(str(agents_skills_path))
-    except OSError:
-        # Silently ignore copy errors
-        pass
+    for skill_name in skill_names:
+        source = base_dir / ".claude" / "skills" / skill_name
+        if not source.exists():
+            continue
+        result = _copy_skill_to_agents(
+            source, skill_name, base_dir=base_dir, force=force, quiet=True
+        )
+        if result:
+            installed.append(result)
 
     return installed
 
@@ -1672,10 +1669,11 @@ def cmd_reset(args: argparse.Namespace) -> None:
             print(f"  - {p} ({exists})")
         print("\nSkills (will be reinstalled):")
         for base in skill_bases:
-            for agent in [".claude", ".agents"]:
-                skill_path = base / agent / "skills" / "synapse-a2a"
-                exists = "exists" if skill_path.exists() else "will be created"
-                print(f"  - {skill_path} ({exists})")
+            for agent_dir in [".claude", ".agents"]:
+                for skill_name in ["synapse-a2a", "synapse-reinst"]:
+                    skill_path = base / agent_dir / "skills" / skill_name
+                    exists = "exists" if skill_path.exists() else "will be created"
+                    print(f"  - {skill_path} ({exists})")
         response = input("\nContinue? (y/N): ").strip().lower()
         if response not in ("y", "yes"):
             print("Cancelled.")
