@@ -192,11 +192,10 @@ OpenCode provides these tools to agents:
 
 Skills are discovered from (in order):
 
-1. `.opencode/skills/<name>/SKILL.md` (project)
-2. `.agents/skills/<name>/SKILL.md` (project, shared with Codex)
+1. `.agents/skills/<name>/SKILL.md` (project, shared with Codex)
+2. `.claude/skills/<name>/SKILL.md` (Claude-compatible project)
 3. `~/.config/opencode/skills/<name>/SKILL.md` (global)
-4. `.claude/skills/<name>/SKILL.md` (Claude-compatible project)
-5. `~/.claude/skills/<name>/SKILL.md` (Claude-compatible global)
+4. `~/.claude/skills/<name>/SKILL.md` (Claude-compatible global)
 
 ### Skill Format
 

@@ -429,12 +429,6 @@ synapse config show --scope project    # Show project settings only
 - **Resume Flags**: CLI flags that indicate session resume mode
 - **List Display**: Configure `synapse list` columns
 
-### Reset Settings
-
-```bash
-synapse reset
-```
-
 ### Settings File Format
 
 `.synapse/settings.json`:

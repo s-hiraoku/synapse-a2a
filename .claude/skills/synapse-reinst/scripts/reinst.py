@@ -28,9 +28,10 @@ def _find_agent_by_pid(registry_dir: Path) -> dict[str, object] | None:
         try:
             with open(path) as f:
                 data: dict[str, object] = json.load(f)
-            if data.get("pid") == ppid:
+            raw_pid = data.get("pid")
+            if raw_pid is not None and int(str(raw_pid)) == ppid:
                 return data
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, ValueError, TypeError):
             continue
     return None
 
@@ -90,8 +91,12 @@ def _get_instruction(
             agent_type, agent_id, port, name=name, role=role
         )
     except ImportError:
-        # Fallback: try to read .synapse/default.md or use built-in default
-        return _fallback_instruction(agent_type, agent_id, port, name, role)
+        pass
+    except Exception:
+        # SynapseSettings.load() or get_instruction() failed unexpectedly
+        pass
+    # Fallback: try to read .synapse/default.md or use built-in default
+    return _fallback_instruction(agent_type, agent_id, port, name, role)
 
 
 def _process_conditionals(text: str, variables: dict[str, str]) -> str:
@@ -166,9 +171,15 @@ def main() -> int:
     if not all([agent_id, agent_type, port_str]):
         agent_info = _find_agent_by_pid(registry_dir)
         if agent_info:
-            agent_id = str(agent_info.get("agent_id", agent_id))
-            agent_type = str(agent_info.get("agent_type", agent_type))
-            port_str = str(agent_info.get("port", port_str or "0"))
+            raw_id = agent_info.get("agent_id")
+            if raw_id is not None:
+                agent_id = str(raw_id)
+            raw_type = agent_info.get("agent_type")
+            if raw_type is not None:
+                agent_type = str(raw_type)
+            raw_port = agent_info.get("port")
+            if raw_port is not None:
+                port_str = str(raw_port)
             name, role = _extract_name_role(agent_info)
 
     # Validate we have the required info
@@ -183,7 +194,10 @@ def main() -> int:
         )
         return 1
 
-    port = int(port_str) if port_str else 0
+    try:
+        port = int(port_str) if port_str else 0
+    except (ValueError, TypeError):
+        port = 0
 
     # Look up name/role from registry if not already set
     if not name:
