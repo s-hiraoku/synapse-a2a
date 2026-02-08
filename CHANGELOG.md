@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.24] - 2026-02-08
+
+### Added
+
+- **synapse-reinst skill** - Re-inject initial instructions after `/clear` or context reset
+  - Script reads environment variables (`SYNAPSE_AGENT_ID`, `SYNAPSE_AGENT_TYPE`, `SYNAPSE_PORT`) to restore agent identity
+  - Fallback path with conditional section processing when synapse module is not importable
+  - Deployed to `.claude/`, `.gemini/`, and `.agents/` skill directories
+
+### Changed
+
+- **Migrate Codex skill directory** from `.codex/skills/` to `.agents/skills/` (official Codex CLI skill path)
+  - Rename `_copy_skill_to_codex()` → `_copy_skill_to_agents()` in `cli.py`
+  - Rename `_copy_claude_skills_to_codex()` → `_copy_claude_skills_to_agents()` in `cli.py`
+- **Remove `.opencode/skills/`** - OpenCode auto-scans `.agents/skills/`, eliminating redundant copies
+- **Update skill examples** to use `synapse send`/`synapse reply` commands exclusively
+  - Replace all deprecated `@agent` patterns removed in v0.3.9
+  - Add `--response`/`--no-response` flags and `synapse reply` examples
+- **Update SKILL.md description** - Replace "routing @agent patterns" with "via synapse send/reply commands"
+- **Update file-safety.md** - Replace `@gemini` pattern with `synapse send` command
+
+### Removed
+
+- Delete `.codex/` directory (migrated to `.agents/`)
+- Delete `.opencode/` directory (redundant with `.agents/`)
+
+### Documentation
+
+- Update README.md and README.ja.md: `.codex/skills/` → `.agents/skills/`
+- Update `guides/settings.md`: Codex skill path documentation
+- Update `synapse-docs` skill references: code-doc-mapping.md, doc-inventory.md
+- Update `opencode-expert` skill: add `.agents/skills/` to discovery paths
+- Update `commands.md`: reset command description `.codex` → `.agents`
+
+### Tests
+
+- Add `tests/test_reinst_skill.py` with 9 test cases covering env var detection, registry lookup, instruction output, PID fallback, and edge cases
+- Update `tests/test_settings.py`, `tests/test_cli.py`, `tests/test_cli_commands_coverage.py`, `tests/test_cli_extended.py` for `.codex` → `.agents` migration
+
 ## [0.3.23] - 2026-02-07
 
 ### Added
@@ -1068,6 +1107,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
+[0.3.24]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.23...v0.3.24
 [0.2.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.13...v0.2.14

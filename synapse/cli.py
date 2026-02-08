@@ -33,20 +33,20 @@ KNOWN_PROFILES = set(PORT_RANGES.keys())
 
 
 def install_skills() -> None:
-    """Install Synapse A2A skills to ~/.claude/skills/ and copy to ~/.codex/skills/."""
+    """Install Synapse A2A skills to ~/.claude/skills/ and copy to ~/.agents/skills/."""
     try:
         import synapse
 
         package_dir = Path(synapse.__file__).parent
-        skills_to_install = ["synapse-a2a"]
+        skills_to_install = ["synapse-a2a", "synapse-reinst"]
 
         for skill_name in skills_to_install:
             claude_target = Path.home() / ".claude" / "skills" / skill_name
 
             # Skip if already installed in .claude
             if claude_target.exists():
-                # Still try to copy to .codex if not present
-                _copy_skill_to_codex(claude_target, skill_name)
+                # Still try to copy to .agents if not present
+                _copy_skill_to_agents(claude_target, skill_name)
                 continue
 
             source_dir = package_dir / "skills" / skill_name
@@ -56,25 +56,48 @@ def install_skills() -> None:
                 shutil.copytree(source_dir, claude_target)
                 msg = f"Installed {skill_name} skill to {claude_target}"
                 print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
-                # Copy to .codex as well
-                _copy_skill_to_codex(claude_target, skill_name)
+                # Copy to .agents as well
+                _copy_skill_to_agents(claude_target, skill_name)
     except Exception:
         # Silently ignore installation errors
         pass
 
 
-def _copy_skill_to_codex(source_dir: Path, skill_name: str) -> None:
-    """Copy a skill from .claude to .codex (Codex doesn't support plugins)."""
+def _copy_skill_to_agents(
+    source_dir: Path,
+    skill_name: str,
+    *,
+    base_dir: Path | None = None,
+    force: bool = False,
+    quiet: bool = False,
+) -> str | None:
+    """Copy a skill to .agents/skills/ (Codex/OpenCode use .agents/skills/).
+
+    Args:
+        source_dir: Source skill directory to copy from.
+        skill_name: Name of the skill (used as target directory name).
+        base_dir: Base directory for .agents/. Defaults to Path.home().
+        force: If True, overwrite existing skill.
+        quiet: If True, suppress output messages.
+
+    Returns the destination path string if copied, None otherwise.
+    """
     try:
-        codex_target = Path.home() / ".codex" / "skills" / skill_name
-        if codex_target.exists():
-            return
-        codex_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_dir, codex_target)
-        print(f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {codex_target}")
+        target_base = base_dir or Path.home()
+        agents_target = target_base / ".agents" / "skills" / skill_name
+        if agents_target.exists() and not force:
+            return None
+        if agents_target.exists() and force:
+            shutil.rmtree(agents_target)
+        agents_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_dir, agents_target)
+        if not quiet:
+            print(
+                f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {agents_target}"
+            )
+        return str(agents_target)
     except Exception:
-        # Silently ignore copy errors
-        pass
+        return None
 
 
 _START_COMMAND = StartCommand(subprocess_module=subprocess)
@@ -1538,56 +1561,31 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
         return False
 
 
-def _copy_claude_skills_to_codex(base_dir: Path, force: bool = False) -> list[str]:
-    """
-    Copy synapse-a2a skills from .claude to .codex directory.
+def _copy_claude_skills_to_agents(base_dir: Path, force: bool = False) -> list[str]:
+    """Copy synapse skills from .claude to .agents directory.
 
-    Claude Code supports skills via skills.sh:
-        npx skills add s-hiraoku/synapse-a2a
-
-    Codex does not support plugins, so this function copies the skills
-    from .claude/skills/synapse-a2a to .codex/skills/synapse-a2a.
+    Codex and OpenCode use .agents/skills/ for skill discovery, so this
+    copies each skill from .claude/skills/<name> to .agents/skills/<name>.
 
     Args:
         base_dir: Base directory (e.g., Path.home() or Path.cwd())
-        force: If True, overwrite existing skills in .codex
+        force: If True, overwrite existing skills in .agents
 
     Returns:
         List of paths where skills were copied to
     """
     installed: list[str] = []
+    skill_names = ["synapse-a2a", "synapse-reinst"]
 
-    # Source: .claude/skills/synapse-a2a (installed via plugin marketplace)
-    claude_skills_path = base_dir / ".claude" / "skills" / "synapse-a2a"
-
-    # Destination: .codex/skills/synapse-a2a
-    codex_skills_path = base_dir / ".codex" / "skills" / "synapse-a2a"
-
-    # Only copy if source exists
-    if not claude_skills_path.exists():
-        return installed
-
-    # Check if destination already exists
-    if codex_skills_path.exists() and not force:
-        return installed
-
-    # Copy skills to .codex
-    try:
-        import shutil
-
-        # Create parent directories
-        codex_skills_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Remove existing if force
-        if codex_skills_path.exists() and force:
-            shutil.rmtree(codex_skills_path)
-
-        # Copy directory tree
-        shutil.copytree(claude_skills_path, codex_skills_path)
-        installed.append(str(codex_skills_path))
-    except OSError:
-        # Silently ignore copy errors
-        pass
+    for skill_name in skill_names:
+        source = base_dir / ".claude" / "skills" / skill_name
+        if not source.exists():
+            continue
+        result = _copy_skill_to_agents(
+            source, skill_name, base_dir=base_dir, force=force, quiet=True
+        )
+        if result:
+            installed.append(result)
 
     return installed
 
@@ -1627,8 +1625,8 @@ def cmd_init(args: argparse.Namespace) -> None:
     else:
         sys.exit(1)
 
-    # Copy skills from .claude to .codex (Codex doesn't support plugins)
-    installed = _copy_claude_skills_to_codex(skills_base, force=False)
+    # Copy skills from .claude to .agents (Codex/OpenCode use .agents/skills/)
+    installed = _copy_claude_skills_to_agents(skills_base, force=False)
     for path in installed:
         print(f"✔ Copied skill to {path}")
 
@@ -1671,10 +1669,11 @@ def cmd_reset(args: argparse.Namespace) -> None:
             print(f"  - {p} ({exists})")
         print("\nSkills (will be reinstalled):")
         for base in skill_bases:
-            for agent in [".claude", ".codex"]:
-                skill_path = base / agent / "skills" / "synapse-a2a"
-                exists = "exists" if skill_path.exists() else "will be created"
-                print(f"  - {skill_path} ({exists})")
+            for agent_dir in [".claude", ".agents"]:
+                for skill_name in ["synapse-a2a", "synapse-reinst"]:
+                    skill_path = base / agent_dir / "skills" / skill_name
+                    exists = "exists" if skill_path.exists() else "will be created"
+                    print(f"  - {skill_path} ({exists})")
         response = input("\nContinue? (y/N): ").strip().lower()
         if response not in ("y", "yes"):
             print("Cancelled.")
@@ -1687,9 +1686,9 @@ def cmd_reset(args: argparse.Namespace) -> None:
         else:
             print(f"✗ Failed to reset {path}")
 
-    # Re-copy skills from .claude to .codex (force=True to overwrite)
+    # Re-copy skills from .claude to .agents (force=True to overwrite)
     for base in skill_bases:
-        installed = _copy_claude_skills_to_codex(base, force=True)
+        installed = _copy_claude_skills_to_agents(base, force=True)
         for installed_path in installed:
             print(f"✔ Re-copied skill to {installed_path}")
 
@@ -2777,7 +2776,7 @@ Enable authentication with SYNAPSE_AUTH_ENABLED=true.""",
         help="Initialize Synapse configuration",
         description="""Initialize .synapse/settings.json with default configuration.
 
-Creates settings file and copies skills to .codex (if .claude skills exist).""",
+Creates settings file and copies skills to .agents (if .claude skills exist).""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse init              Interactive scope selection
@@ -2797,7 +2796,7 @@ Creates settings file and copies skills to .codex (if .claude skills exist).""",
         help="Reset Synapse configuration to defaults",
         description="""Reset .synapse/settings.json to default values.
 
-Also re-copies skills from .claude to .codex.""",
+Also re-copies skills from .claude to .agents.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse reset                  Interactive scope selection

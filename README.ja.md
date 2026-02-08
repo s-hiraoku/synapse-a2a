@@ -325,7 +325,7 @@ plugins/
 
 詳しくは [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照。
 
-> **注意**: Codex はプラグインをサポートしていませんが、展開されたスキルを `.codex/skills/` ディレクトリに配置することでこれらの機能を有効にできます。
+> **注意**: Codex/OpenCode はプラグインをサポートしていませんが、展開されたスキルを `.agents/skills/` ディレクトリに配置することでこれらの機能を有効にできます。
 
 ---
 

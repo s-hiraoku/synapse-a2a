@@ -15,12 +15,12 @@ class TestCliCoverage:
         """Test skipping skill installation if directory exists."""
         home = tmp_path / "home"
         home.mkdir()
-        # Create all skill directories in both .claude and .codex to avoid any copy calls
-        for skill in ["synapse-a2a"]:
+        # Create all skill directories in both .claude and .agents to avoid any copy calls
+        for skill in ["synapse-a2a", "synapse-reinst"]:
             claude_skill_dir = home / ".claude" / "skills" / skill
             claude_skill_dir.mkdir(parents=True)
-            codex_skill_dir = home / ".codex" / "skills" / skill
-            codex_skill_dir.mkdir(parents=True)
+            agents_skill_dir = home / ".agents" / "skills" / skill
+            agents_skill_dir.mkdir(parents=True)
 
         with (
             patch("pathlib.Path.home", return_value=home),

@@ -48,14 +48,38 @@ The framework automatically handles routing - you don't need to know where the m
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
 
+### External Agent Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/external/discover` | POST | Discover and register external A2A agent |
+| `/external/agents` | GET | List registered external agents |
+| `/external/agents/{alias}` | GET | Get external agent details |
+| `/external/agents/{alias}` | DELETE | Remove external agent |
+| `/external/agents/{alias}/send` | POST | Send message to external agent |
+
+## Roundtrip Communication (`--response` Flow)
+
+When `--response` is used, the sender waits for a reply:
+
+1. **Sender** calls `/tasks/create` to create a task without PTY send (stores task context)
+2. **Sender** calls `/tasks/send` on the target agent with `[REPLY EXPECTED]` marker
+3. **Target agent** processes the message and replies via `synapse reply`
+4. **Reply** calls `/reply-stack/pop` to get sender info, then sends response back via `/tasks/send`
+5. **Sender** receives the response and the roundtrip completes
+
+This flow ensures reliable request-response patterns between agents.
+
 ## Priority Levels
 
 | Priority | Use Case |
 |----------|----------|
 | 1-2 | Low priority, background tasks |
-| 3 | Normal tasks (default) |
+| 3 | Normal tasks (`send` default) |
 | 4 | Urgent follow-ups |
 | 5 | Emergency interrupt (sends SIGINT first) |
+
+**Note:** `broadcast` defaults to priority 1 (low), while `send` defaults to priority 3 (normal).
 
 ## Long Message Handling
 

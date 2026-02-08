@@ -429,12 +429,6 @@ synapse config show --scope project    # Show project settings only
 - **Resume Flags**: CLI flags that indicate session resume mode
 - **List Display**: Configure `synapse list` columns
 
-### Reset Settings
-
-```bash
-synapse reset
-```
-
 ### Settings File Format
 
 `.synapse/settings.json`:
@@ -658,7 +652,7 @@ synapse reset --scope both -f
 - `--scope`: Which settings to reset (`user`, `project`, or `both`)
 - `-f, --force`: Skip confirmation prompt
 
-Resets `settings.json` to defaults and re-copies skills from `.claude` to `.codex`.
+Resets `settings.json` to defaults and re-copies skills from `.claude` to `.agents`.
 
 ## Storage Locations
 

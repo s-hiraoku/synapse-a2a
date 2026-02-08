@@ -51,7 +51,7 @@
 | ソースファイル | 関連ドキュメント | 更新内容 |
 |---------------|-----------------|---------|
 | `plugins/synapse-a2a/.claude-plugin/plugin.json` | `plugins/synapse-a2a/README.md`, `README.md` | プラグインバージョン、メタデータ |
-| `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md` | 同期: `.claude/skills/`, `.codex/skills/` | スキル内容 |
+| `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md` | 同期: `.claude/skills/`, `.agents/skills/` | スキル内容 |
 
 ## tests/ ディレクトリ
 
@@ -114,5 +114,5 @@
 
 1. `plugins/synapse-a2a/skills/*/SKILL.md` - ソースを更新
 2. `.claude/skills/*/SKILL.md` - 同期
-3. `.codex/skills/*/SKILL.md` - 同期
+3. `.agents/skills/*/SKILL.md` - 同期
 4. `plugins/synapse-a2a/README.md` - 必要に応じて更新

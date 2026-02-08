@@ -164,7 +164,7 @@ Error: File is locked by gemini (expires: 2026-01-09T12:00:00)
 **Solutions:**
 1. Wait for lock to expire
 2. Work on different files first
-3. Coordinate with lock holder: `@gemini What's your progress?`
+3. Coordinate with lock holder: `synapse send gemini "What's your progress on src/auth.py?" --response --from <your_agent_id>`
 
 ## Why This Matters
 
