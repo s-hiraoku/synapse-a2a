@@ -1,6 +1,6 @@
 # Synapse A2A
 
-**🌐 Language: [English](README.md) | [日本語](README.ja.md)**
+**🌐 Language: [English](README.md) | 日本語 | [中文](README.zh.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md)**
 
 > **各エージェントの挙動を変えることなく、エージェント同士を協力させてタスクを実行する**
 
