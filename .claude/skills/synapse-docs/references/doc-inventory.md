@@ -82,7 +82,7 @@ Claude Code プラグイン。
 | ソース | 同期先 |
 |--------|--------|
 | `plugins/synapse-a2a/skills/` | `.claude/skills/` |
-| `plugins/synapse-a2a/skills/` | `.codex/skills/` |
+| `plugins/synapse-a2a/skills/` | `.agents/skills/` |
 
 ### テンプレートの同期
 

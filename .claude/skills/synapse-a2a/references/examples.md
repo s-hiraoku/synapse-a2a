@@ -20,26 +20,41 @@ synapse list
 
 ## Communication Examples
 
-### Simple Message
+### Simple Message (Fire-and-forget)
 
-```text
-@codex Please refactor the authentication module
+```bash
+# Delegate a task (no reply needed)
+synapse send codex "Please refactor the authentication module" --no-response --from synapse-claude-8100
+```
+
+### Request with Reply
+
+```bash
+# Ask a question and wait for response
+synapse send gemini "What is the best approach for caching?" --response --from synapse-claude-8100
 ```
 
 ### With Priority
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100
+synapse send gemini "Status update?" --priority 4 --response --from synapse-claude-8100
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
 
-### Fire-and-forget (No Response Expected)
+### Broadcast to All Agents
 
-```text
-@gemini --no-response Log this completion event
+```bash
+# Ask all agents in the same directory for a status check
+synapse broadcast "Status check - what are you working on?" --response --from synapse-claude-8100
+
+# Notify all agents of a completed build
+synapse broadcast "FYI: Build passed, main branch updated" --no-response --from synapse-claude-8100
+
+# Urgent broadcast to stop all work
+synapse broadcast "STOP: Critical bug found in shared module" --priority 4 --from synapse-claude-8100
 ```
 
 ## File Coordination Example
@@ -54,7 +69,7 @@ synapse list
 synapse file-safety locks
 
 # 3. Send task
-@codex Please refactor src/auth.py. Acquire file lock before editing.
+synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response --from synapse-claude-8100
 
 # 4. Monitor progress
 synapse file-safety locks
@@ -72,7 +87,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --from synapse-claude-8100
+   synapse send gemini "What's your progress on src/auth.py?" --response --from synapse-claude-8100
 ```
 
 ## Collaborative Development
@@ -83,18 +98,19 @@ Options:
 # Terminal 1 (Claude): Implement feature
 # Make changes to src/feature.py
 
-# Send for review
-@codex Please review the changes in src/feature.py
+# Send for review (wait for feedback)
+synapse send codex "Please review the changes in src/feature.py" --response --from synapse-claude-8100
 
-# Wait for feedback and iterate
+# Terminal 2 (Codex): Reply after reviewing
+synapse reply "LGTM. Two suggestions: ..." --from synapse-codex-8120
 ```
 
 ### Parallel Research
 
-```text
-# Ask multiple agents simultaneously
-@gemini Research best practices for authentication
-@codex Check how other projects implement this pattern
+```bash
+# Ask multiple agents simultaneously (no reply needed - they'll work independently)
+synapse send gemini "Research best practices for authentication" --no-response --from synapse-claude-8100
+synapse send codex "Check how other projects implement this pattern" --no-response --from synapse-claude-8100
 ```
 
 ## Monitoring Tasks
@@ -137,7 +153,7 @@ git diff
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --from <your_agent_id>
+   synapse send <agent> "Status?" --priority 4 --response --from <your_agent_id>
    ```
 
 3. Emergency stop:

@@ -187,7 +187,7 @@ Gemini はエージェント側のスキル機能に対応していないため�
 
 ### Codex
 
-Codex もプラグインには対応していませんが、展開された skills（`SKILL.md` など）をプロジェクトの `.codex/skills/` ディレクトリに配置することで、Claude Code と同様に高度な機能を教え込むことが可能です。
+Codex もプラグインには対応していませんが、展開された skills（`SKILL.md` など）をプロジェクトの `.agents/skills/` ディレクトリに配置することで、Claude Code と同様に高度な機能を教え込むことが可能です。OpenCode も `.agents/skills/` を自動スキャンするため、同じディレクトリで共有できます。
 
 ## settings.json の構造
 

@@ -51,8 +51,8 @@ class TestCliExtended:
         claude_skills = home_dir / ".claude" / "skills"
         assert (claude_skills / "synapse-a2a").exists()
 
-        codex_skills = home_dir / ".codex" / "skills"
-        assert (codex_skills / "synapse-a2a").exists()
+        agents_skills = home_dir / ".agents" / "skills"
+        assert (agents_skills / "synapse-a2a").exists()
 
     def test_stop_agent_cleans_registry_on_process_error(self):
         """Test _stop_agent removes from registry if process not found."""

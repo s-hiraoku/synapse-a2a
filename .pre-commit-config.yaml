@@ -14,4 +14,4 @@ repos:
           - types-pyyaml>=6.0.12.20250915
           - types-requests>=2.32.4.20250913
         args: [--ignore-missing-imports]
-        exclude: ^(synapse/proto/|tests/|\.claude/|dummy_agent\.py)
+        exclude: ^(synapse/proto/|tests/|\.claude/|\.gemini/|\.agents/|dummy_agent\.py)

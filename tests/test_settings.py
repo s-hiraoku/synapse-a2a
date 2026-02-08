@@ -580,24 +580,24 @@ class TestSkillInstallation:
     """Test skill installation functionality.
 
     Skills are distributed via Claude Code plugin marketplace for Claude.
-    Codex does not support plugins, so skills are copied from .claude to .codex.
+    Codex/OpenCode use .agents/skills/, so skills are copied from .claude to .agents.
     """
 
     def test_install_skills_returns_empty_when_no_source(self):
-        """Test _copy_claude_skills_to_codex returns empty when .claude/skills doesn't exist."""
-        from synapse.cli import _copy_claude_skills_to_codex
+        """Test _copy_claude_skills_to_agents returns empty when .claude/skills doesn't exist."""
+        from synapse.cli import _copy_claude_skills_to_agents
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
             # No .claude/skills/synapse-a2a exists
-            installed = _copy_claude_skills_to_codex(base_dir, force=False)
+            installed = _copy_claude_skills_to_agents(base_dir, force=False)
 
             assert len(installed) == 0
 
-    def test_install_skills_copies_to_codex(self):
-        """Test _copy_claude_skills_to_codex copies skills from .claude to .codex."""
-        from synapse.cli import _copy_claude_skills_to_codex
+    def test_install_skills_copies_to_agents(self):
+        """Test _copy_claude_skills_to_agents copies skills from .claude to .agents."""
+        from synapse.cli import _copy_claude_skills_to_agents
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -610,18 +610,18 @@ class TestSkillInstallation:
             (claude_skills / "references" / "api.md").write_text("# API")
 
             # Install skills
-            installed = _copy_claude_skills_to_codex(base_dir, force=False)
+            installed = _copy_claude_skills_to_agents(base_dir, force=False)
 
-            # Should copy to .codex
+            # Should copy to .agents
             assert len(installed) == 1
-            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
-            assert codex_skills.exists()
-            assert (codex_skills / "SKILL.md").read_text() == "# Test Skill"
-            assert (codex_skills / "references" / "api.md").read_text() == "# API"
+            agents_skills = base_dir / ".agents" / "skills" / "synapse-a2a"
+            assert agents_skills.exists()
+            assert (agents_skills / "SKILL.md").read_text() == "# Test Skill"
+            assert (agents_skills / "references" / "api.md").read_text() == "# API"
 
-    def test_install_skills_skips_existing_codex(self):
-        """Test _copy_claude_skills_to_codex skips if .codex/skills already exists."""
-        from synapse.cli import _copy_claude_skills_to_codex
+    def test_install_skills_skips_existing_agents(self):
+        """Test _copy_claude_skills_to_agents skips if .agents/skills already exists."""
+        from synapse.cli import _copy_claude_skills_to_agents
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -632,20 +632,20 @@ class TestSkillInstallation:
             (claude_skills / "SKILL.md").write_text("# New Skill")
 
             # Create existing destination
-            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
-            codex_skills.mkdir(parents=True)
-            (codex_skills / "SKILL.md").write_text("# Old Skill")
+            agents_skills = base_dir / ".agents" / "skills" / "synapse-a2a"
+            agents_skills.mkdir(parents=True)
+            (agents_skills / "SKILL.md").write_text("# Old Skill")
 
             # Install without force
-            installed = _copy_claude_skills_to_codex(base_dir, force=False)
+            installed = _copy_claude_skills_to_agents(base_dir, force=False)
 
             # Should not overwrite
             assert len(installed) == 0
-            assert (codex_skills / "SKILL.md").read_text() == "# Old Skill"
+            assert (agents_skills / "SKILL.md").read_text() == "# Old Skill"
 
     def test_install_skills_overwrites_with_force(self):
-        """Test _copy_claude_skills_to_codex overwrites .codex/skills with force=True."""
-        from synapse.cli import _copy_claude_skills_to_codex
+        """Test _copy_claude_skills_to_agents overwrites .agents/skills with force=True."""
+        from synapse.cli import _copy_claude_skills_to_agents
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
@@ -656,29 +656,29 @@ class TestSkillInstallation:
             (claude_skills / "SKILL.md").write_text("# New Skill")
 
             # Create existing destination
-            codex_skills = base_dir / ".codex" / "skills" / "synapse-a2a"
-            codex_skills.mkdir(parents=True)
-            (codex_skills / "SKILL.md").write_text("# Old Skill")
+            agents_skills = base_dir / ".agents" / "skills" / "synapse-a2a"
+            agents_skills.mkdir(parents=True)
+            (agents_skills / "SKILL.md").write_text("# Old Skill")
 
             # Install with force
-            installed = _copy_claude_skills_to_codex(base_dir, force=True)
+            installed = _copy_claude_skills_to_agents(base_dir, force=True)
 
             # Should overwrite
             assert len(installed) == 1
-            assert (codex_skills / "SKILL.md").read_text() == "# New Skill"
+            assert (agents_skills / "SKILL.md").read_text() == "# New Skill"
 
     def test_install_skills_no_directories_without_source(self):
-        """Test _copy_claude_skills_to_codex does not create directories without source."""
-        from synapse.cli import _copy_claude_skills_to_codex
+        """Test _copy_claude_skills_to_agents does not create directories without source."""
+        from synapse.cli import _copy_claude_skills_to_agents
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
 
-            _copy_claude_skills_to_codex(base_dir, force=False)
+            _copy_claude_skills_to_agents(base_dir, force=False)
 
             # No directories should be created when source doesn't exist
-            codex_dir = base_dir / ".codex"
-            assert not codex_dir.exists()
+            agents_dir = base_dir / ".agents"
+            assert not agents_dir.exists()
 
 
 class TestResumeFlags:
