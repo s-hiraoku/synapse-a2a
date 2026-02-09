@@ -126,10 +126,10 @@ A2A: <message>
 `synapse reply` コマンドを使用して返信します：
 
 ```bash
-synapse reply "<your reply>" --from <your_agent_id>
+synapse reply "<your reply>"
 ```
 
-**返信追跡:** Synapseは`[REPLY EXPECTED]`マーカー付きメッセージの送信者情報を自動的に追跡します。`synapse reply`を使うと、返信を期待しているエージェントに自動的に返信されます。
+**返信追跡:** Synapseは`[REPLY EXPECTED]`マーカー付きメッセージの送信者情報を自動的に追跡します。`synapse reply`を使うと、返信を期待しているエージェントに自動的に返信されます。`--from` オプションはサンドボックス環境でのみ必要です。
 
 ### 受信・返信の例
 
@@ -142,7 +142,7 @@ A2A: このコードをレビューして
 
 返信：
 ```bash
-synapse reply "レビュー結果です..." --from synapse-gemini-8110
+synapse reply "レビュー結果です..."
 ```
 
 **例2: タスク委任を受信した場合**

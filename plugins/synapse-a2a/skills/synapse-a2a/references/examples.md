@@ -102,7 +102,7 @@ Options:
 synapse send codex "Please review the changes in src/feature.py" --response --from synapse-claude-8100
 
 # Terminal 2 (Codex): Reply after reviewing
-synapse reply "LGTM. Two suggestions: ..." --from synapse-codex-8120
+synapse reply "LGTM. Two suggestions: ..."
 ```
 
 ### Parallel Research

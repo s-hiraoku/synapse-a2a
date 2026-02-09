@@ -15,9 +15,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Send message | `synapse send <target> "<message>" --from <sender>` |
 | Broadcast to cwd agents | `synapse broadcast "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
-| Reply to last message | `synapse reply "<response>" --from <agent>` |
-| Reply to specific sender | `synapse reply "<response>" --from <agent> --to <sender_id>` |
-| List reply targets | `synapse reply --list-targets --from <agent>` |
+| Reply to last message | `synapse reply "<response>"` |
+| Reply to specific sender | `synapse reply "<response>" --to <sender_id>` |
+| List reply targets | `synapse reply --list-targets` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Kill agent | `synapse kill <target>` (with confirmation, use `-f` to force) |
@@ -88,8 +88,8 @@ For request-response patterns:
 # Sender: Wait for response (blocks until reply received)
 synapse send gemini "Analyze this data" --response --from synapse-claude-8100
 
-# Receiver: Reply to sender
-synapse reply "Analysis result: ..." --from synapse-gemini-8110
+# Receiver: Reply to sender (auto-routes via reply tracking)
+synapse reply "Analysis result: ..."
 ```
 
 The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
@@ -130,19 +130,21 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 **Replying to messages:**
 
 ```bash
-# Use the reply command
-# --from: Use your agent ID (synapse-<type>-<port>)
-synapse reply "Here is my analysis..." --from <your_agent_id>
+# Use the reply command (auto-routes to last sender)
+synapse reply "Here is my analysis..."
 
 # When multiple senders are pending, inspect and choose target
-synapse reply --list-targets --from <your_agent_id>
-synapse reply "Here is my analysis..." --from <your_agent_id> --to <sender_id>
+synapse reply --list-targets
+synapse reply "Here is my analysis..." --to <sender_id>
+
+# In sandboxed environments (like Codex), specify your agent ID
+synapse reply "Here is my analysis..." --from <your_agent_id>
 ```
 
 **Example - Question received (MUST reply):**
 ```
 Received: A2A: [REPLY EXPECTED] What is the project structure?
-Reply:    synapse reply "The project has src/, tests/..." --from synapse-codex-8121
+Reply:    synapse reply "The project has src/, tests/..."
 ```
 
 **Example - Delegation received (no reply needed):**

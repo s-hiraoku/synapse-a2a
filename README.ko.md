@@ -722,10 +722,10 @@ synapse send gemini "이것을 분석해줘" --response --from synapse-claude-81
 마지막으로 수신한 메시지에 응답합니다:
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-`--from` 플래그는 샌드박스 환경(Codex 등)에서 필수입니다.
+`--from` 플래그는 샌드박스 환경(Codex 등)에서만 필요합니다. 통상적으로는 프로세스 계통에서 자동 감지됩니다.
 
 ### 저수준 A2A 도구
 
@@ -876,7 +876,7 @@ A2A: <message content>
 Synapse가 응답 라우팅을 자동으로 관리합니다. 에이전트는 단순히 `synapse reply`를 사용합니다:
 
 ```bash
-synapse reply "여기에 응답 내용" --from <your_agent_id>
+synapse reply "여기에 응답 내용"
 ```
 
 프레임워크가 발신자 정보를 내부적으로 추적하고 응답을 자동 라우팅합니다.

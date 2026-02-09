@@ -722,10 +722,10 @@ synapse send gemini "Analyze this" --response --from synapse-claude-8100
 Reply to the last received message:
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-The `--from` flag is required in sandboxed environments (like Codex).
+The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender via process ancestry.
 
 ### Low-Level A2A Tool
 
@@ -876,7 +876,7 @@ A2A: <message content>
 Synapse automatically manages reply routing. Agents simply use `synapse reply`:
 
 ```bash
-synapse reply "Here is my response" --from <your_agent_id>
+synapse reply "Here is my response"
 ```
 
 The framework internally tracks sender information and routes replies automatically.

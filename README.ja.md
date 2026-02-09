@@ -680,10 +680,10 @@ synapse send gemini "これを分析して" --response --from synapse-claude-810
 受信したメッセージに返信：
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-`--from` フラグはサンドボックス環境（Codex 等）で必須。
+`--from` フラグはサンドボックス環境（Codex 等）でのみ必要。通常はプロセス系統から自動検出されます。
 
 ### 低レベル A2A ツール
 
@@ -824,7 +824,7 @@ A2A: <message content>
 Synapse が返信ルーティングを自動管理します。エージェントは単に `synapse reply` を使用：
 
 ```bash
-synapse reply "返信メッセージ" --from <your_agent_id>
+synapse reply "返信メッセージ"
 ```
 
 フレームワークが送信者情報を内部的に追跡し、返信を自動ルーティングします。
