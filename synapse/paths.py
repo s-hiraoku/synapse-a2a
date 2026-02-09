@@ -61,3 +61,14 @@ def get_external_registry_dir() -> str:
         "SYNAPSE_EXTERNAL_REGISTRY_DIR",
         Path.home() / ".a2a" / "external",
     )
+
+
+def get_synapse_skills_dir() -> str:
+    """Get the path to the central synapse skills directory.
+
+    Override with SYNAPSE_SKILLS_DIR environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_SKILLS_DIR",
+        Path.home() / ".synapse" / "skills",
+    )

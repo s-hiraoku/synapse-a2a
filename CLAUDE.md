@@ -40,6 +40,8 @@ pytest tests/test_a2a_compat.py -v        # Specific file
 pytest -k "test_identity" -v              # Pattern match
 pytest tests/test_history.py -v           # History feature tests
 pytest tests/test_file_safety_extended.py -v # File Safety tests
+pytest tests/test_skills.py -v            # Skills core tests
+pytest tests/test_cmd_skill_manager.py -v # Skill manager command tests
 
 # Run agent (interactive)
 synapse claude
@@ -79,6 +81,20 @@ synapse instructions show claude          # Show Claude-specific instruction
 synapse instructions files claude         # List instruction files for Claude
 synapse instructions send claude          # Send instructions to running Claude agent
 synapse instructions send claude --preview # Preview without sending
+
+# Skills management
+synapse skills                            # Interactive TUI skill manager
+synapse skills list                       # List all discovered skills
+synapse skills list --scope synapse       # List central store skills only
+synapse skills show <name>                # Show skill details
+synapse skills delete <name> [--force]    # Delete a skill
+synapse skills move <name> --to <scope>   # Move skill between scopes
+synapse skills deploy <name> --agent claude,codex --scope user  # Deploy from central store
+synapse skills import <name>              # Import to central store (~/.synapse/skills/)
+synapse skills add <repo>                 # Install from repo (npx skills wrapper)
+synapse skills create                     # Create new skill template
+synapse skills set list                   # List skill sets
+synapse skills set show <name>            # Show skill set details
 
 # Settings management (interactive TUI)
 synapse config                            # Interactive config editor
@@ -148,10 +164,13 @@ synapse/
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
+├── skills.py        # Skill discovery, deploy, import, skill sets
+├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
-│   ├── instructions.py  # synapse instructions command
-│   ├── list.py          # synapse list command
-│   └── start.py         # synapse start command
+│   ├── instructions.py    # synapse instructions command
+│   ├── list.py            # synapse list command
+│   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
+│   └── start.py           # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 ```
 
@@ -303,6 +322,7 @@ idle_detection:
 ```
 ~/.a2a/registry/     # Running agents (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
+~/.synapse/skills/   # Central skill store (SYNAPSE scope)
 ~/.synapse/logs/     # Log files
 ```
 

@@ -145,6 +145,7 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "a2a",
     "resume_flags",
     "list",
+    "skill_sets",
 }
 
 # Deprecated settings keys with migration messages

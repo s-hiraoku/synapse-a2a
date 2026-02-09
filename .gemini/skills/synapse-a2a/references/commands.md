@@ -464,6 +464,7 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
+| `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
 
 Deprecated key:
 - `delegation` was removed in v0.3.19. Use `synapse send` for inter-agent communication.
@@ -657,11 +658,64 @@ synapse reset --scope both -f
 
 Resets `settings.json` to defaults and re-copies skills from `.claude` to `.agents`.
 
+## Skill Management
+
+Manage skills across scopes with a central store (`~/.synapse/skills/`).
+
+### Interactive TUI
+
+```bash
+synapse skills
+```
+
+### Non-Interactive Commands
+
+```bash
+# List and browse
+synapse skills list                                # All scopes
+synapse skills list --scope synapse                # Central store only
+synapse skills show <name>                         # Skill details
+
+# Manage
+synapse skills delete <name> [--force]
+synapse skills move <name> --to <scope>
+
+# Central store operations
+synapse skills import <name> [--from user|project] # Import to ~/.synapse/skills/
+synapse skills deploy <name> --agent claude,codex --scope user  # Deploy from central store
+synapse skills add <repo>                          # Install from repo (npx skills wrapper)
+synapse skills create [--name <name>]              # Create new skill template
+
+# Skill sets (named groups)
+synapse skills set list
+synapse skills set show <name>
+```
+
+### Skill Scopes
+
+| Scope | Location | Description |
+|-------|----------|-------------|
+| **Synapse** | `~/.synapse/skills/` | Central store (deploy to agents from here) |
+| **User** | `~/.claude/skills/`, `~/.agents/skills/` | User-wide skills |
+| **Project** | `./.claude/skills/`, `./.agents/skills/` | Project-local skills |
+| **Plugin** | `./plugins/*/skills/` | Read-only plugin skills |
+
+### Agent Skill Directories
+
+| Agent | Directory |
+|-------|-----------|
+| Claude | `.claude/skills/` |
+| Codex | `.agents/skills/` |
+| Gemini | `.gemini/skills/` |
+| OpenCode | `.agents/skills/` |
+| Copilot | `.agents/skills/` |
+
 ## Storage Locations
 
 ```text
 ~/.a2a/registry/     # Running agents (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
+~/.synapse/skills/   # Central skill store
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication

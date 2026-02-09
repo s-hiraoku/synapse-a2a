@@ -314,6 +314,45 @@ npx skills add s-hiraoku/synapse-a2a
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
 
+### Skill Management
+
+Synapse includes a built-in skill manager with a central store (`~/.synapse/skills/`) for organizing and deploying skills across agents.
+
+#### Skill Scopes
+
+| Scope | Location | Description |
+|-------|----------|-------------|
+| **Synapse** | `~/.synapse/skills/` | Central store (deploy to agents from here) |
+| **User** | `~/.claude/skills/`, `~/.agents/skills/`, etc. | User-wide skills |
+| **Project** | `./.claude/skills/`, `./.agents/skills/`, etc. | Project-local skills |
+| **Plugin** | `./plugins/*/skills/` | Read-only plugin skills |
+
+#### Commands
+
+```bash
+# Interactive TUI
+synapse skills
+
+# List and browse
+synapse skills list                          # All scopes
+synapse skills list --scope synapse          # Central store only
+synapse skills show <name>                   # Skill details
+
+# Manage
+synapse skills delete <name> [--force]
+synapse skills move <name> --to <scope>
+
+# Central store operations
+synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
+synapse skills deploy <name> --agent claude,codex --scope user
+synapse skills add <repo>                    # Install from repo (npx skills wrapper)
+synapse skills create                        # Create new skill template
+
+# Skill sets (named groups)
+synapse skills set list
+synapse skills set show <name>
+```
+
 ### Directory Structure
 
 ```text
@@ -377,6 +416,8 @@ Each agent is:
 | TerminalController | `synapse/controller.py` | PTY management, READY/PROCESSING detection |
 | InputRouter | `synapse/input_router.py` | @Agent pattern detection |
 | AgentRegistry | `synapse/registry.py` | Agent registration and lookup |
+| SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
+| SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
 
 ### Startup Sequence
 
@@ -505,6 +546,17 @@ synapse kill my-claude
 | `synapse file-safety record` | Manually record change |
 | `synapse file-safety cleanup` | Delete old data |
 | `synapse file-safety debug` | Show debug info |
+| `synapse skills` | Skill Manager (interactive TUI) |
+| `synapse skills list` | List discovered skills |
+| `synapse skills show <name>` | Show skill details |
+| `synapse skills delete <name>` | Delete a skill |
+| `synapse skills move <name>` | Move skill to another scope |
+| `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
+| `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
+| `synapse skills add <repo>` | Install skill from repository (via npx skills) |
+| `synapse skills create` | Create a new skill |
+| `synapse skills set list` | List skill sets |
+| `synapse skills set show <name>` | Show skill set details |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
 
@@ -1297,6 +1349,7 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook secret | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
+| `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
