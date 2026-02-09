@@ -1,6 +1,6 @@
 # Synapse A2A
 
-**🌐 Language: [English](README.md) | [日本語](README.ja.md)**
+**🌐 Language: English | [日本語](README.ja.md) | [中文](README.zh.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Français](README.fr.md)**
 
 > **Enable agents to collaborate on tasks without changing their behavior**
 
