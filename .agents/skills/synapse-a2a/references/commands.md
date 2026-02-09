@@ -177,14 +177,17 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 **Replying to messages:**
 
 ```bash
-# Use the reply command (--from is required in sandboxed environments)
+# Use the reply command (auto-routes to last sender)
+synapse reply "<your reply>"
+
+# In sandboxed environments (like Codex), specify your agent ID
 synapse reply "<your reply>" --from <your_agent_id>
 ```
 
 **Example - Question received (MUST reply):**
 ```
 Received: A2A: [REPLY EXPECTED] What is the project structure?
-Reply:    synapse reply "The project has src/, tests/..." --from synapse-codex-8121
+Reply:    synapse reply "The project has src/, tests/..."
 ```
 
 **Example - Delegation received (no reply needed):**
@@ -259,19 +262,19 @@ synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 Reply to the last received message:
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is required in sandboxed environments (like Codex).
+Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is only needed in sandboxed environments (like Codex).
 
 If multiple senders are pending, list and choose explicitly:
 
 ```bash
 # Show tracked sender IDs
-synapse reply --list-targets --from <your_agent_id>
+synapse reply --list-targets
 
 # Reply to a specific sender
-synapse reply "<message>" --from <your_agent_id> --to <sender_id>
+synapse reply "<message>" --to <sender_id>
 ```
 
 ### Broadcast Command
@@ -313,9 +316,9 @@ For advanced use cases or external scripts:
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
 python -m synapse.tools.a2a broadcast [--priority <1-5>] [--from <AGENT>] [--response | --no-response] "<MESSAGE>"  # Broadcast to cwd agents
-python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT>  # Reply to last received message
-python -m synapse.tools.a2a reply --list-targets --from <AGENT>
-python -m synapse.tools.a2a reply "<MESSAGE>" --from <AGENT> --to <SENDER_ID>
+python -m synapse.tools.a2a reply "<MESSAGE>"  # Reply to last received message
+python -m synapse.tools.a2a reply --list-targets
+python -m synapse.tools.a2a reply "<MESSAGE>" --to <SENDER_ID>
 python -m synapse.tools.a2a list                # List agents
 python -m synapse.tools.a2a cleanup             # Cleanup stale entries
 ```

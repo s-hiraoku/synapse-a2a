@@ -722,10 +722,10 @@ synapse send gemini "Analyze this" --response --from synapse-claude-8100
 回复最近收到的消息：
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-在沙盒环境（如 Codex）中 `--from` 标志是必需的。
+`--from` 标志仅在沙盒环境（如 Codex）中需要。通常情况下，Synapse 通过进程谱系自动检测发送者。
 
 ### 低级 A2A 工具
 
@@ -876,7 +876,7 @@ A2A: <消息内容>
 Synapse 自动管理回复路由。智能体只需使用 `synapse reply`：
 
 ```bash
-synapse reply "Here is my response" --from <your_agent_id>
+synapse reply "Here is my response"
 ```
 
 框架内部追踪发送者信息并自动路由回复。

@@ -281,13 +281,13 @@ synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets]
 
 ```bash
 # 最新の送信者に返信（デフォルト LIFO）
-synapse reply "分析結果です..." --from synapse-codex-8121
+synapse reply "分析結果です..."
 
 # 特定の送信者に返信
-synapse reply "タスク完了しました" --from synapse-gemini-8110 --to synapse-claude-8100
+synapse reply "タスク完了しました" --to synapse-claude-8100
 
 # 返信可能なターゲットを確認
-synapse reply --list-targets --from synapse-codex-8121
+synapse reply --list-targets
 ```
 
 **動作**:

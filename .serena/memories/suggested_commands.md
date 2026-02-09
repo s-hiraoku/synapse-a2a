@@ -29,9 +29,9 @@ synapse list -w -i 1                      # Watch mode with 1s interval
 
 ## Agent Communication
 ```bash
-synapse send claude "message" --from <your-agent>                           # Send message to agent
-synapse send claude "message" --priority 3 --from codex                     # With priority
-synapse send codex "STOP" --priority 5 --from claude                        # Emergency interrupt
+synapse send claude "message"                                               # Send message to agent
+synapse send claude "message" --priority 3                                  # With priority
+synapse send codex "STOP" --priority 5                                      # Emergency interrupt
 ```
 
 ## Code Quality

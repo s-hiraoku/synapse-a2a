@@ -25,7 +25,7 @@ synapse send codex "分析して" --response --from synapse-claude-8100
 # [A2A:abc12345:synapse-claude-8100] 分析して
 
 # Codex で返信しようとすると失敗:
-synapse reply "結果です" --from synapse-codex-8120
+synapse reply "結果です"
 # Error: Task abc12345 not found  ← 常に失敗！
 ```
 
@@ -71,7 +71,7 @@ POST /tasks/send-priority to target
 3. Codex の PTY に表示:
    [A2A:abc12345:synapse-claude-8100] msg
     ↓
-4. synapse reply "reply" --from synapse-codex-8120
+4. synapse reply "reply"
     ↓
 5. POST /tasks/send to Claude's server
    → metadata に in_reply_to=abc12345 を含める（synapse reply が自動付与）

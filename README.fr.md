@@ -722,10 +722,10 @@ synapse send gemini "Analyze this" --response --from synapse-claude-8100
 Répondre au dernier message reçu :
 
 ```bash
-synapse reply "<message>" --from <your_agent_id>
+synapse reply "<message>"
 ```
 
-Le drapeau `--from` est requis dans les environnements sandboxés (comme Codex).
+Le drapeau `--from` n'est necessaire que dans les environnements sandboxes (comme Codex). Sans `--from`, Synapse detecte automatiquement l'expediteur.
 
 ### Outil A2A Bas Niveau
 
@@ -876,7 +876,7 @@ A2A: <contenu du message>
 Synapse gère automatiquement le routage des réponses. Les agents utilisent simplement `synapse reply` :
 
 ```bash
-synapse reply "Here is my response" --from <your_agent_id>
+synapse reply "Here is my response"
 ```
 
 Le framework suit internement les informations de l'expéditeur et route automatiquement les réponses.

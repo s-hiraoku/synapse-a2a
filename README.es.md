@@ -722,10 +722,10 @@ synapse send gemini "Analiza esto" --response --from synapse-claude-8100
 Responder al último mensaje recibido:
 
 ```bash
-synapse reply "<mensaje>" --from <tu_id_de_agente>
+synapse reply "<mensaje>"
 ```
 
-La bandera `--from` es requerida en entornos sandbox (como Codex).
+La bandera `--from` solo es necesaria en entornos sandbox (como Codex). Sin `--from`, Synapse detecta automaticamente el remitente.
 
 ### Herramienta A2A de Bajo Nivel
 
@@ -876,7 +876,7 @@ A2A: <contenido del mensaje>
 Synapse gestiona automáticamente el enrutamiento de respuestas. Los agentes simplemente usan `synapse reply`:
 
 ```bash
-synapse reply "Aquí esta mi respuesta" --from <tu_id_de_agente>
+synapse reply "Aquí esta mi respuesta"
 ```
 
 El framework rastrea internamente la información del remitente y enruta las respuestas automáticamente.
