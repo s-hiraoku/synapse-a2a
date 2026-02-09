@@ -51,7 +51,6 @@ IF LOCK FAILS (ANOTHER AGENT HAS IT)
 - Check who has the lock: synapse file-safety locks
 - Work on something else first
 - Coordinate with the lock holder if urgent
-- If you need to wait, retry with: synapse file-safety lock <file_path> {{agent_id}} --wait --wait-timeout 60 --wait-interval 2
 - Try again later
 
 ================================================================================
@@ -61,7 +60,6 @@ QUICK REFERENCE TABLE
 | Action          | Command                                              |
 |-----------------|------------------------------------------------------|
 | Lock file       | synapse file-safety lock FILE {{agent_id}}           |
-| Wait for lock   | synapse file-safety lock FILE {{agent_id}} --wait --wait-timeout 60 --wait-interval 2 |
 | Unlock file     | synapse file-safety unlock FILE {{agent_id}}         |
 | Check locks     | synapse file-safety locks                            |
 | Record change   | synapse file-safety record FILE {{agent_id}} --type MODIFY |
