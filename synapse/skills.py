@@ -320,12 +320,19 @@ def delete_skill(skill: SkillInfo, base_dir: Path) -> list[Path]:
         List of deleted directory paths.
     """
     deleted: list[Path] = []
-    for agent_dir in skill.agent_dirs:
-        target = base_dir / agent_dir / "skills" / skill.name
+    if skill.scope == SkillScope.SYNAPSE:
+        target = base_dir / "skills" / skill.name
         if target.exists():
             shutil.rmtree(target)
             deleted.append(target)
             logger.info(f"Deleted skill '{skill.name}' from {target}")
+    else:
+        for agent_dir in skill.agent_dirs:
+            target = base_dir / agent_dir / "skills" / skill.name
+            if target.exists():
+                shutil.rmtree(target)
+                deleted.append(target)
+                logger.info(f"Deleted skill '{skill.name}' from {target}")
     return deleted
 
 
@@ -353,6 +360,9 @@ def move_skill(
     """
     if skill.scope == SkillScope.PLUGIN:
         raise ValueError("Cannot move plugin skills (read-only)")
+
+    if skill.scope == SkillScope.SYNAPSE:
+        raise ValueError("Cannot move synapse skills (read-only)")
 
     if skill.scope == target_scope:
         raise ValueError("Cannot move skill to the same scope")
@@ -694,10 +704,17 @@ def load_skill_sets(path: Path | None = None) -> dict[str, SkillSetDefinition]:
         if not isinstance(value, dict):
             continue
 
+        raw_skills = value.get("skills", [])
+        if isinstance(raw_skills, list):
+            skills = [s for s in raw_skills if isinstance(s, str)]
+        else:
+            logger.warning(f"Skill set '{key}' has invalid skills field, using []")
+            skills = []
+
         result[key] = SkillSetDefinition(
             name=str(value.get("name", key)),
             description=str(value.get("description", "")),
-            skills=value.get("skills", []),
+            skills=skills,
         )
 
     return result
@@ -747,6 +764,7 @@ def apply_skill_set(
     user_dir: Path | None = None,
     project_dir: Path | None = None,
     skill_sets_path: Path | None = None,
+    synapse_dir: Path | None = None,
 ) -> ApplyResult:
     """Apply a skill set by copying skills to the agent's skill directory.
 
@@ -758,6 +776,7 @@ def apply_skill_set(
         user_dir: User home for skill discovery. Defaults to Path.home().
         project_dir: Project root for skill discovery and target. Defaults to cwd.
         skill_sets_path: Path to skill_sets.json.
+        synapse_dir: Synapse config dir for SYNAPSE scope discovery.
 
     Returns:
         ApplyResult with copied/skipped/not_found lists.
@@ -773,7 +792,9 @@ def apply_skill_set(
         )
 
     skill_set = sets[set_name]
-    all_skills = discover_skills(project_dir=project_dir, user_dir=user_dir)
+    all_skills = discover_skills(
+        project_dir=project_dir, user_dir=user_dir, synapse_dir=synapse_dir
+    )
     skill_map = {s.name: s for s in all_skills}
 
     target_rel = get_agent_skill_dir(agent_type)

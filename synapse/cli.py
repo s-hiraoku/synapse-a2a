@@ -1794,7 +1794,9 @@ def cmd_skills_add(args: argparse.Namespace) -> None:
         print(f"  {msg}")
 
     if result.imported:
-        print(f"\n  Imported {len(result.imported)} skill(s) to ~/.synapse/skills/")
+        print(
+            f"\n  Imported {len(result.imported)} skill(s) to {synapse_dir / 'skills'}"
+        )
 
 
 def cmd_skills_create(args: argparse.Namespace) -> None:
