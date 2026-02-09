@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#pruebas)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
-> Un framework que permite la colaboracion entre agentes mediante el Protocolo Google A2A, manteniendo los agentes CLI (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactamente como son**
+> Un framework que permite la colaboración entre agentes mediante el Protocolo Google A2A, manteniendo los agentes CLI (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactamente como son**
 
 ## Objetivos del Proyecto
 
@@ -21,13 +21,13 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Synapse A2A **envuelve de forma transparente** la entrada/salida de cada agente sin modificar el agente en si. Esto significa:
+Synapse A2A **envuelve de forma transparente** la entrada/salida de cada agente sin modificar el agente en sí. Esto significa:
 
 - **Aprovechar las fortalezas de cada agente**: Los usuarios pueden asignar libremente roles y especializaciones
-- **Curva de aprendizaje cero**: Continua usando los flujos de trabajo existentes
+- **Curva de aprendizaje cero**: Continúa usando los flujos de trabajo existentes
 - **A prueba de futuro**: Resistente a las actualizaciones de los agentes
 
-Consulta [Filosofia del Proyecto](docs/project-philosophy.md) para mas detalles.
+Consulta [Filosofía del Proyecto](docs/project-philosophy.md) para más detalles.
 
 ```mermaid
 flowchart LR
@@ -54,51 +54,51 @@ flowchart LR
 
 ---
 
-## Tabla de Contenidos
+## Tabla de contenidos
 
-- [Caracteristicas](#caracteristicas)
+- [Características](#características)
 - [Requisitos Previos](#requisitos-previos)
-- [Inicio Rapido](#inicio-rapido)
+- [Inicio Rápido](#inicio-rápido)
 - [Casos de Uso](#casos-de-uso)
 - [Skills](#skills)
-- [Documentacion](#documentacion)
+- [Documentación](#documentación)
 - [Arquitectura](#arquitectura)
 - [Comandos CLI](#comandos-cli)
 - [Endpoints de la API](#endpoints-de-la-api)
 - [Estructura de Tareas](#estructura-de-tareas)
-- [Identificacion del Remitente](#identificacion-del-remitente)
+- [Identificación del Remitente](#identificación-del-remitente)
 - [Niveles de Prioridad](#niveles-de-prioridad)
 - [Agent Card](#agent-card)
-- [Registro y Gestion de Puertos](#registro-y-gestion-de-puertos)
+- [Registro y Gestión de Puertos](#registro-y-gestión-de-puertos)
 - [Seguridad de Archivos](#seguridad-de-archivos)
 - [Monitor de Agentes](#monitor-de-agentes)
 - [Pruebas](#pruebas)
-- [Configuracion (.synapse)](#configuracion-synapse)
-- [Desarrollo y Publicacion](#desarrollo-y-publicacion)
+- [Configuración (.synapse)](#configuración-synapse)
+- [Desarrollo y Publicación](#desarrollo-y-publicación)
 
 ---
 
-## Caracteristicas
+## Características
 
-| Categoria | Caracteristica |
+| Categoría | Característica |
 | --------- | -------------- |
-| **Compatible con A2A** | Toda la comunicacion usa formato Message/Part + Task, descubrimiento de Agent Card |
-| **Integracion CLI** | Convierte herramientas CLI existentes en agentes A2A sin modificacion |
-| **synapse send** | Envia mensajes entre agentes mediante `synapse send <agente> "mensaje"` |
-| **Identificacion del Remitente** | Identificacion automatica del remitente via `metadata.sender` + coincidencia de PID |
-| **Interrupcion por Prioridad** | Prioridad 5 envia SIGINT antes del mensaje (parada de emergencia) |
-| **Multi-Instancia** | Ejecuta multiples agentes del mismo tipo (asignacion automatica de puertos) |
-| **Integracion Externa** | Comunicate con otros agentes Google A2A |
+| **Compatible con A2A** | Toda la comunicación usa formato Message/Part + Task, descubrimiento de Agent Card |
+| **Integración CLI** | Convierte herramientas CLI existentes en agentes A2A sin modificación |
+| **synapse send** | Envía mensajes entre agentes mediante `synapse send <agente> "mensaje"` |
+| **Identificación del Remitente** | Identificación automática del remitente vía `metadata.sender` + coincidencia de PID |
+| **Interrupción por Prioridad** | Prioridad 5 envía SIGINT antes del mensaje (parada de emergencia) |
+| **Multi-Instancia** | Ejecuta múltiples agentes del mismo tipo (asignación automática de puertos) |
+| **Integración Externa** | Comunícate con otros agentes Google A2A |
 | **Seguridad de Archivos** | Previene conflictos multi-agente con bloqueo de archivos y seguimiento de cambios (visible en `synapse list`) |
-| **Nombrado de Agentes** | Nombres y roles personalizados para facil identificacion (`synapse send mi-claude "hola"`) |
+| **Nombrado de Agentes** | Nombres y roles personalizados para fácil identificación (`synapse send mi-claude "hola"`) |
 | **Monitor de Agentes** | Estado en tiempo real (READY/WAITING/PROCESSING/DONE), vista previa de tarea ACTUAL, salto a terminal |
-| **Historial de Tareas** | Seguimiento automatico de tareas con busqueda, exportacion y estadisticas (habilitado por defecto) |
+| **Historial de Tareas** | Seguimiento automático de tareas con búsqueda, exportación y estadísticas (habilitado por defecto) |
 
 ---
 
 ## Requisitos Previos
 
-- **SO**: macOS / Linux (Windows via WSL2 recomendado)
+- **SO**: macOS / Linux (Windows vía WSL2 recomendado)
 - **Python**: 3.10+
 - **Herramientas CLI**: Pre-instala y configura los agentes que desees usar:
   - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
@@ -109,7 +109,7 @@ flowchart LR
 
 ---
 
-## Inicio Rapido
+## Inicio Rápido
 
 ### 1. Instalar Synapse A2A
 
@@ -135,14 +135,14 @@ pip install -e .
 
 **Instalar skills es altamente recomendado para aprovechar al maximo Synapse A2A.**
 
-Los skills ayudan a Claude a entender automaticamente las funcionalidades de Synapse A2A: mensajeria @agent, Seguridad de Archivos, y mas.
+Los skills ayudan a Claude a entender automáticamente las funcionalidades de Synapse A2A: mensajería @agent, Seguridad de Archivos, y más.
 
 ```bash
-# Instalar via skills.sh (https://skills.sh/)
+# Instalar vía skills.sh (https://skills.sh/)
 npx skills add s-hiraoku/synapse-a2a
 ```
 
-Consulta [Skills](#skills) para mas detalles.
+Consulta [Skills](#skills) para más detalles.
 
 ### 3. Iniciar Agentes
 
@@ -163,14 +163,14 @@ synapse opencode
 synapse copilot
 ```
 
-> Nota: Si la visualizacion del scrollback del terminal esta distorsionada, prueba:
+> Nota: Si la visualización del scrollback del terminal esta distorsionada, prueba:
 > ```bash
 > uv run synapse gemini
 > # o
 > uv run python -m synapse.cli gemini
 > ```
 
-Los puertos se asignan automaticamente:
+Los puertos se asignan automáticamente:
 
 | Agente   | Rango de Puertos |
 | -------- | ---------------- |
@@ -180,16 +180,16 @@ Los puertos se asignan automaticamente:
 | OpenCode | 8130-8139        |
 | Copilot  | 8140-8149        |
 
-### 4. Comunicacion Entre Agentes
+### 4. Comunicación Entre Agentes
 
 Usa `synapse send` para enviar mensajes entre agentes:
 
 ```bash
-synapse send codex "Por favor revisa este diseno" --from synapse-claude-8100
+synapse send codex "Por favor revisa este diseño" --from synapse-claude-8100
 synapse send gemini "Sugiere mejoras para la API" --from synapse-claude-8100
 ```
 
-Para multiples instancias del mismo tipo, usa el formato tipo-puerto:
+Para múltiples instancias del mismo tipo, usa el formato tipo-puerto:
 
 ```bash
 synapse send codex-8120 "Encarga esta tarea" --from synapse-claude-8100
@@ -214,46 +214,46 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
 
 ## Casos de Uso
 
-### 1. Consulta Rapida de Especificaciones (Simple)
-Mientras programas con **Claude**, consulta rapidamente a **Gemini** (mejor en busquedas web) para obtener las ultimas especificaciones de librerias o informacion de errores sin cambiar de contexto.
+### 1. Consulta Rápida de Especificaciones (Simple)
+Mientras programas con **Claude**, consulta rápidamente a **Gemini** (mejor en búsquedas web) para obtener las últimas especificaciones de librerías o información de errores sin cambiar de contexto.
 
 ```bash
 # En la terminal de Claude:
 synapse send gemini "Resume las nuevas funcionalidades de f-string en Python 3.12" --from synapse-claude-8100
 ```
 
-### 2. Revision Cruzada de Disenos (Intermedio)
-Obtener retroalimentacion sobre tu diseno desde agentes con diferentes perspectivas.
+### 2. Revisión Cruzada de Diseños (Intermedio)
+Obtener retroalimentación sobre tu diseño desde agentes con diferentes perspectivas.
 
 ```bash
-# Despues de que Claude redacte un diseno:
-synapse send gemini "Revisa criticamente este diseno desde perspectivas de escalabilidad y mantenibilidad" --from synapse-claude-8100
+# Después de que Claude redacte un diseño:
+synapse send gemini "Revisa críticamente este diseño desde perspectivas de escalabilidad y mantenibilidad" --from synapse-claude-8100
 ```
 
-### 3. Programacion en Parejas TDD (Intermedio)
-Separar "escritor de pruebas" e "implementador" para codigo robusto.
+### 3. Programación en Parejas TDD (Intermedio)
+Separar "escritor de pruebas" e "implementador" para código robusto.
 
 ```bash
 # Terminal 1 (Codex):
-Crea pruebas unitarias para auth.py - caso normal y caso de expiracion de token.
+Crea pruebas unitarias para auth.py - caso normal y caso de expiración de token.
 
 # Terminal 2 (Claude):
 synapse send codex-8120 "Implementa auth.py para que pase las pruebas que creaste" --from synapse-claude-8100
 ```
 
-### 4. Auditoria de Seguridad (Especializado)
-Haz que un agente con rol de experto en seguridad audite tu codigo antes de hacer commit.
+### 4. Auditoría de Seguridad (Especializado)
+Haz que un agente con rol de experto en seguridad audite tu código antes de hacer commit.
 
 ```bash
 # Asigna un rol a Gemini:
 Eres un ingeniero de seguridad. Revisa solo vulnerabilidades (SQLi, XSS, etc.)
 
-# Despues de escribir codigo:
+# Después de escribir código:
 synapse send gemini "Audita los cambios actuales (git diff)" --from synapse-claude-8100
 ```
 
-### 5. Correccion Automatica desde Logs de Error (Avanzado)
-Pasa logs de error a un agente para sugerencias de correccion automatica.
+### 5. Corrección Automática desde Logs de Error (Avanzado)
+Pasa logs de error a un agente para sugerencias de corrección automática.
 
 ```bash
 # Las pruebas fallaron...
@@ -263,8 +263,8 @@ pytest > error.log
 synapse send claude "Lee error.log y corrige el problema en synapse/server.py" --from synapse-gemini-8110
 ```
 
-### 6. Migracion de Lenguaje/Framework (Avanzado)
-Distribuir trabajo de refactorizacion grande entre agentes.
+### 6. Migración de Lenguaje/Framework (Avanzado)
+Distribuir trabajo de refactorización grande entre agentes.
 
 ```bash
 # Terminal 1 (Claude):
@@ -279,12 +279,12 @@ synapse send claude "Usa las definiciones de tipos que creaste para reescribir l
 | Operacion | SSH | Synapse |
 |-----------|-----|---------|
 | Operacion CLI manual | ◎ | ◎ |
-| Envio programatico de tareas | △ requiere expect etc. | ◎ API HTTP |
-| Multiples clientes simultaneos | △ multiples sesiones | ◎ endpoint unico |
+| Envío programatico de tareas | △ requiere expect etc. | ◎ API HTTP |
+| Múltiples clientes simultáneos | △ múltiples sesiones | ◎ endpoint único |
 | Notificaciones de progreso en tiempo real | ✗ | ◎ SSE/Webhook |
-| Coordinacion automatica entre agentes | ✗ | ◎ synapse send |
+| Coordinación automática entre agentes | ✗ | ◎ synapse send |
 
-> **Nota**: SSH es frecuentemente suficiente para uso individual de CLI. Synapse destaca cuando necesitas automatizacion, coordinacion y colaboracion multi-agente.
+> **Nota**: SSH es frecuentemente suficiente para uso individual de CLI. Synapse destaca cuando necesitas automatización, coordinación y colaboración multi-agente.
 
 ---
 
@@ -294,25 +294,25 @@ synapse send claude "Usa las definiciones de tipos que creaste para reescribir l
 
 ### Por que Instalar Skills?
 
-Con los skills instalados, Claude entiende y ejecuta automaticamente:
+Con los skills instalados, Claude entiende y ejecuta automáticamente:
 
-- **synapse send**: Comunicacion entre agentes via `synapse send codex "Corrige esto" --from synapse-claude-8100`
-- **Control de prioridad**: Envio de mensajes con Prioridad 1-5 (5 = parada de emergencia)
+- **synapse send**: Comunicación entre agentes vía `synapse send codex "Corrige esto" --from synapse-claude-8100`
+- **Control de prioridad**: Envío de mensajes con Prioridad 1-5 (5 = parada de emergencia)
 - **Seguridad de Archivos**: Previene conflictos multi-agente con bloqueo de archivos y seguimiento de cambios
-- **Gestion de historial**: Busqueda, exportacion y estadisticas del historial de tareas
+- **Gestión de historial**: Búsqueda, exportación y estadísticas del historial de tareas
 
-### Instalacion
+### Instalación
 
 ```bash
-# Instalar via skills.sh (https://skills.sh/)
+# Instalar vía skills.sh (https://skills.sh/)
 npx skills add s-hiraoku/synapse-a2a
 ```
 
 ### Skills Incluidos
 
-| Skill | Descripcion |
+| Skill | Descripción |
 |-------|-------------|
-| **synapse-a2a** | Guia completa para comunicacion entre agentes: `synapse send`, prioridad, protocolo A2A, historial, Seguridad de Archivos, configuracion |
+| **synapse-a2a** | Guía completa para comunicación entre agentes: `synapse send`, prioridad, protocolo A2A, historial, Seguridad de Archivos, configuración |
 
 ### Estructura de Directorios
 
@@ -325,18 +325,18 @@ plugins/
         └── synapse-a2a/SKILL.md
 ```
 
-Consulta [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) para mas detalles.
+Consulta [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) para más detalles.
 
 > **Nota**: Codex y Gemini no soportan plugins, pero puedes colocar skills expandidos en el directorio `.agents/skills/` (Codex/OpenCode) o `.gemini/skills/` respectivamente para habilitar estas funcionalidades.
 
 ---
 
-## Documentacion
+## Documentación
 
 - [guides/README.md](guides/README.md) - Resumen de la documentacion
-- [guides/multi-agent-setup.md](guides/multi-agent-setup.md) - Guia de configuracion
+- [guides/multi-agent-setup.md](guides/multi-agent-setup.md) - Guía de configuración
 - [guides/usage.md](guides/usage.md) - Comandos y patrones de uso
-- [guides/settings.md](guides/settings.md) - Detalles de configuracion `.synapse`
+- [guides/settings.md](guides/settings.md) - Detalles de configuración `.synapse`
 - [guides/troubleshooting.md](guides/troubleshooting.md) - Problemas comunes y soluciones
 
 ---
@@ -365,7 +365,7 @@ En Synapse, **cada agente opera como un servidor A2A**. No hay servidor central;
 Cada agente es:
 
 - **Servidor A2A**: Acepta solicitudes de otros agentes
-- **Cliente A2A**: Envia solicitudes a otros agentes
+- **Cliente A2A**: Envía solicitudes a otros agentes
 
 ### Componentes Principales
 
@@ -373,10 +373,10 @@ Cada agente es:
 | ---------- | ------- | --- |
 | Servidor FastAPI | `synapse/server.py` | Proporciona endpoints A2A |
 | Router A2A | `synapse/a2a_compat.py` | Implementacion del protocolo A2A |
-| Cliente A2A | `synapse/a2a_client.py` | Comunicacion con otros agentes |
-| TerminalController | `synapse/controller.py` | Gestion de PTY, deteccion READY/PROCESSING |
-| InputRouter | `synapse/input_router.py` | Deteccion del patron @Agent |
-| AgentRegistry | `synapse/registry.py` | Registro y busqueda de agentes |
+| Cliente A2A | `synapse/a2a_client.py` | Comunicación con otros agentes |
+| TerminalController | `synapse/controller.py` | Gestión de PTY, detección READY/PROCESSING |
+| InputRouter | `synapse/input_router.py` | Detección del patron @Agent |
+| AgentRegistry | `synapse/registry.py` | Registro y búsqueda de agentes |
 
 ### Secuencia de Inicio
 
@@ -394,7 +394,7 @@ sequenceDiagram
     PTY->>CLI: 5. La IA recibe instrucciones iniciales
 ```
 
-### Flujo de Comunicacion
+### Flujo de Comunicación
 
 ```mermaid
 sequenceDiagram
@@ -403,12 +403,12 @@ sequenceDiagram
     participant Client as A2AClient
     participant Codex as Codex (8120)
 
-    User->>Claude: @codex Revisa este diseno
+    User->>Claude: @codex Revisa este diseño
     Claude->>Client: send_to_local()
     Client->>Codex: POST /tasks/send-priority
     Codex->>Codex: Crear Task → Escribir en PTY
     Codex-->>Client: {"task": {"id": "...", "status": "working"}}
-    Client-->>Claude: [→ codex] Envio completado
+    Client-->>Claude: [→ codex] Envío completado
 ```
 
 ---
@@ -426,9 +426,9 @@ synapse opencode
 synapse copilot
 
 # Iniciar con nombre y rol personalizado
-synapse claude --name mi-claude --role "revisor de codigo"
+synapse claude --name mi-claude --role "revisor de código"
 
-# Saltar configuracion interactiva de nombre/rol
+# Saltar configuración interactiva de nombre/rol
 synapse claude --no-setup
 
 # Especificar puerto
@@ -440,20 +440,20 @@ synapse claude -- --resume
 
 ### Nombrado de Agentes
 
-Asigna nombres y roles personalizados a los agentes para una identificacion y gestion mas facil:
+Asigna nombres y roles personalizados a los agentes para una identificación y gestión más fácil:
 
 ```bash
-# Configuracion interactiva (por defecto al iniciar agente)
+# Configuración interactiva (por defecto al iniciar agente)
 synapse claude
 # → Solicita nombre y rol
 
-# Saltar configuracion interactiva
+# Saltar configuración interactiva
 synapse claude --no-setup
 
-# Establecer nombre y rol via opciones CLI
-synapse claude --name mi-claude --role "revisor de codigo"
+# Establecer nombre y rol vía opciones CLI
+synapse claude --name mi-claude --role "revisor de código"
 
-# Despues de que el agente esta corriendo, cambiar nombre/rol
+# Después de que el agente esta corriendo, cambiar nombre/rol
 synapse rename synapse-claude-8100 --name mi-claude --role "escritor de pruebas"
 synapse rename mi-claude --role "documentacion"  # Cambiar solo el rol
 synapse rename mi-claude --clear                 # Limpiar nombre y rol
@@ -462,19 +462,19 @@ synapse rename mi-claude --clear                 # Limpiar nombre y rol
 Una vez nombrado, usa el nombre personalizado para todas las operaciones:
 
 ```bash
-synapse send mi-claude "Revisa este codigo" --from synapse-codex-8121
+synapse send mi-claude "Revisa este código" --from synapse-codex-8121
 synapse jump mi-claude
 synapse kill mi-claude
 ```
 
 **Nombre vs ID:**
-- **Visualizacion/Prompts**: Muestra el nombre si esta establecido, de lo contrario el ID (ej., `Kill mi-claude (PID: 1234)?`)
+- **Visualización/Prompts**: Muestra el nombre si esta establecido, de lo contrario el ID (ej., `Kill mi-claude (PID: 1234)?`)
 - **Procesamiento interno**: Siempre usa el ID del agente (`synapse-claude-8100`)
 - **Resolucion de destino**: El nombre tiene la mayor prioridad al hacer coincidencia de destinos
 
 ### Lista de Comandos
 
-| Comando | Descripcion |
+| Comando | Descripción |
 | ------- | ----------- |
 | `synapse <profile>` | Iniciar en primer plano |
 | `synapse start <profile>` | Iniciar en segundo plano |
@@ -483,20 +483,20 @@ synapse kill mi-claude
 | `synapse jump <destino>` | Saltar a la terminal del agente |
 | `synapse rename <destino>` | Asignar nombre/rol al agente |
 | `synapse --version` | Mostrar version |
-| `synapse list` | Listar agentes en ejecucion (Rich TUI con auto-actualizacion y salto a terminal) |
+| `synapse list` | Listar agentes en ejecución (Rich TUI con auto-actualizacion y salto a terminal) |
 | `synapse logs <profile>` | Mostrar logs |
 | `synapse send <destino> <mensaje>` | Enviar mensaje |
-| `synapse reply <mensaje>` | Responder al ultimo mensaje A2A recibido |
+| `synapse reply <mensaje>` | Responder al último mensaje A2A recibido |
 | `synapse instructions show` | Mostrar contenido de instrucciones |
 | `synapse instructions files` | Listar archivos de instrucciones |
 | `synapse instructions send` | Reenviar instrucciones iniciales |
 | `synapse history list` | Mostrar historial de tareas |
 | `synapse history show <task_id>` | Mostrar detalles de tarea |
-| `synapse history search` | Busqueda por palabras clave |
+| `synapse history search` | Búsqueda por palabras clave |
 | `synapse history cleanup` | Eliminar datos antiguos |
-| `synapse history stats` | Mostrar estadisticas |
+| `synapse history stats` | Mostrar estadísticas |
 | `synapse history export` | Exportar a JSON/CSV |
-| `synapse file-safety status` | Mostrar estadisticas de seguridad de archivos |
+| `synapse file-safety status` | Mostrar estadísticas de seguridad de archivos |
 | `synapse file-safety locks` | Listar bloqueos activos |
 | `synapse file-safety lock` | Bloquear un archivo |
 | `synapse file-safety unlock` | Liberar bloqueo |
@@ -504,9 +504,9 @@ synapse kill mi-claude
 | `synapse file-safety recent` | Cambios recientes |
 | `synapse file-safety record` | Registrar cambio manualmente |
 | `synapse file-safety cleanup` | Eliminar datos antiguos |
-| `synapse file-safety debug` | Mostrar informacion de depuracion |
-| `synapse config` | Gestion de configuracion (TUI interactivo) |
-| `synapse config show` | Mostrar configuracion actual |
+| `synapse file-safety debug` | Mostrar información de depuración |
+| `synapse config` | Gestión de configuración (TUI interactivo) |
+| `synapse config show` | Mostrar configuración actual |
 
 ### Modo Resume
 
@@ -530,9 +530,9 @@ Banderas por defecto (personalizables en `settings.json`):
 - **OpenCode**: `--continue`, `-c`
 - **Copilot**: `--continue`, `--resume`
 
-### Gestion de Instrucciones
+### Gestión de Instrucciones
 
-Reenvia manualmente las instrucciones iniciales cuando no fueron enviadas (ej., despues del modo `--resume`):
+Reenvia manualmente las instrucciones iniciales cuando no fueron enviadas (ej., después del modo `--resume`):
 
 ```bash
 # Mostrar contenido de instrucciones
@@ -541,7 +541,7 @@ synapse instructions show claude
 # Listar archivos de instrucciones
 synapse instructions files claude
 
-# Enviar instrucciones iniciales al agente en ejecucion
+# Enviar instrucciones iniciales al agente en ejecución
 synapse instructions send claude
 
 # Vista previa antes de enviar
@@ -552,11 +552,11 @@ synapse instructions send synapse-claude-8100
 ```
 
 Util cuando:
-- Necesitas informacion del protocolo A2A despues de iniciar con `--resume`
+- Necesitas información del protocolo A2A después de iniciar con `--resume`
 - El agente perdio/olvido instrucciones y necesita recuperacion
-- Depuracion del contenido de instrucciones
+- Depuración del contenido de instrucciones
 
-### Gestion de Agentes Externos
+### Gestión de Agentes Externos
 
 ```bash
 # Registrar agente externo
@@ -569,14 +569,14 @@ synapse external list
 synapse external send otro "Procesa esta tarea"
 ```
 
-### Gestion del Historial de Tareas
+### Gestión del Historial de Tareas
 
-Busca, navega y analiza resultados de ejecucion de agentes pasados.
+Busca, navega y analiza resultados de ejecución de agentes pasados.
 
 **Nota:** El historial esta habilitado por defecto desde v0.3.13. Para deshabilitarlo:
 
 ```bash
-# Deshabilitar via variable de entorno
+# Deshabilitar vía variable de entorno
 export SYNAPSE_HISTORY_ENABLED=false
 synapse claude
 ```
@@ -584,7 +584,7 @@ synapse claude
 #### Operaciones Basicas
 
 ```bash
-# Mostrar las ultimas 50 entradas
+# Mostrar las últimas 50 entradas
 synapse history list
 
 # Filtrar por agente
@@ -597,7 +597,7 @@ synapse history list --limit 100
 synapse history show task-id-uuid
 ```
 
-#### Busqueda por Palabras Clave
+#### Búsqueda por Palabras Clave
 
 Busca en los campos de entrada/salida por palabra clave:
 
@@ -605,7 +605,7 @@ Busca en los campos de entrada/salida por palabra clave:
 # Palabra clave unica
 synapse history search "Python"
 
-# Multiples palabras clave (logica OR)
+# Múltiples palabras clave (logica OR)
 synapse history search "Python" "Docker"
 
 # Logica AND (todas las palabras clave deben coincidir)
@@ -618,17 +618,17 @@ synapse history search "Python" --agent claude
 synapse history search "error" --limit 20
 ```
 
-#### Estadisticas
+#### Estadísticas
 
 ```bash
-# Estadisticas generales (total, tasa de exito, desglose por agente)
+# Estadísticas generales (total, tasa de exito, desglose por agente)
 synapse history stats
 
-# Estadisticas de un agente especifico
+# Estadísticas de un agente especifico
 synapse history stats --agent claude
 ```
 
-#### Exportacion de Datos
+#### Exportación de Datos
 
 ```bash
 # Exportar JSON (stdout)
@@ -645,16 +645,16 @@ synapse history export --format csv --agent claude > claude_history.csv
 #### Politica de Retencion
 
 ```bash
-# Eliminar datos con mas de 30 dias
+# Eliminar datos con más de 30 dias
 synapse history cleanup --days 30
 
 # Mantener base de datos por debajo de 100MB
 synapse history cleanup --max-size 100
 
-# Forzar (sin confirmacion)
+# Forzar (sin confirmación)
 synapse history cleanup --days 30 --force
 
-# Ejecucion en seco
+# Ejecución en seco
 synapse history cleanup --days 30 --dry-run
 ```
 
@@ -662,16 +662,16 @@ synapse history cleanup --days 30 --dry-run
 
 - Base de datos SQLite: `~/.synapse/history/history.db`
 - Almacena: ID de tarea, nombre del agente, entrada, salida, estado, metadatos
-- Indexado automatico: agent_name, timestamp, task_id
+- Indexado automático: agent_name, timestamp, task_id
 
-**Configuracion:**
+**Configuración:**
 
 - **Habilitado por defecto** (v0.3.13+)
 - **Deshabilitar**: `SYNAPSE_HISTORY_ENABLED=false`
 
 ### Comando synapse send (Recomendado)
 
-Usa `synapse send` para comunicacion entre agentes. Funciona en entornos sandbox.
+Usa `synapse send` para comunicación entre agentes. Funciona en entornos sandbox.
 
 ```bash
 synapse send <destino> "<mensaje>" [--from <remitente>] [--priority <1-5>] [--response | --no-response]
@@ -679,21 +679,21 @@ synapse send <destino> "<mensaje>" [--from <remitente>] [--priority <1-5>] [--re
 
 **Formatos de Destino:**
 
-| Formato | Ejemplo | Descripcion |
+| Formato | Ejemplo | Descripción |
 |---------|---------|-------------|
 | Nombre personalizado | `mi-claude` | Mayor prioridad, usar cuando el agente tiene nombre |
 | Tipo de agente | `claude` | Solo funciona cuando existe una unica instancia |
-| Tipo-puerto | `claude-8100` | Usar cuando hay multiples instancias del mismo tipo |
+| Tipo-puerto | `claude-8100` | Usar cuando hay múltiples instancias del mismo tipo |
 | ID completo | `synapse-claude-8100` | ID completo del agente |
 
-Cuando hay multiples agentes del mismo tipo en ejecucion, solo el tipo (ej., `claude`) dara error. Usa `claude-8100` o `synapse-claude-8100`.
+Cuando hay múltiples agentes del mismo tipo en ejecución, solo el tipo (ej., `claude`) dará error. Usa `claude-8100` o `synapse-claude-8100`.
 
 **Opciones:**
 
-| Opcion | Corto | Descripcion |
+| Opcion | Corto | Descripción |
 |--------|-------|-------------|
-| `--from` | `-f` | ID del agente remitente (para identificacion de respuesta) |
-| `--priority` | `-p` | Prioridad 1-4: normal, 5: parada de emergencia (envia SIGINT) |
+| `--from` | `-f` | ID del agente remitente (para identificación de respuesta) |
+| `--priority` | `-p` | Prioridad 1-4: normal, 5: parada de emergencia (envía SIGINT) |
 | `--response` | - | Ida y vuelta - el remitente espera, el receptor responde con `synapse reply` |
 | `--no-response` | - | Solo ida - enviar y olvidar, no se necesita respuesta |
 
@@ -703,7 +703,7 @@ Cuando hay multiples agentes del mismo tipo en ejecucion, solo el tipo (ej., `cl
 # Enviar mensaje (instancia unica)
 synapse send claude "Hola" --priority 1 --from synapse-codex-8121
 
-# Enviar a instancia especifica (multiples del mismo tipo)
+# Enviar a instancia especifica (múltiples del mismo tipo)
 synapse send claude-8100 "Hola" --from synapse-claude-8101
 
 # Parada de emergencia
@@ -719,7 +719,7 @@ synapse send gemini "Analiza esto" --response --from synapse-claude-8100
 
 ### Comando synapse reply
 
-Responder al ultimo mensaje recibido:
+Responder al último mensaje recibido:
 
 ```bash
 synapse reply "<mensaje>" --from <tu_id_de_agente>
@@ -738,7 +738,7 @@ python -m synapse.tools.a2a list
 # Enviar mensaje
 python -m synapse.tools.a2a send --target claude --priority 1 "Hello"
 
-# Responder al ultimo mensaje recibido (usa seguimiento de respuestas)
+# Responder al último mensaje recibido (usa seguimiento de respuestas)
 python -m synapse.tools.a2a reply "Here is my response"
 ```
 
@@ -748,7 +748,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 ### Compatible con A2A
 
-| Endpoint | Metodo | Descripcion |
+| Endpoint | Método | Descripción |
 | -------- | ------ | ----------- |
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | Enviar mensaje |
@@ -761,14 +761,14 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 ### Extensiones de Synapse
 
-| Endpoint | Metodo | Descripcion |
+| Endpoint | Método | Descripción |
 | -------- | ------ | ----------- |
 | `/reply-stack/get` | GET | Obtener info del remitente sin eliminar (para vista previa antes de enviar) |
 | `/reply-stack/pop` | GET | Extraer info del remitente del mapa de respuestas (para `synapse reply`) |
 
 ### Agentes Externos
 
-| Endpoint | Metodo | Descripcion |
+| Endpoint | Método | Descripción |
 | -------- | ------ | ----------- |
 | `/external/discover` | POST | Registrar agente externo |
 | `/external/agents` | GET | Listar |
@@ -779,7 +779,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 ## Estructura de Tareas
 
-En el protocolo A2A, toda la comunicacion se gestiona como **Tareas** (Tasks).
+En el protocolo A2A, toda la comunicación se gestiona como **Tareas** (Tasks).
 
 ### Ciclo de Vida de una Tarea
 
@@ -819,16 +819,16 @@ stateDiagram-v2
 }
 ```
 
-### Descripcion de Campos
+### Descripción de Campos
 
-| Campo | Tipo | Descripcion |
+| Campo | Tipo | Descripción |
 | ----- | ---- | ----------- |
-| `id` | string | Identificador unico de tarea (UUID) |
+| `id` | string | Identificador único de tarea (UUID) |
 | `context_id` | string? | ID de contexto de conversacion (para multi-turno) |
 | `status` | string | `submitted` / `working` / `completed` / `failed` / `input_required` |
 | `message` | Message | Mensaje enviado |
 | `artifacts` | Artifact[] | Artefactos de salida de la tarea |
-| `metadata` | object | Informacion del remitente (`metadata.sender`) |
+| `metadata` | object | Información del remitente (`metadata.sender`) |
 | `created_at` | string | Marca de tiempo de creacion (ISO 8601) |
 | `updated_at` | string | Marca de tiempo de actualizacion (ISO 8601) |
 
@@ -851,7 +851,7 @@ stateDiagram-v2
 }
 ```
 
-| Tipo de Part | Descripcion |
+| Tipo de Part | Descripción |
 | ------------ | ----------- |
 | `text` | Mensaje de texto |
 | `file` | Archivo adjunto |
@@ -859,7 +859,7 @@ stateDiagram-v2
 
 ---
 
-## Identificacion del Remitente
+## Identificación del Remitente
 
 El remitente de los mensajes A2A puede identificarse mediante `metadata.sender`.
 
@@ -873,15 +873,15 @@ A2A: <contenido del mensaje>
 
 ### Manejo de Respuestas
 
-Synapse gestiona automaticamente el enrutamiento de respuestas. Los agentes simplemente usan `synapse reply`:
+Synapse gestiona automáticamente el enrutamiento de respuestas. Los agentes simplemente usan `synapse reply`:
 
 ```bash
-synapse reply "Aqui esta mi respuesta" --from <tu_id_de_agente>
+synapse reply "Aquí esta mi respuesta" --from <tu_id_de_agente>
 ```
 
-El framework rastrea internamente la informacion del remitente y enruta las respuestas automaticamente.
+El framework rastrea internamente la información del remitente y enruta las respuestas automáticamente.
 
-### Verificacion de la API de Tareas (Desarrollo)
+### Verificación de la API de Tareas (Desarrollo)
 
 ```bash
 curl -s http://localhost:8120/tasks/<id> | jq '.metadata.sender'
@@ -897,10 +897,10 @@ Respuesta:
 }
 ```
 
-### Como Funciona
+### Cómo Funciona
 
 1. **Al enviar**: Consulta el Registry, identifica el propio agent_id mediante coincidencia de PID
-2. **Al crear Task**: Adjunta informacion del remitente a `metadata.sender`
+2. **Al crear Task**: Adjunta información del remitente a `metadata.sender`
 3. **Al recibir**: Verifica mediante prefijo PTY o la API de Tareas
 
 ---
@@ -960,16 +960,16 @@ curl http://localhost:8100/.well-known/agent.json
 }
 ```
 
-### Filosofia de Diseno
+### Filosofía de Diseño
 
-El Agent Card es una "tarjeta de presentacion" que contiene solo informacion orientada al exterior:
+El Agent Card es una "tarjeta de presentación" que contiene solo información orientada al exterior:
 
 - capabilities, skills, endpoint, etc.
-- Las instrucciones internas no se incluyen (se envian via A2A Task al inicio)
+- Las instrucciones internas no se incluyen (se envian vía A2A Task al inicio)
 
 ---
 
-## Registro y Gestion de Puertos
+## Registro y Gestión de Puertos
 
 ### Archivos del Registro
 
@@ -980,12 +980,12 @@ El Agent Card es una "tarjeta de presentacion" que contiene solo informacion ori
 └── synapse-gemini-8110.json
 ```
 
-### Limpieza Automatica
+### Limpieza Automática
 
-Las entradas obsoletas se eliminan automaticamente durante:
+Las entradas obsoletas se eliminan automáticamente durante:
 
-- Ejecucion de `synapse list`
-- Envio de mensajes (cuando el destino esta inactivo)
+- Ejecución de `synapse list`
+- Envío de mensajes (cuando el destino esta inactivo)
 
 ### Rangos de Puertos
 
@@ -1000,14 +1000,14 @@ PORT_RANGES = {
 }
 ```
 
-### Uso Tipico de Memoria (Agentes Residentes)
+### Uso Típico de Memoria (Agentes Residentes)
 
 En macOS, los agentes residentes inactivos son ligeros. A fecha de 25 de enero de 2026,
-el RSS es de aproximadamente ~12 MB por proceso de agente en una configuracion de desarrollo tipica.
+el RSS es de aproximadamente ~12 MB por proceso de agente en una configuración de desarrollo típica.
 
-El uso real varia segun el perfil, plugins, configuracion de historial y carga de trabajo.
+El uso real varía según el perfil, plugins, configuración de historial y carga de trabajo.
 Ten en cuenta que `ps` reporta RSS en KB (por lo que ~12 MB corresponde a ~12,000 KB).
-Para medir en tu maquina:
+Para medir en tu máquina:
 
 ```bash
 ps -o pid,comm,rss,vsz,etime,command -A | rg "synapse"
@@ -1023,7 +1023,7 @@ ps -o pid,comm,rss,vsz,etime,command -A | grep "synapse"
 
 ## Seguridad de Archivos
 
-Previene conflictos cuando multiples agentes editan los mismos archivos simultaneamente.
+Previene conflictos cuando múltiples agentes editan los mismos archivos simultáneamente.
 
 ```mermaid
 sequenceDiagram
@@ -1042,20 +1042,20 @@ sequenceDiagram
     FS-->>Gemini: ADQUIRIDO
 ```
 
-### Caracteristicas
+### Características
 
-| Caracteristica | Descripcion |
+| Característica | Descripción |
 |----------------|-------------|
 | **Bloqueo de Archivos** | Control exclusivo previene edicion simultanea |
 | **Seguimiento de Cambios** | Registra quien cambio que y cuando |
 | **Inyeccion de Contexto** | Proporciona historial de cambios recientes en lectura |
 | **Validacion Pre-escritura** | Verifica estado del bloqueo antes de escribir |
-| **Integracion con List** | Bloqueos activos visibles en la columna EDITING_FILE de `synapse list` |
+| **Integración con List** | Bloqueos activos visibles en la columna EDITING_FILE de `synapse list` |
 
 ### Habilitar
 
 ```bash
-# Habilitar via variable de entorno
+# Habilitar vía variable de entorno
 export SYNAPSE_FILE_SAFETY_ENABLED=true
 synapse claude
 ```
@@ -1063,14 +1063,14 @@ synapse claude
 ### Comandos Basicos
 
 ```bash
-# Mostrar estadisticas
+# Mostrar estadísticas
 synapse file-safety status
 
 # Listar bloqueos activos
 synapse file-safety locks
 
 # Adquirir bloqueo
-synapse file-safety lock /path/to/file.py claude --intent "Refactorizacion"
+synapse file-safety lock /path/to/file.py claude --intent "Refactorización"
 
 # Esperar a que se libere el bloqueo
 synapse file-safety lock /path/to/file.py claude --wait --wait-timeout 60 --wait-interval 2
@@ -1096,7 +1096,7 @@ from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
 manager = FileSafetyManager.from_env()
 
 # Adquirir bloqueo
-result = manager.acquire_lock("/path/to/file.py", "claude", intent="Refactorizacion")
+result = manager.acquire_lock("/path/to/file.py", "claude", intent="Refactorización")
 if result["status"] == LockStatus.ACQUIRED:
     # Editar archivo...
 
@@ -1118,9 +1118,9 @@ if not validation["allowed"]:
     print(f"Escritura bloqueada: {validation['reason']}")
 ```
 
-**Almacenamiento**: Por defecto es `.synapse/file_safety.db` (SQLite, relativo al directorio de trabajo). Cambiar via `SYNAPSE_FILE_SAFETY_DB_PATH` (ej., `~/.synapse/file_safety.db` para global).
+**Almacenamiento**: Por defecto es `.synapse/file_safety.db` (SQLite, relativo al directorio de trabajo). Cambiar vía `SYNAPSE_FILE_SAFETY_DB_PATH` (ej., `~/.synapse/file_safety.db` para global).
 
-Consulta [docs/file-safety.md](docs/file-safety.md) para mas detalles.
+Consulta [docs/file-safety.md](docs/file-safety.md) para más detalles.
 
 ---
 
@@ -1135,19 +1135,19 @@ Monitoreo en tiempo real del estado de los agentes con capacidad de salto a term
 synapse list
 ```
 
-La visualizacion se actualiza automaticamente cuando cambia el estado de los agentes (via file watcher) con un intervalo de sondeo de respaldo de 10 segundos.
+La visualización se actualiza automáticamente cuando cambia el estado de los agentes (vía file watcher) con un intervalo de sondeo de respaldo de 10 segundos.
 
-### Columnas de Visualizacion
+### Columnas de Visualización
 
-| Columna | Descripcion |
+| Columna | Descripción |
 |---------|-------------|
 | ID | ID del agente (ej., `synapse-claude-8100`) |
 | NAME | Nombre personalizado (si esta asignado) |
 | TYPE | Tipo de agente (claude, gemini, codex, etc.) |
-| ROLE | Descripcion del rol del agente (si esta asignado) |
+| ROLE | Descripción del rol del agente (si esta asignado) |
 | STATUS | Estado actual (READY, WAITING, PROCESSING, DONE) |
 | CURRENT | Vista previa de la tarea actual |
-| TRANSPORT | Indicador de transporte de comunicacion |
+| TRANSPORT | Indicador de transporte de comunicación |
 | WORKING_DIR | Directorio de trabajo actual |
 | EDITING_FILE | Archivo siendo editado (solo con Seguridad de Archivos habilitada) |
 
@@ -1166,9 +1166,9 @@ La visualizacion se actualiza automaticamente cuando cambia el estado de los age
 | Estado | Color | Significado |
 |--------|-------|-------------|
 | **READY** | Verde | El agente esta inactivo, esperando entrada |
-| **WAITING** | Cian | El agente muestra UI de seleccion, esperando decision del usuario |
+| **WAITING** | Cian | El agente muestra UI de selección, esperando decision del usuario |
 | **PROCESSING** | Amarillo | El agente esta trabajando activamente |
-| **DONE** | Azul | Tarea completada (transiciona automaticamente a READY despues de 10s) |
+| **DONE** | Azul | Tarea completada (transiciona automáticamente a READY después de 10s) |
 
 ### Controles Interactivos
 
@@ -1177,24 +1177,24 @@ La visualizacion se actualiza automaticamente cuando cambia el estado de los age
 | 1-9 | Seleccionar fila de agente (directo) |
 | ↑/↓ | Navegar filas de agentes |
 | **Enter** o **j** | Saltar a la terminal del agente seleccionado |
-| **k** | Matar agente seleccionado (con confirmacion) |
+| **k** | Matar agente seleccionado (con confirmación) |
 | **/** | Filtrar por TYPE, NAME o WORKING_DIR |
-| ESC | Limpiar filtro/seleccion |
+| ESC | Limpiar filtro/selección |
 | q | Salir |
 
 **Terminales Soportadas**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
 
-### Deteccion de WAITING
+### Detección de WAITING
 
-> **Nota**: La deteccion de WAITING esta actualmente deshabilitada debido a falsos positivos al inicio. Consulta [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) para mas detalles.
+> **Nota**: La detección de WAITING esta actualmente deshabilitada debido a falsos positivos al inicio. Consulta [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) para más detalles.
 
-Cuando esta habilitada, detecta agentes esperando entrada del usuario (UI de seleccion, prompts Y/n) usando patrones regex:
+Cuando esta habilitada, detecta agentes esperando entrada del usuario (UI de selección, prompts Y/n) usando patrones regex:
 
-- **Gemini**: UI de seleccion `● 1. Option`, prompts `Allow execution`
+- **Gemini**: UI de selección `● 1. Option`, prompts `Allow execution`
 - **Claude**: Cursor `❯ Option`, checkboxes `☐/☑`, prompts `[Y/n]`
-- **Codex**: Listas numeradas con indentacion
-- **OpenCode**: Opciones numeradas, indicadores de seleccion, prompts `[y/N]`
-- **Copilot**: Opciones numeradas, indicadores de seleccion, prompts `[y/N]` o `(y/n)`
+- **Codex**: Listas numeradas con indentación
+- **OpenCode**: Opciones numeradas, indicadores de selección, prompts `[y/N]`
+- **Copilot**: Opciones numeradas, indicadores de selección, prompts `[y/N]` o `(y/n)`
 
 ---
 
@@ -1206,16 +1206,16 @@ Suite de pruebas completa que verifica el cumplimiento del protocolo A2A:
 # Todas las pruebas
 pytest
 
-# Categoria especifica
+# Categoría especifica
 pytest tests/test_a2a_compat.py -v
 pytest tests/test_sender_identification.py -v
 ```
 
 ---
 
-## Configuracion (.synapse)
+## Configuración (.synapse)
 
-Personaliza variables de entorno e instrucciones iniciales via `.synapse/settings.json`.
+Personaliza variables de entorno e instrucciones iniciales vía `.synapse/settings.json`.
 
 ### Alcances
 
@@ -1227,7 +1227,7 @@ Personaliza variables de entorno e instrucciones iniciales via `.synapse/setting
 
 Las configuraciones de mayor prioridad sobreescriben las de menor prioridad.
 
-### Configuracion
+### Configuración
 
 ```bash
 # Crear directorio .synapse/ (copia todos los archivos de plantilla)
@@ -1242,19 +1242,19 @@ synapse init
 # Restablecer a valores por defecto
 synapse reset
 
-# Editar configuracion interactivamente (TUI)
+# Editar configuración interactivamente (TUI)
 synapse config
 
-# Mostrar configuracion actual (solo lectura)
+# Mostrar configuración actual (solo lectura)
 synapse config show
 synapse config show --scope user
 ```
 
 `synapse init` copia estos archivos a `.synapse/`:
 
-| Archivo | Descripcion |
+| Archivo | Descripción |
 |---------|-------------|
-| `settings.json` | Variables de entorno y configuracion de instrucciones iniciales |
+| `settings.json` | Variables de entorno y configuración de instrucciones iniciales |
 | `default.md` | Instrucciones iniciales comunes a todos los agentes |
 | `gemini.md` | Instrucciones iniciales especificas de Gemini |
 | `file-safety.md` | Instrucciones de Seguridad de Archivos |
@@ -1283,12 +1283,12 @@ synapse config show --scope user
 
 ### Variables de Entorno (env)
 
-| Variable | Descripcion | Por defecto |
+| Variable | Descripción | Por defecto |
 |----------|-------------|-------------|
 | `SYNAPSE_HISTORY_ENABLED` | Habilitar historial de tareas | `true` |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | Habilitar seguridad de archivos | `true` |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | Ruta de BD de seguridad de archivos | `.synapse/file_safety.db` |
-| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Dias de retencion del historial de bloqueos | `30` |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | Días de retencion del historial de bloqueos | `30` |
 | `SYNAPSE_AUTH_ENABLED` | Habilitar autenticacion de API | `false` |
 | `SYNAPSE_API_KEYS` | Claves API (separadas por comas) | - |
 | `SYNAPSE_ADMIN_KEY` | Clave de administrador | - |
@@ -1301,24 +1301,24 @@ synapse config show --scope user
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL para archivos de mensajes (segundos) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directorio para archivos de mensajes | Temp del sistema |
 
-### Configuracion de Comunicacion A2A (a2a)
+### Configuración de Comunicación A2A (a2a)
 
-| Configuracion | Valor | Descripcion |
+| Configuración | Valor | Descripción |
 |---------------|-------|-------------|
 | `flow` | `roundtrip` | Siempre esperar resultado |
 | `flow` | `oneway` | Siempre solo reenviar (no esperar) |
 | `flow` | `auto` | Controlado por banderas; si se omite, espera por defecto |
 
-### Modo de Aprobacion (approvalMode)
+### Modo de Aprobación (approvalMode)
 
-Controla si mostrar un prompt de confirmacion antes de enviar instrucciones iniciales.
+Controla si mostrar un prompt de confirmación antes de enviar instrucciones iniciales.
 
-| Configuracion | Descripcion |
+| Configuración | Descripción |
 |---------------|-------------|
 | `required` | Mostrar prompt de aprobacion al inicio (por defecto) |
-| `auto` | Enviar instrucciones automaticamente sin solicitar |
+| `auto` | Enviar instrucciones automáticamente sin solicitar |
 
-Cuando esta configurado como `required`, veras un prompt como:
+Cuando esta configurado como `required`, verás un prompt como:
 
 ```
 [Synapse] Agent: synapse-claude-8100 | Port: 8100
@@ -1348,23 +1348,23 @@ Personaliza las instrucciones enviadas al inicio del agente:
 ```
 
 **Prioridad**:
-1. Configuracion especifica del agente (`claude`, `gemini`, `codex`, `opencode`, `copilot`) si existe
+1. Configuración especifica del agente (`claude`, `gemini`, `codex`, `opencode`, `copilot`) si existe
 2. De lo contrario usar `default`
 3. Si ambos estan vacios, no se envian instrucciones iniciales
 
 **Placeholders**:
 - `{{agent_id}}` - ID del agente (ej., `synapse-claude-8100`)
-- `{{port}}` - Numero de puerto (ej., `8100`)
+- `{{port}}` - Número de puerto (ej., `8100`)
 
-Consulta [guides/settings.md](guides/settings.md) para mas detalles.
+Consulta [guides/settings.md](guides/settings.md) para más detalles.
 
 ---
 
-## Desarrollo y Publicacion
+## Desarrollo y Publicación
 
 ### Publicar en PyPI
 
-Al hacer push de un tag se publica automaticamente en PyPI via GitHub Actions.
+Al hacer push de un tag se publica automáticamente en PyPI vía GitHub Actions.
 
 ```bash
 # 1. Actualizar version en pyproject.toml
@@ -1375,7 +1375,7 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-### Publicacion Manual
+### Publicación Manual
 
 ```bash
 # Compilar y publicar con uv
@@ -1383,7 +1383,7 @@ uv build
 uv publish
 ```
 
-### Instalacion de Usuario
+### Instalación de Usuario
 
 ```bash
 # pipx (recomendado)
@@ -1400,15 +1400,15 @@ uvx synapse-a2a claude
 
 ## Limitaciones Conocidas
 
-- **Renderizado TUI**: La visualizacion puede distorsionarse con CLIs basados en Ink
+- **Renderizado TUI**: La visualización puede distorsionarse con CLIs basados en Ink
 - **Limitaciones PTY**: Algunas secuencias de entrada especiales no son soportadas
-- **Sandbox de Codex**: El sandbox de Codex CLI bloquea el acceso a red, requiriendo configuracion para la comunicacion entre agentes (ver abajo)
+- **Sandbox de Codex**: El sandbox de Codex CLI bloquea el acceso a red, requiriendo configuración para la comunicación entre agentes (ver abajo)
 
-### Comunicacion Entre Agentes en Codex CLI
+### Comunicación Entre Agentes en Codex CLI
 
-Codex CLI se ejecuta en un sandbox por defecto con acceso a red restringido. Para usar el patron `@agent` para comunicacion entre agentes, permite el acceso a red en `~/.codex/config.toml`.
+Codex CLI se ejecuta en un sandbox por defecto con acceso a red restringido. Para usar el patron `@agent` para comunicación entre agentes, permite el acceso a red en `~/.codex/config.toml`.
 
-**Configuracion Global (aplica a todos los proyectos):**
+**Configuración Global (aplica a todos los proyectos):**
 
 ```toml
 # ~/.codex/config.toml
@@ -1419,7 +1419,7 @@ sandbox_mode = "workspace-write"
 network_access = true
 ```
 
-**Configuracion por Proyecto:**
+**Configuración por Proyecto:**
 
 ```toml
 # ~/.codex/config.toml
@@ -1431,15 +1431,15 @@ sandbox_mode = "workspace-write"
 network_access = true
 ```
 
-Consulta [guides/troubleshooting.md](guides/troubleshooting.md#codex-sandbox-network-error) para mas detalles.
+Consulta [guides/troubleshooting.md](guides/troubleshooting.md#codex-sandbox-network-error) para más detalles.
 
 ---
 
 ## Funcionalidades Empresariales
 
-Funcionalidades de seguridad, notificaciones y comunicacion de alto rendimiento para entornos de produccion.
+Funcionalidades de seguridad, notificaciones y comunicación de alto rendimiento para entornos de produccion.
 
-### Autenticacion por Clave API
+### Autenticación por Clave API
 
 ```bash
 # Iniciar con autenticacion habilitada
@@ -1453,7 +1453,7 @@ curl -H "X-API-Key: <TU_CLAVE_API>" http://localhost:8100/tasks
 
 ### Notificaciones Webhook
 
-Envia notificaciones a URLs externas cuando las tareas se completan.
+Envía notificaciones a URLs externas cuando las tareas se completan.
 
 ```bash
 # Registrar webhook
@@ -1462,7 +1462,7 @@ curl -X POST http://localhost:8100/webhooks \
   -d '{"url": "https://your-server.com/hook", "events": ["task.completed"]}'
 ```
 
-| Evento | Descripcion |
+| Evento | Descripción |
 |--------|-------------|
 | `task.completed` | Tarea completada exitosamente |
 | `task.failed` | Tarea fallida |
@@ -1478,7 +1478,7 @@ curl -N http://localhost:8100/tasks/{task_id}/subscribe
 
 Tipos de eventos:
 
-| Evento | Descripcion |
+| Evento | Descripción |
 |--------|-------------|
 | `output` | Nueva salida CLI |
 | `status` | Cambio de estado |
@@ -1486,17 +1486,17 @@ Tipos de eventos:
 
 ### Parseo de Salida
 
-Parseo automatico de la salida CLI para deteccion de errores, actualizaciones de estado y generacion de Artifacts.
+Parseo automático de la salida CLI para detección de errores, actualizaciones de estado y generación de Artifacts.
 
-| Funcionalidad | Descripcion |
+| Funcionalidad | Descripción |
 |---------------|-------------|
-| Deteccion de Errores | Detecta `command not found`, `permission denied`, etc. |
-| input_required | Detecta prompts de pregunta/confirmacion |
-| Parser de Salida | Estructura codigo/archivos/errores |
+| Detección de Errores | Detecta `command not found`, `permission denied`, etc. |
+| input_required | Detecta prompts de pregunta/confirmación |
+| Parser de Salida | Estructura código/archivos/errores |
 
 ### Soporte gRPC
 
-Usa gRPC para comunicacion de alto rendimiento.
+Usa gRPC para comunicación de alto rendimiento.
 
 ```bash
 # Instalar dependencias gRPC
@@ -1506,11 +1506,11 @@ pip install synapse-a2a[grpc]
 # REST: 8100 → gRPC: 8101
 ```
 
-Consulta [guides/enterprise.md](guides/enterprise.md) para mas detalles.
+Consulta [guides/enterprise.md](guides/enterprise.md) para más detalles.
 
 ---
 
-## Documentacion
+## Documentación
 
 | Ruta | Contenido |
 | ---- | --------- |
@@ -1519,7 +1519,7 @@ Consulta [guides/enterprise.md](guides/enterprise.md) para mas detalles.
 | [guides/enterprise.md](guides/enterprise.md) | Funcionalidades empresariales |
 | [guides/troubleshooting.md](guides/troubleshooting.md) | Solucion de problemas |
 | [docs/file-safety.md](docs/file-safety.md) | Prevencion de conflictos de archivos |
-| [docs/project-philosophy.md](docs/project-philosophy.md) | Filosofia de diseno |
+| [docs/project-philosophy.md](docs/project-philosophy.md) | Filosofía de diseño |
 
 ---
 
@@ -1532,6 +1532,6 @@ MIT License
 ## Enlaces Relacionados
 
 - [Claude Code](https://claude.ai/code) - Agente CLI de Anthropic
-- [OpenCode](https://opencode.ai/) - Agente de programacion IA de codigo abierto
-- [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) - Asistente de programacion IA de GitHub
+- [OpenCode](https://opencode.ai/) - Agente de programación IA de código abierto
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) - Asistente de programación IA de GitHub
 - [Google A2A Protocol](https://github.com/google/A2A) - Protocolo Agent-to-Agent
