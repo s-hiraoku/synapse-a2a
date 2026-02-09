@@ -23,7 +23,13 @@ class TestCliMain:
 
         mock_install.assert_called_once()
         mock_run_interactive.assert_called_once_with(
-            "claude", 8100, [], name=None, role=None, no_setup=False
+            "claude",
+            8100,
+            [],
+            name=None,
+            role=None,
+            no_setup=False,
+            delegate_mode=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -38,7 +44,13 @@ class TestCliMain:
             main()
 
         mock_run_interactive.assert_called_once_with(
-            "claude", 8105, [], name=None, role=None, no_setup=False
+            "claude",
+            8105,
+            [],
+            name=None,
+            role=None,
+            no_setup=False,
+            delegate_mode=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -56,7 +68,13 @@ class TestCliMain:
             main()
 
         mock_run_interactive.assert_called_once_with(
-            "claude", 8100, ["--model", "opus"], name=None, role=None, no_setup=False
+            "claude",
+            8100,
+            ["--model", "opus"],
+            name=None,
+            role=None,
+            no_setup=False,
+            delegate_mode=False,
         )
 
     @patch("synapse.cli.cmd_start")
@@ -235,7 +253,13 @@ class TestCliMain:
             main()
 
         mock_run_interactive.assert_called_once_with(
-            "claude", 8100, [], name="my-claude", role="reviewer", no_setup=False
+            "claude",
+            8100,
+            [],
+            name="my-claude",
+            role="reviewer",
+            no_setup=False,
+            delegate_mode=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -253,7 +277,13 @@ class TestCliMain:
             main()
 
         mock_run_interactive.assert_called_once_with(
-            "claude", 8100, [], name=None, role=None, no_setup=True
+            "claude",
+            8100,
+            [],
+            name=None,
+            role=None,
+            no_setup=True,
+            delegate_mode=False,
         )
 
     @patch("synapse.cli.cmd_kill")

@@ -846,6 +846,132 @@ def create_a2a_router(
         task_store.update_status(task.id, "working")
         return CreateTaskResponse(task=task)
 
+    # --------------------------------------------------------
+    # Task Board Endpoints (B1: Shared Task Board)
+    # NOTE: These must be defined BEFORE /tasks/{task_id} to avoid route conflicts
+    # --------------------------------------------------------
+
+    class BoardTaskCreate(BaseModel):
+        """Request model for creating a board task."""
+
+        subject: str
+        description: str = ""
+        created_by: str
+        blocked_by: list[str] | None = None
+
+    class BoardTaskClaim(BaseModel):
+        """Request model for claiming a board task."""
+
+        agent_id: str
+
+    class BoardTaskComplete(BaseModel):
+        """Request model for completing a board task."""
+
+        agent_id: str
+
+    @router.get("/tasks/board")
+    async def get_task_board() -> dict[str, Any]:
+        """Get all tasks from the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        tasks = board.list_tasks()
+        return {"tasks": tasks}
+
+    @router.post("/tasks/board")
+    async def create_board_task(request: BoardTaskCreate) -> dict[str, Any]:
+        """Create a new task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject=request.subject,
+            description=request.description,
+            created_by=request.created_by,
+            blocked_by=request.blocked_by,
+        )
+        return {"id": task_id, "status": "pending"}
+
+    @router.post("/tasks/board/{task_id}/claim")
+    async def claim_board_task(task_id: str, request: BoardTaskClaim) -> dict[str, Any]:
+        """Claim a task from the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        result = board.claim_task(task_id, request.agent_id)
+        if not result:
+            raise HTTPException(
+                status_code=409,
+                detail="Task cannot be claimed (already assigned or blocked)",
+            )
+        return {"claimed": True, "task_id": task_id}
+
+    @router.post("/tasks/board/{task_id}/complete")
+    async def complete_board_task(
+        task_id: str, request: BoardTaskComplete
+    ) -> dict[str, Any]:
+        """Complete a task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        unblocked = board.complete_task(task_id, request.agent_id)
+        return {"completed": True, "task_id": task_id, "unblocked": unblocked}
+
+    # --------------------------------------------------------
+    # Plan Approval Endpoints (B3: Plan Approval Workflow)
+    # NOTE: Must be before /tasks/{task_id} to avoid route conflicts
+    # --------------------------------------------------------
+
+    class ApproveRejectRequest(BaseModel):
+        """Request model for approve/reject."""
+
+        reason: str = ""
+
+    @router.post("/tasks/{task_id}/approve")
+    async def approve_task(
+        task_id: str, request: ApproveRejectRequest | None = None
+    ) -> dict[str, Any]:
+        """Approve a plan for a task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        task_store.update_status(task_id, "working")
+
+        if controller:
+            approval_msg = (
+                f"[A2A:PLAN_APPROVED:{task_id[:8]}] "
+                "Your plan has been approved. Proceed with implementation."
+            )
+            controller.write(approval_msg, submit_seq=submit_seq)
+
+        return {"approved": True, "task_id": task_id}
+
+    @router.post("/tasks/{task_id}/reject")
+    async def reject_task(
+        task_id: str, request: ApproveRejectRequest | None = None
+    ) -> dict[str, Any]:
+        """Reject a plan for a task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        reason = request.reason if request else ""
+        task_store.update_status(task_id, "input_required")
+
+        if controller:
+            rejection_msg = f"[A2A:PLAN_REJECTED:{task_id[:8]}] Your plan was rejected."
+            if reason:
+                rejection_msg += f" Reason: {reason}"
+            rejection_msg += " Please revise your plan."
+            controller.write(rejection_msg, submit_seq=submit_seq)
+
+        return {"rejected": True, "task_id": task_id, "reason": reason}
+
+    # --------------------------------------------------------
+    # Task Management (continued)
+    # --------------------------------------------------------
+
     @router.get("/tasks/{task_id}", response_model=Task)
     async def get_task(task_id: str, _: Any = Depends(require_auth)) -> Task:  # noqa: B008
         """

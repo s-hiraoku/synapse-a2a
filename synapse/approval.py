@@ -119,3 +119,18 @@ def prompt_for_approval(
             termios.tcflush(stdin_fd, termios.TCIFLUSH)
 
     return parse_approval_response(response)
+
+
+def format_plan_instruction() -> str:
+    """Return the instruction text appended when plan_mode is active.
+
+    This tells the agent to produce a plan (analysis + steps) without
+    writing any code or making changes.
+    """
+    return (
+        "\n\n[PLAN MODE]\n"
+        "Create a detailed plan for the requested task.\n"
+        "Do NOT implement anything — only describe what you would do.\n"
+        "Include: analysis, proposed changes, file list, and risks.\n"
+        "Wait for explicit approval before proceeding with implementation."
+    )

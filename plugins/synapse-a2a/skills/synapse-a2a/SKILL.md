@@ -20,7 +20,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | List reply targets | `synapse reply --list-targets` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
-| Kill agent | `synapse kill <target>` (with confirmation, use `-f` to force) |
+| Kill agent (graceful) | `synapse kill <target>` (sends shutdown request, 30s timeout, then SIGTERM) |
+| Kill agent (force) | `synapse kill <target> -f` (immediate SIGKILL) |
 | Jump to terminal | `synapse jump <target>` |
 | Rename agent | `synapse rename <target> --name <name> --role <role>` |
 | Check file locks | `synapse file-safety locks` |
@@ -39,6 +40,14 @@ Inter-agent communication framework via Google A2A Protocol.
 | Remove external agent | `synapse external remove <alias>` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
+| List task board | `synapse tasks list [--status pending] [--agent claude]` |
+| Create task | `synapse tasks create "subject" -d "description" [--blocked-by ID]` |
+| Assign task | `synapse tasks assign <task_id> <agent>` |
+| Complete task | `synapse tasks complete <task_id>` |
+| Approve plan | `synapse approve <task_id>` |
+| Reject plan | `synapse reject <task_id> --reason "reason"` |
+| Start team | `synapse team start <agents...> [--layout split\|horizontal\|vertical]` |
+| Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
@@ -183,6 +192,7 @@ synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 | WAITING | Awaiting user input (selection, confirmation) | Cyan |
 | PROCESSING | Busy handling a task | Yellow |
 | DONE | Task completed (auto-clears after 10s) | Blue |
+| SHUTTING_DOWN | Graceful shutdown in progress | Red |
 
 **Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
 
@@ -322,6 +332,12 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Authentication**: API key-based security (`synapse auth`)
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
+- **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
+- **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
+- **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
+- **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
+- **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
+- **Auto-Spawn Panes**: `synapse team start` launches multiple agents in split panes
 
 ## Path Overrides
 

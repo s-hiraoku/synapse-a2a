@@ -103,6 +103,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",  # Character count (TUI limit ~200-300)
         "SYNAPSE_LONG_MESSAGE_TTL": "3600",  # File retention in seconds (1 hour)
         "SYNAPSE_LONG_MESSAGE_DIR": "",  # Default: /tmp/synapse-a2a/messages/
+        # Task board settings
+        "SYNAPSE_TASK_BOARD_ENABLED": "true",
+        "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
     },
     "instructions": {
         "default": get_default_instructions(),
@@ -135,6 +138,25 @@ DEFAULT_SETTINGS: dict[str, Any] = {
             "EDITING_FILE",
         ],
     },
+    "shutdown": {
+        "timeout_seconds": 30,
+        "graceful_enabled": True,
+    },
+    "delegate_mode": {
+        "deny_file_locks": True,
+        "instruction_template": (
+            "\n\n[COORDINATOR MODE]\n"
+            "You are a coordinator. Do NOT edit files directly.\n"
+            "Instead, use `synapse send` to delegate tasks to other agents.\n"
+            "Focus on: task analysis, splitting, assignment, and review.\n"
+            "Use `synapse list` to check agent availability.\n"
+            "Use `synapse tasks` to manage the shared task board."
+        ),
+    },
+    "hooks": {
+        "on_idle": "",
+        "on_task_completed": "",
+    },
 }
 
 # Known top-level settings keys for validation
@@ -145,6 +167,9 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "a2a",
     "resume_flags",
     "list",
+    "shutdown",
+    "delegate_mode",
+    "hooks",
 }
 
 # Deprecated settings keys with migration messages
@@ -259,6 +284,9 @@ class SynapseSettings:
     a2a: dict[str, str] = field(default_factory=dict)
     resume_flags: dict[str, list[str]] = field(default_factory=dict)
     list_config: dict[str, Any] = field(default_factory=dict)
+    shutdown_config: dict[str, Any] = field(default_factory=dict)
+    delegate_mode_config: dict[str, Any] = field(default_factory=dict)
+    hooks_config: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -270,6 +298,9 @@ class SynapseSettings:
             a2a=dict(DEFAULT_SETTINGS["a2a"]),
             resume_flags=dict(DEFAULT_SETTINGS["resume_flags"]),
             list_config=dict(DEFAULT_SETTINGS["list"]),
+            shutdown_config=dict(DEFAULT_SETTINGS["shutdown"]),
+            delegate_mode_config=dict(DEFAULT_SETTINGS["delegate_mode"]),
+            hooks_config=dict(DEFAULT_SETTINGS["hooks"]),
         )
 
     @classmethod
@@ -332,6 +363,9 @@ class SynapseSettings:
             a2a=merged.get("a2a", {}),
             resume_flags=merged.get("resume_flags", {}),
             list_config=merged.get("list", {}),
+            shutdown_config=merged.get("shutdown", {}),
+            delegate_mode_config=merged.get("delegate_mode", {}),
+            hooks_config=merged.get("hooks", {}),
         )
 
     def get_instruction(
@@ -763,6 +797,52 @@ class SynapseSettings:
             # Fall back to default
             columns = DEFAULT_SETTINGS["list"]["columns"]
         return list(columns)
+
+    def get_shutdown_settings(self) -> dict[str, Any]:
+        """Get shutdown configuration.
+
+        Returns:
+            Dict with timeout_seconds (int) and graceful_enabled (bool).
+        """
+        defaults = DEFAULT_SETTINGS["shutdown"]
+        return {
+            "timeout_seconds": self.shutdown_config.get(
+                "timeout_seconds", defaults["timeout_seconds"]
+            ),
+            "graceful_enabled": self.shutdown_config.get(
+                "graceful_enabled", defaults["graceful_enabled"]
+            ),
+        }
+
+    def get_delegate_mode_config(self) -> dict[str, Any]:
+        """Get delegate mode configuration.
+
+        Returns:
+            Dict with deny_file_locks (bool) and instruction_template (str).
+        """
+        defaults = DEFAULT_SETTINGS["delegate_mode"]
+        return {
+            "deny_file_locks": self.delegate_mode_config.get(
+                "deny_file_locks", defaults["deny_file_locks"]
+            ),
+            "instruction_template": self.delegate_mode_config.get(
+                "instruction_template", defaults["instruction_template"]
+            ),
+        }
+
+    def get_hooks_config(self) -> dict[str, str]:
+        """Get hooks configuration.
+
+        Returns:
+            Dict with hook names mapped to shell commands.
+        """
+        defaults = DEFAULT_SETTINGS["hooks"]
+        return {
+            "on_idle": self.hooks_config.get("on_idle", defaults["on_idle"]),
+            "on_task_completed": self.hooks_config.get(
+                "on_task_completed", defaults["on_task_completed"]
+            ),
+        }
 
 
 def get_settings() -> SynapseSettings:

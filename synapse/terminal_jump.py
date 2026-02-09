@@ -454,3 +454,151 @@ def can_jump() -> bool:
     """
     terminal = detect_terminal_app()
     return terminal is not None
+
+
+# ============================================================
+# Pane Creation Functions (B6: Auto-Spawn Split Panes)
+# ============================================================
+
+
+def create_tmux_panes(
+    agents: list[str],
+    layout: str = "split",
+) -> list[str]:
+    """Generate tmux commands to create split panes for each agent.
+
+    Args:
+        agents: List of agent types (e.g., ["claude", "gemini", "codex"]).
+        layout: Layout style ("split", "horizontal", "vertical").
+
+    Returns:
+        List of tmux command strings to execute.
+    """
+    if not agents:
+        return []
+
+    commands: list[str] = []
+
+    # First agent runs in current pane
+    commands.append(f"tmux send-keys 'synapse {agents[0]}' Enter")
+
+    # Remaining agents get new panes
+    split_flag = "-h" if layout == "horizontal" else "-v"
+    for agent in agents[1:]:
+        commands.append(f"tmux split-window {split_flag} 'synapse {agent}'")
+
+    # Apply even layout
+    layout_commands = {
+        "horizontal": "even-horizontal",
+        "vertical": "even-vertical",
+    }
+    if layout == "split" and len(agents) > 2:
+        commands.append("tmux select-layout tiled")
+    else:
+        tmux_layout = layout_commands.get(layout, "even-vertical")
+        commands.append(f"tmux select-layout {tmux_layout}")
+
+    return commands
+
+
+def create_iterm2_panes(
+    agents: list[str],
+) -> str:
+    """Generate AppleScript to create iTerm2 panes for each agent.
+
+    Args:
+        agents: List of agent types.
+
+    Returns:
+        AppleScript string.
+    """
+    if not agents:
+        return ""
+
+    lines = [
+        'tell application "iTerm2"',
+        "  tell current window",
+        "    tell current session",
+        f'      write text "synapse {_escape_applescript_string(agents[0])}"',
+    ]
+
+    for agent in agents[1:]:
+        escaped = _escape_applescript_string(agent)
+        lines.extend(
+            [
+                "    end tell",
+                "    set newSession to (split vertically with default profile)",
+                "    tell newSession",
+                f'      write text "synapse {escaped}"',
+            ]
+        )
+
+    lines.extend(
+        [
+            "    end tell",
+            "  end tell",
+            "end tell",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
+def create_terminal_app_tabs(
+    agents: list[str],
+) -> list[str]:
+    """Generate commands to open Terminal.app tabs for each agent.
+
+    Terminal.app doesn't support split panes, so we use tabs.
+
+    Args:
+        agents: List of agent types.
+
+    Returns:
+        List of osascript command strings.
+    """
+    commands: list[str] = []
+
+    for i, agent in enumerate(agents):
+        escaped = _escape_applescript_string(agent)
+        target = "" if i == 0 else " in front window"
+        commands.append(
+            f'osascript -e \'tell application "Terminal" to '
+            f'do script "synapse {escaped}"{target}\''
+        )
+
+    return commands
+
+
+def create_panes(
+    agents: list[str],
+    layout: str = "split",
+    terminal_app: str | None = None,
+) -> list[str]:
+    """Create panes for multiple agents using the detected terminal.
+
+    Args:
+        agents: List of agent types.
+        layout: Layout style.
+        terminal_app: Terminal to use. Auto-detected if None.
+
+    Returns:
+        List of commands to execute.
+    """
+    if terminal_app is None:
+        terminal_app = detect_terminal_app()
+
+    if terminal_app == "tmux":
+        return create_tmux_panes(agents, layout)
+    elif terminal_app == "iTerm2":
+        script = create_iterm2_panes(agents)
+        return [f"osascript -e '{script}'"] if script else []
+    elif terminal_app == "Terminal":
+        return create_terminal_app_tabs(agents)
+
+    # Unsupported terminal - return empty list
+    logger.warning(
+        f"Terminal '{terminal_app or 'unknown'}' does not support pane creation. "
+        f"Supported: tmux, iTerm2, Terminal.app"
+    )
+    return []

@@ -48,6 +48,17 @@ The framework automatically handles routing - you don't need to know where the m
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
 
+### Agent Teams Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks/board` | GET | List shared task board |
+| `/tasks/board` | POST | Create task on board |
+| `/tasks/board/{id}/claim` | POST | Claim task atomically |
+| `/tasks/board/{id}/complete` | POST | Complete task (auto-unblocks dependents) |
+| `/tasks/{id}/approve` | POST | Approve a plan |
+| `/tasks/{id}/reject` | POST | Reject a plan with reason |
+
 ### External Agent Endpoints
 
 | Endpoint | Method | Description |

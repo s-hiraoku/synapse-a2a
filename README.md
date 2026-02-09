@@ -93,6 +93,12 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
+| **Shared Task Board** | SQLite-based task coordination with dependency tracking (`synapse tasks`) |
+| **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
+| **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
+| **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
+| **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
+| **Auto-Spawn Panes** | `synapse team start` launches multiple agents in tmux/iTerm2 split panes |
 
 ---
 
@@ -479,7 +485,8 @@ synapse kill my-claude
 | `synapse <profile>` | Start in foreground |
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
-| `synapse kill <target>` | Kill agent immediately |
+| `synapse kill <target>` | Graceful shutdown (sends shutdown request, then SIGTERM after 30s) |
+| `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse jump <target>` | Jump to agent's terminal |
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse --version` | Show version |
@@ -507,6 +514,13 @@ synapse kill my-claude
 | `synapse file-safety debug` | Show debug info |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
+| `synapse tasks list` | List shared task board |
+| `synapse tasks create` | Create a task |
+| `synapse tasks assign` | Assign task to agent |
+| `synapse tasks complete` | Mark task completed |
+| `synapse approve <task_id>` | Approve a plan |
+| `synapse reject <task_id>` | Reject a plan with reason |
+| `synapse team start` | Launch agents in split panes (tmux/iTerm2) |
 
 ### Resume Mode
 
@@ -758,6 +772,17 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
 | `/status` | GET | READY/PROCESSING status |
+
+### Agent Teams
+
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/tasks/board` | GET | List shared task board |
+| `/tasks/board` | POST | Create task on board |
+| `/tasks/board/{id}/claim` | POST | Claim task atomically |
+| `/tasks/board/{id}/complete` | POST | Complete task |
+| `/tasks/{id}/approve` | POST | Approve a plan |
+| `/tasks/{id}/reject` | POST | Reject a plan with reason |
 
 ### Synapse Extensions
 
