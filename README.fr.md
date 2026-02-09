@@ -725,7 +725,7 @@ Répondre au dernier message reçu :
 synapse reply "<message>"
 ```
 
-Le drapeau `--from` n'est necessaire que dans les environnements sandboxes (comme Codex). Sans `--from`, Synapse detecte automatiquement l'expediteur.
+Le drapeau `--from` n'est nécessaire que dans les environnements sandboxés (comme Codex). Sans `--from`, Synapse détecte automatiquement l'expéditeur.
 
 ### Outil A2A Bas Niveau
 

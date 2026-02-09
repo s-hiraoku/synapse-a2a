@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.25] - 2026-02-09
+
+### Fixed
+
+- **`synapse reply` documentation** - `--from` flag was incorrectly shown as required; it is only needed in sandboxed environments (like Codex). Basic usage is just `synapse reply "<message>"`
+- **`synapse send` template examples** - Fixed `--from claude` (agent type) to use agent ID format (`synapse-<type>-<port>`) or omit `--from` entirely (auto-detected via PID matching)
+- **Updated 30 files** across all documentation, skills, README translations (ja/ko/es/zh/fr), guides, and templates
+
 ## [0.3.24] - 2026-02-08
 
 ### Added
