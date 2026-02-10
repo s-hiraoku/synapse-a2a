@@ -5,10 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.26] - 2026-02-10
+## [0.4.0] - 2026-02-10
 
 ### Added
 
+- **B1: Shared Task Board** - SQLite-based task coordination for multi-agent workflows
+  - `synapse tasks list/create/assign/complete` CLI commands
+  - `GET/POST /tasks/board`, `/tasks/board/{id}/claim`, `/tasks/board/{id}/complete` API endpoints
+  - Atomic task claiming, dependency tracking (`blocked_by`), auto-unblocking on completion
+- **B2: Quality Gates (Hooks)** - Configurable shell hooks for status transition control
+  - `on_idle` and `on_task_completed` hook types
+  - Exit code semantics: 0=allow, 2=deny, other=allow with warning
+  - Environment variables: `SYNAPSE_AGENT_ID`, `SYNAPSE_AGENT_NAME`, `SYNAPSE_STATUS_FROM`, `SYNAPSE_STATUS_TO`
+- **B3: Plan Approval Workflow** - Human-in-the-loop plan review
+  - `synapse approve/reject` CLI commands
+  - `POST /tasks/{id}/approve`, `POST /tasks/{id}/reject` API endpoints
+  - `plan_mode` metadata flag for plan-only instructions
+- **B4: Graceful Shutdown** - Cooperative agent shutdown
+  - `synapse kill` now sends A2A shutdown request before SIGTERM (30s timeout)
+  - `SHUTTING_DOWN` status (red) added to agent status system
+  - `-f` flag for immediate SIGKILL (previous behavior)
+- **B5: Delegate/Coordinator Mode** - Role-based agent separation
+  - `--delegate-mode` flag for `synapse <agent>` commands
+  - Coordinators cannot acquire file locks (file editing denied)
+  - Auto-injected `[COORDINATOR MODE]` instructions for task delegation
+- **B6: Auto-Spawn Split Panes** - Multi-agent terminal setup
+  - `synapse team start <agents...> [--layout split|horizontal|vertical]`
+  - `POST /team/start` A2A endpoint for agent-initiated team spawning
+  - Supports tmux, iTerm2, Terminal.app (fallback: background spawn)
 - **`synapse skills` command** - Unified skill management with interactive TUI and non-interactive subcommands
   - `synapse skills list [--scope]` - Discover skills across all scopes (Synapse, User, Project, Plugin)
   - `synapse skills show <name>` - Show skill metadata and paths
@@ -37,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Updated `CLAUDE.md` with Agent Teams commands, architecture, and test entries
+- Updated `README.md` feature table, CLI commands, and API endpoints
 - Updated README.md, CLAUDE.md, guides/usage.md, guides/references.md with skill management commands
 - Updated plugin skills (SKILL.md, references/commands.md) and synced to `.agents/` and `.gemini/`
 - Updated code-doc-mapping.md with skills.py and skill_manager.py entries
@@ -45,7 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added 19 tests for core skills module (SYNAPSE scope, deploy, import, create, add, skill set CRUD)
 - Added 6 tests for skill manager commands (deploy, import, create, set list/show, synapse scope listing)
-- Total: 1560 tests passing
 
 ## [0.3.25] - 2026-02-09
 

@@ -786,6 +786,18 @@ flowchart LR
 | GET | `/reply-stack/get` | 返信先 sender 情報取得（`?sender_id=` で指定可） |
 | GET | `/reply-stack/pop` | 返信先 sender 情報取得＋削除（`?sender_id=` で指定可） |
 
+#### Agent Teams API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| GET | `/tasks/board` | 共有タスクボード一覧 |
+| POST | `/tasks/board` | タスクボードにタスク作成 |
+| POST | `/tasks/board/{id}/claim` | タスクをアトミックに取得 |
+| POST | `/tasks/board/{id}/complete` | タスク完了（依存タスク自動解除） |
+| POST | `/tasks/{id}/approve` | プラン承認 |
+| POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
+| POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |
+
 #### 外部エージェント管理 API
 
 | メソッド | パス | 説明 |

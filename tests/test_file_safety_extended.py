@@ -105,7 +105,7 @@ class TestFileSafetyExtended:
         # Test acquire_lock error
         res = manager.acquire_lock("f", "a")
         assert res["status"] == LockStatus.FAILED
-        assert "Simulated DB Error" in res["error"]
+        assert "Simulated DB Error" in res["reason"]
 
         # Test release_lock error
         assert manager.release_lock("f", "a") is False

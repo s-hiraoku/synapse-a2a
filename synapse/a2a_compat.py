@@ -22,7 +22,7 @@ from uuid import uuid4
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
@@ -40,6 +40,7 @@ from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
+from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
@@ -846,6 +847,140 @@ def create_a2a_router(
         task_store.update_status(task.id, "working")
         return CreateTaskResponse(task=task)
 
+    # --------------------------------------------------------
+    # Task Board Endpoints (B1: Shared Task Board)
+    # NOTE: These must be defined BEFORE /tasks/{task_id} to avoid route conflicts
+    # --------------------------------------------------------
+
+    class BoardTaskCreate(BaseModel):
+        """Request model for creating a board task."""
+
+        subject: str
+        description: str = ""
+        created_by: str
+        blocked_by: list[str] | None = None
+
+    class BoardTaskClaim(BaseModel):
+        """Request model for claiming a board task."""
+
+        agent_id: str
+
+    class BoardTaskComplete(BaseModel):
+        """Request model for completing a board task."""
+
+        agent_id: str
+
+    @router.get("/tasks/board")
+    async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
+        """Get all tasks from the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        tasks = board.list_tasks()
+        return {"tasks": tasks}
+
+    @router.post("/tasks/board")
+    async def create_board_task(
+        request: BoardTaskCreate, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Create a new task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject=request.subject,
+            description=request.description,
+            created_by=request.created_by,
+            blocked_by=request.blocked_by,
+        )
+        return {"id": task_id, "status": "pending"}
+
+    @router.post("/tasks/board/{task_id}/claim")
+    async def claim_board_task(
+        task_id: str, request: BoardTaskClaim, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Claim a task from the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        result = board.claim_task(task_id, request.agent_id)
+        if not result:
+            raise HTTPException(
+                status_code=409,
+                detail="Task cannot be claimed (already assigned or blocked)",
+            )
+        return {"claimed": True, "task_id": task_id}
+
+    @router.post("/tasks/board/{task_id}/complete")
+    async def complete_board_task(
+        task_id: str, request: BoardTaskComplete, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Complete a task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        unblocked = board.complete_task(task_id, request.agent_id)
+        return {"completed": True, "task_id": task_id, "unblocked": unblocked}
+
+    # --------------------------------------------------------
+    # Plan Approval Endpoints (B3: Plan Approval Workflow)
+    # NOTE: Must be before /tasks/{task_id} to avoid route conflicts
+    # --------------------------------------------------------
+
+    class ApproveRejectRequest(BaseModel):
+        """Request model for approve/reject."""
+
+        reason: str = ""
+
+    @router.post("/tasks/{task_id}/approve")
+    async def approve_task(
+        task_id: str,
+        request: ApproveRejectRequest | None = None,
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Approve a plan for a task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        task_store.update_status(task_id, "working")
+
+        if controller:
+            approval_msg = (
+                f"[A2A:PLAN_APPROVED:{task_id[:8]}] "
+                "Your plan has been approved. Proceed with implementation."
+            )
+            controller.write(approval_msg, submit_seq=submit_seq)
+
+        return {"approved": True, "task_id": task_id}
+
+    @router.post("/tasks/{task_id}/reject")
+    async def reject_task(
+        task_id: str,
+        request: ApproveRejectRequest | None = None,
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Reject a plan for a task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        reason = request.reason if request else ""
+        task_store.update_status(task_id, "input_required")
+
+        if controller:
+            rejection_msg = f"[A2A:PLAN_REJECTED:{task_id[:8]}] Your plan was rejected."
+            if reason:
+                rejection_msg += f" Reason: {reason}"
+            rejection_msg += " Please revise your plan."
+            controller.write(rejection_msg, submit_seq=submit_seq)
+
+        return {"rejected": True, "task_id": task_id, "reason": reason}
+
+    # --------------------------------------------------------
+    # Task Management (continued)
+    # --------------------------------------------------------
+
     @router.get("/tasks/{task_id}", response_model=Task)
     async def get_task(task_id: str, _: Any = Depends(require_auth)) -> Task:  # noqa: B008
         """
@@ -1311,6 +1446,103 @@ def create_a2a_router(
             )
             for d in deliveries
         ]
+
+    # --------------------------------------------------------
+    # Team Management (B6: Agent-Initiated Team Spawning)
+    # --------------------------------------------------------
+
+    class TeamStartRequest(BaseModel):
+        """Request to start multiple agents with split panes."""
+
+        agents: list[str] = Field(..., min_length=1)
+        layout: Literal["split", "horizontal", "vertical"] = "split"
+        terminal: str | None = None
+
+    class AgentStartStatus(BaseModel):
+        """Status of a single agent start attempt."""
+
+        agent_type: str
+        status: str  # "submitted" | "failed"
+        reason: str | None = None
+
+    class TeamStartResponse(BaseModel):
+        """Response after starting a team of agents."""
+
+        started: list[AgentStartStatus]
+        terminal_used: str | None = None
+
+    @router.post("/team/start", response_model=TeamStartResponse)
+    async def start_team(
+        request: TeamStartRequest,
+        _: Any = Depends(require_auth),
+    ) -> TeamStartResponse:
+        """
+        Start multiple agents with split panes via A2A protocol.
+
+        Detects the current terminal (tmux, iTerm2, Terminal.app) and
+        creates split panes for each agent. Falls back to background
+        process spawning when no supported terminal is detected.
+
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        import shlex
+        import subprocess
+
+        from synapse.server import load_profile
+
+        terminal = request.terminal or detect_terminal_app()
+
+        started: list[AgentStartStatus] = []
+
+        # Try pane creation if terminal is available
+        if terminal:
+            commands = create_panes(request.agents, request.layout, terminal)
+            if commands:
+                for cmd in commands:
+                    subprocess.run(shlex.split(cmd))
+                started = [
+                    AgentStartStatus(agent_type=agent, status="submitted")
+                    for agent in request.agents
+                ]
+                return TeamStartResponse(started=started, terminal_used=terminal)
+
+        # Fallback: validate profiles and spawn background processes
+        for agent_type in request.agents:
+            try:
+                load_profile(agent_type)
+            except FileNotFoundError:
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="failed",
+                        reason=f"Unknown agent type: {agent_type}",
+                    )
+                )
+                continue
+
+            try:
+                subprocess.Popen(
+                    ["synapse", agent_type],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="submitted",
+                    )
+                )
+            except OSError as e:
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="failed",
+                        reason=f"Failed to spawn process: {e}",
+                    )
+                )
+
+        return TeamStartResponse(started=started, terminal_used=None)
 
     # --------------------------------------------------------
     # Reply Stack (Synapse Extension)

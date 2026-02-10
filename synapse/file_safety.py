@@ -397,6 +397,7 @@ class FileSafetyManager:
         agent_id: str | None = None,
         agent_type: str | None = None,
         pid: int | None = None,
+        delegate_mode: bool = False,
     ) -> dict[str, Any]:
         """Attempt to acquire a lock on a file.
 
@@ -409,13 +410,21 @@ class FileSafetyManager:
             agent_id: Full agent identifier (e.g., "synapse-claude-8100")
             agent_type: Short agent type (e.g., "claude") for filtering
             pid: Process ID for session tracking (default: current process)
+            delegate_mode: If True, deny lock (coordinator should not edit files)
 
         Returns:
             Dict with keys:
-                - status: LockStatus (ACQUIRED, ALREADY_LOCKED, RENEWED)
+                - status: LockStatus (ACQUIRED, ALREADY_LOCKED, RENEWED, FAILED)
                 - lock_holder: Agent name holding the lock (if ALREADY_LOCKED)
                 - expires_at: Lock expiration time (if ACQUIRED or RENEWED)
+                - reason: Reason for failure (if FAILED)
         """
+        if delegate_mode:
+            return {
+                "status": LockStatus.FAILED,
+                "reason": "Delegate/coordinator mode: file locks are denied",
+            }
+
         if not self.enabled:
             return {"status": LockStatus.ACQUIRED, "expires_at": None}
 
@@ -555,7 +564,7 @@ class FileSafetyManager:
                     }
             except sqlite3.Error as e:
                 logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
-                return {"status": LockStatus.FAILED, "error": str(e)}
+                return {"status": LockStatus.FAILED, "reason": str(e)}
             finally:
                 if conn:
                     conn.close()

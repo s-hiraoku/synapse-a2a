@@ -170,6 +170,49 @@ def cmd_stop(args: argparse.Namespace) -> None:
     _stop_agent(registry, target)
 
 
+def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
+    """Send a graceful shutdown request to an agent via A2A message.
+
+    Args:
+        agent_info: Agent info dict with port, agent_id, etc.
+        timeout_seconds: How long to wait for agent acknowledgment.
+
+    Returns:
+        True if agent acknowledged the shutdown, False on timeout/error.
+    """
+    port = agent_info.get("port")
+
+    if not port:
+        return False
+
+    try:
+        import httpx
+
+        url = f"http://localhost:{port}/tasks/send"
+        payload = {
+            "message": {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "text",
+                        "text": "Shutdown requested. Please save your work and prepare to exit.",
+                    }
+                ],
+            },
+            "metadata": {"type": "shutdown_request"},
+        }
+        headers = _get_auth_headers()
+
+        # Use a short timeout for the HTTP request itself
+        request_timeout = min(timeout_seconds, 10)
+        response = httpx.post(
+            url, json=payload, headers=headers, timeout=request_timeout
+        )
+        return bool(response.status_code == 200)
+    except Exception:
+        return False
+
+
 def cmd_kill(args: argparse.Namespace) -> None:
     """Kill a running agent by name, ID, or type."""
     target = args.target
@@ -218,11 +261,42 @@ def cmd_kill(args: argparse.Namespace) -> None:
         print(f"No PID found for {display_name}")
         return
 
-    try:
-        os.kill(pid, signal.SIGKILL)
-        print(f"Killed {display_name} (PID: {pid})")
-    except ProcessLookupError:
-        print(f"Process {pid} not found. Cleaning up registry...")
+    # Check for graceful shutdown settings
+    from synapse.settings import get_settings
+
+    settings = get_settings()
+    shutdown = settings.get_shutdown_settings()
+
+    if not force and shutdown.get("graceful_enabled", True):
+        # Attempt graceful shutdown
+        print(f"Sending shutdown request to {display_name}...")
+        timeout = shutdown.get("timeout_seconds", 30)
+        acknowledged = _send_shutdown_request(agent_info, timeout_seconds=timeout)
+
+        if acknowledged:
+            print(f"Shutdown acknowledged by {display_name}. Sending SIGTERM...")
+            try:
+                os.kill(pid, signal.SIGTERM)
+                print(f"Sent SIGTERM to {display_name} (PID: {pid})")
+            except ProcessLookupError:
+                print(f"Process {pid} already exited. Cleaning up registry...")
+        else:
+            print(
+                f"No response from {display_name} after shutdown request. "
+                f"Sending SIGTERM..."
+            )
+            try:
+                os.kill(pid, signal.SIGTERM)
+                print(f"Sent SIGTERM to {display_name} (PID: {pid})")
+            except ProcessLookupError:
+                print(f"Process {pid} not found. Cleaning up registry...")
+    else:
+        # Force kill or graceful disabled: use SIGKILL
+        try:
+            os.kill(pid, signal.SIGKILL)
+            print(f"Killed {display_name} (PID: {pid})")
+        except ProcessLookupError:
+            print(f"Process {pid} not found. Cleaning up registry...")
 
     registry.unregister(agent_id)
 
@@ -1931,6 +2005,202 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_settings)
 
 
+# ============================================================
+# Task Board Commands (B1)
+# ============================================================
+
+
+def cmd_tasks_list(args: argparse.Namespace) -> None:
+    """List tasks from the shared task board."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    status_filter = getattr(args, "status", None)
+    agent_filter = getattr(args, "agent", None)
+
+    tasks = board.list_tasks(status=status_filter, assignee=agent_filter)
+
+    if not tasks:
+        print("No tasks found.")
+        return
+
+    for task in tasks:
+        blocked = (
+            f" [blocked by: {', '.join(task['blocked_by'][:3])}]"
+            if task["blocked_by"]
+            else ""
+        )
+        assignee = f" → {task['assignee']}" if task["assignee"] else ""
+        print(
+            f"  {task['id'][:8]}  [{task['status']}]{assignee}  {task['subject']}{blocked}"
+        )
+
+
+def cmd_tasks_create(args: argparse.Namespace) -> None:
+    """Create a task on the shared task board."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    blocked_by = getattr(args, "blocked_by", None)
+    blocked_list = blocked_by.split(",") if blocked_by else None
+
+    task_id = board.create_task(
+        subject=args.subject,
+        description=getattr(args, "description", "") or "",
+        created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
+        blocked_by=blocked_list,
+    )
+    print(f"Created task: {task_id[:8]} - {args.subject}")
+
+
+def cmd_tasks_assign(args: argparse.Namespace) -> None:
+    """Assign (claim) a task."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    result = board.claim_task(args.task_id, args.agent)
+    if result:
+        print(f"Assigned {args.task_id[:8]} to {args.agent}")
+    else:
+        print("Failed to assign task (may be blocked or already assigned)")
+        sys.exit(1)
+
+
+def cmd_tasks_complete(args: argparse.Namespace) -> None:
+    """Complete a task."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+    unblocked = board.complete_task(args.task_id, agent_id)
+    print(f"Completed task: {args.task_id[:8]}")
+    if unblocked:
+        print(f"Unblocked: {', '.join(t[:8] for t in unblocked)}")
+
+
+# ============================================================
+# Team Commands (B6)
+# ============================================================
+
+
+def cmd_team_start(args: argparse.Namespace) -> None:
+    """Start multiple agents with split panes."""
+    from synapse.terminal_jump import create_panes, detect_terminal_app
+
+    agents = args.agents
+    layout = getattr(args, "layout", "split")
+
+    terminal = detect_terminal_app()
+    if not terminal:
+        print("Could not detect terminal. Supported: tmux, iTerm2, Terminal.app")
+        print("Falling back to sequential start...")
+        for agent in agents:
+            print(f"Starting {agent}...")
+            subprocess.Popen(
+                ["synapse", agent],
+                start_new_session=True,
+            )
+        return
+
+    commands = create_panes(agents, layout=layout, terminal_app=terminal)
+    if not commands:
+        print(f"Terminal '{terminal}' does not support pane creation.")
+        return
+
+    import shlex
+
+    for cmd in commands:
+        subprocess.run(shlex.split(cmd))
+
+    print(f"Started {len(agents)} agents: {', '.join(agents)}")
+
+
+# ============================================================
+# Plan Approval Commands (B3)
+# ============================================================
+
+
+def _get_auth_headers() -> dict[str, str]:
+    """Build auth headers if SYNAPSE_AUTH_ENABLED is set.
+
+    Returns:
+        Dict with X-API-Key header if an API key is available, else empty dict.
+    """
+    if os.environ.get("SYNAPSE_AUTH_ENABLED", "").lower() != "true":
+        return {}
+    api_keys = os.environ.get("SYNAPSE_API_KEYS", "")
+    if api_keys:
+        # Use the first key from the comma-separated list
+        first_key = api_keys.split(",")[0].strip()
+        if first_key:
+            return {"X-API-Key": first_key}
+    return {}
+
+
+def _post_to_task_agent(task_id: str, action: str, payload: dict | None = None) -> bool:
+    """Post an action to the agent that owns a task.
+
+    Iterates over all live agents and attempts to POST to the task action
+    endpoint on each until one succeeds.
+
+    Args:
+        task_id: The task ID to act on.
+        action: The action path suffix (e.g. "approve", "reject").
+        payload: JSON payload to send with the request.
+
+    Returns:
+        True if an agent accepted the request, False otherwise.
+    """
+    import httpx
+
+    registry = AgentRegistry()
+    agents = registry.get_live_agents()
+    headers = _get_auth_headers()
+
+    for info in agents.values():
+        port = info.get("port")
+        if not port:
+            continue
+        try:
+            response = httpx.post(
+                f"http://localhost:{port}/tasks/{task_id}/{action}",
+                json=payload or {},
+                headers=headers,
+                timeout=5.0,
+            )
+            if response.status_code == 200:
+                return True
+        except Exception:
+            continue
+
+    return False
+
+
+def cmd_approve(args: argparse.Namespace) -> None:
+    """Approve a plan for a task."""
+    task_id = args.task_id
+
+    if _post_to_task_agent(task_id, "approve"):
+        print(f"Approved task {task_id[:8]}")
+    else:
+        print(f"Could not find task {task_id[:8]} on any running agent.")
+        sys.exit(1)
+
+
+def cmd_reject(args: argparse.Namespace) -> None:
+    """Reject a plan for a task."""
+    task_id = args.task_id
+    reason = getattr(args, "reason", "") or ""
+
+    if _post_to_task_agent(task_id, "reject", {"reason": reason}):
+        print(f"Rejected task {task_id[:8]}")
+        if reason:
+            print(f"Reason: {reason}")
+    else:
+        print(f"Could not find task {task_id[:8]} on any running agent.")
+        sys.exit(1)
+
+
 def interactive_skill_set_setup() -> str | None:
     """Interactively prompt for skill set selection.
 
@@ -1989,6 +2259,7 @@ def cmd_run_interactive(
     name: str | None = None,
     role: str | None = None,
     no_setup: bool = False,
+    delegate_mode: bool = False,
     skill_set: str | None = None,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
@@ -2007,6 +2278,7 @@ def cmd_run_interactive(
         name: Optional custom name for the agent.
         role: Optional role description for the agent.
         no_setup: If True, skip interactive setup prompt.
+        delegate_mode: If True, run agent in coordinator/delegate mode.
         skill_set: Optional skill set name to apply at startup.
     """
     tool_args = tool_args or []
@@ -2151,6 +2423,7 @@ def cmd_run_interactive(
         input_ready_pattern=input_ready_pattern,
         name=name,
         role=role,
+        delegate_mode=delegate_mode,
     )
 
     # Handle Ctrl+C gracefully
@@ -2266,11 +2539,12 @@ def main() -> None:
                 print(f"Invalid port: {port_str}")
                 sys.exit(1)
 
-        # Parse --name and --role from synapse_args
+        # Parse --name, --role, and --delegate-mode from synapse_args
         name = parse_arg("--name") or parse_arg("-n")
         role = parse_arg("--role") or parse_arg("-r")
         skill_set_arg = parse_arg("--skill-set") or parse_arg("-ss")
         no_setup = "--no-setup" in synapse_args
+        delegate_mode = "--delegate-mode" in synapse_args
 
         # Auto-select available port if not specified
         if port is None:
@@ -2290,6 +2564,7 @@ def main() -> None:
             name=name,
             role=role,
             no_setup=no_setup,
+            delegate_mode=delegate_mode,
             skill_set=skill_set_arg,
         )
         return
@@ -3199,6 +3474,90 @@ Integration with synapse list:
     )
     p_fs_debug.set_defaults(func=cmd_file_safety_debug)
 
+    # tasks - Shared Task Board (B1)
+    p_tasks = subparsers.add_parser(
+        "tasks",
+        help="Shared task board for multi-agent coordination",
+        description="Manage the shared task board for multi-agent task coordination.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    tasks_subparsers = p_tasks.add_subparsers(
+        dest="tasks_command", metavar="SUBCOMMAND"
+    )
+
+    p_tasks_list = tasks_subparsers.add_parser("list", help="List tasks")
+    p_tasks_list.add_argument(
+        "--status", help="Filter by status (pending, in_progress, completed)"
+    )
+    p_tasks_list.add_argument("--agent", help="Filter by assignee agent")
+    p_tasks_list.set_defaults(func=cmd_tasks_list)
+
+    p_tasks_create = tasks_subparsers.add_parser("create", help="Create a task")
+    p_tasks_create.add_argument("subject", help="Task subject/title")
+    p_tasks_create.add_argument(
+        "--description", "-d", default="", help="Task description"
+    )
+    p_tasks_create.add_argument(
+        "--blocked-by", help="Comma-separated task IDs that block this task"
+    )
+    p_tasks_create.set_defaults(func=cmd_tasks_create)
+
+    p_tasks_assign = tasks_subparsers.add_parser(
+        "assign", help="Assign a task to an agent"
+    )
+    p_tasks_assign.add_argument("task_id", help="Task ID to assign")
+    p_tasks_assign.add_argument("agent", help="Agent ID or name to assign to")
+    p_tasks_assign.set_defaults(func=cmd_tasks_assign)
+
+    p_tasks_complete = tasks_subparsers.add_parser(
+        "complete", help="Mark a task as completed"
+    )
+    p_tasks_complete.add_argument("task_id", help="Task ID to complete")
+    p_tasks_complete.set_defaults(func=cmd_tasks_complete)
+
+    # team - Team management (B6)
+    p_team = subparsers.add_parser(
+        "team",
+        help="Team management commands",
+        description="Manage teams of agents.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    team_subparsers = p_team.add_subparsers(dest="team_command", metavar="SUBCOMMAND")
+
+    p_team_start = team_subparsers.add_parser(
+        "start",
+        help="Start multiple agents with split panes",
+    )
+    p_team_start.add_argument(
+        "agents",
+        nargs="+",
+        help="Agent types to start (e.g., claude gemini codex)",
+    )
+    p_team_start.add_argument(
+        "--layout",
+        default="split",
+        choices=["split", "horizontal", "vertical"],
+        help="Pane layout (default: split)",
+    )
+    p_team_start.set_defaults(func=cmd_team_start)
+
+    # approve - Plan approval (B3)
+    p_approve = subparsers.add_parser(
+        "approve",
+        help="Approve a plan for a task",
+    )
+    p_approve.add_argument("task_id", help="Task ID to approve")
+    p_approve.set_defaults(func=cmd_approve)
+
+    # reject - Plan rejection (B3)
+    p_reject = subparsers.add_parser(
+        "reject",
+        help="Reject a plan for a task",
+    )
+    p_reject.add_argument("task_id", help="Task ID to reject")
+    p_reject.add_argument("reason", nargs="?", default="", help="Rejection reason")
+    p_reject.set_defaults(func=cmd_reject)
+
     # skills - Skill manager (browse, delete, move, deploy, import, create, add, sets)
     p_skills = subparsers.add_parser(
         "skills",
@@ -3354,6 +3713,8 @@ Scopes:
         "external": ("external_command", p_external),
         "auth": ("auth_command", p_auth),
         "instructions": ("instructions_command", p_instructions),
+        "tasks": ("tasks_command", p_tasks),
+        "team": ("team_command", p_team),
     }
 
     # Handle subcommands without action (print help)

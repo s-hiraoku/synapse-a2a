@@ -43,6 +43,17 @@ pytest tests/test_file_safety_extended.py -v # File Safety tests
 pytest tests/test_skills.py -v            # Skills core tests
 pytest tests/test_cmd_skill_manager.py -v # Skill manager command tests
 
+# Agent Teams feature tests
+pytest tests/test_task_board.py -v           # B1: Shared Task Board
+pytest tests/test_task_board_api.py -v       # B1: Task Board API
+pytest tests/test_cli_tasks.py -v            # B1: Task Board CLI
+pytest tests/test_hooks.py -v                # B2: Quality Gates (Hooks)
+pytest tests/test_plan_approval.py -v        # B3: Plan Approval
+pytest tests/test_graceful_shutdown.py -v    # B4: Graceful Shutdown
+pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
+pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
+pytest tests/test_team_start_api.py -v       # B6: Team Start API
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -62,8 +73,8 @@ synapse list                              # Show all running agents with auto-re
 # Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, k kill (with confirm), / filter by TYPE/NAME/DIR, ESC clear, q quit
 
 # Agent management by name
-synapse kill my-claude                    # Kill agent by custom name
-synapse kill my-claude -f                 # Kill without confirmation
+synapse kill my-claude                    # Graceful shutdown (default, 30s timeout)
+synapse kill my-claude -f                 # Force kill (immediate SIGKILL)
 synapse jump my-claude                    # Jump to terminal by name
 synapse rename claude --name my-claude    # Assign name to agent
 synapse rename my-claude --role reviewer  # Update role only
@@ -124,6 +135,31 @@ synapse reply "Result here" --to synapse-claude-8100
 # Low-level A2A tool
 python -m synapse.tools.a2a list
 python -m synapse.tools.a2a send --target claude --priority 1 "message"
+
+# Agent Teams: Shared Task Board (B1)
+synapse tasks list                        # List all tasks
+synapse tasks list --status pending       # Filter by status
+synapse tasks create "Task subject" -d "description"  # Create task
+synapse tasks assign <task_id> claude     # Assign task to agent
+synapse tasks complete <task_id>          # Mark task completed
+
+# Agent Teams: Plan Approval (B3)
+synapse approve <task_id>                 # Approve a plan
+synapse reject <task_id> --reason "Use different approach"  # Reject with reason
+
+# Agent Teams: Delegate Mode (B5)
+synapse claude --delegate-mode            # Start as coordinator (no file editing)
+synapse claude --delegate-mode --name coordinator --role "task manager"
+
+# Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2)
+synapse team start claude gemini          # Start 2 agents in split panes
+synapse team start claude gemini codex --layout horizontal  # Custom layout
+
+# Agent Teams: Team Start via A2A API (B6)
+# POST /team/start - agents can spawn teams programmatically
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 ```
 
 ## Target Resolution
@@ -164,6 +200,9 @@ synapse/
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
+├── task_board.py    # Shared Task Board: SQLite-based task coordination (B1)
+├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
+├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── skills.py        # Skill discovery, deploy, import, skill sets
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
@@ -182,11 +221,12 @@ synapse/
 
 **Agent Status System**:
 
-Agents use a four-state status system:
+Agents use a five-state status system:
 - **READY** (green): Agent is idle, waiting for user input
 - **WAITING** (cyan): Agent is showing selection UI, waiting for user choice (detected via regex)
 - **PROCESSING** (yellow): Agent is actively processing (startup, handling requests, or producing output)
 - **DONE** (blue): Task completed (auto-transitions to READY after 10 seconds)
+- **SHUTTING_DOWN** (red): Graceful shutdown in progress (B4)
 
 Status transitions:
 - Initial: `PROCESSING` (startup in progress)
@@ -195,6 +235,7 @@ Status transitions:
 - On selection UI detected: → `WAITING` (agent waiting for user choice)
 - On task completion: → `DONE` (via `set_done()` call)
 - After 10s idle in DONE: `DONE` → `READY`
+- On shutdown request: → `SHUTTING_DOWN` (via graceful kill, B4)
 
 Dead processes are automatically cleaned up from the registry and not displayed in `synapse list`.
 
@@ -395,6 +436,14 @@ pytest tests/test_controller_registry_sync.py -v
 pytest tests/test_agent_naming.py -v     # Name/role registry tests
 pytest tests/test_cli_kill_jump.py -v    # Kill/jump/rename commands
 pytest tests/test_tools_a2a_resolve.py -v # Target resolution tests
+
+# Agent Teams feature tests (B1-B6)
+pytest tests/test_task_board.py tests/test_task_board_api.py tests/test_cli_tasks.py -v  # B1
+pytest tests/test_hooks.py -v                # B2
+pytest tests/test_plan_approval.py -v        # B3
+pytest tests/test_graceful_shutdown.py -v    # B4
+pytest tests/test_delegate_mode.py -v        # B5
+pytest tests/test_auto_spawn.py -v           # B6
 
 # Tests specifically for bug fixes
 pytest tests/test_cmd_list_watch.py::TestSilentFailures -v

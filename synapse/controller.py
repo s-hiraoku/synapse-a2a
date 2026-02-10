@@ -53,9 +53,11 @@ class TerminalController:
         input_ready_pattern: str | None = None,
         name: str | None = None,
         role: str | None = None,
+        delegate_mode: bool = False,
     ):
         self.command = command
         self.args = args or []
+        self.delegate_mode = delegate_mode
 
         # Handle multi-strategy idle detection configuration
         # DEPRECATED: idle_regex parameter is deprecated in favor of idle_detection dict

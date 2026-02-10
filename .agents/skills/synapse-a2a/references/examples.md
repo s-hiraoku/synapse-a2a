@@ -142,6 +142,48 @@ git log --oneline -5
 git diff
 ```
 
+## Agent Teams Workflow
+
+### Task Board Coordination
+
+```bash
+# Coordinator creates tasks
+synapse tasks create "Implement auth module" -d "OAuth2 with JWT"
+synapse tasks create "Write auth tests" --blocked-by <auth_task_id>
+
+# Assign to agents
+synapse tasks assign <auth_task_id> gemini
+synapse tasks assign <test_task_id> codex
+
+# Monitor progress
+synapse tasks list --status in_progress
+
+# Complete task (auto-unblocks dependent test task)
+synapse tasks complete <auth_task_id>
+```
+
+### Delegate Mode Setup
+
+```bash
+# Terminal 1: Start coordinator (cannot edit files)
+synapse claude --delegate-mode --name coordinator
+
+# Terminal 2-3: Start worker agents
+synapse gemini --name worker-1
+synapse codex --name worker-2
+
+# Coordinator delegates tasks
+synapse send worker-1 "Implement auth in src/auth.py" --from synapse-claude-8100
+synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-8100
+```
+
+### Quick Team Start (tmux)
+
+```bash
+# Start 3 agents in split panes
+synapse team start claude gemini codex --layout split
+```
+
 ## Troubleshooting
 
 ### Agent Not Responding

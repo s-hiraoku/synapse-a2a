@@ -17,9 +17,10 @@ READY = "READY"
 WAITING = "WAITING"
 PROCESSING = "PROCESSING"
 DONE = "DONE"
+SHUTTING_DOWN = "SHUTTING_DOWN"
 
 # All valid statuses
-ALL_STATUSES = frozenset({READY, WAITING, PROCESSING, DONE})
+ALL_STATUSES = frozenset({READY, WAITING, PROCESSING, DONE, SHUTTING_DOWN})
 
 # Status display colors (for Rich TUI)
 STATUS_STYLES = {
@@ -27,6 +28,7 @@ STATUS_STYLES = {
     WAITING: "bold cyan",  # Cyan: waiting for user input/choice
     PROCESSING: "bold yellow",  # Yellow: actively working
     DONE: "bold magenta",  # Magenta: completed successfully
+    SHUTTING_DOWN: "bold red",  # Red: graceful shutdown in progress
 }
 
 # DONE status auto-transition timeout (seconds)

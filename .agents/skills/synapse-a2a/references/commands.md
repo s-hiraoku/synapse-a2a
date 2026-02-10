@@ -60,6 +60,9 @@ synapse copilot
 # With custom name and role
 synapse claude --name my-claude --role "code reviewer"
 
+# Delegate/coordinator mode (no file editing, delegates via synapse send)
+synapse claude --delegate-mode --name coordinator --role "task manager"
+
 # Skip interactive name/role setup
 synapse claude --no-setup
 
@@ -102,7 +105,7 @@ synapse stop claude --all
 ### Kill Agents
 
 ```bash
-# Kill by custom name (highest priority)
+# Graceful shutdown (default): sends A2A shutdown request, waits 30s, then SIGTERM
 synapse kill my-claude
 
 # Kill by agent ID
@@ -111,9 +114,15 @@ synapse kill synapse-claude-8100
 # Kill by agent type (only if single instance)
 synapse kill claude
 
-# Force kill without confirmation
+# Force kill (immediate SIGKILL, skip graceful shutdown)
 synapse kill my-claude -f
 ```
+
+**Graceful shutdown flow:**
+1. Sends `shutdown_request` A2A message to agent
+2. Waits up to 30s (configurable via `shutdown.timeout_seconds` setting)
+3. If no response, sends SIGTERM
+4. With `-f`: sends SIGKILL immediately (previous behavior)
 
 ### Jump to Terminal
 
@@ -443,6 +452,17 @@ synapse config show --scope project    # Show project settings only
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db"
   },
   "approvalMode": "required",
+  "hooks": {
+    "on_idle": "",
+    "on_task_completed": ""
+  },
+  "shutdown": {
+    "timeout_seconds": 30,
+    "graceful_enabled": true
+  },
+  "delegate_mode": {
+    "deny_file_locks": true
+  },
   "list": {
     "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR"]
   }
@@ -461,6 +481,8 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
+| `SYNAPSE_TASK_BOARD_ENABLED` | Enable shared task board | `true` |
+| `SYNAPSE_TASK_BOARD_DB_PATH` | Task board DB path | `.synapse/task_board.db` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
@@ -657,6 +679,74 @@ synapse reset --scope both -f
 - `-f, --force`: Skip confirmation prompt
 
 Resets `settings.json` to defaults and re-copies skills from `.claude` to `.agents`.
+
+## Shared Task Board
+
+Coordinate tasks across agents with dependency tracking.
+
+```bash
+# List all tasks
+synapse tasks list
+
+# Filter by status or agent
+synapse tasks list --status pending
+synapse tasks list --agent claude
+
+# Create a task
+synapse tasks create "Implement auth module" -d "OAuth2 flow with JWT tokens"
+
+# Create with dependency (blocked until blocker completes)
+synapse tasks create "Write integration tests" --blocked-by <task_id>
+
+# Claim/assign a task
+synapse tasks assign <task_id> claude
+
+# Complete a task (auto-unblocks dependents)
+synapse tasks complete <task_id>
+```
+
+**Storage:** `.synapse/task_board.db` (SQLite with WAL mode)
+
+## Plan Approval
+
+Review and approve agent plans before implementation.
+
+```bash
+# Approve a plan
+synapse approve <task_id>
+
+# Reject with reason
+synapse reject <task_id> --reason "Use OAuth instead of JWT"
+```
+
+**Plan mode:** When `metadata.plan_mode = true` is set in a send request, the agent creates a plan without implementing.
+
+## Team Start (Auto-Spawn Panes)
+
+Start multiple agents in split terminal panes.
+
+```bash
+# Default split layout (requires tmux or iTerm2)
+synapse team start claude gemini
+
+# Three agents with tiling
+synapse team start claude gemini codex --layout split
+
+# Horizontal layout
+synapse team start claude gemini --layout horizontal
+```
+
+**Supported terminals:** tmux, iTerm2, Terminal.app (tabs). Falls back to sequential start if unsupported.
+
+### Team Start via A2A API
+
+Agents can spawn teams programmatically via the `/team/start` endpoint:
+
+```bash
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+```
 
 ## Skill Management
 
