@@ -46,7 +46,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Complete task | `synapse tasks complete <task_id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
-| Start team | `synapse team start <agents...> [--layout split\|horizontal\|vertical]` |
+| Start team (CLI) | `synapse team start <agents...> [--layout split\|horizontal\|vertical]` |
+| Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
 

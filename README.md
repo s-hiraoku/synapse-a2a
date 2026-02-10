@@ -783,6 +783,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/board/{id}/complete` | POST | Complete task |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
+| `/team/start` | POST | Start multiple agents in terminal panes (A2A-initiated) |
 
 ### Synapse Extensions
 
@@ -790,6 +791,16 @@ python -m synapse.tools.a2a reply "Here is my response"
 | -------- | ------ | ----------- |
 | `/reply-stack/get` | GET | Get sender info without removing (for peek before send) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (for `synapse reply`) |
+| `/tasks/{id}/subscribe` | GET | Subscribe to task updates via SSE |
+
+### Webhooks
+
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/webhooks` | POST | Register a webhook for task notifications |
+| `/webhooks` | GET | List registered webhooks |
+| `/webhooks` | DELETE | Unregister a webhook |
+| `/webhooks/deliveries` | GET | Recent webhook delivery attempts |
 
 ### External Agents
 

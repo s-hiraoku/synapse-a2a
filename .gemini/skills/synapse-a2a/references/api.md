@@ -58,6 +58,22 @@ The framework automatically handles routing - you don't need to know where the m
 | `/tasks/board/{id}/complete` | POST | Complete task (auto-unblocks dependents) |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
+| `/team/start` | POST | Start multiple agents in terminal panes (agent-initiated) |
+
+### Webhook Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/webhooks` | POST | Register a webhook for task notifications |
+| `/webhooks` | GET | List all registered webhooks |
+| `/webhooks` | DELETE | Unregister a webhook (query param: `url`) |
+| `/webhooks/deliveries` | GET | Get recent webhook delivery attempts |
+
+### SSE Streaming
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks/{id}/subscribe` | GET | Subscribe to task updates via Server-Sent Events |
 
 ### External Agent Endpoints
 

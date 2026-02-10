@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-injected `[COORDINATOR MODE]` instructions for task delegation
 - **B6: Auto-Spawn Split Panes** - Multi-agent terminal setup
   - `synapse team start <agents...> [--layout split|horizontal|vertical]`
-  - Supports tmux, iTerm2, Terminal.app (fallback: sequential start)
+  - `POST /team/start` A2A endpoint for agent-initiated team spawning
+  - Supports tmux, iTerm2, Terminal.app (fallback: background spawn)
 
 ### Documentation
 

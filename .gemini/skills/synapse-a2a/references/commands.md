@@ -737,6 +737,16 @@ synapse team start claude gemini --layout horizontal
 
 **Supported terminals:** tmux, iTerm2, Terminal.app (tabs). Falls back to sequential start if unsupported.
 
+### Team Start via A2A API
+
+Agents can spawn teams programmatically via the `/team/start` endpoint:
+
+```bash
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+```
+
 ## Storage Locations
 
 ```text

@@ -50,6 +50,7 @@ pytest tests/test_plan_approval.py -v        # B3: Plan Approval
 pytest tests/test_graceful_shutdown.py -v    # B4: Graceful Shutdown
 pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
 pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
+pytest tests/test_team_start_api.py -v       # B6: Team Start API
 
 # Run agent (interactive)
 synapse claude
@@ -137,6 +138,12 @@ synapse claude --delegate-mode --name coordinator --role "task manager"
 # Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2)
 synapse team start claude gemini          # Start 2 agents in split panes
 synapse team start claude gemini codex --layout horizontal  # Custom layout
+
+# Agent Teams: Team Start via A2A API (B6)
+# POST /team/start - agents can spawn teams programmatically
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 ```
 
 ## Target Resolution
