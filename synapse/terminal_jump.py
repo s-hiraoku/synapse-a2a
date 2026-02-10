@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -480,23 +481,22 @@ def create_tmux_panes(
     commands: list[str] = []
 
     # First agent runs in current pane
-    commands.append(f"tmux send-keys 'synapse {agents[0]}' Enter")
+    safe_first = shlex.quote(f"synapse {agents[0]}")
+    commands.append(f"tmux send-keys {safe_first} Enter")
 
     # Remaining agents get new panes
     split_flag = "-h" if layout == "horizontal" else "-v"
     for agent in agents[1:]:
-        commands.append(f"tmux split-window {split_flag} 'synapse {agent}'")
+        safe_cmd = shlex.quote(f"synapse {agent}")
+        commands.append(f"tmux split-window {split_flag} {safe_cmd}")
 
     # Apply even layout
-    layout_commands = {
-        "horizontal": "even-horizontal",
-        "vertical": "even-vertical",
-    }
     if layout == "split" and len(agents) > 2:
         commands.append("tmux select-layout tiled")
+    elif layout == "horizontal":
+        commands.append("tmux select-layout even-horizontal")
     else:
-        tmux_layout = layout_commands.get(layout, "even-vertical")
-        commands.append(f"tmux select-layout {tmux_layout}")
+        commands.append("tmux select-layout even-vertical")
 
     return commands
 
@@ -592,7 +592,9 @@ def create_panes(
         return create_tmux_panes(agents, layout)
     elif terminal_app == "iTerm2":
         script = create_iterm2_panes(agents)
-        return [f"osascript -e '{script}'"] if script else []
+        if not script:
+            return []
+        return [f"osascript -e {shlex.quote(script)}"]
     elif terminal_app == "Terminal":
         return create_terminal_app_tabs(agents)
 
