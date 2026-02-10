@@ -1787,16 +1787,15 @@ def cmd_skills_add(args: argparse.Namespace) -> None:
     from synapse.paths import get_synapse_skills_dir
     from synapse.skills import add_skill_from_repo
 
-    synapse_dir = Path(get_synapse_skills_dir()).parent
+    skills_dir = Path(get_synapse_skills_dir())
+    synapse_dir = skills_dir.parent
     result = add_skill_from_repo(args.repo, synapse_dir=synapse_dir)
 
     for msg in result.messages:
         print(f"  {msg}")
 
     if result.imported:
-        print(
-            f"\n  Imported {len(result.imported)} skill(s) to {synapse_dir / 'skills'}"
-        )
+        print(f"\n  Imported {len(result.imported)} skill(s) to {skills_dir}")
 
 
 def cmd_skills_create(args: argparse.Namespace) -> None:
