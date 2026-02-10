@@ -230,7 +230,7 @@ class TaskBoard:
         with self._lock:
             conn = self._get_connection()
             try:
-                conn.execute(
+                cursor = conn.execute(
                     """
                     UPDATE board_tasks
                     SET status = 'completed',
@@ -240,6 +240,10 @@ class TaskBoard:
                     """,
                     (task_id, agent_id),
                 )
+
+                if cursor.rowcount == 0:
+                    conn.rollback()
+                    return unblocked
 
                 # Find tasks that had this task as a blocker
                 rows = conn.execute(

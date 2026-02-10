@@ -22,7 +22,7 @@ from uuid import uuid4
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
@@ -40,6 +40,7 @@ from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
+from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
 from synapse.webhooks import (
     dispatch_event,
@@ -870,7 +871,7 @@ def create_a2a_router(
         agent_id: str
 
     @router.get("/tasks/board")
-    async def get_task_board() -> dict[str, Any]:
+    async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
         """Get all tasks from the shared task board."""
         from synapse.task_board import TaskBoard
 
@@ -879,7 +880,9 @@ def create_a2a_router(
         return {"tasks": tasks}
 
     @router.post("/tasks/board")
-    async def create_board_task(request: BoardTaskCreate) -> dict[str, Any]:
+    async def create_board_task(
+        request: BoardTaskCreate, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
         """Create a new task on the shared task board."""
         from synapse.task_board import TaskBoard
 
@@ -893,7 +896,9 @@ def create_a2a_router(
         return {"id": task_id, "status": "pending"}
 
     @router.post("/tasks/board/{task_id}/claim")
-    async def claim_board_task(task_id: str, request: BoardTaskClaim) -> dict[str, Any]:
+    async def claim_board_task(
+        task_id: str, request: BoardTaskClaim, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
         """Claim a task from the shared task board."""
         from synapse.task_board import TaskBoard
 
@@ -908,7 +913,7 @@ def create_a2a_router(
 
     @router.post("/tasks/board/{task_id}/complete")
     async def complete_board_task(
-        task_id: str, request: BoardTaskComplete
+        task_id: str, request: BoardTaskComplete, _: Any = Depends(require_auth)
     ) -> dict[str, Any]:
         """Complete a task on the shared task board."""
         from synapse.task_board import TaskBoard
@@ -929,7 +934,9 @@ def create_a2a_router(
 
     @router.post("/tasks/{task_id}/approve")
     async def approve_task(
-        task_id: str, request: ApproveRejectRequest | None = None
+        task_id: str,
+        request: ApproveRejectRequest | None = None,
+        _: Any = Depends(require_auth),
     ) -> dict[str, Any]:
         """Approve a plan for a task."""
         task = task_store.get(task_id)
@@ -949,7 +956,9 @@ def create_a2a_router(
 
     @router.post("/tasks/{task_id}/reject")
     async def reject_task(
-        task_id: str, request: ApproveRejectRequest | None = None
+        task_id: str,
+        request: ApproveRejectRequest | None = None,
+        _: Any = Depends(require_auth),
     ) -> dict[str, Any]:
         """Reject a plan for a task."""
         task = task_store.get(task_id)
@@ -1437,6 +1446,103 @@ def create_a2a_router(
             )
             for d in deliveries
         ]
+
+    # --------------------------------------------------------
+    # Team Management (B6: Agent-Initiated Team Spawning)
+    # --------------------------------------------------------
+
+    class TeamStartRequest(BaseModel):
+        """Request to start multiple agents with split panes."""
+
+        agents: list[str] = Field(..., min_length=1)
+        layout: Literal["split", "horizontal", "vertical"] = "split"
+        terminal: str | None = None
+
+    class AgentStartStatus(BaseModel):
+        """Status of a single agent start attempt."""
+
+        agent_type: str
+        status: str  # "submitted" | "failed"
+        reason: str | None = None
+
+    class TeamStartResponse(BaseModel):
+        """Response after starting a team of agents."""
+
+        started: list[AgentStartStatus]
+        terminal_used: str | None = None
+
+    @router.post("/team/start", response_model=TeamStartResponse)
+    async def start_team(
+        request: TeamStartRequest,
+        _: Any = Depends(require_auth),
+    ) -> TeamStartResponse:
+        """
+        Start multiple agents with split panes via A2A protocol.
+
+        Detects the current terminal (tmux, iTerm2, Terminal.app) and
+        creates split panes for each agent. Falls back to background
+        process spawning when no supported terminal is detected.
+
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        import shlex
+        import subprocess
+
+        from synapse.server import load_profile
+
+        terminal = request.terminal or detect_terminal_app()
+
+        started: list[AgentStartStatus] = []
+
+        # Try pane creation if terminal is available
+        if terminal:
+            commands = create_panes(request.agents, request.layout, terminal)
+            if commands:
+                for cmd in commands:
+                    subprocess.run(shlex.split(cmd))
+                started = [
+                    AgentStartStatus(agent_type=agent, status="submitted")
+                    for agent in request.agents
+                ]
+                return TeamStartResponse(started=started, terminal_used=terminal)
+
+        # Fallback: validate profiles and spawn background processes
+        for agent_type in request.agents:
+            try:
+                load_profile(agent_type)
+            except FileNotFoundError:
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="failed",
+                        reason=f"Unknown agent type: {agent_type}",
+                    )
+                )
+                continue
+
+            try:
+                subprocess.Popen(
+                    ["synapse", agent_type],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="submitted",
+                    )
+                )
+            except OSError as e:
+                started.append(
+                    AgentStartStatus(
+                        agent_type=agent_type,
+                        status="failed",
+                        reason=f"Failed to spawn process: {e}",
+                    )
+                )
+
+        return TeamStartResponse(started=started, terminal_used=None)
 
     # --------------------------------------------------------
     # Reply Stack (Synapse Extension)

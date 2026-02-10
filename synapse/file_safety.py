@@ -564,7 +564,7 @@ class FileSafetyManager:
                     }
             except sqlite3.Error as e:
                 logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
-                return {"status": LockStatus.FAILED, "error": str(e)}
+                return {"status": LockStatus.FAILED, "reason": str(e)}
             finally:
                 if conn:
                     conn.close()

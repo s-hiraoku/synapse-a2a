@@ -201,10 +201,13 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
             },
             "metadata": {"type": "shutdown_request"},
         }
+        headers = _get_auth_headers()
 
         # Use a short timeout for the HTTP request itself
         request_timeout = min(timeout_seconds, 10)
-        response = httpx.post(url, json=payload, timeout=request_timeout)
+        response = httpx.post(
+            url, json=payload, headers=headers, timeout=request_timeout
+        )
         return bool(response.status_code == 200)
     except Exception:
         return False
@@ -2001,8 +2004,10 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         print(f"Terminal '{terminal}' does not support pane creation.")
         return
 
+    import shlex
+
     for cmd in commands:
-        subprocess.run(cmd, shell=True)
+        subprocess.run(shlex.split(cmd))
 
     print(f"Started {len(agents)} agents: {', '.join(agents)}")
 
@@ -2010,6 +2015,23 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 # ============================================================
 # Plan Approval Commands (B3)
 # ============================================================
+
+
+def _get_auth_headers() -> dict[str, str]:
+    """Build auth headers if SYNAPSE_AUTH_ENABLED is set.
+
+    Returns:
+        Dict with X-API-Key header if an API key is available, else empty dict.
+    """
+    if os.environ.get("SYNAPSE_AUTH_ENABLED", "").lower() != "true":
+        return {}
+    api_keys = os.environ.get("SYNAPSE_API_KEYS", "")
+    if api_keys:
+        # Use the first key from the comma-separated list
+        first_key = api_keys.split(",")[0].strip()
+        if first_key:
+            return {"X-API-Key": first_key}
+    return {}
 
 
 def _post_to_task_agent(task_id: str, action: str, payload: dict | None = None) -> bool:
@@ -2030,6 +2052,7 @@ def _post_to_task_agent(task_id: str, action: str, payload: dict | None = None) 
 
     registry = AgentRegistry()
     agents = registry.get_live_agents()
+    headers = _get_auth_headers()
 
     for info in agents.values():
         port = info.get("port")
@@ -2039,6 +2062,7 @@ def _post_to_task_agent(task_id: str, action: str, payload: dict | None = None) 
             response = httpx.post(
                 f"http://localhost:{port}/tasks/{task_id}/{action}",
                 json=payload or {},
+                headers=headers,
                 timeout=5.0,
             )
             if response.status_code == 200:
