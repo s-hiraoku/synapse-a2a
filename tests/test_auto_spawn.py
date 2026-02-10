@@ -66,11 +66,10 @@ class TestTerminalPaneCreation:
             agents=["claude", "gemini"],
         )
         assert isinstance(script, str)
-        assert (
-            "tell application" in script.lower()
-            or "osascript" in script.lower()
-            or len(script) > 0
-        )
+        assert "tell application" in script.lower()
+        # Verify both agents appear in the script
+        assert "claude" in script
+        assert "gemini" in script
 
     def test_create_terminal_app_tabs(self):
         """Should generate commands for Terminal.app tabs."""

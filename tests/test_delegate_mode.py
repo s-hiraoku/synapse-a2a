@@ -53,33 +53,42 @@ class TestDelegateModeSettings:
 
 
 class TestDelegateModeFlag:
-    """Tests for --delegate-mode CLI flag."""
+    """Tests for --delegate-mode CLI flag parsing.
 
-    def test_delegate_mode_flag_parsed(self):
-        """--delegate-mode should be parsed as a boolean flag."""
-        import argparse
+    The CLI uses manual arg parsing ('--delegate-mode' in synapse_args),
+    so these tests verify that parsing logic directly.
+    """
 
-        # Simulate what the parser would produce
-        args = argparse.Namespace(delegate_mode=True)
-        assert args.delegate_mode is True
+    def test_delegate_mode_flag_detected(self):
+        """--delegate-mode should be detected in args list."""
+        synapse_args = ["--delegate-mode"]
+        assert "--delegate-mode" in synapse_args
 
-    def test_delegate_mode_default_false(self):
-        """delegate_mode should default to False."""
-        import argparse
+    def test_delegate_mode_absent_by_default(self):
+        """delegate_mode should be False when flag is absent."""
+        synapse_args: list[str] = []
+        delegate_mode = "--delegate-mode" in synapse_args
+        assert delegate_mode is False
 
-        args = argparse.Namespace(delegate_mode=False)
-        assert args.delegate_mode is False
+    def test_delegate_mode_with_role_and_name(self):
+        """--delegate-mode should coexist with --role and --name flags."""
+        synapse_args = [
+            "--delegate-mode",
+            "--role",
+            "coordinator",
+            "--name",
+            "lead-gemini",
+        ]
+        delegate_mode = "--delegate-mode" in synapse_args
+        # Replicate the CLI's parse_arg pattern
+        name_idx = synapse_args.index("--name") if "--name" in synapse_args else -1
+        name = synapse_args[name_idx + 1] if name_idx >= 0 else None
+        role_idx = synapse_args.index("--role") if "--role" in synapse_args else -1
+        role = synapse_args[role_idx + 1] if role_idx >= 0 else None
 
-    def test_delegate_mode_with_role(self):
-        """--delegate-mode should work together with --role."""
-        import argparse
-
-        args = argparse.Namespace(
-            delegate_mode=True, role="coordinator", name="lead-gemini"
-        )
-        assert args.delegate_mode is True
-        assert args.role == "coordinator"
-        assert args.name == "lead-gemini"
+        assert delegate_mode is True
+        assert role == "coordinator"
+        assert name == "lead-gemini"
 
 
 # ============================================================

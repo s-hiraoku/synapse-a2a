@@ -181,7 +181,11 @@ class TestGracefulShutdownFlow:
         mock_kill.assert_called_once_with(12345, signal.SIGKILL)
 
     def test_graceful_shutdown_sends_request_first(self, mock_registry):
-        """Without -f, should attempt graceful shutdown via A2A message first."""
+        """Without -f, should attempt graceful shutdown via A2A message first.
+
+        When the agent acknowledges the shutdown, os.kill should still be called
+        (SIGTERM to finalize), but the graceful request should happen first.
+        """
         import argparse
 
         args = argparse.Namespace(target="test-claude", force=False)
@@ -191,7 +195,7 @@ class TestGracefulShutdownFlow:
             patch("synapse.settings.get_settings") as mock_settings,
             patch("synapse.cli._send_shutdown_request") as mock_send,
             patch("builtins.input", return_value="y"),
-            patch("os.kill"),
+            patch("os.kill") as mock_kill,
         ):
             mock_settings_inst = MagicMock()
             mock_settings_inst.get_shutdown_settings.return_value = {
@@ -206,6 +210,8 @@ class TestGracefulShutdownFlow:
             cmd_kill(args)
 
         mock_send.assert_called_once()
+        # After acknowledgment, SIGTERM is sent to finalize
+        mock_kill.assert_called_once()
 
     def test_graceful_shutdown_falls_back_to_sigterm_on_timeout(self, mock_registry):
         """Should send SIGTERM after timeout if agent doesn't respond."""
