@@ -1799,6 +1799,109 @@ def cmd_config_show(args: argparse.Namespace) -> None:
     cmd.show(scope=scope)
 
 
+def cmd_skills(args: argparse.Namespace) -> None:
+    """Interactive skill manager TUI."""
+    from synapse.commands.skill_manager import SkillManagerCommand
+
+    cmd = SkillManagerCommand()
+    cmd.run()
+
+
+def cmd_skills_list(args: argparse.Namespace) -> None:
+    """List all skills."""
+    from synapse.commands.skill_manager import cmd_skills_list as _list
+
+    scope = getattr(args, "scope", None)
+    _list(scope_filter=scope)
+
+
+def cmd_skills_show(args: argparse.Namespace) -> None:
+    """Show skill details."""
+    from synapse.commands.skill_manager import cmd_skills_show as _show
+
+    scope = getattr(args, "scope", None)
+    _show(args.name, scope=scope)
+
+
+def cmd_skills_delete(args: argparse.Namespace) -> None:
+    """Delete a skill."""
+    from synapse.commands.skill_manager import cmd_skills_delete as _delete
+
+    scope = getattr(args, "scope", None)
+    force = getattr(args, "force", False)
+    _delete(args.name, scope=scope, force=force)
+
+
+def cmd_skills_move(args: argparse.Namespace) -> None:
+    """Move a skill to another scope."""
+    from synapse.commands.skill_manager import cmd_skills_move as _move
+
+    _move(args.name, target_scope=args.to)
+
+
+def cmd_skills_deploy(args: argparse.Namespace) -> None:
+    """Deploy a skill to agent directories."""
+    from synapse.commands.skill_manager import cmd_skills_deploy as _deploy
+
+    agents = [a.strip() for a in args.agent.split(",")] if args.agent else ["claude"]
+    scope = getattr(args, "deploy_scope", "user")
+    _deploy(args.name, agents=agents, scope=scope)
+
+
+def cmd_skills_import(args: argparse.Namespace) -> None:
+    """Import a skill to the central synapse store."""
+    from synapse.commands.skill_manager import cmd_skills_import as _import
+
+    from_scope = getattr(args, "from_scope", None)
+    _import(args.name, from_scope=from_scope)
+
+
+def cmd_skills_add(args: argparse.Namespace) -> None:
+    """Add a skill from a repository via npx."""
+    from synapse.paths import get_synapse_skills_dir
+    from synapse.skills import add_skill_from_repo
+
+    skills_dir = Path(get_synapse_skills_dir())
+    synapse_dir = skills_dir.parent
+    result = add_skill_from_repo(args.repo, synapse_dir=synapse_dir)
+
+    for msg in result.messages:
+        print(f"  {msg}")
+
+    if result.imported:
+        print(f"\n  Imported {len(result.imported)} skill(s) to {skills_dir}")
+
+
+def cmd_skills_create(args: argparse.Namespace) -> None:
+    """Create a new skill in the central store."""
+    from synapse.commands.skill_manager import cmd_skills_create as _create
+
+    name = getattr(args, "name", None)
+    _create(name=name)
+
+
+def cmd_skills_set(args: argparse.Namespace) -> None:
+    """Interactive skill set management (via skills TUI)."""
+    from synapse.commands.skill_manager import SkillManagerCommand
+
+    cmd = SkillManagerCommand()
+    cmd._skill_set_menu()
+
+
+def cmd_skills_set_list(args: argparse.Namespace) -> None:
+    """List all skill sets."""
+    from synapse.commands.skill_manager import cmd_skills_set_list as _list
+
+    _list()
+
+
+def cmd_skills_set_show(args: argparse.Namespace) -> None:
+    """Show skill set details."""
+    from synapse.commands.skill_manager import cmd_skills_set_show as _show
+
+    _show(args.name)
+
+
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -2098,6 +2201,57 @@ def cmd_reject(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def interactive_skill_set_setup() -> str | None:
+    """Interactively prompt for skill set selection.
+
+    Shows available skill sets from .synapse/skill_sets.json and lets the
+    user pick one. Uses simple_term_menu if available, falls back to input().
+
+    Returns:
+        Selected skill set name, or None if skipped.
+    """
+    from synapse.skills import load_skill_sets
+
+    sets = load_skill_sets()
+    if not sets:
+        return None
+
+    try:
+        from simple_term_menu import TerminalMenu
+
+        items = [f"{name} - {ssd.description}" for name, ssd in sorted(sets.items())]
+        items.append("(Skip - no skill set)")
+
+        menu = TerminalMenu(
+            items,
+            title="\n  Select a skill set (optional):\n",
+            menu_cursor="> ",
+            menu_cursor_style=("fg_yellow", "bold"),
+            menu_highlight_style=("fg_yellow", "bold"),
+            cycle_cursor=True,
+        )
+        choice = menu.show()
+        if choice is None or int(choice) >= len(sets):
+            return None
+        return sorted(sets.keys())[int(choice)]
+    except ImportError:
+        # Fallback to simple input
+        print("\n\x1b[32m[Synapse]\x1b[0m Available skill sets:")
+        names = sorted(sets.keys())
+        for i, name in enumerate(names, 1):
+            print(f"  [{i}] {name} - {sets[name].description}")
+        print("  [Enter] Skip")
+        try:
+            choice = input("Select skill set: ").strip()
+            if choice.isdigit():
+                idx = int(choice) - 1
+                if 0 <= idx < len(names):
+                    return names[idx]
+        except (EOFError, KeyboardInterrupt):
+            pass
+        return None
+
+
 def cmd_run_interactive(
     profile: str,
     port: int,
@@ -2106,6 +2260,7 @@ def cmd_run_interactive(
     role: str | None = None,
     no_setup: bool = False,
     delegate_mode: bool = False,
+    skill_set: str | None = None,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -2124,6 +2279,7 @@ def cmd_run_interactive(
         role: Optional role description for the agent.
         no_setup: If True, skip interactive setup prompt.
         delegate_mode: If True, run agent in coordinator/delegate mode.
+        skill_set: Optional skill set name to apply at startup.
     """
     tool_args = tool_args or []
 
@@ -2211,6 +2367,19 @@ def cmd_run_interactive(
     agent_role = role
     if not no_setup and name is None and role is None and sys.stdin.isatty():
         agent_name, agent_role = interactive_agent_setup(agent_id, port)
+
+    # Skill set selection
+    selected_skill_set = skill_set
+    if not no_setup and selected_skill_set is None and sys.stdin.isatty():
+        selected_skill_set = interactive_skill_set_setup()
+
+    # Apply skill set if selected
+    if selected_skill_set:
+        from synapse.skills import apply_skill_set
+
+        result = apply_skill_set(selected_skill_set, profile)
+        for msg in result.messages:
+            print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
 
     # Check if approval is required for initial instructions
     skip_initial_instructions = is_resume
@@ -2317,6 +2486,7 @@ def cmd_run_interactive(
             status="PROCESSING",
             name=agent_name,
             role=agent_role,
+            skill_set=selected_skill_set,
         )
 
         # Initial instructions are sent via on_first_idle callback
@@ -2372,6 +2542,7 @@ def main() -> None:
         # Parse --name, --role, and --delegate-mode from synapse_args
         name = parse_arg("--name") or parse_arg("-n")
         role = parse_arg("--role") or parse_arg("-r")
+        skill_set_arg = parse_arg("--skill-set") or parse_arg("-ss")
         no_setup = "--no-setup" in synapse_args
         delegate_mode = "--delegate-mode" in synapse_args
 
@@ -2394,6 +2565,7 @@ def main() -> None:
             role=role,
             no_setup=no_setup,
             delegate_mode=delegate_mode,
+            skill_set=skill_set_arg,
         )
         return
 
@@ -3385,6 +3557,149 @@ Integration with synapse list:
     p_reject.add_argument("task_id", help="Task ID to reject")
     p_reject.add_argument("reason", nargs="?", default="", help="Rejection reason")
     p_reject.set_defaults(func=cmd_reject)
+
+    # skills - Skill manager (browse, delete, move, deploy, import, create, add, sets)
+    p_skills = subparsers.add_parser(
+        "skills",
+        help="Browse and manage skills",
+        description="""Browse, delete, move, deploy, import, and create skills across scopes.
+
+Scopes:
+  synapse  Skills in ~/.synapse/skills/ (central store)
+  user     Skills in ~/.<agent>/skills/
+  project  Skills in ./.<agent>/skills/
+  plugin   Skills in ./plugins/*/skills/ (read-only)""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse skills                                          Interactive skill manager
+  synapse skills list                                     List all skills
+  synapse skills list --scope synapse                     List synapse-scope skills
+  synapse skills show agent-memory                        Show skill details
+  synapse skills delete agent-memory -f                   Delete a skill
+  synapse skills move agent-memory --to project           Move to project scope
+  synapse skills deploy code-quality --agent claude,codex Deploy to agent dirs
+  synapse skills import agent-memory                      Import to central store
+  synapse skills add github.com/user/skills               Add from repository
+  synapse skills create                                   Create new skill
+  synapse skills set list                                 List skill sets
+  synapse skills set show reviewer                        Show skill set details""",
+    )
+    p_skills.set_defaults(func=cmd_skills)
+
+    # skills subcommands
+    skills_subparsers = p_skills.add_subparsers(
+        dest="skills_command", metavar="SUBCOMMAND"
+    )
+
+    # skills list
+    p_sk_list = skills_subparsers.add_parser("list", help="List all skills")
+    p_sk_list.add_argument(
+        "--scope",
+        choices=["synapse", "user", "project", "plugin"],
+        help="Filter by scope",
+    )
+    p_sk_list.set_defaults(func=cmd_skills_list)
+
+    # skills show
+    p_sk_show = skills_subparsers.add_parser("show", help="Show skill details")
+    p_sk_show.add_argument("name", help="Skill name")
+    p_sk_show.add_argument(
+        "--scope",
+        choices=["synapse", "user", "project", "plugin"],
+        help="Scope to look in (if same name exists in multiple scopes)",
+    )
+    p_sk_show.set_defaults(func=cmd_skills_show)
+
+    # skills delete
+    p_sk_delete = skills_subparsers.add_parser("delete", help="Delete a skill")
+    p_sk_delete.add_argument("name", help="Skill name to delete")
+    p_sk_delete.add_argument(
+        "--scope",
+        choices=["synapse", "user", "project"],
+        help="Scope to delete from",
+    )
+    p_sk_delete.add_argument(
+        "--force", "-f", action="store_true", help="Skip confirmation"
+    )
+    p_sk_delete.set_defaults(func=cmd_skills_delete)
+
+    # skills move
+    p_sk_move = skills_subparsers.add_parser(
+        "move", help="Move a skill to another scope"
+    )
+    p_sk_move.add_argument("name", help="Skill name to move")
+    p_sk_move.add_argument(
+        "--to",
+        required=True,
+        choices=["user", "project"],
+        help="Target scope",
+    )
+    p_sk_move.set_defaults(func=cmd_skills_move)
+
+    # skills deploy
+    p_sk_deploy = skills_subparsers.add_parser(
+        "deploy", help="Deploy a skill to agent directories"
+    )
+    p_sk_deploy.add_argument("name", help="Skill name to deploy")
+    p_sk_deploy.add_argument(
+        "--agent",
+        default="claude",
+        help="Target agents (comma-separated, e.g. claude,codex). Default: claude",
+    )
+    p_sk_deploy.add_argument(
+        "--scope",
+        dest="deploy_scope",
+        choices=["user", "project"],
+        default="user",
+        help="Deploy scope (default: user)",
+    )
+    p_sk_deploy.set_defaults(func=cmd_skills_deploy)
+
+    # skills import
+    p_sk_import = skills_subparsers.add_parser(
+        "import", help="Import a skill to ~/.synapse/skills/"
+    )
+    p_sk_import.add_argument("name", help="Skill name to import")
+    p_sk_import.add_argument(
+        "--from",
+        dest="from_scope",
+        choices=["user", "project"],
+        help="Source scope to import from",
+    )
+    p_sk_import.set_defaults(func=cmd_skills_import)
+
+    # skills add
+    p_sk_add = skills_subparsers.add_parser(
+        "add", help="Add a skill from a repository via npx"
+    )
+    p_sk_add.add_argument("repo", help="Repository URL or identifier")
+    p_sk_add.set_defaults(func=cmd_skills_add)
+
+    # skills create
+    p_sk_create = skills_subparsers.add_parser(
+        "create", help="Create a new skill in ~/.synapse/skills/"
+    )
+    p_sk_create.add_argument("name", nargs="?", default=None, help="Skill name")
+    p_sk_create.set_defaults(func=cmd_skills_create)
+
+    # skills set (skill set management)
+    p_sk_set = skills_subparsers.add_parser(
+        "set", help="Manage skill sets (named groups of skills)"
+    )
+    p_sk_set.set_defaults(func=cmd_skills_set)
+
+    sk_set_subparsers = p_sk_set.add_subparsers(
+        dest="set_command", metavar="SUBCOMMAND"
+    )
+
+    # skills set list
+    p_sk_set_list = sk_set_subparsers.add_parser("list", help="List all skill sets")
+    p_sk_set_list.set_defaults(func=cmd_skills_set_list)
+
+    # skills set show
+    p_sk_set_show = sk_set_subparsers.add_parser("show", help="Show skill set details")
+    p_sk_set_show.add_argument("name", help="Skill set name")
+    p_sk_set_show.set_defaults(func=cmd_skills_set_show)
 
     args = parser.parse_args()
 

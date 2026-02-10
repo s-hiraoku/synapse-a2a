@@ -38,6 +38,14 @@ Inter-agent communication framework via Google A2A Protocol.
 | External agent info | `synapse external info <alias>` |
 | Send to external | `synapse external send <alias> "<message>" [--wait]` |
 | Remove external agent | `synapse external remove <alias>` |
+| Skill Manager (TUI) | `synapse skills` |
+| List skills | `synapse skills list [--scope synapse\|user\|project\|plugin]` |
+| Show skill detail | `synapse skills show <name>` |
+| Deploy skill | `synapse skills deploy <name> --agent claude,codex --scope user` |
+| Import skill | `synapse skills import <name>` |
+| Install from repo | `synapse skills add <repo>` |
+| Create skill | `synapse skills create` |
+| List skill sets | `synapse skills set list` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -331,6 +339,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **External Agents**: Connect to external A2A agents (`synapse external`)
 - **Authentication**: API key-based security (`synapse auth`)
+- **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`)
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
@@ -347,6 +356,7 @@ When running multiple environments or tests, override storage paths via env vars
 - `SYNAPSE_REGISTRY_DIR` (default: `~/.a2a/registry`)
 - `SYNAPSE_EXTERNAL_REGISTRY_DIR` (default: `~/.a2a/external`)
 - `SYNAPSE_HISTORY_DB_PATH` (default: `~/.synapse/history/history.db`)
+- `SYNAPSE_SKILLS_DIR` (default: `~/.synapse/skills`)
 
 ## References
 

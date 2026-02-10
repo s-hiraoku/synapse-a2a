@@ -33,11 +33,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `synapse team start <agents...> [--layout split|horizontal|vertical]`
   - `POST /team/start` A2A endpoint for agent-initiated team spawning
   - Supports tmux, iTerm2, Terminal.app (fallback: background spawn)
+- **`synapse skills` command** - Unified skill management with interactive TUI and non-interactive subcommands
+  - `synapse skills list [--scope]` - Discover skills across all scopes (Synapse, User, Project, Plugin)
+  - `synapse skills show <name>` - Show skill metadata and paths
+  - `synapse skills delete <name>` - Delete a skill (with confirmation, plugin skills protected)
+  - `synapse skills move <name> --to <scope>` - Move skills between User/Project scopes
+  - `synapse skills deploy <name> --agent claude,codex --scope user` - Deploy from central store to agent directories
+  - `synapse skills import <name>` - Import skills to central store (`~/.synapse/skills/`)
+  - `synapse skills add <repo>` - Install from repository via `npx skills` with auto-import to central store
+  - `synapse skills create` - Create new skill template (uses skill-creator if available)
+  - `synapse skills set list` / `synapse skills set show <name>` - Skill set management
+- **SYNAPSE skill scope** - New central skill store at `~/.synapse/skills/` with flat structure
+  - Skills are deployed from central store to agent-specific directories (`.claude/skills/`, `.agents/skills/`, `.gemini/skills/`)
+  - `SYNAPSE_SKILLS_DIR` environment variable for path override
+- **`synapse/skills.py`** - Core skill management module with discovery, deploy, import, create, and skill set CRUD
+- **`synapse/commands/skill_manager.py`** - TUI and CLI command implementations for skill management
+
+### Changed
+
+- **`synapse/cli.py`** - Integrated `synapse skills` subcommand tree (list, show, delete, move, deploy, import, add, create, set)
+- **`synapse/paths.py`** - Added `get_synapse_skills_dir()` for central skill store path resolution
+
+### Removed
+
+- **`synapse set skills`** - Removed separate skill set command tree; all functionality consolidated under `synapse skills`
+- **`synapse/commands/skill_sets.py`** - Migrated to `skills.py` and `skill_manager.py`
 
 ### Documentation
 
 - Updated `CLAUDE.md` with Agent Teams commands, architecture, and test entries
 - Updated `README.md` feature table, CLI commands, and API endpoints
+- Updated README.md, CLAUDE.md, guides/usage.md, guides/references.md with skill management commands
+- Updated plugin skills (SKILL.md, references/commands.md) and synced to `.agents/` and `.gemini/`
+- Updated code-doc-mapping.md with skills.py and skill_manager.py entries
+
+### Tests
+
+- Added 19 tests for core skills module (SYNAPSE scope, deploy, import, create, add, skill set CRUD)
+- Added 6 tests for skill manager commands (deploy, import, create, set list/show, synapse scope listing)
 
 ## [0.3.25] - 2026-02-09
 

@@ -29,6 +29,7 @@ flowchart TB
         logs["logs"]
         instructions["instructions"]
         external["external"]
+        skills["skills"]
         config["config"]
     end
 
@@ -521,7 +522,148 @@ Skills:
 
 ---
 
-### 1.11 synapse config
+### 1.11 synapse skills
+
+スキルの発見・管理・デプロイを行います。引数なしで TUI モードが起動します。
+
+```bash
+synapse skills [subcommand]
+```
+
+#### 1.11.1 synapse skills list
+
+発見されたスキルを一覧表示します。
+
+```bash
+synapse skills list [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | フィルタするスコープ（`synapse`, `user`, `project`, `plugin`） |
+
+#### 1.11.2 synapse skills show
+
+スキルの詳細情報を表示します。
+
+```bash
+synapse skills show <name> [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキル名 |
+| `--scope` | No | 対象スコープ |
+
+#### 1.11.3 synapse skills delete
+
+スキルを削除します。Plugin スコープのスキルは削除できません。
+
+```bash
+synapse skills delete <name> [--force] [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキル名 |
+| `--force` | No | 確認なしで削除 |
+| `--scope` | No | 対象スコープ |
+
+#### 1.11.4 synapse skills move
+
+スキルを別のスコープに移動します。
+
+```bash
+synapse skills move <name> --to <scope>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキル名 |
+| `--to` | Yes | 移動先スコープ（`user`, `project`） |
+
+#### 1.11.5 synapse skills deploy
+
+中央ストア（`~/.synapse/skills/`）からエージェントディレクトリにスキルをデプロイします。
+
+```bash
+synapse skills deploy <name> [--agent AGENTS] [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキル名 |
+| `--agent` | No | 対象エージェント（カンマ区切り: `claude,codex,gemini`） |
+| `--scope` | No | デプロイスコープ（`user` または `project`、デフォルト: `user`） |
+
+**例**:
+
+```bash
+synapse skills deploy code-quality --agent claude,codex --scope project
+```
+
+#### 1.11.6 synapse skills import
+
+エージェントディレクトリのスキルを中央ストアにインポートします。
+
+```bash
+synapse skills import <name> [--from SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキル名 |
+| `--from` | No | インポート元スコープ（`user` または `project`） |
+
+#### 1.11.7 synapse skills add
+
+リポジトリからスキルをインストールします（`npx skills add` ラッパー）。
+
+```bash
+synapse skills add <repo>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `repo` | Yes | リポジトリ（例: `s-hiraoku/synapse-a2a`） |
+
+**動作**: `npx skills add <repo> -g -a claude-code -y` を実行し、新規スキルを自動的に `~/.synapse/skills/` にインポートします。
+
+#### 1.11.8 synapse skills create
+
+新規スキルテンプレートを中央ストアに作成します。
+
+```bash
+synapse skills create [--name NAME]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--name` | No | スキル名（省略時は対話形式） |
+
+#### 1.11.9 synapse skills set list
+
+登録済みスキルセット一覧を表示します。
+
+```bash
+synapse skills set list
+```
+
+#### 1.11.10 synapse skills set show
+
+スキルセットの詳細を表示します。
+
+```bash
+synapse skills set show <name>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | スキルセット名 |
+
+---
+
+### 1.12 synapse config
 
 インタラクティブな TUI で設定を編集します。
 
@@ -570,7 +712,7 @@ synapse config --scope project  # プロジェクト設定を直接編集
 
 ---
 
-### 1.12 synapse config show
+### 1.13 synapse config show
 
 現在の設定を表示します（読み取り専用）。
 
@@ -1203,6 +1345,7 @@ env:
 | `~/.synapse/logs/` | ログディレクトリ |
 | `~/.synapse/logs/<profile>.log` | エージェントログ |
 | `~/.synapse/logs/input_router.log` | InputRouter ログ |
+| `~/.synapse/skills/` | 中央スキルストア |
 | `~/.synapse/history/history.db` | タスク履歴データベース |
 | `synapse/profiles/*.yaml` | プロファイル定義 |
 | `synapse/paths.py` | パス管理（環境変数オーバーライド対応） |
@@ -1220,6 +1363,7 @@ env:
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス（デフォルト: `~/.a2a/registry`） |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス（デフォルト: `~/.a2a/external`） |
 | `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス（デフォルト: `~/.synapse/history/history.db`） |
+| `SYNAPSE_SKILLS_DIR` | 中央スキルストアのパス（デフォルト: `~/.synapse/skills`） |
 
 ### 7.2 推奨プロファイル環境変数
 
@@ -1246,6 +1390,8 @@ env:
 | `synapse/shell.py` | ~190 | インタラクティブシェル |
 | `synapse/a2a_compat.py` | ~570 | Google A2A 互換レイヤー |
 | `synapse/a2a_client.py` | ~330 | 外部 A2A エージェントクライアント |
+| `synapse/skills.py` | ~870 | スキル発見・管理・デプロイ |
+| `synapse/commands/skill_manager.py` | ~920 | スキル管理 TUI / CLI |
 | `synapse/tools/a2a.py` | ~75 | A2A CLI ツール |
 
 ### 8.2 クラス図

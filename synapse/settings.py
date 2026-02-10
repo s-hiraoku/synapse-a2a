@@ -170,6 +170,7 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "shutdown",
     "delegate_mode",
     "hooks",
+    "skill_sets",
 }
 
 # Deprecated settings keys with migration messages

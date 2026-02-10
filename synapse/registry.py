@@ -90,6 +90,7 @@ class AgentRegistry:
         tty_device: str | None = None,
         name: str | None = None,
         role: str | None = None,
+        skill_set: str | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -101,6 +102,7 @@ class AgentRegistry:
             tty_device: TTY device path (e.g., /dev/ttys001) for terminal jump.
             name: Custom name for the agent (optional).
             role: Role description for the agent (optional).
+            skill_set: Name of the applied skill set (optional).
 
         Returns:
             Path to the created registry file.
@@ -120,6 +122,8 @@ class AgentRegistry:
         # Add optional name and role
         if name:
             data["name"] = name
+        if skill_set:
+            data["skill_set"] = skill_set
         if role:
             # Resolve file reference if present (copies file to registry/roles/)
             if is_role_file_reference(role):
@@ -491,3 +495,22 @@ class AgentRegistry:
                 data["current_task_preview"] = truncated_preview
 
         return self._atomic_update(agent_id, set_task_preview, "current_task_preview")
+
+    def update_skill_set(self, agent_id: str, skill_set: str | None) -> bool:
+        """Update the skill set for an agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            skill_set: Skill set name, or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_skill_set(data: dict) -> None:
+            if skill_set is None:
+                data.pop("skill_set", None)
+            else:
+                data["skill_set"] = skill_set
+
+        return self._atomic_update(agent_id, set_skill_set, "skill_set")
