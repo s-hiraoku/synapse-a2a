@@ -19,6 +19,8 @@
 | `agent_context.py` | `guides/settings.md`, `docs/agent-card-context.md` | 初期インストラクション生成 |
 | `history.py` | `README.md`, `guides/usage.md`, `CLAUDE.md` | タスク履歴機能 |
 | `file_safety.py` | `README.md`, `docs/file-safety.md`, `guides/usage.md` | ファイル競合防止 |
+| `skills.py` | `README.md`, `guides/usage.md`, `guides/references.md`, `CLAUDE.md` | スキル発見・管理・デプロイ、スキルセットCRUD |
+| `paths.py` | `guides/references.md`, `guides/settings.md` | パス管理、環境変数オーバーライド |
 | `shell.py` | `guides/architecture.md` | シェル統合 |
 | `shell_hook.py` | `guides/architecture.md` | シェルフック |
 
@@ -29,6 +31,7 @@
 | `commands/start.py` | `README.md`, `guides/usage.md` | `synapse start` コマンド |
 | `commands/list.py` | `README.md`, `guides/usage.md`, `CLAUDE.md` | `synapse list` コマンド |
 | `commands/instructions.py` | `README.md`, `guides/usage.md` | `synapse instructions` コマンド |
+| `commands/skill_manager.py` | `README.md`, `guides/usage.md`, `guides/references.md`, `CLAUDE.md` | `synapse skills` コマンド（TUI + サブコマンド） |
 
 ### profiles/ ディレクトリ
 
@@ -109,6 +112,13 @@
 1. `README.md` - 機能概要を更新
 2. `guides/usage.md` - CLIコマンドを更新
 3. `CLAUDE.md` - 開発者向け情報を更新
+
+### スキル管理機能を変更した場合
+
+1. `README.md` - Skills セクション、コマンド一覧テーブル
+2. `guides/usage.md` - スキル管理セクション
+3. `guides/references.md` - CLIリファレンスの synapse skills セクション
+4. `CLAUDE.md` - コマンド例、アーキテクチャ、ストレージ
 
 ### スキルを変更した場合
 

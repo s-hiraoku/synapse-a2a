@@ -217,6 +217,7 @@ flowchart TB
         logs["logs"]
         instructions["instructions"]
         external["external"]
+        skills["skills"]
         config["config"]
     end
 
@@ -254,6 +255,7 @@ flowchart TB
 | `synapse logs <profile>` | ログ表示 |
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
+| `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
 
 ---
@@ -537,6 +539,68 @@ synapse external info <alias>
 
 ```bash
 synapse external remove <alias>
+```
+
+---
+
+### 2.7 スキル管理
+
+Synapse にはスキルの発見・管理・デプロイを行う統合スキルマネージャーが内蔵されています。
+
+#### スキルスコープ
+
+| スコープ | パス | 説明 |
+|---------|------|------|
+| **Synapse** | `~/.synapse/skills/` | 中央ストア（ここから各エージェントにデプロイ） |
+| **User** | `~/.claude/skills/`, `~/.agents/skills/` 等 | ユーザー全体で共有 |
+| **Project** | `./.claude/skills/`, `./.agents/skills/` 等 | プロジェクトローカル |
+| **Plugin** | `./plugins/*/skills/` | プラグイン付属（読み取り専用） |
+
+#### TUI モード
+
+```bash
+synapse skills
+```
+
+インタラクティブ TUI が起動し、以下の操作が可能です：
+
+- **Manage Skills** - スキルの一覧・削除・移動・デプロイ
+- **Skill Sets** - 名前付きグループの管理
+- **Install Skill** - スキルのインポート・新規作成
+- **Deploy Skills** - 中央ストアからエージェントへのデプロイ
+
+#### 非インタラクティブコマンド
+
+```bash
+# 一覧・詳細
+synapse skills list                               # 全スコープのスキル一覧
+synapse skills list --scope synapse               # 中央ストアのみ
+synapse skills show <name>                        # スキル詳細
+
+# 管理
+synapse skills delete <name> [--force]            # スキル削除
+synapse skills move <name> --to <scope>           # スコープ間移動
+
+# 中央ストア操作
+synapse skills import <name> [--from user|project]  # エージェントdirから中央ストアへコピー
+synapse skills deploy <name> --agent claude,codex --scope user  # 中央ストアからデプロイ
+synapse skills add <repo>                         # リポジトリからインストール（npx skills ラッパー）
+synapse skills create                             # 新規スキルテンプレート作成
+
+# スキルセット（名前付きグループ）
+synapse skills set list                           # スキルセット一覧
+synapse skills set show <name>                    # スキルセット詳細
+```
+
+#### デプロイフロー
+
+```
+synapse skills add <repo>  ─┐
+                            ├→ npx skills add <repo> → ~/.claude/skills/
+                            └→ 自動インポート → ~/.synapse/skills/ (中央ストア)
+                                                    ↓ [deploy]
+                              ~/.claude/skills/, ~/.agents/skills/ ...  (ユーザ)
+                              ./.claude/skills/, ./.agents/skills/ ...  (プロジェクト)
 ```
 
 ---
