@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-02-11
+
+### Added
+
+- **zellij support for `synapse team start`**
+  - Added pane creation command generation for zellij environments
+  - Added `--layout` mapping for zellij (`horizontal` -> right, `vertical` -> down, `split` -> balanced alternating splits)
+
+### Changed
+
+- Updated team-start terminal support messaging to include zellij
+
+### Documentation
+
+- Added/updated `synapse team start` references in `guides/usage.md` and `guides/references.md`
+
+### Tests
+
+- Added zellij coverage in `tests/test_auto_spawn.py` for pane generation, layout direction handling, and team-start execution path
+
 ## [0.4.0] - 2026-02-10
 
 ### Added

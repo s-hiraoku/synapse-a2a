@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-a2a"
-version = "0.4.0"
+version = "0.4.1"
 description = "Agent-to-Agent communication protocol for CLI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -111,4 +111,3 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = ["grpc", "grpc.*"]
 ignore_missing_imports = true
-
