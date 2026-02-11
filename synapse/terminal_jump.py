@@ -570,6 +570,45 @@ def create_terminal_app_tabs(
     return commands
 
 
+def create_zellij_panes(
+    agents: list[str],
+    layout: str = "split",
+) -> list[str]:
+    """Generate zellij commands to create panes for each agent.
+
+    Args:
+        agents: List of agent types.
+        layout: Layout style ("split", "horizontal", "vertical").
+
+    Returns:
+        List of zellij command strings to execute.
+    """
+    if not agents:
+        return []
+
+    commands: list[str] = []
+
+    def _direction_for(index: int) -> str:
+        if layout == "horizontal":
+            return "right"
+        if layout == "vertical":
+            return "down"
+        # split: alternate to keep panes reasonably balanced
+        return "right" if index % 2 == 1 else "down"
+
+    for i, agent in enumerate(agents):
+        if i == 0:
+            commands.append(f"zellij run --name synapse-{agent} -- synapse {agent}")
+            continue
+
+        direction = _direction_for(i)
+        commands.append(
+            f"zellij run --direction {direction} --name synapse-{agent} -- synapse {agent}"
+        )
+
+    return commands
+
+
 def create_panes(
     agents: list[str],
     layout: str = "split",
@@ -597,10 +636,12 @@ def create_panes(
         return [f"osascript -e {shlex.quote(script)}"]
     elif terminal_app == "Terminal":
         return create_terminal_app_tabs(agents)
+    elif terminal_app == "zellij":
+        return create_zellij_panes(agents, layout)
 
     # Unsupported terminal - return empty list
     logger.warning(
         f"Terminal '{terminal_app or 'unknown'}' does not support pane creation. "
-        f"Supported: tmux, iTerm2, Terminal.app"
+        f"Supported: tmux, iTerm2, Terminal.app, zellij"
     )
     return []

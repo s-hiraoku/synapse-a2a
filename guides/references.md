@@ -22,6 +22,7 @@ flowchart TB
     subgraph Commands["サブコマンド"]
         start["start"]
         stop["stop"]
+        team["team"]
         list["list"]
         send["send"]
         broadcast["broadcast"]
@@ -191,6 +192,35 @@ synapse list
 | `→UDS` | UDS で受信中 |
 | `→TCP` | TCP で受信中 |
 | `-` | 通信なし |
+
+---
+
+### 1.5.1 synapse team start
+
+複数エージェントを分割ペインで起動します。
+
+```bash
+synapse team start <agent1> <agent2> ... [--layout split|horizontal|vertical]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `agents` | Yes | 起動するエージェントタイプ（複数指定） |
+| `--layout` | No | ペインレイアウト (`split`, `horizontal`, `vertical`) |
+
+**対応ターミナル**:
+- `tmux`
+- `iTerm2`
+- `Terminal.app`（タブで起動）
+- `zellij`
+
+**例**:
+
+```bash
+synapse team start claude gemini codex
+synapse team start claude gemini --layout horizontal
+synapse team start claude gemini --layout vertical
+```
 
 ---
 
