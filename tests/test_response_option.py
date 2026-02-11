@@ -71,6 +71,8 @@ class TestSynapseSendResponseFlags:
         mock_args = MagicMock()
         mock_args.target = "claude"
         mock_args.message = "hello"
+        mock_args.message_file = None
+        mock_args.stdin = False
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None
@@ -90,6 +92,8 @@ class TestSynapseSendResponseFlags:
         mock_args = MagicMock()
         mock_args.target = "claude"
         mock_args.message = "hello"
+        mock_args.message_file = None
+        mock_args.stdin = False
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None
@@ -109,6 +113,8 @@ class TestSynapseSendResponseFlags:
         mock_args = MagicMock()
         mock_args.target = "claude"
         mock_args.message = "hello"
+        mock_args.message_file = None
+        mock_args.stdin = False
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None

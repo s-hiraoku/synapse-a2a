@@ -526,6 +526,70 @@ def cmd_history_show(args: argparse.Namespace) -> None:
         print(json.dumps(observation["metadata"], indent=2))
 
 
+def cmd_trace(args: argparse.Namespace) -> None:
+    """Trace a task ID across A2A history and file-safety modification records."""
+    import json
+
+    manager = _get_history_manager()
+
+    if not manager.enabled:
+        print(HISTORY_DISABLED_MSG)
+        return
+
+    observation = manager.get_observation(args.task_id)
+    if not observation:
+        print(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    # History details (align with cmd_history_show output)
+    print(f"Task ID:        {observation['task_id']}")
+    print(f"Agent:          {observation['agent_name']}")
+    print(f"Status:         {observation['status']}")
+    print(f"Session ID:     {observation['session_id']}")
+    print(f"Timestamp:      {observation['timestamp']}")
+
+    print("\n" + "=" * 80)
+    print("INPUT:")
+    print("=" * 80)
+    print(observation["input"] or "(empty)")
+
+    print("\n" + "=" * 80)
+    print("OUTPUT:")
+    print("=" * 80)
+    print(observation["output"] or "(empty)")
+
+    if observation.get("metadata"):
+        print("\n" + "=" * 80)
+        print("METADATA:")
+        print("=" * 80)
+        print(json.dumps(observation["metadata"], indent=2))
+
+    # File-safety records for the same task_id (best-effort)
+    from synapse.file_safety import FileSafetyManager
+
+    fm = FileSafetyManager.from_env()
+    if not fm.enabled:
+        return
+
+    mods = fm.get_modifications_by_task(observation["task_id"])
+    if not mods:
+        return
+
+    print("\n" + "=" * 80)
+    print("FILE MODIFICATIONS:")
+    print("=" * 80)
+    for mod in mods:
+        ts = mod.get("timestamp", "N/A")
+        agent = mod.get("agent_name", "unknown")
+        change_type = mod.get("change_type", "MODIFY")
+        path = mod.get("file_path", "")
+        print(f"\n[{ts}] {agent} - {change_type}")
+        if mod.get("intent"):
+            print(f"  Intent: {mod['intent']}")
+        if path:
+            print(f"  File: {path}")
+
+
 def cmd_history_search(args: argparse.Namespace) -> None:
     """Search task history by keywords."""
     manager = _get_history_manager()
@@ -747,6 +811,17 @@ def _run_a2a_command(
         sys.exit(result.returncode)
 
 
+def _get_send_message_threshold() -> int:
+    """Get the byte-size threshold for auto temp-file fallback.
+
+    Default: 102400 (100KB). Override with SYNAPSE_SEND_MESSAGE_THRESHOLD env var.
+    """
+    env_val = os.environ.get("SYNAPSE_SEND_MESSAGE_THRESHOLD")
+    if env_val:
+        return int(env_val)
+    return 102_400
+
+
 def _build_a2a_cmd(
     subcommand: str,
     message: str,
@@ -755,8 +830,17 @@ def _build_a2a_cmd(
     priority: int | None = None,
     sender: str | None = None,
     want_response: bool | None = None,
+    attachments: list[str] | None = None,
 ) -> list[str]:
-    """Build command arguments for a2a.py subcommand."""
+    """Build command arguments for a2a.py subcommand.
+
+    If the message exceeds SYNAPSE_SEND_MESSAGE_THRESHOLD bytes (default 100KB),
+    it is written to a temp file and --message-file is used instead of a
+    positional argument, avoiding ARG_MAX shell limits.
+    """
+    import tempfile
+    import uuid
+
     a2a_tool = _get_a2a_tool_path()
     cmd = [sys.executable, str(a2a_tool), subcommand]
 
@@ -765,7 +849,20 @@ def _build_a2a_cmd(
     if priority is not None:
         cmd.extend(["--priority", str(priority)])
 
-    cmd.append(message)
+    threshold = _get_send_message_threshold()
+    if len(message.encode("utf-8")) > threshold:
+        # Write to temp file to avoid ARG_MAX
+        send_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "send-messages"
+        send_dir.mkdir(parents=True, exist_ok=True)
+        temp_file = send_dir / f"send-{uuid.uuid4()}.txt"
+        temp_file.write_text(message, encoding="utf-8")
+        cmd.extend(["--message-file", str(temp_file)])
+    else:
+        cmd.append(message)
+
+    if attachments:
+        for path in attachments:
+            cmd.extend(["--attach", path])
 
     if sender:
         cmd.extend(["--from", sender])
@@ -777,27 +874,76 @@ def _build_a2a_cmd(
     return cmd
 
 
+def _resolve_cli_message(args: argparse.Namespace) -> str:
+    """Resolve message content from positional arg, --message-file, or --stdin.
+
+    Exactly one source must be specified. Multiple or zero sources cause exit.
+    """
+    sources: list[str] = []
+    if getattr(args, "message", None):
+        sources.append("positional")
+    if getattr(args, "message_file", None):
+        sources.append("--message-file")
+    if getattr(args, "stdin", False):
+        sources.append("--stdin")
+
+    if len(sources) > 1:
+        print(
+            f"Error: Multiple message sources specified: {', '.join(sources)}. "
+            "Use exactly one of: positional argument, --message-file, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(sources) == 0:
+        print(
+            "Error: No message provided. Use a positional argument, "
+            "--message-file PATH, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if getattr(args, "stdin", False):
+        return sys.stdin.read()
+
+    message_file = getattr(args, "message_file", None)
+    if message_file:
+        if message_file == "-":
+            return sys.stdin.read()
+        path = Path(message_file)
+        if not path.exists():
+            print(f"Error: Message file not found: {message_file}", file=sys.stderr)
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+
+    return str(args.message)
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
+    message = _resolve_cli_message(args)
     cmd = _build_a2a_cmd(
         "send",
-        args.message,
+        message,
         target=args.target,
         priority=args.priority,
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
+        attachments=getattr(args, "attach", None),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
+    message = _resolve_cli_message(args)
     cmd = _build_a2a_cmd(
         "broadcast",
-        args.message,
+        message,
         priority=args.priority,
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
+        attachments=getattr(args, "attach", None),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -1937,15 +2083,24 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
     print("=" * 60)
 
 
-def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str | None]:
-    """Interactively prompt for agent name and role.
+def interactive_agent_setup(
+    agent_id: str,
+    port: int,
+    current_name: str | None = None,
+    current_role: str | None = None,
+    current_skill_set: str | None = None,
+) -> tuple[str | None, str | None, str | None]:
+    """Interactively prompt for agent name, role, and skill set.
 
     Args:
         agent_id: The agent ID (e.g., synapse-claude-8100).
         port: The port number.
+        current_name: Current name if already specified.
+        current_role: Current role if already specified.
+        current_skill_set: Current skill set if already specified.
 
     Returns:
-        Tuple of (name, role), either or both may be None.
+        Tuple of (name, role, skill_set), any of which may be None.
     """
     import contextlib
     import sys
@@ -1971,33 +2126,49 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
     print("=" * 80)
     print(f"Agent ID: {agent_id} | Port: {port}")
     print()
-    print("Would you like to give this agent a name? (optional)")
-    print("Name allows you to call this agent by name instead of ID.")
-    print('Example: synapse send my-claude "hello"')
-    print()
 
     try:
-        name = input("Name [Enter to skip]: ").strip() or None
+        # Name selection
+        name = current_name
+        if name is None:
+            print("Would you like to give this agent a name? (optional)")
+            print("Name allows you to call this agent by name instead of ID.")
+            print('Example: synapse send my-claude "hello"')
+            print()
+            name = input("Name [Enter to skip]: ").strip() or None
+            print()
 
-        print()
-        print("Would you like to assign a role? (optional)")
-        print("Role is a free-form description of this agent's responsibility.")
-        print('Example: "test writer", "code reviewer", "documentation"')
-        print()
+        # Role selection
+        role = current_role
+        if role is None:
+            print("Would you like to assign a role? (optional)")
+            print("Role is a free-form description of this agent's responsibility.")
+            print('Example: "test writer", "code reviewer", "documentation"')
+            print()
+            role = input("Role [Enter to skip]: ").strip() or None
 
-        role = input("Role [Enter to skip]: ").strip() or None
+        # Integrated Skill Set selection
+        skill_set = current_skill_set
+        if skill_set is None:
+            from synapse.skills import load_skill_sets
+
+            if load_skill_sets():
+                skill_set = interactive_skill_set_setup()
+            else:
+                print("\nSkill sets are not defined. Skipping selection.")
 
         print("=" * 80)
-        if name or role:
+        if name or role or skill_set:
             role_str = f" | Role: {role}" if role else ""
-            print(f"Agent: {name or agent_id}{role_str}")
+            skill_str = f" | Skill Set: {skill_set}" if skill_set else ""
+            print(f"Agent: {name or agent_id}{role_str}{skill_str}")
         print()
 
-        return name, role
+        return name, role, skill_set
 
     except (EOFError, KeyboardInterrupt):
         print("\n\x1b[33m[Synapse]\x1b[0m Setup skipped")
-        return None, None
+        return current_name, current_role, current_skill_set
     finally:
         # Restore original terminal settings
         if original_settings is not None and termios is not None:
@@ -2205,7 +2376,8 @@ def interactive_skill_set_setup() -> str | None:
     """Interactively prompt for skill set selection.
 
     Shows available skill sets from .synapse/skill_sets.json and lets the
-    user pick one. Uses simple_term_menu if available, falls back to input().
+    user pick one. Uses a Rich-styled panel/table to keep visual consistency
+    with `synapse list`, with filtering and pagination for large sets.
 
     Returns:
         Selected skill set name, or None if skipped.
@@ -2216,40 +2388,152 @@ def interactive_skill_set_setup() -> str | None:
     if not sets:
         return None
 
-    try:
-        from simple_term_menu import TerminalMenu
+    items: list[tuple[str, object]] = [
+        (name, sets[name]) for name in sorted(sets.keys())
+    ]
 
-        items = [f"{name} - {ssd.description}" for name, ssd in sorted(sets.items())]
-        items.append("(Skip - no skill set)")
+    page_size = 10
+    page = 0
+    query = ""
 
-        menu = TerminalMenu(
-            items,
-            title="\n  Select a skill set (optional):\n",
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            cycle_cursor=True,
+    def _skills_count(ssd: object) -> int:
+        skills = getattr(ssd, "skills", None)
+        return len(skills) if isinstance(skills, list) else 0
+
+    def _matches() -> list[tuple[str, object]]:
+        if not query:
+            return items
+        q = query.lower()
+        matched: list[tuple[str, object]] = []
+        for name, ssd in items:
+            desc = getattr(ssd, "description", "") or ""
+            if q in name.lower() or q in str(desc).lower():
+                matched.append((name, ssd))
+        return matched
+
+    def _show_rich_menu(matched: list[tuple[str, object]]) -> str | None:
+        """Render a Rich-styled selector and read one command."""
+        nonlocal page, query
+        try:
+            from rich import box
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.table import Table
+            from rich.text import Text
+        except Exception:
+            # Plain fallback if Rich is unavailable.
+            print("\nSelect a skill set (optional):")
+            print(f"Showing 1-{len(matched)} of {len(matched)}")
+            for idx, (name, ssd) in enumerate(matched, 1):
+                desc = getattr(ssd, "description", "") or ""
+                print(f"  [{idx}] {name} ({_skills_count(ssd)} skills) {desc}")
+            print("  [Enter] Skip")
+            print("  Commands: n=next, p=prev, /text=filter")
+            try:
+                raw = input("Select skill set [number/name, /filter, n/p]: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                return None
+            return raw if raw else None
+
+        max_page = max(0, (len(matched) - 1) // page_size)
+        if page > max_page:
+            page = max_page
+        start = page * page_size
+        end = min(start + page_size, len(matched))
+        visible = matched[start:end]
+
+        table = Table(box=box.ROUNDED, header_style="bold cyan")
+        table.add_column("#", justify="right", style="dim", width=3)
+        table.add_column("NAME", style="magenta", min_width=16, max_width=28)
+        table.add_column("SKILLS", justify="right", style="yellow", width=7)
+        table.add_column("DESCRIPTION", min_width=30, max_width=60)
+
+        for idx, (name, ssd) in enumerate(visible, start=1):
+            desc = str(getattr(ssd, "description", "") or "")
+            table.add_row(str(idx), name, str(_skills_count(ssd)), desc)
+
+        subtitle = f"Showing {start + 1}-{end} of {len(matched)}"
+        if query:
+            subtitle += f" | Filter: {query}"
+        header = Panel(
+            Text("Skill Set Selector", style="bold"),
+            title="Synapse A2A",
+            subtitle=subtitle,
+            border_style="cyan",
+            box=box.ROUNDED,
         )
-        choice = menu.show()
-        if choice is None or int(choice) >= len(sets):
-            return None
-        return sorted(sets.keys())[int(choice)]
-    except ImportError:
-        # Fallback to simple input
-        print("\n\x1b[32m[Synapse]\x1b[0m Available skill sets:")
-        names = sorted(sets.keys())
-        for i, name in enumerate(names, 1):
-            print(f"  [{i}] {name} - {sets[name].description}")
-        print("  [Enter] Skip")
+        controls = Text(
+            "[1-n: select] [n/p: page] [/text: filter] [/ : clear] [Enter: skip]",
+            style="dim",
+        )
+
+        console = Console()
+        console.print()
+        console.print(header)
+        if visible:
+            console.print(table)
+        else:
+            console.print("[yellow]No skill sets matched the current filter.[/yellow]")
+        console.print(controls)
+
         try:
             choice = input("Select skill set: ").strip()
-            if choice.isdigit():
-                idx = int(choice) - 1
-                if 0 <= idx < len(names):
-                    return names[idx]
         except (EOFError, KeyboardInterrupt):
-            pass
-        return None
+            return None
+        if not choice:
+            return None
+
+        lower = choice.lower()
+        if lower in ("n", "next"):
+            page = min(max_page, page + 1)
+            return "__CONTINUE__"
+        if lower in ("p", "prev", "previous"):
+            page = max(0, page - 1)
+            return "__CONTINUE__"
+        if choice.startswith("/"):
+            query = choice[1:].strip()
+            page = 0
+            return "__CONTINUE__"
+
+        if choice.isdigit():
+            row_idx = int(choice) - 1
+            if 0 <= row_idx < len(visible):
+                return visible[row_idx][0]
+            print("Invalid selection number.")
+            return "__CONTINUE__"
+
+        # Name selection (exact, then case-insensitive in filtered set)
+        for name, _ in matched:
+            if name == choice:
+                return name
+        for name, _ in matched:
+            if name.lower() == lower:
+                return name
+
+        print("Unknown skill set. Use a row number, name, or /filter.")
+        return "__CONTINUE__"
+
+    while True:
+        matched = _matches()
+        result = _show_rich_menu(matched)
+        # Plain fallback path uses raw input return; normalize here.
+        if result and result not in ("__CONTINUE__",):
+            lower = result.lower()
+            if lower in ("n", "next"):
+                page += 1
+                continue
+            if lower in ("p", "prev", "previous"):
+                page = max(0, page - 1)
+                continue
+            if result.startswith("/"):
+                query = result[1:].strip()
+                page = 0
+                continue
+            if result in dict(items):
+                return result
+        if result == "__CONTINUE__":
+            continue
+        return result
 
 
 def cmd_run_interactive(
@@ -2362,18 +2646,39 @@ def cmd_run_interactive(
         port=port,
     )
 
-    # Interactive agent setup (name/role) if not provided via CLI
+    # Interactive agent setup (name/role/skill-set) if not fully provided via CLI
     agent_name = name
     agent_role = role
-    if not no_setup and name is None and role is None and sys.stdin.isatty():
-        agent_name, agent_role = interactive_agent_setup(agent_id, port)
-
-    # Skill set selection
     selected_skill_set = skill_set
-    if not no_setup and selected_skill_set is None and sys.stdin.isatty():
-        selected_skill_set = interactive_skill_set_setup()
+    if (
+        not no_setup
+        and sys.stdin.isatty()
+        and (name is None or role is None or skill_set is None)
+    ):
+        agent_name, agent_role, selected_skill_set = interactive_agent_setup(
+            agent_id,
+            port,
+            current_name=name,
+            current_role=role,
+            current_skill_set=skill_set,
+        )
 
-    # Apply skill set if selected
+    # Ensure core skills (synapse-a2a) are always available (best-effort).
+    # This should never prevent an agent from starting (or tests from running).
+    core_msgs: list[str] = []
+    try:
+        from synapse.skills import ensure_core_skills
+
+        try:
+            core_msgs = ensure_core_skills(profile)
+        except Exception:
+            core_msgs = []
+    except Exception:
+        core_msgs = []
+
+    for msg in core_msgs:
+        print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
+
     if selected_skill_set:
         from synapse.skills import apply_skill_set
 
@@ -2856,12 +3161,31 @@ Priority levels:
   5    Critical/emergency tasks""",
     )
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
-    p_send.add_argument("message", help="Message to send")
+    p_send.add_argument("message", nargs="?", default=None, help="Message to send")
+    p_send.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_send.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
     p_send.add_argument(
         "--priority", "-p", type=int, default=3, help="Priority level 1-5 (default: 3)"
     )
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_send.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
     )
     # Response control: mutually exclusive group (unified with a2a.py send)
     response_group = p_send.add_mutually_exclusive_group()
@@ -2891,12 +3215,33 @@ Priority levels:
   synapse broadcast "Urgent update" -p 4          Send urgent message
   synapse broadcast "FYI only" --no-response      Fire-and-forget broadcast""",
     )
-    p_broadcast.add_argument("message", help="Message to broadcast")
+    p_broadcast.add_argument(
+        "message", nargs="?", default=None, help="Message to broadcast"
+    )
+    p_broadcast.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_broadcast.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
     p_broadcast.add_argument(
         "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
     )
     p_broadcast.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_broadcast.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
     )
     broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
     broadcast_response_group.add_argument(
@@ -2944,6 +3289,15 @@ Priority levels:
     )
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
     p_reply.set_defaults(func=cmd_reply)
+
+    # trace - Trace task id across history and file-safety records
+    p_trace = subparsers.add_parser(
+        "trace",
+        help="Trace a task ID across history and file modifications",
+        description="Show task history details and file-safety modifications for the same task ID.",
+    )
+    p_trace.add_argument("task_id", help="Task ID to trace")
+    p_trace.set_defaults(func=cmd_trace)
 
     # instructions - Manage and send initial instructions
     p_instructions = subparsers.add_parser(

@@ -320,6 +320,8 @@ npx skills add s-hiraoku/synapse-a2a
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
 
+**Core Skills**: Essential skills like `synapse-a2a` are automatically deployed to agent directories on startup (best-effort) to ensure basic quality even if skill sets are skipped.
+
 ### Skill Management
 
 Synapse includes a built-in skill manager with a central store (`~/.synapse/skills/`) for organizing and deploying skills across agents.
@@ -535,6 +537,7 @@ synapse kill my-claude
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
 | `synapse reply <message>` | Reply to the last received A2A message |
+| `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
 | `synapse instructions files` | List instruction files |
 | `synapse instructions send` | Resend initial instructions |
@@ -768,6 +771,13 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 ```bash
 # Send message (single instance)
 synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+
+# Long message support (automatic temp-file fallback)
+synapse send claude --message-file /path/to/message.txt --no-response
+echo "very long content..." | synapse send claude --stdin --no-response
+
+# File attachments
+synapse send claude "Review this" --attach src/main.py --no-response
 
 # Send to specific instance (multiple of same type)
 synapse send claude-8100 "Hello" --from synapse-claude-8101
@@ -1389,6 +1399,7 @@ synapse config show --scope user
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
+| `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Threshold for auto temp-file fallback (bytes) | `102400` |
 
 ### A2A Communication Settings (a2a)
 

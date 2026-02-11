@@ -41,7 +41,13 @@ from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.terminal_jump import create_panes, detect_terminal_app
-from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
+from synapse.utils import (
+    extract_file_parts,
+    extract_text_from_parts,
+    format_a2a_message,
+    format_file_parts_for_pty,
+    get_iso_timestamp,
+)
 from synapse.webhooks import (
     dispatch_event,
     get_webhook_registry,
@@ -652,6 +658,12 @@ def create_a2a_router(
         if not text_content:
             raise HTTPException(status_code=400, detail="No text content in message")
 
+        file_parts = extract_file_parts(request.message.parts)
+        attachments_txt = format_file_parts_for_pty(file_parts)
+        pty_payload_text = (
+            f"{text_content}\n\n{attachments_txt}" if attachments_txt else text_content
+        )
+
         metadata = request.metadata or {}
         in_reply_to = metadata.get("in_reply_to")
 
@@ -677,7 +689,7 @@ def create_a2a_router(
             # Write reply to PTY so the agent can see it and continue conversation
             if controller:
                 pty_text, _ = _prepare_pty_message(
-                    get_long_message_store(), full_task_id, text_content
+                    get_long_message_store(), full_task_id, pty_payload_text
                 )
                 controller.write("A2A: " + pty_text, submit_seq=submit_seq)
 
@@ -724,7 +736,7 @@ def create_a2a_router(
 
         # Prepare message for PTY (may store to file if too long)
         pty_text, used_file = _prepare_pty_message(
-            get_long_message_store(), task.id, text_content, response_expected
+            get_long_message_store(), task.id, pty_payload_text, response_expected
         )
 
         # Send to PTY with A2A prefix

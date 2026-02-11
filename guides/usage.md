@@ -414,8 +414,12 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 | オプション | 短縮形 | デフォルト | 説明 |
 |-----------|--------|-----------|------|
 | `target` | - | 必須 | 送信先エージェント |
+| `message` | - | - | メッセージ内容（positional / `--message-file` / `--stdin` のいずれか） |
+| `--message-file` | `-F` | - | ファイルからメッセージ読み込み（`-` で stdin） |
+| `--stdin` | - | false | 標準入力からメッセージ読み込み |
 | `--from` | `-f` | - | 送信元エージェントID（常に指定推奨） |
 | `--priority` | `-p` | 3 | 優先度 (1-5) |
+| `--attach` | `-a` | - | ファイル添付（複数指定可） |
 | `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | - | - | Oneway - 送りっぱなし、返信不要 |
 
@@ -432,6 +436,19 @@ synapse send claude "処理を止めて" --priority 5 --from synapse-codex-8121
 
 # 応答を待つ（roundtrip）
 synapse send codex "結果を教えて" --response --from synapse-claude-8100
+
+# ファイルから送信（'-' は stdin）
+synapse send codex --message-file ./message.txt --from synapse-claude-8100
+cat ./message.txt | synapse send codex --message-file - --from synapse-claude-8100
+
+# 添付ファイル付き
+synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --from synapse-claude-8100
+```
+
+**関連**:
+
+```bash
+synapse trace <task_id>
 ```
 
 ### 2.5 メッセージへの返信

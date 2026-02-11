@@ -261,6 +261,7 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | ファイル保存の文字数閾値 | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |
+| `SYNAPSE_SEND_MESSAGE_THRESHOLD` | `synapse send` の自動 temp file 化の閾値（バイト） | `102400` |
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス | `~/.synapse/history/history.db` |

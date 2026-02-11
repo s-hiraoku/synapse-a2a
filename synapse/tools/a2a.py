@@ -366,8 +366,128 @@ def _agents_in_current_working_dir(
     ]
 
 
+def _resolve_message(args: argparse.Namespace) -> str:
+    """Resolve message content from positional arg, --message-file, or --stdin.
+
+    Exactly one source must be specified. Multiple or zero sources cause exit.
+    """
+    sources: list[str] = []
+    if getattr(args, "message", None):
+        sources.append("positional")
+    if getattr(args, "message_file", None):
+        sources.append("--message-file")
+    if getattr(args, "stdin", False):
+        sources.append("--stdin")
+
+    if len(sources) > 1:
+        print(
+            f"Error: Multiple message sources specified: {', '.join(sources)}. "
+            "Use exactly one of: positional argument, --message-file, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(sources) == 0:
+        print(
+            "Error: No message provided. Use a positional argument, "
+            "--message-file PATH, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if getattr(args, "stdin", False):
+        return sys.stdin.read()
+
+    message_file = getattr(args, "message_file", None)
+    if message_file:
+        if message_file == "-":
+            return sys.stdin.read()
+        path = Path(message_file)
+        if not path.exists():
+            print(f"Error: Message file not found: {message_file}", file=sys.stderr)
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+
+    return str(args.message)
+
+
+def _process_attachments(file_paths: list[str]) -> list[dict]:
+    """Stage attachment files into a temp dir and return FilePart dicts.
+
+    Each file is copied to:
+      {tempdir}/synapse-a2a/attachments/{uuid}-{name}
+
+    Returns:
+      [{"type": "file", "file": {"name": <filename>, "uri": "file://<staged_path>"}}]
+    """
+    import shutil
+    import tempfile
+
+    if not file_paths:
+        return []
+
+    staging_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "attachments"
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    parts: list[dict] = []
+    for file_path in file_paths:
+        src = Path(file_path)
+        if not src.exists():
+            print(f"Error: Attachment file not found: {file_path}", file=sys.stderr)
+            sys.exit(1)
+        if not src.is_file():
+            print(f"Error: Attachment path is not a file: {file_path}", file=sys.stderr)
+            sys.exit(1)
+
+        staged_path = staging_dir / f"{uuid.uuid4()}-{src.name}"
+        try:
+            shutil.copy2(src, staged_path)
+        except OSError as e:
+            print(
+                f"Error: Failed to stage attachment '{file_path}': {e}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        parts.append(
+            {
+                "type": "file",
+                "file": {"name": src.name, "uri": f"file://{staged_path}"},
+            }
+        )
+
+    return parts
+
+
+def _warn_shell_expansion(message: str) -> None:
+    """Warn if message contains shell expansion characters."""
+    import re as _re
+
+    patterns = [
+        (r"`[^`]+`", "backtick command substitution"),
+        (r"\$\([^)]+\)", "$() command substitution"),
+        (r"\$\{[^}]+\}", "${} variable expansion"),
+    ]
+    for pattern, desc in patterns:
+        if _re.search(pattern, message):
+            print(
+                f"WARNING: Message contains {desc} which may be expanded by the shell.\n"
+                "  Consider using --message-file or --stdin to avoid shell expansion:\n"
+                '    echo "your message" | synapse send <target> --stdin\n'
+                "    synapse send <target> --message-file /path/to/message.txt",
+                file=sys.stderr,
+            )
+            return
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
+    message = _resolve_message(args)
+    _warn_shell_expansion(message)
+    file_parts = None
+    if getattr(args, "attach", None):
+        file_parts = _process_attachments(args.attach)
+
     reg = AgentRegistry()
     agents = reg.list_agents()
 
@@ -429,7 +549,8 @@ def cmd_send(args: argparse.Namespace) -> None:
     client = A2AClient()
     task = client.send_to_local(
         endpoint=str(target_agent["endpoint"]),
-        message=args.message,
+        message=message,
+        file_parts=file_parts,
         priority=args.priority,
         wait_for_completion=response_expected,
         timeout=60,
@@ -464,7 +585,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     _record_sent_message(
         task_id=task_id,
         target_agent=target_agent,
-        message=args.message,
+        message=message,
         priority=args.priority,
         sender_info=sender_info,
     )
@@ -472,6 +593,12 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
+    message = _resolve_message(args)
+    _warn_shell_expansion(message)
+    file_parts = None
+    if getattr(args, "attach", None):
+        file_parts = _process_attachments(args.attach)
+
     reg = AgentRegistry()
     agents = reg.list_agents()
 
@@ -521,7 +648,8 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
 
         task = client.send_to_local(
             endpoint=str(endpoint),
-            message=args.message,
+            message=message,
+            file_parts=file_parts,
             priority=args.priority,
             wait_for_completion=response_expected,
             timeout=60,
@@ -543,7 +671,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
         _record_sent_message(
             task_id=task_id,
             target_agent=target_agent,
-            message=args.message,
+            message=message,
             priority=args.priority,
             sender_info=sender_info or None,
         )
@@ -736,7 +864,28 @@ def main() -> None:
         action="store_false",
         help="Do not wait for response (fire and forget)",
     )
-    p_send.add_argument("message", help="Content of the message")
+    p_send.add_argument(
+        "message", nargs="?", default=None, help="Content of the message"
+    )
+    p_send.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_send.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
+    p_send.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
+    )
 
     # broadcast command
     p_broadcast = subparsers.add_parser(
@@ -765,7 +914,28 @@ def main() -> None:
         action="store_false",
         help="Do not wait for response (fire and forget)",
     )
-    p_broadcast.add_argument("message", help="Content of the message")
+    p_broadcast.add_argument(
+        "message", nargs="?", default=None, help="Content of the message"
+    )
+    p_broadcast.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_broadcast.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
+    p_broadcast.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
+    )
 
     # reply command - simplified reply to last message
     p_reply = subparsers.add_parser("reply", help="Reply to the last received message")

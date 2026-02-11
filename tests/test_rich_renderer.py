@@ -35,7 +35,14 @@ def _make_agent(
 @pytest.fixture
 def console() -> Console:
     """Create a Console that captures output to a StringIO."""
-    return Console(file=StringIO(), force_terminal=True)
+    # CI / sandbox may set NO_COLOR=1, which disables colors in Rich by default.
+    # Force color output so we can assert ANSI styling.
+    return Console(
+        file=StringIO(),
+        force_terminal=True,
+        color_system="standard",
+        no_color=False,
+    )
 
 
 @pytest.fixture
