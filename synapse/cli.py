@@ -2376,7 +2376,8 @@ def interactive_skill_set_setup() -> str | None:
     """Interactively prompt for skill set selection.
 
     Shows available skill sets from .synapse/skill_sets.json and lets the
-    user pick one. Uses simple_term_menu if available, falls back to input().
+    user pick one. Uses a Rich-styled panel/table to keep visual consistency
+    with `synapse list`, with filtering and pagination for large sets.
 
     Returns:
         Selected skill set name, or None if skipped.
@@ -2387,44 +2388,152 @@ def interactive_skill_set_setup() -> str | None:
     if not sets:
         return None
 
-    try:
-        from simple_term_menu import TerminalMenu
+    items: list[tuple[str, object]] = [
+        (name, sets[name]) for name in sorted(sets.keys())
+    ]
 
-        items = [f"{name} - {ssd.description}" for name, ssd in sorted(sets.items())]
-        items.append("(Skip - no skill set)")
+    page_size = 10
+    page = 0
+    query = ""
 
-        menu = TerminalMenu(
-            items,
-            title="\n  Select a skill set (optional):\n",
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            cycle_cursor=True,
-        )
-        choice = menu.show()
-        if choice is None or int(choice) >= len(sets):
-            return None
-        return sorted(sets.keys())[int(choice)]
-    except (ImportError, Exception):
-        # Fallback to simple input if simple_term_menu fails or is not available
-        print("\nAvailable skill sets:")
-        names = sorted(sets.keys())
-        for i, name in enumerate(names, 1):
-            print(f"  [{i}] {name} - {sets[name].description}")
-        print("  [Enter] Skip")
+    def _skills_count(ssd: object) -> int:
+        skills = getattr(ssd, "skills", None)
+        return len(skills) if isinstance(skills, list) else 0
+
+    def _matches() -> list[tuple[str, object]]:
+        if not query:
+            return items
+        q = query.lower()
+        matched: list[tuple[str, object]] = []
+        for name, ssd in items:
+            desc = getattr(ssd, "description", "") or ""
+            if q in name.lower() or q in str(desc).lower():
+                matched.append((name, ssd))
+        return matched
+
+    def _show_rich_menu(matched: list[tuple[str, object]]) -> str | None:
+        """Render a Rich-styled selector and read one command."""
+        nonlocal page, query
         try:
-            choice = input("Select skill set [number or name]: ").strip()
-            if not choice:
+            from rich import box
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.table import Table
+            from rich.text import Text
+        except Exception:
+            # Plain fallback if Rich is unavailable.
+            print("\nSelect a skill set (optional):")
+            print(f"Showing 1-{len(matched)} of {len(matched)}")
+            for idx, (name, ssd) in enumerate(matched, 1):
+                desc = getattr(ssd, "description", "") or ""
+                print(f"  [{idx}] {name} ({_skills_count(ssd)} skills) {desc}")
+            print("  [Enter] Skip")
+            print("  Commands: n=next, p=prev, /text=filter")
+            try:
+                raw = input("Select skill set [number/name, /filter, n/p]: ").strip()
+            except (EOFError, KeyboardInterrupt):
                 return None
-            if choice.isdigit():
-                idx = int(choice) - 1
-                if 0 <= idx < len(names):
-                    return names[idx]
-            if choice in sets:
-                return str(choice)
+            return raw if raw else None
+
+        max_page = max(0, (len(matched) - 1) // page_size)
+        if page > max_page:
+            page = max_page
+        start = page * page_size
+        end = min(start + page_size, len(matched))
+        visible = matched[start:end]
+
+        table = Table(box=box.ROUNDED, header_style="bold cyan")
+        table.add_column("#", justify="right", style="dim", width=3)
+        table.add_column("NAME", style="magenta", min_width=16, max_width=28)
+        table.add_column("SKILLS", justify="right", style="yellow", width=7)
+        table.add_column("DESCRIPTION", min_width=30, max_width=60)
+
+        for idx, (name, ssd) in enumerate(visible, start=1):
+            desc = str(getattr(ssd, "description", "") or "")
+            table.add_row(str(idx), name, str(_skills_count(ssd)), desc)
+
+        subtitle = f"Showing {start + 1}-{end} of {len(matched)}"
+        if query:
+            subtitle += f" | Filter: {query}"
+        header = Panel(
+            Text("Skill Set Selector", style="bold"),
+            title="Synapse A2A",
+            subtitle=subtitle,
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+        controls = Text(
+            "[1-n: select] [n/p: page] [/text: filter] [/ : clear] [Enter: skip]",
+            style="dim",
+        )
+
+        console = Console()
+        console.print()
+        console.print(header)
+        if visible:
+            console.print(table)
+        else:
+            console.print("[yellow]No skill sets matched the current filter.[/yellow]")
+        console.print(controls)
+
+        try:
+            choice = input("Select skill set: ").strip()
         except (EOFError, KeyboardInterrupt):
-            pass
-        return None
+            return None
+        if not choice:
+            return None
+
+        lower = choice.lower()
+        if lower in ("n", "next"):
+            page = min(max_page, page + 1)
+            return "__CONTINUE__"
+        if lower in ("p", "prev", "previous"):
+            page = max(0, page - 1)
+            return "__CONTINUE__"
+        if choice.startswith("/"):
+            query = choice[1:].strip()
+            page = 0
+            return "__CONTINUE__"
+
+        if choice.isdigit():
+            row_idx = int(choice) - 1
+            if 0 <= row_idx < len(visible):
+                return visible[row_idx][0]
+            print("Invalid selection number.")
+            return "__CONTINUE__"
+
+        # Name selection (exact, then case-insensitive in filtered set)
+        for name, _ in matched:
+            if name == choice:
+                return name
+        for name, _ in matched:
+            if name.lower() == lower:
+                return name
+
+        print("Unknown skill set. Use a row number, name, or /filter.")
+        return "__CONTINUE__"
+
+    while True:
+        matched = _matches()
+        result = _show_rich_menu(matched)
+        # Plain fallback path uses raw input return; normalize here.
+        if result and result not in ("__CONTINUE__",):
+            lower = result.lower()
+            if lower in ("n", "next"):
+                page += 1
+                continue
+            if lower in ("p", "prev", "previous"):
+                page = max(0, page - 1)
+                continue
+            if result.startswith("/"):
+                query = result[1:].strip()
+                page = 0
+                continue
+            if result in dict(items):
+                return result
+        if result == "__CONTINUE__":
+            continue
+        return result
 
 
 def cmd_run_interactive(
