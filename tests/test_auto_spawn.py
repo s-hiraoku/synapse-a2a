@@ -92,6 +92,59 @@ class TestTerminalPaneCreation:
             # Should return empty list or raise informative error
             assert isinstance(result, list)
 
+    def test_create_panes_zellij_generates_commands(self):
+        """Should generate zellij commands when terminal is zellij."""
+        from synapse.terminal_jump import create_panes
+
+        commands = create_panes(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            terminal_app="zellij",
+        )
+
+        assert isinstance(commands, list)
+        assert len(commands) > 0
+        assert any("zellij run" in cmd for cmd in commands)
+
+    def test_create_panes_zellij_respects_layout_direction(self):
+        """Should map horizontal/vertical layout to zellij split directions."""
+        from synapse.terminal_jump import create_panes
+
+        horizontal = create_panes(
+            agents=["claude", "gemini"],
+            layout="horizontal",
+            terminal_app="zellij",
+        )
+        vertical = create_panes(
+            agents=["claude", "gemini"],
+            layout="vertical",
+            terminal_app="zellij",
+        )
+
+        assert any("--direction right" in cmd for cmd in horizontal)
+        assert any("--direction down" in cmd for cmd in vertical)
+
+
+class TestTeamStartExecution:
+    """Execution behavior tests for synapse team start."""
+
+    def test_team_start_runs_zellij_commands(self):
+        """Should execute generated commands when zellij is detected."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini"],
+            layout="horizontal",
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="zellij"):
+            with patch("subprocess.run") as mock_run:
+                cmd_team_start(args)
+
+        assert mock_run.call_count > 0
+
 
 # ============================================================
 # TestPaneLayout - Layout configurations

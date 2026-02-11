@@ -246,6 +246,7 @@ flowchart TB
 | `synapse <profile>` | インタラクティブ起動（ショートカット） |
 | `synapse start <profile>` | バックグラウンド起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
+| `synapse team start <agents...>` | 複数エージェントを分割ペインで起動 |
 | `synapse kill <target>` | エージェント即時終了 |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
@@ -339,6 +340,35 @@ synapse jump my-claude
 | 表示・プロンプト | 名前があれば名前、なければID（例: `Kill my-claude?`） |
 | 内部処理 | 常にエージェントID（`synapse-claude-8100`） |
 | `synapse list` NAME列 | カスタム名、なければタイプ |
+
+---
+
+### 2.2.2 チーム起動（分割ペイン）
+
+複数エージェントを現在のターミナル環境でまとめて起動します。
+
+```bash
+synapse team start <agent1> <agent2> ... [--layout split|horizontal|vertical]
+```
+
+**例**:
+
+```bash
+synapse team start claude gemini codex
+synapse team start claude gemini --layout horizontal
+synapse team start claude gemini --layout vertical
+```
+
+**対応ターミナル**:
+- `tmux`
+- `iTerm2`
+- `Terminal.app`（タブで起動）
+- `zellij`
+
+**レイアウトの扱い**:
+- `horizontal`: 右方向分割を優先
+- `vertical`: 下方向分割を優先
+- `split`: 自動タイル（環境に応じた分割）
 
 ---
 

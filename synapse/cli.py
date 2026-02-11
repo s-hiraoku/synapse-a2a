@@ -2263,7 +2263,9 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
     terminal = detect_terminal_app()
     if not terminal:
-        print("Could not detect terminal. Supported: tmux, iTerm2, Terminal.app")
+        print(
+            "Could not detect terminal. Supported: tmux, iTerm2, Terminal.app, zellij"
+        )
         print("Falling back to sequential start...")
         for agent in agents:
             print(f"Starting {agent}...")
