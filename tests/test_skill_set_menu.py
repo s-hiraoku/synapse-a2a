@@ -64,7 +64,7 @@ def test_interactive_skill_set_setup_tui_rows_are_simple() -> None:
 
     assert selected == "reviewer"
     items = mock_terminal_menu.call_args.args[0]
-    assert items[0].startswith("1. reviewer [1]")
+    assert items[0].startswith("1. reviewer - 1 skills")
     assert "Code review" not in items[0]
     assert all("\x1b[" not in row for row in items)
 

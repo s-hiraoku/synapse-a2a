@@ -2404,7 +2404,7 @@ def interactive_skill_set_setup() -> str | None:
 
         rows: list[str] = []
         for idx, (name, ssd) in enumerate(items, 1):
-            rows.append(f"{idx}. {name} [{_skills_count(ssd)}]")
+            rows.append(f"{idx}. {name} - {_skills_count(ssd)} skills")
         rows.append("Skip (no skill set)")
 
         menu = TerminalMenu(
