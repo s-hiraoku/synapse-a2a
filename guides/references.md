@@ -26,6 +26,7 @@ flowchart TB
         send["send"]
         broadcast["broadcast"]
         reply["reply"]
+        trace["trace"]
         logs["logs"]
         instructions["instructions"]
         external["external"]
@@ -198,7 +199,7 @@ synapse list
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | --no-response]
+synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--response | --no-response]
 ```
 
 **ターゲット指定方法**:
@@ -212,13 +213,17 @@ synapse send <target> <message> [--from AGENT_ID] [--priority N] [--response | -
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `target` | Yes | 送信先エージェント（上記形式） |
-| `message` | Yes | メッセージ内容 |
+| `message` | No | メッセージ内容（positional / `--message-file` / `--stdin` のいずれか） |
+| `--message-file`, `-F` | No | ファイルからメッセージ読み込み（`-` で stdin） |
+| `--stdin` | No | 標準入力からメッセージ読み込み |
 | `--from`, `-f` | No | 送信元エージェントID（常に指定推奨） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 3） |
+| `--attach`, `-a` | No | ファイル添付（複数指定可） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。
+**Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
 
 **例**:
 
@@ -228,6 +233,9 @@ synapse send codex "設計して" -p 1 --from synapse-claude-8100
 synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5 --from synapse-claude-8100
 synapse send codex "結果を教えて" --response --from synapse-claude-8100
+synapse send codex --message-file ./message.txt --from synapse-claude-8100
+echo "from stdin" | synapse send codex --stdin --from synapse-claude-8100
+synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --from synapse-claude-8100
 ```
 
 ---
@@ -295,6 +303,22 @@ synapse reply --list-targets
 1. 自身のエージェントの返信追跡マップから送信者情報を取得（`--to` 指定時は特定の送信者を取得）
 2. 送信者のエンドポイントに返信を送信
 3. 成功後、送信者情報を削除
+
+---
+
+### 1.7.1 synapse trace
+
+タスクIDに対して、task history と file-safety の変更履歴（同一 task_id）をまとめて表示します。
+
+```bash
+synapse trace <task_id>
+```
+
+**例**:
+
+```bash
+synapse trace 4d5e61ee-be97-4922-bdbd-ac1108b8d1c9
+```
 
 ---
 

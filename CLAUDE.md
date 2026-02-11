@@ -42,6 +42,10 @@ pytest tests/test_history.py -v           # History feature tests
 pytest tests/test_file_safety_extended.py -v # File Safety tests
 pytest tests/test_skills.py -v            # Skills core tests
 pytest tests/test_cmd_skill_manager.py -v # Skill manager command tests
+pytest tests/test_send_message_file.py -v # Send --message-file/--stdin/auto-temp tests
+pytest tests/test_file_attachment.py -v   # --attach file attachment tests
+pytest tests/test_cmd_trace.py -v         # synapse trace command tests
+pytest tests/test_interactive_setup.py -v # Interactive setup + core skills tests
 
 # Agent Teams feature tests
 pytest tests/test_task_board.py -v           # B1: Shared Task Board
@@ -123,6 +127,17 @@ synapse send codex "Process this" --from synapse-claude-8100 --no-response
 # Send to specific instance when multiple agents of same type exist
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
+# Send long messages via file or stdin (avoids ARG_MAX shell limits)
+synapse send claude --message-file /tmp/review.txt --no-response
+echo "long message" | synapse send claude --stdin --no-response
+synapse send claude --message-file - --no-response   # '-' reads from stdin
+
+# Attach files to messages
+synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+
+# Messages >100KB are automatically written to temp files (configurable via SYNAPSE_SEND_MESSAGE_THRESHOLD)
+
 # Reply to a received message (auto-routes to sender via reply tracking)
 synapse reply "Result here"
 
@@ -131,6 +146,9 @@ synapse reply "Result here" --from synapse-codex-8121
 
 # Reply to a specific sender when multiple are pending
 synapse reply "Result here" --to synapse-claude-8100
+
+# Trace a task across history and file modifications
+synapse trace <task_id>                   # Show task history + file-safety records
 
 # Low-level A2A tool
 python -m synapse.tools.a2a list
