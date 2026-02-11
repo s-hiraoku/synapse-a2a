@@ -45,6 +45,73 @@ def extract_text_from_parts(parts: list[Any]) -> str:
     return "\n".join(text_contents)
 
 
+def extract_file_parts(parts: list[Any]) -> list[dict]:
+    """Extract FilePart dicts from a mixed A2A parts list (dict/Pydantic both ok)."""
+
+    def _to_dict(obj: Any) -> dict | None:
+        if hasattr(obj, "model_dump"):
+            try:
+                dumped = obj.model_dump()
+                return dumped if isinstance(dumped, dict) else None
+            except Exception:
+                return None
+        if hasattr(obj, "dict"):
+            try:
+                dumped = obj.dict()
+                return dumped if isinstance(dumped, dict) else None
+            except Exception:
+                return None
+        return None
+
+    file_parts: list[dict] = []
+    for part in parts:
+        if isinstance(part, dict):
+            if part.get("type") == "file" and isinstance(part.get("file"), dict):
+                file_parts.append(part)
+            continue
+
+        dumped = _to_dict(part)
+        if (
+            dumped
+            and dumped.get("type") == "file"
+            and isinstance(dumped.get("file"), dict)
+        ):
+            file_parts.append(dumped)
+            continue
+
+        if getattr(part, "type", None) != "file":
+            continue
+
+        file_obj = getattr(part, "file", None)
+        if isinstance(file_obj, dict):
+            file_parts.append({"type": "file", "file": file_obj})
+            continue
+
+        # Best-effort attribute extraction for Pydantic-like models.
+        name = getattr(file_obj, "name", None) if file_obj is not None else None
+        uri = getattr(file_obj, "uri", None) if file_obj is not None else None
+        file_parts.append({"type": "file", "file": {"name": name, "uri": uri}})
+
+    return file_parts
+
+
+def format_file_parts_for_pty(file_parts: list[dict]) -> str:
+    """Format FilePart dicts for PTY display."""
+    if not file_parts:
+        return ""
+
+    lines: list[str] = ["[ATTACHMENTS]"]
+    for part in file_parts:
+        file_obj = part.get("file") if isinstance(part, dict) else None
+        name = ""
+        uri = ""
+        if isinstance(file_obj, dict):
+            name = str(file_obj.get("name", "") or "")
+            uri = str(file_obj.get("uri", "") or "")
+        lines.append(f"  - {name}: {uri}")
+    return "\n".join(lines)
+
+
 def format_a2a_message(content: str, response_expected: bool = False) -> str:
     """
     Format a message with A2A prefix.

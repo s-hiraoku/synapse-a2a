@@ -747,6 +747,17 @@ def _run_a2a_command(
         sys.exit(result.returncode)
 
 
+def _get_send_message_threshold() -> int:
+    """Get the byte-size threshold for auto temp-file fallback.
+
+    Default: 102400 (100KB). Override with SYNAPSE_SEND_MESSAGE_THRESHOLD env var.
+    """
+    env_val = os.environ.get("SYNAPSE_SEND_MESSAGE_THRESHOLD")
+    if env_val:
+        return int(env_val)
+    return 102_400
+
+
 def _build_a2a_cmd(
     subcommand: str,
     message: str,
@@ -755,8 +766,17 @@ def _build_a2a_cmd(
     priority: int | None = None,
     sender: str | None = None,
     want_response: bool | None = None,
+    attachments: list[str] | None = None,
 ) -> list[str]:
-    """Build command arguments for a2a.py subcommand."""
+    """Build command arguments for a2a.py subcommand.
+
+    If the message exceeds SYNAPSE_SEND_MESSAGE_THRESHOLD bytes (default 100KB),
+    it is written to a temp file and --message-file is used instead of a
+    positional argument, avoiding ARG_MAX shell limits.
+    """
+    import tempfile
+    import uuid
+
     a2a_tool = _get_a2a_tool_path()
     cmd = [sys.executable, str(a2a_tool), subcommand]
 
@@ -765,7 +785,20 @@ def _build_a2a_cmd(
     if priority is not None:
         cmd.extend(["--priority", str(priority)])
 
-    cmd.append(message)
+    threshold = _get_send_message_threshold()
+    if len(message.encode("utf-8")) > threshold:
+        # Write to temp file to avoid ARG_MAX
+        send_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "send-messages"
+        send_dir.mkdir(parents=True, exist_ok=True)
+        temp_file = send_dir / f"send-{uuid.uuid4()}.txt"
+        temp_file.write_text(message, encoding="utf-8")
+        cmd.extend(["--message-file", str(temp_file)])
+    else:
+        cmd.append(message)
+
+    if attachments:
+        for path in attachments:
+            cmd.extend(["--attach", path])
 
     if sender:
         cmd.extend(["--from", sender])
@@ -777,27 +810,76 @@ def _build_a2a_cmd(
     return cmd
 
 
+def _resolve_cli_message(args: argparse.Namespace) -> str:
+    """Resolve message content from positional arg, --message-file, or --stdin.
+
+    Exactly one source must be specified. Multiple or zero sources cause exit.
+    """
+    sources: list[str] = []
+    if getattr(args, "message", None):
+        sources.append("positional")
+    if getattr(args, "message_file", None):
+        sources.append("--message-file")
+    if getattr(args, "stdin", False):
+        sources.append("--stdin")
+
+    if len(sources) > 1:
+        print(
+            f"Error: Multiple message sources specified: {', '.join(sources)}. "
+            "Use exactly one of: positional argument, --message-file, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(sources) == 0:
+        print(
+            "Error: No message provided. Use a positional argument, "
+            "--message-file PATH, or --stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if getattr(args, "stdin", False):
+        return sys.stdin.read()
+
+    message_file = getattr(args, "message_file", None)
+    if message_file:
+        if message_file == "-":
+            return sys.stdin.read()
+        path = Path(message_file)
+        if not path.exists():
+            print(f"Error: Message file not found: {message_file}", file=sys.stderr)
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+
+    return str(args.message)
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
+    message = _resolve_cli_message(args)
     cmd = _build_a2a_cmd(
         "send",
-        args.message,
+        message,
         target=args.target,
         priority=args.priority,
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
+        attachments=getattr(args, "attach", None),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
+    message = _resolve_cli_message(args)
     cmd = _build_a2a_cmd(
         "broadcast",
-        args.message,
+        message,
         priority=args.priority,
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
+        attachments=getattr(args, "attach", None),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -1937,15 +2019,18 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
     print("=" * 60)
 
 
-def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str | None]:
-    """Interactively prompt for agent name and role.
+def interactive_agent_setup(
+    agent_id: str, port: int, current_skill_set: str | None = None
+) -> tuple[str | None, str | None, str | None]:
+    """Interactively prompt for agent name, role, and skill set.
 
     Args:
         agent_id: The agent ID (e.g., synapse-claude-8100).
         port: The port number.
+        current_skill_set: Current skill set if already specified.
 
     Returns:
-        Tuple of (name, role), either or both may be None.
+        Tuple of (name, role, skill_set), any of which may be None.
     """
     import contextlib
     import sys
@@ -1987,17 +2072,23 @@ def interactive_agent_setup(agent_id: str, port: int) -> tuple[str | None, str |
 
         role = input("Role [Enter to skip]: ").strip() or None
 
+        # Integrated Skill Set selection
+        skill_set = current_skill_set
+        if skill_set is None:
+            skill_set = interactive_skill_set_setup()
+
         print("=" * 80)
-        if name or role:
+        if name or role or skill_set:
             role_str = f" | Role: {role}" if role else ""
-            print(f"Agent: {name or agent_id}{role_str}")
+            skill_str = f" | Skill Set: {skill_set}" if skill_set else ""
+            print(f"Agent: {name or agent_id}{role_str}{skill_str}")
         print()
 
-        return name, role
+        return name, role, skill_set
 
     except (EOFError, KeyboardInterrupt):
         print("\n\x1b[33m[Synapse]\x1b[0m Setup skipped")
-        return None, None
+        return None, None, current_skill_set
     finally:
         # Restore original terminal settings
         if original_settings is not None and termios is not None:
@@ -2362,16 +2453,18 @@ def cmd_run_interactive(
         port=port,
     )
 
-    # Interactive agent setup (name/role) if not provided via CLI
+    # Interactive agent setup (name/role/skill-set) if not fully provided via CLI
     agent_name = name
     agent_role = role
-    if not no_setup and name is None and role is None and sys.stdin.isatty():
-        agent_name, agent_role = interactive_agent_setup(agent_id, port)
-
-    # Skill set selection
     selected_skill_set = skill_set
-    if not no_setup and selected_skill_set is None and sys.stdin.isatty():
-        selected_skill_set = interactive_skill_set_setup()
+    if (
+        not no_setup
+        and sys.stdin.isatty()
+        and (name is None or role is None or skill_set is None)
+    ):
+        agent_name, agent_role, selected_skill_set = interactive_agent_setup(
+            agent_id, port, current_skill_set=skill_set
+        )
 
     # Apply skill set if selected
     if selected_skill_set:
@@ -2856,12 +2949,31 @@ Priority levels:
   5    Critical/emergency tasks""",
     )
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
-    p_send.add_argument("message", help="Message to send")
+    p_send.add_argument("message", nargs="?", default=None, help="Message to send")
+    p_send.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_send.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
     p_send.add_argument(
         "--priority", "-p", type=int, default=3, help="Priority level 1-5 (default: 3)"
     )
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_send.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
     )
     # Response control: mutually exclusive group (unified with a2a.py send)
     response_group = p_send.add_mutually_exclusive_group()
@@ -2891,12 +3003,33 @@ Priority levels:
   synapse broadcast "Urgent update" -p 4          Send urgent message
   synapse broadcast "FYI only" --no-response      Fire-and-forget broadcast""",
     )
-    p_broadcast.add_argument("message", help="Message to broadcast")
+    p_broadcast.add_argument(
+        "message", nargs="?", default=None, help="Message to broadcast"
+    )
+    p_broadcast.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    p_broadcast.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
     p_broadcast.add_argument(
         "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
     )
     p_broadcast.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_broadcast.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
     )
     broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
     broadcast_response_group.add_argument(

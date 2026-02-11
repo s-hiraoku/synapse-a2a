@@ -230,6 +230,7 @@ class A2AClient:
         self,
         endpoint: str,
         message: str,
+        file_parts: list[dict] | None = None,
         priority: int = 1,
         wait_for_completion: bool = False,
         timeout: int = 60,
@@ -251,6 +252,7 @@ class A2AClient:
         Args:
             endpoint: Agent endpoint URL (e.g., http://localhost:8001)
             message: Message text to send
+            file_parts: Optional FilePart dicts to include in the message parts
             priority: Priority level (1-5, 5=interrupt)
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
@@ -281,8 +283,11 @@ class A2AClient:
                 registry.update_transport(target_agent_id, target_value)
 
         try:
-            # Create A2A message
-            a2a_message = A2AMessage.from_text(message)
+            # Create A2A message with optional non-text parts (e.g., attachments).
+            parts: list[dict[str, Any]] = [{"type": "text", "text": message}]
+            if file_parts:
+                parts.extend(file_parts)
+            a2a_message = A2AMessage(role="user", parts=parts)
 
             # Build request payload
             payload: dict[str, Any] = {"message": asdict(a2a_message)}
@@ -426,6 +431,7 @@ class A2AClient:
                 return self.send_to_local(
                     endpoint=endpoint,
                     message=message,
+                    file_parts=file_parts,
                     priority=priority,
                     wait_for_completion=wait_for_completion,
                     timeout=timeout,
