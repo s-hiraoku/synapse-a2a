@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 
 @dataclass
@@ -17,27 +19,80 @@ def _make_sets(n: int) -> dict[str, _SSD]:
     }
 
 
-def test_interactive_skill_set_setup_select_by_number(capsys) -> None:
-    """Selecting by row number returns the set on the current page."""
+def test_interactive_skill_set_setup_tui_select_by_arrow_menu() -> None:
+    """TUI mode should select the item returned by TerminalMenu.show()."""
     from synapse.cli import interactive_skill_set_setup
 
     sets = {"b": _SSD("B", ["s"]), "a": _SSD("A", ["s"]), "c": _SSD("C", ["s"])}
+    mock_menu = MagicMock()
+    mock_menu.show.return_value = 1  # sorted => b
+    mock_terminal_menu = MagicMock(return_value=mock_menu)
+    mock_module = SimpleNamespace(TerminalMenu=mock_terminal_menu)
 
     with (
+        patch.dict(sys.modules, {"simple_term_menu": mock_module}),
         patch("synapse.skills.load_skill_sets", return_value=sets),
-        patch("synapse.cli.input", side_effect=["2"]),
     ):
         selected = interactive_skill_set_setup()
 
-    # Sorted rows are a,b,c -> row 2 = b
     assert selected == "b"
-    out = capsys.readouterr().out
-    assert "Synapse A2A" in out
-    assert "Skill Set Selector" in out
+    mock_terminal_menu.assert_called_once()
+    items = mock_terminal_menu.call_args.args[0]
+    assert len(items) == 4  # a,b,c + skip
+    assert "a" in items[0]
+    assert "b" in items[1]
+    assert "c" in items[2]
+    assert "Skip" in items[3]
+    assert all("NAME" not in row for row in items)
 
 
-def test_interactive_skill_set_setup_filter_then_select(capsys) -> None:
-    """Typing /query filters rows before numeric selection."""
+def test_interactive_skill_set_setup_tui_rows_are_simple() -> None:
+    """TUI rows should be plain text to avoid redraw glitches."""
+    from synapse.cli import interactive_skill_set_setup
+
+    sets = {"reviewer": _SSD("Code review", ["code-quality"])}
+    mock_menu = MagicMock()
+    mock_menu.show.return_value = 0
+    mock_terminal_menu = MagicMock(return_value=mock_menu)
+    mock_module = SimpleNamespace(TerminalMenu=mock_terminal_menu)
+
+    with (
+        patch.dict(sys.modules, {"simple_term_menu": mock_module}),
+        patch("synapse.skills.load_skill_sets", return_value=sets),
+    ):
+        selected = interactive_skill_set_setup()
+
+    assert selected == "reviewer"
+    items = mock_terminal_menu.call_args.args[0]
+    assert items[0].startswith("1. reviewer [1]")
+    assert "Code review" not in items[0]
+    assert all("\x1b[" not in row for row in items)
+
+
+def test_interactive_skill_set_setup_tui_skip_returns_none() -> None:
+    """TUI mode should return None when Skip is selected."""
+    from synapse.cli import interactive_skill_set_setup
+
+    sets = {
+        "reviewer": _SSD("Code review", ["code-quality"]),
+        "writer": _SSD("Docs writer", ["project-docs"]),
+    }
+    mock_menu = MagicMock()
+    mock_menu.show.return_value = 2  # reviewer, writer, skip
+    mock_terminal_menu = MagicMock(return_value=mock_menu)
+    mock_module = SimpleNamespace(TerminalMenu=mock_terminal_menu)
+
+    with (
+        patch.dict(sys.modules, {"simple_term_menu": mock_module}),
+        patch("synapse.skills.load_skill_sets", return_value=sets),
+    ):
+        selected = interactive_skill_set_setup()
+
+    assert selected is None
+
+
+def test_interactive_skill_set_setup_fallback_without_tui(capsys) -> None:
+    """Fallback mode should still allow number selection when TUI is unavailable."""
     from synapse.cli import interactive_skill_set_setup
 
     sets = {
@@ -46,28 +101,12 @@ def test_interactive_skill_set_setup_filter_then_select(capsys) -> None:
     }
 
     with (
+        patch.dict(sys.modules, {"simple_term_menu": None}),
         patch("synapse.skills.load_skill_sets", return_value=sets),
-        patch("synapse.cli.input", side_effect=["/rev", "1"]),
+        patch("synapse.cli.input", side_effect=["1"]),
     ):
         selected = interactive_skill_set_setup()
 
     assert selected == "reviewer"
     out = capsys.readouterr().out
-    assert "Filter: rev" in out
-
-
-def test_interactive_skill_set_setup_pagination_then_select(capsys) -> None:
-    """For many rows, n moves to next page then row number selects there."""
-    from synapse.cli import interactive_skill_set_setup
-
-    sets = _make_sets(15)  # page size is 10
-
-    with (
-        patch("synapse.skills.load_skill_sets", return_value=sets),
-        patch("synapse.cli.input", side_effect=["n", "1"]),
-    ):
-        selected = interactive_skill_set_setup()
-
-    assert selected == "set-10"
-    out = capsys.readouterr().out
-    assert "Showing 11-15 of 15" in out
+    assert "Select a skill set (optional):" in out
