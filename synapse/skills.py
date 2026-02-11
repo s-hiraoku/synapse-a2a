@@ -893,6 +893,45 @@ def edit_skill_set(
     if skills is not None:
         skill_set.skills = skills
 
-    sets[name] = skill_set
     save_skill_sets(sets, path)
     return True
+
+
+def ensure_core_skills(agent_type: str) -> list[str]:
+    """Ensure core skills (synapse-a2a) are deployed to the agent's directory.
+
+    Returns list of messages about what was done.
+    """
+    import shutil
+
+    messages = []
+    core_skills = ["synapse-a2a"]
+
+    # Source: plugins/synapse-a2a/skills/<name>
+    # Note: Path resolution depends on environment.
+    # From git root: synapse/skills.py -> ../plugins/synapse-a2a/skills/
+    base_source_dir = (
+        Path(__file__).parent.parent / "plugins" / "synapse-a2a" / "skills"
+    )
+
+    target_base = Path.cwd() / get_agent_skill_dir(agent_type)
+
+    for skill_name in core_skills:
+        source_dir = base_source_dir / skill_name
+        target_dir = target_base / skill_name
+
+        if not source_dir.exists():
+            # Fallback if plugins/ is not in the same level as synapse/
+            continue
+
+        if not target_dir.exists():
+            try:
+                target_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_dir, target_dir)
+                messages.append(
+                    f"Auto-deployed core skill '{skill_name}' to {agent_type}"
+                )
+            except Exception as e:
+                messages.append(f"Failed to auto-deploy '{skill_name}': {e}")
+
+    return messages

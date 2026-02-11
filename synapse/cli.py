@@ -526,6 +526,70 @@ def cmd_history_show(args: argparse.Namespace) -> None:
         print(json.dumps(observation["metadata"], indent=2))
 
 
+def cmd_trace(args: argparse.Namespace) -> None:
+    """Trace a task ID across A2A history and file-safety modification records."""
+    import json
+
+    manager = _get_history_manager()
+
+    if not manager.enabled:
+        print(HISTORY_DISABLED_MSG)
+        return
+
+    observation = manager.get_observation(args.task_id)
+    if not observation:
+        print(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    # History details (align with cmd_history_show output)
+    print(f"Task ID:        {observation['task_id']}")
+    print(f"Agent:          {observation['agent_name']}")
+    print(f"Status:         {observation['status']}")
+    print(f"Session ID:     {observation['session_id']}")
+    print(f"Timestamp:      {observation['timestamp']}")
+
+    print("\n" + "=" * 80)
+    print("INPUT:")
+    print("=" * 80)
+    print(observation["input"] or "(empty)")
+
+    print("\n" + "=" * 80)
+    print("OUTPUT:")
+    print("=" * 80)
+    print(observation["output"] or "(empty)")
+
+    if observation.get("metadata"):
+        print("\n" + "=" * 80)
+        print("METADATA:")
+        print("=" * 80)
+        print(json.dumps(observation["metadata"], indent=2))
+
+    # File-safety records for the same task_id (best-effort)
+    from synapse.file_safety import FileSafetyManager
+
+    fm = FileSafetyManager.from_env()
+    if not fm.enabled:
+        return
+
+    mods = fm.get_modifications_by_task(observation["task_id"])
+    if not mods:
+        return
+
+    print("\n" + "=" * 80)
+    print("FILE MODIFICATIONS:")
+    print("=" * 80)
+    for mod in mods:
+        ts = mod.get("timestamp", "N/A")
+        agent = mod.get("agent_name", "unknown")
+        change_type = mod.get("change_type", "MODIFY")
+        path = mod.get("file_path", "")
+        print(f"\n[{ts}] {agent} - {change_type}")
+        if mod.get("intent"):
+            print(f"  Intent: {mod['intent']}")
+        if path:
+            print(f"  File: {path}")
+
+
 def cmd_history_search(args: argparse.Namespace) -> None:
     """Search task history by keywords."""
     manager = _get_history_manager()
@@ -2020,13 +2084,19 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
 
 
 def interactive_agent_setup(
-    agent_id: str, port: int, current_skill_set: str | None = None
+    agent_id: str,
+    port: int,
+    current_name: str | None = None,
+    current_role: str | None = None,
+    current_skill_set: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """Interactively prompt for agent name, role, and skill set.
 
     Args:
         agent_id: The agent ID (e.g., synapse-claude-8100).
         port: The port number.
+        current_name: Current name if already specified.
+        current_role: Current role if already specified.
         current_skill_set: Current skill set if already specified.
 
     Returns:
@@ -2056,26 +2126,36 @@ def interactive_agent_setup(
     print("=" * 80)
     print(f"Agent ID: {agent_id} | Port: {port}")
     print()
-    print("Would you like to give this agent a name? (optional)")
-    print("Name allows you to call this agent by name instead of ID.")
-    print('Example: synapse send my-claude "hello"')
-    print()
 
     try:
-        name = input("Name [Enter to skip]: ").strip() or None
+        # Name selection
+        name = current_name
+        if name is None:
+            print("Would you like to give this agent a name? (optional)")
+            print("Name allows you to call this agent by name instead of ID.")
+            print('Example: synapse send my-claude "hello"')
+            print()
+            name = input("Name [Enter to skip]: ").strip() or None
+            print()
 
-        print()
-        print("Would you like to assign a role? (optional)")
-        print("Role is a free-form description of this agent's responsibility.")
-        print('Example: "test writer", "code reviewer", "documentation"')
-        print()
-
-        role = input("Role [Enter to skip]: ").strip() or None
+        # Role selection
+        role = current_role
+        if role is None:
+            print("Would you like to assign a role? (optional)")
+            print("Role is a free-form description of this agent's responsibility.")
+            print('Example: "test writer", "code reviewer", "documentation"')
+            print()
+            role = input("Role [Enter to skip]: ").strip() or None
 
         # Integrated Skill Set selection
         skill_set = current_skill_set
         if skill_set is None:
-            skill_set = interactive_skill_set_setup()
+            from synapse.skills import load_skill_sets
+
+            if load_skill_sets():
+                skill_set = interactive_skill_set_setup()
+            else:
+                print("\nSkill sets are not defined. Skipping selection.")
 
         print("=" * 80)
         if name or role or skill_set:
@@ -2088,7 +2168,7 @@ def interactive_agent_setup(
 
     except (EOFError, KeyboardInterrupt):
         print("\n\x1b[33m[Synapse]\x1b[0m Setup skipped")
-        return None, None, current_skill_set
+        return current_name, current_role, current_skill_set
     finally:
         # Restore original terminal settings
         if original_settings is not None and termios is not None:
@@ -2325,19 +2405,23 @@ def interactive_skill_set_setup() -> str | None:
         if choice is None or int(choice) >= len(sets):
             return None
         return sorted(sets.keys())[int(choice)]
-    except ImportError:
-        # Fallback to simple input
-        print("\n\x1b[32m[Synapse]\x1b[0m Available skill sets:")
+    except (ImportError, Exception):
+        # Fallback to simple input if simple_term_menu fails or is not available
+        print("\nAvailable skill sets:")
         names = sorted(sets.keys())
         for i, name in enumerate(names, 1):
             print(f"  [{i}] {name} - {sets[name].description}")
         print("  [Enter] Skip")
         try:
-            choice = input("Select skill set: ").strip()
+            choice = input("Select skill set [number or name]: ").strip()
+            if not choice:
+                return None
             if choice.isdigit():
                 idx = int(choice) - 1
                 if 0 <= idx < len(names):
                     return names[idx]
+            if choice in sets:
+                return str(choice)
         except (EOFError, KeyboardInterrupt):
             pass
         return None
@@ -2463,10 +2547,29 @@ def cmd_run_interactive(
         and (name is None or role is None or skill_set is None)
     ):
         agent_name, agent_role, selected_skill_set = interactive_agent_setup(
-            agent_id, port, current_skill_set=skill_set
+            agent_id,
+            port,
+            current_name=name,
+            current_role=role,
+            current_skill_set=skill_set,
         )
 
-    # Apply skill set if selected
+    # Ensure core skills (synapse-a2a) are always available (best-effort).
+    # This should never prevent an agent from starting (or tests from running).
+    core_msgs: list[str] = []
+    try:
+        from synapse.skills import ensure_core_skills
+
+        try:
+            core_msgs = ensure_core_skills(profile)
+        except Exception:
+            core_msgs = []
+    except Exception:
+        core_msgs = []
+
+    for msg in core_msgs:
+        print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
+
     if selected_skill_set:
         from synapse.skills import apply_skill_set
 
@@ -3077,6 +3180,15 @@ Priority levels:
     )
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
     p_reply.set_defaults(func=cmd_reply)
+
+    # trace - Trace task id across history and file-safety records
+    p_trace = subparsers.add_parser(
+        "trace",
+        help="Trace a task ID across history and file modifications",
+        description="Show task history details and file-safety modifications for the same task ID.",
+    )
+    p_trace.add_argument("task_id", help="Task ID to trace")
+    p_trace.set_defaults(func=cmd_trace)
 
     # instructions - Manage and send initial instructions
     p_instructions = subparsers.add_parser(
