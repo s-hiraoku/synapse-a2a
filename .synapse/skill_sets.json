@@ -40,5 +40,16 @@
       "agent-memory",
       "synapse-reinst"
     ]
+  },
+  "frontend": {
+    "name": "frontend",
+    "description": "Frontend development — React/Next.js performance, component composition, design systems, accessibility",
+    "skills": [
+      "synapse-a2a",
+      "react-performance",
+      "frontend-design",
+      "react-composition",
+      "web-accessibility"
+    ]
   }
 }

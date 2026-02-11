@@ -43,6 +43,11 @@ def _read_frontmatter(md: str) -> dict[str, str]:
         "code-simplifier",
         "task-planner",
         "project-docs",
+        "react-performance",
+        "frontend-design",
+        "react-composition",
+        "react-native",
+        "web-accessibility",
     ],
 )
 def test_plugin_skill_has_required_frontmatter(skill_name: str) -> None:
