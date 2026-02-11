@@ -2285,7 +2285,8 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     for cmd in commands:
         subprocess.run(shlex.split(cmd))
 
-    print(f"Started {len(agents)} agents: {', '.join(agents)}")
+    display_names = [a.split(":")[0] for a in agents]
+    print(f"Started {len(agents)} agents: {', '.join(display_names)}")
 
 
 # ============================================================
@@ -3805,11 +3806,22 @@ Integration with synapse list:
     p_team_start = team_subparsers.add_parser(
         "start",
         help="Start multiple agents with split panes",
+        description="""Start multiple agents in terminal panes (tmux, iTerm2, zellij, etc.).
+        
+Extended Specification:
+  You can specify name, role, and skill set using colon-separated format:
+  'profile:name:role:skill_set'
+  
+  Examples:
+    synapse team start claude gemini
+    synapse team start claude:Reviewer:code-review:dev-set gemini:Searcher
+    synapse team start codex::unittest:none""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p_team_start.add_argument(
         "agents",
         nargs="+",
-        help="Agent types to start (e.g., claude gemini codex)",
+        help="Agent specs to start (profile[:name[:role[:skill_set]]])",
     )
     p_team_start.add_argument(
         "--layout",

@@ -200,12 +200,19 @@ synapse list
 複数エージェントを分割ペインで起動します。
 
 ```bash
-synapse team start <agent1> <agent2> ... [--layout split|horizontal|vertical]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical]
 ```
+
+**エージェント指定（agent_spec）の形式**:
+
+- `profile`: エージェントプロファイル名（例: `claude`）
+- `profile:name`: 名前を指定
+- `profile:name:role`: 名前とロールを指定
+- `profile:name:role:skill_set`: 名前、ロール、スキルセットを指定
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `agents` | Yes | 起動するエージェントタイプ（複数指定） |
+| `agents` | Yes | 起動するエージェントスペック（複数指定） |
 | `--layout` | No | ペインレイアウト (`split`, `horizontal`, `vertical`) |
 
 **対応ターミナル**:

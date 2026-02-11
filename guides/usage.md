@@ -348,7 +348,22 @@ synapse jump my-claude
 複数エージェントを現在のターミナル環境でまとめて起動します。
 
 ```bash
-synapse team start <agent1> <agent2> ... [--layout split|horizontal|vertical]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical]
+```
+
+**エージェント指定の拡張形式**:
+
+`profile:name:role:skill_set` の形式で、各ペインの起動時に名前やロール、スキルセットを一括で指定できます（コロン区切り）。
+
+```bash
+# 基本
+synapse team start claude gemini codex
+
+# 名前とスキルセットを指定して起動
+synapse team start claude:Coder:dev gemini:Reviewer::review-set
+
+# ロールのみ指定して起動
+synapse team start codex::tester
 ```
 
 **例**:

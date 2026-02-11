@@ -175,3 +175,60 @@ class TestPaneLayout:
         # Should have at least 2 split commands for 3 panes
         split_cmds = [c for c in commands if "split" in c.lower()]
         assert len(split_cmds) >= 2
+
+
+class TestAgentSpecParsing:
+    """Tests for profile:name:role:skill_set parsing."""
+
+    def test_build_agent_command_simple(self):
+        """Simple profile should produce simple command."""
+        from synapse.terminal_jump import _build_agent_command
+
+        assert _build_agent_command("claude") == "synapse claude"
+
+    def test_build_agent_command_full(self):
+        """Full spec should produce options and --no-setup."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("claude:Reviewer:code review:dev-set")
+        assert "synapse claude" in cmd
+        assert "--name Reviewer" in cmd
+        # Use simple 'in' check for role content, ignoring quote style
+        assert "--role" in cmd
+        assert "code review" in cmd
+        assert "--skill-set dev-set" in cmd
+        assert "--no-setup" in cmd
+
+    def test_build_agent_command_partial(self):
+        """Partial spec should omit missing parts."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("gemini:Searcher")
+        assert "--name Searcher" in cmd
+        assert "--role" not in cmd
+        assert "--no-setup" in cmd
+
+    def test_build_agent_command_with_skips(self):
+        """Should handle empty parts in colon-separated spec."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("codex::test writer")
+        assert "synapse codex" in cmd
+        assert "--name" not in cmd
+        assert "--role" in cmd
+        assert "test writer" in cmd
+        assert "--no-setup" in cmd
+
+    def test_create_panes_with_specs(self):
+        """create_panes should respect extended specs across all platforms."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["claude:C1", "gemini:G1"],
+            layout="horizontal",
+        )
+        # Filter for commands that actually run synapse
+        synapse_cmds = [c for c in commands if "synapse " in c]
+        assert any("--name C1" in cmd for cmd in synapse_cmds)
+        assert any("--name G1" in cmd for cmd in synapse_cmds)
+        assert all("--no-setup" in cmd for cmd in synapse_cmds)
