@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-02-12
+
+### Added
+
+- Bundled default skill set definitions at `synapse/templates/.synapse/skill_sets.json`
+- Fallback loading of bundled skill sets when project `skill_sets.json` is missing
+- Support for `profile:name:role:skill_set` format in `synapse team start`
+
+### Changed
+
+- Startup skill-set selector switched to `simple_term_menu` based TUI
+- Skill-set selector row format simplified to `N. <name> - <count> skills`
+- Team start pane creation support expanded to zellij
+
+### Documentation
+
+- Updated `guides/usage.md` and `guides/references.md` for team start and zellij behavior
+
+### Tests
+
+- Added/updated tests for skill-set loading fallback, skill-set selector TUI, and team start auto-spawn behavior
+
 ## [0.4.1] - 2026-02-11
 
 ### Added
