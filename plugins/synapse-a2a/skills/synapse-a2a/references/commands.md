@@ -725,17 +725,19 @@ synapse reject <task_id> --reason "Use OAuth instead of JWT"
 
 Start multiple agents in split terminal panes.
 
+**Default behavior:** The 1st agent takes over the current terminal (handoff via `os.execvp`), and remaining agents start in new panes. Use `--all-new` to start all agents in new panes (current terminal stays).
+
 Agent specs use `profile[:name[:role[:skill_set]]]` format. When extra fields are provided, `--no-setup` is added automatically.
 
 ```bash
-# Simple: just profiles
+# Default: claude=current terminal, gemini=new pane
 synapse team start claude gemini
 
 # With names, roles, and skill sets
 synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher
 
-# Skip name, specify role only
-synapse team start codex::tester
+# All agents in new panes (current terminal remains)
+synapse team start claude gemini --all-new
 
 # Horizontal layout
 synapse team start claude gemini --layout horizontal

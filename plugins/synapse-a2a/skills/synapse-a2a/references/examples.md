@@ -180,11 +180,14 @@ synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-
 ### Quick Team Start (tmux)
 
 ```bash
-# Start 3 agents in split panes
+# Default: claude takes over this terminal, gemini+codex get new panes
 synapse team start claude gemini codex --layout split
 
 # With names and skill sets pre-configured
 synapse team start claude:Coder::developer gemini:Reviewer::reviewer codex:Tester::developer
+
+# All agents in new panes (current terminal stays as-is)
+synapse team start claude gemini codex --all-new
 ```
 
 ## Troubleshooting

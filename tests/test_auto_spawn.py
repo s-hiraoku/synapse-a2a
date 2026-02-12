@@ -128,8 +128,8 @@ class TestTerminalPaneCreation:
 class TestTeamStartExecution:
     """Execution behavior tests for synapse team start."""
 
-    def test_team_start_runs_zellij_commands(self) -> None:
-        """Should execute generated commands when zellij is detected."""
+    def test_team_start_runs_commands_all_new(self) -> None:
+        """Should execute all commands when --all-new is specified."""
         import argparse
 
         from synapse.cli import cmd_team_start
@@ -137,12 +137,36 @@ class TestTeamStartExecution:
         args = argparse.Namespace(
             agents=["claude", "gemini"],
             layout="horizontal",
+            all_new=True,
         )
 
-        with patch("synapse.terminal_jump.detect_terminal_app", return_value="zellij"):
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"):
             with patch("subprocess.run") as mock_run:
                 cmd_team_start(args)
 
+        # In all_new mode, subprocess.run is called for all agent commands
+        assert mock_run.call_count > 0
+
+    def test_team_start_handoff_by_default(self) -> None:
+        """Should use os.execvp for the first agent by default (handoff)."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini"],
+            layout="horizontal",
+            all_new=False,
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"):
+            with patch("subprocess.run") as mock_run:
+                with patch("os.execvp") as mock_exec:
+                    cmd_team_start(args)
+
+        # Should call execvp for the first agent
+        assert mock_exec.called
+        # Should call subprocess.run for the remaining agents
         assert mock_run.call_count > 0
 
 

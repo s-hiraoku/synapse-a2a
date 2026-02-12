@@ -181,9 +181,11 @@ synapse claude --delegate-mode            # Start as coordinator (no file editin
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
 # Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/zellij)
-synapse team start claude gemini          # Start 2 agents in split panes
+# Default: 1st agent takes over current terminal, others get new panes
+synapse team start claude gemini          # claude=here, gemini=new pane
 synapse team start claude gemini codex --layout horizontal  # Custom layout
 synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher  # Extended spec
+synapse team start claude gemini --all-new  # All agents in new panes (current terminal stays)
 
 # Agent Teams: Team Start via A2A API (B6)
 # POST /team/start - agents can spawn teams programmatically

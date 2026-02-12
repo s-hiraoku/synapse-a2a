@@ -246,7 +246,7 @@ flowchart TB
 | `synapse <profile>` | インタラクティブ起動（ショートカット） |
 | `synapse start <profile>` | バックグラウンド起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
-| `synapse team start <agents...>` | 複数エージェントを分割ペインで起動 |
+| `synapse team start <specs...>` | 1番目=handoff、他=新ペイン。`--all-new` で全員新ペイン |
 | `synapse kill <target>` | エージェント即時終了 |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
@@ -347,8 +347,10 @@ synapse jump my-claude
 
 複数エージェントを現在のターミナル環境でまとめて起動します。
 
+**デフォルト動作**: 1番目のエージェントが現在のターミナルを引き継ぎ（handoff）、2番目以降が新しいペインで起動します。`--all-new` を指定すると、全エージェントが新しいペインで起動します（現在のターミナルはそのまま残ります）。
+
 ```bash
-synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new]
 ```
 
 **エージェント指定の拡張形式**:
@@ -356,7 +358,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 `profile:name:role:skill_set` の形式で、各ペインの起動時に名前やロール、スキルセットを一括で指定できます（コロン区切り）。
 
 ```bash
-# 基本
+# 基本（claude=現在のターミナル、gemini,codex=新しいペイン）
 synapse team start claude gemini codex
 
 # 名前とスキルセットを指定して起動
@@ -364,14 +366,17 @@ synapse team start claude:Coder:dev gemini:Reviewer::review-set
 
 # ロールのみ指定して起動
 synapse team start codex::tester
+
+# 全員を新しいペインで起動（現在のターミナルは残る）
+synapse team start claude gemini --all-new
 ```
 
 **例**:
 
 ```bash
-synapse team start claude gemini codex
-synapse team start claude gemini --layout horizontal
-synapse team start claude gemini --layout vertical
+synapse team start claude gemini codex                    # claude=ここ、他=新ペイン
+synapse team start claude gemini --layout horizontal      # 水平分割
+synapse team start claude gemini --all-new                # 全員新ペイン
 ```
 
 **対応ターミナル**:
