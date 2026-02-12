@@ -818,6 +818,8 @@ synapse skills set list
 synapse skills set show <name>
 ```
 
+**Skill Set in Initial Instructions:** When an agent starts with a skill set (via `--skill-set` or interactive selection), the skill set details (name, description, included skills) are automatically included in the agent's initial instructions. This allows the agent to understand its assigned capabilities.
+
 ### Skill Scopes
 
 | Scope | Location | Description |

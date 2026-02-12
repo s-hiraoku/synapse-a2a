@@ -343,7 +343,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **External Agents**: Connect to external A2A agents (`synapse external`)
 - **Authentication**: API key-based security (`synapse auth`)
-- **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`)
+- **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`). Skill set details (name, description, skills) are included in agent initial instructions when selected.
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)

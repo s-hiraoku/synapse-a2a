@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] - 2026-02-12
+
+### Added
+
+- **Skill set details in initial instructions**: When an agent starts with a skill set, the skill set name, description, and included skills are now included in the agent's initial instructions
+- `format_skill_set_section()` utility function for formatting skill set information
+- `skill_set` parameter on `TerminalController` to pass skill set through to instruction generation
+
+### Documentation
+
+- Updated CLAUDE.md startup sequence to mention skill set info
+- Added skill set integration section to `guides/agent-identity.md`
+- Added skill set instruction note to `guides/references.md`
+- Synced plugin skills (SKILL.md, commands.md) to `.claude/` and `.agents/`
+
+### Tests
+
+- Added `tests/test_controller_skill_set.py` with 6 tests covering skill set in instructions
+
 ## [0.4.3] - 2026-02-12
 
 ### Added
@@ -1247,6 +1266,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.4.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.24...v0.4.3
 [0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
 [0.3.24]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.23...v0.3.24
 [0.2.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.15...v0.2.16
