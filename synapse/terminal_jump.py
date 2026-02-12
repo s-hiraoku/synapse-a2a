@@ -35,6 +35,35 @@ def _escape_applescript_string(value: str) -> str:
     return value
 
 
+def _build_agent_command(agent_spec: str) -> str:
+    """Parse 'profile[:name[:role[:skill_set]]]' and build full command.
+
+    Example: 'claude:Reviewer:code review:dev-set'
+    -> 'synapse claude --name Reviewer --role "code review" --skill-set dev-set --no-setup'
+    """
+    parts = agent_spec.split(":")
+    profile = parts[0]
+    cmd = f"synapse {profile}"
+
+    if len(parts) > 1:
+        # If any extra info is provided, we'll likely want --no-setup
+        cmd += " --no-setup"
+
+        # 2nd part: Name
+        if parts[1]:
+            cmd += f" --name {shlex.quote(parts[1])}"
+
+        # 3rd part: Role
+        if len(parts) > 2 and parts[2]:
+            cmd += f" --role {shlex.quote(parts[2])}"
+
+        # 4th part: Skill Set
+        if len(parts) > 3 and parts[3]:
+            cmd += f" --skill-set {shlex.quote(parts[3])}"
+
+    return cmd
+
+
 def detect_terminal_app() -> str | None:
     """Detect the current terminal application.
 
@@ -481,13 +510,15 @@ def create_tmux_panes(
     commands: list[str] = []
 
     # First agent runs in current pane
-    safe_first = shlex.quote(f"synapse {agents[0]}")
+    first_cmd = _build_agent_command(agents[0])
+    safe_first = shlex.quote(first_cmd)
     commands.append(f"tmux send-keys {safe_first} Enter")
 
     # Remaining agents get new panes
     split_flag = "-h" if layout == "horizontal" else "-v"
-    for agent in agents[1:]:
-        safe_cmd = shlex.quote(f"synapse {agent}")
+    for agent_spec in agents[1:]:
+        cmd = _build_agent_command(agent_spec)
+        safe_cmd = shlex.quote(cmd)
         commands.append(f"tmux split-window {split_flag} {safe_cmd}")
 
     # Apply even layout
@@ -519,17 +550,18 @@ def create_iterm2_panes(
         'tell application "iTerm2"',
         "  tell current window",
         "    tell current session",
-        f'      write text "synapse {_escape_applescript_string(agents[0])}"',
+        f'      write text "{_escape_applescript_string(_build_agent_command(agents[0]))}"',
     ]
 
-    for agent in agents[1:]:
-        escaped = _escape_applescript_string(agent)
+    for agent_spec in agents[1:]:
+        full_cmd = _build_agent_command(agent_spec)
+        escaped = _escape_applescript_string(full_cmd)
         lines.extend(
             [
                 "    end tell",
                 "    set newSession to (split vertically with default profile)",
                 "    tell newSession",
-                f'      write text "synapse {escaped}"',
+                f'      write text "{escaped}"',
             ]
         )
 
@@ -559,12 +591,13 @@ def create_terminal_app_tabs(
     """
     commands: list[str] = []
 
-    for i, agent in enumerate(agents):
-        escaped = _escape_applescript_string(agent)
+    for i, agent_spec in enumerate(agents):
+        full_cmd = _build_agent_command(agent_spec)
+        escaped = _escape_applescript_string(full_cmd)
         target = "" if i == 0 else " in front window"
         commands.append(
             f'osascript -e \'tell application "Terminal" to '
-            f'do script "synapse {escaped}"{target}\''
+            f'do script "{escaped}"{target}\''
         )
 
     return commands
@@ -596,14 +629,17 @@ def create_zellij_panes(
         # split: alternate to keep panes reasonably balanced
         return "right" if index % 2 == 1 else "down"
 
-    for i, agent in enumerate(agents):
+    for i, agent_spec in enumerate(agents):
+        profile = agent_spec.split(":")[0]
+        full_cmd = _build_agent_command(agent_spec)
+
         if i == 0:
-            commands.append(f"zellij run --name synapse-{agent} -- synapse {agent}")
+            commands.append(f"zellij run --name synapse-{profile} -- {full_cmd}")
             continue
 
         direction = _direction_for(i)
         commands.append(
-            f"zellij run --direction {direction} --name synapse-{agent} -- synapse {agent}"
+            f"zellij run --direction {direction} --name synapse-{profile} -- {full_cmd}"
         )
 
     return commands

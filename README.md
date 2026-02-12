@@ -98,7 +98,7 @@ flowchart LR
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
 | **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
-| **Auto-Spawn Panes** | `synapse team start` launches multiple agents in tmux/iTerm2 split panes |
+| **Auto-Spawn Panes** | `synapse team start` launches multiple agents in tmux/iTerm2/zellij split panes (`profile:name:role:skill_set` spec supported) |
 
 ---
 
@@ -575,7 +575,7 @@ synapse kill my-claude
 | `synapse tasks complete` | Mark task completed |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
-| `synapse team start` | Launch agents in split panes (tmux/iTerm2) |
+| `synapse team start` | Launch agents in split panes (tmux/iTerm2/zellij), supports `profile:name:role:skill_set` |
 
 ### Resume Mode
 

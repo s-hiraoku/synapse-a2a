@@ -677,18 +677,39 @@ def _default_skill_sets_path() -> Path:
     return Path.cwd() / ".synapse" / "skill_sets.json"
 
 
+def _bundled_skill_sets_path() -> Path:
+    """Path to the bundled default skill_sets.json shipped with the package."""
+    return Path(__file__).parent / "templates" / ".synapse" / "skill_sets.json"
+
+
 def load_skill_sets(path: Path | None = None) -> dict[str, SkillSetDefinition]:
     """Load skill set definitions from JSON.
 
+    When ``path`` is not provided, tries the project-local
+    ``.synapse/skill_sets.json`` first; if that does not exist, falls back
+    to the bundled defaults shipped with the synapse package.
+
+    When ``path`` is explicitly provided, only that file is consulted
+    (no fallback).
+
     Args:
-        path: Path to skill_sets.json. Defaults to .synapse/skill_sets.json.
+        path: Path to skill_sets.json.  Defaults to .synapse/skill_sets.json
+              with automatic fallback to bundled defaults.
 
     Returns:
         Dict mapping set name → SkillSetDefinition.
     """
-    path = path or _default_skill_sets_path()
-    if not path.exists():
-        return {}
+    if path is not None:
+        # Explicit path — no fallback
+        if not path.exists():
+            return {}
+    else:
+        path = _default_skill_sets_path()
+        if not path.exists():
+            # Fallback to bundled defaults
+            path = _bundled_skill_sets_path()
+            if not path.exists():
+                return {}
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

@@ -259,6 +259,34 @@ class TestMoveSkill:
 
 
 class TestSkillSets:
+    def test_load_skill_sets_fallback_to_bundled_defaults(self, tmp_path: Path) -> None:
+        """When no user skill_sets.json exists, load bundled defaults."""
+        nonexistent = tmp_path / "nope" / "skill_sets.json"
+        with patch("synapse.skills._default_skill_sets_path", return_value=nonexistent):
+            result = load_skill_sets()  # path=None → default → fallback
+        # Should contain at least the bundled defaults (architect, developer, etc.)
+        assert len(result) > 0
+        # Bundled defaults must have 'architect'
+        assert "architect" in result
+        assert "synapse-a2a" in result["architect"].skills
+
+    def test_load_skill_sets_user_overrides_bundled(self, tmp_path: Path) -> None:
+        """User-defined skill_sets.json takes priority over bundled defaults."""
+        user_file = tmp_path / "skill_sets.json"
+        data = {
+            "custom": {
+                "name": "custom",
+                "description": "My custom set",
+                "skills": ["my-skill"],
+            }
+        }
+        user_file.write_text(json.dumps(data))
+        with patch("synapse.skills._default_skill_sets_path", return_value=user_file):
+            result = load_skill_sets()
+        # User file is used, NOT bundled defaults
+        assert "custom" in result
+        assert "architect" not in result
+
     def test_load_skill_sets_empty(self, tmp_path: Path) -> None:
         result = load_skill_sets(tmp_path / "nonexistent.json")
         assert result == {}
