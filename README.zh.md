@@ -113,15 +113,54 @@ flowchart LR
 
 ### 1. 安装 Synapse A2A
 
-```bash
-# 从 PyPI 安装（推荐）
-pip install synapse-a2a
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
 
-# 支持 gRPC
-pip install "synapse-a2a[grpc]"
+```bash
+# Homebrew（macOS 推荐）
+brew tap s-hiraoku/synapse-a2a
+brew install synapse-a2a
+
+# 或通过 pipx
+pipx install synapse-a2a
 ```
 
-开发者（编辑本仓库）：
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+```bash
+# pipx（推荐）
+pipx install synapse-a2a
+
+# 或 pip
+pip install synapse-a2a
+
+# 或使用 uvx 直接运行（无需安装）
+uvx synapse-a2a claude
+```
+
+</details>
+
+<details>
+<summary><b>Windows</b></summary>
+
+> **强烈建议使用 WSL2。** Synapse A2A 使用 `pty.spawn()`，需要类 Unix 终端。
+
+```bash
+# 在 WSL2 中 — 与 Linux 相同
+pipx install synapse-a2a
+
+# Scoop（实验性，仍需 WSL2 支持 pty）
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+```
+
+</details>
+
+<details>
+<summary><b>开发者（从源码安装）</b></summary>
 
 ```bash
 # 使用 uv 安装
@@ -129,6 +168,14 @@ uv sync
 
 # 或 pip（可编辑模式）
 pip install -e .
+```
+
+</details>
+
+**支持 gRPC：**
+
+```bash
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. 安装 Skills（推荐）
@@ -1385,15 +1432,36 @@ uv publish
 
 ### 用户安装
 
+**macOS：**
 ```bash
-# pipx（推荐）
+brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
+
+# 升级
+brew upgrade synapse-a2a
+```
+
+**Linux / WSL2：**
+```bash
 pipx install synapse-a2a
 
-# 或 pip
-pip install synapse-a2a
+# 升级
+pipx upgrade synapse-a2a
+```
 
-# 使用 uvx 直接运行
-uvx synapse-a2a claude
+**Windows（Scoop，实验性）：**
+```bash
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+
+# 升级
+scoop update synapse-a2a
+```
+
+**卸载：**
+```bash
+brew uninstall synapse-a2a   # macOS
+pipx uninstall synapse-a2a   # Linux
+scoop uninstall synapse-a2a  # Windows
 ```
 
 ---

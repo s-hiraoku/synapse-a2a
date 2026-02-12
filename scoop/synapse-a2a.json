@@ -1,0 +1,36 @@
+{
+    "version": "0.4.4",
+    "description": "Agent-to-Agent communication protocol for CLI agents",
+    "homepage": "https://github.com/s-hiraoku/synapse-a2a",
+    "license": "MIT",
+    "depends": "python",
+    "url": "https://files.pythonhosted.org/packages/source/s/synapse-a2a/synapse_a2a-0.4.4.tar.gz",
+    "hash": "PLACEHOLDER_SHA256",
+    "installer": {
+        "script": [
+            "$venvDir = \"$dir\\venv\"",
+            "python -m venv $venvDir",
+            "& \"$venvDir\\Scripts\\pip.exe\" install --no-cache-dir synapse-a2a==$version"
+        ]
+    },
+    "uninstaller": {
+        "script": [
+            "Remove-Item -Recurse -Force \"$dir\\venv\" -ErrorAction SilentlyContinue"
+        ]
+    },
+    "bin": [
+        ["venv\\Scripts\\synapse.exe", "synapse"]
+    ],
+    "checkver": {
+        "url": "https://pypi.org/pypi/synapse-a2a/json",
+        "jsonpath": "$.info.version"
+    },
+    "autoupdate": {
+        "url": "https://files.pythonhosted.org/packages/source/s/synapse-a2a/synapse_a2a-$version.tar.gz"
+    },
+    "notes": [
+        "Synapse A2A uses pty.spawn() which requires a Unix-like terminal.",
+        "Windows native is NOT supported. Please use WSL2 for full functionality.",
+        "See: https://github.com/s-hiraoku/synapse-a2a#prerequisites"
+    ]
+}

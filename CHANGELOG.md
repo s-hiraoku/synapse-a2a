@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-13
+
+### Added
+
+- **Homebrew formula**: `homebrew/synapse-a2a.rb` using `Language::Python::Virtualenv` pattern for native macOS installation via `brew install`
+- **Scoop manifest**: `scoop/synapse-a2a.json` with venv-based installer, `checkver`, and `autoupdate` for Windows users
+- **CI/CD workflow**: `.github/workflows/update-installers.yml` auto-generates PR to update formula/manifest on `v*` tag push
+- **Helper scripts**: `scripts/patch_homebrew_formula.py` (patches poet-generated resource stanzas) and `scripts/update_scoop_manifest.py` (updates version/hash from PyPI)
+
+### Changed
+
+- **README.md install section**: Platform-specific install instructions (macOS Homebrew / Linux pipx / Windows Scoop+WSL2 / Developer) with upgrade and uninstall commands
+- **guides/multi-agent-setup.md**: Added user-facing install section (Homebrew / pipx / Scoop) alongside existing developer section
+
+### Removed
+
+- `requirements.txt` — redundant with `pyproject.toml` dependencies, not referenced by any code or CI
+
+### Documentation
+
+- Updated README.zh.md and README.es.md install sections to match English README
+
 ## [0.4.4] - 2026-02-12
 
 ### Added

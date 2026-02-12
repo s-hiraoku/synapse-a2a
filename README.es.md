@@ -113,15 +113,54 @@ flowchart LR
 
 ### 1. Instalar Synapse A2A
 
-```bash
-# Instalar desde PyPI (recomendado)
-pip install synapse-a2a
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
 
-# Con soporte gRPC
-pip install "synapse-a2a[grpc]"
+```bash
+# Homebrew (recomendado para macOS)
+brew tap s-hiraoku/synapse-a2a
+brew install synapse-a2a
+
+# O vía pipx
+pipx install synapse-a2a
 ```
 
-Para desarrolladores (editando este repositorio):
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+```bash
+# pipx (recomendado)
+pipx install synapse-a2a
+
+# O pip
+pip install synapse-a2a
+
+# O ejecutar directamente con uvx (sin instalar)
+uvx synapse-a2a claude
+```
+
+</details>
+
+<details>
+<summary><b>Windows</b></summary>
+
+> **Se recomienda encarecidamente WSL2.** Synapse A2A usa `pty.spawn()` que requiere una terminal tipo Unix.
+
+```bash
+# Dentro de WSL2 — igual que Linux
+pipx install synapse-a2a
+
+# Scoop (experimental, WSL2 sigue siendo necesario para pty)
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+```
+
+</details>
+
+<details>
+<summary><b>Desarrolladores (desde código fuente)</b></summary>
 
 ```bash
 # Instalar con uv
@@ -129,6 +168,14 @@ uv sync
 
 # O pip (editable)
 pip install -e .
+```
+
+</details>
+
+**Con soporte gRPC:**
+
+```bash
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. Instalar Skills (Recomendado)
@@ -1385,15 +1432,36 @@ uv publish
 
 ### Instalación de Usuario
 
+**macOS:**
 ```bash
-# pipx (recomendado)
+brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
+
+# Actualizar
+brew upgrade synapse-a2a
+```
+
+**Linux / WSL2:**
+```bash
 pipx install synapse-a2a
 
-# o pip
-pip install synapse-a2a
+# Actualizar
+pipx upgrade synapse-a2a
+```
 
-# Ejecutar directamente con uvx
-uvx synapse-a2a claude
+**Windows (Scoop, experimental):**
+```bash
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+
+# Actualizar
+scoop update synapse-a2a
+```
+
+**Desinstalar:**
+```bash
+brew uninstall synapse-a2a   # macOS
+pipx uninstall synapse-a2a   # Linux
+scoop uninstall synapse-a2a  # Windows
 ```
 
 ---

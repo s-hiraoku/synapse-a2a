@@ -119,15 +119,54 @@ flowchart LR
 
 ### 1. Install Synapse A2A
 
-```bash
-# Install from PyPI (recommended)
-pip install synapse-a2a
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
 
-# With gRPC support
-pip install "synapse-a2a[grpc]"
+```bash
+# Homebrew (recommended for macOS)
+brew tap s-hiraoku/synapse-a2a
+brew install synapse-a2a
+
+# Or via pipx
+pipx install synapse-a2a
 ```
 
-For developers (editing this repository):
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+```bash
+# pipx (recommended)
+pipx install synapse-a2a
+
+# Or pip
+pip install synapse-a2a
+
+# Or run directly with uvx (no install)
+uvx synapse-a2a claude
+```
+
+</details>
+
+<details>
+<summary><b>Windows</b></summary>
+
+> **WSL2 is strongly recommended.** Synapse A2A uses `pty.spawn()` which requires a Unix-like terminal.
+
+```bash
+# Inside WSL2 — same as Linux
+pipx install synapse-a2a
+
+# Scoop (experimental, WSL2 still required for pty)
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+```
+
+</details>
+
+<details>
+<summary><b>Developer (from source)</b></summary>
 
 ```bash
 # Install with uv
@@ -135,6 +174,14 @@ uv sync
 
 # Or pip (editable)
 pip install -e .
+```
+
+</details>
+
+**With gRPC support:**
+
+```bash
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. Install Skills (Recommended)
@@ -1485,15 +1532,36 @@ uv publish
 
 ### User Installation
 
+**macOS:**
 ```bash
-# pipx (recommended)
+brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
+
+# Upgrade
+brew upgrade synapse-a2a
+```
+
+**Linux / WSL2:**
+```bash
 pipx install synapse-a2a
 
-# or pip
-pip install synapse-a2a
+# Upgrade
+pipx upgrade synapse-a2a
+```
 
-# Run directly with uvx
-uvx synapse-a2a claude
+**Windows (Scoop, experimental):**
+```bash
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+
+# Upgrade
+scoop update synapse-a2a
+```
+
+**Uninstall:**
+```bash
+brew uninstall synapse-a2a   # macOS
+pipx uninstall synapse-a2a   # Linux
+scoop uninstall synapse-a2a  # Windows
 ```
 
 ---

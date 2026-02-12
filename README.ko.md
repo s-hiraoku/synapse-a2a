@@ -113,15 +113,54 @@ flowchart LR
 
 ### 1. Synapse A2A 설치
 
-```bash
-# PyPI에서 설치 (권장)
-pip install synapse-a2a
+<details>
+<summary><b>macOS (Homebrew)</b></summary>
 
-# gRPC 지원 포함
-pip install "synapse-a2a[grpc]"
+```bash
+# Homebrew (macOS 권장)
+brew tap s-hiraoku/synapse-a2a
+brew install synapse-a2a
+
+# 또는 pipx
+pipx install synapse-a2a
 ```
 
-개발자용 (이 저장소를 편집하는 경우):
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+```bash
+# pipx (권장)
+pipx install synapse-a2a
+
+# 또는 pip
+pip install synapse-a2a
+
+# 또는 uvx로 직접 실행(설치 없음)
+uvx synapse-a2a claude
+```
+
+</details>
+
+<details>
+<summary><b>Windows</b></summary>
+
+> **WSL2를 강력히 권장합니다.** Synapse A2A는 Unix 계열 터미널이 필요한 `pty.spawn()`을 사용합니다.
+
+```bash
+# WSL2 내부 - Linux와 동일
+pipx install synapse-a2a
+
+# Scoop (실험적, pty 사용을 위해 WSL2는 여전히 필요)
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+```
+
+</details>
+
+<details>
+<summary><b>개발자 (소스에서)</b></summary>
 
 ```bash
 # uv로 설치
@@ -129,6 +168,14 @@ uv sync
 
 # 또는 pip (편집 가능 모드)
 pip install -e .
+```
+
+</details>
+
+**gRPC 지원 포함:**
+
+```bash
+pip install "synapse-a2a[grpc]"
 ```
 
 ### 2. 스킬 설치 (권장)
@@ -1384,15 +1431,36 @@ uv publish
 
 ### 사용자 설치
 
+**macOS:**
 ```bash
-# pipx (권장)
+brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
+
+# 업그레이드
+brew upgrade synapse-a2a
+```
+
+**Linux / WSL2:**
+```bash
 pipx install synapse-a2a
 
-# 또는 pip
-pip install synapse-a2a
+# 업그레이드
+pipx upgrade synapse-a2a
+```
 
-# uvx로 직접 실행
-uvx synapse-a2a claude
+**Windows (Scoop, 실험적):**
+```bash
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+
+# 업그레이드
+scoop update synapse-a2a
+```
+
+**삭제:**
+```bash
+brew uninstall synapse-a2a   # macOS
+pipx uninstall synapse-a2a   # Linux
+scoop uninstall synapse-a2a  # Windows
 ```
 
 ---
