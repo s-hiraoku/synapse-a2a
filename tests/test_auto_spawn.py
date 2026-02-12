@@ -15,7 +15,7 @@ from unittest.mock import patch
 class TestTeamStartCommand:
     """Tests for synapse team start command."""
 
-    def test_team_start_parsed(self):
+    def test_team_start_parsed(self) -> None:
         """team start command should accept agent types."""
         import argparse
 
@@ -26,7 +26,7 @@ class TestTeamStartCommand:
         assert args.agents == ["claude", "gemini", "codex"]
         assert args.layout == "split"
 
-    def test_team_start_with_layout_flag(self):
+    def test_team_start_with_layout_flag(self) -> None:
         """--layout flag should be accepted."""
         import argparse
 
@@ -45,7 +45,7 @@ class TestTeamStartCommand:
 class TestTerminalPaneCreation:
     """Tests for terminal pane creation."""
 
-    def test_create_tmux_panes_generates_commands(self):
+    def test_create_tmux_panes_generates_commands(self) -> None:
         """Should generate tmux split-window commands."""
         from synapse.terminal_jump import create_tmux_panes
 
@@ -58,7 +58,7 @@ class TestTerminalPaneCreation:
         # Should contain tmux commands
         assert any("tmux" in cmd for cmd in commands)
 
-    def test_create_iterm2_panes_generates_script(self):
+    def test_create_iterm2_panes_generates_script(self) -> None:
         """Should generate AppleScript for iTerm2."""
         from synapse.terminal_jump import create_iterm2_panes
 
@@ -71,7 +71,7 @@ class TestTerminalPaneCreation:
         assert "claude" in script
         assert "gemini" in script
 
-    def test_create_terminal_app_tabs(self):
+    def test_create_terminal_app_tabs(self) -> None:
         """Should generate commands for Terminal.app tabs."""
         from synapse.terminal_jump import create_terminal_app_tabs
 
@@ -80,7 +80,7 @@ class TestTerminalPaneCreation:
         )
         assert isinstance(commands, list)
 
-    def test_unsupported_terminal_fallback(self):
+    def test_unsupported_terminal_fallback(self) -> None:
         """Should handle unsupported terminals gracefully."""
         from synapse.terminal_jump import create_panes
 
@@ -92,7 +92,7 @@ class TestTerminalPaneCreation:
             # Should return empty list or raise informative error
             assert isinstance(result, list)
 
-    def test_create_panes_zellij_generates_commands(self):
+    def test_create_panes_zellij_generates_commands(self) -> None:
         """Should generate zellij commands when terminal is zellij."""
         from synapse.terminal_jump import create_panes
 
@@ -106,7 +106,7 @@ class TestTerminalPaneCreation:
         assert len(commands) > 0
         assert any("zellij run" in cmd for cmd in commands)
 
-    def test_create_panes_zellij_respects_layout_direction(self):
+    def test_create_panes_zellij_respects_layout_direction(self) -> None:
         """Should map horizontal/vertical layout to zellij split directions."""
         from synapse.terminal_jump import create_panes
 
@@ -128,7 +128,7 @@ class TestTerminalPaneCreation:
 class TestTeamStartExecution:
     """Execution behavior tests for synapse team start."""
 
-    def test_team_start_runs_zellij_commands(self):
+    def test_team_start_runs_zellij_commands(self) -> None:
         """Should execute generated commands when zellij is detected."""
         import argparse
 
@@ -154,7 +154,7 @@ class TestTeamStartExecution:
 class TestPaneLayout:
     """Tests for pane layout configurations."""
 
-    def test_two_agents_horizontal(self):
+    def test_two_agents_horizontal(self) -> None:
         """Two agents should produce a horizontal split."""
         from synapse.terminal_jump import create_tmux_panes
 
@@ -164,7 +164,7 @@ class TestPaneLayout:
         )
         assert any("split-window" in cmd or "split" in cmd for cmd in commands)
 
-    def test_three_agents_tiling(self):
+    def test_three_agents_tiling(self) -> None:
         """Three agents should produce a tiled layout."""
         from synapse.terminal_jump import create_tmux_panes
 
@@ -180,13 +180,13 @@ class TestPaneLayout:
 class TestAgentSpecParsing:
     """Tests for profile:name:role:skill_set parsing."""
 
-    def test_build_agent_command_simple(self):
+    def test_build_agent_command_simple(self) -> None:
         """Simple profile should produce simple command."""
         from synapse.terminal_jump import _build_agent_command
 
         assert _build_agent_command("claude") == "synapse claude"
 
-    def test_build_agent_command_full(self):
+    def test_build_agent_command_full(self) -> None:
         """Full spec should produce options and --no-setup."""
         from synapse.terminal_jump import _build_agent_command
 
@@ -199,7 +199,7 @@ class TestAgentSpecParsing:
         assert "--skill-set dev-set" in cmd
         assert "--no-setup" in cmd
 
-    def test_build_agent_command_partial(self):
+    def test_build_agent_command_partial(self) -> None:
         """Partial spec should omit missing parts."""
         from synapse.terminal_jump import _build_agent_command
 
@@ -208,7 +208,7 @@ class TestAgentSpecParsing:
         assert "--role" not in cmd
         assert "--no-setup" in cmd
 
-    def test_build_agent_command_with_skips(self):
+    def test_build_agent_command_with_skips(self) -> None:
         """Should handle empty parts in colon-separated spec."""
         from synapse.terminal_jump import _build_agent_command
 
@@ -219,7 +219,7 @@ class TestAgentSpecParsing:
         assert "test writer" in cmd
         assert "--no-setup" in cmd
 
-    def test_create_panes_with_specs(self):
+    def test_create_panes_with_specs(self) -> None:
         """create_panes should respect extended specs across all platforms."""
         from synapse.terminal_jump import create_tmux_panes
 
