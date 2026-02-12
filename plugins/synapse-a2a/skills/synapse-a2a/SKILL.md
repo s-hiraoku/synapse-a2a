@@ -347,7 +347,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/zellij)
+- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 
 ## Path Overrides
 

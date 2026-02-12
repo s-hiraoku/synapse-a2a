@@ -98,7 +98,7 @@ flowchart LR
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
 | **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
-| **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/zellij) |
+| **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij) |
 
 ---
 
