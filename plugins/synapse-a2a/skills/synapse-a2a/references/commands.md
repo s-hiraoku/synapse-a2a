@@ -725,18 +725,23 @@ synapse reject <task_id> --reason "Use OAuth instead of JWT"
 
 Start multiple agents in split terminal panes.
 
+Agent specs use `profile[:name[:role[:skill_set]]]` format. When extra fields are provided, `--no-setup` is added automatically.
+
 ```bash
-# Default split layout (requires tmux or iTerm2)
+# Simple: just profiles
 synapse team start claude gemini
 
-# Three agents with tiling
-synapse team start claude gemini codex --layout split
+# With names and roles
+synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher
+
+# Skip name, specify role only
+synapse team start codex::tester
 
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 ```
 
-**Supported terminals:** tmux, iTerm2, Terminal.app (tabs). Falls back to sequential start if unsupported.
+**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.
 
 ### Team Start via A2A API
 

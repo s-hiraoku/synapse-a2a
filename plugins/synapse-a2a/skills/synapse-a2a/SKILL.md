@@ -54,7 +54,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Complete task | `synapse tasks complete <task_id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
-| Start team (CLI) | `synapse team start <agents...> [--layout split\|horizontal\|vertical]` |
+| Start team (CLI) | `synapse team start <spec...> [--layout ...]` (spec: `profile[:name[:role[:skill_set]]]`) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
@@ -347,7 +347,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` launches multiple agents in split panes
+- **Auto-Spawn Panes**: `synapse team start` launches multiple agents in split panes (tmux/iTerm2/zellij, supports `profile:name:role:skill_set` spec)
 
 ## Path Overrides
 
