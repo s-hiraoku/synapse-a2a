@@ -2689,6 +2689,7 @@ def cmd_run_interactive(
         name=name,
         role=role,
         delegate_mode=delegate_mode,
+        skill_set=selected_skill_set,
     )
 
     # Handle Ctrl+C gracefully

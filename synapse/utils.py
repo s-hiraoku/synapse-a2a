@@ -179,6 +179,35 @@ def format_role_section(role: str) -> str:
     )
 
 
+def format_skill_set_section(name: str, description: str, skills: list[str]) -> str:
+    """
+    Format a skill set section for agent instructions.
+
+    Creates a section that informs the agent about its assigned skill set,
+    including the set's purpose and which skills are included.
+
+    Args:
+        name: Skill set name (e.g., "architect").
+        description: Human-readable description of the skill set.
+        skills: List of skill names in the set.
+
+    Returns:
+        Formatted skill set section string.
+    """
+    separator = "=" * 72
+    skills_list = "\n".join(f"  - {s}" for s in skills)
+    return (
+        f"\n{separator}\n"
+        f"SKILL SET\n"
+        f"{separator}\n\n"
+        f"Active skill set: {name}\n"
+        f"Purpose: {description}\n\n"
+        f"Available skills:\n"
+        f"{skills_list}\n\n"
+        f"Use these skills to guide your work.\n"
+    )
+
+
 def resolve_command_path(command: str) -> str | None:
     """
     Resolve a command name to an executable path.

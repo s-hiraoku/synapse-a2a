@@ -23,11 +23,13 @@ from synapse.config import (
 )
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
+from synapse.skills import load_skill_sets
 from synapse.status import DONE_TIMEOUT_SECONDS
 from synapse.utils import (
     RoleFileNotFoundError,
     format_a2a_message,
     format_role_section,
+    format_skill_set_section,
     get_role_content,
 )
 
@@ -54,6 +56,7 @@ class TerminalController:
         name: str | None = None,
         role: str | None = None,
         delegate_mode: bool = False,
+        skill_set: str | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -150,6 +153,7 @@ class TerminalController:
         self._input_ready_pattern = input_ready_pattern
         self.name = name
         self.role = role
+        self.skill_set = skill_set
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -484,6 +488,21 @@ class TerminalController:
                     short_message += format_role_section(role_content)
             except RoleFileNotFoundError as e:
                 logger.error(f"Role file not found: {e} (role={self.role})")
+        # Include skill set section if skill_set is set
+        if self.skill_set:
+            try:
+                skill_sets = load_skill_sets()
+                ss_def = skill_sets.get(self.skill_set)
+                if ss_def:
+                    short_message += format_skill_set_section(
+                        ss_def.name, ss_def.description, ss_def.skills
+                    )
+                else:
+                    logger.warning(
+                        f"Skill set '{self.skill_set}' not found in definitions"
+                    )
+            except Exception as e:
+                logger.error(f"Failed to load skill set info: {e}")
         short_message += (
             f"\nIMPORTANT: Read your full instructions from these files:\n"
             f"{file_list}\n\n"

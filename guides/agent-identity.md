@@ -120,6 +120,43 @@ def _send_identity_instruction(self):
     self.write(instruction, self._submit_seq)
 ```
 
+### スキルセット情報の送信
+
+スキルセットが選択されている場合、初期インストラクションにスキルセットの詳細（名前・説明・スキル一覧）が含まれます。
+
+```python
+# synapse/controller.py - _send_identity_instruction() 内
+if self.skill_set:
+    skill_sets = load_skill_sets()
+    ss_def = skill_sets.get(self.skill_set)
+    if ss_def:
+        short_message += format_skill_set_section(
+            ss_def.name, ss_def.description, ss_def.skills
+        )
+```
+
+出力例:
+
+```
+========================================================================
+SKILL SET
+========================================================================
+
+Active skill set: architect
+Purpose: System architecture and design — design docs, API contracts, code review
+
+Available skills:
+  - synapse-a2a
+  - system-design
+  - api-design
+  - code-review
+  - project-docs
+
+Use these skills to guide your work.
+```
+
+スキルセットの定義は `.synapse/skill_sets.json` から読み込まれます。
+
 ### Agent Card 拡張
 
 ```json

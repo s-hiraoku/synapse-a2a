@@ -249,7 +249,7 @@ synapse/
 
 **Startup Sequence**:
 
-1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix
+1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix (includes role section if set, skill set details if selected)
 
 **Agent Status System**:
 
