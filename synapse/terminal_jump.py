@@ -494,12 +494,14 @@ def can_jump() -> bool:
 def create_tmux_panes(
     agents: list[str],
     layout: str = "split",
+    all_new: bool = False,
 ) -> list[str]:
     """Generate tmux commands to create split panes for each agent.
 
     Args:
-        agents: List of agent types (e.g., ["claude", "gemini", "codex"]).
+        agents: List of agent specs.
         layout: Layout style ("split", "horizontal", "vertical").
+        all_new: If True, even the first agent gets a new pane.
 
     Returns:
         List of tmux command strings to execute.
@@ -508,18 +510,25 @@ def create_tmux_panes(
         return []
 
     commands: list[str] = []
-
-    # First agent runs in current pane
-    first_cmd = _build_agent_command(agents[0])
-    safe_first = shlex.quote(first_cmd)
-    commands.append(f"tmux send-keys {safe_first} Enter")
-
-    # Remaining agents get new panes
     split_flag = "-h" if layout == "horizontal" else "-v"
-    for agent_spec in agents[1:]:
-        cmd = _build_agent_command(agent_spec)
-        safe_cmd = shlex.quote(cmd)
-        commands.append(f"tmux split-window {split_flag} {safe_cmd}")
+
+    if all_new:
+        # Everyone gets a new pane
+        for agent_spec in agents:
+            cmd = _build_agent_command(agent_spec)
+            safe_cmd = shlex.quote(cmd)
+            commands.append(f"tmux split-window {split_flag} {safe_cmd}")
+    else:
+        # First agent runs in current pane (via terminal input buffer)
+        first_cmd = _build_agent_command(agents[0])
+        safe_first = shlex.quote(first_cmd)
+        commands.append(f"tmux send-keys {safe_first} Enter")
+
+        # Remaining agents get new panes
+        for agent_spec in agents[1:]:
+            cmd = _build_agent_command(agent_spec)
+            safe_cmd = shlex.quote(cmd)
+            commands.append(f"tmux split-window {split_flag} {safe_cmd}")
 
     # Apply even layout
     if layout == "split" and len(agents) > 2:
@@ -534,11 +543,13 @@ def create_tmux_panes(
 
 def create_iterm2_panes(
     agents: list[str],
+    all_new: bool = False,
 ) -> str:
     """Generate AppleScript to create iTerm2 panes for each agent.
 
     Args:
-        agents: List of agent types.
+        agents: List of agent specs.
+        all_new: If True, even the first agent gets a new pane.
 
     Returns:
         AppleScript string.
@@ -546,45 +557,68 @@ def create_iterm2_panes(
     if not agents:
         return ""
 
-    lines = [
-        'tell application "iTerm2"',
-        "  tell current window",
-        "    tell current session",
-        f'      write text "{_escape_applescript_string(_build_agent_command(agents[0]))}"',
-    ]
+    if all_new:
+        lines = [
+            'tell application "iTerm2"',
+            "  tell current window",
+            "    tell current tab",
+        ]
+        for agent_spec in agents:
+            full_cmd = _build_agent_command(agent_spec)
+            escaped = _escape_applescript_string(full_cmd)
+            lines.extend(
+                [
+                    "      set newSession to (split vertically with default profile)",
+                    "      tell newSession",
+                    f'        write text "{escaped}"',
+                    "      end tell",
+                ]
+            )
+        lines.append("    end tell")
+        lines.append("  end tell")
+        lines.append("end tell")
+    else:
+        lines = [
+            'tell application "iTerm2"',
+            "  tell current window",
+            "    tell current session",
+            f'      write text "{_escape_applescript_string(_build_agent_command(agents[0]))}"',
+        ]
 
-    for agent_spec in agents[1:]:
-        full_cmd = _build_agent_command(agent_spec)
-        escaped = _escape_applescript_string(full_cmd)
+        for agent_spec in agents[1:]:
+            full_cmd = _build_agent_command(agent_spec)
+            escaped = _escape_applescript_string(full_cmd)
+            lines.extend(
+                [
+                    "    end tell",
+                    "    set newSession to (split vertically with default profile)",
+                    "    tell newSession",
+                    f'      write text "{escaped}"',
+                ]
+            )
+
         lines.extend(
             [
                 "    end tell",
-                "    set newSession to (split vertically with default profile)",
-                "    tell newSession",
-                f'      write text "{escaped}"',
+                "  end tell",
+                "end tell",
             ]
         )
-
-    lines.extend(
-        [
-            "    end tell",
-            "  end tell",
-            "end tell",
-        ]
-    )
 
     return "\n".join(lines)
 
 
 def create_terminal_app_tabs(
     agents: list[str],
+    all_new: bool = False,
 ) -> list[str]:
     """Generate commands to open Terminal.app tabs for each agent.
 
     Terminal.app doesn't support split panes, so we use tabs.
 
     Args:
-        agents: List of agent types.
+        agents: List of agent specs.
+        all_new: If True, even the first agent gets a new tab.
 
     Returns:
         List of osascript command strings.
@@ -594,7 +628,7 @@ def create_terminal_app_tabs(
     for i, agent_spec in enumerate(agents):
         full_cmd = _build_agent_command(agent_spec)
         escaped = _escape_applescript_string(full_cmd)
-        target = "" if i == 0 else " in front window"
+        target = "" if (i == 0 and not all_new) else " in front window"
         commands.append(
             f'osascript -e \'tell application "Terminal" to '
             f'do script "{escaped}"{target}\''
@@ -606,12 +640,14 @@ def create_terminal_app_tabs(
 def create_zellij_panes(
     agents: list[str],
     layout: str = "split",
+    all_new: bool = False,
 ) -> list[str]:
     """Generate zellij commands to create panes for each agent.
 
     Args:
-        agents: List of agent types.
+        agents: List of agent specs.
         layout: Layout style ("split", "horizontal", "vertical").
+        all_new: Ignored for zellij as it always opens new panes.
 
     Returns:
         List of zellij command strings to execute.
@@ -649,13 +685,15 @@ def create_panes(
     agents: list[str],
     layout: str = "split",
     terminal_app: str | None = None,
+    all_new: bool = False,
 ) -> list[str]:
     """Create panes for multiple agents using the detected terminal.
 
     Args:
-        agents: List of agent types.
+        agents: List of agent specs.
         layout: Layout style.
         terminal_app: Terminal to use. Auto-detected if None.
+        all_new: If True, all agents start in new panes/tabs.
 
     Returns:
         List of commands to execute.
@@ -664,16 +702,16 @@ def create_panes(
         terminal_app = detect_terminal_app()
 
     if terminal_app == "tmux":
-        return create_tmux_panes(agents, layout)
+        return create_tmux_panes(agents, layout, all_new=all_new)
     elif terminal_app == "iTerm2":
-        script = create_iterm2_panes(agents)
+        script = create_iterm2_panes(agents, all_new=all_new)
         if not script:
             return []
         return [f"osascript -e {shlex.quote(script)}"]
     elif terminal_app == "Terminal":
-        return create_terminal_app_tabs(agents)
+        return create_terminal_app_tabs(agents, all_new=all_new)
     elif terminal_app == "zellij":
-        return create_zellij_panes(agents, layout)
+        return create_zellij_panes(agents, layout, all_new=all_new)
 
     # Unsupported terminal - return empty list
     logger.warning(

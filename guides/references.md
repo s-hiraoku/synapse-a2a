@@ -199,8 +199,10 @@ synapse list
 
 複数エージェントを分割ペインで起動します。
 
+**デフォルト動作**: 1番目のエージェントが現在のターミナルを引き継ぎ（handoff）、2番目以降が新しいペインで起動します。
+
 ```bash
-synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new]
 ```
 
 **エージェント指定（agent_spec）の形式**:
@@ -214,6 +216,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 |------|------|------|
 | `agents` | Yes | 起動するエージェントスペック（複数指定） |
 | `--layout` | No | ペインレイアウト (`split`, `horizontal`, `vertical`) |
+| `--all-new` | No | 全エージェントを新しいペインで起動（現在のターミナルは残る） |
 
 **対応ターミナル**:
 - `tmux`
@@ -224,9 +227,9 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 **例**:
 
 ```bash
-synapse team start claude gemini codex
+synapse team start claude gemini codex              # claude=ここ、他=新ペイン
 synapse team start claude gemini --layout horizontal
-synapse team start claude gemini --layout vertical
+synapse team start claude gemini --all-new          # 全員新ペイン
 ```
 
 ---

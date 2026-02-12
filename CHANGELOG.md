@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-02-12
+
+### Added
+
+- **Handoff-by-default for `synapse team start`**: 1st agent takes over current terminal via `os.execvp`, remaining agents start in new panes
+- `--all-new` flag to restore previous behavior (all agents in new panes)
+- Terminal.app (tabs) support for team start pane creation
+
+### Changed
+
+- Default `synapse team start` behavior: 1st agent = handoff (current terminal), rest = new panes
+- Agent spec format extended to `profile[:name[:role[:skill_set]]]`
+
+### Documentation
+
+- Updated all 7+ documentation files for handoff behavior and `--all-new` flag
+- Plugin skills: added missing commands (`delete`/`move` skill, `set show`, `trace`), `--message-file`/`--stdin`/`--attach` options, `SHUTTING_DOWN` status
+- Fixed Zellij terminal jump description to match implementation
+
+### Tests
+
+- Added `TestAgentSpecParsing` for `profile:name:role:skill_set` format
+- Added handoff and `--all-new` behavior tests
+
 ## [0.4.2] - 2026-02-12
 
 ### Added

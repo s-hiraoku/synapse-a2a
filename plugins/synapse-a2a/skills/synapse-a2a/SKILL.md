@@ -45,7 +45,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Import skill | `synapse skills import <name>` |
 | Install from repo | `synapse skills add <repo>` |
 | Create skill | `synapse skills create` |
+| Delete skill | `synapse skills delete <name> [--force]` |
+| Move skill | `synapse skills move <name> --to <scope>` |
 | List skill sets | `synapse skills set list` |
+| Show skill set detail | `synapse skills set show <name>` |
+| Trace task | `synapse trace <task_id>` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -54,7 +58,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Complete task | `synapse tasks complete <task_id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
-| Start team (CLI) | `synapse team start <spec...> [--layout ...]` (spec: `profile[:name[:role[:skill_set]]]`) |
+| Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
@@ -240,7 +244,7 @@ In `synapse list`, you can interact with agents:
 - Ghostty (macOS) - Activates application
 - VS Code integrated terminal - Opens to working directory
 - tmux - Switches to agent's session
-- Zellij - Focuses agent's terminal pane
+- Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Use case:** When an agent shows `WAITING` status, use terminal jump to quickly respond to its selection prompt.
 
@@ -347,7 +351,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` launches multiple agents in split panes (tmux/iTerm2/zellij, supports `profile:name:role:skill_set` spec)
+- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 
 ## Path Overrides
 

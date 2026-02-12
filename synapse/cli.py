@@ -2255,11 +2255,16 @@ def cmd_tasks_complete(args: argparse.Namespace) -> None:
 
 
 def cmd_team_start(args: argparse.Namespace) -> None:
-    """Start multiple agents with split panes."""
+    """Start multiple agents with split panes.
+
+    Default: First agent replaces current process, others in new panes.
+    --all-new: All agents start in new panes, current process remains.
+    """
     from synapse.terminal_jump import create_panes, detect_terminal_app
 
     agents = args.agents
     layout = getattr(args, "layout", "split")
+    all_new = getattr(args, "all_new", False)
 
     terminal = detect_terminal_app()
     if not terminal:
@@ -2275,18 +2280,48 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             )
         return
 
-    commands = create_panes(agents, layout=layout, terminal_app=terminal)
-    if not commands:
-        print(f"Terminal '{terminal}' does not support pane creation.")
-        return
-
     import shlex
 
-    for cmd in commands:
-        subprocess.run(shlex.split(cmd))
+    if all_new:
+        # Traditional behavior: everyone in new panes
+        commands = create_panes(
+            agents, layout=layout, terminal_app=terminal, all_new=True
+        )
+        if not commands:
+            print(f"Terminal '{terminal}' does not support pane creation.")
+            return
 
-    display_names = [a.split(":")[0] for a in agents]
-    print(f"Started {len(agents)} agents: {', '.join(display_names)}")
+        for cmd in commands:
+            subprocess.run(shlex.split(cmd))
+
+        display_names = [a.split(":")[0] for a in agents]
+        print(f"Started {len(agents)} agents: {', '.join(display_names)}")
+    else:
+        # New default: 1st agent here, others in new panes
+        local_agent = agents[0]
+        remote_agents = agents[1:]
+
+        # Start others first
+        if remote_agents:
+            # We use all_new=True for remotes so they definitely get new panes
+            commands = create_panes(
+                remote_agents, layout=layout, terminal_app=terminal, all_new=True
+            )
+            for cmd in commands:
+                subprocess.run(shlex.split(cmd))
+
+        # This process becomes the 1st agent
+        from synapse.terminal_jump import _build_agent_command
+
+        full_cmd = _build_agent_command(local_agent)
+        cmd_args = shlex.split(full_cmd)
+
+        print(f"Handing over terminal to {local_agent.split(':')[0]}...")
+        try:
+            os.execvp(cmd_args[0], cmd_args)
+        except Exception as e:
+            print(f"Error starting local agent: {e}")
+            sys.exit(1)
 
 
 # ============================================================
@@ -3828,6 +3863,11 @@ Extended Specification:
         default="split",
         choices=["split", "horizontal", "vertical"],
         help="Pane layout (default: split)",
+    )
+    p_team_start.add_argument(
+        "--all-new",
+        action="store_true",
+        help="Start all agents in new panes/tabs instead of using current terminal",
     )
     p_team_start.set_defaults(func=cmd_team_start)
 
