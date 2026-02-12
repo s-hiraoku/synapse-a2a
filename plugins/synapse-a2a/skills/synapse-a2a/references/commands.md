@@ -16,6 +16,7 @@ synapse list
   - WAITING = cyan (awaiting user input - selection, confirmation)
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
+  - SHUTTING_DOWN = red (graceful shutdown in progress)
 - Flicker-free updates
 - **Interactive row selection**: Press 1-9 or ↑/↓ to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
@@ -36,7 +37,7 @@ synapse list
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
 - **ID**: Full agent ID (e.g., `synapse-claude-8100`)
 - **ROLE**: Role description if set
-- **STATUS**: READY / WAITING / PROCESSING / DONE
+- **STATUS**: READY / WAITING / PROCESSING / DONE / SHUTTING_DOWN
 - **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
 - **TRANSPORT**: Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
@@ -233,6 +234,9 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
   - 5: Critical/emergency (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, receiver MUST reply
 - `--no-response`: Oneway mode - fire and forget, no reply expected
+- `--message-file`: Read message from file (use `-` for stdin)
+- `--stdin`: Read message from stdin
+- `--attach`: Attach file(s) to message (repeatable)
 
 **Choosing --response vs --no-response:**
 
@@ -263,6 +267,22 @@ synapse send claude-8100 "What is your status?" --response --from synapse-gemini
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
+
+**Sending long messages or files:**
+```bash
+# Send message from file (avoids ARG_MAX shell limits)
+synapse send claude --message-file /tmp/review.txt --no-response
+
+# Read message from stdin
+echo "long message" | synapse send claude --stdin --no-response
+synapse send claude --message-file - --no-response   # '-' reads from stdin
+
+# Attach files to message
+synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+```
+
+Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
 **Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
@@ -401,6 +421,16 @@ synapse history cleanup --days 30
 synapse history cleanup --max-size 100
 ```
 
+### Trace Task
+
+Trace a task across history and file modifications:
+
+```bash
+synapse trace <task_id>
+```
+
+Shows task history combined with file-safety records for the specified task.
+
 ## Settings Management
 
 ### Initialize Settings
@@ -501,7 +531,7 @@ Configure which columns to display in `synapse list`:
 | `NAME` | Custom name if set |
 | `TYPE` | Agent type (claude, gemini, etc.) |
 | `ROLE` | Role description |
-| `STATUS` | READY/WAITING/PROCESSING/DONE |
+| `STATUS` | READY/WAITING/PROCESSING/DONE/SHUTTING_DOWN |
 | `CURRENT` | Current task preview |
 | `TRANSPORT` | UDS/TCP communication status |
 | `WORKING_DIR` | Working directory |

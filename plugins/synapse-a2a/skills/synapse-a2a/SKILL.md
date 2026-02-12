@@ -45,7 +45,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Import skill | `synapse skills import <name>` |
 | Install from repo | `synapse skills add <repo>` |
 | Create skill | `synapse skills create` |
+| Delete skill | `synapse skills delete <name> [--force]` |
+| Move skill | `synapse skills move <name> --to <scope>` |
 | List skill sets | `synapse skills set list` |
+| Show skill set detail | `synapse skills set show <name>` |
+| Trace task | `synapse trace <task_id>` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -240,7 +244,7 @@ In `synapse list`, you can interact with agents:
 - Ghostty (macOS) - Activates application
 - VS Code integrated terminal - Opens to working directory
 - tmux - Switches to agent's session
-- Zellij - Focuses agent's terminal pane
+- Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Use case:** When an agent shows `WAITING` status, use terminal jump to quickly respond to its selection prompt.
 
