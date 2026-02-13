@@ -42,7 +42,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           python3 -m venv /tmp/poet-env
-          /tmp/poet-env/bin/pip install "synapse-a2a==${VERSION}" homebrew-pypi-poet
+          /tmp/poet-env/bin/pip install "setuptools<81" "synapse-a2a==${VERSION}" homebrew-pypi-poet
           /tmp/poet-env/bin/poet -f synapse-a2a > /tmp/poet-output.rb
           python scripts/patch_homebrew_formula.py "${VERSION}" /tmp/poet-output.rb
 
