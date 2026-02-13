@@ -93,6 +93,12 @@ flowchart LR
 | **智能体命名** | 自定义名称和角色便于识别（`synapse send my-claude "hello"`） |
 | **智能体监控** | 实时状态（READY/WAITING/PROCESSING/DONE）、当前任务预览、终端跳转 |
 | **任务历史** | 自动任务追踪，支持搜索、导出和统计（默认启用） |
+| **共享任务板** | 基于 SQLite 的任务协调，支持依赖追踪 (`synapse tasks`) |
+| **质量门禁** | 可配置的钩子 (`on_idle`, `on_task_completed`)，控制状态转换 |
+| **方案审批** | 带有 `synapse approve/reject` 的方案模式工作流，支持人工干预 |
+| **优雅停机** | `synapse kill` 在发送 SIGTERM 前发送停机请求（30秒超时） |
+| **委派模式** | `--delegate-mode` 使智能体成为协调者，负责委派任务而非编辑文件 |
+| **自动生成窗格** | `synapse team start` — 第一个智能体接管当前终端，其他智能体在新建窗格中启动 |
 
 ---
 
@@ -361,6 +367,45 @@ npx skills add s-hiraoku/synapse-a2a
 |-------|------|
 | **synapse-a2a** | 智能体间通信综合指南：`synapse send`、优先级、A2A protocol、历史记录、文件安全、设置 |
 
+### 技能管理
+
+Synapse 内置了技能管理器，拥有中央存储 (`~/.synapse/skills/`)，用于组织和向智能体部署技能。
+
+#### 技能作用域
+
+| 作用域 | 位置 | 说明 |
+|-------|----------|-------------|
+| **Synapse** | `~/.synapse/skills/` | 中央存储（从此处部署到智能体） |
+| **User** | `~/.claude/skills/`, `~/.agents/skills/` 等 | 用户全局技能 |
+| **Project** | `./.claude/skills/`, `./.agents/skills/` 等 | 项目本地技能 |
+| **Plugin** | `./plugins/*/skills/` | 只读插件技能 |
+
+#### 命令
+
+```bash
+# 交互式 TUI
+synapse skills
+
+# 列出与浏览
+synapse skills list                          # 所有作用域
+synapse skills list --scope synapse          # 仅中央存储
+synapse skills show <name>                   # 技能详情
+
+# 管理
+synapse skills delete <name> [--force]
+synapse skills move <name> --to <scope>
+
+# 中央存储操作
+synapse skills import <name>                 # 从智能体目录导入到中央存储
+synapse skills deploy <name> --agent claude,codex --scope user
+synapse skills add <repo>                    # 从仓库安装 (npx skills 封装)
+synapse skills create                        # 创建新技能模板
+
+# 技能组 (具名分组)
+synapse skills set list
+synapse skills set show <name>
+```
+
 ### 目录结构
 
 ```text
@@ -424,6 +469,8 @@ plugins/
 | TerminalController | `synapse/controller.py` | PTY 管理、READY/PROCESSING 检测 |
 | InputRouter | `synapse/input_router.py` | @Agent 模式检测 |
 | AgentRegistry | `synapse/registry.py` | 智能体注册与查找 |
+| SkillManager | `synapse/skills.py` | 技能发现、部署、导入、技能组 |
+| SkillManagerCmd | `synapse/commands/skill_manager.py` | 技能管理 TUI 和 CLI |
 
 ### 启动序列
 
@@ -526,7 +573,8 @@ synapse kill my-claude
 | `synapse <profile>` | 前台启动 |
 | `synapse start <profile>` | 后台启动 |
 | `synapse stop <profile\|id>` | 停止智能体（可指定 ID） |
-| `synapse kill <target>` | 立即终止智能体 |
+| `synapse kill <target>` | 优雅停机（发送停机请求，30秒后发送 SIGTERM） |
+| `synapse kill <target> -f` | 强制停机（立即发送 SIGKILL） |
 | `synapse jump <target>` | 跳转到智能体的终端 |
 | `synapse rename <target>` | 为智能体分配名称/角色 |
 | `synapse --version` | 显示版本 |
@@ -534,6 +582,7 @@ synapse kill my-claude
 | `synapse logs <profile>` | 显示日志 |
 | `synapse send <target> <message>` | 发送消息 |
 | `synapse reply <message>` | 回复最近收到的 A2A 消息 |
+| `synapse trace <task_id>` | 显示任务历史 + 文件安全交叉引用 |
 | `synapse instructions show` | 显示指令内容 |
 | `synapse instructions files` | 列出指令文件 |
 | `synapse instructions send` | 重新发送初始指令 |
@@ -552,8 +601,26 @@ synapse kill my-claude
 | `synapse file-safety record` | 手动记录变更 |
 | `synapse file-safety cleanup` | 删除旧数据 |
 | `synapse file-safety debug` | 显示调试信息 |
+| `synapse skills` | 技能管理器（交互式 TUI） |
+| `synapse skills list` | 列出发现的技能 |
+| `synapse skills show <name>` | 显示技能详情 |
+| `synapse skills delete <name>` | 删除技能 |
+| `synapse skills move <name>` | 移动技能到其他作用域 |
+| `synapse skills deploy <name>` | 从中央存储部署技能到智能体目录 |
+| `synapse skills import <name>` | 导入技能到中央存储 (~/.synapse/skills/) |
+| `synapse skills add <repo>` | 从仓库安装技能 (通过 npx skills) |
+| `synapse skills create` | 创建新技能 |
+| `synapse skills set list` | 列出技能组 |
+| `synapse skills set show <name>` | 显示技能组详情 |
 | `synapse config` | 设置管理（交互式 TUI） |
 | `synapse config show` | 显示当前设置 |
+| `synapse tasks list` | 列出共享任务板 |
+| `synapse tasks create` | 创建任务 |
+| `synapse tasks assign` | 分配任务给智能体 |
+| `synapse tasks complete` | 标记任务已完成 |
+| `synapse approve <task_id>` | 批准方案 |
+| `synapse reject <task_id>` | 拒绝方案并说明原因 |
+| `synapse team start` | 启动智能体（第一个接管，其余新建窗格）。`--all-new` 全部新建 |
 
 ### 恢复模式
 
@@ -750,6 +817,13 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 # 发送消息（单实例）
 synapse send claude "Hello" --priority 1 --from synapse-codex-8121
 
+# 长消息支持 (自动切换到临时文件模式)
+synapse send claude --message-file /path/to/message.txt --no-response
+echo "very long content..." | synapse send claude --stdin --no-response
+
+# 文件附件
+synapse send claude "Review this" --attach src/main.py --no-response
+
 # 发送到指定实例（同类型多个）
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
@@ -806,12 +880,34 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/{id}/cancel` | POST | 取消任务 |
 | `/status` | GET | READY/PROCESSING 状态 |
 
+### 智能体团队
+
+| 端点 | 方法 | 说明 |
+| -------- | ------ | ----------- |
+| `/tasks/board` | GET | 列出共享任务板 |
+| `/tasks/board` | POST | 在任务板上创建任务 |
+| `/tasks/board/{id}/claim` | POST | 原子化领取任务 |
+| `/tasks/board/{id}/complete` | POST | 完成任务 |
+| `/tasks/{id}/approve` | POST | 批准方案 |
+| `/tasks/{id}/reject` | POST | 拒绝方案并说明原因 |
+| `/team/start` | POST | 在终端窗格中启动多个智能体（A2A 触发） |
+
 ### Synapse 扩展
 
 | 端点 | 方法 | 说明 |
 | ---- | ---- | ---- |
 | `/reply-stack/get` | GET | 获取发送者信息但不移除（发送前预览） |
 | `/reply-stack/pop` | GET | 从回复映射中弹出发送者信息（用于 `synapse reply`） |
+| `/tasks/{id}/subscribe` | GET | 通过 SSE 订阅任务更新 |
+
+### Webhooks
+
+| 端点 | 方法 | 说明 |
+| -------- | ------ | ----------- |
+| `/webhooks` | POST | 注册任务通知的 Webhook |
+| `/webhooks` | GET | 列出已注册的 Webhook |
+| `/webhooks` | DELETE | 注销 Webhook |
+| `/webhooks/deliveries` | GET | 最近的 Webhook 推送记录 |
 
 ### 外部智能体
 
@@ -1344,9 +1440,11 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Webhook 密钥 | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook 超时（秒） | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook 重试次数 | `3` |
+| `SYNAPSE_SKILLS_DIR` | 中央技能存储目录 | `~/.synapse/skills` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | 文件存储字符阈值 | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | 消息文件 TTL（秒） | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | 消息文件目录 | 系统临时目录 |
+| `SYNAPSE_SEND_MESSAGE_THRESHOLD` | 自动临时文件模式阈值 (字节) | `102400` |
 
 ### A2A 通信设置 (a2a)
 
@@ -1476,7 +1574,7 @@ scoop uninstall synapse-a2a  # Windows
 
 Codex CLI 默认在沙盒中运行，网络访问受限。要使用 `@agent` 模式进行智能体间通信，请在 `~/.codex/config.toml` 中允许网络访问。
 
-**全局设置（适用于所有项目）：**
+**局设置（适用于所有项目）：**
 
 ```toml
 # ~/.codex/config.toml
