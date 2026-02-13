@@ -114,28 +114,11 @@ flowchart LR
 ### 1. Synapse A2A 설치
 
 <details>
-<summary><b>macOS (Homebrew)</b></summary>
-
-```bash
-# Homebrew (macOS 권장)
-brew tap s-hiraoku/synapse-a2a
-brew install synapse-a2a
-
-# 또는 pipx
-pipx install synapse-a2a
-```
-
-</details>
-
-<details>
-<summary><b>Linux</b></summary>
+<summary><b>macOS / Linux</b></summary>
 
 ```bash
 # pipx (권장)
 pipx install synapse-a2a
-
-# 또는 pip
-pip install synapse-a2a
 
 # uvx로 직접 실행 (설치 불필요)
 uvx synapse-a2a claude
@@ -1431,36 +1414,24 @@ uv publish
 
 ### 사용자 설치
 
-**macOS:**
-```bash
-brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
-
-# 업그레이드
-brew upgrade synapse-a2a
-```
-
-**Linux / WSL2:**
+**macOS / Linux / WSL2 (권장):**
 ```bash
 pipx install synapse-a2a
 
 # 업그레이드
 pipx upgrade synapse-a2a
+
+# 제거
+pipx uninstall synapse-a2a
 ```
 
-**Windows (Scoop, 실험적):**
+**Windows (Scoop, 실험적 — pty에 WSL2 필요):**
 ```bash
 scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
 scoop install synapse-a2a
 
 # 업그레이드
 scoop update synapse-a2a
-```
-
-**제거:**
-```bash
-brew uninstall synapse-a2a   # macOS
-pipx uninstall synapse-a2a   # Linux
-scoop uninstall synapse-a2a  # Windows
 ```
 
 ---

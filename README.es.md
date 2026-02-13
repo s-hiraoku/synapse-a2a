@@ -120,28 +120,11 @@ flowchart LR
 ### 1. Instalar Synapse A2A
 
 <details>
-<summary><b>macOS (Homebrew)</b></summary>
-
-```bash
-# Homebrew (recomendado para macOS)
-brew tap s-hiraoku/synapse-a2a
-brew install synapse-a2a
-
-# O vía pipx
-pipx install synapse-a2a
-```
-
-</details>
-
-<details>
-<summary><b>Linux</b></summary>
+<summary><b>macOS / Linux</b></summary>
 
 ```bash
 # pipx (recomendado)
 pipx install synapse-a2a
-
-# O pip
-pip install synapse-a2a
 
 # O ejecutar directamente con uvx (sin instalar)
 uvx synapse-a2a claude
@@ -1530,36 +1513,24 @@ uv publish
 
 ### Instalación de Usuario
 
-**macOS:**
-```bash
-brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
-
-# Actualizar
-brew upgrade synapse-a2a
-```
-
-**Linux / WSL2:**
+**macOS / Linux / WSL2 (recomendado):**
 ```bash
 pipx install synapse-a2a
 
 # Actualizar
 pipx upgrade synapse-a2a
+
+# Desinstalar
+pipx uninstall synapse-a2a
 ```
 
-**Windows (Scoop, experimental):**
+**Windows (Scoop, experimental — WSL2 requerido para pty):**
 ```bash
 scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
 scoop install synapse-a2a
 
 # Actualizar
 scoop update synapse-a2a
-```
-
-**Desinstalar:**
-```bash
-brew uninstall synapse-a2a   # macOS
-pipx uninstall synapse-a2a   # Linux
-scoop uninstall synapse-a2a  # Windows
 ```
 
 ---

@@ -46,17 +46,12 @@ Synapse のエージェント間通信は **Google A2A プロトコル**に準�
 
 ### ユーザー向け（推奨）
 
-**macOS:**
-```bash
-brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
-```
-
-**Linux / WSL2:**
+**macOS / Linux / WSL2（推奨）:**
 ```bash
 pipx install synapse-a2a
 ```
 
-**Windows (Scoop, 実験的):**
+**Windows (Scoop, 実験的 — pty のために WSL2 が必要):**
 ```bash
 scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
 scoop install synapse-a2a

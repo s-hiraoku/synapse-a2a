@@ -80,11 +80,12 @@ def patch_formula(version: str, sdist_url: str, sha256: str, stanzas: str) -> No
         text,
     )
 
-    # Update sha256 line
+    # Update sha256 line (only the first one, which is the formula's own sha256)
     text = re.sub(
         r'sha256 ".*?"',
         f'sha256 "{sha256}"',
         text,
+        count=1,
     )
 
     # Replace resource stanzas between markers
@@ -98,7 +99,15 @@ def patch_formula(version: str, sdist_url: str, sha256: str, stanzas: str) -> No
         )
         sys.exit(1)
     end_idx += len(STANZA_END)
-    text = text[:start_idx] + stanzas + "\n" + text[end_idx:]
+    text = (
+        text[:start_idx]
+        + STANZA_START
+        + "\n"
+        + stanzas
+        + "\n"
+        + STANZA_END
+        + text[end_idx:]
+    )
 
     FORMULA_PATH.write_text(text)
     print(f"Patched homebrew/synapse-a2a.rb for v{version}")
