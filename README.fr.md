@@ -93,6 +93,12 @@ flowchart LR
 | **Nommage d'Agents** | Noms et rôles personnalisés pour une identification facile (`synapse send my-claude "hello"`) |
 | **Moniteur d'Agents** | Statut en temps réel (READY/WAITING/PROCESSING/DONE), aperçu de la tâche CURRENT, saut vers le terminal |
 | **Historique des Tâches** | Suivi automatique des tâches avec recherche, export et statistiques (activé par défaut) |
+| **Tableau de tâches partagé** | Coordination des tâches basée sur SQLite avec suivi des dépendances (`synapse tasks`) |
+| **Portes de qualité** | Crochets configurables (`on_idle`, `on_task_completed`) contrôlant les transitions d'état |
+| **Approbation de plan** | Flux de travail en mode plan avec `synapse approve/reject` pour revue humaine |
+| **Arrêt gracieux** | `synapse kill` envoie une requête d'arrêt avant SIGTERM (délai de 30s) |
+| **Mode délégué** | `--delegate-mode` fait d'un agent un coordinateur qui délègue au lieu d'éditer des fichiers |
+| **Auto-génération de panneaux** | `synapse team start` — le 1er agent reprend le terminal actuel, les autres dans de nouveaux panneaux |
 
 ---
 
@@ -355,11 +361,50 @@ Avec les skills installés, Claude comprend et exécute automatiquement :
 npx skills add s-hiraoku/synapse-a2a
 ```
 
-### Skills Inclus
+### Skills Incluidos
 
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Guide complet pour la communication inter-agents : `synapse send`, priorité, protocole A2A, historique, Sécurité des Fichiers, paramètres |
+
+### Gestion des Skills
+
+Synapse inclut un gestionnaire de skills intégré avec un magasin central (`~/.synapse/skills/`) pour organiser et déployer des skills entre agents.
+
+#### Portées des Skills
+
+| Portée | Emplacement | Description |
+|-------|----------|-------------|
+| **Synapse** | `~/.synapse/skills/` | Magasin central (déployer vers les agents d'ici) |
+| **Utilisateur** | `~/.claude/skills/`, `~/.agents/skills/`, etc. | Skills pour tout l'utilisateur |
+| **Projet** | `./.claude/skills/`, `./.agents/skills/`, etc. | Skills locaux au projet |
+| **Plugin** | `./plugins/*/skills/` | Skills de plugins en lecture seule |
+
+#### Commandes
+
+```bash
+# TUI interactif
+synapse skills
+
+# Lister et parcourir
+synapse skills list                          # Toutes les portées
+synapse skills list --scope synapse          # Uniquement magasin central
+synapse skills show <nom>                    # Détails du skill
+
+# Gérer
+synapse skills delete <nom> [--force]
+synapse skills move <nom> --to <portée>
+
+# Opérations magasin central
+synapse skills import <nom>                 # Importer depuis les dossiers agents vers le magasin central
+synapse skills deploy <nom> --agent claude,codex --scope user
+synapse skills add <repo>                    # Installer depuis un repo (npx skills wrapper)
+synapse skills create                        # Créer un nouveau modèle de skill
+
+# Ensembles de skills (groupes nommés)
+synapse skills set list
+synapse skills set show <nom>
+```
 
 ### Structure des Répertoires
 
@@ -424,6 +469,8 @@ Chaque agent est :
 | TerminalController | `synapse/controller.py` | Gestion PTY, détection READY/PROCESSING |
 | InputRouter | `synapse/input_router.py` | Détection du pattern @Agent |
 | AgentRegistry | `synapse/registry.py` | Enregistrement et recherche d'agents |
+| SkillManager | `synapse/skills.py` | Découverte, déploiement, import de skills, ensembles de skills |
+| SkillManagerCmd | `synapse/commands/skill_manager.py` | TUI et CLI de gestion de skills |
 
 ### Séquence de Démarrage
 
@@ -526,7 +573,8 @@ synapse kill my-claude
 | `synapse <profile>` | Démarrer en premier plan |
 | `synapse start <profile>` | Démarrer en arrière-plan |
 | `synapse stop <profile\|id>` | Arrêter l'agent (peut spécifier l'ID) |
-| `synapse kill <target>` | Tuer l'agent immédiatement |
+| `synapse kill <target>` | Arrêt gracieux (envoie une requête d'arrêt, attend 30s, puis SIGTERM) |
+| `synapse kill <target> -f` | Arrêt forcé (SIGKILL immédiat) |
 | `synapse jump <target>` | Aller au terminal de l'agent |
 | `synapse rename <target>` | Assigner un nom/rôle à l'agent |
 | `synapse --version` | Afficher la version |
@@ -534,6 +582,7 @@ synapse kill my-claude
 | `synapse logs <profile>` | Afficher les logs |
 | `synapse send <target> <message>` | Envoyer un message |
 | `synapse reply <message>` | Répondre au dernier message A2A reçu |
+| `synapse trace <task_id>` | Afficher l'historique des tâches + référence croisée sécurité des fichiers |
 | `synapse instructions show` | Afficher le contenu des instructions |
 | `synapse instructions files` | Lister les fichiers d'instructions |
 | `synapse instructions send` | Renvoyer les instructions initiales |
@@ -552,8 +601,26 @@ synapse kill my-claude
 | `synapse file-safety record` | Enregistrer manuellement une modification |
 | `synapse file-safety cleanup` | Supprimer les anciennes données |
 | `synapse file-safety debug` | Afficher les informations de débogage |
+| `synapse skills` | Gestionnaire de skills (TUI interactif) |
+| `synapse skills list` | Lister les skills découverts |
+| `synapse skills show <nom>` | Afficher les détails d'un skill |
+| `synapse skills delete <nom>` | Supprimer un skill |
+| `synapse skills move <nom>` | Déplacer un skill vers une autre portée |
+| `synapse skills deploy <nom>` | Déployer un skill du magasin central vers les dossiers agents |
+| `synapse skills import <nom>` | Importer un skill dans le magasin central (~/.synapse/skills/) |
+| `synapse skills add <repo>` | Installer un skill depuis un dépôt (via npx skills) |
+| `synapse skills create` | Créer un nouveau skill |
+| `synapse skills set list` | Lister les ensembles de skills |
+| `synapse skills set show <nom>` | Afficher les détails d'un ensemble de skills |
 | `synapse config` | Gestion des paramètres (TUI interactif) |
 | `synapse config show` | Afficher les paramètres actuels |
+| `synapse tasks list` | Lister le tableau de tâches partagé |
+| `synapse tasks create` | Créer une tâche |
+| `synapse tasks assign` | Assigner une tâche à un agent |
+| `synapse tasks complete` | Marquer une tâche comme terminée |
+| `synapse approve <task_id>` | Approuver un plan |
+| `synapse reject <task_id>` | Rejeter un plan avec motif |
+| `synapse team start` | Lancer des agents (1er=transfert, les autres=nouveaux panneaux). `--all-new` tous nouveaux |
 
 ### Mode Reprise
 
@@ -750,6 +817,13 @@ Lorsque plusieurs agents du même type sont en cours d'exécution, le type seul 
 # Envoyer un message (instance unique)
 synapse send claude "Hello" --priority 1 --from synapse-codex-8121
 
+# Support pour les messages longs (passage automatique en fichier temporaire)
+synapse send claude --message-file /path/to/message.txt --no-response
+echo "contenu très long..." | synapse send claude --stdin --no-response
+
+# Pièces jointes
+synapse send claude "Review this" --attach src/main.py --no-response
+
 # Envoyer à une instance spécifique (plusieurs du même type)
 synapse send claude-8100 "Hello" --from synapse-claude-8101
 
@@ -806,12 +880,34 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/{id}/cancel` | POST | Annuler une tâche |
 | `/status` | GET | Statut READY/PROCESSING |
 
+### Équipes d'agents
+
+| Point d'Accès | Méthode | Description |
+| -------- | ------ | ----------- |
+| `/tasks/board` | GET | Lister le tableau de tâches partagé |
+| `/tasks/board` | POST | Créer une tâche sur le tableau |
+| `/tasks/board/{id}/claim` | POST | Réclamer une tâche de manière atomique |
+| `/tasks/board/{id}/complete` | POST | Terminer une tâche |
+| `/tasks/{id}/approve` | POST | Approuver un plan |
+| `/tasks/{id}/reject` | POST | Rejeter un plan avec motif |
+| `/team/start` | POST | Démarrer plusieurs agents dans des panneaux de terminal (initié par A2A) |
+
 ### Extensions Synapse
 
 | Point d'Accès | Méthode | Description |
 | ------------- | ------- | ----------- |
 | `/reply-stack/get` | GET | Obtenir les infos de l'expéditeur sans les supprimer (pour consultation avant envoi) |
 | `/reply-stack/pop` | GET | Extraire les infos de l'expéditeur de la carte de réponse (pour `synapse reply`) |
+| `/tasks/{id}/subscribe` | GET | S'abonner aux mises à jour des tâches via SSE |
+
+### Webhooks
+
+| Point d'Accès | Méthode | Description |
+| -------- | ------ | ----------- |
+| `/webhooks` | POST | Enregistrer un webhook pour les notifications de tâches |
+| `/webhooks` | GET | Lister les webhooks enregistrés |
+| `/webhooks` | DELETE | Supprimer un webhook |
+| `/webhooks/deliveries` | GET | Tentatives récentes de livraison de webhooks |
 
 ### Agents Externes
 
@@ -1186,7 +1282,7 @@ L'affichage se met à jour automatiquement lorsque le statut des agents change (
 
 ### Colonnes d'Affichage
 
-| Colonne | Description |
+| Columna | Description |
 |---------|-------------|
 | ID | ID de l'agent (ex. `synapse-claude-8100`) |
 | NAME | Nom personnalisé (s'il est assigné) |
@@ -1344,9 +1440,11 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Secret du webhook | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Délai d'attente du webhook (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Nombre de tentatives du webhook | `3` |
+| `SYNAPSE_SKILLS_DIR` | Dossier central des skills | `~/.synapse/skills` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Seuil de caractères pour le stockage en fichier | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL pour les fichiers de messages (secondes) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Répertoire pour les fichiers de messages | Temporaire système |
+| `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Seuil de repli automatique sur fichier temporaire (octets) | `102400` |
 
 ### Paramètres de Communication A2A (a2a)
 
@@ -1574,7 +1672,7 @@ pip install synapse-a2a[grpc]
 # REST : 8100 → gRPC : 8101
 ```
 
-Voir [guides/enterprise.md](guides/enterprise.md) pour plus de détails.
+Voir [guides/enterprise.md](guides/enterprise.md) para plus de détails.
 
 ---
 
