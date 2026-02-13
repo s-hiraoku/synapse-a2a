@@ -40,13 +40,10 @@ jobs:
           echo "ERROR: synapse-a2a==${VERSION} not found on PyPI after 15 minutes"
           exit 1
 
-      - name: Generate Homebrew formula with poet
+      - name: Update Homebrew formula
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          python3 -m venv /tmp/poet-env
-          /tmp/poet-env/bin/pip install "setuptools<81" "synapse-a2a==${VERSION}" homebrew-pypi-poet
-          /tmp/poet-env/bin/poet -f synapse-a2a > /tmp/poet-output.rb
-          python scripts/patch_homebrew_formula.py "${VERSION}" /tmp/poet-output.rb
+          python scripts/patch_homebrew_formula.py "${VERSION}"
 
       - name: Update Scoop manifest
         run: |
@@ -55,8 +52,8 @@ jobs:
 
       - name: Validate outputs
         run: |
-          echo "--- Homebrew formula (first 20 lines) ---"
-          head -20 homebrew/synapse-a2a.rb
+          echo "--- Homebrew formula ---"
+          cat homebrew/synapse-a2a.rb
           echo ""
           echo "--- Scoop manifest ---"
           python -m json.tool scoop/synapse-a2a.json
@@ -72,10 +69,10 @@ jobs:
             Automated update of installer manifests for v${{ steps.version.outputs.version }}.
 
             ## Changes
-            - Homebrew formula: updated URL, SHA256, and resource stanzas
+            - Homebrew formula: updated URL and SHA256
             - Scoop manifest: updated version, URL, and hash
 
             ## Verification
-            - [ ] `brew install --formula ./homebrew/synapse-a2a.rb` (macOS)
+            - [ ] `brew install s-hiraoku/synapse-a2a/synapse-a2a` (macOS)
             - [ ] Scoop JSON is valid (`python -m json.tool scoop/synapse-a2a.json`)
           labels: chore,automation
