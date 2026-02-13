@@ -93,6 +93,12 @@ flowchart LR
 | **Nombrado de Agentes** | Nombres y roles personalizados para fácil identificación (`synapse send mi-claude "hola"`) |
 | **Monitor de Agentes** | Estado en tiempo real (READY/WAITING/PROCESSING/DONE), vista previa de tarea ACTUAL, salto a terminal |
 | **Historial de Tareas** | Seguimiento automático de tareas con búsqueda, exportación y estadísticas (habilitado por defecto) |
+| **Tablero de Tareas Compartido** | Coordinación de tareas basada en SQLite con seguimiento de dependencias (`synapse tasks`) |
+| **Puertas de Calidad** | Ganchos configurables (`on_idle`, `on_task_completed`) que controlan las transiciones de estado |
+| **Aprobación de Planes** | Flujo de trabajo en modo plan con `synapse approve/reject` para revisión con intervención humana |
+| **Cierre Ordenado** | `synapse kill` envía una solicitud de cierre antes de SIGTERM (tiempo de espera de 30 segundos) |
+| **Modo Delegado** | `--delegate-mode` convierte a un agente en un coordinador que delega en lugar de editar archivos |
+| **Generación Automática de Paneles** | `synapse team start` — el primer agente toma el control de la terminal actual, los otros en paneles nuevos |
 
 ---
 
@@ -361,6 +367,45 @@ npx skills add s-hiraoku/synapse-a2a
 |-------|-------------|
 | **synapse-a2a** | Guía completa para comunicación entre agentes: `synapse send`, prioridad, protocolo A2A, historial, Seguridad de Archivos, configuración |
 
+### Gestión de Skills
+
+Synapse incluye un administrador de skills integrado con un almacén central (`~/.synapse/skills/`) para organizar y desplegar skills entre agentes.
+
+#### Ámbitos de Skills
+
+| Ámbito | Ubicación | Descripción |
+|-------|----------|-------------|
+| **Synapse** | `~/.synapse/skills/` | Almacén central (desplegar a agentes desde aquí) |
+| **Usuario** | `~/.claude/skills/`, `~/.agents/skills/`, etc. | Skills para todo el usuario |
+| **Proyecto** | `./.claude/skills/`, `./.agents/skills/`, etc. | Skills locales del proyecto |
+| **Plugin** | `./plugins/*/skills/` | Skills de plugins de solo lectura |
+
+#### Comandos
+
+```bash
+# TUI interactivo
+synapse skills
+
+# Listar y explorar
+synapse skills list                          # Todos los ámbitos
+synapse skills list --scope synapse          # Solo almacén central
+synapse skills show <nombre>                 # Detalles del skill
+
+# Administrar
+synapse skills delete <nombre> [--force]
+synapse skills move <nombre> --to <ámbito>
+
+# Operaciones del almacén central
+synapse skills import <nombre>                 # Importar desde directorios de agentes al almacén central
+synapse skills deploy <nombre> --agent claude,codex --scope user
+synapse skills add <repo>                    # Instalar desde repo (envoltura de npx skills)
+synapse skills create                        # Crear nueva plantilla de skill
+
+# Conjuntos de skills (grupos nombrados)
+synapse skills set list
+synapse skills set show <nombre>
+```
+
 ### Estructura de Directorios
 
 ```text
@@ -424,6 +469,8 @@ Cada agente es:
 | TerminalController | `synapse/controller.py` | Gestión de PTY, detección READY/PROCESSING |
 | InputRouter | `synapse/input_router.py` | Detección del patron @Agent |
 | AgentRegistry | `synapse/registry.py` | Registro y búsqueda de agentes |
+| SkillManager | `synapse/skills.py` | Descubrimiento, despliegue e importación de skills, conjuntos de skills |
+| SkillManagerCmd | `synapse/commands/skill_manager.py` | TUI y CLI de administración de skills |
 
 ### Secuencia de Inicio
 
@@ -526,7 +573,8 @@ synapse kill mi-claude
 | `synapse <profile>` | Iniciar en primer plano |
 | `synapse start <profile>` | Iniciar en segundo plano |
 | `synapse stop <profile\|id>` | Detener agente (puede especificar ID) |
-| `synapse kill <destino>` | Matar agente inmediatamente |
+| `synapse kill <destino>` | Cierre ordenado (envía solicitud de cierre, luego SIGTERM tras 30s) |
+| `synapse kill <destino> -f` | Cierre forzado (SIGKILL inmediato) |
 | `synapse jump <destino>` | Saltar a la terminal del agente |
 | `synapse rename <destino>` | Asignar nombre/rol al agente |
 | `synapse --version` | Mostrar version |
@@ -534,6 +582,7 @@ synapse kill mi-claude
 | `synapse logs <profile>` | Mostrar logs |
 | `synapse send <destino> <mensaje>` | Enviar mensaje |
 | `synapse reply <mensaje>` | Responder al último mensaje A2A recibido |
+| `synapse trace <task_id>` | Mostrar historial de tareas + referencia cruzada de seguridad de archivos |
 | `synapse instructions show` | Mostrar contenido de instrucciones |
 | `synapse instructions files` | Listar archivos de instrucciones |
 | `synapse instructions send` | Reenviar instrucciones iniciales |
@@ -552,8 +601,26 @@ synapse kill mi-claude
 | `synapse file-safety record` | Registrar cambio manualmente |
 | `synapse file-safety cleanup` | Eliminar datos antiguos |
 | `synapse file-safety debug` | Mostrar información de depuración |
+| `synapse skills` | Administrador de skills (TUI interactivo) |
+| `synapse skills list` | Listar skills descubiertos |
+| `synapse skills show <nombre>` | Mostrar detalles del skill |
+| `synapse skills delete <nombre>` | Eliminar un skill |
+| `synapse skills move <nombre>` | Mover skill a otro ámbito |
+| `synapse skills deploy <nombre>` | Desplegar skill desde almacén central a directorios de agentes |
+| `synapse skills import <nombre>` | Importar skill al almacén central (~/.synapse/skills/) |
+| `synapse skills add <repo>` | Instalar skill desde repositorio (vía npx skills) |
+| `synapse skills create` | Crear un nuevo skill |
+| `synapse skills set list` | Listar conjuntos de skills |
+| `synapse skills set show <nombre>` | Mostrar detalles del conjunto de skills |
 | `synapse config` | Gestión de configuración (TUI interactivo) |
 | `synapse config show` | Mostrar configuración actual |
+| `synapse tasks list` | Listar tablero de tareas compartido |
+| `synapse tasks create` | Crear una tarea |
+| `synapse tasks assign` | Asignar tarea a un agente |
+| `synapse tasks complete` | Marcar tarea como completada |
+| `synapse approve <task_id>` | Aprobar un plan |
+| `synapse reject <task_id>` | Rechazar un plan con motivo |
+| `synapse team start` | Lanzar agentes (1º=traspaso, resto=nuevos paneles). `--all-new` para todos nuevos |
 
 ### Modo Resume
 
@@ -750,6 +817,13 @@ Cuando hay múltiples agentes del mismo tipo en ejecución, solo el tipo (ej., `
 # Enviar mensaje (instancia unica)
 synapse send claude "Hola" --priority 1 --from synapse-codex-8121
 
+# Soporte para mensajes largos (cambio automático a archivo temporal)
+synapse send claude --message-file /path/to/mensaje.txt --no-response
+echo "contenido muy largo..." | synapse send claude --stdin --no-response
+
+# Archivos adjuntos
+synapse send claude "Revisa esto" --attach src/main.py --no-response
+
 # Enviar a instancia especifica (múltiples del mismo tipo)
 synapse send claude-8100 "Hola" --from synapse-claude-8101
 
@@ -806,12 +880,34 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/{id}/cancel` | POST | Cancelar tarea |
 | `/status` | GET | Estado READY/PROCESSING |
 
+### Equipos de Agentes
+
+| Endpoint | Método | Descripción |
+| -------- | ------ | ----------- |
+| `/tasks/board` | GET | Listar tablero de tareas compartido |
+| `/tasks/board` | POST | Crear tarea en el tablero |
+| `/tasks/board/{id}/claim` | POST | Reclamar tarea atómicamente |
+| `/tasks/board/{id}/complete` | POST | Completar tarea |
+| `/tasks/{id}/approve` | POST | Aprobar un plan |
+| `/tasks/{id}/reject` | POST | Rechazar un plan con motivo |
+| `/team/start` | POST | Iniciar múltiples agentes en paneles de terminal (iniciado por A2A) |
+
 ### Extensiones de Synapse
 
 | Endpoint | Método | Descripción |
 | -------- | ------ | ----------- |
 | `/reply-stack/get` | GET | Obtener info del remitente sin eliminar (para vista previa antes de enviar) |
 | `/reply-stack/pop` | GET | Extraer info del remitente del mapa de respuestas (para `synapse reply`) |
+| `/tasks/{id}/subscribe` | GET | Suscribirse a actualizaciones de tareas vía SSE |
+
+### Webhooks
+
+| Endpoint | Método | Descripción |
+| -------- | ------ | ----------- |
+| `/webhooks` | POST | Registrar un webhook para notificaciones de tareas |
+| `/webhooks` | GET | Listar webhooks registrados |
+| `/webhooks` | DELETE | Eliminar un webhook |
+| `/webhooks/deliveries` | GET | Intentos recientes de entrega de webhooks |
 
 ### Agentes Externos
 
@@ -1264,9 +1360,9 @@ pytest tests/test_sender_identification.py -v
 
 Personaliza variables de entorno e instrucciones iniciales vía `.synapse/settings.json`.
 
-### Alcances
+### Ámbitos
 
-| Alcance | Ruta | Prioridad |
+| Ámbito | Ruta | Prioridad |
 |---------|------|-----------|
 | Usuario | `~/.synapse/settings.json` | Baja |
 | Proyecto | `./.synapse/settings.json` | Media |
@@ -1281,8 +1377,8 @@ Las configuraciones de mayor prioridad sobreescriben las de menor prioridad.
 synapse init
 
 # ? Donde quieres crear .synapse/?
-#   ❯ Alcance de usuario (~/.synapse/)
-#     Alcance de proyecto (./.synapse/)
+#   ❯ Ámbito de usuario (~/.synapse/)
+#     Ámbito de proyecto (./.synapse/)
 #
 # ✔ Creado ~/.synapse
 
@@ -1344,9 +1440,11 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_SECRET` | Secreto de webhook | - |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Timeout de webhook (seg) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Reintentos de webhook | `3` |
+| `SYNAPSE_SKILLS_DIR` | Directorio del almacén central de skills | `~/.synapse/skills` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Umbral de caracteres para almacenamiento en archivo | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL para archivos de mensajes (segundos) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directorio para archivos de mensajes | Temp del sistema |
+| `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Umbral para cambio automático a archivo temporal (bytes) | `102400` |
 
 ### Configuración de Comunicación A2A (a2a)
 
@@ -1399,7 +1497,7 @@ Personaliza las instrucciones enviadas al inicio del agente:
 2. De lo contrario usar `default`
 3. Si ambos estan vacios, no se envian instrucciones iniciales
 
-**Placeholders**:
+**Marcadores de posición**:
 - `{{agent_id}}` - ID del agente (ej., `synapse-claude-8100`)
 - `{{port}}` - Número de puerto (ej., `8100`)
 
@@ -1560,7 +1658,7 @@ Parseo automático de la salida CLI para detección de errores, actualizaciones 
 |---------------|-------------|
 | Detección de Errores | Detecta `command not found`, `permission denied`, etc. |
 | input_required | Detecta prompts de pregunta/confirmación |
-| Parser de Salida | Estructura código/archivos/errores |
+| Parser de Salida | Estructura código/archivos/erreurs |
 
 ### Soporte gRPC
 
