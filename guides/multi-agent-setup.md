@@ -44,6 +44,28 @@ Synapse のエージェント間通信は **Google A2A プロトコル**に準�
 
 ## 2. インストール
 
+### ユーザー向け（推奨）
+
+**macOS:**
+```bash
+brew tap s-hiraoku/synapse-a2a && brew install synapse-a2a
+```
+
+**Linux / WSL2:**
+```bash
+pipx install synapse-a2a
+```
+
+**Windows (Scoop, 実験的):**
+```bash
+scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
+scoop install synapse-a2a
+```
+
+> Windows ネイティブは `pty.spawn()` の制約により動作しません。WSL2 を使用してください。
+
+### 開発者向け（ソースから）
+
 ```bash
 uv sync
 ```
