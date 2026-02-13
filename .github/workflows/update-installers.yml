@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.12'
 
       - name: Extract version from tag
         id: version
@@ -40,10 +40,13 @@ jobs:
           echo "ERROR: synapse-a2a==${VERSION} not found on PyPI after 15 minutes"
           exit 1
 
-      - name: Update Homebrew formula
+      - name: Generate Homebrew formula with poet
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          python scripts/patch_homebrew_formula.py "${VERSION}"
+          python3 -m venv /tmp/poet-env
+          /tmp/poet-env/bin/pip install "setuptools<81" "synapse-a2a==${VERSION}" homebrew-pypi-poet
+          /tmp/poet-env/bin/poet -f synapse-a2a > /tmp/poet-output.rb
+          python scripts/patch_homebrew_formula.py "${VERSION}" /tmp/poet-output.rb
 
       - name: Update Scoop manifest
         run: |
@@ -52,8 +55,8 @@ jobs:
 
       - name: Validate outputs
         run: |
-          echo "--- Homebrew formula ---"
-          cat homebrew/synapse-a2a.rb
+          echo "--- Homebrew formula (first 20 lines) ---"
+          head -20 homebrew/synapse-a2a.rb
           echo ""
           echo "--- Scoop manifest ---"
           python -m json.tool scoop/synapse-a2a.json
@@ -69,7 +72,7 @@ jobs:
             Automated update of installer manifests for v${{ steps.version.outputs.version }}.
 
             ## Changes
-            - Homebrew formula: updated URL and SHA256
+            - Homebrew formula: updated URL, SHA256, and resource stanzas
             - Scoop manifest: updated version, URL, and hash
 
             ## Verification
