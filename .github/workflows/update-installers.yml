@@ -13,6 +13,8 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -62,6 +64,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
+          base: main
           branch: chore/update-installers-v${{ steps.version.outputs.version }}
           commit-message: "chore: update Homebrew formula and Scoop manifest for v${{ steps.version.outputs.version }}"
           title: "chore: update Homebrew formula and Scoop manifest for v${{ steps.version.outputs.version }}"
