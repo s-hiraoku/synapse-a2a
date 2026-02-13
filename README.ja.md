@@ -1486,7 +1486,7 @@ Proceed? [Y/n/s(skip)]:
     "default": "全エージェント共通の指示",
     "claude": "Claude 固有の指示（default より優先）",
     "gemini": "Gemini 固有の指示",
-    "codex": "Codex 固有의指示"
+    "codex": "Codex 固有の指示"
   }
 }
 ```

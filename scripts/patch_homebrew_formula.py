@@ -90,9 +90,15 @@ def patch_formula(version: str, sdist_url: str, sha256: str, stanzas: str) -> No
     # Replace resource stanzas between markers
     start_idx = text.find(STANZA_START)
     end_idx = text.find(STANZA_END)
-    if start_idx != -1 and end_idx != -1:
-        end_idx += len(STANZA_END)
-        text = text[:start_idx] + stanzas + "\n" + text[end_idx:]
+    if start_idx == -1 or end_idx == -1:
+        print(
+            "ERROR: RESOURCE_STANZAS markers not found in formula. "
+            "Cannot patch resource stanzas.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    end_idx += len(STANZA_END)
+    text = text[:start_idx] + stanzas + "\n" + text[end_idx:]
 
     FORMULA_PATH.write_text(text)
     print(f"Patched homebrew/synapse-a2a.rb for v{version}")

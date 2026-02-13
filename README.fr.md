@@ -361,7 +361,7 @@ Avec les skills installés, Claude comprend et exécute automatiquement :
 npx skills add s-hiraoku/synapse-a2a
 ```
 
-### Skills Incluidos
+### Skills Inclus
 
 | Skill | Description |
 |-------|-------------|
@@ -1282,7 +1282,7 @@ L'affichage se met à jour automatiquement lorsque le statut des agents change (
 
 ### Colonnes d'Affichage
 
-| Columna | Description |
+| Colonne | Description |
 |---------|-------------|
 | ID | ID de l'agent (ex. `synapse-claude-8100`) |
 | NAME | Nom personnalisé (s'il est assigné) |
@@ -1672,7 +1672,7 @@ pip install synapse-a2a[grpc]
 # REST : 8100 → gRPC : 8101
 ```
 
-Voir [guides/enterprise.md](guides/enterprise.md) para plus de détails.
+Voir [guides/enterprise.md](guides/enterprise.md) pour plus de détails.
 
 ---
 

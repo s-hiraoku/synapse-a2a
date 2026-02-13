@@ -3,7 +3,7 @@ class SynapseA2a < Formula
 
   desc "Agent-to-Agent communication protocol for CLI agents"
   homepage "https://github.com/s-hiraoku/synapse-a2a"
-  url "https://files.pythonhosted.org/packages/source/s/synapse-a2a/synapse_a2a-0.4.4.tar.gz"
+  url "https://files.pythonhosted.org/packages/source/s/synapse-a2a/synapse_a2a-0.5.0.tar.gz"
   sha256 "PLACEHOLDER_SHA256"
   license "MIT"
 

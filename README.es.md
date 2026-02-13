@@ -1658,7 +1658,7 @@ Parseo automático de la salida CLI para detección de errores, actualizaciones 
 |---------------|-------------|
 | Detección de Errores | Detecta `command not found`, `permission denied`, etc. |
 | input_required | Detecta prompts de pregunta/confirmación |
-| Parser de Salida | Estructura código/archivos/erreurs |
+| Parser de Salida | Estructura código/archivos/errores |
 
 ### Soporte gRPC
 
