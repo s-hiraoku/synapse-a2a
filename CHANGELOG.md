@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-02-14
+
+### Added
+
+- **Vim-style navigation**: `hjkl` key bindings for `synapse list` interactive selection (Enter=jump, K=kill confirmation)
+- **SSL/TLS options**: `--ssl-cert` and `--ssl-key` for `synapse start` command
+- **File safety wait options**: `--wait-interval` for `synapse file-safety lock`
+
+### Changed
+
+- **Installation docs**: Unified macOS/Linux/WSL2 install section across all 6 language READMEs with pipx as recommended method
+- **Homebrew formula**: Added Rust build dependency, `preserve_rpath`, and resource marker insertion
+- **Config TUI**: Added `--no-rich` flag to use legacy questionary-based interface
+- **History cleanup**: Added `--dry-run` and `--no-vacuum` options
+
+### Fixed
+
+- **Homebrew formula**: Switched to pip+venv pattern for reliable installation (#216)
+
+### Documentation
+
+- Synced plugin skill references (commands.md, file-safety.md) across all 3 scopes
+- Updated footer hints in `synapse list` for new key bindings
+
 ## [0.5.0] - 2026-02-13
 
 ### Added
