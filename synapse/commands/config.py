@@ -651,7 +651,8 @@ class RichConfigCommand:
         Returns:
             List of formatted menu items
         """
-        items = [f"[{i + 1}] {label}" for i, label in enumerate(labels)]
+        width = len(str(len(labels)))
+        items = [f"[{i + 1:>{width}}] {label}" for i, label in enumerate(labels)]
         items.append(_MENU_SEPARATOR)
 
         if footer_items:
@@ -681,7 +682,10 @@ class RichConfigCommand:
             return ", ".join(value) if value else "(empty)"
 
         if value:
-            return str(value)
+            text = str(value).replace("\n", " ").strip()
+            if len(text) > 50:
+                return text[:50] + "..."
+            return text
 
         return "(not set)"
 
