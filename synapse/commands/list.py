@@ -503,14 +503,14 @@ class ListCommand:
                                 needs_refresh = True
 
                             # Normal mode - arrow navigation
-                            elif key == "UP" and current_agents:
+                            elif key in ("UP", "k", "h") and current_agents:
                                 if selected_row is None:
                                     selected_row = len(current_agents)
                                 elif selected_row > 1:
                                     selected_row -= 1
                                 needs_refresh = True
 
-                            elif key == "DOWN" and current_agents:
+                            elif key in ("DOWN", "j", "l") and current_agents:
                                 if selected_row is None:
                                     selected_row = 1
                                 elif selected_row < len(current_agents):
@@ -519,7 +519,7 @@ class ListCommand:
 
                             # Normal mode - terminal jump (requires selection)
                             elif (
-                                key in ("\r", "\n", "j", "J")
+                                key in ("\r", "\n")
                                 and jump_available
                                 and selected_row is not None
                                 and 1 <= selected_row <= len(current_agents)
@@ -528,7 +528,7 @@ class ListCommand:
 
                             # Normal mode - kill confirmation (requires selection)
                             elif (
-                                key in ("k", "K")
+                                key == "K"
                                 and selected_row is not None
                                 and 1 <= selected_row <= len(current_agents)
                             ):

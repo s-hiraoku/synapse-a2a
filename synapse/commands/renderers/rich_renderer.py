@@ -309,14 +309,16 @@ class RichRenderer:
             footer.append(f"1-{display_max}", style="bold cyan")
             footer.append("/", style="dim")
             footer.append("↑↓", style="bold cyan")
+            footer.append("/", style="dim")
+            footer.append("hjkl", style="bold cyan")
             footer.append(":select ", style="dim")
 
             # Show action hints when row is selected
             if has_selection:
                 if jump_available:
-                    footer.append("Enter/j", style="bold green")
+                    footer.append("Enter", style="bold green")
                     footer.append(":jump ", style="dim")
-                footer.append("k", style="bold red")
+                footer.append("K", style="bold red")
                 footer.append(":kill ", style="dim")
 
         footer.append("/", style="bold yellow")
