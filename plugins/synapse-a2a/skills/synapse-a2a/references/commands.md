@@ -88,6 +88,9 @@ synapse copilot -- --continue
 # Background mode
 synapse start claude --port 8100
 synapse start claude --port 8100 --foreground  # for debugging
+
+# With SSL/HTTPS
+synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 ```
 
 ### Stop Agents
@@ -419,6 +422,12 @@ synapse history cleanup --days 30
 
 # Keep database under 100MB
 synapse history cleanup --max-size 100
+
+# Preview what would be deleted
+synapse history cleanup --days 30 --dry-run
+
+# Skip VACUUM after deletion (faster)
+synapse history cleanup --days 30 --no-vacuum
 ```
 
 ### Trace Task
@@ -452,6 +461,9 @@ Creates `.synapse/` directory with all template files (settings.json, default.md
 ```bash
 # Interactive TUI for editing settings
 synapse config
+
+# Use legacy questionary-based interface instead of Rich TUI
+synapse config --no-rich
 
 # Edit specific scope directly (skip scope selection prompt)
 synapse config --scope user     # Edit ~/.synapse/settings.json
