@@ -114,7 +114,7 @@ flowchart LR
 ### 1. Synapse A2A 설치
 
 <details>
-<summary><b>macOS / Linux</b></summary>
+<summary><b>macOS / Linux / WSL2 (권장)</b></summary>
 
 ```bash
 # pipx (권장)
