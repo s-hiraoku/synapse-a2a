@@ -213,12 +213,12 @@ class TestListCommandCoverage:
         # 2. 'c' -> Type 'c'
         # 3. Enter -> Apply filter
         # 4. '1' -> Select row 1
-        # 5. 'k' -> Kill confirm
+        # 5. 'K' -> Kill confirm
         # 6. 'n' -> Cancel kill
-        # 7. 'k' -> Kill confirm
+        # 7. 'K' -> Kill confirm
         # 8. 'y' -> Confirm kill
         # 9. 'q' -> Quit
-        keys = ["/", "c", "\r", "1", "k", "n", "k", "y", "q"]
+        keys = ["/", "c", "\r", "1", "K", "n", "K", "y", "q"]
         list_command._read_key_nonblocking = MagicMock(side_effect=keys)
 
         # Mock _kill_agent
@@ -261,26 +261,35 @@ class TestListCommandCoverage:
 
         assert list_command._read_key_nonblocking.call_count == len(keys)
 
-    @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
-    @patch("rich.live.Live")
-    def test_run_rich_tui_navigation(self, mock_live, mock_renderer, list_command):
-        """Test _run_rich_tui navigation (UP/DOWN)."""
+    def _setup_tui_mocks(self, list_command, agents, keys):
+        """Set up common mocks for Rich TUI tests.
+
+        Args:
+            list_command: ListCommand instance to configure.
+            agents: Dict of agent_id -> agent_info for registry.
+            keys: List of key strings to simulate as input.
+
+        Returns:
+            Tuple of (console, registry) mocks.
+        """
         console = MagicMock()
         registry = MagicMock()
-        # 3 agents
-        registry.list_agents.return_value = {
-            "a1": {"pid": 1},
-            "a2": {"pid": 2},
-            "a3": {"pid": 3},
-        }
+        registry.list_agents.return_value = agents
 
         list_command._setup_nonblocking_input = MagicMock(return_value=("settings", 1))
         list_command._restore_terminal = MagicMock()
         list_command._create_file_watcher = MagicMock(return_value=MagicMock())
-
-        # Keys: DOWN, DOWN, UP, q
-        keys = ["DOWN", "DOWN", "UP", "q"]
         list_command._read_key_nonblocking = MagicMock(side_effect=keys)
+
+        return console, registry
+
+    @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
+    @patch("rich.live.Live")
+    def test_run_rich_tui_navigation(self, mock_live, mock_renderer, list_command):
+        """Test _run_rich_tui navigation with arrow keys."""
+        agents = {"a1": {"pid": 1}, "a2": {"pid": 2}, "a3": {"pid": 3}}
+        keys = ["DOWN", "DOWN", "UP", "q"]
+        console, registry = self._setup_tui_mocks(list_command, agents, keys)
 
         with contextlib.suppress(SystemExit):
             list_command._run_rich_tui(registry, console, "1.0.0")
@@ -289,19 +298,49 @@ class TestListCommandCoverage:
 
     @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
     @patch("rich.live.Live")
+    def test_run_rich_tui_navigation_hjkl(self, mock_live, mock_renderer, list_command):
+        """Test _run_rich_tui navigation with vim-style hjkl keys."""
+        agents = {"a1": {"pid": 1}, "a2": {"pid": 2}, "a3": {"pid": 3}}
+        # Start on row 2, then j/l -> down, k/h -> up, then quit.
+        keys = ["2", "j", "l", "k", "h", "q"]
+        console, registry = self._setup_tui_mocks(list_command, agents, keys)
+
+        with contextlib.suppress(SystemExit):
+            list_command._run_rich_tui(registry, console, "1.0.0")
+
+        selected_rows = [
+            kwargs["selected_row"]
+            for _, kwargs in mock_renderer.return_value.render_display.call_args_list
+        ]
+        assert 3 in selected_rows
+        assert 1 in selected_rows
+
+    @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
+    @patch("rich.live.Live")
+    def test_run_rich_tui_kill_uses_uppercase_k(
+        self, mock_live, mock_renderer, list_command
+    ):
+        """Test kill confirmation uses uppercase K so lowercase k can navigate."""
+        agents = {
+            "a1": {"pid": 1, "agent_id": "a1"},
+            "a2": {"pid": 2, "agent_id": "a2"},
+        }
+        keys = ["2", "k", "K", "y", "q"]
+        console, registry = self._setup_tui_mocks(list_command, agents, keys)
+        list_command._kill_agent = MagicMock()
+
+        with contextlib.suppress(SystemExit):
+            list_command._run_rich_tui(registry, console, "1.0.0")
+
+        list_command._kill_agent.assert_called_once()
+
+    @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
+    @patch("rich.live.Live")
     def test_run_rich_tui_jump(self, mock_live, mock_renderer, list_command):
         """Test _run_rich_tui jump functionality."""
-        console = MagicMock()
-        registry = MagicMock()
-        registry.list_agents.return_value = {"a1": {"pid": 1}}
-
-        list_command._setup_nonblocking_input = MagicMock(return_value=("settings", 1))
-        list_command._restore_terminal = MagicMock()
-        list_command._create_file_watcher = MagicMock(return_value=MagicMock())
-
-        # Keys: 1 (select), j (jump), q
-        keys = ["1", "j", "q"]
-        list_command._read_key_nonblocking = MagicMock(side_effect=keys)
+        agents = {"a1": {"pid": 1}}
+        keys = ["1", "\r", "q"]
+        console, registry = self._setup_tui_mocks(list_command, agents, keys)
 
         with (
             patch("synapse.terminal_jump.can_jump", return_value=True),

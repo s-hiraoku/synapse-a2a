@@ -503,37 +503,34 @@ class ListCommand:
                                 needs_refresh = True
 
                             # Normal mode - arrow navigation
-                            elif key == "UP" and current_agents:
+                            elif key in ("UP", "k", "h") and current_agents:
                                 if selected_row is None:
                                     selected_row = len(current_agents)
                                 elif selected_row > 1:
                                     selected_row -= 1
                                 needs_refresh = True
 
-                            elif key == "DOWN" and current_agents:
+                            elif key in ("DOWN", "j", "l") and current_agents:
                                 if selected_row is None:
                                     selected_row = 1
                                 elif selected_row < len(current_agents):
                                     selected_row += 1
                                 needs_refresh = True
 
-                            # Normal mode - terminal jump (requires selection)
-                            elif (
-                                key in ("\r", "\n", "j", "J")
-                                and jump_available
-                                and selected_row is not None
-                                and 1 <= selected_row <= len(current_agents)
+                            # Normal mode - actions requiring valid selection
+                            elif selected_row is not None and 1 <= selected_row <= len(
+                                current_agents
                             ):
-                                jump_to_terminal(current_agents[selected_row - 1])
+                                selected_agent = current_agents[selected_row - 1]
 
-                            # Normal mode - kill confirmation (requires selection)
-                            elif (
-                                key in ("k", "K")
-                                and selected_row is not None
-                                and 1 <= selected_row <= len(current_agents)
-                            ):
-                                kill_confirm_agent = current_agents[selected_row - 1]
-                                needs_refresh = True
+                                # Terminal jump
+                                if key in ("\r", "\n") and jump_available:
+                                    jump_to_terminal(selected_agent)
+
+                                # Kill confirmation
+                                elif key == "K":
+                                    kill_confirm_agent = selected_agent
+                                    needs_refresh = True
 
                     # Fallback polling: trigger update every poll_interval seconds
                     current_time = self._time.time()
