@@ -17,7 +17,7 @@ jobs:
           ref: main
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -62,7 +62,7 @@ jobs:
           python -m json.tool scoop/synapse-a2a.json
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           base: main
           branch: chore/update-installers-v${{ steps.version.outputs.version }}
