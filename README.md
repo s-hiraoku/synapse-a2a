@@ -384,7 +384,7 @@ synapse skills move <name> --to <scope>
 synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user
 synapse skills add <repo>                    # Install from repo (npx skills wrapper)
-synapse skills create                        # Create new skill template
+synapse skills create                        # Show guided skill creation steps
 
 # Skill sets (named groups)
 synapse skills set list
@@ -594,7 +594,7 @@ synapse kill my-claude
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
 | `synapse skills add <repo>` | Install skill from repository (via npx skills) |
-| `synapse skills create` | Create a new skill |
+| `synapse skills create` | Show guided skill creation steps (uses anthropic-skill-creator) |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
 | `synapse config` | Settings management (interactive TUI) |

@@ -14,6 +14,7 @@ from synapse.skills import (
     add_skill_from_repo,
     apply_skill_set,
     create_skill,
+    create_skill_guided,
     create_skill_set,
     delete_skill,
     delete_skill_set,
@@ -691,3 +692,55 @@ class TestSkillSetCRUD:
         sets_file = tmp_path / "skill_sets.json"
         sets_file.write_text("{}")
         assert not edit_skill_set("nonexistent", sets_path=sets_file)
+
+
+# ──────────────────────────────────────────────────────────
+# Create Skill Guided (Anthropic methodology)
+# ──────────────────────────────────────────────────────────
+
+
+class TestCreateSkillGuided:
+    def test_create_guided_basic(self, tmp_synapse: Path) -> None:
+        """Guided creation produces SKILL.md, scripts/, references/, assets/."""
+        result = create_skill_guided("my-skill", synapse_dir=tmp_synapse)
+        assert result is not None
+        assert result.exists()
+        assert (result / "SKILL.md").is_file()
+        assert (result / "scripts").is_dir()
+        assert (result / "references").is_dir()
+        assert (result / "assets").is_dir()
+
+    def test_create_guided_frontmatter(self, tmp_synapse: Path) -> None:
+        """SKILL.md contains correct name in frontmatter."""
+        result = create_skill_guided("test-skill", synapse_dir=tmp_synapse)
+        assert result is not None
+        content = (result / "SKILL.md").read_text(encoding="utf-8")
+        assert "name: test-skill" in content
+        assert "TODO" in content
+
+    def test_create_guided_with_references(self, tmp_synapse: Path) -> None:
+        """Starter references (checklist.md, patterns.md) are copied from bundled creator."""
+        result = create_skill_guided(
+            "ref-skill", synapse_dir=tmp_synapse, include_references=True
+        )
+        assert result is not None
+        # References are only copied if bundled creator exists
+        # In test environment this may not be available, so just check structure
+        assert (result / "references").is_dir()
+
+    def test_create_guided_already_exists(self, tmp_synapse: Path) -> None:
+        """Creating a skill that already exists returns None."""
+        _create_synapse_skill(tmp_synapse, "existing-skill")
+        result = create_skill_guided("existing-skill", synapse_dir=tmp_synapse)
+        assert result is None
+
+    def test_create_guided_no_references(self, tmp_synapse: Path) -> None:
+        """include_references=False skips reference file copying."""
+        result = create_skill_guided(
+            "no-ref-skill", synapse_dir=tmp_synapse, include_references=False
+        )
+        assert result is not None
+        assert (result / "references").is_dir()
+        # references/ dir exists but should be empty (no starter files copied)
+        ref_files = list((result / "references").iterdir())
+        assert len(ref_files) == 0

@@ -661,3 +661,59 @@ class TestRichConfigCommand:
             cmd._edit_value("a2a", "flow")
 
         assert cmd._current_settings["a2a"]["flow"] == "roundtrip"
+
+
+def _make_rich_config_cmd() -> RichConfigCommand:
+    """Create RichConfigCommand for tests."""
+    return RichConfigCommand()
+
+
+def test_list_columns_ctrl_c_cancels_without_crash() -> None:
+    """Ctrl-C during list column editing should cancel without traceback."""
+    cmd = _make_rich_config_cmd()
+    current = ["ID", "NAME", "STATUS"]
+    cmd._current_settings = {"list": {"columns": current[:]}}
+    cmd._modified = False
+
+    with patch("rich.prompt.Prompt.ask", side_effect=KeyboardInterrupt):
+        cmd._edit_list_columns_value(current, category="list", key="columns")
+
+    assert cmd._current_settings["list"]["columns"] == current
+    assert cmd._modified is False
+
+
+def test_list_columns_invalid_input_keeps_current() -> None:
+    """Invalid column input should keep current columns unchanged."""
+    cmd = _make_rich_config_cmd()
+    current = ["ID", "STATUS"]
+    cmd._current_settings = {"list": {"columns": current[:]}}
+    cmd._modified = False
+
+    with patch("rich.prompt.Prompt.ask", return_value="foo,bar"):
+        cmd._edit_list_columns_value(current, category="list", key="columns")
+
+    assert cmd._current_settings["list"]["columns"] == current
+    assert cmd._modified is False
+
+
+def test_list_columns_all_shortcut_selects_all() -> None:
+    """'all' shortcut should select all available columns in defined order."""
+    cmd = _make_rich_config_cmd()
+    cmd._current_settings = {"list": {"columns": ["ID", "STATUS"]}}
+    cmd._modified = False
+
+    with patch("rich.prompt.Prompt.ask", return_value="all"):
+        cmd._edit_list_columns_value(["ID", "STATUS"], category="list", key="columns")
+
+    assert cmd._current_settings["list"]["columns"] == [
+        "ID",
+        "NAME",
+        "TYPE",
+        "ROLE",
+        "STATUS",
+        "CURRENT",
+        "TRANSPORT",
+        "WORKING_DIR",
+        "EDITING_FILE",
+    ]
+    assert cmd._modified is True

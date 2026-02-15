@@ -552,6 +552,86 @@ Provide instructions for the agent.
     (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
 
 
+def _find_bundled_skill_creator() -> Path | None:
+    """Locate the bundled anthropic-skill-creator in plugins/."""
+    base = (
+        Path(__file__).parent.parent
+        / "plugins"
+        / "synapse-a2a"
+        / "skills"
+        / "anthropic-skill-creator"
+    )
+    if base.is_dir() and (base / "SKILL.md").is_file():
+        return base
+    return None
+
+
+def _create_guided_skill_template(name: str, skill_dir: Path) -> None:
+    """Create skill template following Anthropic methodology."""
+    for subdir in ("scripts", "references", "assets"):
+        (skill_dir / subdir).mkdir(exist_ok=True)
+
+    content = f"""---
+name: {name}
+description: "[TODO: What this skill does + When to use it + Key capabilities]"
+---
+
+# {name.replace("-", " ").title()}
+
+## Overview
+
+[TODO: 1-2 sentences explaining what this skill enables]
+
+## Workflow
+
+1. [TODO: Define step]
+2. [TODO: Define step]
+3. [TODO: Define step]
+
+## References
+
+- [TODO: references/file.md]
+"""
+    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
+
+
+def _copy_starter_references(skill_dir: Path) -> list[str]:
+    """Copy starter reference files from bundled anthropic-skill-creator."""
+    creator_dir = _find_bundled_skill_creator()
+    if not creator_dir:
+        return []
+    copied = []
+    for ref_name in ("checklist.md", "patterns.md"):
+        src = creator_dir / "references" / ref_name
+        dst = skill_dir / "references" / ref_name
+        if src.is_file() and not dst.exists():
+            shutil.copy2(src, dst)
+            copied.append(ref_name)
+    return copied
+
+
+def create_skill_guided(
+    name: str,
+    synapse_dir: Path,
+    include_references: bool = True,
+) -> Path | None:
+    """Create a new skill using Anthropic's guided methodology.
+
+    Returns Path to created skill dir, or None if already exists.
+    """
+    skill_dir = synapse_dir / "skills" / name
+    if skill_dir.exists():
+        return None
+
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    _create_guided_skill_template(name, skill_dir)
+
+    if include_references:
+        _copy_starter_references(skill_dir)
+
+    return skill_dir
+
+
 def add_skill_from_repo(
     repo: str,
     synapse_dir: Path,
