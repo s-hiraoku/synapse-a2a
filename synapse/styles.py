@@ -156,6 +156,10 @@ def patch_highlight_token_list() -> Iterator[None]:
                 pointer_end = i
                 break
 
+        # Fallback: pointer on final line with no trailing newline
+        if pointer_start is not None and pointer_end is None:
+            pointer_end = len(tokens)
+
         if pointer_start is None or pointer_end is None:
             return tokens
 

@@ -38,8 +38,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! [[ "$skill_name" =~ ^[a-z0-9-]+$ ]]; then
-  echo "skill-name must be hyphen-case: lowercase letters, digits, hyphens" >&2
+if ! [[ "$skill_name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  echo "skill-name must be kebab-case: e.g. my-new-skill (no leading/trailing/consecutive hyphens)" >&2
   exit 1
 fi
 

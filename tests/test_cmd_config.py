@@ -664,9 +664,8 @@ class TestRichConfigCommand:
 
 
 def _make_rich_config_cmd() -> RichConfigCommand:
-    """Create RichConfigCommand in tests regardless of questionary availability."""
-    with patch("synapse.commands.config.HAS_QUESTIONARY", True):
-        return RichConfigCommand()
+    """Create RichConfigCommand for tests."""
+    return RichConfigCommand()
 
 
 def test_list_columns_ctrl_c_cancels_without_crash() -> None:

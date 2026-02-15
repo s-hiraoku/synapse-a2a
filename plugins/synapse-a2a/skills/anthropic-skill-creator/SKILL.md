@@ -144,9 +144,13 @@ Fix:
 Validate and package before distribution:
 
 ```bash
-python3 .agents/skills/skill-creator/scripts/quick_validate.py <skill-dir>
-python3 .agents/skills/skill-creator/scripts/package_skill.py <skill-dir>
+# Scaffold a new skill directory
+bash scripts/new_skill.sh <skill-name>
 ```
+
+> `quick_validate.py` and `package_skill.py` are not bundled in this skill.
+> Use `synapse skills show <name>` to verify frontmatter, and
+> `synapse skills deploy <name>` to distribute.
 
 ## References
 
