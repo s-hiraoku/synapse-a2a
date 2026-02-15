@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-02-15
+
+### Added
+
+- **anthropic-skill-creator plugin skill**: Bundled Anthropic's skill creation methodology as a plugin skill (`plugins/synapse-a2a/skills/anthropic-skill-creator/`)
+- **Create Skill guided flow**: `synapse skills create` shows step-by-step guidance for creating skills using `/anthropic-skill-creator` inside an agent
+- **Shared TUI helpers**: Extracted `TERM_MENU_STYLES`, `MENU_SEPARATOR`, `build_numbered_items()` to `synapse/styles.py` for consistent menu styling
+
+### Changed
+
+- **Skill Manager TUI**: Added `[N]` keyboard shortcuts to all menus, matching config TUI pattern
+- **Scope display**: Manage Skills now shows descriptive scope headers (e.g., "Synapse — Central Store (~/.synapse/skills/)")
+- **Config TUI**: Unified menu styling with shared helpers from `synapse/styles.py`
+
+### Documentation
+
+- Updated `synapse skills create` description across README, CLAUDE.md, guides, and plugin skills
+- Added `anthropic-skill-creator` to plugin README
+
 ## [0.5.1] - 2026-02-14
 
 ### Added

@@ -48,6 +48,7 @@ def _read_frontmatter(md: str) -> dict[str, str]:
         "react-composition",
         "react-native",
         "web-accessibility",
+        "anthropic-skill-creator",
     ],
 )
 def test_plugin_skill_has_required_frontmatter(skill_name: str) -> None:

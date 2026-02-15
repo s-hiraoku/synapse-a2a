@@ -22,6 +22,15 @@ Comprehensive guidance for inter-agent communication:
 - Settings management (`synapse init`, `settings.json`)
 - Agent monitoring (`synapse list --watch`)
 
+### anthropic-skill-creator
+
+Design, review, and improve skills based on Anthropic's methodology:
+
+- Use-case definition and trigger phrase design
+- SKILL.md frontmatter and workflow authoring
+- Test protocol (triggering, functional, performance)
+- Iteration based on under-trigger/over-trigger signals
+
 ## Usage
 
 Once installed, Claude will automatically use these skills when relevant tasks are detected:

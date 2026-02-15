@@ -823,7 +823,7 @@ synapse skills move <name> --to <scope>
 synapse skills import <name> [--from user|project] # Import to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user  # Deploy from central store
 synapse skills add <repo>                          # Install from repo (npx skills wrapper)
-synapse skills create [--name <name>]              # Create new skill template
+synapse skills create                              # Show guided skill creation steps (uses anthropic-skill-creator)
 
 # Skill sets (named groups)
 synapse skills set list

@@ -652,7 +652,7 @@ synapse skills move <name> --to <scope>           # スコープ間移動
 synapse skills import <name> [--from user|project]  # エージェントdirから中央ストアへコピー
 synapse skills deploy <name> --agent claude,codex --scope user  # 中央ストアからデプロイ
 synapse skills add <repo>                         # リポジトリからインストール（npx skills ラッパー）
-synapse skills create                             # 新規スキルテンプレート作成
+synapse skills create                             # スキル作成ガイド表示（anthropic-skill-creator使用）
 
 # スキルセット（名前付きグループ）
 synapse skills set list                           # スキルセット一覧

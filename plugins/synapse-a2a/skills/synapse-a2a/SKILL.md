@@ -44,7 +44,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Deploy skill | `synapse skills deploy <name> --agent claude,codex --scope user` |
 | Import skill | `synapse skills import <name>` |
 | Install from repo | `synapse skills add <repo>` |
-| Create skill | `synapse skills create` |
+| Create skill (guide) | `synapse skills create` |
 | Delete skill | `synapse skills delete <name> [--force]` |
 | Move skill | `synapse skills move <name> --to <scope>` |
 | List skill sets | `synapse skills set list` |

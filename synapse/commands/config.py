@@ -555,8 +555,7 @@ class ConfigCommand:
                 self._print(f"No settings file found at {path}")
 
 
-# Separator constant for menu items
-_MENU_SEPARATOR = "───────────────────────────────"
+from synapse.styles import TERM_MENU_STYLES, build_numbered_items  # noqa: E402
 
 
 class RichConfigCommand:
@@ -651,15 +650,7 @@ class RichConfigCommand:
         Returns:
             List of formatted menu items
         """
-        width = len(str(len(labels)))
-        items = [f"[{i + 1:>{width}}] {label}" for i, label in enumerate(labels)]
-        items.append(_MENU_SEPARATOR)
-
-        if footer_items:
-            for shortcut, label in footer_items:
-                items.append(f"[{shortcut}] {label}")
-
-        return items
+        return build_numbered_items(labels, footer_items, separator=True)
 
     def _format_display_value(self, key: str, value: Any) -> str:
         """Format a setting value for display.
@@ -712,14 +703,9 @@ class RichConfigCommand:
             items,
             title=title,
             cursor_index=cursor_index,
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            shortcut_key_highlight_style=("fg_cyan",),
             status_bar=status_bar,
             status_bar_style=("fg_cyan",),
-            cycle_cursor=True,
-            clear_screen=True,
+            **TERM_MENU_STYLES,
         )
         result = menu.show()
         return int(result) if result is not None else None
@@ -940,23 +926,40 @@ class RichConfigCommand:
             )
         )
         console.print()
-        console.print("[dim]Enter columns (comma-separated), or 'c' to cancel[/dim]")
+        console.print(
+            "[dim]Enter columns (comma-separated), 'all' for all columns, "
+            "'default' for defaults, or 'c' to cancel[/dim]"
+        )
         console.print()
-        new_value_str = Prompt.ask("Columns", default=current_str)
-
-        if new_value_str.lower() == "c":
+        try:
+            new_value_str = Prompt.ask("Columns", default=current_str)
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[yellow]Cancelled.[/yellow]")
             return
 
-        # Parse and validate columns
-        new_columns = []
-        for col in new_value_str.split(","):
-            col = col.strip().upper()
-            if col in available_columns:
-                new_columns.append(col)
+        lowered = new_value_str.strip().lower()
+        if lowered in {"c", "cancel"}:
+            return
+        if lowered in {"all", "*"}:
+            self._update_setting(category, key, available_columns[:])
+            return
+        if lowered in {"default", "defaults", "d"}:
+            defaults = DEFAULT_SETTINGS.get("list", {}).get("columns", [])
+            self._update_setting(category, key, defaults)
+            return
 
-        # Use defaults if no valid columns specified
+        # Parse and validate columns while preserving order and removing duplicates.
+        new_columns: list[str] = []
+        for col in new_value_str.split(","):
+            normalized = col.strip().upper()
+            if normalized in available_columns and normalized not in new_columns:
+                new_columns.append(normalized)
+
+        # Keep current selection when input has no valid columns.
         if not new_columns:
-            new_columns = DEFAULT_SETTINGS.get("list", {}).get("columns", [])
-            console.print("[yellow]No valid columns. Using defaults.[/yellow]")
+            console.print(
+                "[yellow]No valid columns entered. Keeping current value.[/yellow]"
+            )
+            return
 
         self._update_setting(category, key, new_columns)

@@ -118,7 +118,7 @@ synapse skills move <name> --to <scope>   # Move skill between scopes
 synapse skills deploy <name> --agent claude,codex --scope user  # Deploy from central store
 synapse skills import <name>              # Import to central store (~/.synapse/skills/)
 synapse skills add <repo>                 # Install from repo (npx skills wrapper)
-synapse skills create                     # Create new skill template
+synapse skills create                     # Show guided skill creation steps
 synapse skills set list                   # List skill sets
 synapse skills set show <name>            # Show skill set details
 

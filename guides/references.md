@@ -695,15 +695,13 @@ synapse skills add <repo>
 
 #### 1.11.8 synapse skills create
 
-新規スキルテンプレートを中央ストアに作成します。
+`anthropic-skill-creator` スキルを使ったスキル作成手順を表示します。
 
 ```bash
-synapse skills create [--name NAME]
+synapse skills create
 ```
 
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `--name` | No | スキル名（省略時は対話形式） |
+エージェント内で `/anthropic-skill-creator` を呼び出して対話的にスキルを作成するためのガイダンス（デプロイ → エージェント起動 → スキル呼び出し → 完成後のデプロイ）を表示します。
 
 #### 1.11.9 synapse skills set list
 

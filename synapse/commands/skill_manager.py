@@ -44,6 +44,14 @@ _SCOPE_LABELS = {
     SkillScope.PLUGIN: "Plugin",
 }
 
+# Manage Skills list uses descriptive scope headers
+_SCOPE_HEADERS = {
+    SkillScope.SYNAPSE: "Synapse — Central Store (~/.synapse/skills/)",
+    SkillScope.USER: "User — Agent directories in home (~/.claude/skills/ etc.)",
+    SkillScope.PROJECT: "Project — Agent directories in project (.claude/skills/ etc.)",
+    SkillScope.PLUGIN: "Plugin — Bundled read-only (plugins/synapse-a2a/skills/)",
+}
+
 
 # ──────────────────────────────────────────────────────────
 # Non-interactive subcommands
@@ -344,6 +352,77 @@ def cmd_skills_create(
     return True
 
 
+def cmd_skills_create_guided() -> None:
+    """Show guidance for creating a skill with anthropic-skill-creator."""
+    _print_create_guidance()
+
+
+def _print_create_guidance(indent: str = "") -> None:
+    """Print guidance for creating a skill with anthropic-skill-creator."""
+    from rich.console import Console
+    from rich.text import Text
+
+    console = Console()
+    i = indent
+
+    console.print()
+
+    desc = Text(f"{i}Create a new skill using the ")
+    desc.append("/anthropic-skill-creator", style="bold cyan")
+    desc.append(" skill.\n")
+    desc.append(
+        f"{i}The skill guides: use-case definition → trigger design → workflow authoring."
+    )
+    console.print(desc)
+
+    console.print()
+
+    # Step 1
+    s1 = Text(f"{i}  ")
+    s1.append("Step 1:", style="bold green")
+    s1.append(" Deploy anthropic-skill-creator to the agent")
+    console.print(s1)
+    cmd1 = Text(f"{i}  ")
+    cmd1.append(
+        "$ synapse skills deploy anthropic-skill-creator --agent claude --scope user",
+        style="bold yellow",
+    )
+    console.print(cmd1)
+
+    console.print()
+
+    # Step 2
+    s2 = Text(f"{i}  ")
+    s2.append("Step 2:", style="bold green")
+    s2.append(" Start the agent and invoke the skill")
+    console.print(s2)
+    cmd2 = Text(f"{i}  ")
+    cmd2.append("$ synapse claude", style="bold yellow")
+    console.print(cmd2)
+    cmd2b = Text(f"{i}  ")
+    cmd2b.append(
+        "> /anthropic-skill-creator Create a new skill in ~/.synapse/skills/",
+        style="bold cyan",
+    )
+    console.print(cmd2b)
+
+    console.print()
+
+    # Step 3
+    s3 = Text(f"{i}  ")
+    s3.append("Step 3:", style="bold green")
+    s3.append(" Deploy the finished skill to agent directories")
+    console.print(s3)
+    cmd3 = Text(f"{i}  ")
+    cmd3.append(
+        "$ synapse skills deploy <skill-name> --agent claude --scope user",
+        style="bold yellow",
+    )
+    console.print(cmd3)
+
+    console.print()
+
+
 def cmd_skills_set_list(sets_path: Path | None = None) -> None:
     """List all defined skill sets."""
     sets = load_skill_sets(sets_path)
@@ -395,6 +474,23 @@ class SkillManagerCommand:
         self._project_dir = project_dir or Path.cwd()
         self._synapse_dir = synapse_dir or (Path.home() / ".synapse")
 
+    # ── Shared menu helper ───────────────────────────────────
+
+    def _show_menu(self, items: list[str], title: str) -> int | None:
+        """Display a *simple_term_menu* menu with unified Synapse styles.
+
+        Returns the selected index, or ``None`` on ESC / Ctrl-C.
+        """
+        from simple_term_menu import TerminalMenu
+
+        from synapse.styles import TERM_MENU_STYLES
+
+        menu = TerminalMenu(items, title=title, **TERM_MENU_STYLES)
+        result = menu.show()
+        return int(result) if result is not None else None
+
+    # ── Run loop ─────────────────────────────────────────────
+
     def run(self) -> None:
         """Run the interactive skill manager."""
         try:
@@ -416,10 +512,12 @@ class SkillManagerCommand:
                 self._install_menu()
             elif choice == "deploy":
                 self._deploy_flow()
+            elif choice == "create":
+                self._create_guided_flow()
 
     def _top_menu(self) -> str | None:
         """Show top-level menu."""
-        from simple_term_menu import TerminalMenu
+        from synapse.styles import build_numbered_items
 
         skills = discover_skills(
             project_dir=self._project_dir,
@@ -428,30 +526,29 @@ class SkillManagerCommand:
         )
 
         header = (
-            f"\n  SYNAPSE SKILL MANAGER\n  Found {len(skills)} skills across scopes\n"
+            f"\n  SYNAPSE SKILL MANAGER\n"
+            f"  Found {len(skills)} skills  |  Central store: ~/.synapse/skills/\n"
         )
 
-        items = [
-            "Manage Skills        Browse, delete, move, deploy",
-            "Skill Sets           Create and manage named groups",
-            "Install Skill        Import or create in ~/.synapse/skills",
-            "Deploy Skills        Push from ~/.synapse/skills to agents",
-            "Exit",
-        ]
-
-        menu = TerminalMenu(
-            items,
-            title=header,
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            cycle_cursor=True,
-            clear_screen=True,
+        items = build_numbered_items(
+            [
+                "Manage Skills        Browse, delete, move, deploy",
+                "Skill Sets           Create and manage named groups",
+                "Install Skill        Import or create in ~/.synapse/skills",
+                "Deploy Skills        Push from ~/.synapse/skills to agents",
+                "Create Skill         Scaffold with Anthropic methodology",
+            ],
+            [("q", "Exit")],
         )
-        choice = menu.show()
+
+        choice = self._show_menu(items, header)
         if choice is None:
             return None
-        return ["manage", "sets", "install", "deploy", "exit"][int(choice)]
+        mapping = ["manage", "sets", "install", "deploy", "create"]
+        if choice < len(mapping):
+            return mapping[choice]
+        # separator or [q] Exit
+        return "exit"
 
     def _manage_skills(self) -> None:
         """Browse and manage skills (existing behavior + synapse scope)."""
@@ -474,41 +571,48 @@ class SkillManagerCommand:
                 self._skill_detail(skills[choice])
 
     def _skills_menu(self, skills: list[SkillInfo]) -> int | str | None:
-        """Show skills list menu."""
-        from simple_term_menu import TerminalMenu
+        """Show skills list menu with scope headers and numbered items."""
+        from synapse.styles import MENU_SEPARATOR
 
-        header = f"\n  SYNAPSE SKILL MANAGER\n  Found {len(skills)} skills\n"
+        header = (
+            f"\n  SYNAPSE SKILL MANAGER\n"
+            f"  Found {len(skills)} skills  |  Central store: ~/.synapse/skills/\n"
+        )
 
-        items: list[str] = []
-        current_scope: SkillScope | None = None
+        # Build skill labels grouped by scope
+        labels: list[str] = []
         skill_indices: list[int] = []
+        current_scope: SkillScope | None = None
 
         for i, skill in enumerate(skills):
             if skill.scope != current_scope:
                 current_scope = skill.scope
-                # Add scope separator (non-selectable via preview)
-                items.append(f"--- {_SCOPE_LABELS[current_scope]} ---")
+                # Scope header line (non-selectable)
+                labels.append(f"--- {_SCOPE_HEADERS[current_scope]} ---")
                 skill_indices.append(-1)
 
             desc = skill.description[:50] if skill.description else ""
-            items.append(f"  {skill.name:<25} {desc}")
+            labels.append(f"  {skill.name:<25} {desc}")
             skill_indices.append(i)
 
-        items.append("─────────────────")
+        # Number only selectable skill rows
+        numbered: list[str] = []
+        num = 1
+        for label, idx in zip(labels, skill_indices, strict=True):
+            if idx == -1:
+                # Scope header — pass through unnumbered
+                numbered.append(label)
+            else:
+                width = len(str(len(skills)))
+                numbered.append(f"[{num:>{width}}] {label.strip()}")
+                num += 1
+
+        numbered.append(MENU_SEPARATOR)
         skill_indices.append(-1)
-        items.append("[q] Quit")
+        numbered.append("[q] Quit")
         skill_indices.append(-2)
 
-        menu = TerminalMenu(
-            items,
-            title=header,
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            cycle_cursor=True,
-            clear_screen=True,
-        )
-        choice = menu.show()
+        choice = self._show_menu(numbered, header)
         if choice is None:
             return None
 
@@ -521,7 +625,7 @@ class SkillManagerCommand:
 
     def _skill_detail(self, skill: SkillInfo) -> None:
         """Show skill detail view with actions."""
-        from simple_term_menu import TerminalMenu
+        from synapse.styles import build_numbered_items
 
         scope_label = _SCOPE_LABELS[skill.scope]
         header = (
@@ -532,43 +636,45 @@ class SkillManagerCommand:
             f"  Description: {skill.description}\n"
         )
 
-        items = []
-        if skill.scope != SkillScope.PLUGIN:
-            items.append("[d] Delete skill")
-            if skill.scope == SkillScope.USER:
-                items.append("[m] Move to Project scope")
-            elif skill.scope == SkillScope.PROJECT:
-                items.append("[m] Move to User scope")
-        if skill.scope != SkillScope.SYNAPSE:
-            items.append("[i] Import to ~/.synapse/skills")
-        if skill.scope == SkillScope.SYNAPSE:
-            items.append("[p] Deploy to agent directories")
-        items.append("[0] Back")
+        # Build action labels (variable depending on scope)
+        action_labels: list[str] = []
+        action_keys: list[str] = []  # action identifier per label
 
-        menu = TerminalMenu(
-            items,
-            title=header,
-            menu_cursor="> ",
-            cycle_cursor=True,
-            clear_screen=True,
-        )
-        result = menu.show()
-        if result is None:
+        if skill.scope != SkillScope.PLUGIN:
+            action_labels.append("Delete skill")
+            action_keys.append("delete")
+            if skill.scope == SkillScope.USER:
+                action_labels.append("Move to Project scope")
+                action_keys.append("move")
+            elif skill.scope == SkillScope.PROJECT:
+                action_labels.append("Move to User scope")
+                action_keys.append("move")
+        if skill.scope != SkillScope.SYNAPSE:
+            action_labels.append("Import to ~/.synapse/skills")
+            action_keys.append("import")
+        if skill.scope == SkillScope.SYNAPSE:
+            action_labels.append("Deploy to agent directories")
+            action_keys.append("deploy")
+
+        items = build_numbered_items(action_labels, [("0", "Back")])
+
+        result = self._show_menu(items, header)
+        if result is None or result >= len(action_labels):
             return
 
-        selected = items[result]
-        if selected.startswith("[d]"):
+        action = action_keys[result]
+        if action == "delete":
             self._confirm_delete(skill)
-        elif selected.startswith("[m]"):
+        elif action == "move":
             target = (
                 SkillScope.PROJECT
                 if skill.scope == SkillScope.USER
                 else SkillScope.USER
             )
             self._confirm_move(skill, target)
-        elif selected.startswith("[i]"):
+        elif action == "import":
             self._do_import(skill)
-        elif selected.startswith("[p]"):
+        elif action == "deploy":
             self._do_deploy(skill)
 
     def _confirm_delete(self, skill: SkillInfo) -> None:
@@ -649,22 +755,18 @@ class SkillManagerCommand:
 
     def _install_menu(self) -> None:
         """Install skill submenu."""
-        from simple_term_menu import TerminalMenu
+        from synapse.styles import build_numbered_items
 
-        items = [
-            "Import from agent directories",
-            "Create new skill",
-            "Back",
-        ]
-        menu = TerminalMenu(
-            items,
-            title="\n  Install Skill\n",
-            menu_cursor="> ",
-            cycle_cursor=True,
-            clear_screen=True,
+        items = build_numbered_items(
+            [
+                "Import from agent directories",
+                "Create new skill",
+            ],
+            [("0", "Back")],
         )
-        result = menu.show()
-        if result is None or result == 2:
+
+        result = self._show_menu(items, "\n  Install Skill\n")
+        if result is None or result >= 2:
             return
         if result == 0:
             self._import_flow()
@@ -673,6 +775,8 @@ class SkillManagerCommand:
 
     def _import_flow(self) -> None:
         """Interactive import flow."""
+        from synapse.styles import build_numbered_items
+
         skills = discover_skills(
             project_dir=self._project_dir,
             user_dir=self._user_dir,
@@ -685,18 +789,10 @@ class SkillManagerCommand:
             input("  Press Enter to continue...")
             return
 
-        from simple_term_menu import TerminalMenu
+        labels = [f"{s.name} ({_SCOPE_LABELS[s.scope]})" for s in importable]
+        items = build_numbered_items(labels, [("0", "Cancel")])
 
-        items = [f"{s.name} ({_SCOPE_LABELS[s.scope]})" for s in importable]
-        items.append("Cancel")
-        menu = TerminalMenu(
-            items,
-            title="\n  Select skill to import:\n",
-            menu_cursor="> ",
-            cycle_cursor=True,
-            clear_screen=True,
-        )
-        idx = menu.show()
+        idx = self._show_menu(items, "\n  Select skill to import:\n")
         if idx is None or idx >= len(importable):
             return
 
@@ -720,8 +816,15 @@ class SkillManagerCommand:
             print("\n  Cancelled.")
         input("  Press Enter to continue...")
 
+    def _create_guided_flow(self) -> None:
+        """Show guidance for creating a skill with anthropic-skill-creator."""
+        _print_create_guidance(indent="  ")
+        input("  Press Enter to continue...")
+
     def _deploy_flow(self) -> None:
         """Interactive deploy flow."""
+        from synapse.styles import build_numbered_items
+
         synapse_skills = discover_skills(synapse_dir=self._synapse_dir)
         synapse_only = [s for s in synapse_skills if s.scope == SkillScope.SYNAPSE]
         if not synapse_only:
@@ -729,18 +832,10 @@ class SkillManagerCommand:
             input("  Press Enter to continue...")
             return
 
-        from simple_term_menu import TerminalMenu
+        labels = [f"{s.name} - {s.description[:40]}" for s in synapse_only]
+        items = build_numbered_items(labels, [("0", "Cancel")])
 
-        items = [f"{s.name} - {s.description[:40]}" for s in synapse_only]
-        items.append("Cancel")
-        menu = TerminalMenu(
-            items,
-            title="\n  Select skill to deploy:\n",
-            menu_cursor="> ",
-            cycle_cursor=True,
-            clear_screen=True,
-        )
-        idx = menu.show()
+        idx = self._show_menu(items, "\n  Select skill to deploy:\n")
         if idx is None or idx >= len(synapse_only):
             return
 
@@ -769,31 +864,30 @@ class SkillManagerCommand:
     def _skill_set_main_menu(self) -> str | None:
         """Show skill set main menu."""
         try:
-            from simple_term_menu import TerminalMenu
+            from simple_term_menu import TerminalMenu  # noqa: F401
         except ImportError:
             print("Error: simple_term_menu is required for interactive mode.")
             return None
 
-        items = [
-            "List skill sets",
-            "Create new skill set",
-            "Edit skill set",
-            "Delete skill set",
-            "Exit",
-        ]
-        menu = TerminalMenu(
-            items,
-            title="\n  SYNAPSE SKILL SETS\n",
-            menu_cursor="> ",
-            menu_cursor_style=("fg_yellow", "bold"),
-            menu_highlight_style=("fg_yellow", "bold"),
-            cycle_cursor=True,
-            clear_screen=True,
+        from synapse.styles import build_numbered_items
+
+        items = build_numbered_items(
+            [
+                "List skill sets",
+                "Create new skill set",
+                "Edit skill set",
+                "Delete skill set",
+            ],
+            [("q", "Exit")],
         )
-        choice = menu.show()
+
+        choice = self._show_menu(items, "\n  SYNAPSE SKILL SETS\n")
         if choice is None:
             return None
-        return ["list", "create", "edit", "delete", "exit"][int(choice)]
+        mapping = ["list", "create", "edit", "delete"]
+        if choice < len(mapping):
+            return mapping[choice]
+        return "exit"
 
     def _interactive_create_set(self) -> None:
         """Interactive skill set creation flow."""
@@ -845,6 +939,8 @@ class SkillManagerCommand:
 
     def _select_skill_set(self, action: str) -> str | None:
         """Show set selection menu. Returns set name or None."""
+        from synapse.styles import build_numbered_items
+
         sets = load_skill_sets()
         if not sets:
             print(f"\n  No skill sets to {action}.")
@@ -852,23 +948,17 @@ class SkillManagerCommand:
             return None
 
         try:
-            from simple_term_menu import TerminalMenu
+            from simple_term_menu import TerminalMenu  # noqa: F401
         except ImportError:
             return None
 
-        items = [f"{name} - {ssd.description}" for name, ssd in sorted(sets.items())]
-        items.append("Cancel")
-        menu = TerminalMenu(
-            items,
-            title=f"\n  Select skill set to {action}:\n",
-            menu_cursor="> ",
-            cycle_cursor=True,
-            clear_screen=True,
-        )
-        choice = menu.show()
-        if choice is None or int(choice) >= len(sets):
+        labels = [f"{name} - {ssd.description}" for name, ssd in sorted(sets.items())]
+        items = build_numbered_items(labels, [("0", "Cancel")])
+
+        choice = self._show_menu(items, f"\n  Select skill set to {action}:\n")
+        if choice is None or choice >= len(sets):
             return None
-        return sorted(sets.keys())[int(choice)]
+        return sorted(sets.keys())[choice]
 
     def _interactive_edit_set(self) -> None:
         """Interactive edit flow."""

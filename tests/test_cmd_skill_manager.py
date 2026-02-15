@@ -194,6 +194,21 @@ class TestSkillManagerCreate:
         assert (synapse / "skills" / "new-skill" / "SKILL.md").exists()
 
 
+class TestSkillManagerCreateGuided:
+    def test_cmd_skills_create_guided_shows_guidance(self, setup_env, capsys) -> None:
+        """cmd_skills_create_guided prints anthropic-skill-creator guidance."""
+        from synapse.commands.skill_manager import cmd_skills_create_guided
+
+        cmd_skills_create_guided()
+        captured = capsys.readouterr()
+        # Should mention the skill to invoke
+        assert "anthropic-skill-creator" in captured.out
+        # Should show deploy command
+        assert "synapse skills deploy" in captured.out
+        # Should show agent start command
+        assert "synapse claude" in captured.out
+
+
 class TestSkillManagerSetCommands:
     def test_cmd_skills_set_list(self, setup_env, capsys) -> None:
         """List skill sets."""
