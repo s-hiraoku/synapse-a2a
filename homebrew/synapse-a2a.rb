@@ -3,8 +3,8 @@ class SynapseA2a < Formula
 
   desc "Agent-to-Agent communication protocol for CLI agents"
   homepage "https://github.com/s-hiraoku/synapse-a2a"
-  url "https://files.pythonhosted.org/packages/33/32/f41ef8c2ee56e9731308fc76b81e18555ed00be77a3a7f521021e4c4bc3f/synapse_a2a-0.5.1.tar.gz"
-  sha256 "cf1c088e4b2dd64325939861347d4301da5f1fe4d50eac1da1f6f3c72d4e5cbf"
+  url "https://files.pythonhosted.org/packages/0c/93/cfc398e1ab0d2ec8a465f2770896b93c76941584ba039a9065e2eadce4c8/synapse_a2a-0.5.2.tar.gz"
+  sha256 "373b038b6f5d7a08e0ce735c8888b09f92b7923c3cf31b985514d767af98eb82"
   license "MIT"
 
   depends_on "rust" => :build
