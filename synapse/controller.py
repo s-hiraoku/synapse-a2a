@@ -402,6 +402,14 @@ class TerminalController:
                     target=self._send_identity_instruction, daemon=True
                 ).start()
 
+    def _log_inject(self, category: str, msg: str) -> None:
+        """Emit a structured injection observability log line.
+
+        All injection logs use a consistent ``[agent_id] INJECT/<category>:``
+        prefix so they can be filtered with ``grep INJECT``.
+        """
+        logger.info(f"[{self.agent_id}] INJECT/{category}: {msg}")
+
     def _send_identity_instruction(self) -> None:
         """
         Send full initial instructions to the agent on first IDLE.
@@ -419,13 +427,14 @@ class TerminalController:
 
         # Skip if in resume mode (e.g., --continue, --resume flags)
         if self._skip_initial_instructions:
-            logger.info(
-                f"[{self.agent_id}] Skipping initial instructions (resume mode)"
+            self._log_inject("DECISION", "action=skip_resume")
+            self._log_inject(
+                "SUMMARY", "initial_instructions=skipped reason=resume_mode"
             )
             self._identity_sent = True
             return
 
-        logging.debug(
+        logger.debug(
             f"[{self.agent_id}] Waiting for master_fd "
             f"(timeout={IDENTITY_WAIT_TIMEOUT}s, interactive={self.interactive})"
         )
@@ -437,7 +446,7 @@ class TerminalController:
             waited += 0.1
 
         if self.master_fd is None:
-            logging.error(
+            logger.error(
                 f"[{self.agent_id}] master_fd timeout after {IDENTITY_WAIT_TIMEOUT}s. "
                 f"Agent may not have produced output yet."
             )
@@ -446,10 +455,15 @@ class TerminalController:
                 f" {IDENTITY_WAIT_TIMEOUT}s"
             )
             print(f"\x1b[31m{msg}\x1b[0m")
+            self._log_inject("DECISION", "action=abort_master_fd_timeout")
+            self._log_inject(
+                "SUMMARY",
+                "initial_instructions=failed reason=master_fd_timeout",
+            )
             self._identity_sending = False
             return
 
-        logging.info(
+        logger.info(
             f"[{self.agent_id}] Sending initial instructions "
             f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
         )
@@ -460,14 +474,25 @@ class TerminalController:
         agent_type = self.agent_type or "unknown"
         instruction_file_paths = settings.get_instruction_file_paths(agent_type)
 
+        # --- INJECT/RESOLVE: report which files were found and fallback status ---
+        has_agent_specific = bool(settings.instructions.get(agent_type))
+        fallback = "none" if has_agent_specific else "default"
+        self._log_inject(
+            "RESOLVE",
+            f"agent_type={agent_type} cwd={os.getcwd()} "
+            f"files={instruction_file_paths} fallback={fallback}",
+        )
+
         # Skip if no instruction files configured
         if not instruction_file_paths:
-            logging.info(
-                f"[{self.agent_id}] No initial instructions configured, skipping."
-            )
+            self._log_inject("DECISION", "action=skip_no_files")
+            self._log_inject("SUMMARY", "initial_instructions=skipped reason=no_files")
             self._identity_sent = True
             self._identity_sending = False
             return
+
+        # --- INJECT/DECISION: proceeding to send ---
+        self._log_inject("DECISION", "action=send")
 
         # Build a short message pointing to the instruction files
         # This avoids PTY paste buffer issues with large inputs
@@ -514,12 +539,14 @@ class TerminalController:
         )
         prefixed = format_a2a_message(short_message)
 
-        logging.info(
-            f"[{self.agent_id}] Sending file reference instruction: {instruction_file_paths}"
+        logger.info(
+            f"[{self.agent_id}] Sending file reference instruction: "
+            f"{instruction_file_paths}"
         )
 
         # Wait for agent to be fully ready
         # For TUI apps, we need to wait until the input prompt appears
+        input_ready_desc = "none"
         if self._input_ready_pattern:
             # Pattern-based detection: wait for specific prompt character
             input_ready_timeout = 10.0  # Max wait time for input area
@@ -527,9 +554,9 @@ class TerminalController:
             input_ready_interval = 0.5
 
             pattern_bytes = self._input_ready_pattern.encode()
-            logging.info(
-                f"[{self.agent_id}] Waiting for input pattern: {self._input_ready_pattern!r} "
-                f"(bytes: {pattern_bytes!r})"
+            logger.info(
+                f"[{self.agent_id}] Waiting for input pattern: "
+                f"{self._input_ready_pattern!r} (bytes: {pattern_bytes!r})"
             )
 
             while input_ready_wait < input_ready_timeout:
@@ -542,20 +569,24 @@ class TerminalController:
 
                 # Check for the configured pattern
                 if pattern_bytes in recent_output:
-                    logging.info(
-                        f"[{self.agent_id}] Input prompt '{self._input_ready_pattern}' "
+                    input_ready_desc = f"pattern_found({input_ready_wait:.1f}s)"
+                    logger.info(
+                        f"[{self.agent_id}] Input prompt "
+                        f"'{self._input_ready_pattern}' "
                         f"detected after {input_ready_wait:.1f}s"
                     )
                     break
             else:
-                logging.warning(
-                    f"[{self.agent_id}] Input prompt '{self._input_ready_pattern}' "
+                input_ready_desc = f"timeout({input_ready_timeout:.1f}s)"
+                logger.warning(
+                    f"[{self.agent_id}] Input prompt "
+                    f"'{self._input_ready_pattern}' "
                     f"not detected after {input_ready_timeout}s, proceeding anyway"
                 )
         else:
             # No pattern configured: use timeout-based detection (e.g., OpenCode)
             # The IDLE detection already waited, just add a small stabilization delay
-            logging.info(
+            logger.info(
                 f"[{self.agent_id}] No input_ready_pattern configured, "
                 "using timeout-based detection"
             )
@@ -565,10 +596,24 @@ class TerminalController:
 
         try:
             result = self.write(prefixed, self._submit_seq)
-            logging.info(f"[{self.agent_id}] Write result: {result}")
+            self._log_inject(
+                "DELIVER",
+                f"input_ready={input_ready_desc} write_size={len(prefixed)} result=ok",
+            )
+            logger.info(f"[{self.agent_id}] Write result: {result}")
             self._identity_sent = True
+            self._log_inject("SUMMARY", "initial_instructions=sent")
         except Exception as e:
-            logging.error(f"Failed to send initial instructions: {e}")
+            self._log_inject(
+                "DELIVER",
+                f"input_ready={input_ready_desc} "
+                f"write_size={len(prefixed)} result=error",
+            )
+            logger.error(f"Failed to send initial instructions: {e}")
+            self._log_inject(
+                "SUMMARY",
+                "initial_instructions=failed reason=write_exception",
+            )
         finally:
             self._identity_sending = False
 

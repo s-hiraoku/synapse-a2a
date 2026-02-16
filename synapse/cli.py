@@ -2254,6 +2254,27 @@ def cmd_tasks_complete(args: argparse.Namespace) -> None:
 # ============================================================
 
 
+def _extract_tool_args(items: list[str]) -> tuple[list[str], list[str]]:
+    """Split a list at the first ``--`` separator.
+
+    Used to extract tool_args from positional argument lists where
+    ``argparse.REMAINDER`` can't reliably separate them (e.g., when
+    ``nargs="+"`` consumes the ``--`` token).
+
+    Args:
+        items: List that may contain ``--`` followed by tool arguments.
+
+    Returns:
+        Tuple of (cleaned_items, tool_args).  ``tool_args`` is everything
+        after the first ``--``; ``cleaned_items`` is everything before it.
+    """
+    try:
+        idx = items.index("--")
+        return items[:idx], items[idx + 1 :]
+    except ValueError:
+        return items, []
+
+
 def cmd_team_start(args: argparse.Namespace) -> None:
     """Start multiple agents with split panes.
 
@@ -2262,7 +2283,9 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     """
     from synapse.terminal_jump import create_panes, detect_terminal_app
 
-    agents = args.agents
+    # Extract tool_args from agents list (agents nargs="+" consumes "--")
+    agents, tool_args = _extract_tool_args(args.agents)
+    tool_args_or_none = tool_args or None
     layout = getattr(args, "layout", "split")
     all_new = getattr(args, "all_new", False)
 
@@ -2274,8 +2297,11 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         print("Falling back to sequential start...")
         for agent in agents:
             print(f"Starting {agent}...")
+            fallback_cmd = ["synapse", agent]
+            if tool_args:
+                fallback_cmd += ["--"] + tool_args
             subprocess.Popen(
-                ["synapse", agent],
+                fallback_cmd,
                 start_new_session=True,
             )
         return
@@ -2285,7 +2311,11 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     if all_new:
         # Traditional behavior: everyone in new panes
         commands = create_panes(
-            agents, layout=layout, terminal_app=terminal, all_new=True
+            agents,
+            layout=layout,
+            terminal_app=terminal,
+            all_new=True,
+            tool_args=tool_args_or_none,
         )
         if not commands:
             print(f"Terminal '{terminal}' does not support pane creation.")
@@ -2305,7 +2335,11 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         if remote_agents:
             # We use all_new=True for remotes so they definitely get new panes
             commands = create_panes(
-                remote_agents, layout=layout, terminal_app=terminal, all_new=True
+                remote_agents,
+                layout=layout,
+                terminal_app=terminal,
+                all_new=True,
+                tool_args=tool_args_or_none,
             )
             for cmd in commands:
                 subprocess.run(shlex.split(cmd))
@@ -2313,7 +2347,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         # This process becomes the 1st agent
         from synapse.terminal_jump import _build_agent_command
 
-        full_cmd = _build_agent_command(local_agent)
+        full_cmd = _build_agent_command(local_agent, tool_args=tool_args_or_none)
         cmd_args = shlex.split(full_cmd)
 
         print(f"Handing over terminal to {local_agent.split(':')[0]}...")
@@ -2333,6 +2367,11 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     """Spawn a single agent in a new terminal pane."""
     from synapse.spawn import spawn_agent
 
+    # Extract tool_args, stripping the leading '--' if present
+    tool_args = getattr(args, "tool_args", [])
+    if tool_args and tool_args[0] == "--":
+        tool_args = tool_args[1:]
+
     try:
         result = spawn_agent(
             profile=args.profile,
@@ -2341,6 +2380,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             role=args.role,
             skill_set=args.skill_set,
             terminal=args.terminal,
+            tool_args=tool_args or None,
         )
         print(f"{result.agent_id} {result.port}")
     except (FileNotFoundError, RuntimeError) as e:
@@ -3951,6 +3991,11 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
     p_spawn.add_argument(
         "--terminal",
         help="Terminal app to use (default: auto-detect)",
+    )
+    p_spawn.add_argument(
+        "tool_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments after -- are passed to the underlying CLI tool",
     )
     p_spawn.set_defaults(func=cmd_spawn)
 

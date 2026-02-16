@@ -103,6 +103,7 @@ class TestSpawnEndpoint:
             role=None,
             skill_set=None,
             terminal=None,
+            tool_args=None,
         )
 
     def test_spawn_failure_returns_500(self, app_client) -> None:
@@ -148,6 +149,7 @@ class TestSpawnEndpoint:
             role="assistant",
             skill_set=None,
             terminal=None,
+            tool_args=None,
         )
 
     def test_spawn_missing_profile_returns_422(self, app_client) -> None:
