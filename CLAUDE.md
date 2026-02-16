@@ -58,17 +58,6 @@ pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
 pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
 pytest tests/test_team_start_api.py -v       # B6: Team Start API
 
-# Agent Teams feature tests
-pytest tests/test_task_board.py -v           # B1: Shared Task Board
-pytest tests/test_task_board_api.py -v       # B1: Task Board API
-pytest tests/test_cli_tasks.py -v            # B1: Task Board CLI
-pytest tests/test_hooks.py -v                # B2: Quality Gates (Hooks)
-pytest tests/test_plan_approval.py -v        # B3: Plan Approval
-pytest tests/test_graceful_shutdown.py -v    # B4: Graceful Shutdown
-pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
-pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
-pytest tests/test_team_start_api.py -v       # B6: Team Start API
-
 # Spawn command tests
 pytest tests/test_spawn.py -v               # Spawn CLI + core function
 pytest tests/test_spawn_api.py -v           # Spawn API endpoint

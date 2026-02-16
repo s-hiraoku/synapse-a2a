@@ -710,6 +710,12 @@ def create_ghostty_window(
 
     Each agent gets its own Ghostty window via macOS ``open -na`` command.
 
+    Note:
+        Ghostty only supports window-level operations.  The ``layout``
+        and ``all_new`` parameters accepted by other ``create_*`` helpers
+        are intentionally not supported here — every agent always gets
+        its own window.
+
     Args:
         agents: List of agent specs.
 
@@ -759,6 +765,7 @@ def create_panes(
     elif terminal_app == "zellij":
         return create_zellij_panes(agents, layout, all_new=all_new)
     elif terminal_app == "Ghostty":
+        # Ghostty only supports window-level ops; layout/all_new not applicable
         return create_ghostty_window(agents)
 
     # Unsupported terminal - return empty list

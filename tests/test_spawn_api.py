@@ -105,8 +105,8 @@ class TestSpawnEndpoint:
             terminal=None,
         )
 
-    def test_spawn_failure_returns_status_failed(self, app_client) -> None:
-        """When spawn_agent raises, response should have status=failed."""
+    def test_spawn_failure_returns_500(self, app_client) -> None:
+        """When spawn_agent raises, response should be HTTP 500 with failure detail."""
         with patch(
             "synapse.spawn.spawn_agent",
             side_effect=RuntimeError("No available ports"),
@@ -115,8 +115,8 @@ class TestSpawnEndpoint:
                 "/spawn",
                 json={"profile": "claude"},
             )
-        assert response.status_code == 200
-        data = response.json()
+        assert response.status_code == 500
+        data = response.json()["detail"]
         assert data["status"] == "failed"
         assert "No available ports" in data["reason"]
 

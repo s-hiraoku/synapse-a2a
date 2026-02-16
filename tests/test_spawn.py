@@ -7,6 +7,7 @@ the `synapse spawn` CLI command and `spawn_agent()` core function.
 from __future__ import annotations
 
 import argparse
+import shlex
 import subprocess
 import sys
 from unittest.mock import MagicMock, patch
@@ -18,67 +19,60 @@ import pytest
 # ============================================================
 
 
+def _make_spawn_parser():
+    """Build the spawn subparser matching cli.py's definition."""
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+    p = sub.add_parser("spawn")
+    p.add_argument("profile")
+    p.add_argument("--port", type=int)
+    p.add_argument("--name", "-n")
+    p.add_argument("--role", "-r")
+    p.add_argument("--skill-set", "-S", dest="skill_set")
+    p.add_argument("--terminal")
+    return parser
+
+
 class TestSpawnCLIParsing:
-    """Tests for synapse spawn CLI argument parsing."""
+    """Tests for synapse spawn CLI argument parsing using real argparse."""
 
     def test_spawn_accepts_profile(self) -> None:
-        """synapse spawn claude should accept a profile argument."""
-        args = argparse.Namespace(
-            profile="claude",
-            port=None,
-            name=None,
-            role=None,
-            skill_set=None,
-            terminal=None,
-        )
+        """synapse spawn claude should parse profile as positional arg."""
+        args = _make_spawn_parser().parse_args(["spawn", "claude"])
         assert args.profile == "claude"
+        assert args.port is None
+        assert args.name is None
 
     def test_spawn_accepts_port(self) -> None:
-        """--port should accept an integer port number."""
-        args = argparse.Namespace(
-            profile="gemini",
-            port=8115,
-            name=None,
-            role=None,
-            skill_set=None,
-            terminal=None,
-        )
+        """--port should accept an integer and convert to int type."""
+        args = _make_spawn_parser().parse_args(["spawn", "gemini", "--port", "8115"])
         assert args.port == 8115
+        assert isinstance(args.port, int)
 
     def test_spawn_accepts_name_and_role(self) -> None:
-        """--name and --role should be accepted."""
-        args = argparse.Namespace(
-            profile="claude",
-            port=None,
-            name="Tester",
-            role="test writer",
-            skill_set=None,
-            terminal=None,
+        """--name and --role should be parsed correctly."""
+        args = _make_spawn_parser().parse_args(
+            ["spawn", "claude", "--name", "Tester", "--role", "test writer"]
         )
         assert args.name == "Tester"
         assert args.role == "test writer"
 
     def test_spawn_accepts_skill_set(self) -> None:
-        """--skill-set should be accepted."""
-        args = argparse.Namespace(
-            profile="claude",
-            port=None,
-            name=None,
-            role=None,
-            skill_set="dev-set",
-            terminal=None,
+        """--skill-set (and short -S) should be parsed into skill_set."""
+        args = _make_spawn_parser().parse_args(
+            ["spawn", "claude", "--skill-set", "dev-set"]
         )
         assert args.skill_set == "dev-set"
 
+        args_short = _make_spawn_parser().parse_args(
+            ["spawn", "claude", "-S", "dev-set"]
+        )
+        assert args_short.skill_set == "dev-set"
+
     def test_spawn_accepts_terminal(self) -> None:
         """--terminal should accept an explicit terminal choice."""
-        args = argparse.Namespace(
-            profile="claude",
-            port=None,
-            name=None,
-            role=None,
-            skill_set=None,
-            terminal="tmux",
+        args = _make_spawn_parser().parse_args(
+            ["spawn", "claude", "--terminal", "tmux"]
         )
         assert args.terminal == "tmux"
 
@@ -409,7 +403,7 @@ class TestBuildAgentCommandPort:
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("codex::::8121:headless")
-        expected_prefix = f"{sys.executable} -m synapse.cli codex"
+        expected_prefix = f"{shlex.quote(sys.executable)} -m synapse.cli codex"
 
         assert cmd.startswith(expected_prefix)
         assert not cmd.startswith("synapse codex")

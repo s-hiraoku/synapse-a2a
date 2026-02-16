@@ -1588,16 +1588,23 @@ def create_a2a_router(
 
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
+        from functools import partial
+
+        from starlette.concurrency import run_in_threadpool
+
         from synapse.spawn import spawn_agent
 
         try:
-            result = spawn_agent(
-                profile=request.profile,
-                port=request.port,
-                name=request.name,
-                role=request.role,
-                skill_set=request.skill_set,
-                terminal=request.terminal,
+            result = await run_in_threadpool(
+                partial(
+                    spawn_agent,
+                    profile=request.profile,
+                    port=request.port,
+                    name=request.name,
+                    role=request.role,
+                    skill_set=request.skill_set,
+                    terminal=request.terminal,
+                )
             )
             return SpawnResponse(
                 agent_id=result.agent_id,
@@ -1606,10 +1613,13 @@ def create_a2a_router(
                 status=result.status,
             )
         except Exception as e:
-            return SpawnResponse(
-                status="failed",
-                reason=str(e),
-            )
+            raise HTTPException(
+                status_code=500,
+                detail=SpawnResponse(
+                    status="failed",
+                    reason=str(e),
+                ).model_dump(),
+            ) from e
 
     # --------------------------------------------------------
     # Reply Stack (Synapse Extension)

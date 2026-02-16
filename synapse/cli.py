@@ -2840,7 +2840,7 @@ def main() -> None:
         # Parse --name, --role, and --delegate-mode from synapse_args
         name = parse_arg("--name") or parse_arg("-n")
         role = parse_arg("--role") or parse_arg("-r")
-        skill_set_arg = parse_arg("--skill-set") or parse_arg("-ss")
+        skill_set_arg = parse_arg("--skill-set") or parse_arg("-S")
         no_setup = "--no-setup" in synapse_args
         headless = "--headless" in synapse_args
         delegate_mode = "--delegate-mode" in synapse_args
@@ -3944,7 +3944,7 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
     )
     p_spawn.add_argument(
         "--skill-set",
-        "-ss",
+        "-S",
         dest="skill_set",
         help="Skill set to activate",
     )
