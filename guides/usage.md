@@ -369,6 +369,9 @@ synapse team start codex::tester
 
 # 全員を新しいペインで起動（現在のターミナルは残る）
 synapse team start claude gemini --all-new
+
+# ツール固有の引数を '--' の後に渡す（全エージェントに適用）
+synapse team start claude gemini -- --dangerously-skip-permissions
 ```
 
 **例**:
@@ -377,6 +380,7 @@ synapse team start claude gemini --all-new
 synapse team start claude gemini codex                    # claude=ここ、他=新ペイン
 synapse team start claude gemini --layout horizontal      # 水平分割
 synapse team start claude gemini --all-new                # 全員新ペイン
+synapse team start claude gemini -- --dangerously-skip-permissions  # 権限プロンプトをスキップ
 ```
 
 **対応ターミナル**:
@@ -401,6 +405,9 @@ synapse spawn claude                          # 新しいペインで Claude を
 synapse spawn gemini --port 8115              # ポートを指定して起動
 synapse spawn claude --name Tester --role "テスト担当"  # 名前とロールを指定
 synapse spawn claude --terminal tmux          # 使用するターミナルを指定
+
+# ツール固有の引数を '--' の後に渡す
+synapse spawn claude -- --dangerously-skip-permissions
 ```
 
 **Headless モード**:

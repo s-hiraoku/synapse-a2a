@@ -102,6 +102,9 @@ synapse spawn claude                          # Spawn Claude in a new pane
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
+
+# Pass tool-specific arguments after '--'
+synapse spawn claude -- --dangerously-skip-permissions
 ```
 
 **Headless Mode:**
@@ -801,6 +804,9 @@ synapse team start claude gemini --all-new
 
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
+
+# Pass tool-specific arguments after '--' (applied to all agents)
+synapse team start claude gemini -- --dangerously-skip-permissions
 ```
 
 **Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.
@@ -813,6 +819,11 @@ Agents can spawn teams programmatically via the `/team/start` endpoint:
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+
+# With tool_args (passed through to underlying CLI tool)
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
 ```
 
 ### Spawn via A2A API
@@ -824,6 +835,11 @@ curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "name": "Helper"}'
 # Response: {"agent_id": "synapse-gemini-8110", "port": 8110, "terminal_used": "tmux", "status": "submitted"}
+
+# With tool_args
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "tool_args": ["--dangerously-skip-permissions"]}'
 ```
 
 ## Skill Management
