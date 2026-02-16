@@ -5,16 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.1] - 2026-02-17
-
-### Changed
-
-- **Code simplification**: Extracted focused helper methods in `controller.py` (`_wait_for_input_ready()`, `_build_identity_message()`), `terminal_jump.py` (`_get_spec_field()`), and `cli.py` (`_run_pane_commands()`) to improve readability of `_send_identity_instruction()`, `_build_agent_command()`, and `cmd_team_start()`
-
-### Fixed
-
-- **Plugin skill sync**: `.gemini/skills/synapse-a2a/references/file-safety.md` was missing `--wait` lock examples that existed in the plugin source
-
 ## [0.6.0] - 2026-02-17
 
 ### Added
@@ -34,10 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Port validation**: Agent spec port field validated with `isdigit()` to reject non-numeric values
 - **`--skill-set` short flag**: Changed from `-ss` to `-S` for standard single-character convention
 - **Logger unification**: `_send_identity_instruction()` now uses module-level `logger.*` consistently (was mixing `logging.*` and `logger.*`)
+- **Code simplification**: Extracted focused helper methods in `controller.py` (`_wait_for_input_ready()`, `_build_identity_message()`), `terminal_jump.py` (`_get_spec_field()`), and `cli.py` (`_run_pane_commands()`) to improve readability
 
 ### Fixed
 
 - **Zellij pane revival**: Added `--close-on-exit` to all `zellij run` commands to prevent panes from surviving after agent kill
+- **Plugin skill sync**: `.gemini/skills/synapse-a2a/references/file-safety.md` was missing `--wait` lock examples that existed in the plugin source
 - **Spawn error handling**: `subprocess.run` uses `check=True` for proper error propagation; empty `create_panes` result raises `RuntimeError`
 - **`POST /spawn` error response**: Returns HTTP 500 (not 200) when `spawn_agent` fails
 - **CLAUDE.md**: Removed duplicated "Agent Teams feature tests" block
