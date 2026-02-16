@@ -71,7 +71,11 @@ class TestResolveLog:
         ):
             ctrl._send_identity_instruction()
 
-        resolve_logs = [r for r in caplog.records if "INJECT/RESOLVE" in r.message]
+        resolve_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/RESOLVE" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(resolve_logs) == 1
         assert "fallback=default" in resolve_logs[0].message
         assert "agent_type=claude" in resolve_logs[0].message
@@ -93,7 +97,11 @@ class TestResolveLog:
         ):
             ctrl._send_identity_instruction()
 
-        resolve_logs = [r for r in caplog.records if "INJECT/RESOLVE" in r.message]
+        resolve_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/RESOLVE" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(resolve_logs) == 1
         assert "fallback=none" in resolve_logs[0].message
 
@@ -123,7 +131,11 @@ class TestDecisionLog:
         ):
             ctrl._send_identity_instruction()
 
-        decision_logs = [r for r in caplog.records if "INJECT/DECISION" in r.message]
+        decision_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DECISION" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(decision_logs) == 1
         assert "action=send" in decision_logs[0].message
 
@@ -134,7 +146,11 @@ class TestDecisionLog:
         with caplog.at_level(logging.INFO):
             ctrl._send_identity_instruction()
 
-        decision_logs = [r for r in caplog.records if "INJECT/DECISION" in r.message]
+        decision_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DECISION" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(decision_logs) == 1
         assert "action=skip_resume" in decision_logs[0].message
 
@@ -152,7 +168,11 @@ class TestDecisionLog:
         ):
             ctrl._send_identity_instruction()
 
-        decision_logs = [r for r in caplog.records if "INJECT/DECISION" in r.message]
+        decision_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DECISION" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(decision_logs) == 1
         assert "action=skip_no_files" in decision_logs[0].message
 
@@ -167,7 +187,11 @@ class TestDecisionLog:
         ):
             ctrl._send_identity_instruction()
 
-        decision_logs = [r for r in caplog.records if "INJECT/DECISION" in r.message]
+        decision_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DECISION" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(decision_logs) == 1
         assert "action=abort_master_fd_timeout" in decision_logs[0].message
 
@@ -199,7 +223,11 @@ class TestDeliverLog:
         ):
             ctrl._send_identity_instruction()
 
-        deliver_logs = [r for r in caplog.records if "INJECT/DELIVER" in r.message]
+        deliver_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DELIVER" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(deliver_logs) == 1
         assert "input_ready=pattern_found" in deliver_logs[0].message
 
@@ -221,7 +249,11 @@ class TestDeliverLog:
         ):
             ctrl._send_identity_instruction()
 
-        deliver_logs = [r for r in caplog.records if "INJECT/DELIVER" in r.message]
+        deliver_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DELIVER" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(deliver_logs) == 1
         assert "input_ready=timeout" in deliver_logs[0].message
 
@@ -242,7 +274,11 @@ class TestDeliverLog:
         ):
             ctrl._send_identity_instruction()
 
-        deliver_logs = [r for r in caplog.records if "INJECT/DELIVER" in r.message]
+        deliver_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DELIVER" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(deliver_logs) == 1
         assert "input_ready=none" in deliver_logs[0].message
 
@@ -264,7 +300,11 @@ class TestDeliverLog:
         ):
             ctrl._send_identity_instruction()
 
-        deliver_logs = [r for r in caplog.records if "INJECT/DELIVER" in r.message]
+        deliver_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DELIVER" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(deliver_logs) == 1
         assert f"write_size={len(test_message)}" in deliver_logs[0].message
 
@@ -294,7 +334,11 @@ class TestSummaryLog:
         ):
             ctrl._send_identity_instruction()
 
-        summary_logs = [r for r in caplog.records if "INJECT/SUMMARY" in r.message]
+        summary_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/SUMMARY" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(summary_logs) == 1
         assert "initial_instructions=sent" in summary_logs[0].message
 
@@ -305,7 +349,11 @@ class TestSummaryLog:
         with caplog.at_level(logging.INFO):
             ctrl._send_identity_instruction()
 
-        summary_logs = [r for r in caplog.records if "INJECT/SUMMARY" in r.message]
+        summary_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/SUMMARY" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(summary_logs) == 1
         assert "initial_instructions=skipped" in summary_logs[0].message
         assert "reason=resume_mode" in summary_logs[0].message
@@ -324,7 +372,11 @@ class TestSummaryLog:
         ):
             ctrl._send_identity_instruction()
 
-        summary_logs = [r for r in caplog.records if "INJECT/SUMMARY" in r.message]
+        summary_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/SUMMARY" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(summary_logs) == 1
         assert "initial_instructions=skipped" in summary_logs[0].message
         assert "reason=no_files" in summary_logs[0].message
@@ -340,7 +392,11 @@ class TestSummaryLog:
         ):
             ctrl._send_identity_instruction()
 
-        summary_logs = [r for r in caplog.records if "INJECT/SUMMARY" in r.message]
+        summary_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/SUMMARY" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(summary_logs) == 1
         assert "initial_instructions=failed" in summary_logs[0].message
         assert "reason=master_fd_timeout" in summary_logs[0].message
@@ -362,7 +418,11 @@ class TestSummaryLog:
         ):
             ctrl._send_identity_instruction()
 
-        summary_logs = [r for r in caplog.records if "INJECT/SUMMARY" in r.message]
+        summary_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/SUMMARY" in r.message and "synapse-claude-8100" in r.message
+        ]
         assert len(summary_logs) == 1
         assert "initial_instructions=failed" in summary_logs[0].message
         assert "reason=write_exception" in summary_logs[0].message
