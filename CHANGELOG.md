@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-02-17
+
+### Added
+
+- **`synapse spawn` command**: Spawn a single agent in a new terminal pane (`synapse spawn claude --name Helper --role "task runner"`) with auto-assigned port, custom name/role, and skill set support (#195)
+- **`POST /spawn` API endpoint**: Agents can programmatically spawn other agents via A2A protocol with `run_in_threadpool` for non-blocking execution
+- **Headless mode (`--headless`)**: Spawned agents skip all interactive setup (name/role prompts, startup animation, approval prompts) while keeping A2A server and initial instructions active
+- **Ghostty terminal support**: New `create_ghostty_window()` for spawning agents in Ghostty windows on macOS
+- **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app/Ghostty use `exec` to replace the shell process
+
+### Changed
+
+- **Agent spec format**: Extended to 6 colon-separated fields (`profile:name:role:skill_set:port:headless`)
+- **`_build_agent_command()`**: Uses `sys.executable -m synapse.cli` for consistent Python environment across parent/child processes, with `use_exec` parameter for shell-based terminals
+- **Port validation**: Agent spec port field validated with `isdigit()` to reject non-numeric values
+- **`--skill-set` short flag**: Changed from `-ss` to `-S` for standard single-character convention
+
+### Fixed
+
+- **Zellij pane revival**: Added `--close-on-exit` to all `zellij run` commands to prevent panes from surviving after agent kill
+- **Spawn error handling**: `subprocess.run` uses `check=True` for proper error propagation; empty `create_panes` result raises `RuntimeError`
+- **`POST /spawn` error response**: Returns HTTP 500 (not 200) when `spawn_agent` fails
+- **CLAUDE.md**: Removed duplicated "Agent Teams feature tests" block
+
+### Documentation
+
+- Added spawn documentation to SKILL.md, commands.md, api.md, examples.md (synced across 4 locations)
+- Updated README.md (all 6 languages), CLAUDE.md, guides/usage.md, guides/references.md
+- Documented Ghostty layout/all_new limitation in docstring
+
+### Tests
+
+- New `tests/test_spawn.py` (31 tests): CLI parsing with real argparse, core `spawn_agent()`, Ghostty panes, port validation, headless mode, `wait_for_agent()`
+- New `tests/test_spawn_api.py` (6 tests): POST /spawn endpoint behavior, error handling, parameter pass-through
+- Added `TestExecPrefixForPaneAutoClose` (8 tests): exec behavior verification per terminal type
+- Added `test_zellij_close_on_exit_always_present` to `test_auto_spawn.py`
+
 ## [0.5.2] - 2026-02-15
 
 ### Added
