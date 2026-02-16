@@ -35,6 +35,13 @@ def _escape_applescript_string(value: str) -> str:
     return value
 
 
+def _get_spec_field(parts: list[str], index: int) -> str:
+    """Return parts[index] if it exists and is non-empty, else empty string."""
+    if index < len(parts):
+        return parts[index]
+    return ""
+
+
 def _build_agent_command(
     agent_spec: str,
     *,
@@ -63,31 +70,27 @@ def _build_agent_command(
     prefix = "exec " if use_exec else ""
     cmd = f"{prefix}{shlex.quote(sys.executable)} -m synapse.cli {profile}"
 
+    name = _get_spec_field(parts, 1)
+    role = _get_spec_field(parts, 2)
+    skill_set = _get_spec_field(parts, 3)
+    port = _get_spec_field(parts, 4)
+    headless = _get_spec_field(parts, 5)
+
     if len(parts) > 1:
-        # If any extra info is provided, we'll likely want --no-setup
         cmd += " --no-setup"
 
-        # 2nd part: Name
-        if parts[1]:
-            cmd += f" --name {shlex.quote(parts[1])}"
-
-        # 3rd part: Role
-        if len(parts) > 2 and parts[2]:
-            cmd += f" --role {shlex.quote(parts[2])}"
-
-        # 4th part: Skill Set
-        if len(parts) > 3 and parts[3]:
-            cmd += f" --skill-set {shlex.quote(parts[3])}"
-
-        # 5th part: Port
-        if len(parts) > 4 and parts[4]:
-            if not parts[4].isdigit():
-                raise ValueError(f"Port must be numeric: {parts[4]}")
-            cmd += f" --port {parts[4]}"
-
-        # 6th part: Headless mode (skip all interactive prompts)
-        if len(parts) > 5 and parts[5] == "headless":
-            cmd += " --headless"
+    if name:
+        cmd += f" --name {shlex.quote(name)}"
+    if role:
+        cmd += f" --role {shlex.quote(role)}"
+    if skill_set:
+        cmd += f" --skill-set {shlex.quote(skill_set)}"
+    if port:
+        if not port.isdigit():
+            raise ValueError(f"Port must be numeric: {port}")
+        cmd += f" --port {port}"
+    if headless == "headless":
+        cmd += " --headless"
 
     # Append tool_args after '--' separator
     if tool_args:

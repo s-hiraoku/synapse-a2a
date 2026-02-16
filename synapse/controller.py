@@ -410,6 +410,100 @@ class TerminalController:
         """
         logger.info(f"[{self.agent_id}] INJECT/{category}: {msg}")
 
+    def _wait_for_input_ready(self) -> str:
+        """Wait for the agent's input prompt to appear in PTY output.
+
+        Returns:
+            A short description of the wait result for observability logging.
+        """
+        if not self._input_ready_pattern:
+            logger.info(
+                f"[{self.agent_id}] No input_ready_pattern configured, "
+                "using timeout-based detection"
+            )
+            return "none"
+
+        timeout = 10.0
+        interval = 0.5
+        waited = 0.0
+        pattern_bytes = self._input_ready_pattern.encode()
+
+        logger.info(
+            f"[{self.agent_id}] Waiting for input pattern: "
+            f"{self._input_ready_pattern!r} (bytes: {pattern_bytes!r})"
+        )
+
+        while waited < timeout:
+            time.sleep(interval)
+            waited += interval
+
+            with self.lock:
+                recent_output = self.output_buffer[-2000:]
+
+            if pattern_bytes in recent_output:
+                logger.info(
+                    f"[{self.agent_id}] Input prompt "
+                    f"'{self._input_ready_pattern}' "
+                    f"detected after {waited:.1f}s"
+                )
+                return f"pattern_found({waited:.1f}s)"
+
+        logger.warning(
+            f"[{self.agent_id}] Input prompt "
+            f"'{self._input_ready_pattern}' "
+            f"not detected after {timeout}s, proceeding anyway"
+        )
+        return f"timeout({timeout:.1f}s)"
+
+    def _build_identity_message(self, instruction_file_paths: list[str]) -> str:
+        """Build the identity instruction message for the agent.
+
+        Returns:
+            The formatted A2A message string ready to send.
+        """
+        file_list = "\n".join(f"  - {f}" for f in instruction_file_paths)
+        display_name = self.name or self.agent_id
+
+        message = (
+            f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
+            f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n"
+        )
+
+        if self.role:
+            try:
+                role_content = get_role_content(self.role)
+                if role_content:
+                    message += format_role_section(role_content)
+            except RoleFileNotFoundError as e:
+                logger.error(f"Role file not found: {e} (role={self.role})")
+
+        if self.skill_set:
+            try:
+                skill_sets = load_skill_sets()
+                ss_def = skill_sets.get(self.skill_set)
+                if ss_def:
+                    message += format_skill_set_section(
+                        ss_def.name, ss_def.description, ss_def.skills
+                    )
+                else:
+                    logger.warning(
+                        f"Skill set '{self.skill_set}' not found in definitions"
+                    )
+            except Exception as e:
+                logger.error(f"Failed to load skill set info: {e}")
+
+        message += (
+            f"\nIMPORTANT: Read your full instructions from these files:\n"
+            f"{file_list}\n\n"
+            f"Read these files NOW to get your "
+            f"A2A protocol guidelines and other instructions.\n"
+            f"Replace {{{{agent_id}}}} with {self.agent_id}, "
+            f"{{{{agent_name}}}} with {display_name}, and "
+            f"{{{{port}}}} with {self.port} when following instructions."
+        )
+
+        return format_a2a_message(message)
+
     def _send_identity_instruction(self) -> None:
         """
         Send full initial instructions to the agent on first IDLE.
@@ -468,13 +562,10 @@ class TerminalController:
             f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
         )
 
-        # Get instruction files to read from settings
-        # Use get_instruction_file_paths to get correct paths for project/user directories
         settings = get_settings()
         agent_type = self.agent_type or "unknown"
         instruction_file_paths = settings.get_instruction_file_paths(agent_type)
 
-        # --- INJECT/RESOLVE: report which files were found and fallback status ---
         has_agent_specific = bool(settings.instructions.get(agent_type))
         fallback = "none" if has_agent_specific else "default"
         self._log_inject(
@@ -483,7 +574,6 @@ class TerminalController:
             f"files={instruction_file_paths} fallback={fallback}",
         )
 
-        # Skip if no instruction files configured
         if not instruction_file_paths:
             self._log_inject("DECISION", "action=skip_no_files")
             self._log_inject("SUMMARY", "initial_instructions=skipped reason=no_files")
@@ -491,105 +581,16 @@ class TerminalController:
             self._identity_sending = False
             return
 
-        # --- INJECT/DECISION: proceeding to send ---
         self._log_inject("DECISION", "action=send")
 
-        # Build a short message pointing to the instruction files
-        # This avoids PTY paste buffer issues with large inputs
-        # Paths already include directory prefix (.synapse/ or ~/.synapse/)
-        file_list = "\n".join(f"  - {f}" for f in instruction_file_paths)
-        # Use custom name for display, fall back to agent_id
-        display_name = self.name if self.name else self.agent_id
-        short_message = (
-            f"[SYNAPSE A2A AGENT CONFIGURATION]\n"
-            f"Agent: {display_name} | Port: {self.port} | ID: {self.agent_id}\n"
-        )
-        # Include role section if role is set (critical for agent behavior)
-        # Role may be a string or @file reference - get_role_content handles both
-        if self.role:
-            try:
-                role_content = get_role_content(self.role)
-                if role_content:
-                    short_message += format_role_section(role_content)
-            except RoleFileNotFoundError as e:
-                logger.error(f"Role file not found: {e} (role={self.role})")
-        # Include skill set section if skill_set is set
-        if self.skill_set:
-            try:
-                skill_sets = load_skill_sets()
-                ss_def = skill_sets.get(self.skill_set)
-                if ss_def:
-                    short_message += format_skill_set_section(
-                        ss_def.name, ss_def.description, ss_def.skills
-                    )
-                else:
-                    logger.warning(
-                        f"Skill set '{self.skill_set}' not found in definitions"
-                    )
-            except Exception as e:
-                logger.error(f"Failed to load skill set info: {e}")
-        short_message += (
-            f"\nIMPORTANT: Read your full instructions from these files:\n"
-            f"{file_list}\n\n"
-            f"Read these files NOW to get your "
-            f"A2A protocol guidelines and other instructions.\n"
-            f"Replace {{{{agent_id}}}} with {self.agent_id}, "
-            f"{{{{agent_name}}}} with {display_name}, and "
-            f"{{{{port}}}} with {self.port} when following instructions."
-        )
-        prefixed = format_a2a_message(short_message)
+        prefixed = self._build_identity_message(instruction_file_paths)
 
         logger.info(
             f"[{self.agent_id}] Sending file reference instruction: "
             f"{instruction_file_paths}"
         )
 
-        # Wait for agent to be fully ready
-        # For TUI apps, we need to wait until the input prompt appears
-        input_ready_desc = "none"
-        if self._input_ready_pattern:
-            # Pattern-based detection: wait for specific prompt character
-            input_ready_timeout = 10.0  # Max wait time for input area
-            input_ready_wait = 0.0
-            input_ready_interval = 0.5
-
-            pattern_bytes = self._input_ready_pattern.encode()
-            logger.info(
-                f"[{self.agent_id}] Waiting for input pattern: "
-                f"{self._input_ready_pattern!r} (bytes: {pattern_bytes!r})"
-            )
-
-            while input_ready_wait < input_ready_timeout:
-                time.sleep(input_ready_interval)
-                input_ready_wait += input_ready_interval
-
-                # Check if input prompt is visible in recent output
-                with self.lock:
-                    recent_output = self.output_buffer[-2000:]
-
-                # Check for the configured pattern
-                if pattern_bytes in recent_output:
-                    input_ready_desc = f"pattern_found({input_ready_wait:.1f}s)"
-                    logger.info(
-                        f"[{self.agent_id}] Input prompt "
-                        f"'{self._input_ready_pattern}' "
-                        f"detected after {input_ready_wait:.1f}s"
-                    )
-                    break
-            else:
-                input_ready_desc = f"timeout({input_ready_timeout:.1f}s)"
-                logger.warning(
-                    f"[{self.agent_id}] Input prompt "
-                    f"'{self._input_ready_pattern}' "
-                    f"not detected after {input_ready_timeout}s, proceeding anyway"
-                )
-        else:
-            # No pattern configured: use timeout-based detection (e.g., OpenCode)
-            # The IDLE detection already waited, just add a small stabilization delay
-            logger.info(
-                f"[{self.agent_id}] No input_ready_pattern configured, "
-                "using timeout-based detection"
-            )
+        input_ready_desc = self._wait_for_input_ready()
 
         # Additional delay to ensure TUI is stable
         time.sleep(POST_WRITE_IDLE_DELAY)

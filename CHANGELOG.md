@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-02-17
+
+### Changed
+
+- **Code simplification**: Extracted focused helper methods in `controller.py` (`_wait_for_input_ready()`, `_build_identity_message()`), `terminal_jump.py` (`_get_spec_field()`), and `cli.py` (`_run_pane_commands()`) to improve readability of `_send_identity_instruction()`, `_build_agent_command()`, and `cmd_team_start()`
+
+### Fixed
+
+- **Plugin skill sync**: `.gemini/skills/synapse-a2a/references/file-safety.md` was missing `--wait` lock examples that existed in the plugin source
+
 ## [0.6.0] - 2026-02-17
 
 ### Added
