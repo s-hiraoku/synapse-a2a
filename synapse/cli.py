@@ -2325,6 +2325,30 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
 
 # ============================================================
+# Spawn Command
+# ============================================================
+
+
+def cmd_spawn(args: argparse.Namespace) -> None:
+    """Spawn a single agent in a new terminal pane."""
+    from synapse.spawn import spawn_agent
+
+    try:
+        result = spawn_agent(
+            profile=args.profile,
+            port=args.port,
+            name=args.name,
+            role=args.role,
+            skill_set=args.skill_set,
+            terminal=args.terminal,
+        )
+        print(f"{result.agent_id} {result.port}")
+    except (FileNotFoundError, RuntimeError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+# ============================================================
 # Plan Approval Commands (B3)
 # ============================================================
 
@@ -2505,6 +2529,7 @@ def cmd_run_interactive(
     no_setup: bool = False,
     delegate_mode: bool = False,
     skill_set: str | None = None,
+    headless: bool = False,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -2524,7 +2549,13 @@ def cmd_run_interactive(
         no_setup: If True, skip interactive setup prompt.
         delegate_mode: If True, run agent in coordinator/delegate mode.
         skill_set: Optional skill set name to apply at startup.
+        headless: If True, skip all interactive prompts (startup animation,
+            setup, approval). Used by spawn to start agents non-interactively.
+            A2A server and initial instructions are still sent.
     """
+    # headless implies no_setup
+    if headless:
+        no_setup = True
     tool_args = tool_args or []
 
     # Load profile
@@ -2597,14 +2628,15 @@ def cmd_run_interactive(
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
-    # Show startup animation before approval prompt
-    from synapse.startup_tui import show_startup_animation
+    # Show startup animation before approval prompt (skip in headless mode)
+    if not headless:
+        from synapse.startup_tui import show_startup_animation
 
-    show_startup_animation(
-        agent_type=profile,
-        agent_id=agent_id,
-        port=port,
-    )
+        show_startup_animation(
+            agent_type=profile,
+            agent_id=agent_id,
+            port=port,
+        )
 
     # Interactive agent setup (name/role/skill-set) if not fully provided via CLI
     agent_name = name
@@ -2646,9 +2678,9 @@ def cmd_run_interactive(
         for msg in result.messages:
             print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
 
-    # Check if approval is required for initial instructions
+    # Check if approval is required for initial instructions (skip in headless mode)
     skip_initial_instructions = is_resume
-    if not is_resume and synapse_settings.should_require_approval():
+    if not headless and not is_resume and synapse_settings.should_require_approval():
         from synapse.approval import prompt_for_approval
 
         response = prompt_for_approval(
@@ -2808,8 +2840,9 @@ def main() -> None:
         # Parse --name, --role, and --delegate-mode from synapse_args
         name = parse_arg("--name") or parse_arg("-n")
         role = parse_arg("--role") or parse_arg("-r")
-        skill_set_arg = parse_arg("--skill-set") or parse_arg("-ss")
+        skill_set_arg = parse_arg("--skill-set") or parse_arg("-S")
         no_setup = "--no-setup" in synapse_args
+        headless = "--headless" in synapse_args
         delegate_mode = "--delegate-mode" in synapse_args
 
         # Auto-select available port if not specified
@@ -2832,6 +2865,7 @@ def main() -> None:
             no_setup=no_setup,
             delegate_mode=delegate_mode,
             skill_set=skill_set_arg,
+            headless=headless,
         )
         return
 
@@ -3871,6 +3905,54 @@ Extended Specification:
         help="Start all agents in new panes/tabs instead of using current terminal",
     )
     p_team_start.set_defaults(func=cmd_team_start)
+
+    # spawn - Spawn single agent in new pane
+    p_spawn = subparsers.add_parser(
+        "spawn",
+        help="Spawn a single agent in a new terminal pane",
+        description="""Spawn a single agent in a new terminal pane.
+
+Unlike 'synapse start' (background), this opens an interactive terminal.
+Unlike 'synapse team start' (multiple agents), this spawns exactly one.
+
+Outputs '{agent_id} {port}' on success for scripting use.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse spawn claude                          Spawn Claude in a new pane
+  synapse spawn gemini --port 8115              Spawn Gemini on specific port
+  synapse spawn claude --name Tester --role "test writer"
+  synapse spawn claude --terminal tmux          Use specific terminal""",
+    )
+    p_spawn.add_argument(
+        "profile",
+        help="Agent profile to spawn (claude, codex, gemini, opencode, copilot)",
+    )
+    p_spawn.add_argument(
+        "--port",
+        type=int,
+        help="Explicit port (default: auto-assigned from profile range)",
+    )
+    p_spawn.add_argument(
+        "--name",
+        "-n",
+        help="Custom agent name",
+    )
+    p_spawn.add_argument(
+        "--role",
+        "-r",
+        help="Agent role description",
+    )
+    p_spawn.add_argument(
+        "--skill-set",
+        "-S",
+        dest="skill_set",
+        help="Skill set to activate",
+    )
+    p_spawn.add_argument(
+        "--terminal",
+        help="Terminal app to use (default: auto-detect)",
+    )
+    p_spawn.set_defaults(func=cmd_spawn)
 
     # approve - Plan approval (B3)
     p_approve = subparsers.add_parser(

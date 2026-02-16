@@ -105,6 +105,7 @@ class TestTerminalPaneCreation:
         assert isinstance(commands, list)
         assert len(commands) > 0
         assert any("zellij run" in cmd for cmd in commands)
+        assert all("--close-on-exit" in cmd for cmd in commands if "zellij run" in cmd)
 
     def test_create_panes_zellij_respects_layout_direction(self) -> None:
         """Should map horizontal/vertical layout to zellij split directions."""
@@ -123,6 +124,94 @@ class TestTerminalPaneCreation:
 
         assert any("--direction right" in cmd for cmd in horizontal)
         assert any("--direction down" in cmd for cmd in vertical)
+        assert all("--close-on-exit" in cmd for cmd in horizontal)
+        assert all("--close-on-exit" in cmd for cmd in vertical)
+
+    def test_zellij_close_on_exit_always_present(self) -> None:
+        """All zellij run commands should include --close-on-exit."""
+        from synapse.terminal_jump import create_zellij_panes
+
+        commands = create_zellij_panes(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+        )
+
+        assert commands
+        assert all(cmd.startswith("zellij run ") for cmd in commands)
+        assert all("--close-on-exit" in cmd for cmd in commands)
+
+
+class TestExecPrefixForPaneAutoClose:
+    """exec prefix should be used for shell-based terminals so panes close on exit."""
+
+    def test_iterm2_commands_use_exec(self) -> None:
+        """iTerm2 write-text commands should use exec prefix."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(agents=["claude", "gemini"])
+        assert "exec " in script
+
+    def test_iterm2_all_new_uses_exec(self) -> None:
+        """iTerm2 all_new mode should also use exec prefix."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(agents=["claude", "gemini"], all_new=True)
+        assert "exec " in script
+
+    def test_terminal_app_commands_use_exec(self) -> None:
+        """Terminal.app do-script commands should use exec prefix."""
+        from synapse.terminal_jump import create_terminal_app_tabs
+
+        commands = create_terminal_app_tabs(agents=["claude"])
+        assert any("exec " in cmd for cmd in commands)
+
+    def test_ghostty_commands_use_exec(self) -> None:
+        """Ghostty commands should use exec prefix."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude"])
+        assert any("exec " in cmd for cmd in commands)
+
+    def test_tmux_split_window_no_exec(self) -> None:
+        """tmux split-window runs command directly, no exec needed."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(agents=["claude", "gemini"], all_new=True)
+        split_cmds = [c for c in commands if "split-window" in c]
+        for cmd in split_cmds:
+            # The quoted command inside split-window should not start with exec
+            assert "exec " not in cmd
+
+    def test_tmux_send_keys_no_exec(self) -> None:
+        """tmux send-keys (handoff) should not use exec to preserve user shell."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(agents=["claude", "gemini"])
+        send_cmds = [c for c in commands if "send-keys" in c]
+        for cmd in send_cmds:
+            assert "exec " not in cmd
+
+    def test_zellij_no_exec(self) -> None:
+        """zellij run executes commands directly, no exec needed."""
+        from synapse.terminal_jump import create_zellij_panes
+
+        commands = create_zellij_panes(agents=["claude", "gemini"])
+        for cmd in commands:
+            # The command portion after '--' should not have exec
+            after_dash = cmd.split("-- ", 1)[-1] if "-- " in cmd else cmd
+            assert not after_dash.startswith("exec ")
+
+    def test_build_agent_command_exec_flag(self) -> None:
+        """_build_agent_command should support use_exec parameter."""
+        from synapse.terminal_jump import _build_agent_command
+
+        without_exec = _build_agent_command("claude")
+        with_exec = _build_agent_command("claude", use_exec=True)
+
+        assert not without_exec.startswith("exec ")
+        assert with_exec.startswith("exec ")
+        # Both should contain the same synapse command
+        assert without_exec in with_exec
 
 
 class TestTeamStartExecution:
@@ -208,14 +297,16 @@ class TestAgentSpecParsing:
         """Simple profile should produce simple command."""
         from synapse.terminal_jump import _build_agent_command
 
-        assert _build_agent_command("claude") == "synapse claude"
+        cmd = _build_agent_command("claude")
+        assert cmd.endswith(" claude")
+        assert "-m synapse.cli claude" in cmd
 
     def test_build_agent_command_full(self) -> None:
         """Full spec should produce options and --no-setup."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude:Reviewer:code review:dev-set")
-        assert "synapse claude" in cmd
+        assert "synapse.cli claude" in cmd
         assert "--name Reviewer" in cmd
         # Use simple 'in' check for role content, ignoring quote style
         assert "--role" in cmd
@@ -237,7 +328,7 @@ class TestAgentSpecParsing:
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("codex::test writer")
-        assert "synapse codex" in cmd
+        assert "synapse.cli codex" in cmd
         assert "--name" not in cmd
         assert "--role" in cmd
         assert "test writer" in cmd
@@ -252,7 +343,7 @@ class TestAgentSpecParsing:
             layout="horizontal",
         )
         # Filter for commands that actually run synapse
-        synapse_cmds = [c for c in commands if "synapse " in c]
+        synapse_cmds = [c for c in commands if "synapse.cli " in c]
         assert any("--name C1" in cmd for cmd in synapse_cmds)
         assert any("--name G1" in cmd for cmd in synapse_cmds)
         assert all("--no-setup" in cmd for cmd in synapse_cmds)

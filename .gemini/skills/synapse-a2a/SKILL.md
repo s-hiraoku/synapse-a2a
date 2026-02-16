@@ -45,7 +45,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Import skill | `synapse skills import <name>` |
 | Install from repo | `synapse skills add <repo>` |
 | Create skill | `synapse skills create` |
+| Delete skill | `synapse skills delete <name> [--force]` |
+| Move skill | `synapse skills move <name> --to <scope>` |
 | List skill sets | `synapse skills set list` |
+| Show skill set detail | `synapse skills set show <name>` |
+| Trace task | `synapse trace <task_id>` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -54,8 +58,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Complete task | `synapse tasks complete <task_id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
-| Start team (CLI) | `synapse team start <agents...> [--layout split\|horizontal\|vertical]` |
+| Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
+| Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
 
@@ -240,7 +245,7 @@ In `synapse list`, you can interact with agents:
 - Ghostty (macOS) - Activates application
 - VS Code integrated terminal - Opens to working directory
 - tmux - Switches to agent's session
-- Zellij - Focuses agent's terminal pane
+- Zellij - Activates terminal app (direct pane focus not supported via CLI)
 
 **Use case:** When an agent shows `WAITING` status, use terminal jump to quickly respond to its selection prompt.
 
@@ -339,7 +344,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **External Agents**: Connect to external A2A agents (`synapse external`)
 - **Authentication**: API key-based security (`synapse auth`)
-- **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`)
+- **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`). Skill set details (name, description, skills) are included in agent initial instructions when selected.
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
@@ -347,7 +352,26 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` launches multiple agents in split panes
+- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
+- **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
+
+## Spawning Agents
+
+Spawn a single agent in a new terminal pane or window.
+
+```bash
+synapse spawn claude                          # Spawn Claude in a new pane
+synapse spawn gemini --port 8115              # Spawn with explicit port
+synapse spawn claude --name Tester --role "test writer"  # With name/role
+synapse spawn claude --terminal tmux          # Use specific terminal
+```
+
+**Headless Mode:**
+When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+
+**Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
+
+**Pane Auto-Close:** When an agent process terminates, the pane/tab/window closes automatically in all supported terminals. Zellij uses `--close-on-exit`; iTerm2, Terminal.app, and Ghostty use `exec` to replace the shell process; tmux `split-window` closes natively on process exit.
 
 ## Path Overrides
 

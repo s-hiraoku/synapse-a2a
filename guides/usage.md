@@ -392,6 +392,26 @@ synapse team start claude gemini --all-new                # 全員新ペイン
 
 ---
 
+### 2.2.3 エージェント単体起動 (synapse spawn)
+
+1つのエージェントを新しいターミナルペインまたはウィンドウで起動します。
+
+```bash
+synapse spawn claude                          # 新しいペインで Claude を起動
+synapse spawn gemini --port 8115              # ポートを指定して起動
+synapse spawn claude --name Tester --role "テスト担当"  # 名前とロールを指定
+synapse spawn claude --terminal tmux          # 使用するターミナルを指定
+```
+
+**Headless モード**:
+`synapse spawn` 経由で起動されたエージェントには、自動的に `--headless` フラグが付与されます。これにより、名前やロールの入力、起動アニメーション、初期指示の承認プロンプトなどの対話型ステップがすべてスキップされます。これは、プログラムによるオーケストレーションをスムーズに行うための仕様です。なお、A2A サーバーは有効であり、通信に必要な初期指示も自動的に送信されます。
+
+**注意**: 起動したエージェントのライフサイクル管理は、起動元の責任です。タスクが完了したら `synapse kill <target> -f` で確実に終了させてください。
+
+**ペイン自動クローズ**: エージェントプロセスが終了すると、対応するペイン/タブ/ウィンドウはすべてのサポート対象ターミナル（tmux, zellij, iTerm2, Terminal.app, Ghostty）で自動的に閉じます。
+
+---
+
 ### 2.3 一覧表示
 
 ```bash

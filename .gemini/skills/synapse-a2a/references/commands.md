@@ -16,6 +16,7 @@ synapse list
   - WAITING = cyan (awaiting user input - selection, confirmation)
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
+  - SHUTTING_DOWN = red (graceful shutdown in progress)
 - Flicker-free updates
 - **Interactive row selection**: Press 1-9 or ↑/↓ to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
@@ -36,7 +37,7 @@ synapse list
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
 - **ID**: Full agent ID (e.g., `synapse-claude-8100`)
 - **ROLE**: Role description if set
-- **STATUS**: READY / WAITING / PROCESSING / DONE
+- **STATUS**: READY / WAITING / PROCESSING / DONE / SHUTTING_DOWN
 - **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
 - **TRANSPORT**: Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
@@ -87,7 +88,28 @@ synapse copilot -- --continue
 # Background mode
 synapse start claude --port 8100
 synapse start claude --port 8100 --foreground  # for debugging
+
+# With SSL/HTTPS
+synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 ```
+
+### Spawn Single Agent
+
+Spawn a single agent in a new terminal pane or window.
+
+```bash
+synapse spawn claude                          # Spawn Claude in a new pane
+synapse spawn gemini --port 8115              # Spawn with explicit port
+synapse spawn claude --name Tester --role "test writer"  # With name/role
+synapse spawn claude --terminal tmux          # Use specific terminal
+```
+
+**Headless Mode:**
+When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+
+**Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
+
+**Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 
 ### Stop Agents
 
@@ -233,6 +255,9 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
   - 5: Critical/emergency (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, receiver MUST reply
 - `--no-response`: Oneway mode - fire and forget, no reply expected
+- `--message-file`: Read message from file (use `-` for stdin)
+- `--stdin`: Read message from stdin
+- `--attach`: Attach file(s) to message (repeatable)
 
 **Choosing --response vs --no-response:**
 
@@ -263,6 +288,22 @@ synapse send claude-8100 "What is your status?" --response --from synapse-gemini
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 ```
+
+**Sending long messages or files:**
+```bash
+# Send message from file (avoids ARG_MAX shell limits)
+synapse send claude --message-file /tmp/review.txt --no-response
+
+# Read message from stdin
+echo "long message" | synapse send claude --stdin --no-response
+synapse send claude --message-file - --no-response   # '-' reads from stdin
+
+# Attach files to message
+synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+```
+
+Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
 **Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
@@ -399,7 +440,23 @@ synapse history cleanup --days 30
 
 # Keep database under 100MB
 synapse history cleanup --max-size 100
+
+# Preview what would be deleted
+synapse history cleanup --days 30 --dry-run
+
+# Skip VACUUM after deletion (faster)
+synapse history cleanup --days 30 --no-vacuum
 ```
+
+### Trace Task
+
+Trace a task across history and file modifications:
+
+```bash
+synapse trace <task_id>
+```
+
+Shows task history combined with file-safety records for the specified task.
 
 ## Settings Management
 
@@ -422,6 +479,9 @@ Creates `.synapse/` directory with all template files (settings.json, default.md
 ```bash
 # Interactive TUI for editing settings
 synapse config
+
+# Use legacy questionary-based interface instead of Rich TUI
+synapse config --no-rich
 
 # Edit specific scope directly (skip scope selection prompt)
 synapse config --scope user     # Edit ~/.synapse/settings.json
@@ -501,7 +561,7 @@ Configure which columns to display in `synapse list`:
 | `NAME` | Custom name if set |
 | `TYPE` | Agent type (claude, gemini, etc.) |
 | `ROLE` | Role description |
-| `STATUS` | READY/WAITING/PROCESSING/DONE |
+| `STATUS` | READY/WAITING/PROCESSING/DONE/SHUTTING_DOWN |
 | `CURRENT` | Current task preview |
 | `TRANSPORT` | UDS/TCP communication status |
 | `WORKING_DIR` | Working directory |
@@ -725,18 +785,25 @@ synapse reject <task_id> --reason "Use OAuth instead of JWT"
 
 Start multiple agents in split terminal panes.
 
+**Default behavior:** The 1st agent takes over the current terminal (handoff via `os.execvp`), and remaining agents start in new panes. Use `--all-new` to start all agents in new panes (current terminal stays).
+
+Agent specs use `profile[:name[:role[:skill_set]]]` format. When extra fields are provided, `--no-setup` is added automatically.
+
 ```bash
-# Default split layout (requires tmux or iTerm2)
+# Default: claude=current terminal, gemini=new pane
 synapse team start claude gemini
 
-# Three agents with tiling
-synapse team start claude gemini codex --layout split
+# With names, roles, and skill sets
+synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher
+
+# All agents in new panes (current terminal remains)
+synapse team start claude gemini --all-new
 
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 ```
 
-**Supported terminals:** tmux, iTerm2, Terminal.app (tabs). Falls back to sequential start if unsupported.
+**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.
 
 ### Team Start via A2A API
 
@@ -746,6 +813,17 @@ Agents can spawn teams programmatically via the `/team/start` endpoint:
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+```
+
+### Spawn via A2A API
+
+Agents can spawn other agents programmatically via the `/spawn` endpoint:
+
+```bash
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "name": "Helper"}'
+# Response: {"agent_id": "synapse-gemini-8110", "port": 8110, "terminal_used": "tmux", "status": "submitted"}
 ```
 
 ## Skill Management
@@ -780,6 +858,8 @@ synapse skills create [--name <name>]              # Create new skill template
 synapse skills set list
 synapse skills set show <name>
 ```
+
+**Skill Set in Initial Instructions:** When an agent starts with a skill set (via `--skill-set` or interactive selection), the skill set details (name, description, included skills) are automatically included in the agent's initial instructions. This allows the agent to understand its assigned capabilities.
 
 ### Skill Scopes
 

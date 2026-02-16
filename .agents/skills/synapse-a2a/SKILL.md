@@ -60,6 +60,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
 | Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
+| Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
 
@@ -352,6 +353,25 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
+- **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
+
+## Spawning Agents
+
+Spawn a single agent in a new terminal pane or window.
+
+```bash
+synapse spawn claude                          # Spawn Claude in a new pane
+synapse spawn gemini --port 8115              # Spawn with explicit port
+synapse spawn claude --name Tester --role "test writer"  # With name/role
+synapse spawn claude --terminal tmux          # Use specific terminal
+```
+
+**Headless Mode:**
+When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+
+**Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
+
+**Pane Auto-Close:** When an agent process terminates, the pane/tab/window closes automatically in all supported terminals. Zellij uses `--close-on-exit`; iTerm2, Terminal.app, and Ghostty use `exec` to replace the shell process; tmux `split-window` closes natively on process exit.
 
 ## Path Overrides
 
