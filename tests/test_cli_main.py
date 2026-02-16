@@ -31,6 +31,7 @@ class TestCliMain:
             no_setup=False,
             delegate_mode=False,
             skill_set=None,
+            headless=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -53,6 +54,7 @@ class TestCliMain:
             no_setup=False,
             delegate_mode=False,
             skill_set=None,
+            headless=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -78,6 +80,7 @@ class TestCliMain:
             no_setup=False,
             delegate_mode=False,
             skill_set=None,
+            headless=False,
         )
 
     @patch("synapse.cli.cmd_start")
@@ -264,6 +267,7 @@ class TestCliMain:
             no_setup=False,
             delegate_mode=False,
             skill_set=None,
+            headless=False,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -289,6 +293,7 @@ class TestCliMain:
             no_setup=True,
             delegate_mode=False,
             skill_set=None,
+            headless=False,
         )
 
     @patch("synapse.cli.cmd_kill")

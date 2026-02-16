@@ -99,6 +99,7 @@ flowchart LR
 | **Arrêt gracieux** | `synapse kill` envoie une requête d'arrêt avant SIGTERM (délai de 30s) |
 | **Mode délégué** | `--delegate-mode` fait d'un agent un coordinateur qui délègue au lieu d'éditer des fichiers |
 | **Auto-génération de panneaux** | `synapse team start` — le 1er agent reprend le terminal actuel, les autres dans de nouveaux panneaux |
+| **Lancer une instance unique** | `synapse spawn <profile>` — Lance un seul agent dans un nouveau volet ou une nouvelle fenêtre de terminal |
 
 ---
 
@@ -604,6 +605,7 @@ synapse kill my-claude
 | `synapse approve <task_id>` | Approuver un plan |
 | `synapse reject <task_id>` | Rejeter un plan avec motif |
 | `synapse team start` | Lancer des agents (1er=transfert, les autres=nouveaux panneaux). `--all-new` tous nouveaux |
+| `synapse spawn <profile>` | Lancer un seul agent dans un nouveau volet |
 
 ### Mode Reprise
 
@@ -874,6 +876,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/{id}/approve` | POST | Approuver un plan |
 | `/tasks/{id}/reject` | POST | Rejeter un plan avec motif |
 | `/team/start` | POST | Démarrer plusieurs agents dans des panneaux de terminal (initié par A2A) |
+| `/spawn` | POST | Démarrer un seul agent dans un panneau de terminal (initié par A2A) |
 
 ### Extensions Synapse
 

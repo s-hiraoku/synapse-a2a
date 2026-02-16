@@ -23,6 +23,7 @@ flowchart TB
         start["start"]
         stop["stop"]
         team["team"]
+        spawn["spawn"]
         list["list"]
         send["send"]
         broadcast["broadcast"]
@@ -231,6 +232,30 @@ synapse team start claude gemini codex              # claude=ここ、他=新ペ
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 ```
+
+---
+
+### 1.5.2 synapse spawn
+
+1つのエージェントを新しいターミナルペインまたはウィンドウで起動します。
+
+```bash
+synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `profile` | Yes | エージェントプロファイル名 |
+| `--port` | No | サーバーポート |
+| `--name` | No | カスタム名 |
+| `--role` | No | ロール説明 |
+| `--skill-set` | No | スキルセット名 |
+| `--terminal` | No | 使用するターミナル (`tmux`, `iterm2`, `terminal_app`, `ghostty`, `vscode`, `zellij`) |
+
+**動作**:
+- 新しいペイン/ウィンドウでエージェントを起動
+- 自動的に `--headless` フラグを付与（対話型ステップのスキップ）
+- 起動成功後、エージェント ID とポートを出力
 
 ---
 
@@ -842,6 +867,7 @@ flowchart LR
 | GET | `/.well-known/agent.json` | Agent Card（エージェント情報） |
 | POST | `/tasks/send` | Task ベースでメッセージ送信 |
 | POST | `/tasks/create` | Task 作成のみ（PTY送信なし、--response用） |
+| POST | `/spawn` | エージェントを新しいペインで起動（Synapse 拡張） |
 | GET | `/tasks/{id}` | Task 状態取得 |
 | GET | `/tasks` | Task 一覧 |
 | POST | `/tasks/{id}/cancel` | Task キャンセル |

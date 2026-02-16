@@ -99,6 +99,7 @@ flowchart LR
 | **グレースフルシャットダウン** | `synapse kill` は SIGTERM の前に終了リクエストを送信 (30秒タイムアウト) |
 | **委譲モード** | `--delegate-mode` は、ファイルを編集する代わりに委譲を行うコーディネーターにする |
 | **ペイン自動生成** | `synapse team start` — 最初のエージェントが現在のターミナルを引き継ぎ、他は新しいペインで起動 |
+| **エージェント単体起動** | `synapse spawn <profile>` — 1つのエージェントを新しいペインまたはウィンドウで起動 |
 
 ---
 
@@ -604,6 +605,7 @@ synapse kill my-claude
 | `synapse approve <task_id>` | プランを承認する |
 | `synapse reject <task_id>` | 理由を添えてプランを拒否する |
 | `synapse team start` | エージェントを起動 (1番目は引き継ぎ、残りは新しいペイン)。`--all-new` はすべて新しいペイン。 |
+| `synapse spawn <profile>` | 1つのエージェントを新しいペインで起動 |
 
 ### Resume モード
 
@@ -874,6 +876,7 @@ python -m synapse.tools.a2a reply "これが私の返信です"
 | `/tasks/{id}/approve` | POST | プランを承認する |
 | `/tasks/{id}/reject` | POST | 理由を添えてプランを拒否する |
 | `/team/start` | POST | ターミナルペインで複数のエージェントを起動 |
+| `/spawn` | POST | ターミナルペインで1つのエージェントを起動 (A2A経由) |
 
 ### Synapse 拡張
 

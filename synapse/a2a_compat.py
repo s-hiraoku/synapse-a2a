@@ -1557,6 +1557,61 @@ def create_a2a_router(
         return TeamStartResponse(started=started, terminal_used=None)
 
     # --------------------------------------------------------
+    # Spawn Single Agent (Synapse Extension)
+    # --------------------------------------------------------
+
+    class SpawnRequest(BaseModel):
+        """Request to spawn a single agent in a new terminal pane."""
+
+        profile: str = Field(..., description="Agent profile (claude, gemini, etc.)")
+        port: int | None = None
+        name: str | None = None
+        role: str | None = None
+        skill_set: str | None = None
+        terminal: str | None = None
+
+    class SpawnResponse(BaseModel):
+        """Response after spawning an agent."""
+
+        agent_id: str | None = None
+        port: int | None = None
+        terminal_used: str | None = None
+        status: str  # "submitted" | "failed"
+        reason: str | None = None
+
+    @router.post("/spawn", response_model=SpawnResponse)
+    async def spawn_single_agent(
+        request: SpawnRequest,
+        _: Any = Depends(require_auth),
+    ) -> SpawnResponse:
+        """Spawn a single agent in a new terminal pane via A2A protocol.
+
+        Requires authentication when SYNAPSE_AUTH_ENABLED=true.
+        """
+        from synapse.spawn import spawn_agent
+
+        try:
+            result = spawn_agent(
+                profile=request.profile,
+                port=request.port,
+                name=request.name,
+                role=request.role,
+                skill_set=request.skill_set,
+                terminal=request.terminal,
+            )
+            return SpawnResponse(
+                agent_id=result.agent_id,
+                port=result.port,
+                terminal_used=result.terminal_used,
+                status=result.status,
+            )
+        except Exception as e:
+            return SpawnResponse(
+                status="failed",
+                reason=str(e),
+            )
+
+    # --------------------------------------------------------
     # Reply Stack (Synapse Extension)
     # --------------------------------------------------------
 

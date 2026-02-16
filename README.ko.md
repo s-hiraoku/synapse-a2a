@@ -93,6 +93,13 @@ flowchart LR
 | **에이전트 명명** | 커스텀 이름과 역할로 쉬운 식별(`synapse send my-claude "hello"`) |
 | **에이전트 모니터** | 실시간 상태(READY/WAITING/PROCESSING/DONE), CURRENT 작업 미리보기, 터미널 점프 |
 | **작업 이력** | 검색, 내보내기, 통계 기능을 갖춘 자동 작업 추적(기본 활성화) |
+| **공유 작업 보드** | SQLite 기반의 작업 조율 및 의존성 추적 (`synapse tasks`) |
+| **퀄리티 게이트** | 상태 전환을 제어하는 구성 가능한 훅 (`on_idle`, `on_task_completed`) |
+| **플랜 승인** | 인간의 개입을 위한 `synapse approve/reject` 워크플로 |
+| **단계적 종료** | `synapse kill`은 SIGTERM 전에 종료 요청을 전송 (30초 대기, `-f`로 강제 종료) |
+| **위임 모드** | `--delegate-mode`는 파일을 직접 수정하는 대신 위임을 수행하는 코디네이터로 설정 |
+| **자동 패널 생성** | `synapse team start` — 첫 번째 에이전트가 현재 터미널을 인계받고, 나머지는 새 패널에서 실행 |
+| **단일 에이전트 실행** | `synapse spawn <profile>` — 새 터미널 패널 또는 창에서 단일 에이전트 실행 |
 
 ---
 
@@ -537,6 +544,14 @@ synapse kill my-claude
 | `synapse file-safety debug` | 디버그 정보 표시 |
 | `synapse config` | 설정 관리 (대화형 TUI) |
 | `synapse config show` | 현재 설정 표시 |
+| `synapse tasks list` | 공유 작업 보드 조회 |
+| `synapse tasks create` | 작업 생성 |
+| `synapse tasks assign` | 에이전트에 작업 할당 |
+| `synapse tasks complete` | 작업 완료 표시 |
+| `synapse approve <task_id>` | 플랜 승인 |
+| `synapse reject <task_id>` | 이유를 포함하여 플랜 거부 |
+| `synapse team start` | 에이전트 팀 시작 (1st=인계, 나머지는 새 패널) |
+| `synapse spawn <profile>` | 새 패널에서 단일 에이전트 실행 |
 
 ### Resume 모드
 
@@ -795,6 +810,19 @@ python -m synapse.tools.a2a reply "Here is my response"
 | ---------- | ------ | ---- |
 | `/reply-stack/get` | GET | 발신자 정보 조회 (전송 전 확인용 peek) |
 | `/reply-stack/pop` | GET | 응답 맵에서 발신자 정보를 꺼냄 (`synapse reply`용) |
+
+### 에이전트 팀
+
+| 엔드포인트 | 메서드 | 설명 |
+| -------- | ------ | ----------- |
+| `/tasks/board` | GET | 공유 작업 보드 조회 |
+| `/tasks/board` | POST | 보드에 작업 생성 |
+| `/tasks/board/{id}/claim` | POST | 원자적으로 작업 획득 |
+| `/tasks/board/{id}/complete` | POST | 작업 완료 |
+| `/tasks/{id}/approve` | POST | 플랜 승인 |
+| `/tasks/{id}/reject` | POST | 이유와 함께 플랜 거부 |
+| `/team/start` | POST | 터미널 패널에서 여러 에이전트 시작 |
+| `/spawn` | POST | 터미널 패널에서 단일 에이전트 시작 (Synapse 확장) |
 
 ### 외부 에이전트
 

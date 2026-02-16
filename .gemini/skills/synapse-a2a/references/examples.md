@@ -166,13 +166,13 @@ synapse tasks complete <auth_task_id>
 
 ```bash
 # Terminal 1: Start coordinator (cannot edit files)
-synapse claude --delegate-mode --name coordinator --port 8100
+synapse claude --delegate-mode --name coordinator
 
 # Terminal 2-3: Start worker agents
 synapse gemini --name worker-1
 synapse codex --name worker-2
 
-# Coordinator delegates tasks (--from uses the coordinator's agent ID)
+# Coordinator delegates tasks
 synapse send worker-1 "Implement auth in src/auth.py" --from synapse-claude-8100
 synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-8100
 ```
@@ -180,14 +180,33 @@ synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-
 ### Quick Team Start (tmux)
 
 ```bash
-# Start 3 agents in split panes (CLI)
+# Start 3 agents in split panes
 synapse team start claude gemini codex --layout split
-
-# Or via A2A API (agents can spawn teams programmatically)
-curl -X POST http://localhost:8100/team/start \
-  -H "Content-Type: application/json" \
-  -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 ```
+
+### Spawn Lifecycle Pattern
+
+Use `synapse spawn` to create short-lived helper agents for specific tasks.
+
+```bash
+# 1. Spawn a helper agent
+# Note: output contains agent ID and port
+result=$(synapse spawn gemini --name Helper --role "test writer")
+agent_id=$(echo $result | cut -d' ' -f1)
+
+# 2. Send a specific task and wait for completion
+synapse send $agent_id "Write tests for auth module" --from $SYNAPSE_AGENT_ID --response
+
+# 3. Force terminate once task is finished
+synapse kill $agent_id -f
+```
+
+**Key points:**
+- Spawning agent is responsible for lifecycle management.
+- Use `--headless` (automatically applied by spawn) for non-interactive execution.
+- Always force kill (`-f`) helper agents when done to clean up resources.
+- **Pane auto-close:** All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when the agent process terminates.
+- **Note:** The stdout capture scripting pattern (`result=$(synapse spawn ...)`) works best with `tmux`. Reliability may vary in other terminal environments.
 
 ## Troubleshooting
 

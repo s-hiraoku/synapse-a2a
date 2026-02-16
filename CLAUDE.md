@@ -69,6 +69,10 @@ pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
 pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
 pytest tests/test_team_start_api.py -v       # B6: Team Start API
 
+# Spawn command tests
+pytest tests/test_spawn.py -v               # Spawn CLI + core function
+pytest tests/test_spawn_api.py -v           # Spawn API endpoint
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -192,6 +196,18 @@ synapse team start claude gemini --all-new  # All agents in new panes (current t
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+
+# Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
+synapse spawn claude                          # Spawn Claude in a new pane
+synapse spawn gemini --port 8115              # Spawn with explicit port
+synapse spawn claude --name Tester --role "test writer"  # With name/role
+synapse spawn claude --terminal tmux          # Use specific terminal
+
+# Spawn via A2A API (agents can spawn other agents programmatically)
+# POST /spawn - returns {agent_id, port, terminal_used, status}
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "name": "Helper"}'
 ```
 
 ## Target Resolution
@@ -235,6 +251,7 @@ synapse/
 ├── task_board.py    # Shared Task Board: SQLite-based task coordination (B1)
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
+├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
 ├── skills.py        # Skill discovery, deploy, import, skill sets
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations

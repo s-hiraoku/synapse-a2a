@@ -99,6 +99,7 @@ flowchart LR
 | **优雅停机** | `synapse kill` 在发送 SIGTERM 前发送停机请求（30秒超时） |
 | **委派模式** | `--delegate-mode` 使智能体成为协调者，负责委派任务而非编辑文件 |
 | **自动生成窗格** | `synapse team start` — 第一个智能体接管当前终端，其他智能体在新建窗格中启动 |
+| **启动单实例** | `synapse spawn <profile>` — 在新建窗格或窗口中启动单个智能体 |
 
 ---
 
@@ -604,6 +605,7 @@ synapse kill my-claude
 | `synapse approve <task_id>` | 批准方案 |
 | `synapse reject <task_id>` | 拒绝方案并说明原因 |
 | `synapse team start` | 启动智能体（第一个接管，其余新建窗格）。`--all-new` 全部新建 |
+| `synapse spawn <profile>` | 在新建窗格中启动单个智能体 |
 
 ### 恢复模式
 
@@ -874,6 +876,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/{id}/approve` | POST | 批准方案 |
 | `/tasks/{id}/reject` | POST | 拒绝方案并说明原因 |
 | `/team/start` | POST | 在终端窗格中启动多个智能体（A2A 触发） |
+| `/spawn` | POST | 在终端窗格中启动单个智能体（Synapse 扩展） |
 
 ### Synapse 扩展
 

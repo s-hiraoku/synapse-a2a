@@ -35,15 +35,25 @@ def _escape_applescript_string(value: str) -> str:
     return value
 
 
-def _build_agent_command(agent_spec: str) -> str:
-    """Parse 'profile[:name[:role[:skill_set]]]' and build full command.
+def _build_agent_command(agent_spec: str, *, use_exec: bool = False) -> str:
+    """Parse 'profile[:name[:role[:skill_set[:port[:headless]]]]]' and build command.
 
-    Example: 'claude:Reviewer:code review:dev-set'
-    -> 'synapse claude --name Reviewer --role "code review" --skill-set dev-set --no-setup'
+    Example: 'claude:Reviewer:code review:dev-set:8105:headless'
+    -> 'synapse claude --name Reviewer --role "code review" --skill-set dev-set --port 8105 --headless --no-setup'
+
+    Args:
+        agent_spec: Colon-separated agent spec string.
+        use_exec: If True, prefix command with ``exec`` so the shell process
+            is replaced by the agent process.  When the agent exits the
+            terminal session ends, which automatically closes the
+            pane/tab/window in iTerm2, Terminal.app, and Ghostty.
     """
     parts = agent_spec.split(":")
     profile = parts[0]
-    cmd = f"synapse {profile}"
+    # Use the same Python environment as the parent process to avoid
+    # resolving a different globally-installed `synapse` executable.
+    prefix = "exec " if use_exec else ""
+    cmd = f"{prefix}{shlex.quote(sys.executable)} -m synapse.cli {profile}"
 
     if len(parts) > 1:
         # If any extra info is provided, we'll likely want --no-setup
@@ -60,6 +70,16 @@ def _build_agent_command(agent_spec: str) -> str:
         # 4th part: Skill Set
         if len(parts) > 3 and parts[3]:
             cmd += f" --skill-set {shlex.quote(parts[3])}"
+
+        # 5th part: Port
+        if len(parts) > 4 and parts[4]:
+            if not parts[4].isdigit():
+                raise ValueError(f"Port must be numeric: {parts[4]}")
+            cmd += f" --port {parts[4]}"
+
+        # 6th part: Headless mode (skip all interactive prompts)
+        if len(parts) > 5 and parts[5] == "headless":
+            cmd += " --headless"
 
     return cmd
 
@@ -564,7 +584,7 @@ def create_iterm2_panes(
             "    tell current tab",
         ]
         for agent_spec in agents:
-            full_cmd = _build_agent_command(agent_spec)
+            full_cmd = _build_agent_command(agent_spec, use_exec=True)
             escaped = _escape_applescript_string(full_cmd)
             lines.extend(
                 [
@@ -582,11 +602,11 @@ def create_iterm2_panes(
             'tell application "iTerm2"',
             "  tell current window",
             "    tell current session",
-            f'      write text "{_escape_applescript_string(_build_agent_command(agents[0]))}"',
+            f'      write text "{_escape_applescript_string(_build_agent_command(agents[0], use_exec=True))}"',
         ]
 
         for agent_spec in agents[1:]:
-            full_cmd = _build_agent_command(agent_spec)
+            full_cmd = _build_agent_command(agent_spec, use_exec=True)
             escaped = _escape_applescript_string(full_cmd)
             lines.extend(
                 [
@@ -626,7 +646,7 @@ def create_terminal_app_tabs(
     commands: list[str] = []
 
     for i, agent_spec in enumerate(agents):
-        full_cmd = _build_agent_command(agent_spec)
+        full_cmd = _build_agent_command(agent_spec, use_exec=True)
         escaped = _escape_applescript_string(full_cmd)
         target = "" if (i == 0 and not all_new) else " in front window"
         commands.append(
@@ -670,13 +690,39 @@ def create_zellij_panes(
         full_cmd = _build_agent_command(agent_spec)
 
         if i == 0:
-            commands.append(f"zellij run --name synapse-{profile} -- {full_cmd}")
+            commands.append(
+                f"zellij run --close-on-exit --name synapse-{profile} -- {full_cmd}"
+            )
             continue
 
         direction = _direction_for(i)
         commands.append(
-            f"zellij run --direction {direction} --name synapse-{profile} -- {full_cmd}"
+            f"zellij run --close-on-exit --direction {direction} --name synapse-{profile} -- {full_cmd}"
         )
+
+    return commands
+
+
+def create_ghostty_window(
+    agents: list[str],
+) -> list[str]:
+    """Generate commands to open Ghostty windows for each agent.
+
+    Each agent gets its own Ghostty window via macOS ``open -na`` command.
+
+    Args:
+        agents: List of agent specs.
+
+    Returns:
+        List of shell command strings to execute.
+    """
+    commands: list[str] = []
+
+    for agent_spec in agents:
+        full_cmd = _build_agent_command(agent_spec, use_exec=True)
+        # Use 'open -na Ghostty' to open a new Ghostty window running the command
+        safe_cmd = shlex.quote(f"/bin/zsh -lc {shlex.quote(full_cmd)}")
+        commands.append(f"open -na Ghostty --args -e {safe_cmd}")
 
     return commands
 
@@ -712,10 +758,12 @@ def create_panes(
         return create_terminal_app_tabs(agents, all_new=all_new)
     elif terminal_app == "zellij":
         return create_zellij_panes(agents, layout, all_new=all_new)
+    elif terminal_app == "Ghostty":
+        return create_ghostty_window(agents)
 
     # Unsupported terminal - return empty list
     logger.warning(
         f"Terminal '{terminal_app or 'unknown'}' does not support pane creation. "
-        f"Supported: tmux, iTerm2, Terminal.app, zellij"
+        f"Supported: tmux, iTerm2, Terminal.app, Ghostty, zellij"
     )
     return []
