@@ -3,8 +3,8 @@ class SynapseA2a < Formula
 
   desc "Agent-to-Agent communication protocol for CLI agents"
   homepage "https://github.com/s-hiraoku/synapse-a2a"
-  url "https://files.pythonhosted.org/packages/0c/93/cfc398e1ab0d2ec8a465f2770896b93c76941584ba039a9065e2eadce4c8/synapse_a2a-0.5.2.tar.gz"
-  sha256 "373b038b6f5d7a08e0ce735c8888b09f92b7923c3cf31b985514d767af98eb82"
+  url "https://files.pythonhosted.org/packages/42/1d/a868c37896e1aa82e6d2d40cf6737b323271e16bba85aa4b3394455bed35/synapse_a2a-0.6.0.tar.gz"
+  sha256 "9d3a25be7c06f6cb1192b937d17b803145ef6dcd951e0b8bf9885a557f09f671"
   license "MIT"
 
   depends_on "rust" => :build
@@ -157,8 +157,8 @@ class SynapseA2a < Formula
   end
 
   resource "uvicorn" do
-    url "https://files.pythonhosted.org/packages/c3/d1/8f3c683c9561a4e6689dd3b1d345c815f10f86acd044ee1fb9a4dcd0b8c5/uvicorn-0.40.0.tar.gz"
-    sha256 "839676675e87e73694518b5574fd0f24c9d97b46bea16df7b8c05ea1a51071ea"
+    url "https://files.pythonhosted.org/packages/32/ce/eeb58ae4ac36fe09e3842eb02e0eb676bf2c53ae062b98f1b2531673efdd/uvicorn-0.41.0.tar.gz"
+    sha256 "09d11cf7008da33113824ee5a1c6422d89fbc2ff476540d69a34c87fab8b571a"
   end
 
   resource "watchdog" do
