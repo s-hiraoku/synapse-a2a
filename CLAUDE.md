@@ -61,6 +61,10 @@ pytest tests/test_team_start_api.py -v       # B6: Team Start API
 # Spawn command tests
 pytest tests/test_spawn.py -v               # Spawn CLI + core function
 pytest tests/test_spawn_api.py -v           # Spawn API endpoint
+pytest tests/test_tool_args_passthrough.py -v # tool_args passthrough (spawn/team)
+
+# Injection observability tests
+pytest tests/test_injection_observability.py -v # INJECT/* structured logs
 
 # Run agent (interactive)
 synapse claude
@@ -180,11 +184,19 @@ synapse team start claude gemini codex --layout horizontal  # Custom layout
 synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher  # Extended spec
 synapse team start claude gemini --all-new  # All agents in new panes (current terminal stays)
 
+# Pass tool-specific arguments after '--' (applied to all spawned agents)
+synapse team start claude gemini -- --dangerously-skip-permissions
+
 # Agent Teams: Team Start via A2A API (B6)
 # POST /team/start - agents can spawn teams programmatically
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
+
+# With tool_args (passed through to underlying CLI tool)
+curl -X POST http://localhost:8100/team/start \
+  -H "Content-Type: application/json" \
+  -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 synapse spawn claude                          # Spawn Claude in a new pane
@@ -192,11 +204,19 @@ synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
 
+# Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
+synapse spawn claude -- --dangerously-skip-permissions
+
 # Spawn via A2A API (agents can spawn other agents programmatically)
 # POST /spawn - returns {agent_id, port, terminal_used, status}
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "name": "Helper"}'
+
+# With tool_args
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "tool_args": ["--dangerously-skip-permissions"]}'
 ```
 
 ## Target Resolution

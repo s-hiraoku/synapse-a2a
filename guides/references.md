@@ -203,7 +203,7 @@ synapse list
 **デフォルト動作**: 1番目のエージェントが現在のターミナルを引き継ぎ（handoff）、2番目以降が新しいペインで起動します。
 
 ```bash
-synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new] [-- tool_args...]
 ```
 
 **エージェント指定（agent_spec）の形式**:
@@ -218,6 +218,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 | `agents` | Yes | 起動するエージェントスペック（複数指定） |
 | `--layout` | No | ペインレイアウト (`split`, `horizontal`, `vertical`) |
 | `--all-new` | No | 全エージェントを新しいペインで起動（現在のターミナルは残る） |
+| `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される |
 
 **対応ターミナル**:
 - `tmux`
@@ -231,6 +232,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 synapse team start claude gemini codex              # claude=ここ、他=新ペイン
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
+synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
 ```
 
 ---
@@ -240,7 +242,7 @@ synapse team start claude gemini --all-new          # 全員新ペイン
 1つのエージェントを新しいターミナルペインまたはウィンドウで起動します。
 
 ```bash
-synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM]
+synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [-- tool_args...]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -251,6 +253,7 @@ synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set S
 | `--role` | No | ロール説明 |
 | `--skill-set` | No | スキルセット名 |
 | `--terminal` | No | 使用するターミナル (`tmux`, `iterm2`, `terminal_app`, `ghostty`, `vscode`, `zellij`) |
+| `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される |
 
 **動作**:
 - 新しいペイン/ウィンドウでエージェントを起動

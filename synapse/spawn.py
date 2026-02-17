@@ -33,6 +33,7 @@ def spawn_agent(
     role: str | None = None,
     skill_set: str | None = None,
     terminal: str | None = None,
+    tool_args: list[str] | None = None,
 ) -> SpawnResult:
     """Spawn a single agent in a new terminal pane.
 
@@ -43,6 +44,8 @@ def spawn_agent(
         role: Agent role description.
         skill_set: Skill set to activate.
         terminal: Terminal app to use. Auto-detected if None.
+        tool_args: Extra arguments passed through to the underlying CLI tool
+            (e.g., ``["--dangerously-skip-permissions"]``).
 
     Returns:
         SpawnResult with agent_id, port, terminal_used, status.
@@ -90,6 +93,7 @@ def spawn_agent(
         [agent_spec],
         terminal_app=terminal_used,
         all_new=True,
+        tool_args=tool_args,
     )
 
     if not commands:

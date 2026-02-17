@@ -131,7 +131,7 @@ class TestTeamStartTerminalDetection:
         assert response.status_code == 200
         data = response.json()
         assert data["terminal_used"] == "tmux"
-        mock_create.assert_called_once_with(["gemini"], "split", "tmux")
+        mock_create.assert_called_once_with(["gemini"], "split", "tmux", tool_args=None)
         mock_run.assert_called_once()
 
     def test_no_terminal_falls_back_to_background(self, app_client):
@@ -168,7 +168,7 @@ class TestTeamStartTerminalDetection:
             )
         assert response.status_code == 200
         # Should not call detect_terminal_app, use explicit terminal
-        mock_create.assert_called_once_with(["codex"], "split", "tmux")
+        mock_create.assert_called_once_with(["codex"], "split", "tmux", tool_args=None)
 
     def test_terminal_with_empty_commands_falls_back(self, app_client):
         """If terminal detected but create_panes returns empty, fall back."""

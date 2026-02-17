@@ -62,8 +62,8 @@ class TestResumeMode:
         assert controller_resume._identity_sent is True
         controller_resume.write.assert_not_called()
 
-        # Check log message
-        assert "Skipping initial instructions (resume mode)" in caplog.text
+        # Check log message (structured observability format)
+        assert "INJECT/DECISION: action=skip_resume" in caplog.text
 
     def test_resume_mode_flag_initialization(self):
         """Should correctly initialize _skip_initial_instructions flag."""

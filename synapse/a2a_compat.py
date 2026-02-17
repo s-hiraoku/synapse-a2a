@@ -1469,6 +1469,7 @@ def create_a2a_router(
         agents: list[str] = Field(..., min_length=1)
         layout: Literal["split", "horizontal", "vertical"] = "split"
         terminal: str | None = None
+        tool_args: list[str] | None = None
 
     class AgentStartStatus(BaseModel):
         """Status of a single agent start attempt."""
@@ -1508,7 +1509,12 @@ def create_a2a_router(
 
         # Try pane creation if terminal is available
         if terminal:
-            commands = create_panes(request.agents, request.layout, terminal)
+            commands = create_panes(
+                request.agents,
+                request.layout,
+                terminal,
+                tool_args=request.tool_args,
+            )
             if commands:
                 for cmd in commands:
                     subprocess.run(shlex.split(cmd))
@@ -1533,8 +1539,11 @@ def create_a2a_router(
                 continue
 
             try:
+                fallback_cmd = ["synapse", agent_type]
+                if request.tool_args:
+                    fallback_cmd += ["--"] + request.tool_args
                 subprocess.Popen(
-                    ["synapse", agent_type],
+                    fallback_cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
@@ -1569,6 +1578,7 @@ def create_a2a_router(
         role: str | None = None
         skill_set: str | None = None
         terminal: str | None = None
+        tool_args: list[str] | None = None
 
     class SpawnResponse(BaseModel):
         """Response after spawning an agent."""
@@ -1604,6 +1614,7 @@ def create_a2a_router(
                     role=request.role,
                     skill_set=request.skill_set,
                     terminal=request.terminal,
+                    tool_args=request.tool_args,
                 )
             )
             return SpawnResponse(
