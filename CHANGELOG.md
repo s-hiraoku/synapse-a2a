@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-02-18
+
+### Added
+
+- **Auto-release workflow** (`.github/workflows/auto-release.yml`): Automatically creates git tag and GitHub Release with changelog when `pyproject.toml` version change is merged to `main` — completing the CI/CD chain (tag → PyPI → Homebrew/Scoop) (#233)
+- **Changelog extraction script** (`scripts/extract_changelog.py`): Extracts a version's section from `CHANGELOG.md` for release notes, used by `auto-release.yml`
+
+### Documentation
+
+- Updated `docs/release.md` to reflect fully automated release flow (manual tag/release steps replaced)
+- Updated release sections across all 6 README languages (en, ja, zh, ko, es, fr)
+
+### Tests
+
+- New `tests/test_extract_changelog.py` (10 tests): Unit tests for changelog extraction and CLI integration tests
+
 ## [0.6.0] - 2026-02-17
 
 ### Added
