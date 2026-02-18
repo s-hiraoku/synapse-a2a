@@ -44,7 +44,7 @@ jobs:
         if: steps.version.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Extract changelog
         if: steps.version.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
