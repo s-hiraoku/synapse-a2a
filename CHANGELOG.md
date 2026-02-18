@@ -9,18 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Manage Skills TUI scope submenu**: Skill list now grouped by scope (Synapse/User/Project) with a scope selection menu, excluding dev-only PLUGIN scope (#239)
 - **Agent directory deploy indicators**: Each skill row shows `[C✓ A✓ G·]` indicators for .claude/.agents/.gemini directory presence (#239)
 - **Skill detail deploy status**: SYNAPSE scope skill detail view shows per-agent deployment status across user and project scopes (#239)
 - **Deploy All action**: One-click deployment of a SYNAPSE skill to all agent directories in user scope, with confirmation prompt (#239)
 - **`check_deploy_status()` helper**: New function in `skills.py` to check skill deployment across all agent directories (#239)
-- **Auto GitHub Release workflow**: Creates git tag + GitHub Release automatically when `pyproject.toml` version changes on main (#234)
 
 ### Changed
 
 - **Manage Skills TUI navigation**: Replaced flat skill list with scope-based submenu (Synapse → User → Project), PLUGIN scope excluded from end-user TUI (#239)
 - **Python dependency**: Updated to Python 3.14 (#235)
-- **Release process**: Tag creation and GitHub Release automated via `auto-release.yml`; manual steps reduced to version bump, changelog update, and PR merge (#234)
 
 ### Fixed
 
@@ -29,14 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Path traversal in skill names**: `validate_skill_name()` now rejects `"."` and `".."` to prevent directory traversal (#239)
 - **`create_skill` error handling**: `cmd_skills_create` and `_create_flow` now catch `ValueError` from `validate_skill_name` (#239)
 - **CLAUDECODE env leak in spawn**: Unset `CLAUDECODE` env var in spawned agent commands to prevent nested-session detection failure (#238)
-- **`extract_changelog` error handling**: Raises `ValueError` instead of `sys.exit(1)` for testability (#234)
 
 ### Documentation
 
 - Updated guides/usage.md and guides/references.md with scope submenu flow and agent directory indicator table (#239)
 - Synced spawn docs across SKILL.md, commands.md, examples.md with `synapse reply` known limitation (#238)
 - Added spawn troubleshooting section to guides/troubleshooting.md (#238)
-- Updated release guide and READMEs for auto-release workflow (#234)
 
 ### Tests
 
@@ -44,6 +39,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `TestManageSkillsDisplay` (6 tests) to `test_cmd_skill_manager.py`: skill labels, scope menu, detail header deploy status (#239)
 - Added `test_reject_dot_and_dotdot` to `TestSkillNameValidation` (#239)
 - Added CLAUDECODE env unset tests to `test_spawn.py` (#238)
+
+## [0.6.1] - 2026-02-18
+
+### Added
+
+- **Auto GitHub Release workflow**: Creates git tag + GitHub Release automatically when `pyproject.toml` version changes on main (#234)
+
+### Changed
+
+- **Release process**: Tag creation and GitHub Release automated via `auto-release.yml`; manual steps reduced to version bump, changelog update, and PR merge (#234)
+
+### Fixed
+
+- **`extract_changelog` error handling**: Raises `ValueError` instead of `sys.exit(1)` for testability (#234)
+
+### Documentation
+
+- Updated release guide and READMEs for auto-release workflow (#234)
+
+### Tests
+
 - New `tests/test_extract_changelog.py`: changelog extraction script tests (#234)
 
 ## [0.6.0] - 2026-02-17
@@ -1416,6 +1432,12 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.6.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.24...v0.4.3
 [0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
