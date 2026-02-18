@@ -1421,18 +1421,15 @@ Proceed? [Y/n/s(skip)]:
 
 ### PyPI에 게시
 
-태그를 푸시하면 GitHub Actions를 통해 자동으로 PyPI에 게시됩니다.
+`pyproject.toml` 버전 변경을 `main`에 머지하면 git 태그, GitHub Release, PyPI 게시가 자동 실행됩니다.
 
 ```bash
-# 1. pyproject.toml의 버전 업데이트
-# version = "0.2.0"
-
-# 2. 태그 생성 및 푸시
-git tag v0.2.0
-git push origin v0.2.0
+# 1. pyproject.toml 버전과 CHANGELOG.md 업데이트
+# 2. PR 생성 후 머지
+# 3. 자동화: 태그 → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
-### 수동 게시
+### 수동 게시 (폴백)
 
 ```bash
 # uv로 빌드 및 게시
