@@ -172,10 +172,13 @@ class TestCreatePanesToolArgs:
             all_new=True,
         )
         full = " ".join(commands)
-        # Extract only the synapse command portion to avoid tmux's own '--'
+        # Extract only the synapse command portion — stop at the next tmux
+        # delimiter or end of string to avoid matching tmux's own '--'.
         synapse_idx = full.find("synapse")
         assert synapse_idx != -1, "synapse command not found in output"
-        synapse_part = full[synapse_idx:]
+        after_synapse = full[synapse_idx:]
+        next_tmux = after_synapse.find(" tmux ")
+        synapse_part = after_synapse[:next_tmux] if next_tmux != -1 else after_synapse
         assert "-- " not in synapse_part
 
 
@@ -356,16 +359,9 @@ class TestSpawnAPIToolArgs:
 
     def test_spawn_request_accepts_tool_args(self) -> None:
         """SpawnRequest should accept tool_args field."""
-        # Import the model — it's defined inside create_a2a_routes()
-        # so we test via Pydantic model construction
-        from pydantic import BaseModel
+        from synapse.a2a_compat import SpawnRequest
 
-        # Create a minimal model matching expected SpawnRequest
-        class TestSpawnRequest(BaseModel):
-            profile: str
-            tool_args: list[str] | None = None
-
-        req = TestSpawnRequest(
+        req = SpawnRequest(
             profile="claude",
             tool_args=["--dangerously-skip-permissions"],
         )
@@ -373,24 +369,16 @@ class TestSpawnAPIToolArgs:
 
     def test_spawn_request_tool_args_optional(self) -> None:
         """tool_args should default to None."""
-        from pydantic import BaseModel
+        from synapse.a2a_compat import SpawnRequest
 
-        class TestSpawnRequest(BaseModel):
-            profile: str
-            tool_args: list[str] | None = None
-
-        req = TestSpawnRequest(profile="claude")
+        req = SpawnRequest(profile="claude")
         assert req.tool_args is None
 
     def test_team_start_request_accepts_tool_args(self) -> None:
         """TeamStartRequest should accept tool_args field."""
-        from pydantic import BaseModel, Field
+        from synapse.a2a_compat import TeamStartRequest
 
-        class TestTeamStartRequest(BaseModel):
-            agents: list[str] = Field(..., min_length=1)
-            tool_args: list[str] | None = None
-
-        req = TestTeamStartRequest(
+        req = TeamStartRequest(
             agents=["claude", "gemini"],
             tool_args=["--flag"],
         )

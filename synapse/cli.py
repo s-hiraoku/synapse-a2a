@@ -4154,10 +4154,18 @@ Scopes:
     # argparse.REMAINDER had a bug where it swallowed named options (--name,
     # --role) as positional tool_args.  Instead, we split sys.argv at '--'
     # ourselves and let argparse see only the clean portion.
+    #
+    # Only extract for commands that actually accept tool_args (start, spawn,
+    # team start) so that other commands' '--' remains intact for argparse.
     argv = sys.argv[1:]
-    cli_argv, tool_args_extra = _extract_tool_args(argv)
+    _TOOL_ARGS_COMMANDS = {"start", "spawn", "team"}
+    first_positional = next((a for a in argv if not a.startswith("-")), None)
+    if first_positional in _TOOL_ARGS_COMMANDS:
+        cli_argv, tool_args_extra = _extract_tool_args(argv)
+    else:
+        cli_argv, tool_args_extra = argv, []
     args = parser.parse_args(cli_argv)
-    # Attach tool_args so cmd_spawn / cmd_start can read them.
+    # Attach tool_args so cmd_spawn / cmd_start / cmd_team_start can read them.
     args.tool_args = tool_args_extra
 
     if args.command is None:

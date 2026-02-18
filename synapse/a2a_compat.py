@@ -618,6 +618,57 @@ class ExternalTaskResponse(BaseModel):
 
 
 # ============================================================
+# Request / Response models for Team & Spawn endpoints
+# ============================================================
+
+
+class TeamStartRequest(BaseModel):
+    """Request to start multiple agents with split panes."""
+
+    agents: list[str] = Field(..., min_length=1)
+    layout: Literal["split", "horizontal", "vertical"] = "split"
+    terminal: str | None = None
+    tool_args: list[str] | None = None
+
+
+class AgentStartStatus(BaseModel):
+    """Status of a single agent start attempt."""
+
+    agent_type: str
+    status: str  # "submitted" | "failed"
+    reason: str | None = None
+
+
+class TeamStartResponse(BaseModel):
+    """Response after starting a team of agents."""
+
+    started: list[AgentStartStatus]
+    terminal_used: str | None = None
+
+
+class SpawnRequest(BaseModel):
+    """Request to spawn a single agent in a new terminal pane."""
+
+    profile: str = Field(..., description="Agent profile (claude, gemini, etc.)")
+    port: int | None = None
+    name: str | None = None
+    role: str | None = None
+    skill_set: str | None = None
+    terminal: str | None = None
+    tool_args: list[str] | None = None
+
+
+class SpawnResponse(BaseModel):
+    """Response after spawning an agent."""
+
+    agent_id: str | None = None
+    port: int | None = None
+    terminal_used: str | None = None
+    status: str  # "submitted" | "failed"
+    reason: str | None = None
+
+
+# ============================================================
 # A2A Router Factory
 # ============================================================
 
@@ -1463,27 +1514,6 @@ def create_a2a_router(
     # Team Management (B6: Agent-Initiated Team Spawning)
     # --------------------------------------------------------
 
-    class TeamStartRequest(BaseModel):
-        """Request to start multiple agents with split panes."""
-
-        agents: list[str] = Field(..., min_length=1)
-        layout: Literal["split", "horizontal", "vertical"] = "split"
-        terminal: str | None = None
-        tool_args: list[str] | None = None
-
-    class AgentStartStatus(BaseModel):
-        """Status of a single agent start attempt."""
-
-        agent_type: str
-        status: str  # "submitted" | "failed"
-        reason: str | None = None
-
-    class TeamStartResponse(BaseModel):
-        """Response after starting a team of agents."""
-
-        started: list[AgentStartStatus]
-        terminal_used: str | None = None
-
     @router.post("/team/start", response_model=TeamStartResponse)
     async def start_team(
         request: TeamStartRequest,
@@ -1568,26 +1598,6 @@ def create_a2a_router(
     # --------------------------------------------------------
     # Spawn Single Agent (Synapse Extension)
     # --------------------------------------------------------
-
-    class SpawnRequest(BaseModel):
-        """Request to spawn a single agent in a new terminal pane."""
-
-        profile: str = Field(..., description="Agent profile (claude, gemini, etc.)")
-        port: int | None = None
-        name: str | None = None
-        role: str | None = None
-        skill_set: str | None = None
-        terminal: str | None = None
-        tool_args: list[str] | None = None
-
-    class SpawnResponse(BaseModel):
-        """Response after spawning an agent."""
-
-        agent_id: str | None = None
-        port: int | None = None
-        terminal_used: str | None = None
-        status: str  # "submitted" | "failed"
-        reason: str | None = None
 
     @router.post("/spawn", response_model=SpawnResponse)
     async def spawn_single_agent(

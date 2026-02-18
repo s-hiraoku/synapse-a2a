@@ -58,7 +58,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Get tool args from environment (JSON-encoded)
     tool_args_str = os.environ.get("SYNAPSE_TOOL_ARGS", "")
-    tool_args = json.loads(tool_args_str) if tool_args_str else []
+    tool_args: list[str] = []
+    if tool_args_str:
+        try:
+            parsed = json.loads(tool_args_str)
+            if isinstance(parsed, list):
+                tool_args = parsed
+            else:
+                import logging
+
+                logging.warning(
+                    "SYNAPSE_TOOL_ARGS is not a JSON array, ignoring: %s",
+                    tool_args_str,
+                )
+        except (json.JSONDecodeError, ValueError, TypeError):
+            import logging
+
+            logging.warning(
+                "SYNAPSE_TOOL_ARGS contains invalid JSON, ignoring: %s",
+                tool_args_str,
+            )
 
     profile = load_profile(profile_name)
 
