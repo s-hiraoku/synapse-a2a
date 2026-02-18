@@ -110,6 +110,27 @@ class AddResult:
 
 
 # ──────────────────────────────────────────────────────────
+# Skill Name Validation
+# ──────────────────────────────────────────────────────────
+
+
+def validate_skill_name(name: str) -> None:
+    """Validate a skill name.
+
+    Raises:
+        ValueError: If the name is empty, contains slashes/spaces, or exceeds 128 chars.
+    """
+    if not name:
+        raise ValueError("Skill name must not be empty")
+    if "/" in name or "\\" in name:
+        raise ValueError("Skill name must not contain slash characters")
+    if " " in name:
+        raise ValueError("Skill name must not contain space characters")
+    if len(name) > 128:
+        raise ValueError("Skill name must not exceed 128 characters")
+
+
+# ──────────────────────────────────────────────────────────
 # Frontmatter Parsing
 # ──────────────────────────────────────────────────────────
 
@@ -323,16 +344,26 @@ def delete_skill(skill: SkillInfo, base_dir: Path) -> list[Path]:
     if skill.scope == SkillScope.SYNAPSE:
         target = base_dir / "skills" / skill.name
         if target.exists():
-            shutil.rmtree(target)
-            deleted.append(target)
-            logger.info(f"Deleted skill '{skill.name}' from {target}")
+            try:
+                shutil.rmtree(target)
+                deleted.append(target)
+                logger.info(f"Deleted skill '{skill.name}' from {target}")
+            except OSError as e:
+                logger.error(
+                    f"Failed to delete skill '{skill.name}' from {target}: {e}"
+                )
     else:
         for agent_dir in skill.agent_dirs:
             target = base_dir / agent_dir / "skills" / skill.name
             if target.exists():
-                shutil.rmtree(target)
-                deleted.append(target)
-                logger.info(f"Deleted skill '{skill.name}' from {target}")
+                try:
+                    shutil.rmtree(target)
+                    deleted.append(target)
+                    logger.info(f"Deleted skill '{skill.name}' from {target}")
+                except OSError as e:
+                    logger.error(
+                        f"Failed to delete skill '{skill.name}' from {target}: {e}"
+                    )
     return deleted
 
 
@@ -481,7 +512,11 @@ def create_skill(
 
     Returns:
         Path to the created skill directory, or None if already exists.
+
+    Raises:
+        ValueError: If the skill name is invalid.
     """
+    validate_skill_name(name)
     skill_dir = synapse_dir / "skills" / name
     if skill_dir.exists():
         return None
@@ -526,8 +561,8 @@ def _try_skill_creator_init(name: str, skill_dir: Path, synapse_dir: Path) -> bo
             if hasattr(mod, "init_skill"):
                 mod.init_skill(name, skill_dir)
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"skill-creator init failed for '{name}': {e}")
 
     return False
 
@@ -618,7 +653,11 @@ def create_skill_guided(
     """Create a new skill using Anthropic's guided methodology.
 
     Returns Path to created skill dir, or None if already exists.
+
+    Raises:
+        ValueError: If the skill name is invalid.
     """
+    validate_skill_name(name)
     skill_dir = synapse_dir / "skills" / name
     if skill_dir.exists():
         return None
@@ -998,6 +1037,38 @@ def edit_skill_set(
     return True
 
 
+# ──────────────────────────────────────────────────────────
+# Deploy Status Check
+# ──────────────────────────────────────────────────────────
+
+
+def check_deploy_status(
+    skill_name: str,
+    user_dir: Path | None = None,
+    project_dir: Path | None = None,
+) -> dict[str, dict[str, bool]]:
+    """Check where a skill is deployed across agent directories.
+
+    For each agent type, checks whether ``<base>/<agent_skill_dir>/<skill_name>/SKILL.md``
+    exists in both user and project scopes.
+
+    Returns:
+        {"user": {"claude": True, "codex": False, ...},
+         "project": {"claude": True, ...}}
+        When a dir is None the corresponding dict is empty.
+    """
+    result: dict[str, dict[str, bool]] = {"user": {}, "project": {}}
+
+    for scope_key, base_dir in (("user", user_dir), ("project", project_dir)):
+        if base_dir is None:
+            continue
+        for agent_type, rel_dir in AGENT_SKILL_DIRS.items():
+            skill_md = base_dir / rel_dir / skill_name / "SKILL.md"
+            result[scope_key][agent_type] = skill_md.is_file()
+
+    return result
+
+
 def ensure_core_skills(agent_type: str) -> list[str]:
     """Ensure core skills (synapse-a2a) are deployed to the agent's directory.
 
@@ -1022,7 +1093,7 @@ def ensure_core_skills(agent_type: str) -> list[str]:
         target_dir = target_base / skill_name
 
         if not source_dir.exists():
-            # Fallback if plugins/ is not in the same level as synapse/
+            logger.debug(f"Core skill source not found: {source_dir}")
             continue
 
         if not target_dir.exists():

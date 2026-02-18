@@ -25,6 +25,7 @@ from synapse.skills import (
     AGENT_SKILL_DIRS,
     SkillInfo,
     SkillScope,
+    check_deploy_status,
     create_skill,
     create_skill_set,
     delete_skill,
@@ -114,7 +115,8 @@ def cmd_skills_show(
             target = SkillScope(scope)
             matches = [s for s in matches if s.scope == target]
         except ValueError:
-            pass
+            print(f"Unknown scope: {scope}")
+            return
 
     if not matches:
         print(f"Skill '{name}' not found.")
@@ -137,6 +139,7 @@ def cmd_skills_delete(
     synapse_dir: Path | None = None,
     scope: str | None = None,
     force: bool = False,
+    dry_run: bool = False,
 ) -> bool:
     """Delete a skill.
 
@@ -155,7 +158,8 @@ def cmd_skills_delete(
             target = SkillScope(scope)
             matches = [s for s in matches if s.scope == target]
         except ValueError:
-            pass
+            print(f"Unknown scope: {scope}")
+            return False
 
     if not matches:
         print(f"Skill '{name}' not found.")
@@ -168,6 +172,10 @@ def cmd_skills_delete(
         return False
 
     base_dir = _get_base_dir_for_scope(skill.scope, user_dir, project_dir, synapse_dir)
+
+    if dry_run:
+        print(f"[dry-run] Would delete '{name}' from {_SCOPE_LABELS[skill.scope]}.")
+        return False
 
     if not force and not _confirm_action(
         f"Delete skill '{name}' from {_SCOPE_LABELS[skill.scope]}?"
@@ -211,6 +219,8 @@ def cmd_skills_move(
     target_scope: str,
     user_dir: Path | None = None,
     project_dir: Path | None = None,
+    synapse_dir: Path | None = None,
+    dry_run: bool = False,
 ) -> bool:
     """Move a skill to a different scope.
 
@@ -219,7 +229,9 @@ def cmd_skills_move(
     """
     user_dir = user_dir or Path.home()
     project_dir = project_dir or Path.cwd()
-    skills = discover_skills(project_dir=project_dir, user_dir=user_dir)
+    skills = discover_skills(
+        project_dir=project_dir, user_dir=user_dir, synapse_dir=synapse_dir
+    )
 
     matches = [s for s in skills if s.name == name]
     if not matches:
@@ -230,6 +242,12 @@ def cmd_skills_move(
         scope = SkillScope(target_scope)
     except ValueError:
         print(f"Unknown scope: {target_scope}")
+        return False
+
+    if dry_run:
+        print(
+            f"[dry-run] Would move '{name}' to {_SCOPE_LABELS.get(scope, target_scope)}."
+        )
         return False
 
     try:
@@ -310,7 +328,8 @@ def cmd_skills_import(
             target = SkillScope(from_scope)
             matches = [s for s in matches if s.scope == target]
         except ValueError:
-            pass
+            print(f"Unknown scope: {from_scope}")
+            return False
 
     if not matches:
         print(f"Skill '{name}' not found.")
@@ -489,6 +508,95 @@ class SkillManagerCommand:
         result = menu.show()
         return int(result) if result is not None else None
 
+    # ── Label / header builders ────────────────────────────────
+
+    # Short labels for the three distinct agent directories
+    _AGENT_DIR_LABELS = {".claude": "C", ".agents": "A", ".gemini": "G"}
+
+    def _build_skill_label(self, skill: SkillInfo) -> str:
+        """Build a display label for a skill in the menu list.
+
+        Non-PLUGIN skills get ``[C✓ A✓ G·]`` indicators showing which
+        agent directories contain the skill.  PLUGIN skills are plain.
+        """
+        desc = skill.description[:50] if skill.description else ""
+
+        if skill.scope == SkillScope.PLUGIN:
+            return f"{skill.name:<25} {desc}"
+
+        dirs = set(skill.agent_dirs)
+        parts = []
+        for d, label in self._AGENT_DIR_LABELS.items():
+            mark = "✓" if d in dirs else "·"
+            parts.append(f"{label}{mark}")
+        indicator = " ".join(parts)
+        return f"{skill.name:<25} [{indicator}]  {desc}"
+
+    def _build_detail_header(self, skill: SkillInfo) -> str:
+        """Build the detail-view header string for a skill.
+
+        Non-PLUGIN skills get a Deploy Status section showing per-agent
+        deployment across user and project scopes.
+        """
+        scope_label = _SCOPE_LABELS[skill.scope]
+        header = (
+            f"\n  Name:        {skill.name}\n"
+            f"  Scope:       {scope_label}\n"
+            f"  Path:        {skill.path}\n"
+            f"  Agent Dirs:  {', '.join(skill.agent_dirs)}\n"
+            f"  Description: {skill.description}\n"
+        )
+
+        if skill.scope == SkillScope.PLUGIN:
+            return header
+
+        status = check_deploy_status(
+            skill.name,
+            user_dir=self._user_dir,
+            project_dir=self._project_dir,
+        )
+
+        agents = list(AGENT_SKILL_DIRS.keys())
+        header += "\n  Deploy Status:\n"
+        for scope_key, scope_display in (
+            ("user", "User (~)    "),
+            ("project", "Project (.) "),
+        ):
+            parts = []
+            for agent in agents:
+                mark = "✓" if status[scope_key].get(agent, False) else "·"
+                parts.append(f"{agent} {mark}")
+            header += f"    {scope_display} {' '.join(parts)}\n"
+
+        return header
+
+    def _build_scope_menu_items(
+        self, skills: list[SkillInfo]
+    ) -> tuple[list[str], list[SkillScope]]:
+        """Build scope-selection menu items with skill counts.
+
+        Returns:
+            Tuple of (menu item labels, corresponding SkillScope list).
+        """
+        from synapse.styles import build_numbered_items
+
+        scope_counts: dict[SkillScope, int] = {}
+        for s in skills:
+            scope_counts[s.scope] = scope_counts.get(s.scope, 0) + 1
+
+        labels: list[str] = []
+        scopes: list[SkillScope] = []
+        scope_order = [SkillScope.SYNAPSE, SkillScope.USER, SkillScope.PROJECT]
+        for scope in scope_order:
+            count = scope_counts.get(scope, 0)
+            if count == 0:
+                continue
+            labels.append(f"{_SCOPE_LABELS[scope]}  ({count})")
+            scopes.append(scope)
+
+        items = build_numbered_items(labels, [("0", "Back")])
+        return items, scopes
+
     # ── Run loop ─────────────────────────────────────────────
 
     def run(self) -> None:
@@ -551,90 +659,72 @@ class SkillManagerCommand:
         return "exit"
 
     def _manage_skills(self) -> None:
-        """Browse and manage skills (existing behavior + synapse scope)."""
+        """Browse and manage skills via scope-selection submenu."""
         while True:
-            skills = discover_skills(
+            all_skills = discover_skills(
                 project_dir=self._project_dir,
                 user_dir=self._user_dir,
                 synapse_dir=self._synapse_dir,
             )
+            # Exclude PLUGIN scope (dev-only, not for end users)
+            skills = [s for s in all_skills if s.scope != SkillScope.PLUGIN]
             if not skills:
                 print("No skills found.")
                 return
 
-            choice = self._skills_menu(skills)
-            if choice is None:
+            # Step 1: scope selection
+            scope = self._scope_select_menu(skills)
+            if scope is None:
                 break
+
+            # Step 2: show skills in selected scope
+            scoped = [s for s in skills if s.scope == scope]
+            if not scoped:
+                continue
+            choice = self._skills_menu(scoped)
+            if choice is None:
+                continue  # back to scope selection
             if choice == "quit":
                 break
-            if isinstance(choice, int) and 0 <= choice < len(skills):
-                self._skill_detail(skills[choice])
+            if isinstance(choice, int) and 0 <= choice < len(scoped):
+                self._skill_detail(scoped[choice])
+
+    def _scope_select_menu(self, skills: list[SkillInfo]) -> SkillScope | None:
+        """Show scope selection menu. Returns selected scope or None."""
+        header = (
+            f"\n  MANAGE SKILLS — Select scope\n  Found {len(skills)} skills total\n"
+        )
+        items, scopes = self._build_scope_menu_items(skills)
+        choice = self._show_menu(items, header)
+        if choice is None or choice >= len(scopes):
+            return None
+        return scopes[choice]
 
     def _skills_menu(self, skills: list[SkillInfo]) -> int | str | None:
-        """Show skills list menu with scope headers and numbered items."""
-        from synapse.styles import MENU_SEPARATOR
+        """Show skills list menu for a single scope."""
+        from synapse.styles import build_numbered_items
 
-        header = (
-            f"\n  SYNAPSE SKILL MANAGER\n"
-            f"  Found {len(skills)} skills  |  Central store: ~/.synapse/skills/\n"
-        )
+        scope = skills[0].scope
+        header = f"\n  {_SCOPE_HEADERS[scope]}\n  {len(skills)} skills\n"
 
-        # Build skill labels grouped by scope
-        labels: list[str] = []
-        skill_indices: list[int] = []
-        current_scope: SkillScope | None = None
+        labels = [self._build_skill_label(s) for s in skills]
+        items = build_numbered_items(labels, [("0", "Back"), ("q", "Quit")])
 
-        for i, skill in enumerate(skills):
-            if skill.scope != current_scope:
-                current_scope = skill.scope
-                # Scope header line (non-selectable)
-                labels.append(f"--- {_SCOPE_HEADERS[current_scope]} ---")
-                skill_indices.append(-1)
-
-            desc = skill.description[:50] if skill.description else ""
-            labels.append(f"  {skill.name:<25} {desc}")
-            skill_indices.append(i)
-
-        # Number only selectable skill rows
-        numbered: list[str] = []
-        num = 1
-        for label, idx in zip(labels, skill_indices, strict=True):
-            if idx == -1:
-                # Scope header — pass through unnumbered
-                numbered.append(label)
-            else:
-                width = len(str(len(skills)))
-                numbered.append(f"[{num:>{width}}] {label.strip()}")
-                num += 1
-
-        numbered.append(MENU_SEPARATOR)
-        skill_indices.append(-1)
-        numbered.append("[q] Quit")
-        skill_indices.append(-2)
-
-        choice = self._show_menu(numbered, header)
+        choice = self._show_menu(items, header)
         if choice is None:
             return None
-
-        idx = skill_indices[int(choice)]
-        if idx == -2:
-            return "quit"
-        if idx == -1:
-            return None  # Non-selectable item
-        return idx
+        if choice >= len(skills):
+            # separator / Back / Quit
+            # Back is at len(skills)+1 (after separator), Quit at len(skills)+2
+            # But build_numbered_items puts separator then extras
+            return "quit" if choice == len(skills) + 1 else None
+        return choice
 
     def _skill_detail(self, skill: SkillInfo) -> None:
         """Show skill detail view with actions."""
         from synapse.styles import build_numbered_items
 
-        scope_label = _SCOPE_LABELS[skill.scope]
-        header = (
-            f"\n  Name:        {skill.name}\n"
-            f"  Scope:       {scope_label}\n"
-            f"  Path:        {skill.path}\n"
-            f"  Agent Dirs:  {', '.join(skill.agent_dirs)}\n"
-            f"  Description: {skill.description}\n"
-        )
+        header = self._build_detail_header(skill)
 
         # Build action labels (variable depending on scope)
         action_labels: list[str] = []
@@ -655,6 +745,8 @@ class SkillManagerCommand:
         if skill.scope == SkillScope.SYNAPSE:
             action_labels.append("Deploy to agent directories")
             action_keys.append("deploy")
+            action_labels.append("Deploy to all agents (user scope)")
+            action_keys.append("deploy_all")
 
         items = build_numbered_items(action_labels, [("0", "Back")])
 
@@ -676,6 +768,8 @@ class SkillManagerCommand:
             self._do_import(skill)
         elif action == "deploy":
             self._do_deploy(skill)
+        elif action == "deploy_all":
+            self._do_deploy_all(skill)
 
     def _confirm_delete(self, skill: SkillInfo) -> None:
         """Confirm and delete a skill."""
@@ -742,6 +836,21 @@ class SkillManagerCommand:
 
         input("  Press Enter to continue...")
 
+    def _do_deploy_all(self, skill: SkillInfo) -> None:
+        """Deploy a skill to all agent directories in user scope."""
+        all_agents = list(AGENT_SKILL_DIRS.keys())
+        result = deploy_skill(
+            skill,
+            agent_types=all_agents,
+            deploy_scope="user",
+            user_dir=self._user_dir,
+            project_dir=self._project_dir,
+        )
+        for msg in result.messages:
+            print(f"  {msg}")
+
+        input("  Press Enter to continue...")
+
     def _prompt_for_agents(self) -> list[str]:
         """Prompt user for target agents."""
         agents_str = input(
@@ -780,6 +889,7 @@ class SkillManagerCommand:
         skills = discover_skills(
             project_dir=self._project_dir,
             user_dir=self._user_dir,
+            synapse_dir=self._synapse_dir,
         )
         importable = [
             s for s in skills if s.scope in (SkillScope.USER, SkillScope.PROJECT)
