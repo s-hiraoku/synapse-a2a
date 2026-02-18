@@ -417,6 +417,8 @@ synapse spawn claude -- --dangerously-skip-permissions
 
 **ペイン自動クローズ**: エージェントプロセスが終了すると、対応するペイン/タブ/ウィンドウはすべてのサポート対象ターミナル（tmux, zellij, iTerm2, Terminal.app, Ghostty）で自動的に閉じます。
 
+**既知の制限**: spawn されたエージェントは PTY インジェクション経由でメッセージを受信するため、`synapse reply` によるリプライができません。代わりに `synapse send <送信元> "メッセージ" --from <自分のID>` を使用してください（[#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)）。
+
 ---
 
 ### 2.3 一覧表示

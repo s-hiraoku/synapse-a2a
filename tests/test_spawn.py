@@ -538,43 +538,29 @@ class TestClaudeCodeEnvUnset:
     the generated command.
     """
 
-    def test_build_agent_command_includes_env_unset(self) -> None:
-        """_build_agent_command should include 'env -u CLAUDECODE' in command."""
-        from synapse.terminal_jump import _build_agent_command
-
-        cmd = _build_agent_command("claude")
-        assert "env -u CLAUDECODE" in cmd
-
-    def test_build_agent_command_env_unset_before_python(self) -> None:
-        """'env -u CLAUDECODE' should appear before the python executable."""
-        from synapse.terminal_jump import _build_agent_command
-
-        cmd = _build_agent_command("claude::::8100:headless")
-        env_pos = cmd.index("env -u CLAUDECODE")
-        python_pos = cmd.index(shlex.quote(sys.executable))
-        assert env_pos < python_pos
-
-    def test_build_agent_command_env_unset_with_exec(self) -> None:
-        """When use_exec=True, 'exec' should come before 'env -u CLAUDECODE'."""
-        from synapse.terminal_jump import _build_agent_command
-
-        cmd = _build_agent_command("claude", use_exec=True)
-        assert cmd.startswith("exec env -u CLAUDECODE")
-
-    def test_build_agent_command_env_unset_without_exec(self) -> None:
+    def test_env_unset_without_exec(self) -> None:
         """Without exec, command should start with 'env -u CLAUDECODE'."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude")
         assert cmd.startswith("env -u CLAUDECODE")
 
-    def test_build_agent_command_env_unset_all_profiles(self) -> None:
-        """All profiles (not just claude) should unset CLAUDECODE."""
+    def test_env_unset_with_exec(self) -> None:
+        """With use_exec=True, 'exec' should precede 'env -u CLAUDECODE'."""
         from synapse.terminal_jump import _build_agent_command
 
-        for profile in ["claude", "gemini", "codex", "opencode", "copilot"]:
-            cmd = _build_agent_command(profile)
-            assert "env -u CLAUDECODE" in cmd, f"Missing env unset for {profile}"
+        cmd = _build_agent_command("claude", use_exec=True)
+        assert cmd.startswith("exec env -u CLAUDECODE")
+
+    @pytest.mark.parametrize(
+        "profile", ["claude", "gemini", "codex", "opencode", "copilot"]
+    )
+    def test_env_unset_all_profiles(self, profile: str) -> None:
+        """All agent profiles should unset CLAUDECODE, not just claude."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command(profile)
+        assert cmd.startswith("env -u CLAUDECODE")
 
     def test_zellij_panes_include_env_unset(self) -> None:
         """Zellij pane commands should include env -u CLAUDECODE."""
@@ -589,4 +575,5 @@ class TestClaudeCodeEnvUnset:
 
         commands = create_tmux_panes(agents=["claude", "gemini"], all_new=True)
         split_cmds = [c for c in commands if "split-window" in c]
+        assert split_cmds, "Expected at least one split-window command"
         assert all("env -u CLAUDECODE" in cmd for cmd in split_cmds)

@@ -500,7 +500,46 @@ pytest tests/test_server.py::TestA2AEndpoints -v
 
 ---
 
-## 7. よくある質問 (FAQ)
+## 7. Spawn の問題
+
+### 7.1 spawn したエージェントが即座に終了する
+
+**症状**:
+- `synapse spawn claude` で起動したエージェントがすぐに終了する
+- ペインが一瞬開いてすぐ閉じる
+
+**原因候補**:
+- Claude Code の場合: `CLAUDECODE` 環境変数がネスト検知を引き起こしている（v0.6.1 で修正済み）
+- ポートが既に使用されている
+- プロファイルの設定に問題がある
+
+**対処法**:
+
+1. Synapse A2A を最新版にアップデート
+2. ポートの競合を確認: `lsof -i :8100`
+3. ログを確認: `~/.synapse/logs/<profile>.log`
+
+### 7.2 spawn したエージェントが reply できない
+
+**症状**:
+- spawn されたエージェントが `synapse reply` で返信しようとしてもエラーになる
+- 「No reply targets found」と表示される
+
+**原因**:
+PTY インジェクション経由でメッセージが送信されるため、送信者情報がリプライキューに登録されません。これは既知の制限です（[#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)）。
+
+**対処法**:
+
+`synapse reply` の代わりに `synapse send` を使用してください：
+
+```bash
+# spawn されたエージェント側で
+synapse send <送信元のエージェント> "結果です" --from <自分のエージェントID> --no-response
+```
+
+---
+
+## 8. よくある質問 (FAQ)
 
 ### Q1. 複数の同じエージェントを起動できる？
 
@@ -546,9 +585,9 @@ synapse start claude --port 8100
 
 ---
 
-## 8. 外部エージェントの問題
+## 9. 外部エージェントの問題
 
-### 8.1 外部エージェントの発見に失敗する
+### 9.1 外部エージェントの発見に失敗する
 
 **症状**:
 
@@ -578,7 +617,7 @@ curl http://example.com/.well-known/agent.json
 
 ---
 
-### 8.2 外部エージェントへのメッセージ送信に失敗する
+### 9.2 外部エージェントへのメッセージ送信に失敗する
 
 **症状**:
 
@@ -605,7 +644,7 @@ curl -X POST http://<agent_url>/tasks/send \
 
 ---
 
-### 8.3 外部エージェントの登録情報をクリアしたい
+### 9.3 外部エージェントの登録情報をクリアしたい
 
 **対処法**:
 
@@ -619,9 +658,9 @@ rm -rf ~/.a2a/external/*
 
 ---
 
-## 9. 内部 A2A 通信の問題
+## 10. 内部 A2A 通信の問題
 
-### 9.1 /tasks/send でエラーが発生する
+### 10.1 /tasks/send でエラーが発生する
 
 **症状**:
 ```
@@ -653,7 +692,7 @@ curl -X POST http://localhost:8100/tasks/send \
 
 ---
 
-### 9.2 タスクのステータスが取得できない
+### 10.2 タスクのステータスが取得できない
 
 **症状**:
 ```
@@ -680,7 +719,7 @@ curl -s http://localhost:8100/tasks/<task_id> | jq .
 
 ---
 
-### 9.3 タスクが completed にならない
+### 10.3 タスクが completed にならない
 
 **症状**:
 - `GET /tasks/{id}` で常に `working` が返される
@@ -718,7 +757,7 @@ curl -s http://localhost:8100/tasks/<task_id> | jq '{status, artifacts}'
 
 ---
 
-### 9.4 API エンドポイントの比較
+### 10.4 API エンドポイントの比較
 
 **推奨 API と後方互換 API**:
 
@@ -757,7 +796,7 @@ curl -X POST http://localhost:8100/message \
 
 ---
 
-### 9.5 A2A タスクの状態遷移
+### 10.5 A2A タスクの状態遷移
 
 タスクは以下の状態を遷移します：
 
@@ -783,7 +822,7 @@ stateDiagram-v2
 
 ---
 
-## 10. 問題報告
+## 11. 問題報告
 
 問題が解決しない場合は、以下の情報を添えて報告してください：
 

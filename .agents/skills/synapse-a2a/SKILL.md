@@ -364,7 +364,16 @@ synapse spawn claude                          # Spawn Claude in a new pane
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
+
+# Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
+synapse spawn claude -- --dangerously-skip-permissions
 ```
+
+**Spawn via API:** Agents can spawn other agents programmatically via `POST /spawn`:
+```json
+{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}
+```
+Returns: `{agent_id, port, terminal_used, status}` (on failure: includes `reason`)
 
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
@@ -372,6 +381,8 @@ When an agent is started via `synapse spawn`, it automatically runs with the `--
 **Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
 
 **Pane Auto-Close:** When an agent process terminates, the pane/tab/window closes automatically in all supported terminals. Zellij uses `--close-on-exit`; iTerm2, Terminal.app, and Ghostty use `exec` to replace the shell process; tmux `split-window` closes natively on process exit.
+
+**Known Limitation:** Spawned agents receive messages via PTY injection, which does not register sender info in the reply queue. This means `synapse reply` will not work for responding to messages sent to spawned agents. Instead, use `synapse send <target> "message" --from <spawned-agent-id>` with explicit `--from` for bidirectional communication. See [#237](https://github.com/s-hiraoku/synapse-a2a/issues/237).
 
 ## Path Overrides
 

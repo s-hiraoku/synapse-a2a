@@ -16,14 +16,17 @@ CHANGELOG_PATH = Path(__file__).parent.parent / "CHANGELOG.md"
 
 
 def extract_changelog(version: str) -> str:
-    """Extract changelog section for the given version."""
+    """Extract changelog section for the given version.
+
+    Raises:
+        ValueError: If the version is not found in CHANGELOG.md.
+    """
     content = CHANGELOG_PATH.read_text(encoding="utf-8")
     escaped = re.escape(version)
     pattern = rf"## \[{escaped}\] - \d{{4}}-\d{{2}}-\d{{2}}\n(.*?)(?=\n## \[|\Z)"
     match = re.search(pattern, content, re.DOTALL)
     if not match:
-        print(f"ERROR: Version {version} not found in CHANGELOG.md", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(f"Version {version} not found in CHANGELOG.md")
     return match.group(0).strip()
 
 
@@ -31,7 +34,11 @@ def main() -> None:
     if len(sys.argv) != 2:
         print("Usage: extract_changelog.py <version>", file=sys.stderr)
         sys.exit(1)
-    print(extract_changelog(sys.argv[1]))
+    try:
+        print(extract_changelog(sys.argv[1]))
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
