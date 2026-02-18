@@ -22,7 +22,7 @@ class TestServerLifespan:
             env = {
                 "SYNAPSE_PROFILE": "dummy",
                 "SYNAPSE_PORT": "8199",
-                "SYNAPSE_TOOL_ARGS": "arg1\x00arg2",
+                "SYNAPSE_TOOL_ARGS": '["arg1", "arg2"]',
             }
             return env.get(key, default)
 

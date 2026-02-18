@@ -20,7 +20,11 @@ import pytest
 
 
 def _make_spawn_parser():
-    """Build the spawn subparser matching cli.py's definition."""
+    """Build the spawn subparser matching cli.py's definition.
+
+    Note: tool_args are NOT in the parser — they are pre-extracted
+    from sys.argv by _extract_tool_args() in main() before parsing.
+    """
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
     p = sub.add_parser("spawn")
@@ -75,6 +79,35 @@ class TestSpawnCLIParsing:
             ["spawn", "claude", "--terminal", "tmux"]
         )
         assert args.terminal == "tmux"
+
+    def test_spawn_name_role_not_eaten_by_tool_args(self) -> None:
+        """--name and --role must NOT be swallowed by tool_args.
+
+        Bug: argparse.REMAINDER consumed everything after 'profile',
+        making --name/--role always None. Fix: tool_args are now
+        pre-extracted from sys.argv via _extract_tool_args() before
+        argparse sees them.
+        """
+        args = _make_spawn_parser().parse_args(
+            ["spawn", "claude", "--name", "Reviewer", "--role", "code review"]
+        )
+        assert args.name == "Reviewer"
+        assert args.role == "code review"
+
+    def test_spawn_tool_args_after_separator(self) -> None:
+        """Arguments after '--' are pre-extracted by _extract_tool_args().
+
+        The '--' separator and everything after it are stripped from
+        sys.argv before argparse runs, then attached as args.tool_args.
+        """
+        from synapse.cli import _extract_tool_args
+
+        argv = ["spawn", "claude", "--name", "X", "--", "--skip-perms"]
+        clean_argv, tool_args = _extract_tool_args(argv)
+
+        args = _make_spawn_parser().parse_args(clean_argv)
+        assert args.name == "X"
+        assert tool_args == ["--skip-perms"]
 
 
 # ============================================================

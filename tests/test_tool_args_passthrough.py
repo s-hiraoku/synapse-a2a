@@ -234,12 +234,13 @@ class TestSpawnToolArgs:
 class TestSpawnCLIToolArgs:
     """Tests for CLI parsing of tool_args in spawn command.
 
-    For spawn, tool_args uses REMAINDER after the profile positional,
-    so 'synapse spawn claude -- --flag' works naturally.
+    tool_args are pre-extracted from sys.argv via _extract_tool_args()
+    before argparse runs, so 'synapse spawn claude -- --flag' works
+    by splitting at '--' first.
     """
 
     def _make_parser(self):
-        """Build spawn subparser with tool_args support matching cli.py."""
+        """Build spawn subparser matching cli.py (no tool_args arg)."""
         parser = argparse.ArgumentParser()
         sub = parser.add_subparsers(dest="command")
         p = sub.add_parser("spawn")
@@ -249,22 +250,28 @@ class TestSpawnCLIToolArgs:
         p.add_argument("--role", "-r")
         p.add_argument("--skill-set", "-S", dest="skill_set")
         p.add_argument("--terminal")
-        p.add_argument("tool_args", nargs=argparse.REMAINDER)
         return parser
 
     def test_parse_spawn_with_tool_args(self) -> None:
         """'synapse spawn claude -- --flag' should capture tool_args."""
-        args = self._make_parser().parse_args(
-            ["spawn", "claude", "--", "--dangerously-skip-permissions"]
-        )
+        from synapse.cli import _extract_tool_args
+
+        argv = ["spawn", "claude", "--", "--dangerously-skip-permissions"]
+        clean_argv, tool_args = _extract_tool_args(argv)
+
+        args = self._make_parser().parse_args(clean_argv)
         assert args.profile == "claude"
-        # REMAINDER captures everything after --
-        assert "--dangerously-skip-permissions" in args.tool_args
+        assert "--dangerously-skip-permissions" in tool_args
 
     def test_parse_spawn_without_tool_args(self) -> None:
         """'synapse spawn claude' should have empty tool_args."""
-        args = self._make_parser().parse_args(["spawn", "claude"])
-        assert args.tool_args == []
+        from synapse.cli import _extract_tool_args
+
+        argv = ["spawn", "claude"]
+        clean_argv, tool_args = _extract_tool_args(argv)
+
+        self._make_parser().parse_args(clean_argv)  # should not raise
+        assert tool_args == []
 
     def test_cmd_spawn_forwards_tool_args(self) -> None:
         """cmd_spawn should pass tool_args to spawn_agent."""
@@ -278,6 +285,7 @@ class TestSpawnCLIToolArgs:
             status="submitted",
         )
 
+        # tool_args are pre-extracted by main() — no leading '--'
         args = argparse.Namespace(
             profile="claude",
             port=None,
@@ -285,7 +293,7 @@ class TestSpawnCLIToolArgs:
             role=None,
             skill_set=None,
             terminal=None,
-            tool_args=["--", "--dangerously-skip-permissions"],
+            tool_args=["--dangerously-skip-permissions"],
         )
 
         with patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_sa:

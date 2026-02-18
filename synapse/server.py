@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 import threading
@@ -55,9 +56,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     agent_port = int(os.environ.get("SYNAPSE_PORT", str(agent_port)))
     agent_profile = profile_name
 
-    # Get tool args from environment (null-separated)
+    # Get tool args from environment (JSON-encoded)
     tool_args_str = os.environ.get("SYNAPSE_TOOL_ARGS", "")
-    tool_args = tool_args_str.split("\x00") if tool_args_str else []
+    tool_args = json.loads(tool_args_str) if tool_args_str else []
 
     profile = load_profile(profile_name)
 

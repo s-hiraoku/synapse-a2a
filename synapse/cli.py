@@ -2293,8 +2293,9 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
     from synapse.terminal_jump import create_panes, detect_terminal_app
 
-    agents, tool_args = _extract_tool_args(args.agents)
-    tool_args_or_none = tool_args or None
+    # Strip any '--' + trailing args still embedded in the agents list
+    agents, embedded_tool_args = _extract_tool_args(args.agents)
+    tool_args = getattr(args, "tool_args", []) or embedded_tool_args
     layout = getattr(args, "layout", "split")
     all_new = getattr(args, "all_new", False)
 
@@ -2321,7 +2322,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             layout=layout,
             terminal_app=terminal,
             all_new=True,
-            tool_args=tool_args_or_none,
+            tool_args=tool_args or None,
         )
         if not commands:
             print(f"Terminal '{terminal}' does not support pane creation.")
@@ -2341,13 +2342,13 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 layout=layout,
                 terminal_app=terminal,
                 all_new=True,
-                tool_args=tool_args_or_none,
+                tool_args=tool_args or None,
             )
             _run_pane_commands(commands)
 
         from synapse.terminal_jump import _build_agent_command
 
-        full_cmd = _build_agent_command(local_agent, tool_args=tool_args_or_none)
+        full_cmd = _build_agent_command(local_agent, tool_args=tool_args or None)
         cmd_args = shlex.split(full_cmd)
 
         print(f"Handing over terminal to {local_agent.split(':')[0]}...")
@@ -2367,11 +2368,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     """Spawn a single agent in a new terminal pane."""
     from synapse.spawn import spawn_agent
 
-    # Extract tool_args, stripping the leading '--' if present
     tool_args = getattr(args, "tool_args", [])
-    if tool_args and tool_args[0] == "--":
-        tool_args = tool_args[1:]
-
     try:
         result = spawn_agent(
             profile=args.profile,
@@ -2969,11 +2966,8 @@ Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     )
     p_start.add_argument("--ssl-cert", help="SSL certificate file for HTTPS")
     p_start.add_argument("--ssl-key", help="SSL private key file for HTTPS")
-    p_start.add_argument(
-        "tool_args",
-        nargs=argparse.REMAINDER,
-        help="Arguments after -- are passed to the underlying CLI tool",
-    )
+    # tool_args are extracted from sys.argv before parse_args() —
+    # see the _extract_tool_args_from_argv() call in main().
     p_start.set_defaults(func=cmd_start)
 
     # stop
@@ -3992,11 +3986,8 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         "--terminal",
         help="Terminal app to use (default: auto-detect)",
     )
-    p_spawn.add_argument(
-        "tool_args",
-        nargs=argparse.REMAINDER,
-        help="Arguments after -- are passed to the underlying CLI tool",
-    )
+    # tool_args are extracted from sys.argv before parse_args() —
+    # see the _extract_tool_args_from_argv() call in main().
     p_spawn.set_defaults(func=cmd_spawn)
 
     # approve - Plan approval (B3)
@@ -4159,7 +4150,15 @@ Scopes:
     p_sk_set_show.add_argument("name", help="Skill set name")
     p_sk_set_show.set_defaults(func=cmd_skills_set_show)
 
-    args = parser.parse_args()
+    # Pre-extract tool_args from sys.argv for commands that support '--'.
+    # argparse.REMAINDER had a bug where it swallowed named options (--name,
+    # --role) as positional tool_args.  Instead, we split sys.argv at '--'
+    # ourselves and let argparse see only the clean portion.
+    argv = sys.argv[1:]
+    cli_argv, tool_args_extra = _extract_tool_args(argv)
+    args = parser.parse_args(cli_argv)
+    # Attach tool_args so cmd_spawn / cmd_start can read them.
+    args.tool_args = tool_args_extra
 
     if args.command is None:
         parser.print_help()
