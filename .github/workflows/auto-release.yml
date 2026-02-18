@@ -25,7 +25,7 @@ jobs:
             exit 0
           fi
           # Extract new version
-          VERSION=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | sed "s/version = ['\"\`]\\(.*\\)['\"\`]/\\1/")
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -45,7 +45,7 @@ jobs:
         if: steps.version.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: Extract changelog
         if: steps.version.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'

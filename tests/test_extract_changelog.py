@@ -1,5 +1,6 @@
 """Tests for scripts/extract_changelog.py."""
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 # modifying sys.path (avoids import side effects across the test suite).
 _scripts_path = str(SCRIPTS_DIR)
 sys.path.insert(0, _scripts_path)
-from extract_changelog import extract_changelog  # noqa: E402
+from extract_changelog import CHANGELOG_PATH, extract_changelog  # noqa: E402
 
 sys.path.remove(_scripts_path)
 
@@ -45,15 +46,10 @@ class TestExtractChangelog:
 
     def test_extract_latest_version(self):
         """The first (latest) version in the file can be extracted."""
-        # Dynamically find the latest version from CHANGELOG.md
-        import re as _re
-
-        from extract_changelog import CHANGELOG_PATH
-
         content = CHANGELOG_PATH.read_text(encoding="utf-8")
-        m = _re.search(r"## \[(\d+\.\d+\.\d+)\]", content)
-        assert m, "No version found in CHANGELOG.md"
-        latest = m.group(1)
+        match = re.search(r"## \[(\d+\.\d+\.\d+)\]", content)
+        assert match, "No version found in CHANGELOG.md"
+        latest = match.group(1)
         result = extract_changelog(latest)
         assert result.startswith(f"## [{latest}]")
 
@@ -79,6 +75,7 @@ class TestExtractChangelogCLI:
             [sys.executable, self.SCRIPT, *args],
             capture_output=True,
             text=True,
+            timeout=10,
         )
 
     def test_cli_success(self):

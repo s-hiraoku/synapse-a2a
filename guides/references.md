@@ -622,6 +622,23 @@ Skills:
 synapse skills [subcommand]
 ```
 
+**TUI モード（引数なし）**では以下のフローで操作します：
+
+1. トップメニュー → **Manage Skills** を選択
+2. **スコープ選択**（Synapse / User / Project）— PLUGIN スコープは除外
+3. 選択したスコープのスキル一覧 — 各行に `[C✓ A✓ G·]` インジケーター付き
+4. スキル詳細 — Deploy Status セクションで User/Project 両スコープの全エージェントへのデプロイ状態を表示
+
+**エージェントディレクトリインジケーター**:
+
+| 記号 | ディレクトリ | 対象エージェント |
+|------|-------------|-----------------|
+| **C** | `.claude/skills/` | Claude |
+| **A** | `.agents/skills/` | Codex, OpenCode, Copilot |
+| **G** | `.gemini/skills/` | Gemini |
+
+`✓` = 存在する、`·` = 存在しない
+
 #### 1.11.1 synapse skills list
 
 発見されたスキルを一覧表示します。

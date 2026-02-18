@@ -660,10 +660,22 @@ synapse skills
 
 インタラクティブ TUI が起動し、以下の操作が可能です：
 
-- **Manage Skills** - スキルの一覧・削除・移動・デプロイ
+- **Manage Skills** - スコープ別にスキルを閲覧・削除・移動・デプロイ
 - **Skill Sets** - 名前付きグループの管理
 - **Install Skill** - スキルのインポート・新規作成
 - **Deploy Skills** - 中央ストアからエージェントへのデプロイ
+- **Create Skill** - Anthropic 方法論によるスキル作成ガイド
+
+**Manage Skills** ではまずスコープを選択し、そのスコープのスキルだけを表示します。
+各スキル行には `[C✓ A✓ G·]` インジケーターが付き、どのエージェントディレクトリに存在するかが一目で分かります：
+
+| 記号 | ディレクトリ | 対象エージェント |
+|------|-------------|-----------------|
+| **C** | `.claude/skills/` | Claude |
+| **A** | `.agents/skills/` | Codex, OpenCode, Copilot |
+| **G** | `.gemini/skills/` | Gemini |
+
+スキルの詳細画面では **Deploy Status** セクションが表示され、User / Project 両スコープでの各エージェントへのデプロイ状態を確認できます。
 
 #### 非インタラクティブコマンド
 

@@ -27,6 +27,7 @@ from synapse.skills import (
     move_skill,
     parse_skill_frontmatter,
     save_skill_sets,
+    validate_skill_name,
 )
 
 
@@ -744,3 +745,211 @@ class TestCreateSkillGuided:
         # references/ dir exists but should be empty (no starter files copied)
         ref_files = list((result / "references").iterdir())
         assert len(ref_files) == 0
+
+
+# ──────────────────────────────────────────────────────────
+# Delete Skill Error Handling
+# ──────────────────────────────────────────────────────────
+
+
+class TestDeleteSkillErrorHandling:
+    def test_delete_synapse_skill(self, tmp_synapse: Path) -> None:
+        """Deleting a SYNAPSE scope skill removes it from synapse_dir/skills/."""
+        _create_synapse_skill(tmp_synapse, "removable")
+        skills = discover_skills(synapse_dir=tmp_synapse)
+        assert len(skills) == 1
+
+        deleted = delete_skill(skills[0], base_dir=tmp_synapse)
+        assert len(deleted) == 1
+        assert not (tmp_synapse / "skills" / "removable").exists()
+
+    def test_delete_permission_error(self, tmp_synapse: Path) -> None:
+        """PermissionError during rmtree does not crash; returns empty list."""
+        _create_synapse_skill(tmp_synapse, "protected")
+        skills = discover_skills(synapse_dir=tmp_synapse)
+
+        with patch(
+            "synapse.skills.shutil.rmtree", side_effect=OSError("Permission denied")
+        ):
+            deleted = delete_skill(skills[0], base_dir=tmp_synapse)
+        assert len(deleted) == 0
+
+
+# ──────────────────────────────────────────────────────────
+# Skill Name Validation
+# ──────────────────────────────────────────────────────────
+
+
+class TestSkillNameValidation:
+    def test_reject_empty_name(self) -> None:
+        """Empty string is rejected."""
+        with pytest.raises(ValueError, match="empty"):
+            validate_skill_name("")
+
+    def test_reject_slash_in_name(self) -> None:
+        """Names containing slashes are rejected."""
+        with pytest.raises(ValueError, match="slash"):
+            validate_skill_name("foo/bar")
+
+    def test_reject_name_with_spaces(self) -> None:
+        """Names containing spaces are rejected."""
+        with pytest.raises(ValueError, match="space"):
+            validate_skill_name("my skill")
+
+    def test_reject_too_long_name(self) -> None:
+        """Names exceeding 128 characters are rejected."""
+        with pytest.raises(ValueError, match="128"):
+            validate_skill_name("a" * 129)
+
+    def test_reject_dot_and_dotdot(self) -> None:
+        """Path-traversal names '.' and '..' are rejected."""
+        with pytest.raises(ValueError, match=r"\.\.|\."):
+            validate_skill_name(".")
+        with pytest.raises(ValueError, match=r"\.\.|\."):
+            validate_skill_name("..")
+
+    def test_accept_valid_names(self) -> None:
+        """Valid names pass without error."""
+        for name in ("synapse-a2a", "my_skill.v2", "code-quality", "a"):
+            validate_skill_name(name)  # Should not raise
+
+
+# ──────────────────────────────────────────────────────────
+# Skill Creator Init Logging
+# ──────────────────────────────────────────────────────────
+
+
+class TestSkillCreatorInitLogging:
+    def test_creator_failure_logs_warning(self, tmp_synapse: Path) -> None:
+        """Exception in _try_skill_creator_init logs a warning."""
+        from synapse.skills import _try_skill_creator_init
+
+        skill_dir = tmp_synapse / "skills" / "log-test"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a fake init_skill.py so the code finds the file and tries to load it
+        init_dir = tmp_synapse / "skills" / "skill-creator" / "scripts"
+        init_dir.mkdir(parents=True, exist_ok=True)
+        (init_dir / "init_skill.py").write_text("def init_skill(n, d): pass")
+
+        with (
+            patch(
+                "importlib.util.spec_from_file_location",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch("synapse.skills.logger") as mock_logger,
+        ):
+            result = _try_skill_creator_init("log-test", skill_dir, tmp_synapse)
+
+        assert result is False
+        mock_logger.warning.assert_called_once()
+        assert "boom" in mock_logger.warning.call_args[0][0]
+
+
+# ──────────────────────────────────────────────────────────
+# Skill Set Edge Cases
+# ──────────────────────────────────────────────────────────
+
+
+# ──────────────────────────────────────────────────────────
+# Check Deploy Status
+# ──────────────────────────────────────────────────────────
+
+
+class TestCheckDeployStatus:
+    """Tests for check_deploy_status() which checks where a SYNAPSE skill is deployed."""
+
+    def test_no_deployments(self, tmp_home: Path, tmp_project: Path) -> None:
+        """No deployments → all agents False for both scopes."""
+        from synapse.skills import check_deploy_status
+
+        result = check_deploy_status(
+            "my-skill", user_dir=tmp_home, project_dir=tmp_project
+        )
+        assert "user" in result
+        assert "project" in result
+        # All agents should be False
+        for agent in ("claude", "codex", "gemini", "opencode", "copilot"):
+            assert result["user"][agent] is False
+            assert result["project"][agent] is False
+
+    def test_user_deploy_detected(self, tmp_home: Path, tmp_project: Path) -> None:
+        """Skill deployed to user claude dir → claude: True in user scope."""
+        from synapse.skills import check_deploy_status
+
+        _create_skill(tmp_home, ".claude", "my-skill", "deployed")
+        result = check_deploy_status(
+            "my-skill", user_dir=tmp_home, project_dir=tmp_project
+        )
+        assert result["user"]["claude"] is True
+        assert result["user"]["gemini"] is False
+        assert result["project"]["claude"] is False
+
+    def test_project_deploy_detected(self, tmp_home: Path, tmp_project: Path) -> None:
+        """Skill deployed to project claude dir → claude: True in project scope."""
+        from synapse.skills import check_deploy_status
+
+        _create_skill(tmp_project, ".claude", "my-skill", "deployed")
+        result = check_deploy_status(
+            "my-skill", user_dir=tmp_home, project_dir=tmp_project
+        )
+        assert result["project"]["claude"] is True
+        assert result["user"]["claude"] is False
+
+    def test_both_scopes_deployed(self, tmp_home: Path, tmp_project: Path) -> None:
+        """Skill deployed to both user and project → both True."""
+        from synapse.skills import check_deploy_status
+
+        _create_skill(tmp_home, ".claude", "my-skill", "user deployed")
+        _create_skill(tmp_project, ".gemini", "my-skill", "project deployed")
+        result = check_deploy_status(
+            "my-skill", user_dir=tmp_home, project_dir=tmp_project
+        )
+        assert result["user"]["claude"] is True
+        assert result["project"]["gemini"] is True
+        assert result["user"]["gemini"] is False
+        assert result["project"]["claude"] is False
+
+    def test_shared_agents_dir(self, tmp_home: Path, tmp_project: Path) -> None:
+        """codex/opencode/copilot share .agents/skills — deploying once marks all three."""
+        from synapse.skills import check_deploy_status
+
+        _create_skill(tmp_home, ".agents", "my-skill", "shared deploy")
+        result = check_deploy_status(
+            "my-skill", user_dir=tmp_home, project_dir=tmp_project
+        )
+        # All agents that map to .agents/skills should be True
+        assert result["user"]["codex"] is True
+        assert result["user"]["opencode"] is True
+        assert result["user"]["copilot"] is True
+        assert result["user"]["claude"] is False
+
+    def test_none_dirs(self) -> None:
+        """None for both dirs → empty results, no crash."""
+        from synapse.skills import check_deploy_status
+
+        result = check_deploy_status("my-skill", user_dir=None, project_dir=None)
+        assert result["user"] == {}
+        assert result["project"] == {}
+
+
+class TestSkillSetEdgeCases:
+    def test_set_show_nonexistent(self, tmp_path: Path, capsys) -> None:
+        """Showing a nonexistent skill set prints 'not found'."""
+        from synapse.commands.skill_manager import cmd_skills_set_show
+
+        empty_file = tmp_path / "empty.json"
+        empty_file.write_text("{}")
+        cmd_skills_set_show("does-not-exist", sets_path=empty_file)
+        captured = capsys.readouterr()
+        assert "not found" in captured.out.lower()
+
+    def test_set_list_empty(self, tmp_path: Path, capsys) -> None:
+        """Empty skill sets file prints 'No skill sets'."""
+        from synapse.commands.skill_manager import cmd_skills_set_list
+
+        sets_file = tmp_path / "skill_sets.json"
+        sets_file.write_text("{}")
+        cmd_skills_set_list(sets_path=sets_file)
+        captured = capsys.readouterr()
+        assert "no skill sets" in captured.out.lower()

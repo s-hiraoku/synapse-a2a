@@ -88,5 +88,7 @@ If automation fails, you can still create the tag and release manually:
 git checkout main && git pull origin main
 git tag v0.3.0
 git push origin v0.3.0
-gh release create v0.3.0 --title "v0.3.0" --notes-file <(python scripts/extract_changelog.py 0.3.0)
+python scripts/extract_changelog.py 0.3.0 > /tmp/release-notes.md
+gh release create v0.3.0 --title "v0.3.0" --notes-file /tmp/release-notes.md
+rm /tmp/release-notes.md
 ```
