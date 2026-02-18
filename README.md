@@ -1497,18 +1497,15 @@ See [guides/settings.md](guides/settings.md) for details.
 
 ### Publishing to PyPI
 
-Pushing a tag automatically publishes to PyPI via GitHub Actions.
+Merging a `pyproject.toml` version change to `main` automatically creates a git tag, GitHub Release, and publishes to PyPI.
 
 ```bash
-# 1. Update version in pyproject.toml
-# version = "0.2.0"
-
-# 2. Create and push tag
-git tag v0.2.0
-git push origin v0.2.0
+# 1. Update version in pyproject.toml and CHANGELOG.md
+# 2. Create PR and merge to main
+# 3. Automation handles: tag → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
-### Manual Publishing
+### Manual Publishing (Fallback)
 
 ```bash
 # Build and publish with uv

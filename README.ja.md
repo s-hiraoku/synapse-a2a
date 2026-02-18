@@ -1494,18 +1494,15 @@ Proceed? [Y/n/s(skip)]:
 
 ### PyPI への公開
 
-タグをプッシュすると GitHub Actions 経由で自動的に PyPI に公開。
+`pyproject.toml` のバージョン変更を `main` にマージすると、git タグ・GitHub Release・PyPI 公開が自動実行。
 
 ```bash
-# 1. pyproject.toml のバージョンを更新
-# version = "0.2.0"
-
-# 2. タグを作成してプッシュ
-git tag v0.2.0
-git push origin v0.2.0
+# 1. pyproject.toml のバージョンと CHANGELOG.md を更新
+# 2. PR を作成してマージ
+# 3. 自動化: タグ → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
-### 手動公開
+### 手動公開（フォールバック）
 
 ```bash
 # uv でビルドして公開

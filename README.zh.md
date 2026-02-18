@@ -1495,18 +1495,15 @@ Proceed? [Y/n/s(skip)]:
 
 ### 发布到 PyPI
 
-推送标签后会通过 GitHub Actions 自动发布到 PyPI。
+将 `pyproject.toml` 版本变更合并到 `main` 后，自动创建 git 标签、GitHub Release 并发布到 PyPI。
 
 ```bash
-# 1. 在 pyproject.toml 中更新版本
-# version = "0.2.0"
-
-# 2. 创建并推送标签
-git tag v0.2.0
-git push origin v0.2.0
+# 1. 更新 pyproject.toml 版本和 CHANGELOG.md
+# 2. 创建 PR 并合并到 main
+# 3. 自动化: 标签 → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
-### 手动发布
+### 手动发布（备用）
 
 ```bash
 # 使用 uv 构建并发布
