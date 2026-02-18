@@ -155,6 +155,24 @@ class TestUpdateChangelog:
         assert "# Changelog" in content
         assert "## [0.1.0]" in content
 
+    def test_skips_duplicate_version(self, tmp_path):
+        """Does not insert if the same version already exists."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text(
+            "# Changelog\n\n## [0.7.0] - 2026-02-20\n\n### Added\n- Existing\n"
+        )
+        original = changelog.read_text()
+        new_section = "## [0.7.0] - 2026-02-20\n\n### Added\n- Duplicate\n"
+        update_changelog(new_section, changelog_path=changelog, mode="unreleased")
+        assert changelog.read_text() == original
+
+    def test_invalid_mode_raises(self, tmp_path):
+        """Invalid mode raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid mode"):
+            update_changelog(
+                "content", changelog_path=tmp_path / "C.md", mode="preview"
+            )  # type: ignore[arg-type]
+
 
 class TestGenerateChangelogCLI:
     """Integration tests for the CLI entry point."""

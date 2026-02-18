@@ -15,9 +15,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Literal
 
-CHANGELOG_PATH = Path(__file__).parent.parent / "CHANGELOG.md"
-CLIFF_TOML = Path(__file__).parent.parent / "cliff.toml"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
+CLIFF_TOML = REPO_ROOT / "cliff.toml"
 
 CHANGELOG_HEADER = """\
 # Changelog
@@ -80,6 +82,7 @@ def run_git_cliff(
             capture_output=True,
             text=True,
             timeout=60,
+            cwd=REPO_ROOT,
         )
     except subprocess.TimeoutExpired:
         raise RuntimeError("git-cliff timed out after 60 seconds") from None
@@ -94,7 +97,7 @@ def update_changelog(
     content: str,
     *,
     changelog_path: Path = CHANGELOG_PATH,
-    mode: str = "unreleased",
+    mode: Literal["unreleased", "full"] = "unreleased",
 ) -> None:
     """Write generated content to CHANGELOG.md.
 
@@ -102,14 +105,30 @@ def update_changelog(
         content: The generated changelog text.
         changelog_path: Path to the CHANGELOG.md file.
         mode: "unreleased" inserts after header; "full" replaces entire file.
+
+    Raises:
+        ValueError: If mode is not "unreleased" or "full".
     """
+    if mode not in ("unreleased", "full"):
+        raise ValueError(f"Invalid mode {mode!r}, must be 'unreleased' or 'full'")
+
     if mode == "full":
         changelog_path.write_text(content, encoding="utf-8")
         return
 
+    # Extract version heading from content to check for duplicates
+    version_match = re.search(r"^## \[([^\]]+)\]", content, re.MULTILINE)
+
     # Unreleased mode: insert new section after header
     if changelog_path.exists():
         existing = changelog_path.read_text(encoding="utf-8")
+
+        # Skip if this version section already exists
+        if version_match:
+            version = re.escape(version_match.group(1))
+            if re.search(rf"^## \[{version}\]", existing, re.MULTILINE):
+                return
+
         # Find the first version heading to insert before it
         match = re.search(r"^## \[", existing, re.MULTILINE)
         if match:
@@ -165,7 +184,7 @@ def main() -> None:
         print(content)
         return
 
-    mode = "unreleased" if args.unreleased else "full"
+    mode: Literal["unreleased", "full"] = "unreleased" if args.unreleased else "full"
     update_changelog(content, mode=mode)
     print(f"Updated {CHANGELOG_PATH} (mode: {mode})")
 
