@@ -9,16 +9,18 @@ import pytest
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 
-# Import the module under test
+# Import the module under test with guaranteed sys.path cleanup
 _scripts_path = str(SCRIPTS_DIR)
-sys.path.insert(0, _scripts_path)
-from generate_changelog import (  # noqa: E402
-    find_git_cliff,
-    run_git_cliff,
-    update_changelog,
-)
-
-sys.path.remove(_scripts_path)
+try:
+    sys.path.insert(0, _scripts_path)
+    from generate_changelog import (  # noqa: E402
+        find_git_cliff,
+        run_git_cliff,
+        update_changelog,
+    )
+finally:
+    if _scripts_path in sys.path:
+        sys.path.remove(_scripts_path)
 
 
 class TestFindGitCliff:
@@ -103,6 +105,18 @@ class TestRunGitCliff:
             with pytest.raises(RuntimeError, match="git-cliff failed"):
                 run_git_cliff(unreleased=True, tag="v0.7.0")
 
+    def test_raises_on_timeout(self):
+        """Raises RuntimeError when git-cliff times out."""
+        with (
+            patch("shutil.which", return_value="/usr/bin/git-cliff"),
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="git-cliff", timeout=60),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="timed out"):
+                run_git_cliff(unreleased=True, tag="v0.7.0")
+
 
 class TestUpdateChangelog:
     """Tests for CHANGELOG.md update logic."""
@@ -172,10 +186,31 @@ class TestGenerateChangelogCLI:
         assert result.returncode != 0
         assert "tag" in result.stderr.lower() or "required" in result.stderr.lower()
 
-    def test_cli_dry_run_does_not_modify_file(self):
-        """--dry-run flag prints output but doesn't modify CHANGELOG.md."""
-        # We mock git-cliff to avoid needing it installed
-        result = self._run("--unreleased", "--tag", "v99.99.99", "--dry-run")
-        # Even if git-cliff fails, --dry-run should be a recognized flag
-        # (the script may fail for other reasons, but it should parse args)
-        assert "--dry-run" not in result.stderr or result.returncode != 0
+    def test_cli_dry_run_does_not_modify_file(self, tmp_path):
+        """--dry-run prints to stdout without modifying CHANGELOG.md."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text("# Original\n")
+        original = changelog.read_text()
+
+        # Write a helper script to mock run_git_cliff in a subprocess
+        helper = tmp_path / "helper.py"
+        helper.write_text(
+            "import sys\n"
+            f"sys.path.insert(0, {str(SCRIPTS_DIR)!r})\n"
+            "from unittest.mock import patch\n"
+            "from generate_changelog import main\n"
+            "sys.argv = ['gen', '--unreleased', '--tag', 'v99.99.99', '--dry-run']\n"
+            "with patch('generate_changelog.run_git_cliff',\n"
+            "           return_value='## [99.99.99]\\n### Added\\n- test\\n'):\n"
+            "    main()\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(helper)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "## [99.99.99]" in result.stdout
+        # File must not be modified
+        assert changelog.read_text() == original

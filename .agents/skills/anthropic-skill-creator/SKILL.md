@@ -141,11 +141,11 @@ Fix:
 
 ## Packaging
 
-Validate and package before distribution:
+Scaffold a new skill directory:
 
 ```bash
-python3 .agents/skills/skill-creator/scripts/quick_validate.py <skill-dir>
-python3 .agents/skills/skill-creator/scripts/package_skill.py <skill-dir>
+bash .agents/skills/anthropic-skill-creator/scripts/new_skill.sh <skill-name>
+bash .agents/skills/anthropic-skill-creator/scripts/new_skill.sh <skill-name> --path .claude/skills
 ```
 
 ## References

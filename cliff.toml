@@ -61,7 +61,7 @@ commit_parsers = [
     # Remaining chore commits are excluded
     { message = "^chore", skip = true },
 ]
-protect_breaking_commits = false
+protect_breaking_commits = true
 filter_commits = false
 tag_pattern = "v[0-9].*"
 sort_commits = "oldest"

@@ -74,11 +74,15 @@ def run_git_cliff(
         cmd.append("--unreleased")
         if tag:
             cmd.extend(["--tag", tag])
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("git-cliff timed out after 60 seconds") from None
     if result.returncode != 0:
         raise RuntimeError(
             f"git-cliff failed (exit {result.returncode}):\n{result.stderr}"
