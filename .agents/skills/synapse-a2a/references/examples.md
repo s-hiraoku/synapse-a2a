@@ -206,6 +206,7 @@ synapse kill $agent_id -f
 - Use `--headless` (automatically applied by spawn) for non-interactive execution.
 - Always force kill (`-f`) helper agents when done to clean up resources.
 - **Pane auto-close:** All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when the agent process terminates.
+- **Known limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from <spawned-agent-id>` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
 - **Note:** The stdout capture scripting pattern (`result=$(synapse spawn ...)`) works best with `tmux`. Reliability may vary in other terminal environments.
 
 ## Troubleshooting

@@ -8,8 +8,14 @@ from pathlib import Path
 import pytest
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+
+# Import extract_changelog from scripts/ directory without permanently
+# modifying sys.path (avoids import side effects across the test suite).
+_scripts_path = str(SCRIPTS_DIR)
+sys.path.insert(0, _scripts_path)
 from extract_changelog import CHANGELOG_PATH, extract_changelog  # noqa: E402
+
+sys.path.remove(_scripts_path)
 
 
 class TestExtractChangelog:
