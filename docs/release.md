@@ -14,19 +14,25 @@ Releases are fully automated via GitHub Actions. When a `pyproject.toml` version
 
 ### 1. Update Version and Changelog
 
-Update the version number in `pyproject.toml` and add a new section to `CHANGELOG.md`:
+Generate the changelog entry using git-cliff, then update the version in `pyproject.toml`:
+
+```bash
+# Generate changelog for the new version (preview first)
+python scripts/generate_changelog.py --unreleased --tag vX.Y.Z --dry-run
+
+# If it looks good, write to CHANGELOG.md
+python scripts/generate_changelog.py --unreleased --tag vX.Y.Z
+
+# Review and adjust the generated entry if needed
+# (e.g., reword entries, add context, remove noise)
+```
+
+Then update the version number in `pyproject.toml`:
 
 ```toml
 [project]
 name = "synapse-a2a"
-version = "0.3.0"  # Update this
-```
-
-```markdown
-## [0.3.0] - 2026-XX-XX
-
-### Added
-- ...
+version = "X.Y.Z"  # Update this
 ```
 
 ### 2. Create a Pull Request
@@ -34,11 +40,11 @@ version = "0.3.0"  # Update this
 Create a PR with the version bump and changelog:
 
 ```bash
-git checkout -b chore/bump-version-0.3.0
+git checkout -b chore/bump-version-X.Y.Z
 git add pyproject.toml CHANGELOG.md
-git commit -m "chore: bump version to 0.3.0"
-git push origin chore/bump-version-0.3.0
-gh pr create --title "chore: bump version to 0.3.0" --body "Update version for release"
+git commit -m "chore: bump version to X.Y.Z"
+git push origin chore/bump-version-X.Y.Z
+gh pr create --title "chore: bump version to X.Y.Z" --body "Update version for release"
 ```
 
 ### 3. Merge the PR
@@ -56,7 +62,7 @@ After merging, the automation chain runs. Verify each step:
 
 ## Important Notes
 
-- **Changelog required**: `auto-release.yml` extracts release notes from `CHANGELOG.md` using `scripts/extract_changelog.py`. The version must have a matching `## [X.Y.Z] - YYYY-MM-DD` section.
+- **Changelog required**: `auto-release.yml` extracts release notes from `CHANGELOG.md` using `scripts/extract_changelog.py`. The version must have a matching `## [X.Y.Z] - YYYY-MM-DD` section. Use `python scripts/generate_changelog.py --unreleased --tag vX.Y.Z` to generate this section from Conventional Commits.
 - **Idempotent**: If the tag already exists (e.g., manual creation), `auto-release.yml` skips. No duplicate tags or releases.
 - **Trusted Publisher**: No API tokens needed. The publish workflow uses PyPI Trusted Publisher (OIDC).
 - **Semantic Versioning**: Follow [semver](https://semver.org/):
@@ -73,8 +79,8 @@ After merging, the automation chain runs. Verify each step:
 
 ### Changelog Extraction Failed
 
-- Ensure `CHANGELOG.md` has a section matching the exact version: `## [0.3.0] - 2026-XX-XX`
-- Run locally to verify: `python scripts/extract_changelog.py 0.3.0`
+- Ensure `CHANGELOG.md` has a section matching the exact version: `## [X.Y.Z] - 2026-XX-XX`
+- Run locally to verify: `python scripts/extract_changelog.py X.Y.Z`
 
 ### "File already exists" Error on PyPI
 
@@ -86,9 +92,9 @@ If automation fails, you can still create the tag and release manually:
 
 ```bash
 git checkout main && git pull origin main
-git tag v0.3.0
-git push origin v0.3.0
-python scripts/extract_changelog.py 0.3.0 > /tmp/release-notes.md
-gh release create v0.3.0 --title "v0.3.0" --notes-file /tmp/release-notes.md
+git tag vX.Y.Z
+git push origin vX.Y.Z
+python scripts/extract_changelog.py X.Y.Z > /tmp/release-notes.md
+gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/release-notes.md
 rm /tmp/release-notes.md
 ```

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-02-19
+
+### Added
+
+- **git-cliff changelog generation**: `cliff.toml` config and `scripts/generate_changelog.py` wrapper for automated CHANGELOG.md generation from Conventional Commits (#242)
+
+### Changed
+
+- **Release workflow Step 1**: Updated to use `python scripts/generate_changelog.py` instead of manual changelog writing (#242)
+
+### Fixed
+
+- **Skill creator YAML template**: Quoted `description` field in `new_skill.sh` to prevent YAML array parsing (#242)
+- **Skill creator name validation**: Reject leading/trailing/consecutive hyphens and purely numeric names (#242)
+- **spawn/start `tool_args` passthrough**: `argparse.REMAINDER` now correctly handles named options and NUL bytes in env vars (#241)
+
+### Documentation
+
+- Updated release guide and `/release` skill with git-cliff generation steps (#242)
+
+### Tests
+
+- New `tests/test_generate_changelog.py` (15 tests): git-cliff binary detection, invocation wrapper, CHANGELOG update logic, CLI integration (#242)
+
 ## [0.6.2] - 2026-02-18
 
 ### Added
@@ -1432,6 +1456,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.6.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.5.2...v0.6.0

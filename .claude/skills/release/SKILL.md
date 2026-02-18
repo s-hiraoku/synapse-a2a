@@ -63,41 +63,27 @@ Edit `plugins/synapse-a2a/.claude-plugin/plugin.json`:
 
 **Important:** Keep plugin version in sync with pyproject.toml version.
 
-### Step 4: Analyze Changes for Changelog
+### Step 4: Generate Changelog with git-cliff
 
-If no description provided, analyze recent changes:
+Use git-cliff to automatically generate the changelog entry from Conventional Commits:
 
 ```bash
-git log --oneline HEAD~10..HEAD
-git diff HEAD~10..HEAD --stat
+# Preview the generated changelog
+python scripts/generate_changelog.py --unreleased --tag vNEW_VERSION --dry-run
+
+# Write to CHANGELOG.md
+python scripts/generate_changelog.py --unreleased --tag vNEW_VERSION
 ```
 
-Categorize changes into:
-- **Added** - New features
-- **Changed** - Modifications to existing features
-- **Fixed** - Bug fixes
-- **Removed** - Removed features
-- **Documentation** - Doc updates
-- **Tests** - Test additions/changes
+### Step 5: Review and Adjust CHANGELOG.md
 
-### Step 5: Update CHANGELOG.md
+Review the generated entry and make manual adjustments if needed:
+- Reword entries for clarity
+- Add context or PR references if missing
+- Remove noise entries that slipped through filters
+- Ensure the date is correct: `## [NEW_VERSION] - YYYY-MM-DD`
 
-Add new entry at the top (after the header):
-
-```markdown
-## [NEW_VERSION] - YYYY-MM-DD
-
-### Added
-- Feature description
-
-### Changed
-- Change description
-
-### Fixed
-- Fix description
-```
-
-Use today's date in YYYY-MM-DD format.
+If no git-cliff is available, or for a manual override, write the entry directly using Keep a Changelog format (see below).
 
 ### Step 6: Report Results
 
