@@ -403,9 +403,9 @@ class TestBuildAgentCommandPort:
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("codex::::8121:headless")
-        expected_prefix = f"{shlex.quote(sys.executable)} -m synapse.cli codex"
+        expected_fragment = f"{shlex.quote(sys.executable)} -m synapse.cli codex"
 
-        assert cmd.startswith(expected_prefix)
+        assert expected_fragment in cmd
         assert not cmd.startswith("synapse codex")
 
 
@@ -521,3 +521,72 @@ class TestWaitForAgent:
             )
 
         assert result is None
+
+
+# ============================================================
+# TestClaudeCodeEnvUnset - Prevent nested session detection
+# ============================================================
+
+
+class TestClaudeCodeEnvUnset:
+    """Tests for CLAUDECODE env var unset in spawned agent commands.
+
+    When synapse spawn is run from within a Claude Code session, the
+    CLAUDECODE environment variable is inherited by child processes.
+    Claude Code detects this and refuses to start, thinking it's a
+    nested session. The fix is to unset CLAUDECODE via `env -u` in
+    the generated command.
+    """
+
+    def test_build_agent_command_includes_env_unset(self) -> None:
+        """_build_agent_command should include 'env -u CLAUDECODE' in command."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("claude")
+        assert "env -u CLAUDECODE" in cmd
+
+    def test_build_agent_command_env_unset_before_python(self) -> None:
+        """'env -u CLAUDECODE' should appear before the python executable."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("claude::::8100:headless")
+        env_pos = cmd.index("env -u CLAUDECODE")
+        python_pos = cmd.index(shlex.quote(sys.executable))
+        assert env_pos < python_pos
+
+    def test_build_agent_command_env_unset_with_exec(self) -> None:
+        """When use_exec=True, 'exec' should come before 'env -u CLAUDECODE'."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("claude", use_exec=True)
+        assert cmd.startswith("exec env -u CLAUDECODE")
+
+    def test_build_agent_command_env_unset_without_exec(self) -> None:
+        """Without exec, command should start with 'env -u CLAUDECODE'."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command("claude")
+        assert cmd.startswith("env -u CLAUDECODE")
+
+    def test_build_agent_command_env_unset_all_profiles(self) -> None:
+        """All profiles (not just claude) should unset CLAUDECODE."""
+        from synapse.terminal_jump import _build_agent_command
+
+        for profile in ["claude", "gemini", "codex", "opencode", "copilot"]:
+            cmd = _build_agent_command(profile)
+            assert "env -u CLAUDECODE" in cmd, f"Missing env unset for {profile}"
+
+    def test_zellij_panes_include_env_unset(self) -> None:
+        """Zellij pane commands should include env -u CLAUDECODE."""
+        from synapse.terminal_jump import create_zellij_panes
+
+        commands = create_zellij_panes(agents=["claude"], layout="split")
+        assert any("env -u CLAUDECODE" in cmd for cmd in commands)
+
+    def test_tmux_panes_include_env_unset(self) -> None:
+        """tmux pane commands should include env -u CLAUDECODE."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(agents=["claude", "gemini"], all_new=True)
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert all("env -u CLAUDECODE" in cmd for cmd in split_cmds)

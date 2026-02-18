@@ -67,8 +67,10 @@ def _build_agent_command(
     profile = parts[0]
     # Use the same Python environment as the parent process to avoid
     # resolving a different globally-installed `synapse` executable.
+    # Unset CLAUDECODE to prevent nested-session detection when spawning
+    # from within a Claude Code session (see fix/synapse-spawn-bug).
     prefix = "exec " if use_exec else ""
-    cmd = f"{prefix}{shlex.quote(sys.executable)} -m synapse.cli {profile}"
+    cmd = f"{prefix}env -u CLAUDECODE {shlex.quote(sys.executable)} -m synapse.cli {profile}"
 
     name = _get_spec_field(parts, 1)
     role = _get_spec_field(parts, 2)
