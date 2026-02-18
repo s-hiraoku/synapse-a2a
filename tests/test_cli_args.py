@@ -140,20 +140,24 @@ class TestStartCommandToolArgs:
         assert tool_args == ["--model", "opus"]
 
     def test_environment_variable_encoding(self):
-        """Tool args should be null-separated for environment variable."""
+        """Tool args should be JSON-encoded for environment variable."""
+        import json
+
         tool_args = ["--model", "opus", "--foo", "bar"]
-        encoded = "\x00".join(tool_args)
-        decoded = encoded.split("\x00")
+        encoded = json.dumps(tool_args)
+        decoded = json.loads(encoded)
 
         assert decoded == tool_args
 
     def test_environment_variable_empty(self):
         """Empty tool args should result in empty string."""
+        import json
+
         tool_args: list[str] = []
-        encoded = "\x00".join(tool_args) if tool_args else ""
+        encoded = json.dumps(tool_args) if tool_args else ""
 
         # Decode
-        decoded = encoded.split("\x00") if encoded else []
+        decoded = json.loads(encoded) if encoded else []
 
         assert decoded == []
 

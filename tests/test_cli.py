@@ -123,13 +123,14 @@ class TestCmdStart:
         assert "Both --ssl-cert and --ssl-key must be provided" in captured.out
 
     def test_tool_args_filter_separator(self, mock_args):
-        """Should filter -- from tool_args start."""
+        """Tool args should be pre-extracted (no leading --)."""
         mock_args.profile = "claude"
         mock_args.port = 8100
         mock_args.foreground = True
         mock_args.ssl_cert = None
         mock_args.ssl_key = None
-        mock_args.tool_args = ["--", "--model", "opus"]
+        # tool_args are pre-extracted by main() — no leading '--'
+        mock_args.tool_args = ["--model", "opus"]
 
         with (
             patch("synapse.commands.start.subprocess.run") as mock_run,
@@ -140,7 +141,7 @@ class TestCmdStart:
         # Check that tool args were passed via environment
         call_args = mock_run.call_args
         env = call_args.kwargs.get("env", {})
-        assert env.get("SYNAPSE_TOOL_ARGS") == "--model\x00opus"
+        assert env.get("SYNAPSE_TOOL_ARGS") == '["--model", "opus"]'
 
     def test_auto_port_selection(self, mock_args, temp_registry):
         """Should auto-select port when not specified."""

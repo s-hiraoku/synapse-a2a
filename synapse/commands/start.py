@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -31,10 +32,7 @@ class StartCommand:
             print("Error: Both --ssl-cert and --ssl-key must be provided together")
             sys.exit(1)
 
-        # Extract tool args (filter out -- if present at start)
         tool_args = getattr(args, "tool_args", [])
-        if tool_args and tool_args[0] == "--":
-            tool_args = tool_args[1:]
 
         # Auto-select port if not specified
         if port is None:
@@ -61,10 +59,10 @@ class StartCommand:
         if ssl_cert and ssl_key:
             cmd.extend(["--ssl-cert", ssl_cert, "--ssl-key", ssl_key])
 
-        # Set up environment with tool args (null-separated for safe parsing)
+        # Set up environment with tool args (JSON-encoded for safe parsing)
         env = os.environ.copy()
         if tool_args:
-            env["SYNAPSE_TOOL_ARGS"] = "\x00".join(tool_args)
+            env["SYNAPSE_TOOL_ARGS"] = json.dumps(tool_args)
 
         protocol = "https" if ssl_cert else "http"
         mode = "foreground" if foreground else "background"

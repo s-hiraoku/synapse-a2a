@@ -71,7 +71,7 @@ class TestCliRefactorSpec:
 
             # Environment should contain tool args
             env = mock_run.call_args.kwargs["env"]
-            assert env["SYNAPSE_TOOL_ARGS"] == "--verbose"
+            assert env["SYNAPSE_TOOL_ARGS"] == '["--verbose"]'
 
     def test_start_command_ssl_logic(self, mock_args):
         """
