@@ -244,6 +244,11 @@ def cmd_skills_move(
         print(f"Unknown scope: {target_scope}")
         return False
 
+    skill = matches[0]
+    if skill.scope in (SkillScope.SYNAPSE, SkillScope.PLUGIN):
+        print(f"Cannot move: {_SCOPE_LABELS[skill.scope]} skills are read-only.")
+        return False
+
     if dry_run:
         print(
             f"[dry-run] Would move '{name}' to {_SCOPE_LABELS.get(scope, target_scope)}."
@@ -252,7 +257,7 @@ def cmd_skills_move(
 
     try:
         copied, removed = move_skill(
-            matches[0],
+            skill,
             target_scope=scope,
             user_dir=user_dir,
             project_dir=project_dir,
@@ -362,7 +367,12 @@ def cmd_skills_create(
             print("\nCancelled.")
             return False
 
-    result = create_skill(name, synapse_dir=synapse_dir)
+    try:
+        result = create_skill(name, synapse_dir=synapse_dir)
+    except ValueError as e:
+        print(f"Invalid skill name: {e}")
+        return False
+
     if result is None:
         print(f"Skill '{name}' already exists.")
         return False
@@ -714,10 +724,10 @@ class SkillManagerCommand:
         if choice is None:
             return None
         if choice >= len(skills):
-            # separator / Back / Quit
-            # Back is at len(skills)+1 (after separator), Quit at len(skills)+2
-            # But build_numbered_items puts separator then extras
-            return "quit" if choice == len(skills) + 1 else None
+            # len(skills) = separator, +1 = Back, +2 = Quit
+            if choice == len(skills) + 2:
+                return "quit"
+            return None
         return choice
 
     def _skill_detail(self, skill: SkillInfo) -> None:
@@ -839,6 +849,15 @@ class SkillManagerCommand:
     def _do_deploy_all(self, skill: SkillInfo) -> None:
         """Deploy a skill to all agent directories in user scope."""
         all_agents = list(AGENT_SKILL_DIRS.keys())
+        agents_str = ", ".join(all_agents)
+
+        if not _confirm_action(
+            f"\n  Deploy '{skill.name}' to all agents ({agents_str}) in user scope?"
+        ):
+            print("  Cancelled.")
+            input("  Press Enter to continue...")
+            return
+
         result = deploy_skill(
             skill,
             agent_types=all_agents,
@@ -922,6 +941,8 @@ class SkillManagerCommand:
                 print(f"  Skill '{name}' already exists.")
             else:
                 print(f"  Created skill '{name}' at {result}")
+        except ValueError as e:
+            print(f"\n  Invalid skill name: {e}")
         except (EOFError, KeyboardInterrupt):
             print("\n  Cancelled.")
         input("  Press Enter to continue...")

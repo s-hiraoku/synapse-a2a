@@ -118,10 +118,13 @@ def validate_skill_name(name: str) -> None:
     """Validate a skill name.
 
     Raises:
-        ValueError: If the name is empty, contains slashes/spaces, or exceeds 128 chars.
+        ValueError: If the name is empty, contains slashes/spaces, path-traversal
+            components, or exceeds 128 chars.
     """
     if not name:
         raise ValueError("Skill name must not be empty")
+    if name in (".", ".."):
+        raise ValueError("Skill name must not be '.' or '..'")
     if "/" in name or "\\" in name:
         raise ValueError("Skill name must not contain slash characters")
     if " " in name:

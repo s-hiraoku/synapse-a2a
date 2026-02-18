@@ -801,6 +801,13 @@ class TestSkillNameValidation:
         with pytest.raises(ValueError, match="128"):
             validate_skill_name("a" * 129)
 
+    def test_reject_dot_and_dotdot(self) -> None:
+        """Path-traversal names '.' and '..' are rejected."""
+        with pytest.raises(ValueError, match=r"\.\.|\."):
+            validate_skill_name(".")
+        with pytest.raises(ValueError, match=r"\.\.|\."):
+            validate_skill_name("..")
+
     def test_accept_valid_names(self) -> None:
         """Valid names pass without error."""
         for name in ("synapse-a2a", "my_skill.v2", "code-quality", "a"):
@@ -927,11 +934,13 @@ class TestCheckDeployStatus:
 
 
 class TestSkillSetEdgeCases:
-    def test_set_show_nonexistent(self, capsys) -> None:
+    def test_set_show_nonexistent(self, tmp_path: Path, capsys) -> None:
         """Showing a nonexistent skill set prints 'not found'."""
         from synapse.commands.skill_manager import cmd_skills_set_show
 
-        cmd_skills_set_show("does-not-exist", sets_path=Path("/tmp/empty.json"))
+        empty_file = tmp_path / "empty.json"
+        empty_file.write_text("{}")
+        cmd_skills_set_show("does-not-exist", sets_path=empty_file)
         captured = capsys.readouterr()
         assert "not found" in captured.out.lower()
 
