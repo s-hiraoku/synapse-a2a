@@ -2,12 +2,13 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
-# Import the module under test
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent.parent / "scripts"))
-from extract_changelog import extract_changelog
+SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
+from extract_changelog import extract_changelog  # noqa: E402
 
 
 class TestExtractChangelog:
@@ -57,38 +58,29 @@ class TestExtractChangelog:
 class TestExtractChangelogCLI:
     """Integration tests for the CLI entry point."""
 
-    SCRIPT = str(
-        __import__("pathlib").Path(__file__).parent.parent
-        / "scripts"
-        / "extract_changelog.py"
-    )
+    SCRIPT = str(SCRIPTS_DIR / "extract_changelog.py")
 
-    def test_cli_success(self):
-        """CLI prints the changelog section to stdout."""
-        result = subprocess.run(
-            [sys.executable, self.SCRIPT, "0.5.2"],
+    def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, self.SCRIPT, *args],
             capture_output=True,
             text=True,
         )
+
+    def test_cli_success(self):
+        """CLI prints the changelog section to stdout."""
+        result = self._run("0.5.2")
         assert result.returncode == 0
         assert "## [0.5.2]" in result.stdout
 
     def test_cli_missing_version(self):
         """CLI exits with code 1 for a missing version."""
-        result = subprocess.run(
-            [sys.executable, self.SCRIPT, "99.99.99"],
-            capture_output=True,
-            text=True,
-        )
+        result = self._run("99.99.99")
         assert result.returncode == 1
         assert "ERROR" in result.stderr
 
     def test_cli_no_args(self):
         """CLI exits with code 1 when no arguments are given."""
-        result = subprocess.run(
-            [sys.executable, self.SCRIPT],
-            capture_output=True,
-            text=True,
-        )
+        result = self._run()
         assert result.returncode == 1
         assert "Usage" in result.stderr
