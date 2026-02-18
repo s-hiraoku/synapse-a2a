@@ -1503,7 +1503,7 @@ La fusion d'un changement de version dans `pyproject.toml` vers `main` crée aut
 # 3. Automatisation : tag → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
-### Publication Manuelle (Secours)
+### Publication manuelle (secours)
 
 ```bash
 # Compiler et publier avec uv

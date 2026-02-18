@@ -1,5 +1,6 @@
 """Tests for scripts/extract_changelog.py."""
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -8,7 +9,7 @@ import pytest
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
-from extract_changelog import extract_changelog  # noqa: E402
+from extract_changelog import CHANGELOG_PATH, extract_changelog  # noqa: E402
 
 
 class TestExtractChangelog:
@@ -33,15 +34,18 @@ class TestExtractChangelog:
         assert "## [0.5.1]" not in result
 
     def test_extract_nonexistent_version(self):
-        """Nonexistent version raises SystemExit."""
-        with pytest.raises(SystemExit):
+        """Nonexistent version raises ValueError."""
+        with pytest.raises(ValueError, match="99.99.99"):
             extract_changelog("99.99.99")
 
     def test_extract_latest_version(self):
         """The first (latest) version in the file can be extracted."""
-        result = extract_changelog("0.6.0")
-        assert result.startswith("## [0.6.0] - 2026-02-17")
-        assert "### Added" in result
+        content = CHANGELOG_PATH.read_text(encoding="utf-8")
+        match = re.search(r"## \[(\d+\.\d+\.\d+)\]", content)
+        assert match, "No version found in CHANGELOG.md"
+        latest = match.group(1)
+        result = extract_changelog(latest)
+        assert result.startswith(f"## [{latest}]")
 
     def test_extract_oldest_version(self):
         """The last (oldest) version in the file can be extracted (no trailing ## [)."""
@@ -51,7 +55,7 @@ class TestExtractChangelog:
     def test_extract_version_with_dots_not_regex_wildcard(self):
         """Dots in version are literal, not regex wildcards."""
         # "0.6.0" should not match a hypothetical "0X6Y0"
-        with pytest.raises(SystemExit):
+        with pytest.raises(ValueError):
             extract_changelog("0X6Y0")
 
 
@@ -65,6 +69,7 @@ class TestExtractChangelogCLI:
             [sys.executable, self.SCRIPT, *args],
             capture_output=True,
             text=True,
+            timeout=10,
         )
 
     def test_cli_success(self):
