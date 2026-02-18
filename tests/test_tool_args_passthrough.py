@@ -160,7 +160,7 @@ class TestCreatePanesToolArgs:
             tool_args=["--dangerously-skip-permissions"],
         )
         full = " ".join(commands)
-        assert "--dangerously-skip-permissions" in full
+        assert "-- --dangerously-skip-permissions" in full
 
     def test_create_panes_no_tool_args_backward_compat(self) -> None:
         """create_panes without tool_args should work as before."""
@@ -172,9 +172,11 @@ class TestCreatePanesToolArgs:
             all_new=True,
         )
         full = " ".join(commands)
-        assert "-- " not in full or "-- " in full.split("synapse")[0]
-        # More precisely: no tool_args separator in the agent command
-        # The tmux commands themselves may have '--' but the synapse command should not
+        # Extract only the synapse command portion to avoid tmux's own '--'
+        synapse_idx = full.find("synapse")
+        assert synapse_idx != -1, "synapse command not found in output"
+        synapse_part = full[synapse_idx:]
+        assert "-- " not in synapse_part
 
 
 # ============================================================
