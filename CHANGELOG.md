@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app/Ghostty use `exec` to replace the shell process
 - **tool_args passthrough**: `synapse spawn` and `synapse team start` now accept `-- <args>` to pass CLI flags (e.g., `--dangerously-skip-permissions`) through to the underlying agent tool. Also available via `tool_args` field in `POST /spawn` and `POST /team/start` API endpoints (#229)
 - **Injection observability**: Structured `INJECT/{RESOLVE,DECISION,DELIVER,SUMMARY}` log points in `_send_identity_instruction()` for diagnosing initial instruction injection failures (`grep INJECT` in logs) (#229)
+- **Manage Skills TUI scope submenu**: Skill list now grouped by scope (Synapse/User/Project) with a scope selection menu, excluding dev-only PLUGIN scope (#239)
+- **Agent directory deploy indicators**: Each skill row shows `[C✓ A✓ G·]` indicators for .claude/.agents/.gemini directory presence (#239)
+- **Skill detail deploy status**: SYNAPSE scope skill detail view shows per-agent deployment status across user and project scopes (#239)
+- **Deploy All action**: One-click deployment of a SYNAPSE skill to all agent directories in user scope, with confirmation prompt (#239)
+- **`check_deploy_status()` helper**: New function in `skills.py` to check skill deployment across all agent directories (#239)
 
 ### Changed
 
@@ -25,9 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--skill-set` short flag**: Changed from `-ss` to `-S` for standard single-character convention
 - **Logger unification**: `_send_identity_instruction()` now uses module-level `logger.*` consistently (was mixing `logging.*` and `logger.*`)
 - **Code simplification**: Extracted focused helper methods in `controller.py` (`_wait_for_input_ready()`, `_build_identity_message()`), `terminal_jump.py` (`_get_spec_field()`), and `cli.py` (`_run_pane_commands()`) to improve readability
+- **Manage Skills TUI navigation**: Replaced flat skill list with scope-based submenu (Synapse → User → Project), PLUGIN scope excluded from end-user TUI (#239)
 
 ### Fixed
 
+- **`cmd_skills_move` dry-run order**: SYNAPSE/PLUGIN scope rejection now checked before dry-run branch to prevent misleading output (#239)
+- **`_skills_menu` Back/Quit index**: Fixed off-by-one error in `build_numbered_items` footer index calculation (#239)
+- **Path traversal in skill names**: `validate_skill_name()` now rejects `"."` and `".."` to prevent directory traversal (#239)
+- **`create_skill` error handling**: `cmd_skills_create` and `_create_flow` now catch `ValueError` from `validate_skill_name` (#239)
 - **Zellij pane revival**: Added `--close-on-exit` to all `zellij run` commands to prevent panes from surviving after agent kill
 - **Plugin skill sync**: `.gemini/skills/synapse-a2a/references/file-safety.md` was missing `--wait` lock examples that existed in the plugin source
 - **Spawn error handling**: `subprocess.run` uses `check=True` for proper error propagation; empty `create_panes` result raises `RuntimeError`
@@ -39,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added spawn documentation to SKILL.md, commands.md, api.md, examples.md (synced across 4 locations)
 - Updated README.md (all 6 languages), CLAUDE.md, guides/usage.md, guides/references.md
 - Documented Ghostty layout/all_new limitation in docstring
+- Updated guides/usage.md and guides/references.md with scope submenu flow and agent directory indicator table (#239)
 
 ### Tests
 
@@ -48,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `test_zellij_close_on_exit_always_present` to `test_auto_spawn.py`
 - New `tests/test_injection_observability.py` (16 tests): RESOLVE/DECISION/DELIVER/SUMMARY structured log verification
 - New `tests/test_tool_args_passthrough.py` (25 tests): tool_args through _build_agent_command, create_panes, spawn_agent, CLI parsing, API models
+- Added `TestCheckDeployStatus` (6 tests) to `test_skills.py`: deployment detection across user/project scopes, shared agents dir, none dirs (#239)
+- Added `TestManageSkillsDisplay` (6 tests) to `test_cmd_skill_manager.py`: skill labels, scope menu, detail header deploy status (#239)
+- Added `test_reject_dot_and_dotdot` to `TestSkillNameValidation` (#239)
 
 ## [0.5.2] - 2026-02-15
 
