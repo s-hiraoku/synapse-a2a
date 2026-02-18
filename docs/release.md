@@ -14,19 +14,25 @@ Releases are fully automated via GitHub Actions. When a `pyproject.toml` version
 
 ### 1. Update Version and Changelog
 
-Update the version number in `pyproject.toml` and add a new section to `CHANGELOG.md`:
+Generate the changelog entry using git-cliff, then update the version in `pyproject.toml`:
+
+```bash
+# Generate changelog for the new version (preview first)
+python scripts/generate_changelog.py --unreleased --tag v0.3.0 --dry-run
+
+# If it looks good, write to CHANGELOG.md
+python scripts/generate_changelog.py --unreleased --tag v0.3.0
+
+# Review and adjust the generated entry if needed
+# (e.g., reword entries, add context, remove noise)
+```
+
+Then update the version number in `pyproject.toml`:
 
 ```toml
 [project]
 name = "synapse-a2a"
 version = "0.3.0"  # Update this
-```
-
-```markdown
-## [0.3.0] - 2026-XX-XX
-
-### Added
-- ...
 ```
 
 ### 2. Create a Pull Request
@@ -56,7 +62,7 @@ After merging, the automation chain runs. Verify each step:
 
 ## Important Notes
 
-- **Changelog required**: `auto-release.yml` extracts release notes from `CHANGELOG.md` using `scripts/extract_changelog.py`. The version must have a matching `## [X.Y.Z] - YYYY-MM-DD` section.
+- **Changelog required**: `auto-release.yml` extracts release notes from `CHANGELOG.md` using `scripts/extract_changelog.py`. The version must have a matching `## [X.Y.Z] - YYYY-MM-DD` section. Use `python scripts/generate_changelog.py --unreleased --tag vX.Y.Z` to generate this section from Conventional Commits.
 - **Idempotent**: If the tag already exists (e.g., manual creation), `auto-release.yml` skips. No duplicate tags or releases.
 - **Trusted Publisher**: No API tokens needed. The publish workflow uses PyPI Trusted Publisher (OIDC).
 - **Semantic Versioning**: Follow [semver](https://semver.org/):
