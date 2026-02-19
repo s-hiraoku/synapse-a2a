@@ -2278,11 +2278,23 @@ def _extract_tool_args(items: list[str]) -> tuple[list[str], list[str]]:
 # Known Synapse CLI flags that should NOT appear as tool_args.
 # If these appear after '--', the user likely placed them in the wrong position.
 _SYNAPSE_FLAGS = {
-    "--port", "--name", "-n", "--role", "-r",
-    "--skill-set", "-S", "--terminal",
-    "--foreground", "-f", "--no-setup", "--headless",
-    "--delegate-mode", "--ssl-cert", "--ssl-key",
-    "--layout", "--all-new",
+    "--port",
+    "--name",
+    "-n",
+    "--role",
+    "-r",
+    "--skill-set",
+    "-S",
+    "--terminal",
+    "--foreground",
+    "-f",
+    "--no-setup",
+    "--headless",
+    "--delegate-mode",
+    "--ssl-cert",
+    "--ssl-key",
+    "--layout",
+    "--all-new",
 }
 
 
@@ -2431,7 +2443,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 f"Warning: {result.agent_id} not yet registered after spawn.\n"
                 f"  The agent may still be starting up.\n"
                 f"  Use the full agent ID for reliable targeting:\n"
-                f"    synapse send {result.agent_id} \"<message>\" --response",
+                f'    synapse send {result.agent_id} "<message>" --response',
                 file=sys.stderr,
             )
     except (FileNotFoundError, RuntimeError) as e:

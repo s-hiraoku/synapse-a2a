@@ -54,9 +54,7 @@ class TestToolArgsGuardrails:
         """Unknown flags like --dangerously-skip-permissions should not warn."""
         from synapse.cli import _warn_synapse_flags_in_tool_args
 
-        warned = _warn_synapse_flags_in_tool_args(
-            ["--dangerously-skip-permissions"]
-        )
+        warned = _warn_synapse_flags_in_tool_args(["--dangerously-skip-permissions"])
         assert warned is False
 
     def test_empty_tool_args_no_warning(self) -> None:
@@ -149,8 +147,10 @@ class TestSpawnReadinessWarning:
         # Should print agent_id and port
         assert "synapse-copilot-8140 8140" in captured.out
         # Should warn about not yet registered
-        assert "not yet registered" in captured.err.lower() or \
-               "not yet registered" in captured.out.lower()
+        assert (
+            "not yet registered" in captured.err.lower()
+            or "not yet registered" in captured.out.lower()
+        )
 
     def test_cmd_spawn_no_warning_when_registered(self, capsys) -> None:
         """If agent registers quickly, no warning should be shown."""
@@ -212,10 +212,14 @@ class TestAmbiguousTargetUX:
         error = _format_ambiguous_target_error("copilot", matches)
 
         # Should include concrete command examples
-        assert "synapse send synapse-copilot-8140" in error or \
-               "synapse-copilot-8140" in error
-        assert "synapse send synapse-copilot-8141" in error or \
-               "synapse-copilot-8141" in error
+        assert (
+            "synapse send synapse-copilot-8140" in error
+            or "synapse-copilot-8140" in error
+        )
+        assert (
+            "synapse send synapse-copilot-8141" in error
+            or "synapse-copilot-8141" in error
+        )
 
     def test_ambiguous_error_includes_named_agents(self) -> None:
         """Named agents should show name-based targeting."""
@@ -247,8 +251,16 @@ class TestAmbiguousTargetUX:
         from synapse.tools.a2a import _format_ambiguous_target_error
 
         matches = [
-            {"agent_id": "synapse-opencode-8130", "agent_type": "opencode", "port": 8130},
-            {"agent_id": "synapse-opencode-8131", "agent_type": "opencode", "port": 8131},
+            {
+                "agent_id": "synapse-opencode-8130",
+                "agent_type": "opencode",
+                "port": 8130,
+            },
+            {
+                "agent_id": "synapse-opencode-8131",
+                "agent_type": "opencode",
+                "port": 8131,
+            },
         ]
 
         error = _format_ambiguous_target_error("opencode", matches)
@@ -304,12 +316,18 @@ class TestCLIParseOrdering:
         from synapse.cli import _extract_tool_args
 
         argv = [
-            "spawn", "copilot",
-            "--port", "8140",
-            "--name", "tester",
-            "--role", "test writer",
-            "--skill-set", "dev",
-            "--terminal", "tmux",
+            "spawn",
+            "copilot",
+            "--port",
+            "8140",
+            "--name",
+            "tester",
+            "--role",
+            "test writer",
+            "--skill-set",
+            "dev",
+            "--terminal",
+            "tmux",
         ]
         cli_argv, tool_args = _extract_tool_args(argv)
 

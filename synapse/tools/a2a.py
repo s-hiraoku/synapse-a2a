@@ -327,7 +327,7 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
         agent_id = m.get("agent_id", "unknown")
         name = m.get("name")
         label = f" ({name})" if name else ""
-        examples.append(f"    synapse send {name or agent_id} \"<message>\"{label}")
+        examples.append(f'    synapse send {name or agent_id} "<message>"{label}')
 
     error += "\n  Use a specific identifier to target the right agent:"
     for ex in examples:
