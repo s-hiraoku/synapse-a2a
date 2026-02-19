@@ -289,12 +289,8 @@ class TestSilentFailures:
         agent_id = "permission-error-agent"
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
-        # Make registry directory read-only to prevent temp file creation
-        registry_dir = temp_registry.registry_dir
-        os.chmod(registry_dir, 0o555)
-
-        try:
-            # Attempt to update status
+        # Simulate OSError during atomic update (chmod is ineffective as root)
+        with patch("tempfile.mkstemp", side_effect=OSError("Permission denied")):
             result = temp_registry.update_status(agent_id, "READY")
 
             # Should return False due to permission error on temp file creation
@@ -303,10 +299,6 @@ class TestSilentFailures:
             # Status should remain unchanged
             agent_data = temp_registry.get_agent(agent_id)
             assert agent_data["status"] == "PROCESSING"
-
-        finally:
-            # Cleanup: restore permissions
-            os.chmod(registry_dir, 0o755)
 
     def test_controller_ignores_update_status_failure(self, temp_registry, caplog):
         """Controller should detect and handle update_status failures."""
