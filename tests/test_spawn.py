@@ -301,6 +301,8 @@ class TestSpawnCLIExecution:
             status="submitted",
         )
 
+        agent_info = {"agent_id": "synapse-claude-8100", "pid": 123, "port": 8100}
+
         args = argparse.Namespace(
             profile="claude",
             port=None,
@@ -310,7 +312,10 @@ class TestSpawnCLIExecution:
             terminal=None,
         )
 
-        with patch("synapse.spawn.spawn_agent", return_value=mock_result):
+        with (
+            patch("synapse.spawn.spawn_agent", return_value=mock_result),
+            patch("synapse.spawn.wait_for_agent", return_value=agent_info),
+        ):
             cmd_spawn(args)
 
         captured = capsys.readouterr()

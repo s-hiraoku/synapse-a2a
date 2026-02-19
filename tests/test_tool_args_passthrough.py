@@ -290,6 +290,8 @@ class TestSpawnCLIToolArgs:
             status="submitted",
         )
 
+        agent_info = {"agent_id": "synapse-claude-8100", "pid": 123, "port": 8100}
+
         # tool_args are pre-extracted by main() — no leading '--'
         args = argparse.Namespace(
             profile="claude",
@@ -301,7 +303,10 @@ class TestSpawnCLIToolArgs:
             tool_args=["--dangerously-skip-permissions"],
         )
 
-        with patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_sa:
+        with (
+            patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_sa,
+            patch("synapse.spawn.wait_for_agent", return_value=agent_info),
+        ):
             cmd_spawn(args)
 
         call_kwargs = mock_sa.call_args[1]

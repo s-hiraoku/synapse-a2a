@@ -316,16 +316,23 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
         matches: List of matching agent info dicts.
 
     Returns:
-        Formatted error message with hints.
+        Formatted error message with concrete command examples.
     """
     agent_ids = [m.get("agent_id", "unknown") for m in matches]
-    options = [
-        m.get("name") or f"{m.get('agent_type', 'unknown')}-{m.get('port', '?')}"
-        for m in matches
-    ]
-    error = f"Ambiguous target '{target}'. Found: {agent_ids}"
-    if options:
-        error += f"\n  Hint: Use specific identifier like: {', '.join(options)}"
+    error = f"Ambiguous target '{target}'. Found {len(matches)} agents: {agent_ids}"
+
+    # Build concrete command examples for each match
+    examples: list[str] = []
+    for m in matches:
+        agent_id = m.get("agent_id", "unknown")
+        name = m.get("name")
+        label = f" ({name})" if name else ""
+        examples.append(f'    synapse send {name or agent_id} "<message>"{label}')
+
+    error += "\n  Use a specific identifier to target the right agent:"
+    for ex in examples:
+        error += f"\n{ex}"
+
     return error
 
 

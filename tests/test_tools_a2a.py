@@ -1372,8 +1372,8 @@ class TestTypePortShorthandMatch:
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "Ambiguous" in captured.err
-        # Should show helpful hints
-        assert "Hint" in captured.err
+        # Should show helpful command examples
+        assert "synapse send" in captured.err
         assert "claude-8100" in captured.err
         assert "claude-8101" in captured.err
 
