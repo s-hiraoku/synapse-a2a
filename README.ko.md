@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#테스트)
+[![Tests](https://img.shields.io/badge/tests-1932%20passed-brightgreen.svg)](#테스트)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > CLI 에이전트(Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI)를 **그대로** 유지하면서 Google A2A Protocol을 통한 에이전트 간 협업을 구현하는 프레임워크

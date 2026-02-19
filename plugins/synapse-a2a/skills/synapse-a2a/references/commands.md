@@ -112,6 +112,10 @@ synapse spawn claude -- --dangerously-skip-permissions
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
 
+**Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready.
+
+**Tool Args Guardrail:** Synapse flags (`--port`, `--name`, `--role`, etc.) placed after `--` are detected and trigger a warning, since they should go before `--`.
+
 **Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
 
 **Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).

@@ -826,21 +826,26 @@ class SkillManagerCommand:
         print(f"\n  {result.message}")
         input("  Press Enter to continue...")
 
+    def _deploy_and_print(
+        self, skill: SkillInfo, agents: list[str], scope: str
+    ) -> None:
+        """Deploy a skill to the given agents/scope and print results."""
+        result = deploy_skill(
+            skill,
+            agent_types=agents,
+            deploy_scope=scope,
+            user_dir=self._user_dir,
+            project_dir=self._project_dir,
+        )
+        for msg in result.messages:
+            print(f"  {msg}")
+
     def _do_deploy(self, skill: SkillInfo) -> None:
-        """Deploy a skill to agent directories."""
+        """Deploy a skill to agent directories (interactive prompt)."""
         try:
             agents = self._prompt_for_agents()
             scope = input("  Deploy scope (user/project) [user]: ").strip() or "user"
-
-            result = deploy_skill(
-                skill,
-                agent_types=agents,
-                deploy_scope=scope,
-                user_dir=self._user_dir,
-                project_dir=self._project_dir,
-            )
-            for msg in result.messages:
-                print(f"  {msg}")
+            self._deploy_and_print(skill, agents, scope)
         except (EOFError, KeyboardInterrupt):
             print("\n  Cancelled.")
 
@@ -858,16 +863,7 @@ class SkillManagerCommand:
             input("  Press Enter to continue...")
             return
 
-        result = deploy_skill(
-            skill,
-            agent_types=all_agents,
-            deploy_scope="user",
-            user_dir=self._user_dir,
-            project_dir=self._project_dir,
-        )
-        for msg in result.messages:
-            print(f"  {msg}")
-
+        self._deploy_and_print(skill, all_agents, "user")
         input("  Press Enter to continue...")
 
     def _prompt_for_agents(self) -> list[str]:

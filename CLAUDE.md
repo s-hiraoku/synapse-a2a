@@ -62,6 +62,7 @@ pytest tests/test_team_start_api.py -v       # B6: Team Start API
 pytest tests/test_spawn.py -v               # Spawn CLI + core function
 pytest tests/test_spawn_api.py -v           # Spawn API endpoint
 pytest tests/test_tool_args_passthrough.py -v # tool_args passthrough (spawn/team)
+pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fixes
 
 # Injection observability tests
 pytest tests/test_injection_observability.py -v # INJECT/* structured logs

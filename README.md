@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1932%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
@@ -1500,9 +1500,12 @@ See [guides/settings.md](guides/settings.md) for details.
 Merging a `pyproject.toml` version change to `main` automatically creates a git tag, GitHub Release, and publishes to PyPI.
 
 ```bash
-# 1. Update version in pyproject.toml and CHANGELOG.md
-# 2. Create PR and merge to main
-# 3. Automation handles: tag → GitHub Release → PyPI → Homebrew/Scoop PR
+# 1. Generate changelog with git-cliff
+python scripts/generate_changelog.py
+
+# 2. Update version in pyproject.toml and review CHANGELOG.md
+# 3. Create PR and merge to main
+# 4. Automation handles: tag → GitHub Release → PyPI → Homebrew/Scoop PR
 ```
 
 ### Manual Publishing (Fallback)
