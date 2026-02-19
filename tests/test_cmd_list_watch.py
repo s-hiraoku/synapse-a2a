@@ -1,7 +1,6 @@
 """Tests for synapse list command."""
 
 import json
-import os
 import shutil
 import threading
 import time

@@ -11,10 +11,7 @@ Reference: [Actionable] synapse start/spawn option parsing and send target resol
 from __future__ import annotations
 
 import argparse
-from unittest.mock import MagicMock, patch
-
-import pytest
-
+from unittest.mock import patch
 
 # ============================================================
 # Fix 2: Parser guardrails
