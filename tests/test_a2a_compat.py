@@ -928,6 +928,153 @@ class TestReplyStackEndpoints:
         assert response.status_code == 404
 
 
+class TestReplyStackFileFallback:
+    """Test file-based fallback for reply stack (Issue #237).
+
+    When the in-memory reply_stack is empty (e.g., spawned agent edge cases),
+    the /reply-stack/get endpoint should fall back to file-based storage.
+    """
+
+    @pytest.fixture
+    def mock_controller(self):
+        """Create mock controller."""
+        controller = MagicMock()
+        controller.status = "BUSY"
+        controller.get_context.return_value = ""
+        controller.write = MagicMock()
+        controller.interrupt = MagicMock()
+        return controller
+
+    @pytest.fixture
+    def client(self, mock_controller, tmp_path):
+        """Create test client with file-based reply target store."""
+        from fastapi import FastAPI
+
+        from synapse.reply_stack import get_reply_stack
+
+        get_reply_stack().clear()
+
+        app = FastAPI()
+        router = create_a2a_router(
+            mock_controller,
+            agent_type="test",
+            port=8000,
+            submit_seq="\n",
+            agent_id="test-agent",
+            reply_target_dir=str(tmp_path),
+        )
+        app.include_router(router)
+        return TestClient(app)
+
+    def test_send_persists_to_file(self, client, mock_controller, tmp_path):  # noqa: ARG002
+        """Sending with response_expected=True should persist to file."""
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-gemini-8110",
+                    "sender_endpoint": "http://localhost:8110",
+                },
+                "sender_task_id": "task-xyz",
+                "response_expected": True,
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # File should exist
+        import json
+
+        reply_file = tmp_path / "test-agent.reply.json"
+        assert reply_file.exists()
+        data = json.loads(reply_file.read_text())
+        assert "synapse-gemini-8110" in data
+        assert data["synapse-gemini-8110"]["sender_endpoint"] == "http://localhost:8110"
+
+    def test_fallback_to_file_when_memory_empty(
+        self, client, mock_controller, tmp_path  # noqa: ARG002
+    ):
+        """When in-memory reply_stack is empty, fall back to file-based storage."""
+        # Send message (populates both in-memory and file)
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-gemini-8110",
+                    "sender_endpoint": "http://localhost:8110",
+                },
+                "sender_task_id": "task-xyz",
+                "response_expected": True,
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Clear in-memory stack (simulates the edge case)
+        from synapse.reply_stack import get_reply_stack
+
+        get_reply_stack().clear()
+
+        # GET should still return data from file
+        response = client.get("/reply-stack/get")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sender_endpoint"] == "http://localhost:8110"
+
+    def test_pop_cleans_both_memory_and_file(
+        self, client, mock_controller, tmp_path  # noqa: ARG002
+    ):
+        """Pop should clean both in-memory and file-based storage."""
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-gemini-8110",
+                    "sender_endpoint": "http://localhost:8110",
+                },
+                "response_expected": True,
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Pop should return data
+        response = client.get("/reply-stack/pop")
+        assert response.status_code == 200
+
+        # Both in-memory and file should be empty now
+        from synapse.reply_stack import get_reply_stack
+
+        assert get_reply_stack().is_empty()
+
+        response = client.get("/reply-stack/get")
+        assert response.status_code == 404
+
+    def test_list_includes_file_targets(
+        self, client, mock_controller, tmp_path  # noqa: ARG002
+    ):
+        """List should include targets from file when memory is empty."""
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-gemini-8110",
+                    "sender_endpoint": "http://localhost:8110",
+                },
+                "response_expected": True,
+            },
+        }
+        client.post("/tasks/send", json=payload)
+
+        # Clear in-memory
+        from synapse.reply_stack import get_reply_stack
+
+        get_reply_stack().clear()
+
+        # List should still show the target from file
+        response = client.get("/reply-stack/list")
+        assert response.status_code == 200
+        sender_ids = response.json()["sender_ids"]
+        assert "synapse-gemini-8110" in sender_ids
+
+
 class TestA2APrefixedPTYOutput:
     """Test that PTY output includes A2A prefix for agent identification."""
 
