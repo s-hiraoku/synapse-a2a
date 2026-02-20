@@ -397,14 +397,14 @@ Parent receives task
                                                    spawn child(ren)
                                                          │
                                                          ▼
-                                                   send task  ◄────────────┐
-                                                         │                 │
-                                                         ▼                 │
-                                                   evaluate result         │
-                                                         │                 │
-                                                   ├─ Sufficient? → kill ✓
-                                                   │
-                                                   └─ Insufficient? ───────┘
+                                                   send task  ◄───────────┐
+                                                         │                │
+                                                         ▼                │
+                                                   evaluate result        │
+                                                         │                │
+                                                   ├─ Sufficient? → kill ✓│
+                                                   │                      │
+                                                   └─ Insufficient? ──────┘
 ```
 
 ### How Many Agents
@@ -421,8 +421,12 @@ Parent receives task
 # 1. Spawn a helper
 synapse spawn gemini --name Tester --role "test writer"
 
-# 2. Confirm readiness (re-run until STATUS=READY; synapse list is a point-in-time snapshot)
-synapse list   # Verify Tester shows STATUS=READY
+# 2. Confirm readiness (synapse list is a point-in-time snapshot — poll until READY)
+elapsed=0
+while ! synapse list | grep -q "Tester.*READY"; do
+  sleep 1; elapsed=$((elapsed + 1))
+  [ "$elapsed" -ge 30 ] && echo "ERROR: Tester not READY after ${elapsed}s" >&2 && exit 1
+done
 
 # 3. Send task (wait for result)
 synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID

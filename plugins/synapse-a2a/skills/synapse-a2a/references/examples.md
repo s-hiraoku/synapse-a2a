@@ -193,9 +193,30 @@ Spawn creates child agents for sub-task delegation — preserving context, paral
 `synapse list` is a point-in-time snapshot. After spawning, poll until the agent shows `STATUS=READY`:
 
 ```bash
-# Poll until agent is ready (re-run manually or script it)
-while ! synapse list 2>/dev/null | grep -q "Tester.*READY"; do
+# Poll until agent is ready (timeout after 30s)
+elapsed=0
+while ! synapse list | grep -q "Tester.*READY"; do
   sleep 1
+  elapsed=$((elapsed + 1))
+  if [ "$elapsed" -ge 30 ]; then
+    echo "ERROR: Tester not READY after ${elapsed}s" >&2
+    exit 1
+  fi
+done
+```
+
+For Pattern 3 (multiple agents), wait for all of them:
+
+```bash
+# Poll until BOTH agents are ready
+elapsed=0
+while ! (synapse list | grep -q "Tester.*READY" && synapse list | grep -q "Fixer.*READY"); do
+  sleep 1
+  elapsed=$((elapsed + 1))
+  if [ "$elapsed" -ge 30 ]; then
+    echo "ERROR: agents not READY after ${elapsed}s" >&2
+    exit 1
+  fi
 done
 ```
 

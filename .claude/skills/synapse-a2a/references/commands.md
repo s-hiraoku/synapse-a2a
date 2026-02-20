@@ -264,7 +264,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Agent type | `claude` | Only when single instance exists |
 
 **Parameters:**
-- `--from, -f`: Sender agent ID (for reply identification) - **always include this**. Use `$SYNAPSE_AGENT_ID` (auto-set by Synapse on agent start).
+- `--from, -f`: Sender agent ID (for reply identification) - **always include this**. Use `$SYNAPSE_AGENT_ID` (auto-set by Synapse on agent start). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
 - `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks
