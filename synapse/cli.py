@@ -273,8 +273,8 @@ def cmd_kill(args: argparse.Namespace) -> None:
         # Budget the total timeout across phases: HTTP + grace + escalation
         http_timeout = min(timeout_seconds, 10)
         remaining = max(timeout_seconds - http_timeout, 0)
-        grace_period = max(remaining // 3, 1)
-        escalation_wait = max(remaining - grace_period, 3)
+        grace_period = min(max(remaining // 3, 1), remaining)
+        escalation_wait = max(remaining - grace_period, 0)
 
         # 1. Set status to SHUTTING_DOWN
         registry.update_status(agent_id, "SHUTTING_DOWN")
