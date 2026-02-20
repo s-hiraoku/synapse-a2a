@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-02-20
+
+### Added
+
+- **Spawn readiness warning**: `synapse spawn` now waits for agent registration and warns with concrete `synapse send` command examples if the agent is not yet ready (#244)
+- **Tool args guardrails**: `_warn_synapse_flags_in_tool_args()` detects known Synapse flags (`--port`, `--name`, `--role`, etc.) accidentally placed after `--` separator (#244)
+
+### Changed
+
+- **Send target error UX**: `_format_ambiguous_target_error()` now shows runnable `synapse send` commands instead of just listing agent IDs (#244)
+
+### Fixed
+
+- **Copilot spawn parsing**: Fixed spawn command parsing for Copilot agent (#244)
+- **Test assertion alignment**: Updated `test_ambiguous_target_shows_hint` and `test_update_status_file_permission_error` to match implementation (#244)
+
+### Refactored
+
+- **`cmd_kill` SIGTERM dedup**: Extracted shared SIGTERM sending logic from graceful/force branches in `cli.py`
+- **`_print_observation_detail` helper**: Extracted identical observation display logic from `cmd_history_show` and `cmd_trace`
+- **`_deploy_and_print` helper**: Consolidated shared deploy logic from `_do_deploy` and `_do_deploy_all` in skill_manager.py
+- **Removed redundant imports**: Cleaned up duplicate `import re` in `tools/a2a.py` and `import shutil` in `skills.py`
+
+### Documentation
+
+- Updated test badge across all README translations (1389 → 1932 tests)
+- Added v0.6.4 changelog entry for #244
+- Added `test_copilot_spawn_fixes.py` to CLAUDE.md test commands
+- Added git-cliff step to README Development & Release section
+- Synced plugin skills with spawn readiness warning, tool_args guardrail, and send UX improvements
+
+### Tests
+
+- New `tests/test_copilot_spawn_fixes.py` (24 tests): parser guardrails, spawn readiness, send UX, CLI parse ordering, env encoding roundtrip (#244)
+
 ## [0.6.3] - 2026-02-19
 
 ### Added

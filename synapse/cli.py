@@ -268,28 +268,47 @@ def cmd_kill(args: argparse.Namespace) -> None:
     shutdown = settings.get_shutdown_settings()
 
     if not force and shutdown.get("graceful_enabled", True):
-        # Attempt graceful shutdown
+        timeout_seconds = shutdown.get("timeout_seconds", 30)
+
+        # Budget the total timeout across phases: HTTP + grace + escalation
+        http_timeout = min(timeout_seconds, 10)
+        remaining = max(timeout_seconds - http_timeout, 0)
+        grace_period = min(max(remaining // 3, 1), remaining)
+        escalation_wait = max(remaining - grace_period, 0)
+
+        # 1. Set status to SHUTTING_DOWN
+        registry.update_status(agent_id, "SHUTTING_DOWN")
+
+        # 2. Send graceful shutdown request via A2A
         print(f"Sending shutdown request to {display_name}...")
-        timeout = shutdown.get("timeout_seconds", 30)
-        acknowledged = _send_shutdown_request(agent_info, timeout_seconds=timeout)
+        acknowledged = _send_shutdown_request(agent_info, timeout_seconds=http_timeout)
 
         if acknowledged:
-            print(f"Shutdown acknowledged by {display_name}. Sending SIGTERM...")
-            try:
-                os.kill(pid, signal.SIGTERM)
-                print(f"Sent SIGTERM to {display_name} (PID: {pid})")
-            except ProcessLookupError:
-                print(f"Process {pid} already exited. Cleaning up registry...")
+            print(f"Shutdown acknowledged by {display_name}.")
         else:
-            print(
-                f"No response from {display_name} after shutdown request. "
-                f"Sending SIGTERM..."
-            )
+            print(f"No response from {display_name} after shutdown request.")
+
+        # 3. Wait grace period then send SIGTERM
+        print(f"Waiting {grace_period}s grace period before SIGTERM...")
+        time.sleep(grace_period)
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+            print(f"Sent SIGTERM to {display_name} (PID: {pid})")
+        except ProcessLookupError:
+            print(f"Process {pid} already exited. Cleaning up registry...")
+            registry.unregister(agent_id)
+            return
+
+        # 4. Wait for process to exit, then escalate to SIGKILL if needed
+        time.sleep(escalation_wait)
+
+        if is_process_alive(pid):
             try:
-                os.kill(pid, signal.SIGTERM)
-                print(f"Sent SIGTERM to {display_name} (PID: {pid})")
+                os.kill(pid, signal.SIGKILL)
+                print(f"Escalated to SIGKILL for {display_name} (PID: {pid})")
             except ProcessLookupError:
-                print(f"Process {pid} not found. Cleaning up registry...")
+                print(f"Process {pid} exited during escalation.")
     else:
         # Force kill or graceful disabled: use SIGKILL
         try:
@@ -486,23 +505,10 @@ def cmd_history_list(args: argparse.Namespace) -> None:
         print(f"Filtered by agent: {args.agent}")
 
 
-def cmd_history_show(args: argparse.Namespace) -> None:
-    """Show detailed task information."""
+def _print_observation_detail(observation: dict) -> None:
+    """Print detailed observation information (shared by history show and trace)."""
     import json
 
-    manager = _get_history_manager()
-
-    if not manager.enabled:
-        print(HISTORY_DISABLED_MSG)
-        return
-
-    observation = manager.get_observation(args.task_id)
-
-    if not observation:
-        print(f"Task not found: {args.task_id}")
-        sys.exit(1)
-
-    # Print task details
     print(f"Task ID:        {observation['task_id']}")
     print(f"Agent:          {observation['agent_name']}")
     print(f"Status:         {observation['status']}")
@@ -524,12 +530,27 @@ def cmd_history_show(args: argparse.Namespace) -> None:
         print("METADATA:")
         print("=" * 80)
         print(json.dumps(observation["metadata"], indent=2))
+
+
+def cmd_history_show(args: argparse.Namespace) -> None:
+    """Show detailed task information."""
+    manager = _get_history_manager()
+
+    if not manager.enabled:
+        print(HISTORY_DISABLED_MSG)
+        return
+
+    observation = manager.get_observation(args.task_id)
+
+    if not observation:
+        print(f"Task not found: {args.task_id}")
+        sys.exit(1)
+
+    _print_observation_detail(observation)
 
 
 def cmd_trace(args: argparse.Namespace) -> None:
     """Trace a task ID across A2A history and file-safety modification records."""
-    import json
-
     manager = _get_history_manager()
 
     if not manager.enabled:
@@ -541,28 +562,7 @@ def cmd_trace(args: argparse.Namespace) -> None:
         print(f"Task not found: {args.task_id}")
         sys.exit(1)
 
-    # History details (align with cmd_history_show output)
-    print(f"Task ID:        {observation['task_id']}")
-    print(f"Agent:          {observation['agent_name']}")
-    print(f"Status:         {observation['status']}")
-    print(f"Session ID:     {observation['session_id']}")
-    print(f"Timestamp:      {observation['timestamp']}")
-
-    print("\n" + "=" * 80)
-    print("INPUT:")
-    print("=" * 80)
-    print(observation["input"] or "(empty)")
-
-    print("\n" + "=" * 80)
-    print("OUTPUT:")
-    print("=" * 80)
-    print(observation["output"] or "(empty)")
-
-    if observation.get("metadata"):
-        print("\n" + "=" * 80)
-        print("METADATA:")
-        print("=" * 80)
-        print(json.dumps(observation["metadata"], indent=2))
+    _print_observation_detail(observation)
 
     # File-safety records for the same task_id (best-effort)
     from synapse.file_safety import FileSafetyManager

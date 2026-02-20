@@ -1077,8 +1077,6 @@ def ensure_core_skills(agent_type: str) -> list[str]:
 
     Returns list of messages about what was done.
     """
-    import shutil
-
     messages = []
     core_skills = ["synapse-a2a"]
 

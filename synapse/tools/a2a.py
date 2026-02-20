@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 import uuid
@@ -322,18 +323,15 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
     error = f"Ambiguous target '{target}'. Found {len(matches)} agents: {agent_ids}"
 
     # Build concrete command examples for each match
-    examples: list[str] = []
+    lines = ["  Use a specific identifier to target the right agent:"]
     for m in matches:
         agent_id = m.get("agent_id", "unknown")
         name = m.get("name")
-        label = f" ({name})" if name else ""
-        examples.append(f'    synapse send {name or agent_id} "<message>"{label}')
+        identifier = shlex.quote(name) if name else agent_id
+        hint = f"  # {agent_id}" if name else ""
+        lines.append(f'    synapse send {identifier} "<message>"{hint}')
 
-    error += "\n  Use a specific identifier to target the right agent:"
-    for ex in examples:
-        error += f"\n{ex}"
-
-    return error
+    return error + "\n" + "\n".join(lines)
 
 
 def _get_response_expected(want_response: bool | None) -> bool:
@@ -468,15 +466,13 @@ def _process_attachments(file_paths: list[str]) -> list[dict]:
 
 def _warn_shell_expansion(message: str) -> None:
     """Warn if message contains shell expansion characters."""
-    import re as _re
-
     patterns = [
         (r"`[^`]+`", "backtick command substitution"),
         (r"\$\([^)]+\)", "$() command substitution"),
         (r"\$\{[^}]+\}", "${} variable expansion"),
     ]
     for pattern, desc in patterns:
-        if _re.search(pattern, message):
+        if re.search(pattern, message):
             print(
                 f"WARNING: Message contains {desc} which may be expanded by the shell.\n"
                 "  Consider using --message-file or --stdin to avoid shell expansion:\n"

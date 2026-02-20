@@ -86,7 +86,7 @@ synapse send codex-8120 "Fix this bug" --response --priority 3 --from synapse-ge
 3. Type-port: `claude-8100`, `codex-8120`, `opencode-8130`, `copilot-8140` (shorthand)
 4. Type only: `claude`, `gemini`, `codex`, `opencode`, `copilot` (only if single instance)
 
-**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error. Use custom name (e.g., `my-claude`) or type-port shorthand (e.g., `claude-8100`) instead.
+**Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error showing runnable `synapse send` commands for each matching agent. Use custom name (e.g., `my-claude`) or type-port shorthand (e.g., `claude-8100`) instead.
 
 ### Choosing --response vs --no-response
 
@@ -367,6 +367,7 @@ synapse spawn claude --terminal tmux          # Use specific terminal
 
 # Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
 synapse spawn claude -- --dangerously-skip-permissions
+# Note: Synapse flags (--port, --name, --role) placed after '--' will trigger a warning
 ```
 
 **Spawn via API:** Agents can spawn other agents programmatically via `POST /spawn`:
@@ -377,6 +378,8 @@ Returns: `{agent_id, port, terminal_used, status}` (on failure: includes `reason
 
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+
+**Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready.
 
 **Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
 

@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1389%20passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1932%20passed-brightgreen.svg)](#tests)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > Un framework qui permet la collaboration inter-agents via le Google A2A Protocol tout en gardant les agents CLI (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactement tels quels**
