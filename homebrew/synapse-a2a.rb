@@ -3,8 +3,8 @@ class SynapseA2a < Formula
 
   desc "Agent-to-Agent communication protocol for CLI agents"
   homepage "https://github.com/s-hiraoku/synapse-a2a"
-  url "https://files.pythonhosted.org/packages/ad/fd/9604d84332c77b4484c11b1caedf2f69812429ff59b90310c76587e698ef/synapse_a2a-0.6.1.tar.gz"
-  sha256 "0dc4e8ff0ada0227aab8f88990cf6992e308c745ac667a1f6e85b3164d7f5ec8"
+  url "https://files.pythonhosted.org/packages/88/ef/469e4771b54b983b4d3e0bb47d50ae2b2366eb6e6fef2160530dacfa7d35/synapse_a2a-0.6.5.tar.gz"
+  sha256 "540f7548ac2e445a3b55a0bbc5a4294480f48588e48a4946678e0daf792eb195"
   license "MIT"
 
   depends_on "rust" => :build
@@ -127,8 +127,8 @@ class SynapseA2a < Formula
   end
 
   resource "rich" do
-    url "https://files.pythonhosted.org/packages/74/99/a4cab2acbb884f80e558b0771e97e21e939c5dfb460f488d19df485e8298/rich-14.3.2.tar.gz"
-    sha256 "e712f11c1a562a11843306f5ed999475f09ac31ffb64281f73ab29ffdda8b3b8"
+    url "https://files.pythonhosted.org/packages/b3/c6/f3b320c27991c46f43ee9d856302c70dc2d0fb2dba4842ff739d5f46b393/rich-14.3.3.tar.gz"
+    sha256 "b8daa0b9e4eef54dd8cf7c86c03713f53241884e814f4e2f5fb342fe520f639b"
   end
 
   resource "simple-term-menu" do
