@@ -402,14 +402,14 @@ Parent receives task
                                                          ▼                 │
                                                    evaluate result         │
                                                          │                 │
-                                                   ├─ Sufficient? → kill ✓ │
-                                                         │                 │
+                                                   ├─ Sufficient? → kill ✓
+                                                   │
                                                    └─ Insufficient? ───────┘
 ```
 
 ### How Many Agents
 
-1. **User specifies count** → follow it exactly (top priority)
+1. **User-specified count** → follow it exactly (top priority)
 2. **No user specification** → parent analyzes the task and decides:
    - Single focused subtask → 1 agent
    - Independent parallel subtasks → N specialists (one per subtask)
@@ -457,7 +457,7 @@ synapse spawn claude --terminal tmux          # Specific terminal
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 ```
 
-```json
+```jsonc
 // POST /spawn (API — agents can spawn programmatically)
 {"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)

@@ -188,6 +188,17 @@ synapse team start claude gemini codex --layout split
 
 Spawn creates child agents for sub-task delegation — preserving context, parallelizing work for speed, and assigning specialist roles for precision. The parent always owns the lifecycle: **spawn → send → evaluate → kill**.
 
+#### Waiting for Readiness
+
+`synapse list` is a point-in-time snapshot. After spawning, poll until the agent shows `STATUS=READY`:
+
+```bash
+# Poll until agent is ready (re-run manually or script it)
+while ! synapse list 2>/dev/null | grep -q "Tester.*READY"; do
+  sleep 1
+done
+```
+
 #### Pattern 1: Single-Task Delegation (Happy Path)
 
 Spawn one agent, send one task, verify, kill.
@@ -207,6 +218,7 @@ synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPS
 
 # Done — MUST kill
 synapse kill Tester -f
+# Or graceful kill (sends shutdown request, waits up to 30s): synapse kill Tester
 ```
 
 #### Pattern 2: Re-Send When Result Is Insufficient
@@ -268,10 +280,11 @@ synapse kill Fixer -f
 
 - Use `synapse send ... --from $SYNAPSE_AGENT_ID` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)). `$SYNAPSE_AGENT_ID` is automatically set by Synapse on agent start (e.g., `synapse-claude-8100`).
 - **Pane auto-close:** All supported terminals automatically close spawned panes when the agent terminates.
-- **Stdout capture:** `synapse spawn` prints `<agent_id> <port>` to stdout, so you can capture it:
+- **Stdout capture:** `synapse spawn` prints `<agent_id> <port>` to stdout; warnings go to stderr, so command substitution captures only the clean output:
   ```bash
   result=$(synapse spawn gemini --name Helper --role "helper")
   agent_id=$(echo "$result" | awk '{print $1}')  # e.g., synapse-gemini-8110
+  port=$(echo "$result" | awk '{print $2}')       # e.g., 8110
   ```
   This works in all terminals but is most useful with `tmux` where the spawning shell remains interactive.
 
