@@ -156,11 +156,12 @@ synapse kill claude
 synapse kill my-claude -f
 ```
 
-**Graceful shutdown flow:**
-1. Sends `shutdown_request` A2A message to agent
-2. Waits up to 30s (configurable via `shutdown.timeout_seconds` setting)
-3. If no response, sends SIGTERM
-4. With `-f`: sends SIGKILL immediately (previous behavior)
+**Graceful shutdown flow** (total budget: `shutdown.timeout_seconds`, default 30s):
+1. Sets agent status to `SHUTTING_DOWN`
+2. Sends `shutdown_request` A2A message (HTTP, up to 10s)
+3. Waits grace period (1/3 of remaining budget, min 1s), then sends SIGTERM
+4. Waits escalation period (remaining budget), then sends SIGKILL if process is still alive
+5. With `-f`: sends SIGKILL immediately, skipping all phases
 
 ### Jump to Terminal
 

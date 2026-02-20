@@ -139,12 +139,15 @@ Fix:
 - Skill not followed: move critical instructions to top and make them concrete.
 - Slow behavior: move long content to `references/`; reduce enabled skills.
 
-## Packaging
+## Scaffolding
 
 Scaffold a new skill directory:
 
 ```bash
+# Use default path (.agents/skills)
 bash scripts/new_skill.sh <skill-name>
+
+# Place in .claude/skills directory
 bash scripts/new_skill.sh <skill-name> --path .claude/skills
 ```
 

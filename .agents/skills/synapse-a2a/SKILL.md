@@ -389,7 +389,7 @@ Choose the right approach based on the situation:
 ```
 Parent receives task
   │
-  ├─ User specified agent count? ──→ Use that count (top priority)
+  ├─ User-specified agent count? ──→ Use that count (top priority)
   │
   └─ No specification? ──→ Parent decides count & roles based on task structure
         │

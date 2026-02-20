@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export LC_ALL=C
 
 usage() {
   cat <<USAGE
@@ -38,7 +39,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! [[ "$skill_name" =~ ^[a-z0-9-]+$ ]] || [[ "$skill_name" =~ ^- ]] || [[ "$skill_name" =~ -$ ]] || [[ "$skill_name" =~ -- ]] || ! [[ "$skill_name" =~ [a-z] ]]; then
+if ! [[ "$skill_name" =~ ^[a-z0-9](-[a-z0-9]+|[a-z0-9])*$ ]] || ! [[ "$skill_name" =~ [a-z] ]]; then
   echo "skill-name must be hyphen-case: lowercase letters, digits, hyphens (no leading/trailing/consecutive hyphens, must contain a letter)" >&2
   exit 1
 fi

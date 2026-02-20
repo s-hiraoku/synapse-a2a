@@ -259,7 +259,7 @@ synapse kill Fixer -f
 
 #### How Many Agents to Spawn
 
-1. **User specified count** → follow it exactly (top priority)
+1. **User-specified count** → follow it exactly (top priority)
 2. **No user specification** → parent decides based on task structure:
    - Single focused subtask → 1 agent
    - Independent parallel subtasks → N agents (one per subtask)
