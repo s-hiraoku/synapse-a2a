@@ -61,6 +61,9 @@ synapse copilot
 # With custom name and role
 synapse claude --name my-claude --role "code reviewer"
 
+# With skill set
+synapse claude --skill-set dev-set
+
 # Delegate/coordinator mode (no file editing, delegates via synapse send)
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
@@ -96,6 +99,8 @@ synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 ### Spawn Single Agent
 
 Spawn a single agent in a new terminal pane or window.
+
+**Workflow:** Spawn is sub-agent delegation — the parent spawns children to offload subtasks while preserving its own context. The full lifecycle is: spawn → send task → evaluate result → (re-send if needed) → kill. If the user specifies the number of agents, follow that exactly; otherwise the parent decides based on task structure. See `references/examples.md` → "Sub-Agent Delegation Patterns" for concrete patterns.
 
 ```bash
 synapse spawn claude                          # Spawn Claude in a new pane

@@ -257,6 +257,9 @@ Assign custom names and roles to agents for easier identification:
 # Start with name and role
 synapse claude --name my-claude --role "code reviewer"
 
+# Start with skill set
+synapse claude --skill-set dev-set
+
 # Skip interactive name/role setup
 synapse claude --no-setup
 
@@ -340,6 +343,9 @@ To inject instructions later: `synapse instructions send <agent>`.
 
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
+- **Sender Identification**: Auto-identify sender via `metadata.sender` + PID matching
+- **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop)
+- **Multi-Instance**: Run multiple agents of the same type with automatic port assignment
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **External Agents**: Connect to external A2A agents (`synapse external`)
@@ -355,37 +361,112 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
 
-## Spawning Agents
+## Spawning Agents (Sub-Agent Delegation)
 
-Spawn a single agent in a new terminal pane or window.
+**Spawn is sub-agent delegation.** The parent spawns child agents to offload subtasks. Goals:
+
+- **Context preservation** — keep the parent's context window focused on the main task
+- **Efficiency & speed** — parallelize independent subtasks to reduce total execution time
+- **Precision** — assign specialists with dedicated roles for higher-quality results
+
+The parent always owns the lifecycle: spawn → send task → evaluate result → kill.
+
+### When to Spawn
+
+Choose the right approach based on the situation:
+
+| Situation | Action | Why |
+|-----------|--------|-----|
+| Task is small or within your expertise | **Do it yourself** | No overhead, fastest path |
+| Another agent is already running and READY | **`synapse send` to existing agent** | Reuse running agents before spawning new ones |
+| Task is large and would consume your context | **`synapse spawn` a new agent** | Offload to preserve context; specialist role improves precision |
+| Task has independent parallel subtasks | **`synapse spawn` N agents** | Parallel execution cuts total time; each agent focuses on one subtask |
+
+**Rule of thumb:** Spawn when delegating would be faster, more precise, or prevent your context from being consumed by a large subtask.
+
+### Mental Model
+
+```
+Parent receives task
+  │
+  ├─ User specified agent count? ──→ Use that count (top priority)
+  │
+  └─ No specification? ──→ Parent decides count & roles based on task structure
+        │
+        ▼
+  spawn child(ren)
+        │
+        ▼
+  send task  ◄──────────────────┐
+        │                       │
+        ▼                       │
+  evaluate result               │
+        │                       │
+        ├─ Sufficient? ──→ kill child(ren)  ✓ Done
+        │                       │
+        └─ Insufficient? ──→ re-send task ─┘
+```
+
+### How Many Agents
+
+1. **User specifies count** → follow it exactly (top priority)
+2. **No user specification** → parent analyzes the task and decides:
+   - Single focused subtask → 1 agent
+   - Independent parallel subtasks → N specialists (one per subtask)
+   - The parent assigns a name and role to each spawned agent
+
+### Basic Lifecycle
 
 ```bash
-synapse spawn claude                          # Spawn Claude in a new pane
-synapse spawn gemini --port 8115              # Spawn with explicit port
-synapse spawn claude --name Tester --role "test writer"  # With name/role
-synapse spawn claude --terminal tmux          # Use specific terminal
+# 1. Spawn a helper
+synapse spawn gemini --name Tester --role "test writer"
 
-# Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
-synapse spawn claude -- --dangerously-skip-permissions
-# Note: Synapse flags (--port, --name, --role) placed after '--' will trigger a warning
+# 2. Confirm readiness (wait until READY before sending)
+synapse list   # Verify Tester shows STATUS=READY
+
+# 3. Send task (wait for result)
+synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID
+
+# 4. Evaluate result — if insufficient, re-send
+synapse send Tester "Add edge-case tests for expired tokens" --response --from $SYNAPSE_AGENT_ID
+
+# 5. MUST kill when done (parent owns lifecycle)
+synapse kill Tester -f
 ```
 
-**Spawn via API:** Agents can spawn other agents programmatically via `POST /spawn`:
+### How to Evaluate Results
+
+After receiving a `--response` reply from a spawned agent:
+
+1. **Read the reply content** — does it address what you asked?
+2. **Verify artifacts if needed** — run `git diff`, `pytest`, or read modified files to confirm the work
+3. **Decide next step:**
+   - Result is sufficient → `synapse kill <child> -f`
+   - Result is insufficient → re-send with refined instructions (do NOT kill and re-spawn)
+
+### CLI & API
+
+```bash
+# CLI
+synapse spawn claude                          # Spawn in new pane
+synapse spawn gemini --port 8115              # Explicit port
+synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
+synapse spawn claude --terminal tmux          # Specific terminal
+synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
+```
+
 ```json
+// POST /spawn (API — agents can spawn programmatically)
 {"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}
+// Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
-Returns: `{agent_id, port, terminal_used, status}` (on failure: includes `reason`)
 
-**Headless Mode:**
-When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+### Technical Notes
 
-**Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready.
-
-**Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
-
-**Pane Auto-Close:** When an agent process terminates, the pane/tab/window closes automatically in all supported terminals. Zellij uses `--close-on-exit`; iTerm2, Terminal.app, and Ghostty use `exec` to replace the shell process; tmux `split-window` closes natively on process exit.
-
-**Known Limitation:** Spawned agents receive messages via PTY injection, which does not register sender info in the reply queue. This means `synapse reply` will not work for responding to messages sent to spawned agents. Instead, use `synapse send <target> "message" --from <spawned-agent-id>` with explicit `--from` for bidirectional communication. See [#237](https://github.com/s-hiraoku/synapse-a2a/issues/237).
+- **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
+- **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready.
+- **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
+- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from <spawned-agent-id>` for bidirectional communication.
 
 ## Path Overrides
 

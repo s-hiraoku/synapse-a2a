@@ -61,6 +61,9 @@ synapse copilot
 # With custom name and role
 synapse claude --name my-claude --role "code reviewer"
 
+# With skill set
+synapse claude --skill-set dev-set
+
 # Delegate/coordinator mode (no file editing, delegates via synapse send)
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
@@ -97,11 +100,15 @@ synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 
 Spawn a single agent in a new terminal pane or window.
 
+**Workflow:** Spawn is sub-agent delegation — the parent spawns children to offload subtasks while preserving its own context. The full lifecycle is: spawn → send task → evaluate result → (re-send if needed) → kill. If the user specifies the number of agents, follow that exactly; otherwise the parent decides based on task structure. See `references/examples.md` → "Sub-Agent Delegation Patterns" for concrete patterns.
+
 ```bash
 synapse spawn claude                          # Spawn Claude in a new pane
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
+synapse spawn claude --skill-set dev-set      # With skill set
 synapse spawn claude --terminal tmux          # Use specific terminal
+synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 
 # Pass tool-specific arguments after '--'
 synapse spawn claude -- --dangerously-skip-permissions
@@ -110,9 +117,15 @@ synapse spawn claude -- --dangerously-skip-permissions
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
 
+**Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready.
+
+**Tool Args Guardrail:** Synapse flags (`--port`, `--name`, `--role`, etc.) placed after `--` are detected and trigger a warning, since they should go before `--`.
+
 **Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
 
 **Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).
+
+**Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from <spawned-agent-id>` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
 
 ### Stop Agents
 
@@ -836,10 +849,11 @@ curl -X POST http://localhost:8100/spawn \
   -d '{"profile": "gemini", "name": "Helper"}'
 # Response: {"agent_id": "synapse-gemini-8110", "port": 8110, "terminal_used": "tmux", "status": "submitted"}
 
-# With tool_args
+# With skill_set and tool_args
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}'
+# On failure: {"status": "failed", "reason": "No available port"}
 ```
 
 ## Skill Management

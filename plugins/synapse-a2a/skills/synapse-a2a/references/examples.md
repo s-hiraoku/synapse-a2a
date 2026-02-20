@@ -184,30 +184,91 @@ synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-
 synapse team start claude gemini codex --layout split
 ```
 
-### Spawn Lifecycle Pattern
+### Sub-Agent Delegation Patterns
 
-Use `synapse spawn` to create short-lived helper agents for specific tasks.
+Spawn creates child agents for sub-task delegation — preserving context, parallelizing work for speed, and assigning specialist roles for precision. The parent always owns the lifecycle: **spawn → send → evaluate → kill**.
+
+#### Pattern 1: Single-Task Delegation (Happy Path)
+
+Spawn one agent, send one task, verify, kill.
 
 ```bash
-# 1. Spawn a helper agent
-# Note: output contains agent ID and port
-result=$(synapse spawn gemini --name Helper --role "test writer")
-agent_id=$(echo $result | cut -d' ' -f1)
+# Spawn specialist
+synapse spawn gemini --name Tester --role "test writer"
 
-# 2. Send a specific task and wait for completion
-synapse send $agent_id "Write tests for auth module" --from $SYNAPSE_AGENT_ID --response
+# Confirm readiness
+synapse list   # Wait for Tester → STATUS=READY
 
-# 3. Force terminate once task is finished
-synapse kill $agent_id -f
+# Delegate and wait for result
+synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID
+
+# Evaluate: read reply, then verify artifacts
+# (e.g., check git diff or run pytest to confirm tests exist and pass)
+
+# Done — MUST kill
+synapse kill Tester -f
 ```
 
-**Key points:**
-- Spawning agent is responsible for lifecycle management.
-- Use `--headless` (automatically applied by spawn) for non-interactive execution.
-- Always force kill (`-f`) helper agents when done to clean up resources.
-- **Pane auto-close:** All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when the agent process terminates.
-- **Known limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from <spawned-agent-id>` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
-- **Note:** The stdout capture scripting pattern (`result=$(synapse spawn ...)`) works best with `tmux`. Reliability may vary in other terminal environments.
+#### Pattern 2: Re-Send When Result Is Insufficient
+
+If the result doesn't meet requirements, re-send with refined instructions — don't kill and re-spawn.
+
+```bash
+# Spawn
+synapse spawn codex --name Reviewer --role "code reviewer"
+
+# Confirm readiness
+synapse list   # Wait for Reviewer → STATUS=READY
+
+# First attempt
+synapse send Reviewer "Review src/server.py for security issues" --response --from $SYNAPSE_AGENT_ID
+
+# Evaluate: reply is too vague → re-send with specifics
+synapse send Reviewer "Also check for SQL injection in the query builder on lines 45-80" --response --from $SYNAPSE_AGENT_ID
+
+# Evaluate: now the review is thorough — MUST kill
+synapse kill Reviewer -f
+```
+
+#### Pattern 3: Multiple Specialists for Parallel Subtasks
+
+Spawn N agents for independent subtasks, collect results, verify, kill all.
+
+```bash
+# Spawn specialists
+synapse spawn gemini --name Tester --role "test writer"
+synapse spawn codex --name Fixer --role "bug fixer"
+
+# Confirm readiness of all agents
+synapse list   # Wait for both Tester and Fixer → STATUS=READY
+
+# Delegate parallel subtasks
+synapse send Tester "Write tests for src/auth.py" --no-response --from $SYNAPSE_AGENT_ID
+synapse send Fixer "Fix the timeout bug in src/server.py" --no-response --from $SYNAPSE_AGENT_ID
+
+# Monitor progress, then collect results
+synapse send Tester "Report your progress" --response --from $SYNAPSE_AGENT_ID
+synapse send Fixer "Report your progress" --response --from $SYNAPSE_AGENT_ID
+
+# Evaluate: verify artifacts (e.g., git diff, pytest)
+
+# All done — MUST kill all
+synapse kill Tester -f
+synapse kill Fixer -f
+```
+
+#### How Many Agents to Spawn
+
+1. **User specified count** → follow it exactly (top priority)
+2. **No user specification** → parent decides based on task structure:
+   - Single focused subtask → 1 agent
+   - Independent parallel subtasks → N agents (one per subtask)
+
+#### Communication Notes
+
+- Use `synapse send ... --from $SYNAPSE_AGENT_ID` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
+- **Pane auto-close:** All supported terminals automatically close spawned panes when the agent terminates.
+- The stdout capture pattern (`result=$(synapse spawn ...)`) works best with `tmux`.
 
 ## Troubleshooting
 
