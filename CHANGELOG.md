@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2026-02-20
+
+### Fixed
+
+- **Shell safety in ambiguous target errors**: Agent names with spaces or special characters are now `shlex.quote()`-d in `synapse send` command examples
+- **Graceful shutdown flow**: Set `SHUTTING_DOWN` status before shutdown request, added grace period before SIGTERM, and SIGKILL escalation if process survives
+- **Shutdown timeout budget**: HTTP wait, grace period, and escalation wait are now bounded within `timeout_seconds` so the total never exceeds the configured limit
+
 ## [0.6.4] - 2026-02-20
 
 ### Added
