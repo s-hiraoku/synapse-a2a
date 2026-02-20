@@ -16,6 +16,8 @@ flowchart TB
         claude["claude"]
         codex["codex"]
         gemini["gemini"]
+        opencode["opencode"]
+        copilot["copilot"]
         dummy["dummy"]
     end
 
@@ -24,6 +26,9 @@ flowchart TB
         stop["stop"]
         team["team"]
         spawn["spawn"]
+        kill["kill"]
+        jump["jump"]
+        rename["rename"]
         list["list"]
         send["send"]
         broadcast["broadcast"]
@@ -34,6 +39,9 @@ flowchart TB
         external["external"]
         skills["skills"]
         config["config"]
+        init["init"]
+        reset["reset"]
+        auth["auth"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -83,9 +91,11 @@ synapse gemini --port 8110
 
 | プロファイル | ポート |
 |-------------|--------|
-| claude | 8100 |
-| codex | 8120 |
-| gemini | 8110 |
+| claude | 8100-8109 |
+| gemini | 8110-8119 |
+| codex | 8120-8129 |
+| opencode | 8130-8139 |
+| copilot | 8140-8149 |
 | dummy | 8190 |
 
 ---
@@ -239,7 +249,7 @@ synapse team start claude gemini -- --dangerously-skip-permissions  # ツール�
 
 ### 1.5.2 synapse spawn
 
-1つのエージェントを新しいターミナルペインまたはウィンドウで起動します。
+**サブエージェント委任コマンド。** 親が子エージェントを生成し、サブタスクを委任します（コンテキスト保護・効率化・精度向上のため）。ライフサイクル: spawn → send → evaluate → kill。ユーザーがエージェント数を指定した場合はそれに従い（最優先）、指定がなければ親がタスク構造から判断します。詳細は `guides/usage.md` の「2.2.3 エージェント単体起動」を参照。
 
 ```bash
 synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [-- tool_args...]
@@ -259,6 +269,7 @@ synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set S
 - 新しいペイン/ウィンドウでエージェントを起動
 - 自動的に `--headless` フラグを付与（対話型ステップのスキップ）
 - 起動成功後、エージェント ID とポートを出力
+- 親エージェントは `synapse list` で READY 確認後にタスクを送信し、結果評価後に `synapse kill -f` で終了させる
 
 ---
 
@@ -860,6 +871,179 @@ Current settings (merged from all scopes):
   "a2a": { "flow": "auto" },
   "resume_flags": { ... }
 }
+```
+
+---
+
+### 1.14 synapse kill
+
+実行中のエージェントをグレースフルシャットダウンします。
+
+```bash
+synapse kill <TARGET> [--force]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `TARGET` | Yes | エージェント名、ID（`synapse-claude-8100`）、type-port（`claude-8100`）、またはタイプ |
+| `--force`, `-f` | No | 確認なしで即時終了（SIGKILL） |
+
+**ターゲット解決の優先順位**:
+1. カスタム名（`my-claude`）— 最優先
+2. フルエージェントID（`synapse-claude-8100`）
+3. type-port 省略形（`claude-8100`）
+4. エージェントタイプ（`claude`）— 単一インスタンスの場合のみ
+
+**グレースフルシャットダウンフロー**（`--force` なしの場合）:
+1. HTTP シャットダウンリクエスト送信（最大10秒）
+2. 猶予期間（残り時間の1/3、最低1秒）
+3. SIGTERM 送信
+4. エスカレーション待機（残りの時間）
+5. プロセスが残っている場合 SIGKILL
+
+デフォルトタイムアウトは30秒（`settings.json` の `shutdown.timeout_seconds` で変更可能）。
+
+**例**:
+
+```bash
+synapse kill my-claude                  # カスタム名で指定
+synapse kill synapse-claude-8100        # フルIDで指定
+synapse kill claude-8100                # type-port で指定
+synapse kill claude                     # タイプで指定（単一インスタンスの場合）
+synapse kill claude -f                  # 確認なし即時終了
+```
+
+---
+
+### 1.15 synapse jump
+
+実行中のエージェントのターミナルウィンドウにジャンプします。
+
+```bash
+synapse jump <TARGET>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `TARGET` | Yes | エージェント名、ID、type-port、またはタイプ |
+
+**対応ターミナル**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+**例**:
+
+```bash
+synapse jump my-claude                  # カスタム名で指定
+synapse jump synapse-claude-8100        # フルIDで指定
+synapse jump claude                     # タイプで指定（単一インスタンスの場合）
+```
+
+---
+
+### 1.16 synapse rename
+
+実行中のエージェントにカスタム名やロールを設定します。
+
+```bash
+synapse rename <TARGET> [--name NAME] [--role ROLE] [--clear]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `TARGET` | Yes | エージェント名、ID、type-port、またはタイプ |
+| `--name`, `-n` | No | カスタム名 |
+| `--role`, `-r` | No | ロール（役割の説明） |
+| `--clear`, `-c` | No | 名前とロールをクリア |
+
+**例**:
+
+```bash
+synapse rename synapse-claude-8100 --name my-claude
+synapse rename my-claude --role "コードレビュー担当"
+synapse rename claude --name reviewer --role "全PRをレビュー"
+synapse rename my-claude --clear                          # 名前・ロールをクリア
+```
+
+---
+
+### 1.17 synapse init
+
+Synapse 設定を初期化します（`.synapse/settings.json` の作成とスキルのコピー）。
+
+```bash
+synapse init [--scope SCOPE]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | `user`（`~/.synapse`）または `project`（`./.synapse`）。省略時はインタラクティブ選択 |
+
+**例**:
+
+```bash
+synapse init                    # インタラクティブにスコープ選択
+synapse init --scope user       # ユーザースコープに作成
+synapse init --scope project    # プロジェクトスコープに作成
+```
+
+---
+
+### 1.18 synapse reset
+
+設定をデフォルト値にリセットし、スキルを再インストールします。
+
+```bash
+synapse reset [--scope SCOPE] [--force]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | `user`、`project`、または `both`。省略時はインタラクティブ選択 |
+| `--force`, `-f` | No | 確認プロンプトをスキップ |
+
+**例**:
+
+```bash
+synapse reset                        # インタラクティブにスコープ選択
+synapse reset --scope user           # ユーザー設定をリセット
+synapse reset --scope project        # プロジェクト設定をリセット
+synapse reset --scope both -f        # 両方を確認なしでリセット
+```
+
+---
+
+### 1.19 synapse auth
+
+API キー認証の管理コマンドです。`SYNAPSE_AUTH_ENABLED=true` で認証を有効化します。
+
+#### synapse auth setup
+
+API キーを生成し、セットアップ手順を表示します。
+
+```bash
+synapse auth setup
+```
+
+2つのキー（API キーと管理キー）を生成し、環境変数の設定例を表示します。
+
+#### synapse auth generate-key
+
+API キーを生成します。
+
+```bash
+synapse auth generate-key [--count N] [--export]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--count`, `-n` | No | 生成するキーの数（デフォルト: 1） |
+| `--export`, `-e` | No | `export SYNAPSE_API_KEYS=...` 形式で出力 |
+
+**例**:
+
+```bash
+synapse auth setup                   # セットアップガイドを表示
+synapse auth generate-key            # キーを1つ生成
+synapse auth generate-key -n 3 -e    # 3つのキーをexport形式で生成
 ```
 
 ---

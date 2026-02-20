@@ -38,8 +38,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! [[ "$skill_name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
-  echo "skill-name must be kebab-case: e.g. my-new-skill (no leading/trailing/consecutive hyphens)" >&2
+if ! [[ "$skill_name" =~ ^[a-z0-9-]+$ ]] || [[ "$skill_name" =~ ^- ]] || [[ "$skill_name" =~ -$ ]] || [[ "$skill_name" =~ -- ]] || ! [[ "$skill_name" =~ [a-z] ]]; then
+  echo "skill-name must be hyphen-case: lowercase letters, digits, hyphens (no leading/trailing/consecutive hyphens, must contain a letter)" >&2
   exit 1
 fi
 
@@ -54,7 +54,7 @@ mkdir -p "$skill_dir" "$skill_dir/scripts" "$skill_dir/references" "$skill_dir/a
 cat > "$skill_dir/SKILL.md" <<EOF2
 ---
 name: $skill_name
-description: [TODO: Explain what this skill does and when to use it. Include trigger contexts explicitly.]
+description: "TODO: Explain what this skill does and when to use it. Include trigger contexts explicitly."
 ---
 
 # ${skill_name//-/ }
