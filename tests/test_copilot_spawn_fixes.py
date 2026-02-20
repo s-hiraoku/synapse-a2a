@@ -268,6 +268,63 @@ class TestAmbiguousTargetUX:
         # Should include "synapse send" example commands
         assert "synapse send" in error
 
+    def test_ambiguous_error_shell_quotes_names_with_spaces(self) -> None:
+        """Names with spaces should be shell-quoted in command examples."""
+        import shlex
+
+        from synapse.tools.a2a import _format_ambiguous_target_error
+
+        matches = [
+            {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "name": "my reviewer",
+            },
+            {
+                "agent_id": "synapse-claude-8101",
+                "agent_type": "claude",
+                "port": 8101,
+                "name": "test agent",
+            },
+        ]
+
+        error = _format_ambiguous_target_error("claude", matches)
+
+        # Names with spaces must be shell-quoted
+        assert shlex.quote("my reviewer") in error
+        assert shlex.quote("test agent") in error
+        # Hint should still reference agent_id
+        assert "synapse-claude-8100" in error
+        assert "synapse-claude-8101" in error
+
+    def test_ambiguous_error_shell_quotes_special_chars(self) -> None:
+        """Names with shell-special characters should be safely quoted."""
+        import shlex
+
+        from synapse.tools.a2a import _format_ambiguous_target_error
+
+        matches = [
+            {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "name": "agent;rm -rf /",
+            },
+            {
+                "agent_id": "synapse-claude-8101",
+                "agent_type": "claude",
+                "port": 8101,
+            },
+        ]
+
+        error = _format_ambiguous_target_error("claude", matches)
+
+        # The dangerous name must appear shell-quoted, not bare
+        assert shlex.quote("agent;rm -rf /") in error
+        # The raw form 'synapse send agent;rm' must NOT appear (unquoted)
+        assert "synapse send agent;rm" not in error
+
 
 # ============================================================
 # Regression: CLI parse ordering

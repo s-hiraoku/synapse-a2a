@@ -196,6 +196,8 @@ class TestGracefulShutdownFlow:
             patch("synapse.cli._send_shutdown_request") as mock_send,
             patch("builtins.input", return_value="y"),
             patch("os.kill") as mock_kill,
+            patch("time.sleep"),
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             mock_settings_inst = MagicMock()
             mock_settings_inst.get_shutdown_settings.return_value = {
@@ -210,8 +212,8 @@ class TestGracefulShutdownFlow:
             cmd_kill(args)
 
         mock_send.assert_called_once()
-        # After acknowledgment, SIGTERM is sent to finalize
-        mock_kill.assert_called_once()
+        # After acknowledgment, SIGTERM is sent (no SIGKILL since process exits)
+        mock_kill.assert_called_once_with(12345, signal.SIGTERM)
 
     def test_graceful_shutdown_falls_back_to_sigterm_on_timeout(self, mock_registry):
         """Should send SIGTERM after timeout if agent doesn't respond."""
@@ -225,6 +227,8 @@ class TestGracefulShutdownFlow:
             patch("synapse.cli._send_shutdown_request") as mock_send,
             patch("builtins.input", return_value="y"),
             patch("os.kill") as mock_kill,
+            patch("time.sleep"),
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             mock_settings_inst = MagicMock()
             mock_settings_inst.get_shutdown_settings.return_value = {
@@ -238,7 +242,7 @@ class TestGracefulShutdownFlow:
 
             cmd_kill(args)
 
-        # Should fall back to SIGTERM (not SIGKILL)
+        # Should send SIGTERM (no SIGKILL since process exits after SIGTERM)
         mock_kill.assert_called_once_with(12345, signal.SIGTERM)
 
     def test_graceful_disabled_uses_old_behavior(self, mock_registry):
@@ -265,3 +269,99 @@ class TestGracefulShutdownFlow:
             cmd_kill(args)
 
         mock_kill.assert_called_once_with(12345, signal.SIGKILL)
+
+    def test_graceful_shutdown_sets_shutting_down_status(self, mock_registry):
+        """Graceful shutdown should set agent status to SHUTTING_DOWN before sending request."""
+        import argparse
+
+        args = argparse.Namespace(target="test-claude", force=False)
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
+            patch("synapse.settings.get_settings") as mock_settings,
+            patch("synapse.cli._send_shutdown_request") as mock_send,
+            patch("builtins.input", return_value="y"),
+            patch("os.kill"),
+            patch("time.sleep"),
+            patch("synapse.cli.is_process_alive", return_value=False),
+        ):
+            mock_settings_inst = MagicMock()
+            mock_settings_inst.get_shutdown_settings.return_value = {
+                "timeout_seconds": 30,
+                "graceful_enabled": True,
+            }
+            mock_settings.return_value = mock_settings_inst
+            mock_send.return_value = True
+
+            from synapse.cli import cmd_kill
+
+            cmd_kill(args)
+
+        # Registry should have update_status called with SHUTTING_DOWN
+        mock_registry.update_status.assert_any_call(
+            "synapse-claude-8100", "SHUTTING_DOWN"
+        )
+
+    def test_graceful_shutdown_escalates_to_sigkill(self, mock_registry):
+        """If process survives SIGTERM, should escalate to SIGKILL."""
+        import argparse
+
+        args = argparse.Namespace(target="test-claude", force=False)
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
+            patch("synapse.settings.get_settings") as mock_settings,
+            patch("synapse.cli._send_shutdown_request") as mock_send,
+            patch("builtins.input", return_value="y"),
+            patch("os.kill") as mock_kill,
+            patch("time.sleep"),
+            patch("synapse.cli.is_process_alive", return_value=True),
+        ):
+            mock_settings_inst = MagicMock()
+            mock_settings_inst.get_shutdown_settings.return_value = {
+                "timeout_seconds": 1,
+                "graceful_enabled": True,
+            }
+            mock_settings.return_value = mock_settings_inst
+            mock_send.return_value = True
+
+            from synapse.cli import cmd_kill
+
+            cmd_kill(args)
+
+        # Should have sent both SIGTERM and SIGKILL
+        calls = mock_kill.call_args_list
+        sigterm_calls = [c for c in calls if c[0][1] == signal.SIGTERM]
+        sigkill_calls = [c for c in calls if c[0][1] == signal.SIGKILL]
+        assert len(sigterm_calls) >= 1, "Should send SIGTERM"
+        assert len(sigkill_calls) >= 1, "Should escalate to SIGKILL"
+
+    def test_graceful_shutdown_handles_already_exited_on_sigterm(self, mock_registry):
+        """If process exits before SIGTERM, should handle ProcessLookupError cleanly."""
+        import argparse
+
+        args = argparse.Namespace(target="test-claude", force=False)
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
+            patch("synapse.settings.get_settings") as mock_settings,
+            patch("synapse.cli._send_shutdown_request") as mock_send,
+            patch("builtins.input", return_value="y"),
+            patch("os.kill", side_effect=ProcessLookupError),
+            patch("time.sleep"),
+        ):
+            mock_settings_inst = MagicMock()
+            mock_settings_inst.get_shutdown_settings.return_value = {
+                "timeout_seconds": 1,
+                "graceful_enabled": True,
+            }
+            mock_settings.return_value = mock_settings_inst
+            mock_send.return_value = True
+
+            from synapse.cli import cmd_kill
+
+            # Should not raise - handles ProcessLookupError gracefully
+            cmd_kill(args)
+
+        # Registry should still be cleaned up
+        mock_registry.unregister.assert_called_once_with("synapse-claude-8100")

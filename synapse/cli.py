@@ -268,24 +268,45 @@ def cmd_kill(args: argparse.Namespace) -> None:
     shutdown = settings.get_shutdown_settings()
 
     if not force and shutdown.get("graceful_enabled", True):
-        # Attempt graceful shutdown before SIGTERM
+        timeout_seconds = shutdown.get("timeout_seconds", 30)
+
+        # 1. Set status to SHUTTING_DOWN
+        registry.update_status(agent_id, "SHUTTING_DOWN")
+
+        # 2. Send graceful shutdown request via A2A
         print(f"Sending shutdown request to {display_name}...")
-        timeout = shutdown.get("timeout_seconds", 30)
-        acknowledged = _send_shutdown_request(agent_info, timeout_seconds=timeout)
+        acknowledged = _send_shutdown_request(
+            agent_info, timeout_seconds=timeout_seconds
+        )
 
         if acknowledged:
-            print(f"Shutdown acknowledged by {display_name}. Sending SIGTERM...")
+            print(f"Shutdown acknowledged by {display_name}.")
         else:
-            print(
-                f"No response from {display_name} after shutdown request. "
-                f"Sending SIGTERM..."
-            )
+            print(f"No response from {display_name} after shutdown request.")
+
+        # 3. Wait grace period then send SIGTERM
+        grace_period = max(timeout_seconds // 3, 1)
+        print(f"Waiting {grace_period}s grace period before SIGTERM...")
+        time.sleep(grace_period)
 
         try:
             os.kill(pid, signal.SIGTERM)
             print(f"Sent SIGTERM to {display_name} (PID: {pid})")
         except ProcessLookupError:
-            print(f"Process {pid} not found. Cleaning up registry...")
+            print(f"Process {pid} already exited. Cleaning up registry...")
+            registry.unregister(agent_id)
+            return
+
+        # 4. Wait for process to exit, then escalate to SIGKILL if needed
+        escalation_wait = max(timeout_seconds - grace_period, 3)
+        time.sleep(escalation_wait)
+
+        if is_process_alive(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+                print(f"Escalated to SIGKILL for {display_name} (PID: {pid})")
+            except ProcessLookupError:
+                print(f"Process {pid} exited during escalation.")
     else:
         # Force kill or graceful disabled: use SIGKILL
         try:

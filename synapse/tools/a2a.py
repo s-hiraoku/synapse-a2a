@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 import uuid
@@ -322,15 +323,15 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
     error = f"Ambiguous target '{target}'. Found {len(matches)} agents: {agent_ids}"
 
     # Build concrete command examples for each match
-    lines = ["\n  Use a specific identifier to target the right agent:"]
+    lines = ["  Use a specific identifier to target the right agent:"]
     for m in matches:
         agent_id = m.get("agent_id", "unknown")
         name = m.get("name")
-        identifier = name or agent_id
+        identifier = shlex.quote(name) if name else agent_id
         hint = f"  # {agent_id}" if name else ""
         lines.append(f'    synapse send {identifier} "<message>"{hint}')
 
-    return error + "\n".join(lines)
+    return error + "\n" + "\n".join(lines)
 
 
 def _get_response_expected(want_response: bool | None) -> bool:
