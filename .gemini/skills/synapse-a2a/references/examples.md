@@ -196,8 +196,8 @@ Spawn one agent, send one task, verify, kill.
 # Spawn specialist
 synapse spawn gemini --name Tester --role "test writer"
 
-# Confirm readiness
-synapse list   # Wait for Tester → STATUS=READY
+# Confirm readiness (re-run until STATUS=READY; this is a point-in-time snapshot)
+synapse list   # Verify Tester shows STATUS=READY
 
 # Delegate and wait for result
 synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID
@@ -217,8 +217,8 @@ If the result doesn't meet requirements, re-send with refined instructions — d
 # Spawn
 synapse spawn codex --name Reviewer --role "code reviewer"
 
-# Confirm readiness
-synapse list   # Wait for Reviewer → STATUS=READY
+# Confirm readiness (re-run until STATUS=READY; this is a point-in-time snapshot)
+synapse list   # Verify Reviewer shows STATUS=READY
 
 # First attempt
 synapse send Reviewer "Review src/server.py for security issues" --response --from $SYNAPSE_AGENT_ID
@@ -239,8 +239,8 @@ Spawn N agents for independent subtasks, collect results, verify, kill all.
 synapse spawn gemini --name Tester --role "test writer"
 synapse spawn codex --name Fixer --role "bug fixer"
 
-# Confirm readiness of all agents
-synapse list   # Wait for both Tester and Fixer → STATUS=READY
+# Confirm readiness of all agents (re-run until both show STATUS=READY)
+synapse list   # Verify both Tester and Fixer show STATUS=READY
 
 # Delegate parallel subtasks
 synapse send Tester "Write tests for src/auth.py" --no-response --from $SYNAPSE_AGENT_ID
@@ -266,9 +266,14 @@ synapse kill Fixer -f
 
 #### Communication Notes
 
-- Use `synapse send ... --from $SYNAPSE_AGENT_ID` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
+- Use `synapse send ... --from $SYNAPSE_AGENT_ID` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)). `$SYNAPSE_AGENT_ID` is automatically set by Synapse on agent start (e.g., `synapse-claude-8100`).
 - **Pane auto-close:** All supported terminals automatically close spawned panes when the agent terminates.
-- The stdout capture pattern (`result=$(synapse spawn ...)`) works best with `tmux`.
+- **Stdout capture:** `synapse spawn` prints `<agent_id> <port>` to stdout, so you can capture it:
+  ```bash
+  result=$(synapse spawn gemini --name Helper --role "helper")
+  agent_id=$(echo "$result" | awk '{print $1}')  # e.g., synapse-gemini-8110
+  ```
+  This works in all terminals but is most useful with `tmux` where the spawning shell remains interactive.
 
 ## Troubleshooting
 

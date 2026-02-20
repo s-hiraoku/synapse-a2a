@@ -389,22 +389,22 @@ Choose the right approach based on the situation:
 ```
 Parent receives task
   │
-  ├─ User-specified agent count? ──→ Use that count (top priority)
-  │
-  └─ No specification? ──→ Parent decides count & roles based on task structure
-        │
-        ▼
-  spawn child(ren)
-        │
-        ▼
-  send task  ◄──────────────────┐
-        │                       │
-        ▼                       │
-  evaluate result               │
-        │                       │
-        ├─ Sufficient? ──→ kill child(ren)  ✓ Done
-        │                       │
-        └─ Insufficient? ──→ re-send task ─┘
+  ├─ User-specified agent count? ──→ Use that count ─────┐
+  │                                                      │
+  └─ No specification? ──→ Parent decides count & roles ─┘
+                                                         │
+                                                         ▼
+                                                   spawn child(ren)
+                                                         │
+                                                         ▼
+                                                   send task  ◄────────────┐
+                                                         │                 │
+                                                         ▼                 │
+                                                   evaluate result         │
+                                                         │                 │
+                                                   ├─ Sufficient? → kill ✓ │
+                                                         │                 │
+                                                   └─ Insufficient? ───────┘
 ```
 
 ### How Many Agents
@@ -421,7 +421,7 @@ Parent receives task
 # 1. Spawn a helper
 synapse spawn gemini --name Tester --role "test writer"
 
-# 2. Confirm readiness (wait until READY before sending)
+# 2. Confirm readiness (re-run until STATUS=READY; synapse list is a point-in-time snapshot)
 synapse list   # Verify Tester shows STATUS=READY
 
 # 3. Send task (wait for result)
@@ -433,6 +433,8 @@ synapse send Tester "Add edge-case tests for expired tokens" --response --from $
 # 5. MUST kill when done (parent owns lifecycle)
 synapse kill Tester -f
 ```
+
+**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse when an agent starts (e.g., `synapse-claude-8100`). Use it as-is in `--from` flags. You can verify your ID with `synapse list`.
 
 ### How to Evaluate Results
 

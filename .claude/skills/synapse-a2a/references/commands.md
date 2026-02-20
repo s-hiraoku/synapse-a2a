@@ -143,7 +143,7 @@ synapse stop claude --all
 ### Kill Agents
 
 ```bash
-# Graceful shutdown (default): sends A2A shutdown request, waits 30s, then SIGTERM
+# Graceful shutdown (default): multi-phase — SHUTTING_DOWN → HTTP request → grace → SIGTERM → SIGKILL
 synapse kill my-claude
 
 # Kill by agent ID
@@ -158,9 +158,9 @@ synapse kill my-claude -f
 
 **Graceful shutdown flow** (total budget: `shutdown.timeout_seconds`, default 30s):
 1. Sets agent status to `SHUTTING_DOWN`
-2. Sends `shutdown_request` A2A message (HTTP, up to 10s)
-3. Waits grace period (1/3 of remaining budget, min 1s), then sends SIGTERM
-4. Waits escalation period (remaining budget), then sends SIGKILL if process is still alive
+2. Sends `shutdown_request` A2A message (HTTP, up to `min(10s, total budget)`)
+3. Waits grace period (1/3 of budget remaining after step 2, min 1s), then sends SIGTERM
+4. Waits escalation period (budget remaining after step 3's grace period), then sends SIGKILL if process is still alive
 5. With `-f`: sends SIGKILL immediately, skipping all phases
 
 ### Jump to Terminal
@@ -264,7 +264,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Agent type | `claude` | Only when single instance exists |
 
 **Parameters:**
-- `--from, -f`: Sender agent ID (for reply identification) - **always include this**
+- `--from, -f`: Sender agent ID (for reply identification) - **always include this**. Use `$SYNAPSE_AGENT_ID` (auto-set by Synapse on agent start).
 - `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks
