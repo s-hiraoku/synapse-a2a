@@ -270,14 +270,18 @@ def cmd_kill(args: argparse.Namespace) -> None:
     if not force and shutdown.get("graceful_enabled", True):
         timeout_seconds = shutdown.get("timeout_seconds", 30)
 
+        # Budget the total timeout across phases: HTTP + grace + escalation
+        http_timeout = min(timeout_seconds, 10)
+        remaining = max(timeout_seconds - http_timeout, 0)
+        grace_period = max(remaining // 3, 1)
+        escalation_wait = max(remaining - grace_period, 3)
+
         # 1. Set status to SHUTTING_DOWN
         registry.update_status(agent_id, "SHUTTING_DOWN")
 
         # 2. Send graceful shutdown request via A2A
         print(f"Sending shutdown request to {display_name}...")
-        acknowledged = _send_shutdown_request(
-            agent_info, timeout_seconds=timeout_seconds
-        )
+        acknowledged = _send_shutdown_request(agent_info, timeout_seconds=http_timeout)
 
         if acknowledged:
             print(f"Shutdown acknowledged by {display_name}.")
@@ -285,7 +289,6 @@ def cmd_kill(args: argparse.Namespace) -> None:
             print(f"No response from {display_name} after shutdown request.")
 
         # 3. Wait grace period then send SIGTERM
-        grace_period = max(timeout_seconds // 3, 1)
         print(f"Waiting {grace_period}s grace period before SIGTERM...")
         time.sleep(grace_period)
 
@@ -298,7 +301,6 @@ def cmd_kill(args: argparse.Namespace) -> None:
             return
 
         # 4. Wait for process to exit, then escalate to SIGKILL if needed
-        escalation_wait = max(timeout_seconds - grace_period, 3)
         time.sleep(escalation_wait)
 
         if is_process_alive(pid):
