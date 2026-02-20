@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-02-20
+
+### Documentation
+
+- **CLI docs consistency**: Added missing commands (`init`, `reset`, `broadcast`, `auth`, `kill`, `jump`, `rename`) to `guides/usage.md`, `guides/references.md`, and `CLAUDE.md`
+- **Port table update**: Added `opencode` (8130-8139) and `copilot` (8140-8149) to `references.md` port table
+- **Mermaid diagrams**: Updated command flowcharts in `usage.md` and `references.md` with all current commands
+- **Graceful shutdown fix**: Corrected `synapse kill` description from "即時終了" to "グレースフルシャットダウン" in `usage.md`
+- **Skill sync**: Synced `anthropic-skill-creator` plugin with `.agents` version (stricter name validation, YAML-safe description placeholder)
+
 ## [0.6.5] - 2026-02-20
 
 ### Fixed
