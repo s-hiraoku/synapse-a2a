@@ -121,9 +121,7 @@ class TestITerm2Cwd:
 
         cwd = "/home/user/my project"
         script = create_iterm2_panes(["claude"], all_new=True, cwd=cwd)
-        # Shell-quoted cwd should appear (shlex.quote wraps in single quotes)
-        # After AppleScript escaping, the single quotes are preserved
-        assert shlex.quote(cwd) in script or "'/home/user/my project'" in script
+        assert shlex.quote(cwd) in script
 
 
 # ============================================================
@@ -157,11 +155,7 @@ class TestTerminalAppCwd:
         cwd = "/home/user/my project"
         commands = create_terminal_app_tabs(["claude"], cwd=cwd)
         assert len(commands) >= 1
-        # Shell-quoted cwd (shlex.quote wraps in single quotes)
-        # After AppleScript escaping, the quotes are preserved
-        assert (
-            shlex.quote(cwd) in commands[0] or "'/home/user/my project'" in commands[0]
-        )
+        assert shlex.quote(cwd) in commands[0]
 
 
 # ============================================================
@@ -188,6 +182,17 @@ class TestZellijCwd:
         for cmd in commands:
             assert f"--cwd {cwd}" in cmd
 
+    def test_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be shell-quoted in --cwd flag."""
+        from synapse.terminal_jump import create_zellij_panes
+
+        cwd = "/home/user/my project"
+        commands = create_zellij_panes(["claude"], cwd=cwd)
+        assert len(commands) >= 1
+        assert f"--cwd {shlex.quote(cwd)}" in commands[0]
+        # Unquoted cwd with spaces must NOT appear
+        assert f"--cwd {cwd} " not in commands[0]
+
 
 # ============================================================
 # Ghostty: cd {cwd} && in shell command
@@ -204,6 +209,17 @@ class TestGhosttyCwd:
         commands = create_ghostty_window(["claude"], cwd=cwd)
         assert len(commands) >= 1
         assert f"cd {cwd} && " in commands[0]
+
+    def test_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be shell-quoted in cd command."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        cwd = "/home/user/my project"
+        commands = create_ghostty_window(["claude"], cwd=cwd)
+        assert len(commands) >= 1
+        assert shlex.quote(cwd) in commands[0]
+        # Unquoted cwd with spaces must NOT appear
+        assert f"cd {cwd} &&" not in commands[0]
 
 
 # ============================================================
