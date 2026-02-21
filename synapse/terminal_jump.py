@@ -602,7 +602,7 @@ def create_iterm2_panes(
         lines = [
             'tell application "iTerm2"',
             "  tell current window",
-            "    tell current tab",
+            "    tell current session of current tab",
         ]
         for agent_spec in agents:
             full_cmd = _build_agent_command(
