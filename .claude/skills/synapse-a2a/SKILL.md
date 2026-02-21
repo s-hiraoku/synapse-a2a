@@ -20,7 +20,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | List reply targets | `synapse reply --list-targets` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
-| Kill agent (graceful) | `synapse kill <target>` (sends shutdown request, 30s timeout, then SIGTERM) |
+| Kill agent (graceful) | `synapse kill <target>` (shutdown request → SIGTERM → SIGKILL, 30s budget) |
 | Kill agent (force) | `synapse kill <target> -f` (immediate SIGKILL) |
 | Jump to terminal | `synapse jump <target>` |
 | Rename agent | `synapse rename <target> --name <name> --role <role>` |
@@ -356,7 +356,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
 - **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
-- **Graceful Shutdown**: `synapse kill` sends shutdown request before SIGTERM (30s timeout)
+- **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
@@ -397,14 +397,14 @@ Parent receives task
                                                    spawn child(ren)
                                                          │
                                                          ▼
-                                                   send task  ◄───────────┐
-                                                         │                │
-                                                         ▼                │
-                                                   evaluate result        │
-                                                         │                │
-                                                   ├─ Sufficient? → kill ✓│
-                                                   │                      │
-                                                   └─ Insufficient? ──────┘
+                                                   send task  ◄──────────┐
+                                                         │               │
+                                                         ▼               │
+                                                   evaluate result       │
+                                                         │               │
+                                                   ├─ Sufficient? → kill ✓
+                                                   │
+                                                   └─ Insufficient? ─────┘
 ```
 
 ### How Many Agents

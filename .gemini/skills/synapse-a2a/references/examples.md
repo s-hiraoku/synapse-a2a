@@ -208,9 +208,11 @@ done
 For Pattern 3 (multiple agents), wait for all of them:
 
 ```bash
-# Poll until BOTH agents are ready
+# Poll until BOTH agents are ready (single snapshot per iteration)
 elapsed=0
-while ! (synapse list | grep -q "Tester.*READY" && synapse list | grep -q "Fixer.*READY"); do
+while true; do
+  snapshot=$(synapse list)
+  echo "$snapshot" | grep -q "Tester.*READY" && echo "$snapshot" | grep -q "Fixer.*READY" && break
   sleep 1
   elapsed=$((elapsed + 1))
   if [ "$elapsed" -ge 30 ]; then
