@@ -62,6 +62,22 @@ class TestTmuxCwd:
         # The cwd should be shell-quoted
         assert shlex.quote(cwd) in split_cmds[0]
 
+    def test_send_keys_cwd_with_spaces(self) -> None:
+        """send-keys path must shell-quote cwd with spaces."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        cwd = "/home/user/my project"
+        commands = create_tmux_panes(["claude", "gemini"], all_new=False, cwd=cwd)
+        send_cmds = [c for c in commands if "send-keys" in c]
+        assert len(send_cmds) >= 1
+        # The inner command uses shlex.quote(cwd), then the whole string
+        # is outer-quoted by shlex.quote for tmux send-keys.
+        # Verify the raw cwd (unquoted with spaces) does NOT appear as
+        # a bare "cd /home/user/my project" — it must be quoted.
+        assert "cd /home/user/my project &&" not in send_cmds[0]
+        # The shell-quoted cwd should be embedded (possibly double-escaped)
+        assert shlex.quote(cwd) in shlex.split(send_cmds[0])[2]
+
 
 # ============================================================
 # iTerm2: cd {cwd} && in AppleScript write text
@@ -99,6 +115,16 @@ class TestITerm2Cwd:
         # The raw unescaped double quote must NOT appear in the AppleScript string
         assert 'my "project"' not in script
 
+    def test_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be shell-quoted inside write text."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        cwd = "/home/user/my project"
+        script = create_iterm2_panes(["claude"], all_new=True, cwd=cwd)
+        # Shell-quoted cwd should appear (shlex.quote wraps in single quotes)
+        # After AppleScript escaping, the single quotes are preserved
+        assert shlex.quote(cwd) in script or "'/home/user/my project'" in script
+
 
 # ============================================================
 # Terminal.app: cd {cwd} && in do script
@@ -123,6 +149,19 @@ class TestTerminalAppCwd:
         commands = create_terminal_app_tabs(["claude", "gemini"], all_new=True, cwd=cwd)
         for cmd in commands:
             assert f"cd {cwd} && " in cmd
+
+    def test_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be shell-quoted in do script."""
+        from synapse.terminal_jump import create_terminal_app_tabs
+
+        cwd = "/home/user/my project"
+        commands = create_terminal_app_tabs(["claude"], cwd=cwd)
+        assert len(commands) >= 1
+        # Shell-quoted cwd (shlex.quote wraps in single quotes)
+        # After AppleScript escaping, the quotes are preserved
+        assert (
+            shlex.quote(cwd) in commands[0] or "'/home/user/my project'" in commands[0]
+        )
 
 
 # ============================================================
