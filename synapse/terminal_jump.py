@@ -565,7 +565,7 @@ def create_tmux_panes(
     else:
         # First agent runs in current pane (via terminal input buffer)
         first_cmd = _build_agent_command(agents[0], tool_args=tool_args)
-        safe_first = shlex.quote(f"cd {cwd} && {first_cmd}")
+        safe_first = shlex.quote(f"cd {shlex.quote(cwd)} && {first_cmd}")
         commands.append(f"tmux send-keys {safe_first} Enter")
 
         # Remaining agents get new panes
@@ -606,10 +606,10 @@ def create_iterm2_panes(
         return ""
 
     cwd = cwd or os.getcwd()
-    escaped_cwd = _escape_applescript_string(cwd)
+    quoted_cwd = shlex.quote(cwd)
 
     def _cd_prefix(cmd: str) -> str:
-        return f"cd {escaped_cwd} && {cmd}"
+        return f"cd {quoted_cwd} && {cmd}"
 
     if all_new:
         lines = [
@@ -691,7 +691,7 @@ def create_terminal_app_tabs(
 
     for i, agent_spec in enumerate(agents):
         full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
-        escaped = _escape_applescript_string(f"cd {cwd} && {full_cmd}")
+        escaped = _escape_applescript_string(f"cd {shlex.quote(cwd)} && {full_cmd}")
         target = "" if (i == 0 and not all_new) else " in front window"
         commands.append(
             f'osascript -e \'tell application "Terminal" to '
