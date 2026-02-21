@@ -2371,6 +2371,8 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             )
         return
 
+    cwd = os.getcwd()
+
     if all_new:
         commands = create_panes(
             agents,
@@ -2378,6 +2380,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             terminal_app=terminal,
             all_new=True,
             tool_args=tool_args or None,
+            cwd=cwd,
         )
         if not commands:
             print(f"Terminal '{terminal}' does not support pane creation.")
@@ -2398,6 +2401,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 terminal_app=terminal,
                 all_new=True,
                 tool_args=tool_args or None,
+                cwd=cwd,
             )
             _run_pane_commands(commands)
 

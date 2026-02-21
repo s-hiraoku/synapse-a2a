@@ -6,6 +6,7 @@ the ``synapse spawn`` CLI command and the ``POST /spawn`` API endpoint.
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -94,6 +95,7 @@ def spawn_agent(
         terminal_app=terminal_used,
         all_new=True,
         tool_args=tool_args,
+        cwd=os.getcwd(),
     )
 
     if not commands:
