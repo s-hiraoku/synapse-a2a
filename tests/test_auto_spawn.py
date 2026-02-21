@@ -347,3 +347,41 @@ class TestAgentSpecParsing:
         assert any("--name C1" in cmd for cmd in synapse_cmds)
         assert any("--name G1" in cmd for cmd in synapse_cmds)
         assert all("--no-setup" in cmd for cmd in synapse_cmds)
+
+
+class TestITerm2AppleScriptTarget:
+    """iTerm2 split must target 'current session' not 'current tab'."""
+
+    def test_all_new_splits_target_session(self) -> None:
+        """all_new=True should split within 'current session of current tab'."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(agents=["claude"], all_new=True)
+        assert "current session of current tab" in script
+        # Must NOT have bare 'tell current tab' without session
+        lines = script.splitlines()
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("tell current tab"):
+                # This would be wrong — split is a session method
+                raise AssertionError(
+                    f"Found bare 'tell current tab' without session: {stripped}"
+                )
+
+    def test_handoff_splits_target_session(self) -> None:
+        """all_new=False (handoff) should also split via session."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(agents=["claude", "gemini"], all_new=False)
+        # The handoff path already uses 'current session' for the first agent
+        assert "current session" in script
+
+    def test_all_new_multiple_agents(self) -> None:
+        """Multiple agents with all_new=True should all target session."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(agents=["claude", "gemini", "codex"], all_new=True)
+        # Each split should happen within session context
+        split_count = script.count("split vertically with default profile")
+        assert split_count == 3
+        assert "current session of current tab" in script
