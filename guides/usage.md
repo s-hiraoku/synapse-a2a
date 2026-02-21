@@ -207,18 +207,30 @@ flowchart TB
         codex["codex"]
         gemini["gemini"]
         opencode["opencode"]
+        copilot["copilot"]
     end
 
     subgraph Commands["サブコマンド"]
         start["start"]
         stop["stop"]
+        team["team"]
+        spawn["spawn"]
+        kill["kill"]
+        jump["jump"]
+        rename["rename"]
         list["list"]
         send["send"]
+        broadcast["broadcast"]
+        reply["reply"]
+        trace["trace"]
         logs["logs"]
         instructions["instructions"]
         external["external"]
         skills["skills"]
         config["config"]
+        init["init"]
+        reset["reset"]
+        auth["auth"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -247,17 +259,21 @@ flowchart TB
 | `synapse start <profile>` | バックグラウンド起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
 | `synapse team start <specs...>` | 1番目=handoff、他=新ペイン。`--all-new` で全員新ペイン |
-| `synapse kill <target>` | エージェント即時終了 |
+| `synapse kill <target>` | グレースフルシャットダウン（デフォルト30秒、`-f` で即時終了） |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
+| `synapse init` | Synapse 設定の初期化（`.synapse/settings.json` 作成） |
+| `synapse reset` | 設定をデフォルトに戻す（`--force` で確認スキップ） |
 | `synapse --version` | バージョン情報表示 |
 | `synapse list` | 実行中エージェント一覧 |
 | `synapse send` | メッセージ送信 |
+| `synapse broadcast` | カレントディレクトリの全エージェントにメッセージ送信 |
 | `synapse logs <profile>` | ログ表示 |
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
+| `synapse auth` | API キー認証の管理（`setup` / `generate-key`） |
 
 ---
 
@@ -288,9 +304,10 @@ synapse stop synapse-claude-8100
 # 全インスタンスを停止
 synapse stop claude --all
 
-# エージェントを即時終了
+# グレースフルシャットダウン（HTTP停止リクエスト → SIGTERM → SIGKILL）
 synapse kill claude
 synapse kill my-claude    # カスタム名で指定
+synapse kill claude -f    # 即時終了（SIGKILL）
 
 # エージェントのターミナルにジャンプ
 synapse jump claude
@@ -396,9 +413,57 @@ synapse team start claude gemini -- --dangerously-skip-permissions  # 権限プ�
 
 ---
 
-### 2.2.3 エージェント単体起動 (synapse spawn)
+### 2.2.3 エージェント単体起動 (synapse spawn) — サブエージェント委任
 
-1つのエージェントを新しいターミナルペインまたはウィンドウで起動します。
+**spawn はサブエージェント委任です。** 親エージェントが子エージェントを生成してサブタスクを委任します。目的：
+
+- **コンテキスト保護** — 親のコンテキストウィンドウをメインタスクに集中させる
+- **効率化・時間短縮** — 独立したサブタスクを並列実行して合計時間を削減
+- **精度向上** — 専門ロール付きエージェントに委任して結果の質を高める
+
+親エージェントが常にライフサイクルを管理します: **spawn → send → evaluate → kill**
+
+#### いつ spawn するか
+
+| 状況 | アクション | 理由 |
+|------|------------|------|
+| タスクが小さく自分の専門内 | **自分で実行** | オーバーヘッドなし |
+| 別のエージェントが稼働中で READY | **`synapse send` で既存エージェントに依頼** | spawn 前に既存を再利用 |
+| タスクが大きく自分のコンテキストを消費する | **`synapse spawn` で新規生成** | コンテキスト保護 + 専門ロールで精度向上 |
+| 独立した並列サブタスクがある | **`synapse spawn` で N 体生成** | 並列実行で時間短縮 |
+
+**エージェント数のルール:**
+1. ユーザーが数を指定 → **その数に従う（最優先）**
+2. 指定なし → 親エージェントがタスク構造から適切な数と役割を決定
+
+#### 基本ライフサイクル
+
+```bash
+# 1. ヘルパーを spawn
+synapse spawn gemini --name Tester --role "テスト担当"
+
+# 2. READY 確認（送信前に必ず確認）
+synapse list   # Tester が STATUS=READY になるまで待機
+
+# 3. タスクを送信（結果を待つ）
+synapse send Tester "src/auth.py のユニットテストを書いて" --response --from $SYNAPSE_AGENT_ID
+
+# 4. 結果を評価 — 不十分なら再送信（kill して再 spawn しない）
+synapse send Tester "期限切れトークンのエッジケースも追加して" --response --from $SYNAPSE_AGENT_ID
+
+# 5. 完了 — 必ず kill する（親がライフサイクルを管理）
+synapse kill Tester -f
+```
+
+#### 結果の評価方法
+
+1. **返答内容を読む** — 依頼した内容に対応しているか？
+2. **成果物を検証** — 必要に応じて `git diff`、`pytest`、ファイル確認
+3. **判断:**
+   - 十分 → `synapse kill <child> -f`
+   - 不十分 → 追加指示を re-send（kill して再 spawn しない）
+
+#### CLI コマンド
 
 ```bash
 synapse spawn claude                          # 新しいペインで Claude を起動
@@ -410,14 +475,12 @@ synapse spawn claude --terminal tmux          # 使用するターミナルを�
 synapse spawn claude -- --dangerously-skip-permissions
 ```
 
-**Headless モード**:
-`synapse spawn` 経由で起動されたエージェントには、自動的に `--headless` フラグが付与されます。これにより、名前やロールの入力、起動アニメーション、初期指示の承認プロンプトなどの対話型ステップがすべてスキップされます。これは、プログラムによるオーケストレーションをスムーズに行うための仕様です。なお、A2A サーバーは有効であり、通信に必要な初期指示も自動的に送信されます。
+#### 技術的な注意事項
 
-**注意**: 起動したエージェントのライフサイクル管理は、起動元の責任です。タスクが完了したら `synapse kill <target> -f` で確実に終了させてください。
-
-**ペイン自動クローズ**: エージェントプロセスが終了すると、対応するペイン/タブ/ウィンドウはすべてのサポート対象ターミナル（tmux, zellij, iTerm2, Terminal.app, Ghostty）で自動的に閉じます。
-
-**既知の制限**: spawn されたエージェントは PTY インジェクション経由でメッセージを受信するため、`synapse reply` によるリプライができません。代わりに `synapse send <送信元> "メッセージ" --from <自分のID>` を使用してください（[#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)）。
+- **Headless モード**: `synapse spawn` は自動的に `--headless` を付与し、対話型ステップをスキップします。A2A サーバーと初期指示は有効です。
+- **Readiness 確認**: spawn 後、エージェントが登録されるまで待機し、未登録の場合は `synapse send` のコマンド例を含む警告を表示します。
+- **ペイン自動クローズ**: エージェント終了時、対応するペインは自動的に閉じます（tmux, zellij, iTerm2, Terminal.app, Ghostty）。
+- **既知の制限 ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237))**: spawn されたエージェントは `synapse reply` が使用できません（PTY インジェクションで送信者情報が登録されないため）。`synapse send <target> "message" --from <spawned-agent-id>` を使用してください。
 
 ---
 

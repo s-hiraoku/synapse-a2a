@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-02-20
+
+### Documentation
+
+- **CLI docs consistency**: Added missing commands (`init`, `reset`, `broadcast`, `auth`, `kill`, `jump`, `rename`) to `guides/usage.md`, `guides/references.md`, and `CLAUDE.md`
+- **Port table update**: Added `opencode` (8130-8139) and `copilot` (8140-8149) to `references.md` port table
+- **Mermaid diagrams**: Updated command flowcharts in `usage.md` and `references.md` with all current commands
+- **Graceful shutdown fix**: Corrected `synapse kill` description from "即時終了" to "グレースフルシャットダウン" in `usage.md`
+- **Skill sync**: Synced `anthropic-skill-creator` plugin with `.agents` version (stricter name validation, YAML-safe description placeholder)
+
+## [0.6.5] - 2026-02-20
+
+### Fixed
+
+- **Shell safety in ambiguous target errors**: Agent names with spaces or special characters are now `shlex.quote()`-d in `synapse send` command examples
+- **Graceful shutdown flow**: Set `SHUTTING_DOWN` status before shutdown request, added grace period before SIGTERM, and SIGKILL escalation if process survives
+- **Shutdown timeout budget**: HTTP wait, grace period, and escalation wait are now bounded within `timeout_seconds` so the total never exceeds the configured limit
+
 ## [0.6.4] - 2026-02-20
 
 ### Added
@@ -1491,6 +1509,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.6.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.5...v0.6.6
+[0.6.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.0...v0.6.1
@@ -1499,9 +1520,50 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 [0.5.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.3...v0.4.4
-[0.4.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.24...v0.4.3
-[0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
+[0.4.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.25...v0.4.0
+[0.3.25]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.24...v0.3.25
 [0.3.24]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.23...v0.3.24
+[0.3.23]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.22...v0.3.23
+[0.3.22]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.21...v0.3.22
+[0.3.21]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.20...v0.3.21
+[0.3.20]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.19...v0.3.20
+[0.3.19]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.18...v0.3.19
+[0.3.18]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.17...v0.3.18
+[0.3.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.16...v0.3.17
+[0.3.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.15...v0.3.16
+[0.3.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.14...v0.3.15
+[0.3.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.13...v0.3.14
+[0.3.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.12...v0.3.13
+[0.3.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.11...v0.3.12
+[0.3.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.10...v0.3.11
+[0.3.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.9...v0.3.10
+[0.3.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.8...v0.3.9
+[0.3.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.7...v0.3.8
+[0.3.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.6...v0.3.7
+[0.3.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.5...v0.3.6
+[0.3.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.4...v0.3.5
+[0.3.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.30...v0.3.0
+[0.2.30]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.29...v0.2.30
+[0.2.29]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.28...v0.2.29
+[0.2.28]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.27...v0.2.28
+[0.2.27]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.26...v0.2.27
+[0.2.26]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.25...v0.2.26
+[0.2.25]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.24...v0.2.25
+[0.2.24]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.23...v0.2.24
+[0.2.23]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.22...v0.2.23
+[0.2.22]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.21...v0.2.22
+[0.2.21]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.20...v0.2.21
+[0.2.20]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.19...v0.2.20
+[0.2.19]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.18...v0.2.19
+[0.2.18]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.17...v0.2.18
+[0.2.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.16...v0.2.17
 [0.2.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.15...v0.2.16
 [0.2.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.14...v0.2.15
 [0.2.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.13...v0.2.14

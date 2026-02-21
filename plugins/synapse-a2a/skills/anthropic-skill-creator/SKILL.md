@@ -139,18 +139,17 @@ Fix:
 - Skill not followed: move critical instructions to top and make them concrete.
 - Slow behavior: move long content to `references/`; reduce enabled skills.
 
-## Packaging
+## Scaffolding
 
-Validate and package before distribution:
+Scaffold a new skill directory:
 
 ```bash
-# Scaffold a new skill directory
+# Use default path (.agents/skills)
 bash scripts/new_skill.sh <skill-name>
-```
 
-> `quick_validate.py` and `package_skill.py` are not bundled in this skill.
-> Use `synapse skills show <name>` to verify frontmatter, and
-> `synapse skills deploy <name>` to distribute.
+# Place in .claude/skills directory
+bash scripts/new_skill.sh <skill-name> --path .claude/skills
+```
 
 ## References
 

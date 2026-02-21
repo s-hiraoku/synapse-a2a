@@ -61,6 +61,9 @@ synapse copilot
 # With custom name and role
 synapse claude --name my-claude --role "code reviewer"
 
+# With skill set
+synapse claude --skill-set dev-set
+
 # Delegate/coordinator mode (no file editing, delegates via synapse send)
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
@@ -96,6 +99,8 @@ synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 ### Spawn Single Agent
 
 Spawn a single agent in a new terminal pane or window.
+
+**Workflow:** Spawn is sub-agent delegation — the parent spawns children to offload subtasks while preserving its own context. The full lifecycle is: spawn → send task → evaluate result → (re-send if needed) → kill. If the user specifies the number of agents, follow that exactly; otherwise the parent decides based on task structure. See `references/examples.md` → "Sub-Agent Delegation Patterns" for concrete patterns.
 
 ```bash
 synapse spawn claude                          # Spawn Claude in a new pane
@@ -138,7 +143,7 @@ synapse stop claude --all
 ### Kill Agents
 
 ```bash
-# Graceful shutdown (default): sends A2A shutdown request, waits 30s, then SIGTERM
+# Graceful shutdown (default): multi-phase — SHUTTING_DOWN → HTTP request → grace → SIGTERM → SIGKILL
 synapse kill my-claude
 
 # Kill by agent ID
@@ -151,11 +156,12 @@ synapse kill claude
 synapse kill my-claude -f
 ```
 
-**Graceful shutdown flow:**
-1. Sends `shutdown_request` A2A message to agent
-2. Waits up to 30s (configurable via `shutdown.timeout_seconds` setting)
-3. If no response, sends SIGTERM
-4. With `-f`: sends SIGKILL immediately (previous behavior)
+**Graceful shutdown flow** (total budget: `shutdown.timeout_seconds`, default 30s):
+1. Sets agent status to `SHUTTING_DOWN`
+2. Sends `shutdown_request` A2A message (HTTP, up to `min(10s, total budget)`)
+3. Waits grace period (`min(max(1, remaining // 3), remaining)` — targets 1/3 of remaining budget, capped to `remaining`; **0s when budget ≤ 10s**), then sends SIGTERM
+4. Waits escalation period (budget remaining after step 3), then sends SIGKILL if process is still alive
+5. With `-f`: sends SIGKILL immediately, skipping all phases
 
 ### Jump to Terminal
 
@@ -258,7 +264,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Agent type | `claude` | Only when single instance exists |
 
 **Parameters:**
-- `--from, -f`: Sender agent ID (for reply identification) - **always include this**
+- `--from, -f`: Sender agent ID (for reply identification) - **always include this**. Use `$SYNAPSE_AGENT_ID` (auto-set by Synapse on agent start). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
 - `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks

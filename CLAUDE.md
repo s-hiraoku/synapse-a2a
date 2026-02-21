@@ -127,6 +127,24 @@ synapse config --scope project            # Edit project settings directly
 synapse config show                       # Show merged settings (read-only)
 synapse config show --scope user          # Show user settings only
 
+# Initialize / reset configuration
+synapse init                              # Interactive scope selection
+synapse init --scope user                 # Create ~/.synapse/settings.json
+synapse init --scope project              # Create ./.synapse/settings.json
+synapse reset                             # Interactive scope selection
+synapse reset --scope user                # Reset user settings to defaults
+synapse reset --scope both -f             # Reset both without confirmation
+
+# Broadcast message to all agents in current directory
+synapse broadcast "Status check"                           # Send to all agents
+synapse broadcast "Urgent update" -p 4                     # Urgent broadcast
+synapse broadcast "FYI only" --no-response                 # Fire-and-forget
+
+# API key authentication
+synapse auth setup                        # Generate keys and show setup instructions
+synapse auth generate-key                 # Generate a single API key
+synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
+
 # Send messages (--response waits for reply, --no-response sends only)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
 synapse send my-claude "Review this code" --from synapse-gemini-8110 --response
