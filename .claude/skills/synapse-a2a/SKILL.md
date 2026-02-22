@@ -71,14 +71,16 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --response --from synapse-claude-8100
-synapse send claude "What is the status?" --response --from synapse-codex-8121
-synapse send codex-8120 "Fix this bug" --response --priority 3 --from synapse-gemini-8110
+synapse send gemini "Please review this code" --response --from $SYNAPSE_AGENT_ID
+synapse send claude "What is the status?" --response --from $SYNAPSE_AGENT_ID
+synapse send codex-8120 "Fix this bug" --response --priority 3 --from $SYNAPSE_AGENT_ID
 ```
 
 **Important:**
 - Always use `--from` with your **agent ID** (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
 - By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
+
+**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse at startup. Always use it for `--from` — never copy example IDs.
 
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
@@ -97,10 +99,10 @@ Analyze the message content and determine if a reply is expected:
 
 ```bash
 # Message that expects a reply
-synapse send gemini "What is the best approach?" --response --from synapse-claude-8100
+synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
 
 # Purely informational, no reply needed
-synapse send codex "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse send codex "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 ### Roundtrip Communication (--response)
@@ -109,7 +111,7 @@ For request-response patterns:
 
 ```bash
 # Sender: Wait for response (blocks until reply received)
-synapse send gemini "Analyze this data" --response --from synapse-claude-8100
+synapse send gemini "Analyze this data" --response --from $SYNAPSE_AGENT_ID
 
 # Receiver: Reply to sender (auto-routes via reply tracking)
 synapse reply "Analysis result: ..."
@@ -125,13 +127,13 @@ Send a message to all agents sharing the same working directory:
 
 ```bash
 # Broadcast status check to all cwd agents
-synapse broadcast "Status check" --from synapse-claude-8100
+synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast
-synapse broadcast "Urgent: stop all work" --priority 4 --from synapse-claude-8100
+synapse broadcast "Urgent: stop all work" --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Fire-and-forget broadcast
-synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 **Note:** Broadcast only targets agents in the **same working directory** as the sender. This prevents unintended messages to agents working on different projects.
@@ -161,7 +163,7 @@ synapse reply --list-targets
 synapse reply "Here is my analysis..." --to <sender_id>
 
 # In sandboxed environments (like Codex), specify your agent ID
-synapse reply "Here is my analysis..." --from <your_agent_id>
+synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 ```
 
 **Example - Question received (MUST reply):**
@@ -189,13 +191,13 @@ Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
 
 ```bash
 # Normal priority (default: 3) - with response
-synapse send gemini "Analyze this" --response --from synapse-claude-8100
+synapse send gemini "Analyze this" --response --from $SYNAPSE_AGENT_ID
 
 # Higher priority - urgent request
-synapse send claude "Urgent review needed" --response --priority 4 --from synapse-codex-8121
+synapse send claude "Urgent review needed" --response --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 ## Agent Status
@@ -274,7 +276,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from synapse-codex-8121
+synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID
 synapse jump my-claude
 synapse kill my-claude
 ```
@@ -363,7 +365,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
-- **Worktree Isolation**: Pass `-- --worktree` when spawning Claude to give it an isolated git worktree, preventing file conflicts in multi-agent setups (Claude only)
+- **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
 
 ## Spawning Agents (Sub-Agent Delegation)
 
@@ -471,9 +473,9 @@ synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 
-### Worktree Isolation (Claude Only)
+### Worktree Isolation (Claude Code flag, passed via `--`)
 
-When spawning Claude agents, consider using `--worktree` to give each agent an isolated copy of the repository. This prevents file conflicts when multiple agents edit the same codebase.
+`--worktree` is a Claude Code flag. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it. Consider using it to give each agent an isolated copy of the repository, preventing file conflicts when multiple agents edit the same codebase.
 
 **Decision Table:**
 
@@ -493,23 +495,24 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree
 # Named worktree (creates .claude/worktrees/feat-auth/ with branch worktree-feat-auth)
 synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
 
-# Team start (--worktree applies to Claude only; other agent types ignore it)
+# Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
 ```
 
 **Caveats:**
 
 - `--worktree` is a **Claude Code flag**, not a Synapse flag. Pass it after `--` as a tool arg.
+- Synapse forwards `tool_args` (including `--worktree`) to **all** spawned agents without filtering by agent type. Whether a flag is honored depends on each agent's CLI: Claude Code supports `--worktree`; other CLIs (Gemini, Codex, OpenCode, Copilot) currently silently ignore unknown flags, but this is not guaranteed — restrict flags after `--` if a target CLI may error on unrecognized options.
 - `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are **not copied** to the worktree. Run `uv sync`, `npm install`, or copy `.env` manually if needed.
-- Other agent types (Gemini, Codex, OpenCode, Copilot) do not support `--worktree`. When passed via `synapse team start ... -- --worktree`, only Claude instances use it.
 - On exit: worktrees with no changes are auto-deleted; worktrees with changes prompt to keep or remove.
+- Consider adding `.claude/worktrees/` to your `.gitignore` to prevent untracked worktree files from cluttering `git status`.
 
 ### Technical Notes
 
 - **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
 - **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
-- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from <spawned-agent-id>` for bidirectional communication.
+- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` for bidirectional communication.
 
 ## Path Overrides
 

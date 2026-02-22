@@ -147,12 +147,12 @@ synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
 # Send messages (--response waits for reply, --no-response sends only)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
-synapse send my-claude "Review this code" --from synapse-gemini-8110 --response
-synapse send gemini "Analyze this" --from synapse-claude-8100 --response
-synapse send codex "Process this" --from synapse-claude-8100 --no-response
+synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID --response
+synapse send gemini "Analyze this" --from $SYNAPSE_AGENT_ID --response
+synapse send codex "Process this" --from $SYNAPSE_AGENT_ID --no-response
 
 # Send to specific instance when multiple agents of same type exist
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "Hello" --from $SYNAPSE_AGENT_ID
 
 # Send long messages via file or stdin (avoids ARG_MAX shell limits)
 synapse send claude --message-file /tmp/review.txt --no-response
@@ -169,7 +169,7 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-resp
 synapse reply "Result here"
 
 # Reply with explicit sender ID (for sandboxed environments like Codex)
-synapse reply "Result here" --from synapse-codex-8121
+synapse reply "Result here" --from $SYNAPSE_AGENT_ID
 
 # Reply to a specific sender when multiple are pending
 synapse reply "Result here" --to synapse-claude-8100
@@ -507,7 +507,7 @@ synapse list
 **Observing TRANSPORT column**:
 ```bash
 # In Terminal 1 (Claude), send message to Gemini:
-synapse send gemini "hello" --from synapse-claude-8100
+synapse send gemini "hello" --from $SYNAPSE_AGENT_ID
 
 # In Terminal 3, observe:
 # - Claude shows "UDS→" (sending via UDS)
@@ -608,7 +608,7 @@ synapse history stats --agent gemini
 
 2. **Delegate task**:
    ```bash
-synapse send gemini "Write tests for X" --priority 3 --from synapse-claude-8100 --no-response
+synapse send gemini "Write tests for X" --priority 3 --from $SYNAPSE_AGENT_ID --no-response
    ```
 
 3. **Monitor progress**:
@@ -619,7 +619,7 @@ synapse send gemini "Write tests for X" --priority 3 --from synapse-claude-8100 
 
 4. **Send follow-up** (if needed):
    ```bash
-synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100 --response
+synapse send gemini "Status update?" --priority 4 --from $SYNAPSE_AGENT_ID --response
    ```
 
 5. **Review completion**:
