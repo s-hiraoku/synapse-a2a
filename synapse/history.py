@@ -594,6 +594,86 @@ class HistoryManager:
                 print(f"Warning: Failed to get statistics: {e}", file=sys.stderr)
                 return {}
 
+    def get_token_statistics(
+        self,
+        agent_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Get aggregated token usage statistics from observation metadata.
+
+        Scans all observations' metadata JSON for a ``tokens`` key and
+        aggregates input_tokens, output_tokens, and cost_usd.
+
+        Args:
+            agent_name: Optional filter to get stats for specific agent only.
+
+        Returns:
+            Dict with total_input_tokens, total_output_tokens, total_cost_usd,
+            and by_agent breakdown.  Returns ``{}`` when history is disabled.
+        """
+        if not self.enabled:
+            return {}
+
+        totals: dict[str, Any] = {
+            "total_input_tokens": 0,
+            "total_output_tokens": 0,
+            "total_cost_usd": 0.0,
+            "by_agent": {},
+        }
+
+        with self._lock:
+            try:
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    where = ""
+                    params: list[str] = []
+                    if agent_name:
+                        where = "WHERE agent_name = ?"
+                        params = [agent_name]
+
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        f"SELECT agent_name, metadata FROM observations {where}",
+                        params,
+                    )
+
+                    for row in cursor.fetchall():
+                        meta_str = row["metadata"]
+                        if not meta_str:
+                            continue
+                        try:
+                            meta = json.loads(meta_str)
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+                        tokens = meta.get("tokens")
+                        if not tokens:
+                            continue
+
+                        inp = tokens.get("input_tokens") or 0
+                        out = tokens.get("output_tokens") or 0
+                        cost = tokens.get("cost_usd") or 0.0
+
+                        totals["total_input_tokens"] += inp
+                        totals["total_output_tokens"] += out
+                        totals["total_cost_usd"] += cost
+
+                        agent = row["agent_name"]
+                        if agent not in totals["by_agent"]:
+                            totals["by_agent"][agent] = {
+                                "input_tokens": 0,
+                                "output_tokens": 0,
+                                "cost_usd": 0.0,
+                            }
+                        totals["by_agent"][agent]["input_tokens"] += inp
+                        totals["by_agent"][agent]["output_tokens"] += out
+                        totals["by_agent"][agent]["cost_usd"] += cost
+
+            except sqlite3.Error as e:
+                print(
+                    f"Warning: Failed to get token statistics: {e}",
+                    file=sys.stderr,
+                )
+
+        return totals
+
     def export_observations(
         self,
         format: str = "json",

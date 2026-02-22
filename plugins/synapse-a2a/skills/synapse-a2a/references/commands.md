@@ -331,6 +331,30 @@ Messages >100KB are automatically written to temp files (configurable via `SYNAP
 
 **Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
 
+### Interrupt Command
+
+Shorthand for sending a priority-4, fire-and-forget message:
+
+```bash
+synapse interrupt <target> "<message>" [--from <sender>]
+```
+
+Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sender>]`.
+
+**Parameters:**
+- `target`: Target agent (name, ID, type-port, or agent type)
+- `message`: Interrupt message to send
+- `--from, -f`: Sender agent ID (for reply identification)
+
+**Examples:**
+```bash
+# Interrupt an agent with an urgent message
+synapse interrupt claude "Stop and review"
+
+# With explicit sender
+synapse interrupt gemini "Check status" --from synapse-claude-8100
+```
+
 ### Reply Command
 
 Reply to the last received message:
@@ -442,6 +466,8 @@ synapse history stats
 # Per-agent statistics
 synapse history stats --agent gemini
 ```
+
+When token data exists in observation metadata, the output includes a TOKEN USAGE section showing input/output token counts and estimated cost (per-agent breakdown when available). Token data is populated by agent-specific parsers in `synapse/token_parser.py` (skeleton -- no parsers shipped yet).
 
 ### Export Data
 
@@ -787,6 +813,63 @@ synapse tasks assign <task_id> claude
 
 # Complete a task (auto-unblocks dependents)
 synapse tasks complete <task_id>
+```
+
+### Task Failure and Recovery
+
+```bash
+# Report task failure (only works on in_progress tasks you own)
+synapse tasks fail <task_id> --reason "Test suite failed"
+
+# Reopen a completed or failed task (returns to pending, clears assignee)
+synapse tasks reopen <task_id>
+```
+
+### Task Priority
+
+Tasks have priority 1-5 (default 3). Higher priority tasks are served first by `get_available_tasks()`.
+
+```bash
+# Create task with priority
+synapse tasks create "Critical fix" -d "Fix auth bug" --priority 5
+
+# Priority ordering in available tasks
+synapse tasks list --status pending
+# Returns: priority 5 first, then 4, 3, 2, 1
+```
+
+### Task Board Workflow (Kanban Pattern)
+
+The coordinator agent (delegate-mode) monitors TaskBoard and orchestrates worker agents:
+
+```bash
+# Step 1: Coordinator creates task chain
+T1=$(synapse tasks create "Write tests" --priority 5)
+T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4)
+T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3)
+
+# Step 2: Coordinator assigns available tasks
+synapse tasks assign $T1 synapse-claude-8100
+synapse send claude "Write tests for auth module" --no-response
+
+# Step 3: Worker reports completion
+synapse tasks complete $T1
+# → $T2 becomes available (unblocked)
+
+# Step 4: Handle failure
+synapse tasks fail $T2 --reason "Missing dependency"
+synapse tasks reopen $T2   # Back to pending for retry
+```
+
+### A2A API Endpoints
+
+```
+POST /tasks/board                          # Create task
+GET  /tasks/board                          # List tasks
+POST /tasks/board/{task_id}/claim          # Claim task
+POST /tasks/board/{task_id}/complete       # Complete task
+POST /tasks/board/{task_id}/fail           # Fail task (preserves assignee, no unblock)
+POST /tasks/board/{task_id}/reopen         # Reopen completed/failed task to pending
 ```
 
 **Storage:** `.synapse/task_board.db` (SQLite with WAL mode)

@@ -82,6 +82,8 @@ class TaskBoard:
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
             "completed_at": row["completed_at"],
+            "priority": row["priority"],
+            "fail_reason": row["fail_reason"],
         }
 
     @classmethod
@@ -120,7 +122,9 @@ class TaskBoard:
                         blocked_by  TEXT DEFAULT '[]',
                         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        completed_at DATETIME
+                        completed_at DATETIME,
+                        priority    INTEGER DEFAULT 3,
+                        fail_reason TEXT DEFAULT ''
                     )
                     """
                 )
@@ -130,6 +134,21 @@ class TaskBoard:
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_board_assignee "
                     "ON board_tasks(assignee)"
+                )
+                # --- Schema migration for existing databases ---
+                columns = [
+                    row[1] for row in conn.execute("PRAGMA table_info(board_tasks)")
+                ]
+                if "priority" not in columns:
+                    conn.execute(
+                        "ALTER TABLE board_tasks ADD COLUMN priority INTEGER DEFAULT 3"
+                    )
+                if "fail_reason" not in columns:
+                    conn.execute(
+                        "ALTER TABLE board_tasks ADD COLUMN fail_reason TEXT DEFAULT ''"
+                    )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_board_priority ON board_tasks(priority)"
                 )
                 conn.commit()
             finally:
@@ -141,6 +160,7 @@ class TaskBoard:
         description: str,
         created_by: str,
         blocked_by: list[str] | None = None,
+        priority: int = 3,
     ) -> str:
         """Create a new task.
 
@@ -149,6 +169,7 @@ class TaskBoard:
             description: Task description.
             created_by: Agent ID of the creator.
             blocked_by: List of task IDs that block this task.
+            priority: Task priority (higher is more urgent).
 
         Returns:
             The new task's UUID.
@@ -162,10 +183,10 @@ class TaskBoard:
                 conn.execute(
                     """
                     INSERT INTO board_tasks
-                        (id, subject, description, created_by, blocked_by)
-                    VALUES (?, ?, ?, ?, ?)
+                        (id, subject, description, created_by, blocked_by, priority)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (task_id, subject, description, created_by, blocked_json),
+                    (task_id, subject, description, created_by, blocked_json, priority),
                 )
                 conn.commit()
             finally:
@@ -265,6 +286,69 @@ class TaskBoard:
 
         return unblocked
 
+    def fail_task(self, task_id: str, agent_id: str, reason: str = "") -> None:
+        """Mark a task as failed.
+
+        Only succeeds if the task is in_progress and assigned to the given agent.
+        Unlike complete_task, failed tasks do NOT unblock dependents.
+
+        Args:
+            task_id: The task to fail.
+            agent_id: The agent reporting the failure.
+            reason: Optional failure reason.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                conn.execute(
+                    """
+                    UPDATE board_tasks
+                    SET status = 'failed',
+                        fail_reason = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND assignee = ? AND status = 'in_progress'
+                    """,
+                    (reason, task_id, agent_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def reopen_task(self, task_id: str, agent_id: str) -> bool:
+        """Reopen a completed or failed task back to pending.
+
+        Clears assignee, completed_at, and fail_reason.
+        Only works on completed or failed tasks.
+
+        Args:
+            task_id: The task to reopen.
+            agent_id: The agent performing the reopen (for audit).
+
+        Returns:
+            True if the task was reopened, False otherwise.
+        """
+        del agent_id  # Reserved for audit parity with other task actions.
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    """
+                    UPDATE board_tasks
+                    SET status = 'pending',
+                        assignee = NULL,
+                        completed_at = NULL,
+                        fail_reason = '',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status IN ('completed', 'failed')
+                    """,
+                    (task_id,),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+
     def list_tasks(
         self,
         status: str | None = None,
@@ -311,7 +395,7 @@ class TaskBoard:
                 rows = conn.execute(
                     "SELECT * FROM board_tasks "
                     "WHERE status = 'pending' AND assignee IS NULL "
-                    "ORDER BY created_at"
+                    "ORDER BY priority DESC, created_at"
                 ).fetchall()
 
                 available = []

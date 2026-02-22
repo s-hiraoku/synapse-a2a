@@ -18,6 +18,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply to last message | `synapse reply "<response>"` |
 | Reply to specific sender | `synapse reply "<response>" --to <sender_id>` |
 | List reply targets | `synapse reply --list-targets` |
+| Soft interrupt (priority 4) | `synapse interrupt <target> "<message>" [--from <sender>]` |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Kill agent (graceful) | `synapse kill <target>` (shutdown request → SIGTERM → SIGKILL, 30s budget) |
@@ -26,6 +27,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Rename agent | `synapse rename <target> --name <name> --role <role>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
+| History stats (with token usage) | `synapse history stats [--agent <name>]` |
 | Initialize settings | `synapse init` |
 | Edit settings (TUI) | `synapse config` (includes List Display for column config) |
 | View settings | `synapse config show [--scope user\|project]` |
@@ -53,9 +55,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
-| Create task | `synapse tasks create "subject" -d "description" [--blocked-by ID]` |
+| Create task | `synapse tasks create "subject" [-d "desc"] [--priority N] [--blocked-by id]` |
 | Assign task | `synapse tasks assign <task_id> <agent>` |
 | Complete task | `synapse tasks complete <task_id>` |
+| Report task failure | `synapse tasks fail <id> [--reason "reason"]` |
+| Reopen task | `synapse tasks reopen <id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
 | Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
@@ -193,6 +197,9 @@ synapse send gemini "Analyze this" --response --from synapse-claude-8100
 
 # Higher priority - urgent request
 synapse send claude "Urgent review needed" --response --priority 4 --from synapse-codex-8121
+
+# Soft interrupt (shorthand for send -p 4 --no-response)
+synapse interrupt gemini "Stop and review" --from synapse-claude-8100
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from synapse-claude-8100
@@ -346,10 +353,11 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `metadata.sender` + PID matching
+- **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --no-response` (urgent, fire-and-forget)
 - **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop, bypasses Readiness Gate)
 - **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` return HTTP 503 with `Retry-After: 5` while agent is initializing; priority 5 and replies bypass
 - **Multi-Instance**: Run multiple agents of the same type with automatic port assignment
-- **Task History**: Search, export, statistics (`synapse history`)
+- **Task History**: Search, export, statistics (`synapse history`). `synapse history stats` shows a TOKEN USAGE section when token data exists (skeleton — no agent parsers yet).
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
 - **External Agents**: Connect to external A2A agents (`synapse external`)
 - **Authentication**: API key-based security (`synapse auth`)
@@ -357,6 +365,10 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
+  - Task lifecycle: pending → in_progress → completed/failed → reopen to pending
+  - Priority-based ordering (1-5, higher served first)
+  - `fail_task()` preserves assignee for audit trail, does NOT unblock dependents
+  - `reopen_task()` clears assignee/fail_reason, returns task to available pool
 - **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
@@ -364,6 +376,42 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
 - **Worktree Isolation**: Pass `-- --worktree` when spawning Claude to give it an isolated git worktree, preventing file conflicts in multi-agent setups (Claude only)
+
+### Task Board Workflow Pattern (Kanban)
+
+Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker agents:
+
+1. **Coordinator** creates tasks with dependencies and priorities
+   ```bash
+   synapse tasks create "Write tests" --priority 5
+   synapse tasks create "Implement feature" --blocked-by <test-task-id> --priority 4
+   synapse tasks create "Code review" --blocked-by <impl-task-id> --priority 3
+   ```
+
+2. **Coordinator** checks available tasks and assigns to agents
+   ```bash
+   synapse tasks list --status pending
+   synapse send <agent> "Execute task: <description>" --no-response
+   ```
+
+3. **Worker agents** report completion or failure
+   ```bash
+   synapse tasks complete <task_id>
+   synapse tasks fail <task_id> --reason "Tests failed"
+   ```
+
+4. **Coordinator** handles failures
+   ```bash
+   synapse tasks list --status failed
+   synapse tasks reopen <task_id>    # Return to pending for retry
+   ```
+
+**Status transitions:**
+```
+pending → in_progress → completed
+                     → failed → (reopen) → pending
+completed → (reopen) → pending
+```
 
 ## Spawning Agents (Sub-Agent Delegation)
 

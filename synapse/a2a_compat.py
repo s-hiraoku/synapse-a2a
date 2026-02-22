@@ -247,6 +247,16 @@ def _save_task_to_history(
                 "data": task.error.data,
             }
 
+        # Token tracking: parse usage from output (non-blocking)
+        try:
+            from synapse.token_parser import parse_tokens
+
+            token_usage = parse_tokens(agent_name, output_text)
+            if token_usage:
+                metadata["tokens"] = token_usage.to_dict()
+        except Exception:
+            pass  # Never block history save
+
         history_manager.save_observation(
             task_id=task.id,
             agent_name=agent_name,
@@ -936,6 +946,7 @@ def create_a2a_router(
         description: str = ""
         created_by: str
         blocked_by: list[str] | None = None
+        priority: int = 3
 
     class BoardTaskClaim(BaseModel):
         """Request model for claiming a board task."""
@@ -944,6 +955,17 @@ def create_a2a_router(
 
     class BoardTaskComplete(BaseModel):
         """Request model for completing a board task."""
+
+        agent_id: str
+
+    class BoardTaskFail(BaseModel):
+        """Request model for failing a board task."""
+
+        agent_id: str
+        reason: str = ""
+
+    class BoardTaskReopen(BaseModel):
+        """Request model for reopening a board task."""
 
         agent_id: str
 
@@ -969,6 +991,7 @@ def create_a2a_router(
             description=request.description,
             created_by=request.created_by,
             blocked_by=request.blocked_by,
+            priority=request.priority,
         )
         return {"id": task_id, "status": "pending"}
 
@@ -998,6 +1021,33 @@ def create_a2a_router(
         board = TaskBoard.from_env()
         unblocked = board.complete_task(task_id, request.agent_id)
         return {"completed": True, "task_id": task_id, "unblocked": unblocked}
+
+    @router.post("/tasks/board/{task_id}/fail")
+    async def fail_board_task(
+        task_id: str, request: BoardTaskFail, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Fail a task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        board.fail_task(task_id, request.agent_id, reason=request.reason)
+        return {"failed": True, "task_id": task_id}
+
+    @router.post("/tasks/board/{task_id}/reopen")
+    async def reopen_board_task(
+        task_id: str, request: BoardTaskReopen, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Reopen a completed or failed task on the shared task board."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        result = board.reopen_task(task_id, request.agent_id)
+        if not result:
+            raise HTTPException(
+                status_code=409,
+                detail="Task cannot be reopened (may be pending or in_progress)",
+            )
+        return {"reopened": True, "task_id": task_id}
 
     # --------------------------------------------------------
     # Plan Approval Endpoints (B3: Plan Approval Workflow)
