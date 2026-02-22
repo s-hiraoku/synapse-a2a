@@ -82,6 +82,7 @@ Analyze the message content and determine if a reply is expected.
 - **If unsure, use `--response`** (safer default)
 
 IMPORTANT: `--from` requires agent ID format (`synapse-<type>-<port>`). Do NOT use agent types or custom names. In most environments, `--from` is auto-detected and can be omitted.
+When specifying --from explicitly, always use $SYNAPSE_AGENT_ID (auto-set at startup). Never hardcode agent IDs.
 
 Examples:
 ```bash

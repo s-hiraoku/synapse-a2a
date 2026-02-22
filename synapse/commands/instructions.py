@@ -243,7 +243,9 @@ class InstructionsCommand:
                 f"\nRead these files NOW to get your "
                 f"A2A protocol guidelines and other instructions.\n"
                 f"Replace {{{{agent_id}}}} with {agent_id} and "
-                f"{{{{port}}}} with {port} when following instructions."
+                f"{{{{port}}}} with {port} when following instructions.\n"
+                f"Use $SYNAPSE_AGENT_ID (already set to {agent_id}) for "
+                f"--from flags in synapse send/reply commands."
             )
         else:
             # Send full instruction content

@@ -71,14 +71,16 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --response --from synapse-claude-8100
-synapse send claude "What is the status?" --response --from synapse-codex-8121
-synapse send codex-8120 "Fix this bug" --response --priority 3 --from synapse-gemini-8110
+synapse send gemini "Please review this code" --response --from $SYNAPSE_AGENT_ID
+synapse send claude "What is the status?" --response --from $SYNAPSE_AGENT_ID
+synapse send codex-8120 "Fix this bug" --response --priority 3 --from $SYNAPSE_AGENT_ID
 ```
 
 **Important:**
 - Always use `--from` with your **agent ID** (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
 - By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
+
+**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse at startup. Always use it for `--from` — never copy example IDs.
 
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
@@ -97,10 +99,10 @@ Analyze the message content and determine if a reply is expected:
 
 ```bash
 # Message that expects a reply
-synapse send gemini "What is the best approach?" --response --from synapse-claude-8100
+synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
 
 # Purely informational, no reply needed
-synapse send codex "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse send codex "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 ### Roundtrip Communication (--response)
@@ -109,7 +111,7 @@ For request-response patterns:
 
 ```bash
 # Sender: Wait for response (blocks until reply received)
-synapse send gemini "Analyze this data" --response --from synapse-claude-8100
+synapse send gemini "Analyze this data" --response --from $SYNAPSE_AGENT_ID
 
 # Receiver: Reply to sender (auto-routes via reply tracking)
 synapse reply "Analysis result: ..."
@@ -125,13 +127,13 @@ Send a message to all agents sharing the same working directory:
 
 ```bash
 # Broadcast status check to all cwd agents
-synapse broadcast "Status check" --from synapse-claude-8100
+synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast
-synapse broadcast "Urgent: stop all work" --priority 4 --from synapse-claude-8100
+synapse broadcast "Urgent: stop all work" --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Fire-and-forget broadcast
-synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 **Note:** Broadcast only targets agents in the **same working directory** as the sender. This prevents unintended messages to agents working on different projects.
@@ -189,13 +191,13 @@ Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
 
 ```bash
 # Normal priority (default: 3) - with response
-synapse send gemini "Analyze this" --response --from synapse-claude-8100
+synapse send gemini "Analyze this" --response --from $SYNAPSE_AGENT_ID
 
 # Higher priority - urgent request
-synapse send claude "Urgent review needed" --response --priority 4 --from synapse-codex-8121
+synapse send claude "Urgent review needed" --response --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 ## Agent Status
@@ -274,7 +276,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from synapse-codex-8121
+synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID
 synapse jump my-claude
 synapse kill my-claude
 ```

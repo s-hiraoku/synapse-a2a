@@ -119,7 +119,7 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth  #
 ```
 
 **Worktree Isolation (Claude Only):**
-Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove.
+Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
@@ -301,16 +301,16 @@ Analyze the message content and determine if a reply is expected:
 **Examples:**
 ```bash
 # Question - needs reply
-synapse send gemini "What is the best approach?" --response --from synapse-codex-8121
+synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit" --from synapse-claude-8100
+synapse send codex "Fix this bug and commit" --from $SYNAPSE_AGENT_ID
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response --from synapse-gemini-8110
+synapse send claude-8100 "What is your status?" --response --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 **Sending long messages or files:**
@@ -371,16 +371,16 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 **Examples:**
 ```bash
 # Broadcast status check
-synapse broadcast "Status check" --from synapse-claude-8100
+synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast with priority
-synapse broadcast "Stop current work" --priority 4 --from synapse-claude-8100
+synapse broadcast "Stop current work" --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Fire-and-forget notification
-synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 
 # Wait for responses from all agents
-synapse broadcast "What are you working on?" --response --from synapse-claude-8100
+synapse broadcast "What are you working on?" --response --from $SYNAPSE_AGENT_ID
 ```
 
 ### A2A Tool (Advanced)
@@ -829,8 +829,10 @@ synapse team start claude gemini --layout horizontal
 # Pass tool-specific arguments after '--' (applied to all agents)
 synapse team start claude gemini -- --dangerously-skip-permissions
 
-# Worktree isolation (--worktree is Claude-only; other agent types ignore it)
+# Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
+# If non-Claude agents may error on unknown flags, target Claude only:
+synapse team start claude -- --worktree
 ```
 
 **Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.

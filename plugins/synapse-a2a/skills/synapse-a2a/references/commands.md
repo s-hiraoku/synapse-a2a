@@ -301,16 +301,16 @@ Analyze the message content and determine if a reply is expected:
 **Examples:**
 ```bash
 # Question - needs reply
-synapse send gemini "What is the best approach?" --response --from synapse-codex-8121
+synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit" --from synapse-claude-8100
+synapse send codex "Fix this bug and commit" --from $SYNAPSE_AGENT_ID
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response --from synapse-gemini-8110
+synapse send claude-8100 "What is your status?" --response --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 **Sending long messages or files:**
@@ -371,16 +371,16 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 **Examples:**
 ```bash
 # Broadcast status check
-synapse broadcast "Status check" --from synapse-claude-8100
+synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast with priority
-synapse broadcast "Stop current work" --priority 4 --from synapse-claude-8100
+synapse broadcast "Stop current work" --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Fire-and-forget notification
-synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 
 # Wait for responses from all agents
-synapse broadcast "What are you working on?" --response --from synapse-claude-8100
+synapse broadcast "What are you working on?" --response --from $SYNAPSE_AGENT_ID
 ```
 
 ### A2A Tool (Advanced)
