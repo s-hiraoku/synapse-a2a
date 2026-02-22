@@ -391,7 +391,8 @@ synapse team start claude gemini --all-new
 synapse team start claude gemini -- --dangerously-skip-permissions
 
 # worktree 分離で起動（--worktree は全エージェントに渡されるが、Claude のみが使用）
-synapse team start claude gemini -- --worktree
+# 非 Claude エージェントが未知フラグでエラーになる場合は Claude のみを対象に（詳細は「Worktree の注意事項」を参照）
+synapse team start claude -- --worktree
 ```
 
 **例**:

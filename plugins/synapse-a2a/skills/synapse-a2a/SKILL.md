@@ -495,6 +495,8 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
 
 # Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
+# If non-Claude agents may error on unknown flags, target Claude only:
+synapse team start claude -- --worktree
 ```
 
 **Caveats:**
