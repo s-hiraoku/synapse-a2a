@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] - 2026-02-22
+
+### Documentation
+
+- **Worktree/tool_args accuracy**: Corrected documentation that incorrectly claimed Synapse filters `--worktree` by agent type — Synapse forwards all `tool_args` to every agent; only Claude Code acts on `--worktree`
+- **Safe worktree examples**: Added Claude-only alternative (`synapse team start claude -- --worktree`) alongside multi-agent examples to prevent errors on non-Claude CLIs
+- **Worktree cleanup guidance**: Added branch merge/delete instructions after `synapse kill` in examples, headless cleanup caveat for `synapse spawn`
+- **Gitignore recommendations**: Added `.claude/worktrees/` to recommended `.gitignore` entries; added `.venv/` to not-copied file examples for consistency
+- **Cross-references**: Added link from team start worktree example to "Worktree の注意事項" section in `guides/usage.md`
+- **Skill copy sync**: Synchronized `.agents/` and `.gemini/` skill copies with canonical `plugins/` source
+
 ## [0.6.6] - 2026-02-20
 
 ### Documentation
