@@ -288,7 +288,24 @@ synapse/
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
 │   └── start.py           # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
+
+plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope)
+├── SKILL.md                               # Main skill definition
+└── references/                            # Detailed reference docs
+    ├── api.md
+    ├── commands.md
+    ├── examples.md
+    └── file-safety.md
+
+# Sync targets (auto-synced from plugins/ via sync-plugin-skills):
+.claude/skills/synapse-a2a/   # Claude Code
+.agents/skills/synapse-a2a/   # Codex / OpenCode / Copilot
+.gemini/skills/synapse-a2a/   # Gemini
 ```
+
+### Skill Update Rules
+
+**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ## Key Flows
 
