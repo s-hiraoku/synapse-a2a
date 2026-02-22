@@ -829,7 +829,7 @@ synapse team start claude gemini --layout horizontal
 # Pass tool-specific arguments after '--' (applied to all agents)
 synapse team start claude gemini -- --dangerously-skip-permissions
 
-# Worktree isolation (--worktree is Claude-only; other agent types ignore it)
+# Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
 ```
 

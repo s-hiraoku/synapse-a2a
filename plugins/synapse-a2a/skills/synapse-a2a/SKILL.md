@@ -493,7 +493,7 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree
 # Named worktree (creates .claude/worktrees/feat-auth/ with branch worktree-feat-auth)
 synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
 
-# Team start (--worktree is passed to ALL agents; only Claude acts on it)
+# Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
 ```
 
