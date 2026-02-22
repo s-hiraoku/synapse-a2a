@@ -21,9 +21,9 @@ Coordinate three independent skills in parallel using the **Task tool**:
 
 ## When To Use
 
-- You made code and documentation changes in the same task.
-- You need simplification/refactor cleanup while keeping docs in sync.
-- You also need plugin-skill synchronization in the same run.
+- Code and documentation were changed in the same task.
+- Simplification or refactor cleanup is needed while keeping docs in sync.
+- Plugin-skill synchronization should happen in the same run.
 
 ## Parallel Execution Workflow
 

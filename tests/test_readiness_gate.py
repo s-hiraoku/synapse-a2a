@@ -1,7 +1,7 @@
-"""Tests for Readiness Gate — blocks task send until agent initialization is complete."""
+"""Tests for Readiness Gate -- blocks task send until agent initialization is complete."""
 
 import threading
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -33,8 +33,8 @@ def _make_controller(*, agent_ready: bool = True) -> MagicMock:
     ctrl.status = "READY"
     ctrl.get_context.return_value = "output"
 
-    # Wire the public readiness API to a real Event
-    type(ctrl).agent_ready = PropertyMock(return_value=agent_ready)
+    # Instance-scoped readiness (no class-level PropertyMock mutation)
+    ctrl.agent_ready = agent_ready
     ctrl.wait_until_ready = lambda timeout: event.wait(timeout=timeout)
 
     # Keep the event accessible so tests can set/clear it dynamically
@@ -45,7 +45,7 @@ def _make_controller(*, agent_ready: bool = True) -> MagicMock:
 
 def _set_controller_ready(ctrl: MagicMock, ready: bool) -> None:
     """Toggle readiness on a mock controller created by _make_controller."""
-    type(ctrl).agent_ready = PropertyMock(return_value=ready)
+    ctrl.agent_ready = ready
     if ready:
         ctrl._ready_event.set()
     else:

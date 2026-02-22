@@ -57,11 +57,8 @@ def app_client_with_task():
 
     controller = MagicMock(spec=TerminalController)
     controller.write = MagicMock(return_value=True)
-    controller._agent_ready = True
-    import threading
-
-    controller._agent_ready_event = threading.Event()
-    controller._agent_ready_event.set()
+    controller.agent_ready = True
+    controller.wait_until_ready = MagicMock(return_value=True)
 
     app = FastAPI()
     router = create_a2a_router(
