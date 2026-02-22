@@ -3,8 +3,8 @@ class SynapseA2a < Formula
 
   desc "Agent-to-Agent communication protocol for CLI agents"
   homepage "https://github.com/s-hiraoku/synapse-a2a"
-  url "https://files.pythonhosted.org/packages/88/ef/469e4771b54b983b4d3e0bb47d50ae2b2366eb6e6fef2160530dacfa7d35/synapse_a2a-0.6.5.tar.gz"
-  sha256 "540f7548ac2e445a3b55a0bbc5a4294480f48588e48a4946678e0daf792eb195"
+  url "https://files.pythonhosted.org/packages/ca/d4/39a1f5d43a6b3256c2003a8f6fd2ec71c0839e8e2235a47acbc84f073e93/synapse_a2a-0.6.7.tar.gz"
+  sha256 "bc66d895a1a6f4abe7ebdb146a411fd193b30eb868784a178dd9663d2daf563b"
   license "MIT"
 
   depends_on "rust" => :build
@@ -52,8 +52,8 @@ class SynapseA2a < Formula
   end
 
   resource "fastapi" do
-    url "https://files.pythonhosted.org/packages/48/47/75f6bea02e797abff1bca968d5997793898032d9923c1935ae2efdece642/fastapi-0.129.0.tar.gz"
-    sha256 "61315cebd2e65df5f97ec298c888f9de30430dd0612d59d6480beafbc10655af"
+    url "https://files.pythonhosted.org/packages/fd/cc/1b0d90ed759ff8c9dbc4800de7475d4e9256a81b97b45bd05a1affcb350a/fastapi-0.129.2.tar.gz"
+    sha256 "e2b3637a2b47856e704dbd9a3a09393f6df48e8b9cb6c7a3e26ba44d2053f9ab"
   end
 
   resource "h11" do
