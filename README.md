@@ -100,7 +100,7 @@ flowchart LR
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
 | **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij) |
-| **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window |
+| **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 
 ---
 
@@ -608,7 +608,7 @@ synapse kill my-claude
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
-| `synapse spawn <profile>` | Spawn a single agent in a new terminal pane |
+| `synapse spawn <profile>` | Spawn a single agent in a new terminal pane. `-- --worktree` for git worktree isolation (Claude only) |
 
 ### Resume Mode
 

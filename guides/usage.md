@@ -389,6 +389,9 @@ synapse team start claude gemini --all-new
 
 # ツール固有の引数を '--' の後に渡す（全エージェントに適用）
 synapse team start claude gemini -- --dangerously-skip-permissions
+
+# worktree 分離で起動（Claude のみ — --worktree は Claude Code のフラグ、-- の後に渡す）
+synapse team start claude gemini -- --worktree
 ```
 
 **例**:
@@ -473,6 +476,9 @@ synapse spawn claude --terminal tmux          # 使用するターミナルを�
 
 # ツール固有の引数を '--' の後に渡す
 synapse spawn claude -- --dangerously-skip-permissions
+
+# git worktree 分離で起動（Claude のみ — --worktree は Claude Code のフラグ、-- の後に渡す）
+synapse spawn claude --name Worker --role "機能実装担当" -- --worktree
 ```
 
 #### 技術的な注意事項

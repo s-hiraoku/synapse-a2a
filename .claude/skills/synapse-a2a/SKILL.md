@@ -183,7 +183,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 | 1-2 | Low | Background tasks |
 | 3 | Normal | Standard tasks |
 | 4 | Urgent | Follow-ups, status checks |
-| 5 | Interrupt | Emergency (sends SIGINT first) |
+| 5 | Interrupt | Emergency (sends SIGINT first, bypasses Readiness Gate) |
 
 Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
 
@@ -224,6 +224,8 @@ synapse list
 - `WAITING`: Agent needs user input - use terminal jump (see below) to respond
 - `PROCESSING`: Busy, wait or use `--priority 5` for emergency interrupt
 - `DONE`: Recently completed, will return to READY shortly
+
+**Readiness Gate:** Messages sent to an agent that is still initializing (has not reached READY for the first time) are held for up to 30 seconds (`AGENT_READY_TIMEOUT`). If the agent does not become ready in time, the API returns HTTP 503 with `Retry-After: 5`. Priority 5 and reply messages bypass this gate.
 
 ## Interactive Controls
 
@@ -344,7 +346,8 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `metadata.sender` + PID matching
-- **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop)
+- **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop, bypasses Readiness Gate)
+- **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` return HTTP 503 with `Retry-After: 5` while agent is initializing; priority 5 and replies bypass
 - **Multi-Instance**: Run multiple agents of the same type with automatic port assignment
 - **Task History**: Search, export, statistics (`synapse history`)
 - **File Safety**: Lock files to prevent conflicts (`synapse file-safety`); active locks shown in `synapse list` EDITING_FILE column
@@ -360,6 +363,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
+- **Worktree Isolation**: Pass `-- --worktree` when spawning Claude to give it an isolated git worktree, preventing file conflicts in multi-agent setups (Claude only)
 
 ## Spawning Agents (Sub-Agent Delegation)
 
@@ -467,10 +471,43 @@ synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 
+### Worktree Isolation (Claude Only)
+
+When spawning Claude agents, consider using `--worktree` to give each agent an isolated copy of the repository. This prevents file conflicts when multiple agents edit the same codebase.
+
+**Decision Table:**
+
+| Situation | Action |
+|-----------|--------|
+| Multiple agents may edit the same files | Use `--worktree` |
+| Coordinator + Worker pattern (Worker edits code) | Worker gets `--worktree` |
+| Read-only tasks (investigation, analysis, review) | Worktree not needed |
+| Single agent working alone | Worktree not needed |
+
+**Usage:**
+
+```bash
+# Spawn Claude in an isolated worktree
+synapse spawn claude --name Impl --role "implementer" -- --worktree
+
+# Named worktree (creates .claude/worktrees/feat-auth/ with branch worktree-feat-auth)
+synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
+
+# Team start (--worktree applies to Claude only; other agent types ignore it)
+synapse team start claude gemini -- --worktree
+```
+
+**Caveats:**
+
+- `--worktree` is a **Claude Code flag**, not a Synapse flag. Pass it after `--` as a tool arg.
+- `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are **not copied** to the worktree. Run `uv sync`, `npm install`, or copy `.env` manually if needed.
+- Other agent types (Gemini, Codex, OpenCode, Copilot) do not support `--worktree`. When passed via `synapse team start ... -- --worktree`, only Claude instances use it.
+- On exit: worktrees with no changes are auto-deleted; worktrees with changes prompt to keep or remove.
+
 ### Technical Notes
 
 - **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
-- **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready.
+- **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 - **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from <spawned-agent-id>` for bidirectional communication.
 

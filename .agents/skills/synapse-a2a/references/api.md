@@ -32,7 +32,7 @@ The framework automatically handles routing - you don't need to know where the m
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/.well-known/agent.json` | GET | Agent Card |
-| `/tasks/send` | POST | Send message |
+| `/tasks/send` | POST | Send message (subject to Readiness Gate) |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
@@ -42,7 +42,7 @@ The framework automatically handles routing - you don't need to know where the m
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt) |
+| `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt; subject to Readiness Gate) |
 | `/tasks/create` | POST | Create task without PTY send (for `--response`) |
 | `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
@@ -98,6 +98,27 @@ When `--response` is used, the sender waits for a reply:
 
 This flow ensures reliable request-response patterns between agents.
 
+## Readiness Gate
+
+The `/tasks/send` and `/tasks/send-priority` endpoints enforce a **Readiness Gate** that blocks incoming messages until the agent has finished initialization (first READY state).
+
+| Condition | Behavior |
+|-----------|----------|
+| Agent initializing (not yet READY) | Waits up to `AGENT_READY_TIMEOUT` (default: 30s) for the agent to become ready |
+| Agent still not ready after timeout | Returns **HTTP 503** with `Retry-After: 5` header |
+| Priority 5 (emergency interrupt) | **Bypasses** the gate entirely |
+| Reply messages (`in_reply_to` set) | **Bypasses** the gate (replies are routed before the check) |
+
+**Caller behavior on 503:**
+- CLI callers (`synapse send`) handle retries automatically
+- Direct API callers should respect the `Retry-After` header and retry after the indicated seconds
+
+**Configuration:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AGENT_READY_TIMEOUT` | Seconds to wait for agent readiness before returning 503 | `30` |
+
 ## Priority Levels
 
 | Priority | Use Case |
@@ -105,7 +126,7 @@ This flow ensures reliable request-response patterns between agents.
 | 1-2 | Low priority, background tasks |
 | 3 | Normal tasks (`send` default) |
 | 4 | Urgent follow-ups |
-| 5 | Emergency interrupt (sends SIGINT first) |
+| 5 | Emergency interrupt (sends SIGINT first, bypasses Readiness Gate) |
 
 **Note:** `broadcast` defaults to priority 1 (low), while `send` defaults to priority 3 (normal).
 
@@ -144,6 +165,14 @@ Error: No agent found matching 'xyz'
 Error: Ambiguous target 'codex'. Multiple agents found.
 ```
 **Solution:** Use custom name (e.g., `my-codex`) or specific identifier (e.g., `codex-8120`).
+
+### Agent Not Ready (Initializing)
+
+```text
+HTTP 503: Agent not ready (initializing). Retry after a few seconds.
+Retry-After: 5
+```
+**Solution:** The agent is still starting up. Wait a few seconds and retry. Priority 5 messages bypass this check. See "Readiness Gate" section above for details.
 
 ### Agent Not Responding
 

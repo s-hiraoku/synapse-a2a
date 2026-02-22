@@ -177,6 +177,43 @@ synapse send worker-1 "Implement auth in src/auth.py" --from synapse-claude-8100
 synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-8100
 ```
 
+### Coordinator + Worker with Worktree Isolation
+
+Use `--worktree` to give each Worker its own copy of the repository, preventing file conflicts when multiple agents edit code simultaneously. The Coordinator stays in the main working tree (it delegates, not edits).
+
+```bash
+# Terminal 1: Coordinator (delegate-mode — no file editing)
+synapse claude --delegate-mode --name coordinator
+
+# Spawn Workers in isolated worktrees (each gets its own branch)
+synapse spawn claude --name worker-1 --role "auth implementer" -- --worktree
+synapse spawn claude --name worker-2 --role "test writer" -- --worktree
+
+# Confirm readiness
+synapse list   # Verify worker-1 and worker-2 show STATUS=READY
+
+# Delegate parallel tasks — no file conflicts thanks to worktrees
+synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-response --from $SYNAPSE_AGENT_ID
+synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response --from $SYNAPSE_AGENT_ID
+
+# Collect results
+synapse send worker-1 "Report your progress" --response --from $SYNAPSE_AGENT_ID
+synapse send worker-2 "Report your progress" --response --from $SYNAPSE_AGENT_ID
+
+# Cleanup — MUST kill Workers when done
+synapse kill worker-1 -f
+synapse kill worker-2 -f
+
+# After killing, handle worktree branches:
+# - Check for uncommitted changes in .claude/worktrees/<name>/
+# - Merge worktree branch into current branch or create a PR:
+#     git merge worktree-worker-1
+# - Or delete if no changes remain:
+#     git branch -d worktree-worker-1
+```
+
+**Note:** `--worktree` is a Claude Code flag (not Synapse). It creates a git worktree at `.claude/worktrees/<name>/` with a dedicated branch. Files listed in `.gitignore` (`.env`, `.venv/`, `node_modules/`) are not copied — Workers may need `uv sync` or `npm install` before building/testing. On exit: worktrees with no changes are auto-deleted along with their branch; worktrees with changes or commits prompt to keep or remove. Since `synapse spawn` adds `--headless` automatically, agents run non-interactively — verify that headless mode does not suppress the cleanup prompt in your environment. Other agent types (Gemini, Codex) do not support this flag but silently ignore it when passed via `-- --worktree`.
+
 ### Quick Team Start (tmux)
 
 ```bash

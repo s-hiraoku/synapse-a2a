@@ -206,6 +206,10 @@ synapse team start claude gemini --all-new  # All agents in new panes (current t
 # Pass tool-specific arguments after '--' (applied to all spawned agents)
 synapse team start claude gemini -- --dangerously-skip-permissions
 
+# Worktree isolation (--worktree is a Claude Code flag, passed to all agents after --)
+# Only Claude acts on it; other CLIs silently ignore unknown flags
+synapse team start claude gemini -- --worktree
+
 # Agent Teams: Team Start via A2A API (B6)
 # POST /team/start - agents can spawn teams programmatically
 curl -X POST http://localhost:8100/team/start \
@@ -225,6 +229,9 @@ synapse spawn claude --terminal tmux          # Use specific terminal
 
 # Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
 synapse spawn claude -- --dangerously-skip-permissions
+
+# Spawn with git worktree isolation (Claude only — --worktree is a Claude Code flag, pass after --)
+synapse spawn claude --name Worker --role "feature implementation" -- --worktree
 
 # Spawn via A2A API (agents can spawn other agents programmatically)
 # POST /spawn - returns {agent_id, port, terminal_used, status}
