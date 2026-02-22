@@ -206,7 +206,8 @@ synapse team start claude gemini --all-new  # All agents in new panes (current t
 # Pass tool-specific arguments after '--' (applied to all spawned agents)
 synapse team start claude gemini -- --dangerously-skip-permissions
 
-# Worktree isolation for spawned agents (Claude only — passed as tool_arg after --)
+# Worktree isolation (--worktree is a Claude Code flag, passed to all agents after --)
+# Only Claude acts on it; other CLIs silently ignore unknown flags
 synapse team start claude gemini -- --worktree
 
 # Agent Teams: Team Start via A2A API (B6)

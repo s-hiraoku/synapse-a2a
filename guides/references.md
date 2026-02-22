@@ -243,7 +243,7 @@ synapse team start claude gemini codex              # claude=ここ、他=新ペ
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
-synapse team start claude gemini -- --worktree  # Claude に worktree 分離を適用
+synapse team start claude gemini -- --worktree  # --worktree は全エージェントに渡されるが、Claude のみが使用
 ```
 
 ---

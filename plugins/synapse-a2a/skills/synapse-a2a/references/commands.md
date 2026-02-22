@@ -119,7 +119,7 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth  #
 ```
 
 **Worktree Isolation (Claude Only):**
-Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove.
+Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.

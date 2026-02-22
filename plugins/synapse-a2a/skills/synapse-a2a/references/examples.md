@@ -203,9 +203,16 @@ synapse send worker-2 "Report your progress" --response --from $SYNAPSE_AGENT_ID
 # Cleanup — MUST kill Workers when done
 synapse kill worker-1 -f
 synapse kill worker-2 -f
+
+# After killing, handle worktree branches:
+# - Check for uncommitted changes in .claude/worktrees/<name>/
+# - Merge worktree branch into current branch or create a PR:
+#     git merge worktree-worker-1
+# - Or delete if no changes remain:
+#     git branch -d worktree-worker-1
 ```
 
-**Note:** `--worktree` is a Claude Code flag (not Synapse). It creates a git worktree at `.claude/worktrees/<name>/` with a dedicated branch. Files listed in `.gitignore` (`.env`, `node_modules/`) are not copied — Workers may need `uv sync` or `npm install` before building/testing. Other agent types (Gemini, Codex) do not support this flag.
+**Note:** `--worktree` is a Claude Code flag (not Synapse). It creates a git worktree at `.claude/worktrees/<name>/` with a dedicated branch. Files listed in `.gitignore` (`.env`, `.venv/`, `node_modules/`) are not copied — Workers may need `uv sync` or `npm install` before building/testing. On exit: worktrees with no changes are auto-deleted along with their branch; worktrees with changes or commits prompt to keep or remove. Since `synapse spawn` adds `--headless` automatically, agents run non-interactively — verify that headless mode does not suppress the cleanup prompt in your environment. Other agent types (Gemini, Codex) do not support this flag but silently ignore it when passed via `-- --worktree`.
 
 ### Quick Team Start (tmux)
 
