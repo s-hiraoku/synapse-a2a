@@ -58,6 +58,13 @@ For user guides, see the [`/guides`](../guides/) directory.
   - テスト覆率: 56 個のテストケース（全て合格）
   - PR #34 で実装済み
 
+### 開発ツール
+
+- `claude-code-worktree.md` - **Claude Code ワークツリー機能の仕組み**
+  - Git worktree を活用した分離作業環境の内部構造
+  - ディレクトリ構造・ライフサイクル・命名規則の解説
+  - マルチエージェント並行作業での活用と Synapse A2A への統合構想
+
 ### アセット
 
 - `Gemini_Generated_Image_*.png` - Design assets
