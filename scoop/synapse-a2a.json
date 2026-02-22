@@ -1,11 +1,11 @@
 {
-    "version": "0.6.5",
+    "version": "0.6.7",
     "description": "Agent-to-Agent communication protocol for CLI agents",
     "homepage": "https://github.com/s-hiraoku/synapse-a2a",
     "license": "MIT",
     "depends": "python",
-    "url": "https://files.pythonhosted.org/packages/88/ef/469e4771b54b983b4d3e0bb47d50ae2b2366eb6e6fef2160530dacfa7d35/synapse_a2a-0.6.5.tar.gz",
-    "hash": "540f7548ac2e445a3b55a0bbc5a4294480f48588e48a4946678e0daf792eb195",
+    "url": "https://files.pythonhosted.org/packages/ca/d4/39a1f5d43a6b3256c2003a8f6fd2ec71c0839e8e2235a47acbc84f073e93/synapse_a2a-0.6.7.tar.gz",
+    "hash": "bc66d895a1a6f4abe7ebdb146a411fd193b30eb868784a178dd9663d2daf563b",
     "installer": {
         "script": [
             "$venvDir = \"$dir\\venv\"",
