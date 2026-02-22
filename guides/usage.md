@@ -390,7 +390,7 @@ synapse team start claude gemini --all-new
 # ツール固有の引数を '--' の後に渡す（全エージェントに適用）
 synapse team start claude gemini -- --dangerously-skip-permissions
 
-# worktree 分離で起動（Claude のみ — --worktree は Claude Code のフラグ、-- の後に渡す）
+# worktree 分離で起動（--worktree は全エージェントに渡されるが、Claude のみが使用）
 synapse team start claude gemini -- --worktree
 ```
 
@@ -480,6 +480,23 @@ synapse spawn claude -- --dangerously-skip-permissions
 # git worktree 分離で起動（Claude のみ — --worktree は Claude Code のフラグ、-- の後に渡す）
 synapse spawn claude --name Worker --role "機能実装担当" -- --worktree
 ```
+
+#### Worktree の注意事項
+
+- `--worktree` は **Claude Code のフラグ**であり、Synapse のフラグではありません。`--` の後に渡してください。
+- Synapse は `tool_args`（`--worktree` を含む）を**すべての** spawn されたエージェントにフィルタリングなしで渡します。`--worktree` を使用するかどうかは各エージェントの CLI 次第です（Claude Code のみが対応。他の CLI は現在未知のフラグを無視しますが、保証はされません）。
+- `.gitignore` に記載されたファイル（`.env`、`.venv/`、`node_modules/`）は worktree にコピーされません。必要に応じて `uv sync`、`npm install`、`.env` のコピーを実行してください。
+- 終了時: 変更のない worktree は自動削除、変更のある worktree は保持/削除の確認プロンプトが表示されます。`synapse spawn` は自動的に `--headless` を付与するため、環境によってはクリーンアッププロンプトが表示されない場合があります。
+- ブランチのクリーンアップ: kill 後、worktree ブランチが残る場合があります。メインブランチにマージするか、不要なら削除してください:
+  ```bash
+  git merge worktree-worker-1        # マージ
+  git branch -d worktree-worker-1    # 削除
+  ```
+- `.claude/worktrees/` を `.gitignore` に追加することを推奨します（`git status` で未追跡ファイルが表示されるのを防ぐため）。
+- 非 Claude エージェントが未知のフラグでエラーになる可能性がある場合は、Claude のみを対象にしてください:
+  ```bash
+  synapse team start claude -- --worktree
+  ```
 
 #### 技術的な注意事項
 
