@@ -79,7 +79,16 @@ synapse-{モデル名}-{ポート番号}
 │  - @synapse-gemini-8110 → 他のエージェント宛て。   │
 │    A2Aで転送のみ。自分では実行しない              │
 └──────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────┐
+│  Readiness Gate 解除                              │
+│  (_agent_ready = True, _agent_ready_event.set()) │
+│  → /tasks/send, /tasks/send-priority が受付開始    │
+└──────────────────────────────────────────────────┘
 ```
+
+> **Readiness Gate**: インストラクション送信が完了するまで `/tasks/send` と `/tasks/send-priority` は HTTP 503 を返します。これにより、初期化中にメッセージが失われることを防ぎます。Priority 5（緊急割り込み）と返信メッセージ（`in_reply_to`）はゲートをバイパスします。タイムアウト: `AGENT_READY_TIMEOUT = 30` 秒（`synapse/config.py`）。
 
 ## 実装詳細
 

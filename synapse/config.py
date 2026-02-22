@@ -33,6 +33,10 @@ PORT_CHECK_TIMEOUT: float = 1.0
 # Default timeout for waiting on agent task completion
 AGENT_WAIT_TIMEOUT: int = 60
 
+# Max seconds to wait for agent readiness (identity instructions sent)
+# before rejecting incoming task messages with HTTP 503
+AGENT_READY_TIMEOUT: int = 30
+
 # Poll interval when waiting for task completion
 TASK_POLL_INTERVAL: float = 1.0
 

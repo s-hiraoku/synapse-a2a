@@ -909,6 +909,8 @@ curl -X POST http://localhost:8100/tasks/send \
 
 `task.id` で状態を追跡可能です。
 
+> **Readiness Gate**: エージェントの初期化完了前に `/tasks/send` や `/tasks/send-priority` にリクエストすると、HTTP 503（`Retry-After: 5`）が返されます。Priority 5（緊急割り込み）と返信メッセージ（`in_reply_to`）はゲートをバイパスします。
+
 #### ステータス確認
 
 ```bash

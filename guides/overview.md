@@ -513,6 +513,8 @@ synapse
 | `/tasks/{id}/cancel` | POST | タスクキャンセル |
 | `/status` | GET | READY/PROCESSING状態 |
 
+> **Readiness Gate**: `/tasks/send` と `/tasks/send-priority` は、エージェント初期化（Identity Instruction 送信）完了前は HTTP 503（`Retry-After: 5`）を返します。Priority 5 と返信メッセージ（`in_reply_to`）はバイパスします。
+
 ### 拡張エンドポイント
 
 | エンドポイント | メソッド | 説明 |

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
-from synapse.config import CONTEXT_RECENT_SIZE
+from synapse.config import AGENT_READY_TIMEOUT, CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
@@ -700,7 +700,7 @@ def create_a2a_router(
         agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
 
-    def _send_task_message(
+    async def _send_task_message(
         request: SendMessageRequest, priority: int = 3
     ) -> SendMessageResponse:
         """Create a task and send message to controller with optional priority."""
@@ -753,6 +753,20 @@ def create_a2a_router(
 
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
+
+        # Readiness Gate: wait for agent initialization to complete.
+        # Priority >= 5 (emergency interrupt) bypasses the gate.
+        # Offload blocking Event.wait to a thread to avoid stalling the event loop.
+        if priority < 5 and not controller.agent_ready:
+            ready = await asyncio.to_thread(
+                controller.wait_until_ready, timeout=AGENT_READY_TIMEOUT
+            )
+            if not ready:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Agent not ready (initializing). Retry after a few seconds.",
+                    headers={"Retry-After": "5"},
+                )
 
         # Create task with metadata (may include sender info)
         task = task_store.create(
@@ -888,7 +902,7 @@ def create_a2a_router(
         Creates a task and sends the message content to the CLI via PTY.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
-        return _send_task_message(request)
+        return await _send_task_message(request)
 
     @router.post("/tasks/create", response_model=CreateTaskResponse)
     async def create_task(  # noqa: B008
@@ -1285,7 +1299,7 @@ def create_a2a_router(
         Priority 5 sends SIGINT before the message for interrupt.
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
-        return _send_task_message(request, priority=priority)
+        return await _send_task_message(request, priority=priority)
 
     # --------------------------------------------------------
     # External Agent Management (Google A2A Client)

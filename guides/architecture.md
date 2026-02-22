@@ -310,6 +310,8 @@ classDiagram
 | GET | `/external/agents` | 外部エージェント一覧 |
 | POST | `/external/agents/{alias}/send` | 外部エージェントへ送信 |
 
+> **Readiness Gate**: `/tasks/send` と `/tasks/send-priority` は、エージェントの初期化（Identity Instruction の送信）が完了するまでブロックされます。未準備の場合は HTTP 503（`Retry-After: 5`）を返します。Priority 5（緊急割り込み）と返信メッセージ（`in_reply_to`）はゲートをバイパスします。実装: `synapse/a2a_compat.py` の `_send_task_message()`、タイムアウト: `AGENT_READY_TIMEOUT = 30` 秒（`synapse/config.py`）。
+
 **メッセージ形式**:
 
 すべての A2A エンドポイントは Message/Part 構造を使用します：
@@ -548,6 +550,26 @@ sequenceDiagram
 - `wait_for_completion=true` により A2AClient がポーリングを担当
 - レスポンスは Task の artifacts として返される
 - artifacts 内の text タイプのデータを抽出して表示
+
+### 4.2.1 Readiness Gate
+
+エージェントの初期化（identity instruction 送信）が完了するまで、`/tasks/send` と `/tasks/send-priority` はリクエストを受け付けません。
+
+- **ゲート位置**: `_send_task_message()` in `synapse/a2a_compat.py`
+- **タイムアウト**: `AGENT_READY_TIMEOUT = 30` 秒（`synapse/config.py`）
+- **未準備時のレスポンス**: HTTP 503 + `Retry-After: 5` ヘッダー
+- **バイパス**: Priority 5（緊急割り込み）および返信メッセージ（`in_reply_to`）はゲートをスキップ
+
+```mermaid
+flowchart TD
+    Req["POST /tasks/send"] --> Check{"agent_ready?"}
+    Check -->|"Yes"| Process["通常処理"]
+    Check -->|"No"| P5{"Priority 5 or<br/>in_reply_to?"}
+    P5 -->|"Yes"| Process
+    P5 -->|"No"| Wait["_agent_ready_event.wait(30s)"]
+    Wait -->|"Ready"| Process
+    Wait -->|"Timeout"| Reject["503 Service Unavailable<br/>Retry-After: 5"]
+```
 
 ### 4.3 Priority 5 による緊急割り込み
 
