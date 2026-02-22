@@ -540,6 +540,9 @@ Proceed? [Y/n/s(skip)]:
 ```gitignore
 # Synapse local settings (contains secrets)
 .synapse/settings.local.json
+
+# Claude Code worktrees (created by --worktree flag)
+.claude/worktrees/
 ```
 
 ## トラブルシューティング

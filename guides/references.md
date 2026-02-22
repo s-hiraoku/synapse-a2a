@@ -244,6 +244,8 @@ synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
 synapse team start claude gemini -- --worktree  # --worktree は全エージェントに渡されるが、Claude のみが使用
+# 非 Claude エージェントが未知のフラグでエラーになる可能性がある場合は Claude のみを対象に:
+synapse team start claude -- --worktree
 ```
 
 ---

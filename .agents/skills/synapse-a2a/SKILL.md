@@ -493,16 +493,19 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree
 # Named worktree (creates .claude/worktrees/feat-auth/ with branch worktree-feat-auth)
 synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
 
-# Team start (--worktree applies to Claude only; other agent types ignore it)
+# Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
+# If non-Claude agents may error on unknown flags, target Claude only:
+synapse team start claude -- --worktree
 ```
 
 **Caveats:**
 
 - `--worktree` is a **Claude Code flag**, not a Synapse flag. Pass it after `--` as a tool arg.
+- Synapse forwards `tool_args` (including `--worktree`) to **all** spawned agents without filtering by agent type. Whether a flag is honored depends on each agent's CLI: Claude Code supports `--worktree`; other CLIs (Gemini, Codex, OpenCode, Copilot) currently silently ignore unknown flags, but this is not guaranteed — restrict flags after `--` if a target CLI may error on unrecognized options.
 - `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are **not copied** to the worktree. Run `uv sync`, `npm install`, or copy `.env` manually if needed.
-- Other agent types (Gemini, Codex, OpenCode, Copilot) do not support `--worktree`. When passed via `synapse team start ... -- --worktree`, only Claude instances use it.
 - On exit: worktrees with no changes are auto-deleted; worktrees with changes prompt to keep or remove.
+- Consider adding `.claude/worktrees/` to your `.gitignore` to prevent untracked worktree files from cluttering `git status`.
 
 ### Technical Notes
 
