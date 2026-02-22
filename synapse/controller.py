@@ -404,6 +404,27 @@ class TerminalController:
                     target=self._send_identity_instruction, daemon=True
                 ).start()
 
+    def _mark_agent_ready(self) -> None:
+        """Signal that agent initialization is complete and ready for tasks."""
+        self._agent_ready = True
+        self._agent_ready_event.set()
+
+    @property
+    def agent_ready(self) -> bool:
+        """Whether the agent has completed initialization."""
+        return self._agent_ready
+
+    def wait_until_ready(self, timeout: float) -> bool:
+        """Block until the agent is ready or timeout expires.
+
+        Args:
+            timeout: Maximum seconds to wait.
+
+        Returns:
+            True if agent became ready, False if timeout expired.
+        """
+        return self._agent_ready_event.wait(timeout=timeout)
+
     def _log_inject(self, category: str, msg: str) -> None:
         """Emit a structured injection observability log line.
 
@@ -528,8 +549,7 @@ class TerminalController:
                 "SUMMARY", "initial_instructions=skipped reason=resume_mode"
             )
             self._identity_sent = True
-            self._agent_ready = True
-            self._agent_ready_event.set()
+            self._mark_agent_ready()
             return
 
         logger.debug(
@@ -582,8 +602,7 @@ class TerminalController:
             self._log_inject("DECISION", "action=skip_no_files")
             self._log_inject("SUMMARY", "initial_instructions=skipped reason=no_files")
             self._identity_sent = True
-            self._agent_ready = True
-            self._agent_ready_event.set()
+            self._mark_agent_ready()
             self._identity_sending = False
             return
 
@@ -609,8 +628,7 @@ class TerminalController:
             )
             logger.info(f"[{self.agent_id}] Write result: {result}")
             self._identity_sent = True
-            self._agent_ready = True
-            self._agent_ready_event.set()
+            self._mark_agent_ready()
             self._log_inject("SUMMARY", "initial_instructions=sent")
         except Exception as e:
             self._log_inject(

@@ -756,14 +756,16 @@ def create_a2a_router(
 
         # Readiness Gate: wait for agent initialization to complete.
         # Priority >= 5 (emergency interrupt) bypasses the gate.
-        if priority < 5 and not controller._agent_ready:
-            ready = controller._agent_ready_event.wait(timeout=AGENT_READY_TIMEOUT)
-            if not ready:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Agent not ready (initializing). Retry after a few seconds.",
-                    headers={"Retry-After": "5"},
-                )
+        if (
+            priority < 5
+            and not controller.agent_ready
+            and not controller.wait_until_ready(timeout=AGENT_READY_TIMEOUT)
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="Agent not ready (initializing). Retry after a few seconds.",
+                headers={"Retry-After": "5"},
+            )
 
         # Create task with metadata (may include sender info)
         task = task_store.create(

@@ -1,7 +1,7 @@
 """Tests for Readiness Gate — blocks task send until agent initialization is complete."""
 
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -20,15 +20,36 @@ SEND_PAYLOAD = {
 
 
 def _make_controller(*, agent_ready: bool = True) -> MagicMock:
-    """Create a mock controller with readiness gate attributes."""
+    """Create a mock controller with readiness gate support.
+
+    Uses a real threading.Event so that wait_until_ready() blocks
+    correctly in the tests that exercise concurrent gate opening.
+    """
+    event = threading.Event()
+    if agent_ready:
+        event.set()
+
     ctrl = MagicMock()
     ctrl.status = "READY"
     ctrl.get_context.return_value = "output"
-    ctrl._agent_ready = agent_ready
-    ctrl._agent_ready_event = threading.Event()
-    if agent_ready:
-        ctrl._agent_ready_event.set()
+
+    # Wire the public readiness API to a real Event
+    type(ctrl).agent_ready = PropertyMock(return_value=agent_ready)
+    ctrl.wait_until_ready = lambda timeout: event.wait(timeout=timeout)
+
+    # Keep the event accessible so tests can set/clear it dynamically
+    ctrl._ready_event = event
+
     return ctrl
+
+
+def _set_controller_ready(ctrl: MagicMock, ready: bool) -> None:
+    """Toggle readiness on a mock controller created by _make_controller."""
+    type(ctrl).agent_ready = PropertyMock(return_value=ready)
+    if ready:
+        ctrl._ready_event.set()
+    else:
+        ctrl._ready_event.clear()
 
 
 def _make_client(controller: MagicMock) -> TestClient:
@@ -40,7 +61,7 @@ def _make_client(controller: MagicMock) -> TestClient:
 
 
 # ============================================================
-# Test: agent_ready=True → normal message delivery
+# Test: agent_ready=True -> normal message delivery
 # ============================================================
 
 
@@ -70,7 +91,7 @@ class TestReadyAgentAcceptsMessages:
 
 
 # ============================================================
-# Test: agent_ready=False → HTTP 503 with Retry-After
+# Test: agent_ready=False -> HTTP 503 with Retry-After
 # ============================================================
 
 
@@ -125,7 +146,7 @@ class TestPriority5BypassesGate:
 
 
 class TestEventBlockThenUnblock:
-    """_agent_ready_event.wait() should block, then proceed when set."""
+    """wait_until_ready() should block, then proceed when the gate opens."""
 
     def test_gate_opens_mid_wait(self):
         ctrl = _make_controller(agent_ready=False)
@@ -133,8 +154,7 @@ class TestEventBlockThenUnblock:
 
         # Simulate agent becoming ready after 0.2s
         def _set_ready():
-            ctrl._agent_ready = True
-            ctrl._agent_ready_event.set()
+            _set_controller_ready(ctrl, True)
 
         timer = threading.Timer(0.2, _set_ready)
         timer.start()
@@ -156,27 +176,21 @@ class TestReplyBypassesGate:
     """Reply messages (in_reply_to) should bypass the readiness gate.
 
     Replies write to PTY directly and don't need initialization to be
-    complete — they're responses to tasks the agent already created.
+    complete -- they're responses to tasks the agent already created.
     """
 
     @patch("synapse.a2a_compat.AGENT_READY_TIMEOUT", 0.1)
     def test_reply_succeeds_when_not_ready(self):
-        ctrl = _make_controller(agent_ready=False)
-        app = FastAPI()
-        router = create_a2a_router(ctrl, "test", 8000, "\n")
-        app.include_router(router)
-        client = TestClient(app)
+        ctrl = _make_controller(agent_ready=True)
+        client = _make_client(ctrl)
 
-        # First, create a task while agent is ready (setup)
-        ctrl._agent_ready = True
-        ctrl._agent_ready_event.set()
+        # Create a task while agent is ready (setup)
         resp1 = client.post("/tasks/send", json=SEND_PAYLOAD)
         assert resp1.status_code == 200
         task_id = resp1.json()["task"]["id"]
 
         # Now make agent not-ready and send a reply
-        ctrl._agent_ready = False
-        ctrl._agent_ready_event.clear()
+        _set_controller_ready(ctrl, False)
 
         reply_payload = {
             "message": {
@@ -187,5 +201,5 @@ class TestReplyBypassesGate:
         }
 
         resp2 = client.post("/tasks/send", json=reply_payload)
-        # Reply should succeed — it bypasses the gate
+        # Reply should succeed -- it bypasses the gate
         assert resp2.status_code == 200
