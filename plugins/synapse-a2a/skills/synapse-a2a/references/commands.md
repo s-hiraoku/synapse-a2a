@@ -831,6 +831,8 @@ synapse team start claude gemini -- --dangerously-skip-permissions
 
 # Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
+# If non-Claude agents may error on unknown flags, target Claude only:
+synapse team start claude -- --worktree
 ```
 
 **Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.
