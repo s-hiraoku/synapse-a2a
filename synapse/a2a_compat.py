@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
-from synapse.config import CONTEXT_RECENT_SIZE
+from synapse.config import AGENT_READY_TIMEOUT, CONTEXT_RECENT_SIZE
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
@@ -753,6 +753,17 @@ def create_a2a_router(
 
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
+
+        # Readiness Gate: wait for agent initialization to complete.
+        # Priority >= 5 (emergency interrupt) bypasses the gate.
+        if priority < 5 and not controller._agent_ready:
+            ready = controller._agent_ready_event.wait(timeout=AGENT_READY_TIMEOUT)
+            if not ready:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Agent not ready (initializing). Retry after a few seconds.",
+                    headers={"Retry-After": "5"},
+                )
 
         # Create task with metadata (may include sender info)
         task = task_store.create(

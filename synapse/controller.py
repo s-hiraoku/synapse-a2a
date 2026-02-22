@@ -143,6 +143,8 @@ class TerminalController:
         self.port = port or 8100  # Default port for Agent Card URL
         self._identity_sent = False
         self._identity_sending = False
+        self._agent_ready = False
+        self._agent_ready_event = threading.Event()
         self._submit_seq = submit_seq or "\n"
         self._startup_delay = startup_delay or STARTUP_DELAY
         self._last_output_time: float | None = (
@@ -526,6 +528,8 @@ class TerminalController:
                 "SUMMARY", "initial_instructions=skipped reason=resume_mode"
             )
             self._identity_sent = True
+            self._agent_ready = True
+            self._agent_ready_event.set()
             return
 
         logger.debug(
@@ -578,6 +582,8 @@ class TerminalController:
             self._log_inject("DECISION", "action=skip_no_files")
             self._log_inject("SUMMARY", "initial_instructions=skipped reason=no_files")
             self._identity_sent = True
+            self._agent_ready = True
+            self._agent_ready_event.set()
             self._identity_sending = False
             return
 
@@ -603,6 +609,8 @@ class TerminalController:
             )
             logger.info(f"[{self.agent_id}] Write result: {result}")
             self._identity_sent = True
+            self._agent_ready = True
+            self._agent_ready_event.set()
             self._log_inject("SUMMARY", "initial_instructions=sent")
         except Exception as e:
             self._log_inject(
