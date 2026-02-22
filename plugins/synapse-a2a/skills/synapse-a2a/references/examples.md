@@ -190,7 +190,9 @@ Spawn creates child agents for sub-task delegation — preserving context, paral
 
 #### Waiting for Readiness
 
-`synapse list` is a point-in-time snapshot. After spawning, poll until the agent shows `STATUS=READY`:
+`synapse list` is a point-in-time snapshot. After spawning, poll until the agent shows `STATUS=READY`.
+
+**Note:** Even without polling, the server-side **Readiness Gate** blocks `/tasks/send` requests until the agent finishes initialization. If the agent is not ready within 30 seconds (`AGENT_READY_TIMEOUT`), the API returns HTTP 503 with `Retry-After: 5`. Priority 5 messages and replies bypass this gate. Polling with `synapse list` remains useful for confirming readiness before sending non-urgent messages.
 
 ```bash
 # Poll until agent is ready (timeout after 30s)

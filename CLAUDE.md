@@ -294,7 +294,17 @@ synapse/
 
 **Startup Sequence**:
 
-1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix (includes role section if set, skill set details if selected)
+1. Load profile YAML → 2. Register in AgentRegistry → 3. Start FastAPI server (background thread) → 4. `pty.spawn()` CLI → 5. On first IDLE, send initial instructions via `A2A:` prefix (includes role section if set, skill set details if selected) → 6. Mark agent as ready (opens the Readiness Gate)
+
+**Readiness Gate**:
+
+The `/tasks/send` and `/tasks/send-priority` endpoints are blocked by a readiness gate until the agent completes initialization (identity instruction sending). This prevents messages from being lost or garbled during startup.
+
+- **Implementation**: `_send_task_message()` in `synapse/a2a_compat.py` waits on `controller._agent_ready_event` (a `threading.Event`)
+- **Timeout**: `AGENT_READY_TIMEOUT = 30` seconds (defined in `synapse/config.py`). If the agent does not become ready within this period, the request is rejected.
+- **HTTP response when not ready**: `503 Service Unavailable` with `Retry-After: 5` header
+- **Bypasses**: Priority 5 (emergency interrupt) and reply messages (`in_reply_to`) skip the gate entirely
+- **Controller attributes**: `_agent_ready` (bool), `_agent_ready_event` (threading.Event)
 
 **Agent Status System**:
 

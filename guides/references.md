@@ -1080,6 +1080,8 @@ flowchart LR
 | GET | `/reply-stack/get` | 返信先 sender 情報取得（`?sender_id=` で指定可） |
 | GET | `/reply-stack/pop` | 返信先 sender 情報取得＋削除（`?sender_id=` で指定可） |
 
+> **Readiness Gate**: `/tasks/send` と `/tasks/send-priority` は、エージェント初期化（Identity Instruction 送信）完了前は HTTP 503（`Retry-After: 5`）を返します。Priority 5 と返信メッセージ（`in_reply_to`）はバイパスします。
+
 #### Agent Teams API
 
 | メソッド | パス | 説明 |
@@ -1160,7 +1162,7 @@ Content-Type: application/json
 |----------------|------|
 | 200 | 成功 |
 | 500 | 書き込みエラー |
-| 503 | エージェント未起動 |
+| 503 | エージェント未起動、または初期化中（Readiness Gate: `Retry-After: 5` ヘッダー付き） |
 
 **curl 例**:
 
@@ -1198,7 +1200,7 @@ Content-Type: application/json
 | 値 | 動作 |
 |----|------|
 | 1-4 | 直接 stdin に書き込み |
-| 5 | SIGINT 送信後に書き込み |
+| 5 | SIGINT 送信後に書き込み（Readiness Gate をバイパス） |
 
 **curl 例**:
 

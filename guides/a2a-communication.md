@@ -223,6 +223,8 @@ A2A: テストを実行してコミットして
 2. 短時間待機
 3. メッセージを送信
 
+> **Note**: Priority 5 は Readiness Gate をバイパスします。エージェント初期化中でも緊急メッセージを配信できます。
+
 ---
 
 ## ユースケース
@@ -280,6 +282,8 @@ synapse send codex "テストを書いて" --from synapse-claude-8100
    ```bash
    curl http://localhost:8100/status
    ```
+
+3. **HTTP 503 が返る場合**: エージェントが初期化中（identity instruction 送信完了前）です。Readiness Gate により、初期化が完了するまで `/tasks/send` と `/tasks/send-priority` は 503 を返します。`Retry-After: 5` ヘッダーに従い再試行してください。Priority 5（緊急割り込み）と返信メッセージ（`in_reply_to`）はゲートをバイパスします。
 
 ### タイムアウトする
 

@@ -86,6 +86,7 @@ flowchart LR
 | **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
 | **synapse send** | Send messages between agents via `synapse send <agent> "message"` |
 | **Sender Identification** | Auto-identify sender via `metadata.sender` + PID matching |
+| **Readiness Gate** | `/tasks/send` returns 503 until agent initialization completes; priority 5 and replies bypass |
 | **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
 | **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
 | **External Integration** | Communicate with other Google A2A agents |
@@ -866,6 +867,8 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
 | `/status` | GET | READY/PROCESSING status |
+
+> **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` return **HTTP 503** (with `Retry-After: 5`) until the agent finishes initialization (identity instruction sending). Priority 5 (emergency interrupt) and reply messages bypass this gate. See [CLAUDE.md](CLAUDE.md#key-flows) for details.
 
 ### Agent Teams
 
