@@ -65,6 +65,7 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 ```
 
 Target formats (in priority order):
+- Custom name: `my-claude` (highest priority, exact match, case-sensitive)
 - Full ID: `synapse-gemini-8110` (always works)
 - Type-port: `gemini-8110` (when multiple agents of same type exist)
 - Agent type: `gemini` (only when single instance exists)

@@ -134,8 +134,9 @@ class TestIdentityInstruction:
         assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
 
-    def test_identity_instruction_content(self, controller, mock_registry):
+    def test_identity_instruction_content(self, controller, mock_registry, monkeypatch):
         """Identity instruction should contain correct full instructions with A2A format."""
+        monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
         controller.running = True
         controller.master_fd = 1
 
@@ -146,21 +147,9 @@ class TestIdentityInstruction:
 
         controller.write = mock_write
 
-        # Patch get_settings to return deterministic instructions
+        # Patch get_settings to return deterministic file paths
         with patch("synapse.controller.get_settings") as mock_get_settings:
             mock_settings = Mock()
-            mock_settings.get_instruction.return_value = (
-                "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE]\n"
-                "Agent: {{agent_id}} | Port: {{port}}\n"
-                "HOW TO RECEIVE A2A MESSAGES\n"
-                "HOW TO SEND MESSAGES TO OTHER AGENTS\n"
-                "AVAILABLE AGENTS: claude, gemini, codex\n"
-                "LIST COMMAND: a2a.py list\n"
-                "SKILL: synapse-a2a skill\n"
-                "TASK HISTORY:\n"
-                "  synapse history list\n"
-                "  synapse history cleanup\n"
-            )
             mock_settings.get_instruction_file_paths.return_value = [
                 ".synapse/default.md",
             ]

@@ -21,7 +21,9 @@ HARDCODED_FROM_PATTERN = re.compile(r"--from\s+synapse-\w+-\d+")
 
 # Directories / files that agents read at runtime
 AGENT_FACING_PATHS = [
-    ROOT / "plugins" / "synapse-a2a" / "skills",
+    ROOT / ".claude" / "skills",
+    ROOT / ".agents" / "skills",
+    ROOT / ".gemini" / "skills",
     ROOT / ".synapse",
     ROOT / "synapse" / "templates" / ".synapse",
     ROOT / "CLAUDE.md",

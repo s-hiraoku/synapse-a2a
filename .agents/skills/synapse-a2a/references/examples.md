@@ -361,12 +361,12 @@ synapse kill Fixer -f
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --response --from <your_agent_id>
+   synapse send <agent> "Status?" --priority 4 --response --from $SYNAPSE_AGENT_ID
    ```
 
 3. Emergency stop:
    ```bash
-   synapse send <agent> "STOP" --priority 5 --from <your_agent_id>
+   synapse send <agent> "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
    ```
 
 ### Agent Not Found
