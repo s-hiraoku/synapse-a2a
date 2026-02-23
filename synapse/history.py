@@ -643,6 +643,8 @@ class HistoryManager:
                             meta = json.loads(meta_str)
                         except (json.JSONDecodeError, TypeError):
                             continue
+                        if not isinstance(meta, dict):
+                            continue
                         tokens = meta.get("tokens")
                         if not tokens:
                             continue

@@ -169,11 +169,18 @@ class TaskBoard:
             description: Task description.
             created_by: Agent ID of the creator.
             blocked_by: List of task IDs that block this task.
-            priority: Task priority (higher is more urgent).
+            priority: Task priority 1-5 (higher is more urgent).
 
         Returns:
             The new task's UUID.
+
+        Raises:
+            ValueError: If priority is not an integer between 1 and 5.
         """
+        if not isinstance(priority, int) or not (1 <= priority <= 5):
+            raise ValueError(
+                f"priority must be an integer between 1 and 5, got {priority!r}"
+            )
         task_id = str(uuid4())
         blocked_json = json.dumps(blocked_by or [])
 
@@ -286,7 +293,7 @@ class TaskBoard:
 
         return unblocked
 
-    def fail_task(self, task_id: str, agent_id: str, reason: str = "") -> None:
+    def fail_task(self, task_id: str, agent_id: str, reason: str = "") -> bool:
         """Mark a task as failed.
 
         Only succeeds if the task is in_progress and assigned to the given agent.
@@ -296,11 +303,14 @@ class TaskBoard:
             task_id: The task to fail.
             agent_id: The agent reporting the failure.
             reason: Optional failure reason.
+
+        Returns:
+            True if the task was updated, False if no matching task was found.
         """
         with self._lock:
             conn = self._get_connection()
             try:
-                conn.execute(
+                cursor = conn.execute(
                     """
                     UPDATE board_tasks
                     SET status = 'failed',
@@ -311,6 +321,7 @@ class TaskBoard:
                     (reason, task_id, agent_id),
                 )
                 conn.commit()
+                return cursor.rowcount > 0
             finally:
                 conn.close()
 

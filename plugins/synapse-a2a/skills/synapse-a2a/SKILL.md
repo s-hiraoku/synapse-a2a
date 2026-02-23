@@ -388,10 +388,11 @@ Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker a
    synapse tasks create "Code review" --blocked-by <impl-task-id> --priority 3
    ```
 
-2. **Coordinator** checks available tasks and assigns to agents
+2. **Coordinator** checks available tasks, assigns, and notifies agents
    ```bash
    synapse tasks list --status pending
-   synapse send <agent> "Execute task: <description>" --no-response
+   synapse tasks assign <task_id> <agent>
+   synapse send <agent> "Execute task: <description>" --no-response --from "$SYNAPSE_AGENT_ID"
    ```
 
 3. **Worker agents** report completion or failure

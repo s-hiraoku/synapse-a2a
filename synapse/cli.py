@@ -765,7 +765,8 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
             print()
             print(f"Input Tokens:    {total_in:,}")
             print(f"Output Tokens:   {total_out:,}")
-            print(f"Total Cost:      ${token_stats['total_cost_usd']:.4f}")
+            total_cost = token_stats.get("total_cost_usd", 0.0)
+            print(f"Total Cost:      ${total_cost:.4f}")
             print()
 
             by_agent = token_stats.get("by_agent")
@@ -775,9 +776,9 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
                 print("-" * 44)
                 for agent, counts in sorted(by_agent.items()):
                     print(
-                        f"{agent:<10} {counts['input_tokens']:<12,} "
-                        f"{counts['output_tokens']:<12,} "
-                        f"${counts['cost_usd']:<9.4f}"
+                        f"{agent:<10} {counts.get('input_tokens', 0):<12,} "
+                        f"{counts.get('output_tokens', 0):<12,} "
+                        f"${counts.get('cost_usd', 0.0):<9.4f}"
                     )
                 print()
     except Exception:
@@ -2261,6 +2262,12 @@ def cmd_tasks_create(args: argparse.Namespace) -> None:
     blocked_list = blocked_by.split(",") if blocked_by else None
 
     priority = getattr(args, "priority", 3) or 3
+    if not isinstance(priority, int) or not (1 <= priority <= 5):
+        print(
+            f"Error: priority must be between 1 and 5, got {priority}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     task_id = board.create_task(
         subject=args.subject,

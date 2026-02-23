@@ -84,6 +84,8 @@ class TestParseTokens:
         """If a parser is registered, parse_tokens should use it."""
         from synapse.token_parser import _PARSERS, TokenUsage, parse_tokens
 
+        orig = _PARSERS.get("test-agent")
+
         # Register a test parser
         def fake_parser(output: str) -> TokenUsage | None:
             if "tokens:" in output:
@@ -97,11 +99,16 @@ class TestParseTokens:
             assert result.input_tokens == 42
             assert result.output_tokens == 10
         finally:
-            del _PARSERS["test-agent"]
+            if orig is None:
+                _PARSERS.pop("test-agent", None)
+            else:
+                _PARSERS["test-agent"] = orig
 
     def test_parse_tokens_parser_exception_returns_none(self):
         """If a registered parser raises, parse_tokens should catch and return None."""
         from synapse.token_parser import _PARSERS, parse_tokens
+
+        orig = _PARSERS.get("broken-agent")
 
         def broken_parser(output: str) -> None:
             raise ValueError("parser broke")
@@ -111,7 +118,10 @@ class TestParseTokens:
             result = parse_tokens("broken-agent", "any output")
             assert result is None
         finally:
-            del _PARSERS["broken-agent"]
+            if orig is None:
+                _PARSERS.pop("broken-agent", None)
+            else:
+                _PARSERS["broken-agent"] = orig
 
 
 class TestTokenMetadataRoundtrip:
