@@ -9,11 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` endpoints are blocked until agent completes initialization; returns 503 with `Retry-After: 5` when not ready; priority 5 and reply messages bypass the gate (#248)
+- **Spawn CWD inheritance**: Spawned agents now inherit the parent's working directory (#248)
 - **CI conflict detection**: `poll-pr-status.sh` hook monitors PR mergeable state and reports merge conflicts via systemMessage, suggesting `/fix-conflict` for auto-resolution
 - **CodeRabbit review monitoring**: `poll-pr-status.sh` polls for CodeRabbit bot reviews, classifies inline comments by severity (bug/style/suggestion), and suggests `/fix-review` for actionable issues
 - **`/fix-conflict` skill**: Auto-resolves merge conflicts via test merge, conflict analysis, resolution, local verification, and push
 - **`/fix-review` skill**: Auto-fixes CodeRabbit bug/style comments with keyword-based classification; reports suggestions without modifying code
 - **`/check-ci` extended**: Now shows merge conflict state and CodeRabbit review status alongside CI checks; `--fix` flag suggests all available fix commands in priority order
+- **Tornado features**: Soft interrupt, token tracking, task board extensions (`get_task`, 404/409 split, Kanban example) (#260)
+- **`--worktree` skill guidance**: Added worktree usage instructions to synapse-a2a skill (#253)
+- **`parallel-docs-simplify-sync` skill**: Runs synapse-docs, code-simplifier, and sync-plugin-skills in parallel
+
+### Fixed
+
+- **iTerm2 spawn targeting**: Fixed AppleScript targeting tab instead of session (#248)
+- **Shell-quoted CWD**: Fixed tmux, iTerm2, and Terminal.app spawn commands when CWD contains spaces (#248)
+- **Hardcoded agent IDs**: Replaced hardcoded `--from` agent IDs with `$SYNAPSE_AGENT_ID` in agent-facing files
+- **Task board API**: 404/409 split for task errors, `get_task` endpoint, validation and error handling improvements (#260)
+
+### Refactored
+
+- **`_mark_agent_ready()` helper**: Extracted from controller for cleaner readiness state management
 
 ### Documentation
 
@@ -25,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skill copy sync**: Synchronized `.agents/` and `.gemini/` skill copies with canonical `plugins/` source
 - **CI Automation docs**: Added CI hooks/skills to CLAUDE.md architecture, README features/skills tables, and plugin skill references
 - **Default base branch**: Explicitly documented `main` as default PR base branch in CLAUDE.md Branch Management Rules
+- **Claude Code worktree technical guide**: Added `docs/HANDOFF_WORKTREE.md`
+- **Skill update rules**: Added to CLAUDE.md and AGENTS.md
+
+### Tests
+
+- **Space-in-CWD tests**: Added for zellij/ghostty spawn with spaces in paths (#248)
 
 ## [0.6.6] - 2026-02-20
 
