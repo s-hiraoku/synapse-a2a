@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Branch Management Rules
 
+- **Default base branch is `main`** — All PRs should target `main` unless explicitly instructed otherwise
 - **Do NOT change branches during active work** - Stay on the current branch until the task is complete
 - **If branch change is needed**, always ask the user for confirmation first
 - Before switching branches, ensure all changes are committed or stashed
@@ -66,6 +67,13 @@ pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fi
 
 # Injection observability tests
 pytest tests/test_injection_observability.py -v # INJECT/* structured logs
+
+# Soft interrupt tests
+pytest tests/test_soft_interrupt.py -v         # synapse interrupt CLI command
+
+# Token/Cost tracking tests
+pytest tests/test_token_parser.py -v           # Token parser registry + TokenUsage
+pytest tests/test_token_stats.py -v            # Token statistics aggregation
 
 # Run agent (interactive)
 synapse claude
@@ -135,6 +143,10 @@ synapse reset                             # Interactive scope selection
 synapse reset --scope user                # Reset user settings to defaults
 synapse reset --scope both -f             # Reset both without confirmation
 
+# Soft interrupt (shorthand for send -p 4 --no-response)
+synapse interrupt claude "Stop and review"                  # Interrupt an agent
+synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"  # With explicit sender
+
 # Broadcast message to all agents in current directory
 synapse broadcast "Status check"                           # Send to all agents
 synapse broadcast "Urgent update" -p 4                     # Urgent broadcast
@@ -147,12 +159,12 @@ synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
 # Send messages (--response waits for reply, --no-response sends only)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
-synapse send my-claude "Review this code" --from synapse-gemini-8110 --response
-synapse send gemini "Analyze this" --from synapse-claude-8100 --response
-synapse send codex "Process this" --from synapse-claude-8100 --no-response
+synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID --response
+synapse send gemini "Analyze this" --from $SYNAPSE_AGENT_ID --response
+synapse send codex "Process this" --from $SYNAPSE_AGENT_ID --no-response
 
 # Send to specific instance when multiple agents of same type exist
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "Hello" --from $SYNAPSE_AGENT_ID
 
 # Send long messages via file or stdin (avoids ARG_MAX shell limits)
 synapse send claude --message-file /tmp/review.txt --no-response
@@ -169,7 +181,7 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-resp
 synapse reply "Result here"
 
 # Reply with explicit sender ID (for sandboxed environments like Codex)
-synapse reply "Result here" --from synapse-codex-8121
+synapse reply "Result here" --from $SYNAPSE_AGENT_ID
 
 # Reply to a specific sender when multiple are pending
 synapse reply "Result here" --to synapse-claude-8100
@@ -185,8 +197,11 @@ python -m synapse.tools.a2a send --target claude --priority 1 "message"
 synapse tasks list                        # List all tasks
 synapse tasks list --status pending       # Filter by status
 synapse tasks create "Task subject" -d "description"  # Create task
+synapse tasks create "Task subject" -d "description" --priority 4  # Create with priority (1-5, default 3)
 synapse tasks assign <task_id> claude     # Assign task to agent
 synapse tasks complete <task_id>          # Mark task completed
+synapse tasks fail <task_id> [--reason "reason"]  # Mark task failed
+synapse tasks reopen <task_id>            # Reopen completed/failed task → pending
 
 # Agent Teams: Plan Approval (B3)
 synapse approve <task_id>                 # Approve a plan
@@ -247,7 +262,7 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Target Resolution
 
-When using `synapse send`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
+When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
 
 1. **Custom name** (highest priority): `my-claude`
 2. **Full agent ID**: `synapse-claude-8100`
@@ -287,6 +302,7 @@ synapse/
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
+├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
@@ -295,7 +311,60 @@ synapse/
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
 │   └── start.py           # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
+
+plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope)
+├── SKILL.md                               # Main skill definition
+└── references/                            # Detailed reference docs
+    ├── api.md
+    ├── commands.md
+    ├── examples.md
+    └── file-safety.md
+
+.claude/hooks/                             # Claude Code PostToolUse hooks
+├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create
+├── poll-ci.sh                             # Background: polls GitHub Actions CI status
+└── poll-pr-status.sh                      # Background: polls merge conflict state + CodeRabbit reviews
+
+.claude/skills/                            # Claude Code project-local skills
+├── check-ci/SKILL.md                      # /check-ci: manual CI + conflict + review status check
+├── fix-ci/SKILL.md                        # /fix-ci: auto-fix CI failures (lint, format, type-check, test)
+├── fix-conflict/SKILL.md                  # /fix-conflict: auto-resolve merge conflicts
+└── fix-review/SKILL.md                    # /fix-review: auto-fix CodeRabbit review comments
+
+# Sync targets (auto-synced from plugins/ via sync-plugin-skills):
+.claude/skills/synapse-a2a/   # Claude Code
+.agents/skills/synapse-a2a/   # Codex / OpenCode / Copilot
+.gemini/skills/synapse-a2a/   # Gemini
 ```
+
+### Skill Update Rules
+
+**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+
+### CI Automation: Hooks and Skills
+
+Claude Code の PostToolUse フックと専用スキルにより、CI 監視・修復を自動化する。
+
+**Hook チェーン**:
+1. `check-ci-trigger.sh` (PostToolUse) — `git push` / `gh pr create` を検出し、以下をバックグラウンド起動:
+   - `poll-ci.sh` — GitHub Actions の CI ステータスをポーリング
+   - `poll-pr-status.sh` — マージコンフリクト状態 + CodeRabbit レビューをポーリング
+2. `poll-pr-status.sh` は `systemMessage` JSON を出力してエージェントに通知:
+   - コンフリクト検出時: `/fix-conflict` の実行を提案
+   - CodeRabbit レビューコメント検出時: `/fix-review` の実行を提案
+
+**Skills**:
+
+| Skill | 用途 |
+|-------|------|
+| `/check-ci` | CI ステータス + コンフリクト + CodeRabbit レビューを手動確認。`--fix` で修復コマンドを提案 |
+| `/fix-ci` | GitHub Actions の失敗を自動診断・修復（lint, format, type-check, test） |
+| `/fix-conflict` | マージコンフリクトを自動解決（test merge → 解析 → resolve → verify → push） |
+| `/fix-review` | CodeRabbit レビューコメントを自動修正（Bug/Style は自動修正、Suggestion は報告のみ） |
+
+**設定** (`.claude/settings.json`):
+- `hooks.PostToolUse` に `check-ci-trigger.sh` を登録
+- `permissions.allow` に `Skill(fix-conflict)`, `Skill(fix-review)`, `Bash(gh api:*)`, `Bash(gh repo view:*)` を追加
 
 ## Key Flows
 
@@ -490,7 +559,7 @@ synapse list
 **Observing TRANSPORT column**:
 ```bash
 # In Terminal 1 (Claude), send message to Gemini:
-synapse send gemini "hello" --from synapse-claude-8100
+synapse send gemini "hello" --from $SYNAPSE_AGENT_ID
 
 # In Terminal 3, observe:
 # - Claude shows "UDS→" (sending via UDS)
@@ -591,7 +660,7 @@ synapse history stats --agent gemini
 
 2. **Delegate task**:
    ```bash
-synapse send gemini "Write tests for X" --priority 3 --from synapse-claude-8100 --no-response
+synapse send gemini "Write tests for X" --priority 3 --from $SYNAPSE_AGENT_ID --no-response
    ```
 
 3. **Monitor progress**:
@@ -602,7 +671,7 @@ synapse send gemini "Write tests for X" --priority 3 --from synapse-claude-8100 
 
 4. **Send follow-up** (if needed):
    ```bash
-synapse send gemini "Status update?" --priority 4 --from synapse-claude-8100 --response
+synapse send gemini "Status update?" --priority 4 --from $SYNAPSE_AGENT_ID --response
    ```
 
 5. **Review completion**:

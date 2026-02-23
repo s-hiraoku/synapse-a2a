@@ -123,7 +123,7 @@ def _validate_explicit_sender(sender: str) -> str | None:
 
     return (
         "Error: --from requires agent ID format (synapse-<type>-<port>).\n"
-        "Example: --from synapse-claude-8100"
+        "Example: --from $SYNAPSE_AGENT_ID (or synapse-claude-8100)"
     )
 
 

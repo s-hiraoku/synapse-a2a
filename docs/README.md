@@ -38,6 +38,15 @@ For user guides, see the [`/guides`](../guides/) directory.
 - `draft-spec.md` - Draft specification for Synapse A2A protocol
 - `universal-agent-communication-spec.md` - Universal agent communication specification
 - `input-routing-spec.md` - Input routing specification
+- `agent-teams-adoption-spec.md` - **Agent Teams 機能採用仕様書**
+  - Claude Code Agent Teams の分析と Synapse A2A への採用設計
+  - B1-B6 の各機能仕様（Shared Task Board, Quality Gates, Plan Approval 等）
+- `tornado-adoption-spec.md` - **tornado 機能採用仕様書**
+  - [mizchi/tornado](https://github.com/mizchi/tornado) の設計分析と採用判断
+  - TaskBoard 拡張: `fail_task()`, `reopen_task()`, `priority` カラム
+  - Coordinator + TaskBoard による Kanban ワークフローパターン
+  - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --no-response` の簡易版）
+  - Token/Cost Tracking: `synapse/token_parser.py` スケルトン（`TokenUsage` + `parse_tokens()` レジストリ）
 
 ### リリース
 
@@ -57,6 +66,13 @@ For user guides, see the [`/guides`](../guides/) directory.
   - キーワード検索、統計情報、エクスポート、クリーンアップ機能
   - テスト覆率: 56 個のテストケース（全て合格）
   - PR #34 で実装済み
+
+### 開発ツール
+
+- `claude-code-worktree.md` - **Claude Code ワークツリー機能の仕組み**
+  - Git worktree を活用した分離作業環境の内部構造
+  - ディレクトリ構造・ライフサイクル・命名規則の解説
+  - マルチエージェント並行作業での活用と Synapse A2A への統合構想
 
 ### アセット
 

@@ -53,9 +53,11 @@ The framework automatically handles routing - you don't need to know where the m
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/tasks/board` | GET | List shared task board |
-| `/tasks/board` | POST | Create task on board |
+| `/tasks/board` | POST | Create task on board (supports `priority` field, default 3) |
 | `/tasks/board/{id}/claim` | POST | Claim task atomically |
 | `/tasks/board/{id}/complete` | POST | Complete task (auto-unblocks dependents) |
+| `/tasks/board/{id}/fail` | POST | Fail task (preserves assignee, does NOT unblock dependents) |
+| `/tasks/board/{id}/reopen` | POST | Reopen completed/failed task (clears assignee, returns to pending) |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (agent-initiated) |

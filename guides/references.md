@@ -31,6 +31,7 @@ flowchart TB
         rename["rename"]
         list["list"]
         send["send"]
+        interrupt["interrupt"]
         broadcast["broadcast"]
         reply["reply"]
         trace["trace"]
@@ -349,6 +350,31 @@ synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-
 synapse broadcast "進捗を報告してください" --from synapse-claude-8100
 synapse broadcast "緊急確認" -p 4 --response --from synapse-codex-8120
 synapse broadcast "FYI: CI通過" --no-response
+```
+
+---
+
+### 1.6.2 synapse interrupt
+
+エージェントにソフト割り込みメッセージを送信します。`synapse send <target> <message> -p 4 --no-response` の簡易コマンドです。
+
+```bash
+synapse interrupt <target> <message> [--from AGENT_ID]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `target` | Yes | 送信先エージェント（名前、ID、タイプ等） |
+| `message` | Yes | 割り込みメッセージ |
+| `--from`, `-f` | No | 送信元エージェントID |
+
+**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。
+
+**例**:
+
+```bash
+synapse interrupt claude "Stop and review"
+synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"
 ```
 
 ---
@@ -1051,6 +1077,145 @@ synapse auth generate-key -n 3 -e    # 3つのキーをexport形式で生成
 
 ---
 
+### 1.20 synapse tasks
+
+共有タスクボード（B1: Shared Task Board）を管理します。SQLite ベースのタスク協調基盤です。
+
+```bash
+synapse tasks <subcommand>
+```
+
+#### 1.20.1 synapse tasks list
+
+タスクボードのタスク一覧を表示します。
+
+```bash
+synapse tasks list [--status STATUS] [--agent AGENT]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--status` | No | フィルタするステータス（`pending`, `in_progress`, `completed`, `failed`） |
+| `--agent` | No | 担当エージェントでフィルタ |
+
+#### 1.20.2 synapse tasks create
+
+タスクボードにタスクを作成します。
+
+```bash
+synapse tasks create <subject> [-d DESCRIPTION] [--blocked-by IDS] [--priority N]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `subject` | Yes | タスクの件名 |
+| `-d`, `--description` | No | タスクの詳細説明 |
+| `--blocked-by` | No | このタスクをブロックするタスク ID（カンマ区切り） |
+| `-p`, `--priority` | No | 優先度 1-5（デフォルト: 3、高いほど緊急） |
+
+**優先度レベル**:
+
+| 値 | 意味 | 用途 |
+|----|------|------|
+| 1 | 最低 | バックグラウンドタスク |
+| 2 | 低 | 急ぎでないタスク |
+| 3 | 通常 | デフォルト |
+| 4 | 高 | 優先タスク |
+| 5 | 最高 | 緊急・クリティカル |
+
+**例**:
+
+```bash
+synapse tasks create "認証テスト作成" -d "JWT 認証のユニットテスト" --priority 4
+synapse tasks create "認証実装" -d "テストに合わせて実装" --blocked-by task-1 --priority 4
+```
+
+#### 1.20.3 synapse tasks assign
+
+タスクをエージェントにアサインします。
+
+```bash
+synapse tasks assign <task_id> <agent>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `task_id` | Yes | アサインするタスクの ID |
+| `agent` | Yes | アサイン先のエージェント |
+
+#### 1.20.4 synapse tasks complete
+
+タスクを完了にします。ブロックされていた依存タスクが自動的に解除されます。
+
+```bash
+synapse tasks complete <task_id>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `task_id` | Yes | 完了にするタスクの ID |
+
+#### 1.20.5 synapse tasks fail
+
+タスクを失敗として報告します。`in_progress` 状態のタスクのみ対象です。
+
+```bash
+synapse tasks fail <task_id> [--reason REASON]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `task_id` | Yes | 失敗したタスクの ID |
+| `-r`, `--reason` | No | 失敗理由 |
+
+**例**:
+
+```bash
+synapse tasks fail task-1 --reason "テストが通らない"
+```
+
+#### 1.20.6 synapse tasks reopen
+
+完了または失敗したタスクを pending に戻します。assignee と fail_reason がクリアされます。
+
+```bash
+synapse tasks reopen <task_id>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `task_id` | Yes | 再オープンするタスクの ID |
+
+**状態遷移**:
+- `completed` → `pending`
+- `failed` → `pending`
+- `pending` / `in_progress` → 変更なし（エラー）
+
+**例**:
+
+```bash
+synapse tasks reopen task-1
+```
+
+#### タスクライフサイクル
+
+```
+                    claim_task()
+    pending ────────────────────→ in_progress
+       ▲                                │
+       │                        ┌───────┴───────┐
+       │                        │               │
+       │                   complete_task    fail_task
+       │                        │               │
+       │                        ▼               ▼
+       │  reopen_task       completed        failed
+       ├────────────────────────┘               │
+       │  reopen_task                           │
+       ├────────────────────────────────────────┘
+```
+
+---
+
 ## 2. HTTP API リファレンス
 
 ### 2.1 エンドポイント一覧
@@ -1090,9 +1255,11 @@ flowchart LR
 | メソッド | パス | 説明 |
 |---------|------|------|
 | GET | `/tasks/board` | 共有タスクボード一覧 |
-| POST | `/tasks/board` | タスクボードにタスク作成 |
+| POST | `/tasks/board` | タスクボードにタスク作成（`priority` フィールド対応） |
 | POST | `/tasks/board/{id}/claim` | タスクをアトミックに取得 |
 | POST | `/tasks/board/{id}/complete` | タスク完了（依存タスク自動解除） |
+| POST | `/tasks/board/{id}/fail` | タスク失敗（`reason` フィールドで失敗理由を記録） |
+| POST | `/tasks/board/{id}/reopen` | タスク再オープン（completed/failed → pending） |
 | POST | `/tasks/{id}/approve` | プラン承認 |
 | POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
 | POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |
@@ -1689,6 +1856,7 @@ env:
 | `synapse/shell.py` | ~190 | インタラクティブシェル |
 | `synapse/a2a_compat.py` | ~570 | Google A2A 互換レイヤー |
 | `synapse/a2a_client.py` | ~330 | 外部 A2A エージェントクライアント |
+| `synapse/token_parser.py` | ~40 | トークン/コスト追跡（TokenUsage + parse_tokens レジストリ） |
 | `synapse/skills.py` | ~870 | スキル発見・管理・デプロイ |
 | `synapse/commands/skill_manager.py` | ~920 | スキル管理 TUI / CLI |
 | `synapse/tools/a2a.py` | ~75 | A2A CLI ツール |

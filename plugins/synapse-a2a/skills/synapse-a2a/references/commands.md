@@ -113,13 +113,13 @@ synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 # Pass tool-specific arguments after '--'
 synapse spawn claude -- --dangerously-skip-permissions
 
-# Worktree isolation (Claude only — gives agent its own copy of the repo)
+# Worktree isolation (--worktree is a Claude Code flag, passed after '--'; other CLIs silently ignore it)
 synapse spawn claude --name Impl --role "implementer" -- --worktree
 synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth  # named worktree
 ```
 
-**Worktree Isolation (Claude Only):**
-Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
+**Worktree Isolation (Claude Code flag, passed via `--`):**
+Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it — other CLIs silently ignore unknown flags, but this is not guaranteed. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
 When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
@@ -132,7 +132,7 @@ When an agent is started via `synapse spawn`, it automatically runs with the `--
 
 **Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 
-**Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from <spawned-agent-id>` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
+**Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
 
 ### Stop Agents
 
@@ -236,7 +236,7 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 synapse reply "<your reply>"
 
 # In sandboxed environments (like Codex), specify your agent ID
-synapse reply "<your reply>" --from <your_agent_id>
+synapse reply "<your reply>" --from $SYNAPSE_AGENT_ID
 ```
 
 **Example - Question received (MUST reply):**
@@ -301,16 +301,16 @@ Analyze the message content and determine if a reply is expected:
 **Examples:**
 ```bash
 # Question - needs reply
-synapse send gemini "What is the best approach?" --response --from synapse-codex-8121
+synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit" --from synapse-claude-8100
+synapse send codex "Fix this bug and commit" --from $SYNAPSE_AGENT_ID
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response --from synapse-gemini-8110
+synapse send claude-8100 "What is your status?" --response --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 **Sending long messages or files:**
@@ -329,7 +329,31 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-resp
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
-**Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
+**Important:** Always use `--from $SYNAPSE_AGENT_ID` (auto-set at startup, expands to `synapse-<type>-<port>`). Never hardcode agent IDs.
+
+### Interrupt Command
+
+Shorthand for sending a priority-4, fire-and-forget message:
+
+```bash
+synapse interrupt <target> "<message>" [--from <sender>]
+```
+
+Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sender>]`.
+
+**Parameters:**
+- `target`: Target agent (name, ID, type-port, or agent type)
+- `message`: Interrupt message to send
+- `--from, -f`: Sender agent ID (for reply identification)
+
+**Examples:**
+```bash
+# Interrupt an agent with an urgent message
+synapse interrupt claude "Stop and review"
+
+# With explicit sender
+synapse interrupt gemini "Check status" --from $SYNAPSE_AGENT_ID
+```
 
 ### Reply Command
 
@@ -371,16 +395,16 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 **Examples:**
 ```bash
 # Broadcast status check
-synapse broadcast "Status check" --from synapse-claude-8100
+synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast with priority
-synapse broadcast "Stop current work" --priority 4 --from synapse-claude-8100
+synapse broadcast "Stop current work" --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Fire-and-forget notification
-synapse broadcast "FYI: Build completed" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
 
 # Wait for responses from all agents
-synapse broadcast "What are you working on?" --response --from synapse-claude-8100
+synapse broadcast "What are you working on?" --response --from $SYNAPSE_AGENT_ID
 ```
 
 ### A2A Tool (Advanced)
@@ -442,6 +466,8 @@ synapse history stats
 # Per-agent statistics
 synapse history stats --agent gemini
 ```
+
+When token data exists in observation metadata, the output includes a TOKEN USAGE section showing input/output token counts and estimated cost (per-agent breakdown when available). Token data is populated by agent-specific parsers in `synapse/token_parser.py` (skeleton -- no parsers shipped yet).
 
 ### Export Data
 
@@ -789,6 +815,65 @@ synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 ```
 
+### Task Failure and Recovery
+
+```bash
+# Report task failure (only works on in_progress tasks you own)
+synapse tasks fail <task_id> --reason "Test suite failed"
+
+# Reopen a completed or failed task (returns to pending, clears assignee)
+synapse tasks reopen <task_id>
+```
+
+### Task Priority
+
+Tasks have priority 1-5 (default 3). Higher priority tasks are served first by `get_available_tasks()`.
+
+```bash
+# Create task with priority
+synapse tasks create "Critical fix" -d "Fix auth bug" --priority 5
+
+# Priority ordering in available tasks
+synapse tasks list --status pending
+# Returns: priority 5 first, then 4, 3, 2, 1
+```
+
+### Task Board Workflow (Kanban Pattern)
+
+The coordinator agent (delegate-mode) monitors TaskBoard and orchestrates worker agents:
+
+```bash
+# Step 1: Coordinator creates task chain
+# synapse tasks create prints "Created task: <id> - <subject> (priority=N)"
+# Use awk to extract the task ID (short UUID)
+T1=$(synapse tasks create "Write tests" --priority 5 | awk '{print $3}')
+T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4 | awk '{print $3}')
+T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3 | awk '{print $3}')
+
+# Step 2: Coordinator assigns available tasks and notifies worker
+synapse tasks assign $T1 claude
+synapse send claude "Write tests for auth module" --no-response --from $SYNAPSE_AGENT_ID
+
+# Step 3: Worker reports completion
+synapse tasks complete $T1
+# → $T2 becomes available (unblocked)
+
+# Step 4: Handle failure
+synapse tasks fail $T2 --reason "Missing dependency"
+synapse tasks reopen $T2   # Back to pending for retry
+```
+
+### A2A API Endpoints
+
+```
+POST /tasks/board                          # Create task
+GET  /tasks/board                          # List tasks
+POST /tasks/board/{task_id}/claim          # Claim task
+POST /tasks/board/{task_id}/complete       # Complete task
+POST /tasks/board/{task_id}/fail           # Fail task (preserves assignee, no unblock)
+POST /tasks/board/{task_id}/reopen         # Reopen completed/failed task to pending
+```
+
 **Storage:** `.synapse/task_board.db` (SQLite with WAL mode)
 
 ## Plan Approval
@@ -923,6 +1008,66 @@ synapse skills set show <name>
 | OpenCode | `.agents/skills/` |
 | Copilot | `.agents/skills/` |
 
+## CI Monitoring and Auto-Fix Skills
+
+Automated hooks and companion skills for monitoring CI, merge conflicts, and code reviews.
+
+### CI Monitoring Hooks
+
+PostToolUse hooks in `.claude/hooks/` automatically launch background monitors after `git push` or `gh pr create`:
+
+- **`check-ci-trigger.sh`**: Detects `git push` and `gh pr create` in Bash tool invocations, then launches:
+  - **`poll-ci.sh`**: Polls GitHub Actions until the run completes. Reports pass/fail via `systemMessage`. On failure, suggests `/fix-ci` (up to 2 auto-fix attempts before recommending manual intervention).
+  - **`poll-pr-status.sh`**: Checks PR mergeable state (conflict detection) and waits for CodeRabbit review. Reports merge conflicts (suggests `/fix-conflict`) and classifies review comments by severity (suggests `/fix-review` for actionable issues).
+
+### Check CI Status
+
+```
+/check-ci          # Show CI checks + merge conflict state + CodeRabbit review
+/check-ci --fix    # Show status and suggest fix commands for issues found
+/check-ci --wait   # Report if CI is still running
+```
+
+Reports:
+- GitHub Actions check results (pass/fail/running/pending)
+- Merge conflict state (MERGEABLE / CONFLICTING / computing)
+- CodeRabbit review comment count and classification
+
+With `--fix`, suggests `/fix-conflict`, `/fix-ci`, or `/fix-review` in priority order.
+
+### Fix CI Failures
+
+```
+/fix-ci             # Auto-diagnose and fix CI failures
+/fix-ci --dry-run   # Preview fixes without applying
+```
+
+Workflow: fetch failed logs -> categorize (format/lint/type/test) -> apply targeted fixes -> verify locally -> commit and push. Max 1 retry per failure category.
+
+### Fix Merge Conflicts
+
+```
+/fix-conflict             # Auto-resolve merge conflicts
+/fix-conflict --dry-run   # Show conflicts without resolving
+```
+
+Workflow: fetch base branch -> test merge -> identify conflicts -> analyze both sides -> resolve -> verify (ruff + pytest) -> commit and push. Aborts on binary conflicts or >10 conflicting files.
+
+### Fix CodeRabbit Review Comments
+
+```
+/fix-review             # Auto-fix actionable CodeRabbit comments
+/fix-review --dry-run   # Preview without applying
+/fix-review --all       # Also attempt suggestion-category fixes
+```
+
+Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Security, Style, Suggestion) -> apply fixes for actionable categories -> verify locally -> commit and push.
+
+**Comment Classification:**
+- **Bug/Security** (auto-fix): issues with `⚠️ Potential issue`, `🐛 Bug`, `🔒 Security` headers or bug-related keywords
+- **Style** (auto-fix): nitpicks, formatting, naming issues; delegates to `ruff check --fix` and `ruff format` when applicable
+- **Suggestion** (report only): refactoring ideas, performance hints; only auto-fixed with `--all` flag
+
 ## Storage Locations
 
 ```text
@@ -932,6 +1077,7 @@ synapse skills set show <name>
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
+/tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
 ```
 
 **Note:** UDS socket location can be customized with `SYNAPSE_UDS_DIR` environment variable.

@@ -24,37 +24,37 @@ synapse list
 
 ```bash
 # Delegate a task (no reply needed)
-synapse send codex "Please refactor the authentication module" --no-response --from synapse-claude-8100
+synapse send codex "Please refactor the authentication module" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 ### Request with Reply
 
 ```bash
 # Ask a question and wait for response
-synapse send gemini "What is the best approach for caching?" --response --from synapse-claude-8100
+synapse send gemini "What is the best approach for caching?" --response --from $SYNAPSE_AGENT_ID
 ```
 
 ### With Priority
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --response --from synapse-claude-8100
+synapse send gemini "Status update?" --priority 4 --response --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 ```
 
 ### Broadcast to All Agents
 
 ```bash
 # Ask all agents in the same directory for a status check
-synapse broadcast "Status check - what are you working on?" --response --from synapse-claude-8100
+synapse broadcast "Status check - what are you working on?" --response --from $SYNAPSE_AGENT_ID
 
 # Notify all agents of a completed build
-synapse broadcast "FYI: Build passed, main branch updated" --no-response --from synapse-claude-8100
+synapse broadcast "FYI: Build passed, main branch updated" --no-response --from $SYNAPSE_AGENT_ID
 
 # Urgent broadcast to stop all work
-synapse broadcast "STOP: Critical bug found in shared module" --priority 4 --from synapse-claude-8100
+synapse broadcast "STOP: Critical bug found in shared module" --priority 4 --from $SYNAPSE_AGENT_ID
 ```
 
 ## File Coordination Example
@@ -69,7 +69,7 @@ synapse list
 synapse file-safety locks
 
 # 3. Send task
-synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response --from synapse-claude-8100
+synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response --from $SYNAPSE_AGENT_ID
 
 # 4. Monitor progress
 synapse file-safety locks
@@ -87,7 +87,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --response --from synapse-claude-8100
+   synapse send gemini "What's your progress on src/auth.py?" --response --from $SYNAPSE_AGENT_ID
 ```
 
 ## Collaborative Development
@@ -99,7 +99,7 @@ Options:
 # Make changes to src/feature.py
 
 # Send for review (wait for feedback)
-synapse send codex "Please review the changes in src/feature.py" --response --from synapse-claude-8100
+synapse send codex "Please review the changes in src/feature.py" --response --from $SYNAPSE_AGENT_ID
 
 # Terminal 2 (Codex): Reply after reviewing
 synapse reply "LGTM. Two suggestions: ..."
@@ -109,8 +109,8 @@ synapse reply "LGTM. Two suggestions: ..."
 
 ```bash
 # Ask multiple agents simultaneously (no reply needed - they'll work independently)
-synapse send gemini "Research best practices for authentication" --no-response --from synapse-claude-8100
-synapse send codex "Check how other projects implement this pattern" --no-response --from synapse-claude-8100
+synapse send gemini "Research best practices for authentication" --no-response --from $SYNAPSE_AGENT_ID
+synapse send codex "Check how other projects implement this pattern" --no-response --from $SYNAPSE_AGENT_ID
 ```
 
 ## Monitoring Tasks
@@ -173,8 +173,8 @@ synapse gemini --name worker-1
 synapse codex --name worker-2
 
 # Coordinator delegates tasks
-synapse send worker-1 "Implement auth in src/auth.py" --from synapse-claude-8100
-synapse send worker-2 "Write tests in tests/test_auth.py" --from synapse-claude-8100
+synapse send worker-1 "Implement auth in src/auth.py" --from $SYNAPSE_AGENT_ID
+synapse send worker-2 "Write tests in tests/test_auth.py" --from $SYNAPSE_AGENT_ID
 ```
 
 ### Coordinator + Worker with Worktree Isolation
@@ -350,6 +350,58 @@ synapse kill Fixer -f
   ```
   This works in all terminals but is most useful with `tmux` where the spawning shell remains interactive.
 
+## CI Monitoring and Auto-Fix Workflow
+
+### Automatic CI Monitoring (via hooks)
+
+After `git push` or `gh pr create`, PostToolUse hooks automatically launch background monitors:
+
+```text
+git push
+  └─ check-ci-trigger.sh (PostToolUse hook)
+       ├─ poll-ci.sh          → polls GitHub Actions → reports pass/fail
+       └─ poll-pr-status.sh   → checks merge conflicts + CodeRabbit review
+```
+
+You receive `systemMessage` notifications:
+- `[CI Monitor] CI PASSED on feature/x (abc1234)` — all green
+- `[CI Monitor] CI FAILED on feature/x (abc1234)` — suggests `/fix-ci`
+- `[PR Monitor] Merge conflict detected on PR #42` — suggests `/fix-conflict`
+- `[PR Monitor] CodeRabbit review on PR #42` — classifies comments, suggests `/fix-review`
+
+### Manual CI Check and Fix
+
+```bash
+# 1. Check current CI status manually
+/check-ci
+
+# 2. If issues found, fix them in priority order:
+/fix-conflict        # Resolve merge conflicts first (if any)
+/fix-ci              # Fix CI failures (lint, format, type, test)
+/fix-review          # Address CodeRabbit review comments
+
+# 3. Preview without applying changes
+/fix-ci --dry-run
+/fix-conflict --dry-run
+/fix-review --dry-run
+
+# 4. Check status again after fixes
+/check-ci
+```
+
+### Typical Fix Cycle
+
+```text
+git push
+  → CI fails (lint error)
+  → [CI Monitor] suggests /fix-ci
+  → /fix-ci → applies ruff fix → verifies → pushes
+  → CI passes
+  → [PR Monitor] CodeRabbit has 2 bugs, 1 style issue
+  → /fix-review → fixes bugs + style → verifies → pushes
+  → CI passes, review clean
+```
+
 ## Troubleshooting
 
 ### Agent Not Responding
@@ -361,12 +413,12 @@ synapse kill Fixer -f
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --response --from <your_agent_id>
+   synapse send <agent> "Status?" --priority 4 --response --from $SYNAPSE_AGENT_ID
    ```
 
 3. Emergency stop:
    ```bash
-   synapse send <agent> "STOP" --priority 5 --from <your_agent_id>
+   synapse send <agent> "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
    ```
 
 ### Agent Not Found
