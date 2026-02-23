@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.7] - 2026-02-23
 
+### Added
+
+- **CI conflict detection**: `poll-pr-status.sh` hook monitors PR mergeable state and reports merge conflicts via systemMessage, suggesting `/fix-conflict` for auto-resolution
+- **CodeRabbit review monitoring**: `poll-pr-status.sh` polls for CodeRabbit bot reviews, classifies inline comments by severity (bug/style/suggestion), and suggests `/fix-review` for actionable issues
+- **`/fix-conflict` skill**: Auto-resolves merge conflicts via test merge, conflict analysis, resolution, local verification, and push
+- **`/fix-review` skill**: Auto-fixes CodeRabbit bug/style comments with keyword-based classification; reports suggestions without modifying code
+- **`/check-ci` extended**: Now shows merge conflict state and CodeRabbit review status alongside CI checks; `--fix` flag suggests all available fix commands in priority order
+
 ### Documentation
 
 - **Worktree/tool_args accuracy**: Corrected documentation that incorrectly claimed Synapse filters `--worktree` by agent type — Synapse forwards all `tool_args` to every agent; only Claude Code acts on `--worktree`
@@ -15,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Gitignore recommendations**: Added `.claude/worktrees/` to recommended `.gitignore` entries; added `.venv/` to not-copied file examples for consistency
 - **Cross-references**: Added link from team start worktree example to "Worktree の注意事項" section in `guides/usage.md`
 - **Skill copy sync**: Synchronized `.agents/` and `.gemini/` skill copies with canonical `plugins/` source
+- **CI Automation docs**: Added CI hooks/skills to CLAUDE.md architecture, README features/skills tables, and plugin skill references
+- **Default base branch**: Explicitly documented `main` as default PR base branch in CLAUDE.md Branch Management Rules
 
 ## [0.6.6] - 2026-02-20
 
