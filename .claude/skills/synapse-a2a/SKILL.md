@@ -111,7 +111,16 @@ Agents in current directory:
 Use --force to send anyway.
 ```
 
-If no agents are running in the sender's directory, the warning suggests `synapse spawn` instead.
+If no agents are running in the sender's directory, the warning suggests `synapse spawn` instead:
+
+```text
+Warning: Target agent "my-claude" is in a different directory:
+  Sender:  /home/user/project-a
+  Target:  /home/user/project-b
+No agents in current directory. Spawn one with:
+  synapse spawn gemini --name <name>
+Use --force to send anyway.
+```
 
 To bypass the check, use `--force`:
 

@@ -161,7 +161,7 @@ class TestWarnWorkingDirMismatch:
         spawn_line = [
             line for line in captured.err.split("\n") if "synapse spawn" in line
         ][0]
-        assert "claude" not in spawn_line.lower() or "gemini" in spawn_line.lower()
+        assert "claude" not in spawn_line.lower()
 
     def test_spawn_suggests_target_model_when_no_sender_id(self, capsys):
         """When no sender ID, suggest target's model type."""
