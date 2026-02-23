@@ -522,7 +522,9 @@ class TerminalController:
             f"A2A protocol guidelines and other instructions.\n"
             f"Replace {{{{agent_id}}}} with {self.agent_id}, "
             f"{{{{agent_name}}}} with {display_name}, and "
-            f"{{{{port}}}} with {self.port} when following instructions."
+            f"{{{{port}}}} with {self.port} when following instructions.\n"
+            f"Use $SYNAPSE_AGENT_ID (already set to {self.agent_id}) for "
+            f"--from flags in synapse send/reply commands."
         )
 
         return format_a2a_message(message)

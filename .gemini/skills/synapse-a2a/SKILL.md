@@ -84,6 +84,8 @@ synapse send codex-8120 "Fix this bug" --response --priority 3 --from $SYNAPSE_A
 - Always use `--from` with your **agent ID** (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
 - By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
 
+**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse at startup. Always use it for `--from` — never copy example IDs.
+
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
 2. Exact ID: `synapse-claude-8100` (direct match)
@@ -165,7 +167,7 @@ synapse reply --list-targets
 synapse reply "Here is my analysis..." --to <sender_id>
 
 # In sandboxed environments (like Codex), specify your agent ID
-synapse reply "Here is my analysis..." --from <your_agent_id>
+synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 ```
 
 **Example - Question received (MUST reply):**
@@ -375,7 +377,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
-- **Worktree Isolation**: Pass `-- --worktree` when spawning Claude to give it an isolated git worktree, preventing file conflicts in multi-agent setups (Claude only)
+- **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
 
 ### Task Board Workflow Pattern (Kanban)
 
@@ -520,9 +522,9 @@ synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 
-### Worktree Isolation (Claude Only)
+### Worktree Isolation (Claude Code flag, passed via `--`)
 
-When spawning Claude agents, consider using `--worktree` to give each agent an isolated copy of the repository. This prevents file conflicts when multiple agents edit the same codebase.
+`--worktree` is a Claude Code flag. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it. Consider using it to give each agent an isolated copy of the repository, preventing file conflicts when multiple agents edit the same codebase.
 
 **Decision Table:**
 
@@ -544,6 +546,8 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
 
 # Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
+# If non-Claude agents may error on unknown flags, target Claude only:
+synapse team start claude -- --worktree
 ```
 
 **Caveats:**
@@ -559,7 +563,7 @@ synapse team start claude gemini -- --worktree
 - **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
 - **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
-- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from <spawned-agent-id>` for bidirectional communication.
+- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` for bidirectional communication.
 
 ## Path Overrides
 
