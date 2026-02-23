@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2026-02-23
+
+### Added
+
+- Add working_dir mismatch warning to `synapse send` and `synapse interrupt` with `--force` bypass (#266)
+- Add WORKING_DIR column to `synapse list` non-TTY text output
+- Add learning mode with independent prompt improvement and translation flags (#268)
+
 ## [0.6.7] - 2026-02-23
 
 ### Added
