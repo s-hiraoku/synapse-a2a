@@ -144,7 +144,7 @@ synapse reset --scope both -f             # Reset both without confirmation
 
 # Soft interrupt (shorthand for send -p 4 --no-response)
 synapse interrupt claude "Stop and review"                  # Interrupt an agent
-synapse interrupt gemini "Check status" --from synapse-claude-8100  # With explicit sender
+synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"  # With explicit sender
 
 # Broadcast message to all agents in current directory
 synapse broadcast "Status check"                           # Send to all agents
