@@ -360,6 +360,25 @@ class TaskBoard:
             finally:
                 conn.close()
 
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
+        """Get a single task by ID.
+
+        Args:
+            task_id: The task ID.
+
+        Returns:
+            Task dict or None if not found.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                row = conn.execute(
+                    "SELECT * FROM board_tasks WHERE id = ?", (task_id,)
+                ).fetchone()
+                return self._row_to_dict(row) if row else None
+            finally:
+                conn.close()
+
     def list_tasks(
         self,
         status: str | None = None,

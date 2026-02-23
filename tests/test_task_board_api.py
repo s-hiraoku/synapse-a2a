@@ -109,3 +109,45 @@ class TestTaskBoardEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert "unblocked" in data
+
+    def test_fail_task_via_api(self, app_client):
+        """POST /tasks/board/{id}/fail should fail an in_progress task."""
+        create_resp = app_client.post(
+            "/tasks/board",
+            json={"subject": "Test", "description": "", "created_by": "claude"},
+        )
+        task_id = create_resp.json()["id"]
+        app_client.post(
+            f"/tasks/board/{task_id}/claim",
+            json={"agent_id": "synapse-claude-8100"},
+        )
+
+        response = app_client.post(
+            f"/tasks/board/{task_id}/fail",
+            json={"agent_id": "synapse-claude-8100", "reason": "Tests failed"},
+        )
+        assert response.status_code == 200
+        assert response.json()["failed"] is True
+
+    def test_fail_task_not_found_returns_404(self, app_client):
+        """POST /tasks/board/{id}/fail with non-existent task returns 404."""
+        response = app_client.post(
+            "/tasks/board/nonexistent-id/fail",
+            json={"agent_id": "synapse-claude-8100", "reason": "Error"},
+        )
+        assert response.status_code == 404
+
+    def test_fail_task_wrong_state_returns_409(self, app_client):
+        """POST /tasks/board/{id}/fail on pending task returns 409."""
+        create_resp = app_client.post(
+            "/tasks/board",
+            json={"subject": "Test", "description": "", "created_by": "claude"},
+        )
+        task_id = create_resp.json()["id"]
+
+        # Task is pending, not in_progress — should be 409
+        response = app_client.post(
+            f"/tasks/board/{task_id}/fail",
+            json={"agent_id": "synapse-claude-8100", "reason": "Error"},
+        )
+        assert response.status_code == 409

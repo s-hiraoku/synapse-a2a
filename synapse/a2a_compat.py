@@ -1030,11 +1030,14 @@ def create_a2a_router(
         from synapse.task_board import TaskBoard
 
         board = TaskBoard.from_env()
+        task = board.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
         updated = board.fail_task(task_id, request.agent_id, reason=request.reason)
         if not updated:
             raise HTTPException(
-                status_code=404,
-                detail=f"Task {task_id} not found or not in_progress for {request.agent_id}",
+                status_code=409,
+                detail="Task cannot be failed (not in_progress or assignee mismatch)",
             )
         return {"failed": True, "task_id": task_id}
 

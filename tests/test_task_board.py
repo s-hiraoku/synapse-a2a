@@ -700,3 +700,28 @@ class TestTaskBoardMigration:
         tasks = board.list_tasks()
         task = next(t for t in tasks if t["id"] == task_id)
         assert task["fail_reason"] == "Test failure"
+
+
+class TestTaskBoardGetTask:
+    """Tests for get_task functionality."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_get_existing_task(self, board):
+        """get_task should return a task dict for an existing task."""
+        task_id = board.create_task(
+            subject="Test", description="desc", created_by="claude"
+        )
+        task = board.get_task(task_id)
+        assert task is not None
+        assert task["id"] == task_id
+        assert task["subject"] == "Test"
+        assert task["description"] == "desc"
+
+    def test_get_missing_task(self, board):
+        """get_task should return None for a non-existent task."""
+        assert board.get_task("nonexistent-id") is None

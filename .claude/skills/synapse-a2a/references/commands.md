@@ -844,12 +844,14 @@ The coordinator agent (delegate-mode) monitors TaskBoard and orchestrates worker
 
 ```bash
 # Step 1: Coordinator creates task chain
-T1=$(synapse tasks create "Write tests" --priority 5)
-T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4)
-T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3)
+# synapse tasks create prints "Created task: <id> - <subject> (priority=N)"
+# Use awk to extract the task ID (short UUID)
+T1=$(synapse tasks create "Write tests" --priority 5 | awk '{print $3}')
+T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4 | awk '{print $3}')
+T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3 | awk '{print $3}')
 
-# Step 2: Coordinator assigns available tasks
-synapse tasks assign $T1 synapse-claude-8100
+# Step 2: Coordinator assigns available tasks and notifies worker
+synapse tasks assign $T1 claude
 synapse send claude "Write tests for auth module" --no-response --from $SYNAPSE_AGENT_ID
 
 # Step 3: Worker reports completion

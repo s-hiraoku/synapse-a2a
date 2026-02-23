@@ -3399,7 +3399,7 @@ Priority levels:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse interrupt claude "Stop and review"
-  synapse interrupt gemini "Check status" --from synapse-claude-8100""",
+  synapse interrupt gemini "Check status" --from $SYNAPSE_AGENT_ID""",
     )
     p_interrupt.add_argument("target", help="Target agent (claude, codex, gemini)")
     p_interrupt.add_argument("message", help="Interrupt message to send")
