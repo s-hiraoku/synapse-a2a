@@ -850,7 +850,7 @@ T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3)
 
 # Step 2: Coordinator assigns available tasks
 synapse tasks assign $T1 synapse-claude-8100
-synapse send claude "Write tests for auth module" --no-response
+synapse send claude "Write tests for auth module" --no-response --from $SYNAPSE_AGENT_ID
 
 # Step 3: Worker reports completion
 synapse tasks complete $T1

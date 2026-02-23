@@ -199,7 +199,7 @@ synapse tasks create "Task subject" -d "description"  # Create task
 synapse tasks create "Task subject" -d "description" --priority 4  # Create with priority (1-5, default 3)
 synapse tasks assign <task_id> claude     # Assign task to agent
 synapse tasks complete <task_id>          # Mark task completed
-synapse tasks fail <task_id> --reason "reason"  # Mark task failed
+synapse tasks fail <task_id> [--reason "reason"]  # Mark task failed
 synapse tasks reopen <task_id>            # Reopen completed/failed task → pending
 
 # Agent Teams: Plan Approval (B3)

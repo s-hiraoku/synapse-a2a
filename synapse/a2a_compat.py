@@ -946,7 +946,7 @@ def create_a2a_router(
         description: str = ""
         created_by: str
         blocked_by: list[str] | None = None
-        priority: int = 3
+        priority: int = Field(default=3, ge=1, le=5)
 
     class BoardTaskClaim(BaseModel):
         """Request model for claiming a board task."""

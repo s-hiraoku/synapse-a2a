@@ -646,7 +646,7 @@ class HistoryManager:
                         if not isinstance(meta, dict):
                             continue
                         tokens = meta.get("tokens")
-                        if not tokens:
+                        if not tokens or not isinstance(tokens, dict):
                             continue
 
                         inp = tokens.get("input_tokens") or 0

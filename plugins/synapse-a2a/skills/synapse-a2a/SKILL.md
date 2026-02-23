@@ -201,7 +201,7 @@ synapse send gemini "Analyze this" --response --from $SYNAPSE_AGENT_ID
 synapse send claude "Urgent review needed" --response --priority 4 --from $SYNAPSE_AGENT_ID
 
 # Soft interrupt (shorthand for send -p 4 --no-response)
-synapse interrupt gemini "Stop and review" --from synapse-claude-8100
+synapse interrupt gemini "Stop and review" --from $SYNAPSE_AGENT_ID
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID

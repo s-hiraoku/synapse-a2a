@@ -374,7 +374,7 @@ synapse interrupt <target> <message> [--from AGENT_ID]
 
 ```bash
 synapse interrupt claude "Stop and review"
-synapse interrupt gemini "Check status" --from synapse-claude-8100
+synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"
 ```
 
 ---
@@ -1202,18 +1202,16 @@ synapse tasks reopen task-1
 ```
                     claim_task()
     pending ────────────────────→ in_progress
-       ▲                            │   │
-       │         reopen             │   │  complete
-       ├────────────────────────────┘   │
-       │                                ▼
-       │         reopen             completed
-       ├────────────────────────────────┘
-       │
-       │         reopen
-       ├──────────────────────────── failed
-                                       ▲
-                                       │  fail
-                                   in_progress
+       ▲                                │
+       │                        ┌───────┴───────┐
+       │                        │               │
+       │                   complete_task    fail_task
+       │                        │               │
+       │                        ▼               ▼
+       │  reopen_task       completed        failed
+       ├────────────────────────┘               │
+       │  reopen_task                           │
+       ├────────────────────────────────────────┘
 ```
 
 ---

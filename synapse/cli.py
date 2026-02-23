@@ -2311,7 +2311,13 @@ def cmd_tasks_fail(args: argparse.Namespace) -> None:
     board = TaskBoard.from_env()
     agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
     reason = getattr(args, "reason", "") or ""
-    board.fail_task(args.task_id, agent_id, reason=reason)
+    updated = board.fail_task(args.task_id, agent_id, reason=reason)
+    if not updated:
+        print(
+            f"Error: Task {args.task_id[:8]} not found or not in_progress for {agent_id}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(f"Failed task: {args.task_id[:8]}")
     if reason:
         print(f"Reason: {reason}")
