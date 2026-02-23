@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Branch Management Rules
 
+- **Default base branch is `main`** — All PRs should target `main` unless explicitly instructed otherwise
 - **Do NOT change branches during active work** - Stay on the current branch until the task is complete
 - **If branch change is needed**, always ask the user for confirmation first
 - Before switching branches, ensure all changes are committed or stashed
