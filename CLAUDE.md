@@ -147,6 +147,7 @@ synapse reset --scope both -f             # Reset both without confirmation
 # Soft interrupt (shorthand for send -p 4 --no-response)
 synapse interrupt claude "Stop and review"                  # Interrupt an agent
 synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"  # With explicit sender
+synapse interrupt claude "Stop" --force                     # Bypass working_dir mismatch check
 
 # Broadcast message to all agents in current directory
 synapse broadcast "Status check"                           # Send to all agents
@@ -163,6 +164,11 @@ synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID --response
 synapse send gemini "Analyze this" --from $SYNAPSE_AGENT_ID --response
 synapse send codex "Process this" --from $SYNAPSE_AGENT_ID --no-response
+
+# Working directory mismatch warning:
+# synapse send checks if sender CWD matches target's working_dir.
+# If different, it warns and exits with code 1. Use --force to bypass.
+synapse send claude "Review this" --from $SYNAPSE_AGENT_ID --force  # Bypass working_dir check
 
 # Send to specific instance when multiple agents of same type exist
 synapse send claude-8100 "Hello" --from $SYNAPSE_AGENT_ID

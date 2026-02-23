@@ -31,6 +31,7 @@ class TestInterruptCommand:
             priority=4,
             sender=None,
             want_response=False,
+            force=False,
         )
         mock_run.assert_called_once_with(["dummy"], exit_on_error=True)
 
@@ -56,6 +57,7 @@ class TestInterruptCommand:
             priority=4,
             sender="synapse-claude-8100",
             want_response=False,
+            force=False,
         )
 
     def test_interrupt_requires_target_and_message(self):

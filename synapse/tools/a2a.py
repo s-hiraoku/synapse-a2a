@@ -356,7 +356,7 @@ def _normalize_working_dir(path_str: str | None) -> str | None:
 def _agents_in_current_working_dir(
     agents: dict[str, dict],
     cwd: str,
-    sender_id: str | None = None,
+    exclude_id: str | None = None,
 ) -> list[dict]:
     """Return agents whose working_dir matches current working directory."""
     normalized_cwd = _normalize_working_dir(cwd)
@@ -366,9 +366,82 @@ def _agents_in_current_working_dir(
     return [
         agent
         for agent in agents.values()
-        if agent.get("agent_id") != sender_id
+        if agent.get("agent_id") != exclude_id
         and _normalize_working_dir(agent.get("working_dir")) == normalized_cwd
     ]
+
+
+def _extract_agent_type_from_id(agent_id: str) -> str | None:
+    """Extract agent type from an agent ID like 'synapse-claude-8100'."""
+    parts = agent_id.split("-")
+    if len(parts) >= 2:
+        return parts[1]
+    return None
+
+
+def _suggest_spawn_type(target_type: str, sender_type: str | None) -> str:
+    """Pick an agent type to suggest for spawning, avoiding the sender's own type."""
+    from synapse.port_manager import PORT_RANGES
+
+    if not sender_type or target_type != sender_type:
+        return target_type
+
+    for agent_type in PORT_RANGES:
+        if agent_type != sender_type and agent_type != "dummy":
+            return agent_type
+
+    return target_type
+
+
+def _warn_working_dir_mismatch(
+    target_agent: dict,
+    agents: dict[str, dict],
+) -> bool:
+    """Check and warn if sender CWD differs from target's working_dir.
+
+    Returns True if mismatch detected, False otherwise.
+    """
+    target_dir = target_agent.get("working_dir")
+    if not target_dir:
+        return False
+
+    cwd = os.getcwd()
+    normalized_cwd = _normalize_working_dir(cwd)
+    normalized_target = _normalize_working_dir(target_dir)
+
+    if normalized_cwd == normalized_target:
+        return False
+
+    display_name = target_agent.get("name") or target_agent.get("agent_id", "unknown")
+
+    print(
+        f'Warning: Target agent "{display_name}" is in a different directory:',
+        file=sys.stderr,
+    )
+    print(f"  Sender:  {cwd}", file=sys.stderr)
+    print(f"  Target:  {target_dir}", file=sys.stderr)
+
+    target_id = target_agent.get("agent_id")
+    same_dir = _agents_in_current_working_dir(agents, cwd, exclude_id=target_id)
+
+    if same_dir:
+        print("Agents in current directory:", file=sys.stderr)
+        for a in same_dir:
+            name = a.get("name") or a.get("agent_id", "?")
+            atype = a.get("agent_type", "?")
+            status = a.get("status", "?")
+            print(f"  {name} ({atype}) - {status}", file=sys.stderr)
+    else:
+        sender_id = os.environ.get("SYNAPSE_AGENT_ID", "")
+        sender_type = _extract_agent_type_from_id(sender_id) if sender_id else None
+        suggest_type = _suggest_spawn_type(
+            target_agent.get("agent_type", "claude"), sender_type
+        )
+        print("No agents in current directory. Spawn one with:", file=sys.stderr)
+        print(f"  synapse spawn {suggest_type} --name <name>", file=sys.stderr)
+
+    print("Use --force to send anyway.", file=sys.stderr)
+    return True
 
 
 def _resolve_message(args: argparse.Namespace) -> str:
@@ -537,6 +610,12 @@ def cmd_send(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    # Check working_dir mismatch (skip with --force)
+    if not getattr(args, "force", False) and _warn_working_dir_mismatch(
+        target_agent, agents
+    ):
+        sys.exit(1)
+
     # Build sender metadata
     sender_info = build_sender_info(getattr(args, "sender", None))
 
@@ -614,7 +693,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
     recipients = _agents_in_current_working_dir(
         agents=agents,
         cwd=str(Path.cwd()),
-        sender_id=sender_id,
+        exclude_id=sender_id,
     )
 
     if not recipients:
@@ -888,6 +967,12 @@ def main() -> None:
         action="append",
         dest="attach",
         help="Attach a file to the message (repeatable)",
+    )
+    p_send.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Send even if target is in a different working directory",
     )
 
     # broadcast command

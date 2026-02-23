@@ -864,6 +864,7 @@ def _build_a2a_cmd(
     sender: str | None = None,
     want_response: bool | None = None,
     attachments: list[str] | None = None,
+    force: bool = False,
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand.
 
@@ -903,6 +904,8 @@ def _build_a2a_cmd(
         cmd.append("--response")
     elif want_response is False:
         cmd.append("--no-response")
+    if force:
+        cmd.append("--force")
 
     return cmd
 
@@ -963,6 +966,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
         attachments=getattr(args, "attach", None),
+        force=getattr(args, "force", False),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -976,6 +980,7 @@ def cmd_interrupt(args: argparse.Namespace) -> None:
         priority=4,
         sender=getattr(args, "sender", None),
         want_response=False,
+        force=getattr(args, "force", False),
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -3389,6 +3394,12 @@ Priority levels:
         action="store_false",
         help="Do not wait for response (fire and forget)",
     )
+    p_send.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Send even if target is in a different working directory",
+    )
     p_send.set_defaults(func=cmd_send)
 
     # interrupt (ergonomic shorthand for priority-4 send --no-response)
@@ -3405,6 +3416,12 @@ Priority levels:
     p_interrupt.add_argument("message", help="Interrupt message to send")
     p_interrupt.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_interrupt.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Send even if target is in a different working directory",
     )
     p_interrupt.set_defaults(func=cmd_interrupt)
 

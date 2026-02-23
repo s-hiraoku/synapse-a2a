@@ -62,6 +62,9 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
 | `--no-response` | Onewayモード - 送りっぱなし、返信不要 |
+| `--force` | 作業ディレクトリの不一致チェックをバイパスして送信 |
+
+**作業ディレクトリチェック**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 ### 例
 
@@ -77,6 +80,9 @@ synapse send codex "STOP" --priority 5 --from synapse-claude-8100
 
 # 応答を待つ（roundtrip）
 synapse send gemini "分析して" --response --from synapse-claude-8100
+
+# 作業ディレクトリが異なるエージェントに強制送信
+synapse send codex "テストして" --force --from synapse-claude-8100
 ```
 
 **重要:** `--from` オプションで送信元を常に指定してください。

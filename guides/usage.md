@@ -588,8 +588,11 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 | `--attach` | `-a` | - | ファイル添付（複数指定可） |
 | `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | - | - | Oneway - 送りっぱなし、返信不要 |
+| `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。待たない場合は `--no-response` を指定してください。
+
+**作業ディレクトリの不一致チェック**: `synapse send` は送信元の CWD とターゲットエージェントの `working_dir` が一致するか自動的に確認します。異なる場合は警告を表示し、終了コード 1 で終了します。同一ディレクトリのエージェント一覧、または `synapse spawn` の提案が表示されます。`--force` でチェックをバイパスできます。
 
 **例**:
 
@@ -609,6 +612,9 @@ cat ./message.txt | synapse send codex --message-file - --from synapse-claude-81
 
 # 添付ファイル付き
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --from synapse-claude-8100
+
+# 作業ディレクトリが異なるエージェントに強制送信
+synapse send codex "設計して" --force --from synapse-claude-8100
 ```
 
 **関連**:

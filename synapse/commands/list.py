@@ -618,6 +618,7 @@ class ListCommand:
                     ("ID", 24),
                     ("PORT", 8),
                     ("STATUS", 12),
+                    ("WORKING_DIR", 20),
                 ]
                 if show_file_safety:
                     columns.append(("EDITING_FILE", 20))
@@ -637,6 +638,7 @@ class ListCommand:
                         (agent.get("agent_id", "-"), 24),
                         (agent["port"], 8),
                         (agent["status"], 12),
+                        (agent.get("working_dir") or "-", 20),
                     ]
                     if show_file_safety:
                         values.append((agent.get("editing_file") or "-", 20))

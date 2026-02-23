@@ -43,7 +43,7 @@ synapse list
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
-- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel)
+- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in non-TTY text output for scripting (e.g., `synapse list | grep my-project`).
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
 
 **Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).
@@ -267,7 +267,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--force]
 ```
 
 **Target Formats (in priority order):**
@@ -291,6 +291,9 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 - `--message-file`: Read message from file (use `-` for stdin)
 - `--stdin`: Read message from stdin
 - `--attach`: Attach file(s) to message (repeatable)
+- `--force`: Bypass the working directory mismatch check (send to agents in different directories)
+
+**Working Directory Check:** Before sending, `synapse send` verifies that your current working directory matches the target agent's working directory. If they differ, the command prints a warning (listing agents in your current directory or suggesting `synapse spawn`) and exits with code 1. Use `--force` to skip this check.
 
 **Choosing --response vs --no-response:**
 
@@ -320,6 +323,9 @@ synapse send claude-8100 "What is your status?" --response --from $SYNAPSE_AGENT
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
+
+# Send to agent in a different working directory (bypasses working_dir check)
+synapse send my-claude "Cross-project info" --force --from $SYNAPSE_AGENT_ID
 ```
 
 **Sending long messages or files:**
@@ -345,7 +351,7 @@ Messages >100KB are automatically written to temp files (configurable via `SYNAP
 Shorthand for sending a priority-4, fire-and-forget message:
 
 ```bash
-synapse interrupt <target> "<message>" [--from <sender>]
+synapse interrupt <target> "<message>" [--from <sender>] [--force]
 ```
 
 Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sender>]`.
@@ -354,6 +360,7 @@ Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sen
 - `target`: Target agent (name, ID, type-port, or agent type)
 - `message`: Interrupt message to send
 - `--from, -f`: Sender agent ID (for reply identification)
+- `--force`: Bypass the working directory mismatch check
 
 **Examples:**
 ```bash
@@ -362,6 +369,9 @@ synapse interrupt claude "Stop and review"
 
 # With explicit sender
 synapse interrupt gemini "Check status" --from $SYNAPSE_AGENT_ID
+
+# Interrupt agent in a different working directory
+synapse interrupt claude "Stop" --force
 ```
 
 ### Reply Command
