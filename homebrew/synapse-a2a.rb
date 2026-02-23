@@ -52,8 +52,8 @@ class SynapseA2a < Formula
   end
 
   resource "fastapi" do
-    url "https://files.pythonhosted.org/packages/fd/cc/1b0d90ed759ff8c9dbc4800de7475d4e9256a81b97b45bd05a1affcb350a/fastapi-0.129.2.tar.gz"
-    sha256 "e2b3637a2b47856e704dbd9a3a09393f6df48e8b9cb6c7a3e26ba44d2053f9ab"
+    url "https://files.pythonhosted.org/packages/91/32/158cbf685b7d5a26f87131069da286bf10fc9fbf7fc968d169d48a45d689/fastapi-0.131.0.tar.gz"
+    sha256 "6531155e52bee2899a932c746c9a8250f210e3c3303a5f7b9f8a808bfe0548ff"
   end
 
   resource "h11" do
