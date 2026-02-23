@@ -109,6 +109,34 @@ class TestCmdListWorkingDir:
         assert "TYPE" in captured.out
         assert "PORT" in captured.out
 
+    def test_list_text_output_includes_working_dir_column(self, temp_registry, capsys):
+        """Non-TTY text output should include WORKING_DIR column and value."""
+        test_working_dir = "/home/user/my-project"
+        temp_registry.register("synapse-claude-8100", "claude", 8100)
+
+        file_path = temp_registry.registry_dir / "synapse-claude-8100.json"
+        with open(file_path) as f:
+            data = json.load(f)
+        data["working_dir"] = test_working_dir
+        with open(file_path, "w") as f:
+            json.dump(data, f)
+
+        args = MagicMock()
+        args.working_dir = None
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("sys.stdout.isatty", return_value=False),
+        ):
+            cmd_list(args)
+
+        captured = capsys.readouterr()
+        # Header should include WORKING_DIR
+        assert "WORKING_DIR" in captured.out
+        # Value should show basename of the working_dir
+        assert "my-project" in captured.out
+
     def test_list_empty_registry(self, temp_registry, capsys):
         """synapse list should handle empty registry gracefully."""
         args = MagicMock()

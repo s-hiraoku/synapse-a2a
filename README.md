@@ -577,7 +577,7 @@ synapse kill my-claude
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
-| `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --no-response`) |
+| `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --no-response`). Supports `--force` to bypass working_dir check |
 | `synapse reply <message>` | Reply to the last received A2A message |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
@@ -812,6 +812,9 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
 | `--response` | - | Roundtrip - sender waits, receiver replies with `synapse reply` |
 | `--no-response` | - | Oneway - fire and forget, no reply needed |
+| `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
+
+**Working directory check:** `synapse send` verifies that the sender's current working directory matches the target agent's `working_dir`. If they differ, a warning is shown with available agents in the current directory (or a `synapse spawn` suggestion) and the command exits with code 1. Use `--force` to bypass this check.
 
 **Examples:**
 
@@ -834,6 +837,9 @@ synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
 
 # Wait for response (roundtrip)
 synapse send gemini "Analyze this" --response --from synapse-claude-8100
+
+# Bypass working directory mismatch check
+synapse send claude "Review this" --force --from synapse-codex-8121
 ```
 
 **Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.

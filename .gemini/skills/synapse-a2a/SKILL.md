@@ -12,13 +12,13 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter by TYPE/NAME/WORKING_DIR) |
-| Send message | `synapse send <target> "<message>" --from <sender>` |
+| Send message | `synapse send <target> "<message>" --from <sender>` (warns if target is in a different working directory; use `--force` to bypass) |
 | Broadcast to cwd agents | `synapse broadcast "<message>" --from <sender>` |
 | Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
 | Reply to last message | `synapse reply "<response>"` |
 | Reply to specific sender | `synapse reply "<response>" --to <sender_id>` |
 | List reply targets | `synapse reply --list-targets` |
-| Soft interrupt (priority 4) | `synapse interrupt <target> "<message>" [--from <sender>]` |
+| Soft interrupt (priority 4) | `synapse interrupt <target> "<message>" [--from <sender>]` (same `--force` flag available) |
 | Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Kill agent (graceful) | `synapse kill <target>` (shutdown request → SIGTERM → SIGKILL, 30s budget) |
@@ -97,6 +97,28 @@ synapse send codex-8120 "Fix this bug" --response --priority 3 --from $SYNAPSE_A
 4. Type only: `claude`, `gemini`, `codex`, `opencode`, `copilot` (only if single instance)
 
 **Note:** When multiple agents of the same type are running, type-only targets (e.g., `claude`) will fail with an ambiguity error showing runnable `synapse send` commands for each matching agent. Use custom name (e.g., `my-claude`) or type-port shorthand (e.g., `claude-8100`) instead.
+
+### Working Directory Check
+
+`synapse send` and `synapse interrupt` verify that the sender's current working directory matches the target agent's working directory. If they differ, the command exits with code 1 and prints a warning:
+
+```text
+Warning: Target agent "my-claude" is in a different directory:
+  Sender:  /home/user/project-a
+  Target:  /home/user/project-b
+Agents in current directory:
+  gemini (gemini) - READY
+Use --force to send anyway.
+```
+
+If no agents are running in the sender's directory, the warning suggests `synapse spawn` instead.
+
+To bypass the check, use `--force`:
+
+```bash
+synapse send my-claude "Cross-project message" --force --from $SYNAPSE_AGENT_ID
+synapse interrupt my-claude "Urgent" --force
+```
 
 ### Choosing --response vs --no-response
 
@@ -221,7 +243,7 @@ synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
 | DONE | Task completed (auto-clears after 10s) | Blue |
 | SHUTTING_DOWN | Graceful shutdown in progress | Red |
 
-**Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`:
+**Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`. Also check WORKING_DIR to ensure the target is in the same directory (to avoid the working directory mismatch warning):
 
 ```bash
 synapse list
@@ -229,8 +251,10 @@ synapse list
 # NAME        TYPE    STATUS      PORT   WORKING_DIR
 # my-claude   claude  READY       8100   my-project      # <- has custom name
 # gemini      gemini  WAITING     8110   my-project      # <- no custom name, shows type
-# codex       codex   PROCESSING  8120   my-project      # <- busy
+# codex       codex   PROCESSING  8120   other-project   # <- different directory
 ```
+
+**Note:** Non-TTY text output (e.g., when piped or used in scripts) includes the WORKING_DIR column, making it easy to check agent directories programmatically.
 
 **Status meanings:**
 - `READY`: Safe to send messages

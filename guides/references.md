@@ -304,9 +304,11 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--attach`, `-a` | No | ファイル添付（複数指定可） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
+| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
+**Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 **例**:
 
@@ -319,6 +321,7 @@ synapse send codex "結果を教えて" --response --from synapse-claude-8100
 synapse send codex --message-file ./message.txt --from synapse-claude-8100
 echo "from stdin" | synapse send codex --stdin --from synapse-claude-8100
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --from synapse-claude-8100
+synapse send codex "設計して" --force --from synapse-claude-8100  # 作業ディレクトリ不一致でも送信
 ```
 
 ---
@@ -359,7 +362,7 @@ synapse broadcast "FYI: CI通過" --no-response
 エージェントにソフト割り込みメッセージを送信します。`synapse send <target> <message> -p 4 --no-response` の簡易コマンドです。
 
 ```bash
-synapse interrupt <target> <message> [--from AGENT_ID]
+synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -367,14 +370,16 @@ synapse interrupt <target> <message> [--from AGENT_ID]
 | `target` | Yes | 送信先エージェント（名前、ID、タイプ等） |
 | `message` | Yes | 割り込みメッセージ |
 | `--from`, `-f` | No | 送信元エージェントID |
+| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
-**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。
+**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 **例**:
 
 ```bash
 synapse interrupt claude "Stop and review"
 synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"
+synapse interrupt claude "Stop" --force   # 作業ディレクトリ不一致でも送信
 ```
 
 ---

@@ -176,6 +176,18 @@ Retry-After: 5
 ```
 **Solution:** The agent is still starting up. Wait a few seconds and retry. Priority 5 messages bypass this check. See "Readiness Gate" section above for details.
 
+### Working Directory Mismatch
+
+```text
+Warning: Target agent "my-claude" is in a different directory:
+  Sender:  /home/user/project-a
+  Target:  /home/user/project-b
+Agents in current directory:
+  gemini (gemini) - READY
+Use --force to send anyway.
+```
+**Solution:** The target agent is working in a different directory. Either send to an agent in your current directory, use `--force` to bypass the check, or spawn a new agent with `synapse spawn`.
+
 ### Agent Not Responding
 
 ```text
