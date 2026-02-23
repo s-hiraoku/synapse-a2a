@@ -106,6 +106,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         # Task board settings
         "SYNAPSE_TASK_BOARD_ENABLED": "true",
         "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
+        # Learning mode settings
+        "SYNAPSE_LEARNING_MODE_ENABLED": "false",
+        "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
     },
     "instructions": {
         "default": get_default_instructions(),
@@ -448,6 +451,10 @@ class SynapseSettings:
             instruction,
             {
                 "agent_role": display_role,
+                "learning_mode": "enabled" if self._is_learning_mode_enabled() else "",
+                "learning_translation": "enabled"
+                if self._is_learning_translation_enabled()
+                else "",
             },
         )
 
@@ -496,6 +503,12 @@ class SynapseSettings:
             "file-safety.md"
         ):
             files.append("file-safety.md")
+
+        # Learning mode (either flag enables learning.md injection)
+        if self._is_any_learning_enabled() and self._instruction_file_exists(
+            "learning.md"
+        ):
+            files.append("learning.md")
 
         return files
 
@@ -548,6 +561,10 @@ class SynapseSettings:
         if self._is_file_safety_enabled():
             add_if_exists("file-safety.md")
 
+        # Learning mode (either flag enables learning.md injection)
+        if self._is_any_learning_enabled():
+            add_if_exists("learning.md")
+
         return paths
 
     def _get_file_display_path(
@@ -584,14 +601,39 @@ class SynapseSettings:
             return False
         return self._instruction_file_exists(instruction)
 
+    def _is_env_flag_enabled(self, key: str) -> bool:
+        """Check if an environment flag is enabled via env var or settings.
+
+        Resolution order: os.environ > self.env > default (false).
+
+        Args:
+            key: The environment variable name (e.g., "SYNAPSE_FILE_SAFETY_ENABLED").
+
+        Returns:
+            True if the flag value is "true" or "1" (case-insensitive).
+        """
+        value = os.environ.get(key, "").lower()
+        if not value:
+            value = self.env.get(key, "false").lower()
+        return value in ("true", "1")
+
     def _is_file_safety_enabled(self) -> bool:
         """Check if file safety is enabled via env var or settings."""
-        file_safety_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
-        if not file_safety_enabled:
-            file_safety_enabled = self.env.get(
-                "SYNAPSE_FILE_SAFETY_ENABLED", "false"
-            ).lower()
-        return file_safety_enabled in ("true", "1")
+        return self._is_env_flag_enabled("SYNAPSE_FILE_SAFETY_ENABLED")
+
+    def _is_learning_mode_enabled(self) -> bool:
+        """Check if learning mode is enabled via env var or settings."""
+        return self._is_env_flag_enabled("SYNAPSE_LEARNING_MODE_ENABLED")
+
+    def _is_learning_translation_enabled(self) -> bool:
+        """Check if learning translation is enabled via env var or settings."""
+        return self._is_env_flag_enabled("SYNAPSE_LEARNING_MODE_TRANSLATION")
+
+    def _is_any_learning_enabled(self) -> bool:
+        """Check if any learning feature (mode or translation) is enabled."""
+        return (
+            self._is_learning_mode_enabled() or self._is_learning_translation_enabled()
+        )
 
     def _instruction_file_exists(self, filename: str) -> bool:
         """Check if an instruction file exists in .synapse directory."""
@@ -606,6 +648,7 @@ class SynapseSettings:
 
         Currently supports:
         - SYNAPSE_FILE_SAFETY_ENABLED=true: appends .synapse/file-safety.md
+        - SYNAPSE_LEARNING_MODE_ENABLED or SYNAPSE_LEARNING_MODE_TRANSLATION=true: appends .synapse/learning.md
 
         Priority: Environment variable > settings.json > default (false)
 
@@ -620,6 +663,11 @@ class SynapseSettings:
             if file_safety_content:
                 instruction = instruction + "\n\n" + file_safety_content
 
+        if self._is_any_learning_enabled():
+            learning_content = self._load_instruction_file("learning.md")
+            if learning_content:
+                instruction = instruction + "\n\n" + learning_content
+
         return instruction
 
     def _process_conditional_sections(
@@ -628,9 +676,9 @@ class SynapseSettings:
         """
         Process Mustache-style conditional sections.
 
-        Supports {{#var}}content{{/var}} syntax:
-        - If var is truthy (non-empty string), include content
-        - If var is falsy (empty string or not in variables), remove entire section
+        Supports:
+        - {{#var}}content{{/var}}: include content if var is truthy
+        - {{^var}}content{{/var}}: include content if var is falsy (inverse)
 
         Args:
             text: The template text to process.
@@ -639,18 +687,22 @@ class SynapseSettings:
         Returns:
             Processed text with conditional sections resolved.
         """
+        keep = r"\1"
+        remove = ""
+
         # Process known variables
         for var_name, value in variables.items():
-            # Pattern: {{#var}}...{{/var}} (non-greedy, multiline)
-            pattern = rf"\{{\{{#{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
-            if value:  # truthy: keep content
-                text = re.sub(pattern, r"\1", text, flags=re.DOTALL)
-            else:  # falsy: remove entire section
-                text = re.sub(pattern, "", text, flags=re.DOTALL)
+            # Positive sections: {{#var}}...{{/var}} — keep if truthy
+            pos_pattern = rf"\{{\{{#{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
+            text = re.sub(pos_pattern, keep if value else remove, text, flags=re.DOTALL)
+
+            # Inverse sections: {{^var}}...{{/var}} — keep if falsy
+            inv_pattern = rf"\{{\{{\^{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
+            text = re.sub(inv_pattern, remove if value else keep, text, flags=re.DOTALL)
 
         # Remove any remaining unprocessed conditional sections (undefined variables)
         # This prevents template syntax from appearing in final output
-        remaining_pattern = r"\{\{#\w+\}\}.*?\{\{/\w+\}\}"
+        remaining_pattern = r"\{\{[#^]\w+\}\}.*?\{\{/\w+\}\}"
         text = re.sub(remaining_pattern, "", text, flags=re.DOTALL)
 
         return text

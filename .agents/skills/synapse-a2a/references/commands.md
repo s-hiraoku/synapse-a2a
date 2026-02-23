@@ -80,6 +80,15 @@ SYNAPSE_HISTORY_ENABLED=false synapse claude
 # With File Safety enabled
 SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
+# With Learning Mode: prompt improvement feedback
+SYNAPSE_LEARNING_MODE_ENABLED=true synapse claude
+
+# With Learning Mode: Japanese-to-English translation
+SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
+
+# With both Learning Mode flags (prompt improvement + translation)
+SYNAPSE_LEARNING_MODE_ENABLED=true SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
+
 # Resume mode (skip initial instructions)
 # Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode/Copilot use --continue
 synapse claude -- --resume
@@ -522,7 +531,7 @@ synapse init
 #     Project scope (./.synapse/)
 ```
 
-Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md).
+Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md, learning.md).
 
 ### Edit Settings (Interactive TUI)
 
@@ -544,7 +553,7 @@ synapse config show --scope project    # Show project settings only
 ```
 
 **TUI Categories:**
-- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, etc.
+- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, `SYNAPSE_LEARNING_MODE_ENABLED`, `SYNAPSE_LEARNING_MODE_TRANSLATION`, etc.
 - **Instructions**: Agent-specific initial instruction files
 - **Approval Mode**: `required` (prompt before sending) or `auto` (no prompt)
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
@@ -593,6 +602,8 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 | `SYNAPSE_TASK_BOARD_ENABLED` | Enable shared task board | `true` |
 | `SYNAPSE_TASK_BOARD_DB_PATH` | Task board DB path | `.synapse/task_board.db` |
+| `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
+| `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
@@ -650,6 +661,10 @@ synapse instructions send synapse-claude-8100
 ```
 
 **Use case:** If you started an agent with `--resume` (which skips initial instructions) and later need the A2A protocol information, use `synapse instructions send <agent>` to inject the instructions.
+
+**Optional instruction files:** Additional instruction files are automatically appended based on settings:
+- `file-safety.md` — appended when `SYNAPSE_FILE_SAFETY_ENABLED=true`
+- `learning.md` — appended when either `SYNAPSE_LEARNING_MODE_ENABLED=true` or `SYNAPSE_LEARNING_MODE_TRANSLATION=true` is set (the two flags are independent). `SYNAPSE_LEARNING_MODE_ENABLED` adds a PROMPT IMPROVEMENT section; `SYNAPSE_LEARNING_MODE_TRANSLATION` adds a JP-to-EN LEARNING section (English pattern template, slot mapping, assembled prompt with JP paraphrase, quick alternatives). Either flag alone or both together enable `learning.md` injection and TIPS. The RESPONSE section uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for the learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS). Template uses `{{#learning_mode}}`/`{{#learning_translation}}` Mustache conditionals for layout switching.
 
 ## Logs
 
@@ -1008,6 +1023,66 @@ synapse skills set show <name>
 | OpenCode | `.agents/skills/` |
 | Copilot | `.agents/skills/` |
 
+## CI Monitoring and Auto-Fix Skills
+
+Automated hooks and companion skills for monitoring CI, merge conflicts, and code reviews.
+
+### CI Monitoring Hooks
+
+PostToolUse hooks in `.claude/hooks/` automatically launch background monitors after `git push` or `gh pr create`:
+
+- **`check-ci-trigger.sh`**: Detects `git push` and `gh pr create` in Bash tool invocations, then launches:
+  - **`poll-ci.sh`**: Polls GitHub Actions until the run completes. Reports pass/fail via `systemMessage`. On failure, suggests `/fix-ci` (up to 2 auto-fix attempts before recommending manual intervention).
+  - **`poll-pr-status.sh`**: Checks PR mergeable state (conflict detection) and waits for CodeRabbit review. Reports merge conflicts (suggests `/fix-conflict`) and classifies review comments by severity (suggests `/fix-review` for actionable issues).
+
+### Check CI Status
+
+```
+/check-ci          # Show CI checks + merge conflict state + CodeRabbit review
+/check-ci --fix    # Show status and suggest fix commands for issues found
+/check-ci --wait   # Report if CI is still running
+```
+
+Reports:
+- GitHub Actions check results (pass/fail/running/pending)
+- Merge conflict state (MERGEABLE / CONFLICTING / computing)
+- CodeRabbit review comment count and classification
+
+With `--fix`, suggests `/fix-conflict`, `/fix-ci`, or `/fix-review` in priority order.
+
+### Fix CI Failures
+
+```
+/fix-ci             # Auto-diagnose and fix CI failures
+/fix-ci --dry-run   # Preview fixes without applying
+```
+
+Workflow: fetch failed logs -> categorize (format/lint/type/test) -> apply targeted fixes -> verify locally -> commit and push. Max 1 retry per failure category.
+
+### Fix Merge Conflicts
+
+```
+/fix-conflict             # Auto-resolve merge conflicts
+/fix-conflict --dry-run   # Show conflicts without resolving
+```
+
+Workflow: fetch base branch -> test merge -> identify conflicts -> analyze both sides -> resolve -> verify (ruff + pytest) -> commit and push. Aborts on binary conflicts or >10 conflicting files.
+
+### Fix CodeRabbit Review Comments
+
+```
+/fix-review             # Auto-fix actionable CodeRabbit comments
+/fix-review --dry-run   # Preview without applying
+/fix-review --all       # Also attempt suggestion-category fixes
+```
+
+Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Security, Style, Suggestion) -> apply fixes for actionable categories -> verify locally -> commit and push.
+
+**Comment Classification:**
+- **Bug/Security** (auto-fix): issues with `⚠️ Potential issue`, `🐛 Bug`, `🔒 Security` headers or bug-related keywords
+- **Style** (auto-fix): nitpicks, formatting, naming issues; delegates to `ruff check --fix` and `ruff format` when applicable
+- **Suggestion** (report only): refactoring ideas, performance hints; only auto-fixed with `--all` flag
+
 ## Storage Locations
 
 ```text
@@ -1017,6 +1092,7 @@ synapse skills set show <name>
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
+/tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
 ```
 
 **Note:** UDS socket location can be customized with `SYNAPSE_UDS_DIR` environment variable.

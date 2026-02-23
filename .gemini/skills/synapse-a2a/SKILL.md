@@ -67,6 +67,10 @@ Inter-agent communication framework via Google A2A Protocol.
 | Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
+| Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
+| Fix CI failures | `/fix-ci` (auto-diagnose and fix GitHub Actions failures) |
+| Fix merge conflicts | `/fix-conflict` (auto-resolve PR merge conflicts) |
+| Fix CodeRabbit review | `/fix-review` (auto-address CodeRabbit inline comments) |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
@@ -366,6 +370,12 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`). Skill set details (name, description, skills) are included in agent initial instructions when selected.
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
+- **Learning Mode**: Append structured learning feedback to agent responses.
+  - `SYNAPSE_LEARNING_MODE_ENABLED=true` — adds PROMPT IMPROVEMENT section (Goal/Problem/Fix, recommended rewrite, detail-level options)
+  - `SYNAPSE_LEARNING_MODE_TRANSLATION=true` — adds JP→EN LEARNING section (reusable English pattern, slot mapping, assembled prompt with JP paraphrase, quick alternatives)
+  - Either flag can be used alone or together. When either flag is enabled, `.synapse/learning.md` is auto-injected and TIPS are appended.
+  - **Formatting rule**: RESPONSE uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS).
+  - **Mustache conditionals**: `{{#learning_mode}}...{{/learning_mode}}` and `{{#learning_translation}}...{{/learning_translation}}` include content when the flag is enabled. Inverse sections `{{^learning_mode}}...{{/learning_mode}}` and `{{^learning_translation}}...{{/learning_translation}}` include content when the flag is disabled/unset. Both positive and inverse blocks are supported in `learning.md`.
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
   - Task lifecycle: pending → in_progress → completed/failed → reopen to pending
   - Priority-based ordering (1-5, higher served first)
@@ -378,6 +388,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
 - **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
+- **CI Monitoring**: Automated PostToolUse hooks (`poll-ci.sh`, `poll-pr-status.sh`) detect `git push` and `gh pr create`, then poll GitHub Actions CI status, merge conflict state, and CodeRabbit reviews. Reports results via `systemMessage` and suggests `/fix-ci`, `/fix-conflict`, or `/fix-review` as appropriate.
 
 ### Task Board Workflow Pattern (Kanban)
 
@@ -582,3 +593,14 @@ For detailed documentation, read:
 - `references/file-safety.md` - File Safety detailed guide
 - `references/api.md` - A2A endpoints and message format
 - `references/examples.md` - Multi-agent workflow examples
+
+### Related Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
+| `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |
+| `/fix-conflict` | Auto-resolve merge conflicts with the base branch |
+| `/fix-review` | Auto-address CodeRabbit inline review comments (bug/style categories) |
+
+These skills are triggered manually or suggested by the CI monitoring hooks (`poll-ci.sh`, `poll-pr-status.sh`) after `git push` or `gh pr create`.

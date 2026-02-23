@@ -370,6 +370,12 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Skill Management**: Central skill store, deploy, import, create, skill sets (`synapse skills`). Skill set details (name, description, skills) are included in agent initial instructions when selected.
 - **Settings**: Configure via `settings.json` (`synapse init`)
 - **Approval Mode**: Control initial instruction approval (`approvalMode` in settings)
+- **Learning Mode**: Append structured learning feedback to agent responses.
+  - `SYNAPSE_LEARNING_MODE_ENABLED=true` — adds PROMPT IMPROVEMENT section (Goal/Problem/Fix, recommended rewrite, detail-level options)
+  - `SYNAPSE_LEARNING_MODE_TRANSLATION=true` — adds JP→EN LEARNING section (reusable English pattern, slot mapping, assembled prompt with JP paraphrase, quick alternatives)
+  - Either flag can be used alone or together. When either flag is enabled, `.synapse/learning.md` is auto-injected and TIPS are appended.
+  - **Formatting rule**: RESPONSE uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS).
+  - **Mustache conditionals**: `{{#learning_mode}}...{{/learning_mode}}` and `{{#learning_translation}}...{{/learning_translation}}` include content when the flag is enabled. Inverse sections `{{^learning_mode}}...{{/learning_mode}}` and `{{^learning_translation}}...{{/learning_translation}}` include content when the flag is disabled/unset. Both positive and inverse blocks are supported in `learning.md`.
 - **Shared Task Board**: Create, claim, and complete tasks with dependency tracking (`synapse tasks`)
   - Task lifecycle: pending → in_progress → completed/failed → reopen to pending
   - Priority-based ordering (1-5, higher served first)
