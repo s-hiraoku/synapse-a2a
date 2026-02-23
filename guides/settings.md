@@ -65,6 +65,7 @@ $ synapse init
 | `default.md` | 全エージェント共通の初期インストラクション |
 | `gemini.md` | Gemini 用の初期インストラクション |
 | `file-safety.md` | File Safety の指示 |
+| `learning.md` | Learning Mode の指示（構造化されたプロンプト改善・学習フィードバック） |
 
 既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます：
 
@@ -262,6 +263,8 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_LONG_MESSAGE_TTL` | メッセージファイルの有効期間（秒） | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | メッセージファイル保存先 | システム一時ディレクトリ |
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | `synapse send` の自動 temp file 化の閾値（バイト） | `102400` |
+| `SYNAPSE_LEARNING_MODE_ENABLED` | Prompt Improvement セクションを有効化（Goal/Problem/Fix、推奨リライト、詳細レベル別オプション）。TRANSLATION と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
+| `SYNAPSE_LEARNING_MODE_TRANSLATION` | JP→EN Learning セクションを有効化（再利用可能な英語パターンとスロットマッピング）。LEARNING_MODE_ENABLED と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス | `~/.synapse/history/history.db` |

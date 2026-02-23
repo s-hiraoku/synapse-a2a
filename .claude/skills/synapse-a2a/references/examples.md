@@ -350,6 +350,58 @@ synapse kill Fixer -f
   ```
   This works in all terminals but is most useful with `tmux` where the spawning shell remains interactive.
 
+## CI Monitoring and Auto-Fix Workflow
+
+### Automatic CI Monitoring (via hooks)
+
+After `git push` or `gh pr create`, PostToolUse hooks automatically launch background monitors:
+
+```text
+git push
+  └─ check-ci-trigger.sh (PostToolUse hook)
+       ├─ poll-ci.sh          → polls GitHub Actions → reports pass/fail
+       └─ poll-pr-status.sh   → checks merge conflicts + CodeRabbit review
+```
+
+You receive `systemMessage` notifications:
+- `[CI Monitor] CI PASSED on feature/x (abc1234)` — all green
+- `[CI Monitor] CI FAILED on feature/x (abc1234)` — suggests `/fix-ci`
+- `[PR Monitor] Merge conflict detected on PR #42` — suggests `/fix-conflict`
+- `[PR Monitor] CodeRabbit review on PR #42` — classifies comments, suggests `/fix-review`
+
+### Manual CI Check and Fix
+
+```bash
+# 1. Check current CI status manually
+/check-ci
+
+# 2. If issues found, fix them in priority order:
+/fix-conflict        # Resolve merge conflicts first (if any)
+/fix-ci              # Fix CI failures (lint, format, type, test)
+/fix-review          # Address CodeRabbit review comments
+
+# 3. Preview without applying changes
+/fix-ci --dry-run
+/fix-conflict --dry-run
+/fix-review --dry-run
+
+# 4. Check status again after fixes
+/check-ci
+```
+
+### Typical Fix Cycle
+
+```text
+git push
+  → CI fails (lint error)
+  → [CI Monitor] suggests /fix-ci
+  → /fix-ci → applies ruff fix → verifies → pushes
+  → CI passes
+  → [PR Monitor] CodeRabbit has 2 bugs, 1 style issue
+  → /fix-review → fixes bugs + style → verifies → pushes
+  → CI passes, review clean
+```
+
 ## Troubleshooting
 
 ### Agent Not Responding

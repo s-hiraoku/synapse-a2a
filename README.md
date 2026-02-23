@@ -105,6 +105,7 @@ flowchart LR
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
+| **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 
 ---
 
@@ -1448,6 +1449,7 @@ synapse config show --scope user
 | `default.md` | Initial instructions common to all agents |
 | `gemini.md` | Gemini-specific initial instructions |
 | `file-safety.md` | File Safety instructions |
+| `learning.md` | Learning Mode instructions (structured prompt improvement and learning feedback) |
 
 ### settings.json Structure
 
@@ -1492,6 +1494,8 @@ synapse config show --scope user
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Threshold for auto temp-file fallback (bytes) | `102400` |
+| `SYNAPSE_LEARNING_MODE_ENABLED` | Enable Prompt Improvement section (Goal/Problem/Fix, recommended rewrite, detail-level options). Independent of TRANSLATION flag. Either flag enables `learning.md` injection and Tips | `false` |
+| `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable JP-to-EN Learning section (reusable English patterns with slot mapping). Independent of LEARNING_MODE_ENABLED flag. Either flag enables `learning.md` injection and Tips | `false` |
 
 ### A2A Communication Settings (a2a)
 

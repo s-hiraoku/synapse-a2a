@@ -80,6 +80,15 @@ SYNAPSE_HISTORY_ENABLED=false synapse claude
 # With File Safety enabled
 SYNAPSE_FILE_SAFETY_ENABLED=true synapse claude
 
+# With Learning Mode: prompt improvement feedback
+SYNAPSE_LEARNING_MODE_ENABLED=true synapse claude
+
+# With Learning Mode: Japanese-to-English translation
+SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
+
+# With both Learning Mode flags (prompt improvement + translation)
+SYNAPSE_LEARNING_MODE_ENABLED=true SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
+
 # Resume mode (skip initial instructions)
 # Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode/Copilot use --continue
 synapse claude -- --resume
@@ -522,7 +531,7 @@ synapse init
 #     Project scope (./.synapse/)
 ```
 
-Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md).
+Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md, learning.md).
 
 ### Edit Settings (Interactive TUI)
 
@@ -544,7 +553,7 @@ synapse config show --scope project    # Show project settings only
 ```
 
 **TUI Categories:**
-- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, etc.
+- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, `SYNAPSE_LEARNING_MODE_ENABLED`, `SYNAPSE_LEARNING_MODE_TRANSLATION`, etc.
 - **Instructions**: Agent-specific initial instruction files
 - **Approval Mode**: `required` (prompt before sending) or `auto` (no prompt)
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
@@ -593,6 +602,8 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 | `SYNAPSE_TASK_BOARD_ENABLED` | Enable shared task board | `true` |
 | `SYNAPSE_TASK_BOARD_DB_PATH` | Task board DB path | `.synapse/task_board.db` |
+| `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
+| `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
@@ -650,6 +661,10 @@ synapse instructions send synapse-claude-8100
 ```
 
 **Use case:** If you started an agent with `--resume` (which skips initial instructions) and later need the A2A protocol information, use `synapse instructions send <agent>` to inject the instructions.
+
+**Optional instruction files:** Additional instruction files are automatically appended based on settings:
+- `file-safety.md` — appended when `SYNAPSE_FILE_SAFETY_ENABLED=true`
+- `learning.md` — appended when either `SYNAPSE_LEARNING_MODE_ENABLED=true` or `SYNAPSE_LEARNING_MODE_TRANSLATION=true` is set (the two flags are independent). `SYNAPSE_LEARNING_MODE_ENABLED` adds a PROMPT IMPROVEMENT section; `SYNAPSE_LEARNING_MODE_TRANSLATION` adds a JP-to-EN LEARNING section (English pattern template, slot mapping, assembled prompt with JP paraphrase, quick alternatives). Either flag alone or both together enable `learning.md` injection and TIPS. The RESPONSE section uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for the learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS). Template uses `{{#learning_mode}}`/`{{#learning_translation}}` Mustache conditionals for layout switching.
 
 ## Logs
 
