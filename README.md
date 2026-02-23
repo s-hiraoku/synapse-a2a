@@ -72,6 +72,7 @@ flowchart LR
 - [Registry and Port Management](#registry-and-port-management)
 - [File Safety](#file-safety)
 - [Agent Monitor](#agent-monitor)
+- [CI Automation (Claude Code)](#ci-automation-claude-code)
 - [Testing](#testing)
 - [Configuration (.synapse)](#configuration-synapse)
 - [Development & Release](#development--release)
@@ -101,6 +102,7 @@ flowchart LR
 | **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij) |
 | **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
+| **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 
 ---
 
@@ -351,6 +353,10 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
+| **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
+| **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
+| **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |
+| **fix-review** | Auto-fix CodeRabbit review comments: classify by severity (Bug/Style/Suggestion), apply fixes, verify, push |
 
 **Core Skills**: Essential skills like `synapse-a2a` are automatically deployed to agent directories on startup (best-effort) to ensure basic quality even if skill sets are skipped.
 
@@ -1329,6 +1335,47 @@ When enabled, detects agents waiting for user input (selection UI, Y/n prompts) 
 - **Codex**: Indented numbered lists
 - **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
 - **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts
+
+---
+
+## CI Automation (Claude Code)
+
+Synapse A2A includes hooks and skills for automated CI monitoring and repair when used with Claude Code.
+
+### How It Works
+
+1. **PostToolUse hook** (`check-ci-trigger.sh`) detects `git push` or `gh pr create` commands
+2. Two background monitors launch automatically:
+   - **`poll-ci.sh`** — polls GitHub Actions workflow status
+   - **`poll-pr-status.sh`** — polls merge conflict state and CodeRabbit review comments
+3. When issues are detected, the agent receives a `systemMessage` notification suggesting the appropriate fix skill
+
+### Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `/check-ci` | Manually check CI status, merge conflict state, and CodeRabbit review status. Use `--fix` to get suggested repair commands |
+| `/fix-ci` | Auto-diagnose and fix CI failures (lint, format, type-check, test) |
+| `/fix-conflict` | Auto-resolve merge conflicts by fetching the base branch, performing a test merge, analyzing both sides of each conflict, resolving, verifying locally, and pushing |
+| `/fix-review` | Auto-fix CodeRabbit review comments — classifies comments as Bug/Security (auto-fix), Style (auto-fix), or Suggestion (report only). Use `--all` to also fix suggestions |
+
+### Conflict Detection Flow
+
+```
+git push / gh pr create
+  └─→ check-ci-trigger.sh (PostToolUse hook)
+        ├─→ poll-ci.sh (background) → monitors GitHub Actions
+        └─→ poll-pr-status.sh (background)
+              ├─→ checks mergeable state → if CONFLICTING → notifies agent → /fix-conflict
+              └─→ checks CodeRabbit reviews → if comments found → classifies → notifies agent → /fix-review
+```
+
+### Setup
+
+These hooks and skills are pre-configured in `.claude/settings.json`. The following permissions are required:
+
+- `Skill(check-ci)`, `Skill(fix-ci)`, `Skill(fix-conflict)`, `Skill(fix-review)`
+- `Bash(gh api:*)`, `Bash(gh repo view:*)`, `Bash(gh pr checks:*)`
 
 ---
 

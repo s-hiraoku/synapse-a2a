@@ -923,6 +923,66 @@ synapse skills set show <name>
 | OpenCode | `.agents/skills/` |
 | Copilot | `.agents/skills/` |
 
+## CI Monitoring and Auto-Fix Skills
+
+Automated hooks and companion skills for monitoring CI, merge conflicts, and code reviews.
+
+### CI Monitoring Hooks
+
+PostToolUse hooks in `.claude/hooks/` automatically launch background monitors after `git push` or `gh pr create`:
+
+- **`check-ci-trigger.sh`**: Detects `git push` and `gh pr create` in Bash tool invocations, then launches:
+  - **`poll-ci.sh`**: Polls GitHub Actions until the run completes. Reports pass/fail via `systemMessage`. On failure, suggests `/fix-ci` (up to 2 auto-fix attempts before recommending manual intervention).
+  - **`poll-pr-status.sh`**: Checks PR mergeable state (conflict detection) and waits for CodeRabbit review. Reports merge conflicts (suggests `/fix-conflict`) and classifies review comments by severity (suggests `/fix-review` for actionable issues).
+
+### Check CI Status
+
+```
+/check-ci          # Show CI checks + merge conflict state + CodeRabbit review
+/check-ci --fix    # Show status and suggest fix commands for issues found
+/check-ci --wait   # Report if CI is still running
+```
+
+Reports:
+- GitHub Actions check results (pass/fail/running/pending)
+- Merge conflict state (MERGEABLE / CONFLICTING / computing)
+- CodeRabbit review comment count and classification
+
+With `--fix`, suggests `/fix-conflict`, `/fix-ci`, or `/fix-review` in priority order.
+
+### Fix CI Failures
+
+```
+/fix-ci             # Auto-diagnose and fix CI failures
+/fix-ci --dry-run   # Preview fixes without applying
+```
+
+Workflow: fetch failed logs -> categorize (format/lint/type/test) -> apply targeted fixes -> verify locally -> commit and push. Max 1 retry per failure category.
+
+### Fix Merge Conflicts
+
+```
+/fix-conflict             # Auto-resolve merge conflicts
+/fix-conflict --dry-run   # Show conflicts without resolving
+```
+
+Workflow: fetch base branch -> test merge -> identify conflicts -> analyze both sides -> resolve -> verify (ruff + pytest) -> commit and push. Aborts on binary conflicts or >10 conflicting files.
+
+### Fix CodeRabbit Review Comments
+
+```
+/fix-review             # Auto-fix actionable CodeRabbit comments
+/fix-review --dry-run   # Preview without applying
+/fix-review --all       # Also attempt suggestion-category fixes
+```
+
+Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Security, Style, Suggestion) -> apply fixes for actionable categories -> verify locally -> commit and push.
+
+**Comment Classification:**
+- **Bug/Security** (auto-fix): issues with `⚠️ Potential issue`, `🐛 Bug`, `🔒 Security` headers or bug-related keywords
+- **Style** (auto-fix): nitpicks, formatting, naming issues; delegates to `ruff check --fix` and `ruff format` when applicable
+- **Suggestion** (report only): refactoring ideas, performance hints; only auto-fixed with `--all` flag
+
 ## Storage Locations
 
 ```text
@@ -932,6 +992,7 @@ synapse skills set show <name>
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
+/tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
 ```
 
 **Note:** UDS socket location can be customized with `SYNAPSE_UDS_DIR` environment variable.

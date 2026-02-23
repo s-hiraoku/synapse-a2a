@@ -304,6 +304,17 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
     ├── examples.md
     └── file-safety.md
 
+.claude/hooks/                             # Claude Code PostToolUse hooks
+├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create
+├── poll-ci.sh                             # Background: polls GitHub Actions CI status
+└── poll-pr-status.sh                      # Background: polls merge conflict state + CodeRabbit reviews
+
+.claude/skills/                            # Claude Code project-local skills
+├── check-ci/SKILL.md                      # /check-ci: manual CI + conflict + review status check
+├── fix-ci/SKILL.md                        # /fix-ci: auto-fix CI failures (lint, format, type-check, test)
+├── fix-conflict/SKILL.md                  # /fix-conflict: auto-resolve merge conflicts
+└── fix-review/SKILL.md                    # /fix-review: auto-fix CodeRabbit review comments
+
 # Sync targets (auto-synced from plugins/ via sync-plugin-skills):
 .claude/skills/synapse-a2a/   # Claude Code
 .agents/skills/synapse-a2a/   # Codex / OpenCode / Copilot
@@ -313,6 +324,31 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
 ### Skill Update Rules
 
 **`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+
+### CI Automation: Hooks and Skills
+
+Claude Code の PostToolUse フックと専用スキルにより、CI 監視・修復を自動化する。
+
+**Hook チェーン**:
+1. `check-ci-trigger.sh` (PostToolUse) — `git push` / `gh pr create` を検出し、以下をバックグラウンド起動:
+   - `poll-ci.sh` — GitHub Actions の CI ステータスをポーリング
+   - `poll-pr-status.sh` — マージコンフリクト状態 + CodeRabbit レビューをポーリング
+2. `poll-pr-status.sh` は `systemMessage` JSON を出力してエージェントに通知:
+   - コンフリクト検出時: `/fix-conflict` の実行を提案
+   - CodeRabbit レビューコメント検出時: `/fix-review` の実行を提案
+
+**Skills**:
+
+| Skill | 用途 |
+|-------|------|
+| `/check-ci` | CI ステータス + コンフリクト + CodeRabbit レビューを手動確認。`--fix` で修復コマンドを提案 |
+| `/fix-ci` | GitHub Actions の失敗を自動診断・修復（lint, format, type-check, test） |
+| `/fix-conflict` | マージコンフリクトを自動解決（test merge → 解析 → resolve → verify → push） |
+| `/fix-review` | CodeRabbit レビューコメントを自動修正（Bug/Style は自動修正、Suggestion は報告のみ） |
+
+**設定** (`.claude/settings.json`):
+- `hooks.PostToolUse` に `check-ci-trigger.sh` を登録
+- `permissions.allow` に `Skill(fix-conflict)`, `Skill(fix-review)`, `Bash(gh api:*)`, `Bash(gh repo view:*)` を追加
 
 ## Key Flows
 

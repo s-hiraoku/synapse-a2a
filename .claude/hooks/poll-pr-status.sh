@@ -31,6 +31,37 @@ emit_message() {
   echo "{\"systemMessage\": ${escaped}}"
 }
 
+# ── Helper: extract a field from JSON on stdin ────────────────
+# Usage: echo "$json" | json_field <key> [<default>]
+json_field() {
+  local key="$1" default="${2:-}"
+  python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d.get('$key', '$default'))
+" 2>/dev/null || echo "$default"
+}
+
+# ── Helper: extract multiple fields from JSON on stdin ────────
+# Usage: echo "$json" | json_fields <key1> <key2> ...
+# Outputs one value per line in the order of keys provided.
+json_fields() {
+  local keys=("$@")
+  local py_keys
+  py_keys="$(printf "'%s'," "${keys[@]}")"
+  python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for k in [${py_keys}]:
+    print(d.get(k, ''))
+" 2>/dev/null
+}
+
+# ── Helper: get length of a JSON array on stdin ──────────────
+json_len() {
+  python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0"
+}
+
 # ── Helper: check if conflict was already reported ────────────
 was_conflict_reported() {
   [[ -f "$CONFLICT_REPORTED_FILE" ]]
@@ -61,23 +92,13 @@ if ! gh auth status &>/dev/null 2>&1; then
 fi
 
 # ── Step 1: Check if PR exists ────────────────────────────────
-PR_JSON="$(gh pr view --json number,url,headRefName 2>/dev/null || echo "")"
-if [[ -z "$PR_JSON" || "$PR_JSON" == "" ]]; then
+PR_JSON="$(gh pr view --json number,headRefName 2>/dev/null || echo "")"
+if [[ -z "$PR_JSON" ]]; then
   # No PR for this branch — nothing to monitor
   exit 0
 fi
 
-PR_NUM="$(echo "$PR_JSON" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('number', ''))
-" 2>/dev/null || echo "")"
-
-PR_URL="$(echo "$PR_JSON" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('url', ''))
-" 2>/dev/null || echo "")"
+PR_NUM="$(echo "$PR_JSON" | json_field number)"
 
 if [[ -z "$PR_NUM" ]]; then
   exit 0
@@ -91,20 +112,12 @@ check_conflict() {
     local merge_json
     merge_json="$(gh pr view --json mergeable,mergeStateStatus 2>/dev/null || echo "{}")"
 
+    # gh CLI returns 'MERGEABLE', 'CONFLICTING', or 'UNKNOWN' for mergeable
     local mergeable merge_state
-    mergeable="$(echo "$merge_json" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-m = d.get('mergeable', '')
-# gh CLI returns 'MERGEABLE', 'CONFLICTING', or 'UNKNOWN'
-print(str(m))
-" 2>/dev/null || echo "")"
-
-    merge_state="$(echo "$merge_json" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('mergeStateStatus', ''))
-" 2>/dev/null || echo "")"
+    local _fields
+    _fields="$(echo "$merge_json" | json_fields mergeable mergeStateStatus)"
+    mergeable="$(echo "$_fields" | sed -n '1p')"
+    merge_state="$(echo "$_fields" | sed -n '2p')"
 
     # GitHub still computing — wait and retry
     if [[ "$mergeable" == "UNKNOWN" || -z "$mergeable" ]]; then
@@ -185,16 +198,13 @@ for item in data:
     else:
         suggestions.append(entry)
 
-print(f"BUGS: {len(bugs)}")
-print(f"STYLE: {len(styles)}")
-print(f"SUGGESTIONS: {len(suggestions)}")
+categories = [("BUGS", "BUG", bugs), ("STYLE", "STYLE", styles), ("SUGGESTIONS", "SUGGESTION", suggestions)]
+for header, _, items in categories:
+    print(f"{header}: {len(items)}")
 print("---")
-for e in bugs:
-    print(f"[BUG] {e}")
-for e in styles:
-    print(f"[STYLE] {e}")
-for e in suggestions:
-    print(f"[SUGGESTION] {e}")
+for _, tag, items in categories:
+    for e in items:
+        print(f"[{tag}] {e}")
 PYTHON_EOF
 }
 
@@ -225,18 +235,11 @@ check_coderabbit_review() {
     fi
 
     # Extract review ID and state
-    local review_id review_state review_body
-    review_id="$(echo "$reviews" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('id', ''))
-" 2>/dev/null || echo "")"
-
-    review_state="$(echo "$reviews" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('state', ''))
-" 2>/dev/null || echo "")"
+    local review_id review_state
+    local _review_fields
+    _review_fields="$(echo "$reviews" | json_fields id state)"
+    review_id="$(echo "$_review_fields" | sed -n '1p')"
+    review_state="$(echo "$_review_fields" | sed -n '2p')"
 
     if [[ -z "$review_id" ]]; then
       sleep "$CODERABBIT_POLL_INTERVAL"
@@ -256,11 +259,7 @@ print(d.get('state', ''))
       2>/dev/null || echo "[]")"
 
     local comment_count
-    comment_count="$(echo "$comments" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(len(data))
-" 2>/dev/null || echo "0")"
+    comment_count="$(echo "$comments" | json_len)"
 
     mark_review_reported "$review_id"
 

@@ -63,6 +63,10 @@ Inter-agent communication framework via Google A2A Protocol.
 | Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
 | Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
 | Version info | `synapse --version` |
+| Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
+| Fix CI failures | `/fix-ci` (auto-diagnose and fix GitHub Actions failures) |
+| Fix merge conflicts | `/fix-conflict` (auto-resolve PR merge conflicts) |
+| Fix CodeRabbit review | `/fix-review` (auto-address CodeRabbit inline comments) |
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
@@ -366,6 +370,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
 - **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
+- **CI Monitoring**: Automated PostToolUse hooks (`poll-ci.sh`, `poll-pr-status.sh`) detect `git push` and `gh pr create`, then poll GitHub Actions CI status, merge conflict state, and CodeRabbit reviews. Reports results via `systemMessage` and suggests `/fix-ci`, `/fix-conflict`, or `/fix-review` as appropriate.
 
 ## Spawning Agents (Sub-Agent Delegation)
 
@@ -533,3 +538,14 @@ For detailed documentation, read:
 - `references/file-safety.md` - File Safety detailed guide
 - `references/api.md` - A2A endpoints and message format
 - `references/examples.md` - Multi-agent workflow examples
+
+### Related Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
+| `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |
+| `/fix-conflict` | Auto-resolve merge conflicts with the base branch |
+| `/fix-review` | Auto-address CodeRabbit inline review comments (bug/style categories) |
+
+These skills are triggered manually or suggested by the CI monitoring hooks (`poll-ci.sh`, `poll-pr-status.sh`) after `git push` or `gh pr create`.
