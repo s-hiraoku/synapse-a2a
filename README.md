@@ -94,12 +94,14 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
-| **Shared Task Board** | SQLite-based task coordination with dependency tracking (`synapse tasks`) |
+| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle (`synapse tasks`) |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
 | **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij) |
+| **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --no-response` to quickly interrupt an agent |
+| **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 
 ---
@@ -568,6 +570,7 @@ synapse kill my-claude
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
+| `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --no-response`) |
 | `synapse reply <message>` | Reply to the last received A2A message |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
@@ -602,9 +605,11 @@ synapse kill my-claude
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
 | `synapse tasks list` | List shared task board |
-| `synapse tasks create` | Create a task |
+| `synapse tasks create` | Create a task (supports `--priority 1-5`) |
 | `synapse tasks assign` | Assign task to agent |
 | `synapse tasks complete` | Mark task completed |
+| `synapse tasks fail` | Mark task failed (with `--reason`) |
+| `synapse tasks reopen` | Reopen completed/failed task to pending |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
@@ -729,6 +734,8 @@ synapse history stats
 # Specific agent stats
 synapse history stats --agent claude
 ```
+
+When token usage data is available (collected via `synapse/token_parser.py`), `synapse history stats` displays a TOKEN USAGE section with aggregated input/output tokens and estimated cost per agent.
 
 #### Data Export
 
@@ -875,9 +882,11 @@ python -m synapse.tools.a2a reply "Here is my response"
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
 | `/tasks/board` | GET | List shared task board |
-| `/tasks/board` | POST | Create task on board |
+| `/tasks/board` | POST | Create task on board (supports `priority` field) |
 | `/tasks/board/{id}/claim` | POST | Claim task atomically |
 | `/tasks/board/{id}/complete` | POST | Complete task |
+| `/tasks/board/{id}/fail` | POST | Mark task as failed (with optional `reason`) |
+| `/tasks/board/{id}/reopen` | POST | Reopen completed/failed task to pending |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (A2A-initiated) |

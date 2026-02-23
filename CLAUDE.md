@@ -67,6 +67,13 @@ pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fi
 # Injection observability tests
 pytest tests/test_injection_observability.py -v # INJECT/* structured logs
 
+# Soft interrupt tests
+pytest tests/test_soft_interrupt.py -v         # synapse interrupt CLI command
+
+# Token/Cost tracking tests
+pytest tests/test_token_parser.py -v           # Token parser registry + TokenUsage
+pytest tests/test_token_stats.py -v            # Token statistics aggregation
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -135,6 +142,10 @@ synapse reset                             # Interactive scope selection
 synapse reset --scope user                # Reset user settings to defaults
 synapse reset --scope both -f             # Reset both without confirmation
 
+# Soft interrupt (shorthand for send -p 4 --no-response)
+synapse interrupt claude "Stop and review"                  # Interrupt an agent
+synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"  # With explicit sender
+
 # Broadcast message to all agents in current directory
 synapse broadcast "Status check"                           # Send to all agents
 synapse broadcast "Urgent update" -p 4                     # Urgent broadcast
@@ -185,8 +196,11 @@ python -m synapse.tools.a2a send --target claude --priority 1 "message"
 synapse tasks list                        # List all tasks
 synapse tasks list --status pending       # Filter by status
 synapse tasks create "Task subject" -d "description"  # Create task
+synapse tasks create "Task subject" -d "description" --priority 4  # Create with priority (1-5, default 3)
 synapse tasks assign <task_id> claude     # Assign task to agent
 synapse tasks complete <task_id>          # Mark task completed
+synapse tasks fail <task_id> [--reason "reason"]  # Mark task failed
+synapse tasks reopen <task_id>            # Reopen completed/failed task → pending
 
 # Agent Teams: Plan Approval (B3)
 synapse approve <task_id>                 # Approve a plan
@@ -247,7 +261,7 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Target Resolution
 
-When using `synapse send`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
+When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
 
 1. **Custom name** (highest priority): `my-claude`
 2. **Full agent ID**: `synapse-claude-8100`
@@ -287,6 +301,7 @@ synapse/
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
+├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations

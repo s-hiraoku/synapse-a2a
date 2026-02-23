@@ -751,6 +751,39 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
             )
         print()
 
+    # Token usage section (non-blocking — never break stats display)
+    try:
+        token_stats = manager.get_token_statistics(
+            agent_name=args.agent if args.agent else None
+        )
+        total_in = token_stats.get("total_input_tokens", 0)
+        total_out = token_stats.get("total_output_tokens", 0)
+        if total_in > 0 or total_out > 0:
+            print("=" * 60)
+            print("TOKEN USAGE")
+            print("=" * 60)
+            print()
+            print(f"Input Tokens:    {total_in:,}")
+            print(f"Output Tokens:   {total_out:,}")
+            total_cost = token_stats.get("total_cost_usd", 0.0)
+            print(f"Total Cost:      ${total_cost:.4f}")
+            print()
+
+            by_agent = token_stats.get("by_agent")
+            if by_agent:
+                hdr = f"{'Agent':<10} {'Input':<12} {'Output':<12} {'Cost':<10}"
+                print(hdr)
+                print("-" * 44)
+                for agent, counts in sorted(by_agent.items()):
+                    print(
+                        f"{agent:<10} {counts.get('input_tokens', 0):<12,} "
+                        f"{counts.get('output_tokens', 0):<12,} "
+                        f"${counts.get('cost_usd', 0.0):<9.4f}"
+                    )
+                print()
+    except Exception:
+        pass  # Token stats are optional; never break the main stats display
+
     if args.agent:
         print(f"(Filtered by agent: {args.agent})")
 
@@ -930,6 +963,19 @@ def cmd_send(args: argparse.Namespace) -> None:
         sender=getattr(args, "sender", None),
         want_response=getattr(args, "want_response", None),
         attachments=getattr(args, "attach", None),
+    )
+    _run_a2a_command(cmd, exit_on_error=True)
+
+
+def cmd_interrupt(args: argparse.Namespace) -> None:
+    """Send a priority-4 interrupt message to an agent (fire-and-forget)."""
+    cmd = _build_a2a_cmd(
+        "send",
+        args.message,
+        target=args.target,
+        priority=4,
+        sender=getattr(args, "sender", None),
+        want_response=False,
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -2215,13 +2261,22 @@ def cmd_tasks_create(args: argparse.Namespace) -> None:
     blocked_by = getattr(args, "blocked_by", None)
     blocked_list = blocked_by.split(",") if blocked_by else None
 
+    priority = getattr(args, "priority", 3) or 3
+    if not isinstance(priority, int) or not (1 <= priority <= 5):
+        print(
+            f"Error: priority must be between 1 and 5, got {priority}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     task_id = board.create_task(
         subject=args.subject,
         description=getattr(args, "description", "") or "",
         created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
         blocked_by=blocked_list,
+        priority=priority,
     )
-    print(f"Created task: {task_id[:8]} - {args.subject}")
+    print(f"Created task: {task_id[:8]} - {args.subject} (priority={priority})")
 
 
 def cmd_tasks_assign(args: argparse.Namespace) -> None:
@@ -2247,6 +2302,39 @@ def cmd_tasks_complete(args: argparse.Namespace) -> None:
     print(f"Completed task: {args.task_id[:8]}")
     if unblocked:
         print(f"Unblocked: {', '.join(t[:8] for t in unblocked)}")
+
+
+def cmd_tasks_fail(args: argparse.Namespace) -> None:
+    """Report a task as failed."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+    reason = getattr(args, "reason", "") or ""
+    updated = board.fail_task(args.task_id, agent_id, reason=reason)
+    if not updated:
+        print(
+            f"Error: Task {args.task_id[:8]} not found or not in_progress for {agent_id}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    print(f"Failed task: {args.task_id[:8]}")
+    if reason:
+        print(f"Reason: {reason}")
+
+
+def cmd_tasks_reopen(args: argparse.Namespace) -> None:
+    """Reopen a completed or failed task."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+    result = board.reopen_task(args.task_id, agent_id)
+    if result:
+        print(f"Reopened task: {args.task_id[:8]}")
+    else:
+        print("Failed to reopen task (may be pending or in_progress)")
+        sys.exit(1)
 
 
 # ============================================================
@@ -3303,6 +3391,23 @@ Priority levels:
     )
     p_send.set_defaults(func=cmd_send)
 
+    # interrupt (ergonomic shorthand for priority-4 send --no-response)
+    p_interrupt = subparsers.add_parser(
+        "interrupt",
+        help="Send an urgent interrupt message to an agent (priority 4, fire-and-forget)",
+        description="Shorthand for 'synapse send <target> <message> -p 4 --no-response'.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse interrupt claude "Stop and review"
+  synapse interrupt gemini "Check status" --from $SYNAPSE_AGENT_ID""",
+    )
+    p_interrupt.add_argument("target", help="Target agent (claude, codex, gemini)")
+    p_interrupt.add_argument("message", help="Interrupt message to send")
+    p_interrupt.add_argument(
+        "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
+    )
+    p_interrupt.set_defaults(func=cmd_interrupt)
+
     # broadcast
     p_broadcast = subparsers.add_parser(
         "broadcast",
@@ -3940,7 +4045,7 @@ Integration with synapse list:
 
     p_tasks_list = tasks_subparsers.add_parser("list", help="List tasks")
     p_tasks_list.add_argument(
-        "--status", help="Filter by status (pending, in_progress, completed)"
+        "--status", help="Filter by status (pending, in_progress, completed, failed)"
     )
     p_tasks_list.add_argument("--agent", help="Filter by assignee agent")
     p_tasks_list.set_defaults(func=cmd_tasks_list)
@@ -3952,6 +4057,13 @@ Integration with synapse list:
     )
     p_tasks_create.add_argument(
         "--blocked-by", help="Comma-separated task IDs that block this task"
+    )
+    p_tasks_create.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        default=3,
+        help="Priority level 1-5 (default: 3, higher is more urgent)",
     )
     p_tasks_create.set_defaults(func=cmd_tasks_create)
 
@@ -3967,6 +4079,17 @@ Integration with synapse list:
     )
     p_tasks_complete.add_argument("task_id", help="Task ID to complete")
     p_tasks_complete.set_defaults(func=cmd_tasks_complete)
+
+    p_tasks_fail = tasks_subparsers.add_parser("fail", help="Report a task as failed")
+    p_tasks_fail.add_argument("task_id", help="Task ID to fail")
+    p_tasks_fail.add_argument("--reason", "-r", default="", help="Failure reason")
+    p_tasks_fail.set_defaults(func=cmd_tasks_fail)
+
+    p_tasks_reopen = tasks_subparsers.add_parser(
+        "reopen", help="Reopen a completed or failed task"
+    )
+    p_tasks_reopen.add_argument("task_id", help="Task ID to reopen")
+    p_tasks_reopen.set_defaults(func=cmd_tasks_reopen)
 
     # team - Team management (B6)
     p_team = subparsers.add_parser(
