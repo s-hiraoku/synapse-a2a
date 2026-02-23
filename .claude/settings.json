@@ -79,12 +79,31 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh api:*)",
+      "Bash(gh repo view:*)",
       "Skill(skill-creator)",
+      "Skill(fix-ci)",
+      "Skill(check-ci)",
+      "Skill(fix-conflict)",
+      "Skill(fix-review)",
       "mcp__plugin_context7_context7__resolve-library-id"
     ]
   },
   "outputStyle": "Learning",
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-ci-trigger.sh",
+            "timeout": 660
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
