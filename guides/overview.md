@@ -137,7 +137,7 @@ flowchart TB
 | **履歴** | タスク履歴 | 過去の実行結果を保存・検索 | `SYNAPSE_HISTORY_ENABLED=true` |
 | **安全** | ファイルロック | 排他制御で競合防止 | `SYNAPSE_FILE_SAFETY_ENABLED=true` |
 | | 変更追跡 | 誰が何を変更したか記録 | 同上 |
-| **学習** | Learning Mode | 2つの独立フラグで制御: `LEARNING_MODE_ENABLED` → Prompt Improvement セクション、`LEARNING_MODE_TRANSLATION` → JP→EN Learning セクション。どちらかが有効なら `learning.md` 注入と Tips が有効化。Response は通常フォーマット（セパレータなし）、構造化フォーマット（━━━ セパレータ、セクションヘッダー）はフィードバックセクション（Prompt Improvement, JP→EN Learning, Tips）のみに適用 | `SYNAPSE_LEARNING_MODE_ENABLED=true` |
+| **学習** | Learning Mode | 2つの独立フラグで制御: `LEARNING_MODE_ENABLED` → Prompt Improvement セクション、`LEARNING_MODE_TRANSLATION` → JP→EN Learning セクション。どちらかが有効なら `learning.md` 注入と Tips が有効化。Response は通常フォーマット（セパレータなし）、構造化フォーマット（━━━ セパレータ、セクションヘッダー）はフィードバックセクション（Prompt Improvement, JP→EN Learning, Tips）のみに適用 | いずれかが `true`: `SYNAPSE_LEARNING_MODE_ENABLED` or `SYNAPSE_LEARNING_MODE_TRANSLATION` |
 | | 翻訳サポート | JP→EN Learning セクションを有効化（再利用可能な英語テンプレート・スロットマッピング・意訳・語彙チートシート）。LEARNING_MODE_ENABLED と独立して動作 | `SYNAPSE_LEARNING_MODE_TRANSLATION=true` |
 | **認証** | API Key 認証 | HTTP API のアクセス制御 | `SYNAPSE_AUTH_ENABLED=true` |
 | | Webhook 通知 | タスク完了時に外部通知 | Webhook 登録時 |

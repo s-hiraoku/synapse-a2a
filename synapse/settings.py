@@ -687,11 +687,11 @@ class SynapseSettings:
         Returns:
             Processed text with conditional sections resolved.
         """
+        keep = r"\1"
+        remove = ""
+
         # Process known variables
         for var_name, value in variables.items():
-            keep = r"\1"
-            remove = ""
-
             # Positive sections: {{#var}}...{{/var}} — keep if truthy
             pos_pattern = rf"\{{\{{#{var_name}\}}\}}(.*?)\{{\{{/{var_name}\}}\}}"
             text = re.sub(pos_pattern, keep if value else remove, text, flags=re.DOTALL)
