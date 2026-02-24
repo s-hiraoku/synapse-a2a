@@ -134,6 +134,7 @@ class TerminalController:
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.status = "PROCESSING"
         self.lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self.running = False
         self.thread: threading.Thread | None = None
         self.registry = registry or AgentRegistry()
@@ -700,17 +701,18 @@ class TerminalController:
         with self.lock:
             self.status = "PROCESSING"
 
-        try:
-            if not self._write_all(data.encode("utf-8")):
-                return False
-            if submit_seq:
-                time.sleep(WRITE_PROCESSING_DELAY)
-                if not self._write_all(submit_seq.encode("utf-8")):
+        with self._write_lock:
+            try:
+                if not self._write_all(data.encode("utf-8")):
                     return False
-            return True
-        except OSError as e:
-            logger.error(f"Write to PTY failed: {e}")
-            raise
+                if submit_seq:
+                    time.sleep(WRITE_PROCESSING_DELAY)
+                    if not self._write_all(submit_seq.encode("utf-8")):
+                        return False
+                return True
+            except OSError as e:
+                logger.error(f"Write to PTY failed: {e}")
+                raise
 
     def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""

@@ -12,10 +12,14 @@ Claude Code v2.0.76 accepts CR (`\r`) for Enter, and CRLF (`\r\n`) does not subm
 # synapse/profiles/claude.yaml
 command: "claude"
 args: []
-idle_regex: "BRACKETED_PASTE_MODE"
-submit_sequence: "\r"  # CR required for Ink TUI (v2.0.76)
+submit_sequence: "\r"  # CR required for Ink TUI (v2.0.76+)
 env:
   TERM: "xterm-256color"
+idle_detection:
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
+  timeout: 0.5
 ```
 
 ## Technical Details
@@ -57,7 +61,7 @@ This is likely due to Node.js/Ink's terminal input handling which processes line
 |-----|----------|---------|
 | Bug 2 | Atomic write (data+CR in 1 call) | Split writes caused TUI apps to miss Enter |
 | Bug 3 | Atomic write + retry loop | Partial writes lost data |
-| Bug 4 | Split write + delay + retry loop | Bracketed paste mode trapped CR inside paste boundary |
+| Bug 4 | Split write + delay + retry loop | Fixed: bracketed paste mode previously trapped CR inside paste boundary |
 
 ## Comparison with Other Agents
 
