@@ -9,7 +9,10 @@ Claude Code v2.0.76 accepts CR (`\r`) for Enter, and CRLF (`\r\n`) does not subm
 ## Configuration
 
 ```yaml
-# synapse/profiles/claude.yaml
+# synapse/profiles/claude.yaml (v2.0.76+)
+# Works with both v2.0.76 and v2.1.52+:
+#   - startup_only: pattern detects first READY via ESC[?2004h
+#   - timeout 0.5s: subsequent idle detection (no pattern dependency)
 command: "claude"
 args: []
 submit_sequence: "\r"  # CR required for Ink TUI (v2.0.76+)

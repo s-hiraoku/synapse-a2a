@@ -647,14 +647,14 @@ class TerminalController:
         finally:
             self._identity_sending = False
 
-    def _write_all(self, data: bytes) -> bool:
+    def _write_all(self, data: bytes) -> None:
         """Write all bytes to master_fd, retrying on partial writes.
 
         Args:
             data: The bytes to write.
 
-        Returns:
-            True if all bytes written, False if os.write returned 0.
+        Raises:
+            OSError: If ``os.write`` returns 0 (master fd closed).
 
         Precondition:
             ``self.master_fd`` must not be ``None`` (caller must check).
@@ -665,9 +665,8 @@ class TerminalController:
         while written < total:
             n = os.write(self.master_fd, data[written:])
             if n == 0:
-                return False
+                raise OSError("os.write returned 0, PTY master fd may be closed")
             written += n
-        return True
 
     def write(
         self,
@@ -703,12 +702,10 @@ class TerminalController:
 
         with self._write_lock:
             try:
-                if not self._write_all(data.encode("utf-8")):
-                    return False
+                self._write_all(data.encode("utf-8"))
                 if submit_seq:
                     time.sleep(WRITE_PROCESSING_DELAY)
-                    if not self._write_all(submit_seq.encode("utf-8")):
-                        return False
+                    self._write_all(submit_seq.encode("utf-8"))
                 return True
             except OSError as e:
                 logger.error(f"Write to PTY failed: {e}")

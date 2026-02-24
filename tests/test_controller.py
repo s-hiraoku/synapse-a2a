@@ -528,8 +528,8 @@ class TestInterAgentMessageWrite:
         finally:
             os.write = original_write
 
-    def test_write_returns_false_on_zero_write(self):
-        """Write should return False if os.write returns 0 (cannot write)."""
+    def test_write_raises_on_zero_write(self):
+        """Write should raise OSError if os.write returns 0 (master fd closed)."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.master_fd = 1
@@ -540,8 +540,8 @@ class TestInterAgentMessageWrite:
         os.write = lambda fd, data: 0
 
         try:
-            result = ctrl.write("test message", submit_seq="\r")
-            assert result is False
+            with pytest.raises(OSError, match="os.write returned 0"):
+                ctrl.write("test message", submit_seq="\r")
         finally:
             os.write = original_write
 
