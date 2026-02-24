@@ -35,7 +35,7 @@ class TestControllerPTY:
             mock.read.return_value = b"output"
             mock.setsid = MagicMock()
             mock.close = MagicMock()
-            mock.write = MagicMock()
+            mock.write = MagicMock(side_effect=lambda fd, data: len(data))
             mock.killpg = MagicMock()
             mock.getpgid.return_value = 12345
             yield mock
@@ -120,15 +120,15 @@ class TestControllerPTY:
         assert not controller.thread.is_alive()
 
     def test_write_to_pty(self, controller, mock_pty, mock_subprocess, mock_os):
-        """Test writing to PTY."""
+        """Test writing to PTY (split: data then submit_seq with delay)."""
         controller.start()
 
-        controller.write("ls", submit_seq="\n")
+        with patch("synapse.controller.time.sleep"):
+            controller.write("ls", submit_seq="\n")
 
-        # Check writes
-        # 1. Command
+        # Split write: data first, then submit_seq
+        assert mock_os.write.call_count >= 2
         mock_os.write.assert_any_call(10, b"ls")
-        # 2. Submit sequence
         mock_os.write.assert_any_call(10, b"\n")
 
         controller.stop()

@@ -646,12 +646,43 @@ class TerminalController:
         finally:
             self._identity_sending = False
 
+    def _write_all(self, data: bytes) -> bool:
+        """Write all bytes to master_fd, retrying on partial writes.
+
+        Args:
+            data: The bytes to write.
+
+        Returns:
+            True if all bytes written, False if os.write returned 0.
+
+        Precondition:
+            ``self.master_fd`` must not be ``None`` (caller must check).
+        """
+        assert self.master_fd is not None
+        total = len(data)
+        written = 0
+        while written < total:
+            n = os.write(self.master_fd, data[written:])
+            if n == 0:
+                return False
+            written += n
+        return True
+
     def write(
         self,
         data: str,
         submit_seq: str | None = None,
     ) -> bool:
         """Write data to the controlled process PTY with optional submit sequence.
+
+        Data and submit_seq are written as separate os.write() calls with a
+        delay between them.  This is required for TUI apps that enable
+        bracketed paste mode (``ESC[?2004h``).  When bracketed paste mode is
+        active, a single write is wrapped in paste boundaries and the CR
+        inside the boundary is treated as a literal newline — not as a submit
+        action.  Splitting the writes ensures the submit sequence arrives
+        *outside* the paste boundary so the terminal processes it as a
+        keypress.
 
         Args:
             data: The data to write.
@@ -670,20 +701,16 @@ class TerminalController:
             self.status = "PROCESSING"
 
         try:
-            # Write data first
-            data_encoded = data.encode("utf-8")
-            os.write(self.master_fd, data_encoded)
-
-            # For TUI apps, wait for input to be processed before sending Enter
+            if not self._write_all(data.encode("utf-8")):
+                return False
             if submit_seq:
                 time.sleep(WRITE_PROCESSING_DELAY)
-                submit_encoded = submit_seq.encode("utf-8")
-                os.write(self.master_fd, submit_encoded)
+                if not self._write_all(submit_seq.encode("utf-8")):
+                    return False
             return True
         except OSError as e:
-            logging.error(f"Write to PTY failed: {e}")
+            logger.error(f"Write to PTY failed: {e}")
             raise
-        # Assuming writing triggers activity, so we are BUSY until regex matches again.
 
     def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""
