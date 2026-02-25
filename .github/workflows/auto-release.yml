@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write    # Tag creation + Release creation
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      released: ${{ steps.create_release.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -54,6 +57,7 @@ jobs:
           python scripts/extract_changelog.py "${VERSION}" > /tmp/release-notes.md
 
       - name: Create tag and release
+        id: create_release
         if: steps.version.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,3 +68,23 @@ jobs:
           gh release create "${TAG}" \
             --title "${TAG}" \
             --notes-file /tmp/release-notes.md
+
+  publish:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: read
+      id-token: write
+
+  update-installers:
+    needs: [release, publish]
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/update-installers.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: write
+      pull-requests: write

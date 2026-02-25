@@ -1,9 +1,12 @@
 name: Update Installers
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag name (e.g. v1.2.3)'
+        required: true
+        type: string
 
 jobs:
   update-installers:
@@ -23,7 +26,9 @@ jobs:
 
       - name: Extract version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for PyPI availability
         run: |
