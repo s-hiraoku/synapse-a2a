@@ -158,6 +158,15 @@ class TerminalController:
         self.name = name
         self.role = role
         self.skill_set = skill_set
+        if write_delay is not None:
+            try:
+                write_delay = float(write_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"write_delay must be a numeric value, got {write_delay!r}"
+                ) from None
+            if write_delay < 0:
+                raise ValueError(f"write_delay must be non-negative, got {write_delay}")
         self._write_delay = (
             write_delay if write_delay is not None else WRITE_PROCESSING_DELAY
         )

@@ -673,6 +673,43 @@ class TestInterAgentMessageWrite:
             ctrl.write("hello", submit_seq="\r")
             mock_sleep.assert_called_once_with(WRITE_PROCESSING_DELAY)
 
+    def test_write_delay_string_coerced_to_float(self):
+        """write_delay given as a string (e.g. YAML quoted value) should be
+        coerced to float automatically."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay="0.3",
+        )
+        assert ctrl._write_delay == 0.3
+
+    def test_write_delay_negative_raises(self):
+        """Negative write_delay should raise ValueError."""
+        with pytest.raises(ValueError, match="write_delay must be.*non-negative"):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                write_delay=-1,
+            )
+
+    def test_write_delay_negative_string_raises(self):
+        """Negative write_delay as string should also raise ValueError."""
+        with pytest.raises(ValueError, match="write_delay must be.*non-negative"):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                write_delay="-0.5",
+            )
+
+    def test_write_delay_non_numeric_string_raises(self):
+        """Non-numeric write_delay string should raise ValueError."""
+        with pytest.raises(ValueError, match="write_delay must be"):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                write_delay="fast",
+            )
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):
