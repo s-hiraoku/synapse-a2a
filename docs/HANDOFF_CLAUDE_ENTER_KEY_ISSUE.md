@@ -62,12 +62,29 @@ This is likely due to Node.js/Ink's terminal input handling which processes line
 
 The delay between the data write and the submit sequence write is configurable per agent profile via the `write_delay` YAML key:
 
+**Default** — omit the key to use `WRITE_PROCESSING_DELAY` (0.5s):
+
 ```yaml
-# Default (omit key): uses WRITE_PROCESSING_DELAY (0.5s)
-# Explicit value:
-write_delay: 0    # No delay — Copilot Ink TUI closes paste boundaries fast
-write_delay: 0.5  # Default — Claude Code needs time for paste boundary to close
-write_delay: 1.0  # Longer delay — for slower TUI frameworks
+# No write_delay key → defaults to 0.5s
+submit_sequence: "\r"
+```
+
+**Copilot CLI** — no delay (Ink TUI closes paste boundaries fast):
+
+```yaml
+write_delay: 0
+```
+
+**Claude Code** — explicit default (0.5s for paste boundary to close):
+
+```yaml
+write_delay: 0.5
+```
+
+**Slower TUI frameworks** — longer delay if needed:
+
+```yaml
+write_delay: 1.0
 ```
 
 When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequence is sent immediately after the data write. This is useful for TUI apps that process paste boundaries faster than the default 0.5s delay.
