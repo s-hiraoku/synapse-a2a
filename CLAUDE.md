@@ -461,6 +461,7 @@ idle_detection:
 **Why timeout-only?**: BRACKETED_PASTE_MODE only appears once during TUI initialization, not on subsequent idle transitions. Since the pattern is unreliable for detecting ongoing idle states, we use pure timeout-based detection (0.5s) which reliably detects when Claude Code is waiting for input.
 
 - **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
+- **Write Strategy**: Data and submit sequence are sent as **separate** `os.write()` calls with a 0.5s delay (`WRITE_PROCESSING_DELAY`). This prevents bracketed paste mode (v2.1.52+) from trapping the CR inside the paste boundary. A `_write_all()` helper handles partial write retries.
 - See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
 
 ### Gemini - Hybrid Strategy

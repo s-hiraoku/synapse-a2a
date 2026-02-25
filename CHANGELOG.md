@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2026-02-25
+
+### Fixed
+
+- Fix bracketed paste mode issue where submit_seq (CR) was ignored in Claude Code v2.1.52+ — split `write()` into separate data and submit_seq writes with `WRITE_PROCESSING_DELAY` (0.5s) delay between them
+
+### Changed
+
+- Extract `_write_all()` helper from `write()` for complete write retry loop
+- Use named `logger` instead of bare `logging` in `write()` error handler for consistent log output
+
+### Documentation
+
+- Update `HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` with bracketed paste mode details and write strategy evolution table
+- Add split write explanation to `CLAUDE.md` Claude Code profile section
+
 ## [0.6.8] - 2026-02-23
 
 ### Added
@@ -1560,6 +1576,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.6.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.8...v0.6.9
+[0.6.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.7...v0.6.8
+[0.6.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.3...v0.6.4
