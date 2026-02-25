@@ -712,6 +712,70 @@ class TestInterAgentMessageWrite:
         finally:
             os.write = original_write
 
+    # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
+
+    def test_write_lock_prevents_interleaving(self):
+        """Concurrent write() calls must not interleave data→sleep→submit_seq.
+
+        Each call's sequence should appear as a contiguous block in the
+        event log, proving _write_lock serializes the entire operation.
+        """
+        import os
+        from concurrent.futures import ThreadPoolExecutor
+
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        call_log: list[tuple[str, ...]] = []
+        log_lock = threading.Lock()
+
+        original_write = os.write
+
+        def mock_os_write(fd, data):
+            with log_lock:
+                call_log.append(("write", data))
+            return len(data)
+
+        os.write = mock_os_write
+
+        try:
+            with patch("synapse.controller.time.sleep") as mock_sleep:
+
+                def sleep_side_effect(delay):
+                    with log_lock:
+                        call_log.append(("sleep",))
+
+                mock_sleep.side_effect = sleep_side_effect
+
+                def call_write(label: str):
+                    ctrl.write(label, submit_seq="\r")
+
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    f1 = pool.submit(call_write, "AAA")
+                    f2 = pool.submit(call_write, "BBB")
+                    f1.result()
+                    f2.result()
+
+            # Each call produces 3 events: write(data), sleep, write(submit)
+            assert len(call_log) == 6
+
+            # Find each call's contiguous block
+            first_a = next(i for i, e in enumerate(call_log) if e == ("write", b"AAA"))
+            first_b = next(i for i, e in enumerate(call_log) if e == ("write", b"BBB"))
+
+            # The block starting at first_a must be contiguous: data, sleep, submit
+            block_a = call_log[first_a : first_a + 3]
+            assert block_a == [("write", b"AAA"), ("sleep",), ("write", b"\r")]
+
+            block_b = call_log[first_b : first_b + 3]
+            assert block_b == [("write", b"BBB"), ("sleep",), ("write", b"\r")]
+
+            # Blocks must not overlap (one starts after the other ends)
+            assert abs(first_a - first_b) >= 3
+        finally:
+            os.write = original_write
+
 
 class TestControllerStatusTransitions:
     """Tests for controller status transitions."""
