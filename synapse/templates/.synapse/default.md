@@ -45,6 +45,7 @@ synapse reply "<your reply>"
 ```
 
 Synapse automatically tracks senders who expect a reply (messages with `[REPLY EXPECTED]` marker).
+IMPORTANT: Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically. Manually adding it causes duplication.
 - `--from`: Your agent ID - only needed in sandboxed environments (like Codex)
 - `--to`: Reply to a specific sender when multiple are pending
 

@@ -5,11 +5,15 @@ This module provides common utility functions used across the codebase.
 """
 
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypeGuard
 from uuid import uuid4
+
+# Matches a leading [REPLY EXPECTED] marker (with optional trailing whitespace)
+_REPLY_EXPECTED_PREFIX = re.compile(r"^\[REPLY EXPECTED\]\s*")
 
 
 class RoleFileNotFoundError(Exception):
@@ -119,6 +123,10 @@ def format_a2a_message(content: str, response_expected: bool = False) -> str:
     Creates the format: A2A: [REPLY EXPECTED] <content> (if response expected)
     Or simply: A2A: <content> (if no response expected)
 
+    Strips any leading ``[REPLY EXPECTED]`` marker already present in *content*
+    before formatting so that the marker is never duplicated (defensive dedup
+    against LLMs that echo the marker back).
+
     Args:
         content: Message content
         response_expected: Whether the sender expects a response
@@ -127,6 +135,9 @@ def format_a2a_message(content: str, response_expected: bool = False) -> str:
         Formatted message string with A2A prefix and optional reply marker
     """
     if response_expected:
+        # Strip any existing leading [REPLY EXPECTED] to prevent duplication
+        # (LLMs sometimes echo the marker back in their content)
+        content = _REPLY_EXPECTED_PREFIX.sub("", content)
         return f"A2A: [REPLY EXPECTED] {content}"
     return f"A2A: {content}"
 
