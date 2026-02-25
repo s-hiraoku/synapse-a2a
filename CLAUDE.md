@@ -461,7 +461,7 @@ idle_detection:
 **Why timeout-only?**: BRACKETED_PASTE_MODE only appears once during TUI initialization, not on subsequent idle transitions. Since the pattern is unreliable for detecting ongoing idle states, we use pure timeout-based detection (0.5s) which reliably detects when Claude Code is waiting for input.
 
 - **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
-- **Write Strategy**: Data and submit sequence are sent as **separate** `os.write()` calls with a 0.5s delay (`WRITE_PROCESSING_DELAY`). This prevents bracketed paste mode (v2.1.52+) from trapping the CR inside the paste boundary. A `_write_all()` helper handles partial write retries.
+- **Write Strategy**: Data and submit sequence are sent as **separate** `os.write()` calls with a configurable delay between them. The delay is controlled by the `write_delay` profile key (default: `WRITE_PROCESSING_DELAY` = 0.5s). This prevents bracketed paste mode (v2.1.52+) from trapping the CR inside the paste boundary. A `_write_all()` helper handles partial write retries.
 - See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
 
 ### Gemini - Hybrid Strategy
@@ -511,6 +511,9 @@ GitHub Copilot CLI uses interactive TUI (similar to Claude Code):
 
 ```yaml
 # synapse/profiles/copilot.yaml
+submit_sequence: "\r"
+write_delay: 0                   # No delay — Copilot's Ink TUI closes paste boundaries fast
+
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"         # No pattern detection for Copilot CLI
@@ -518,6 +521,8 @@ idle_detection:
 ```
 
 **Why timeout?**: GitHub Copilot CLI uses an interactive TUI without consistent prompt patterns. Timeout-based detection (0.5s) reliably detects when Copilot CLI is waiting for input.
+
+**Why `write_delay: 0`?**: Copilot's Ink TUI closes paste boundaries fast enough that the submit sequence (CR) does not need a delay after the data write. Setting `write_delay` to `0` skips `time.sleep()` entirely, sending CR immediately after the data.
 
 ## Port Ranges
 

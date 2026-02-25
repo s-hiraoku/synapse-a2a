@@ -2900,6 +2900,9 @@ def cmd_run_interactive(
     env["SYNAPSE_AGENT_TYPE"] = profile
     env["SYNAPSE_PORT"] = str(port)
 
+    # Per-profile write delay (None = use default WRITE_PROCESSING_DELAY)
+    write_delay = config.get("write_delay")
+
     # Create controller - initial instructions sent on IDLE (unless resume mode)
     controller = TerminalController(
         command=config["command"],
@@ -2922,6 +2925,7 @@ def cmd_run_interactive(
         role=role,
         delegate_mode=delegate_mode,
         skill_set=selected_skill_set,
+        write_delay=write_delay,
     )
 
     # Handle Ctrl+C gracefully

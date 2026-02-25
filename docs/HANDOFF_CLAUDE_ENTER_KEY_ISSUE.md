@@ -58,6 +58,20 @@ This approach was introduced to fix the `[Pasted text #1 +27 lines]` issue where
 
 This is likely due to Node.js/Ink's terminal input handling which processes line endings differently than traditional Unix terminal apps.
 
+### Per-Profile Write Delay (`write_delay`)
+
+The delay between the data write and the submit sequence write is configurable per agent profile via the `write_delay` YAML key:
+
+```yaml
+# Default (omit key): uses WRITE_PROCESSING_DELAY (0.5s)
+# Explicit value:
+write_delay: 0    # No delay — Copilot Ink TUI closes paste boundaries fast
+write_delay: 0.5  # Default — Claude Code needs time for paste boundary to close
+write_delay: 1.0  # Longer delay — for slower TUI frameworks
+```
+
+When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequence is sent immediately after the data write. This is useful for TUI apps that process paste boundaries faster than the default 0.5s delay.
+
 ### Write Strategy Evolution
 
 | Bug | Strategy | Problem |
@@ -65,6 +79,7 @@ This is likely due to Node.js/Ink's terminal input handling which processes line
 | Bug 2 | Atomic write (data+CR in 1 call) | Split writes caused TUI apps to miss Enter |
 | Bug 3 | Atomic write + retry loop | Partial writes lost data |
 | Bug 4 | Split write + delay + retry loop | Fixed: bracketed paste mode previously trapped CR inside paste boundary |
+| Bug 5 | Split write + per-profile delay | Fixed: Copilot CLI needed different delay than Claude Code |
 
 ## Comparison with Other Agents
 

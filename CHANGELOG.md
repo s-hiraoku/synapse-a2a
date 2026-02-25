@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.10] - 2026-02-26
+
+### Fixed
+
+- Fix Copilot CLI `synapse send` not submitting `\r` — add per-profile `write_delay` configuration to control delay between data and submit_seq PTY writes
+- Prevent REPLY EXPECTED marker duplication + add `PTY_WRITE_MAX` constant
+- Chain publish and update-installers from auto-release workflow
+
+### Changed
+
+- Make `write_delay` configurable per agent profile YAML (`write_delay: 0` for Copilot, default 0.5s for Claude Code)
+
+### Documentation
+
+- Add `write_delay` profile setting to `CLAUDE.md` (Claude Code + Copilot sections)
+- Add `write_delay` field documentation to `guides/profiles.md` (schema, field table, new section 3.4, Copilot section)
+- Update `HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` with Bug 5 entry and `write_delay` docs
+
+### Tests
+
+- Add tests for custom write_delay, zero write_delay (skip sleep), and default write_delay behavior
+
 ## [0.6.9] - 2026-02-25
 
 ### Fixed

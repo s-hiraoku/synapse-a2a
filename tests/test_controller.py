@@ -606,6 +606,73 @@ class TestInterAgentMessageWrite:
             ("write", b"\r"),
         ]
 
+    # --- Per-profile write_delay tests (Bug 5: configurable delay) ---
+
+    def test_write_uses_custom_write_delay(self):
+        """Write should use the custom write_delay when specified.
+
+        Profiles like Claude Code may need 0.5s while others need different
+        values.  The per-instance write_delay overrides the global constant.
+        """
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=1.0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            mock_sleep.assert_called_once_with(1.0)
+
+    def test_write_skips_delay_when_zero(self):
+        """Write should skip time.sleep entirely when write_delay is 0.
+
+        Copilot CLI may work better with no delay between data and submit_seq
+        because its Ink TUI closes paste boundaries faster.
+        """
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            mock_sleep.assert_not_called()
+
+    def test_write_default_delay(self):
+        """Write should use WRITE_PROCESSING_DELAY when write_delay is not specified."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            # write_delay not specified — should default to WRITE_PROCESSING_DELAY
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            mock_sleep.assert_called_once_with(WRITE_PROCESSING_DELAY)
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):
