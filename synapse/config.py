@@ -52,6 +52,9 @@ OUTPUT_BUFFER_MAX: int = 10000
 # especially for agents with large startup output (e.g., Claude Code)
 IDLE_CHECK_WINDOW: int = 10000
 
+# Maximum bytes for a single PTY write (macOS/Linux kernel buffer size)
+PTY_WRITE_MAX: int = 4096
+
 # Recent context size for error detection and artifact generation
 CONTEXT_RECENT_SIZE: int = 3000
 

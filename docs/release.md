@@ -7,8 +7,8 @@ This document describes how to release a new version of synapse-a2a to PyPI.
 Releases are fully automated via GitHub Actions. When a `pyproject.toml` version change is merged to `main`, the following chain runs automatically:
 
 1. **`auto-release.yml`** — Detects version bump, creates git tag (`v*`) and GitHub Release with changelog
-2. **`publish.yml`** — Triggered by the new tag, builds and publishes to PyPI (Trusted Publisher)
-3. **`update-installers.yml`** — Triggered by the new tag, creates PR to update Homebrew formula and Scoop manifest
+2. **`publish.yml`** — Called by `auto-release.yml` via `workflow_call`, builds and publishes to PyPI (Trusted Publisher)
+3. **`update-installers.yml`** — Called by `auto-release.yml` via `workflow_call`, creates PR to update Homebrew formula and Scoop manifest
 
 ## Release Steps
 
@@ -98,3 +98,7 @@ python scripts/extract_changelog.py X.Y.Z > /tmp/release-notes.md
 gh release create vX.Y.Z --title "vX.Y.Z" --notes-file /tmp/release-notes.md
 rm /tmp/release-notes.md
 ```
+
+> **Note**: `publish.yml` and `update-installers.yml` do not have `push.tags` triggers.
+> After manually creating the tag and release, trigger `publish.yml` via
+> `workflow_dispatch` in the Actions tab to publish to PyPI.

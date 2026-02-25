@@ -189,6 +189,8 @@ A2A: <message>                    <- Reply is optional (one-way notification)
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
+**IMPORTANT:** Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically when `--response` is used. Manually adding it causes duplication.
+
 **Reply Tracking:** Synapse stores sender info only for messages with `[REPLY EXPECTED]` marker. Multiple senders can be tracked simultaneously (each sender has one entry).
 
 **Replying to messages:**

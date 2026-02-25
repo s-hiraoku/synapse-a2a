@@ -136,6 +136,42 @@ class TestFormatA2AMessage:
         assert result == "A2A: Hello"
         assert "[REPLY EXPECTED]" not in result
 
+    # --- Dedup tests (Bug 1: LLM echoes [REPLY EXPECTED] causing duplication) ---
+
+    def test_dedup_reply_expected_when_content_already_has_marker(self):
+        """Should not duplicate [REPLY EXPECTED] when content already contains it."""
+        result = format_a2a_message(
+            "[REPLY EXPECTED] What is the status?", response_expected=True
+        )
+        assert result == "A2A: [REPLY EXPECTED] What is the status?"
+        # Must NOT be "A2A: [REPLY EXPECTED] [REPLY EXPECTED] What is the status?"
+        assert result.count("[REPLY EXPECTED]") == 1
+
+    def test_dedup_preserves_marker_when_no_response(self):
+        """Should preserve [REPLY EXPECTED] in content when response_expected=False.
+
+        This is important for the long-message file-reference flow where
+        format_file_reference() embeds [REPLY EXPECTED] in the content and
+        format_a2a_message is called with response_expected=False.
+        """
+        result = format_a2a_message(
+            "[REPLY EXPECTED] Just info", response_expected=False
+        )
+        assert result == "A2A: [REPLY EXPECTED] Just info"
+
+    def test_dedup_reply_expected_with_extra_whitespace(self):
+        """Should handle [REPLY EXPECTED] with trailing whitespace in content."""
+        result = format_a2a_message("[REPLY EXPECTED]   Hello", response_expected=True)
+        assert result == "A2A: [REPLY EXPECTED] Hello"
+        assert result.count("[REPLY EXPECTED]") == 1
+
+    def test_dedup_does_not_strip_mid_content_marker(self):
+        """Should only strip leading [REPLY EXPECTED], not mid-content occurrences."""
+        result = format_a2a_message(
+            "Check [REPLY EXPECTED] marker", response_expected=False
+        )
+        assert result == "A2A: Check [REPLY EXPECTED] marker"
+
 
 class TestGetIsoTimestamp:
     """Tests for get_iso_timestamp function."""
