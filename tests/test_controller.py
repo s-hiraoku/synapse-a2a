@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from synapse.config import WRITE_PROCESSING_DELAY
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 
@@ -311,7 +312,22 @@ class TestSubmitSequence:
 class TestInterAgentMessageWrite:
     """Tests for inter-agent message writing."""
 
-    def test_write_sends_data_with_submit_seq(self):
+    @pytest.fixture
+    def mock_os_write(self):
+        """Patch os.write in the controller module and collect written data.
+
+        Yields a list of (fd, data) tuples captured from os.write calls.
+        """
+        written_data: list[tuple[int, bytes]] = []
+
+        def _mock(fd, data):
+            written_data.append((fd, data))
+            return len(data)
+
+        with patch("synapse.controller.os.write", side_effect=_mock):
+            yield written_data
+
+    def test_write_sends_data_with_submit_seq(self, mock_os_write):
         """Write should send data then submit_seq as separate writes."""
         ctrl = TerminalController(
             command="echo test",
@@ -324,31 +340,15 @@ class TestInterAgentMessageWrite:
         ctrl.interactive = True
         ctrl.master_fd = 1  # Mock fd
 
-        written_data = []
+        with patch("synapse.controller.time.sleep"):
+            ctrl.write("test message", submit_seq="\r")
 
-        # Mock os.write to capture what's being written
-        import os
+        # Split write: data first, then submit_seq
+        assert len(mock_os_write) == 2
+        assert mock_os_write[0] == (1, b"test message")
+        assert mock_os_write[1] == (1, b"\r")
 
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("test message", submit_seq="\r")
-
-            # Split write: data first, then submit_seq
-            assert len(written_data) == 2
-            assert written_data[0] == (1, b"test message")
-            assert written_data[1] == (1, b"\r")
-        finally:
-            os.write = original_write
-
-    def test_write_with_bracketed_paste_mode_idle_regex(self):
+    def test_write_with_bracketed_paste_mode_idle_regex(self, mock_os_write):
         """Write should send data then submit_seq separately with BRACKETED_PASTE_MODE."""
         ctrl = TerminalController(
             command="claude",
@@ -361,58 +361,28 @@ class TestInterAgentMessageWrite:
         ctrl.interactive = True
         ctrl.master_fd = 1  # Mock fd
 
-        written_data = []
+        with patch("synapse.controller.time.sleep"):
+            ctrl.write("test message", submit_seq="\r")
 
-        import os
+        # Split write: data first, then submit_seq
+        assert len(mock_os_write) == 2
+        assert mock_os_write[0] == (1, b"test message")
+        assert mock_os_write[1] == (1, b"\r")
 
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("test message", submit_seq="\r")
-
-            # Split write: data first, then submit_seq
-            assert len(written_data) == 2
-            assert written_data[0] == (1, b"test message")
-            assert written_data[1] == (1, b"\r")
-        finally:
-            os.write = original_write
-
-    def test_write_in_non_interactive_mode(self):
+    def test_write_in_non_interactive_mode(self, mock_os_write):
         """Write should send data then submit_seq separately in non-interactive mode."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
 
-        written_data = []
+        with patch("synapse.controller.time.sleep"):
+            ctrl.write("test message", submit_seq="\n")
 
-        import os
-
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("test message", submit_seq="\n")
-
-            # Split write: data first, then submit_seq
-            assert len(written_data) == 2
-            assert written_data[0] == (1, b"test message")
-            assert written_data[1] == (1, b"\n")
-        finally:
-            os.write = original_write
+        # Split write: data first, then submit_seq
+        assert len(mock_os_write) == 2
+        assert mock_os_write[0] == (1, b"test message")
+        assert mock_os_write[1] == (1, b"\n")
 
     def test_write_fails_when_not_running(self):
         """Write should do nothing when controller is not running."""
@@ -441,43 +411,25 @@ class TestInterAgentMessageWrite:
         ctrl.master_fd = 1
         ctrl.status = "READY"
 
-        import os
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("test", submit_seq="\n")
+        assert ctrl.status == "PROCESSING"
 
-        original_write = os.write
-        os.write = lambda fd, data: len(data) if isinstance(data, bytes | str) else 0  # type: ignore[assignment, unused-ignore]
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("test", submit_seq="\n")
-            assert ctrl.status == "PROCESSING"
-        finally:
-            os.write = original_write
-
-    def test_write_without_submit_seq(self):
+    def test_write_without_submit_seq(self, mock_os_write):
         """Write should work without submit_seq."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = False
         ctrl.master_fd = 1
 
-        written_data = []
-
-        import os
-
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            ctrl.write("test message")  # No submit_seq
-            assert len(written_data) == 1
-            assert written_data[0] == (1, b"test message")
-        finally:
-            os.write = original_write
+        ctrl.write("test message")  # No submit_seq
+        assert len(mock_os_write) == 1
+        assert mock_os_write[0] == (1, b"test message")
 
     # --- Partial write retry tests (Bug 3: os.write() short write handling) ---
 
@@ -498,13 +450,9 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        write_calls = []
+        write_calls: list[tuple[int, bytes]] = []
         data_bytes = b"test message"
         half = len(data_bytes) // 2
-
-        import os
-
-        original_write = os.write
 
         def mock_partial_write(fd, data):
             write_calls.append((fd, data))
@@ -513,20 +461,18 @@ class TestInterAgentMessageWrite:
                 return half
             return len(data)
 
-        os.write = mock_partial_write
+        with (
+            patch("synapse.controller.os.write", side_effect=mock_partial_write),
+            patch("synapse.controller.time.sleep"),
+        ):
+            result = ctrl.write("test message", submit_seq="\r")
 
-        try:
-            with patch("synapse.controller.time.sleep"):
-                result = ctrl.write("test message", submit_seq="\r")
-
-            assert result is True
-            # 3 calls: data-half, data-rest, submit_seq
-            assert len(write_calls) == 3
-            assert write_calls[0] == (1, data_bytes)
-            assert write_calls[1] == (1, data_bytes[half:])
-            assert write_calls[2] == (1, b"\r")
-        finally:
-            os.write = original_write
+        assert result is True
+        # 3 calls: data-half, data-rest, submit_seq
+        assert len(write_calls) == 3
+        assert write_calls[0] == (1, data_bytes)
+        assert write_calls[1] == (1, data_bytes[half:])
+        assert write_calls[2] == (1, b"\r")
 
     def test_write_raises_on_zero_write(self):
         """Write should raise OSError if os.write returns 0 (master fd closed)."""
@@ -534,16 +480,9 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        import os
-
-        original_write = os.write
-        os.write = lambda fd, data: 0
-
-        try:
+        with patch("synapse.controller.os.write", return_value=0):
             with pytest.raises(OSError, match="os.write returned 0"):
                 ctrl.write("test message", submit_seq="\r")
-        finally:
-            os.write = original_write
 
     def test_write_complete_returns_true(self):
         """Write should return True when all bytes are written successfully."""
@@ -551,21 +490,18 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        import os
-
-        original_write = os.write
-        os.write = lambda fd, data: len(data)
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                result = ctrl.write("hello", submit_seq="\n")
-            assert result is True
-        finally:
-            os.write = original_write
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            result = ctrl.write("hello", submit_seq="\n")
+        assert result is True
 
     # --- Split write tests (Bug 4: bracketed paste mode requires separate writes) ---
 
-    def test_write_split_data_then_submit_seq(self):
+    def test_write_split_data_then_submit_seq(self, mock_os_write):
         """Write with submit_seq should use two os.write calls (split).
 
         Bracketed paste mode wraps each write in paste boundaries.  If data
@@ -583,60 +519,30 @@ class TestInterAgentMessageWrite:
         ctrl.interactive = True
         ctrl.master_fd = 1
 
-        written_data = []
+        with patch("synapse.controller.time.sleep"):
+            ctrl.write("test message", submit_seq="\r")
 
-        import os
+        # Must be exactly TWO write calls (split)
+        assert len(mock_os_write) == 2
+        assert mock_os_write[0] == (1, b"test message")
+        assert mock_os_write[1] == (1, b"\r")
 
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("test message", submit_seq="\r")
-
-            # Must be exactly TWO write calls (split)
-            assert len(written_data) == 2
-            assert written_data[0] == (1, b"test message")
-            assert written_data[1] == (1, b"\r")
-        finally:
-            os.write = original_write
-
-    def test_write_split_preserves_content(self):
+    def test_write_split_preserves_content(self, mock_os_write):
         """Split write should preserve the full data and submit_seq content."""
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
         ctrl.running = True
         ctrl.interactive = True
         ctrl.master_fd = 1
 
-        written_data = []
+        with patch("synapse.controller.time.sleep"):
+            ctrl.write("A2A: [REPLY EXPECTED] Review this code", submit_seq="\r")
 
-        import os
-
-        original_write = os.write
-
-        def mock_os_write(fd, data):
-            written_data.append((fd, data))
-            return len(data)
-
-        os.write = mock_os_write
-
-        try:
-            with patch("synapse.controller.time.sleep"):
-                ctrl.write("A2A: [REPLY EXPECTED] Review this code", submit_seq="\r")
-
-            assert len(written_data) == 2
-            assert written_data[0] == (
-                1,
-                b"A2A: [REPLY EXPECTED] Review this code",
-            )
-            assert written_data[1] == (1, b"\r")
-        finally:
-            os.write = original_write
+        assert len(mock_os_write) == 2
+        assert mock_os_write[0] == (
+            1,
+            b"A2A: [REPLY EXPECTED] Review this code",
+        )
+        assert mock_os_write[1] == (1, b"\r")
 
     # --- Delay and ordering tests (Bug 4: bracketed paste mode) ---
 
@@ -650,17 +556,14 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        import os
-
-        original_write = os.write
-        os.write = lambda fd, data: len(data)
-
-        try:
-            with patch("synapse.controller.time.sleep") as mock_sleep:
-                ctrl.write("hello", submit_seq="\r")
-                mock_sleep.assert_called_once_with(0.5)
-        finally:
-            os.write = original_write
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            mock_sleep.assert_called_once_with(WRITE_PROCESSING_DELAY)
 
     def test_write_no_delay_without_submit_seq(self):
         """Write without submit_seq should not call time.sleep."""
@@ -668,17 +571,14 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        import os
-
-        original_write = os.write
-        os.write = lambda fd, data: len(data)
-
-        try:
-            with patch("synapse.controller.time.sleep") as mock_sleep:
-                ctrl.write("hello")
-                mock_sleep.assert_not_called()
-        finally:
-            os.write = original_write
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello")
+            mock_sleep.assert_not_called()
 
     def test_write_split_order(self):
         """Data must be written before submit_seq (correct ordering)."""
@@ -686,31 +586,25 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
 
-        call_log = []
+        call_log: list[tuple[str, ...]] = []
 
-        import os
-
-        original_write = os.write
-
-        def mock_os_write(fd, data):
+        def mock_write(fd, data):
             call_log.append(("write", data))
             return len(data)
 
-        os.write = mock_os_write
+        with (
+            patch("synapse.controller.os.write", side_effect=mock_write),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            mock_sleep.side_effect = lambda _: call_log.append(("sleep",))
+            ctrl.write("data", submit_seq="\r")
 
-        try:
-            with patch("synapse.controller.time.sleep") as mock_sleep:
-                mock_sleep.side_effect = lambda _: call_log.append(("sleep",))
-                ctrl.write("data", submit_seq="\r")
-
-            # Order: write data → sleep → write submit_seq
-            assert call_log == [
-                ("write", b"data"),
-                ("sleep",),
-                ("write", b"\r"),
-            ]
-        finally:
-            os.write = original_write
+        # Order: write data → sleep → write submit_seq
+        assert call_log == [
+            ("write", b"data"),
+            ("sleep",),
+            ("write", b"\r"),
+        ]
 
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
@@ -720,7 +614,6 @@ class TestInterAgentMessageWrite:
         Each call's sequence should appear as a contiguous block in the
         event log, proving _write_lock serializes the entire operation.
         """
-        import os
         from concurrent.futures import ThreadPoolExecutor
 
         ctrl = TerminalController(command="echo test", idle_regex=r"\$")
@@ -730,51 +623,47 @@ class TestInterAgentMessageWrite:
         call_log: list[tuple[str, ...]] = []
         log_lock = threading.Lock()
 
-        original_write = os.write
-
-        def mock_os_write(fd, data):
+        def mock_write(fd, data):
             with log_lock:
                 call_log.append(("write", data))
             return len(data)
 
-        os.write = mock_os_write
+        with (
+            patch("synapse.controller.os.write", side_effect=mock_write),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
 
-        try:
-            with patch("synapse.controller.time.sleep") as mock_sleep:
+            def sleep_side_effect(delay):
+                with log_lock:
+                    call_log.append(("sleep",))
 
-                def sleep_side_effect(delay):
-                    with log_lock:
-                        call_log.append(("sleep",))
+            mock_sleep.side_effect = sleep_side_effect
 
-                mock_sleep.side_effect = sleep_side_effect
+            def call_write(label: str):
+                ctrl.write(label, submit_seq="\r")
 
-                def call_write(label: str):
-                    ctrl.write(label, submit_seq="\r")
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                f1 = pool.submit(call_write, "AAA")
+                f2 = pool.submit(call_write, "BBB")
+                f1.result()
+                f2.result()
 
-                with ThreadPoolExecutor(max_workers=2) as pool:
-                    f1 = pool.submit(call_write, "AAA")
-                    f2 = pool.submit(call_write, "BBB")
-                    f1.result()
-                    f2.result()
+        # Each call produces 3 events: write(data), sleep, write(submit)
+        assert len(call_log) == 6
 
-            # Each call produces 3 events: write(data), sleep, write(submit)
-            assert len(call_log) == 6
+        # Find each call's contiguous block
+        first_a = next(i for i, e in enumerate(call_log) if e == ("write", b"AAA"))
+        first_b = next(i for i, e in enumerate(call_log) if e == ("write", b"BBB"))
 
-            # Find each call's contiguous block
-            first_a = next(i for i, e in enumerate(call_log) if e == ("write", b"AAA"))
-            first_b = next(i for i, e in enumerate(call_log) if e == ("write", b"BBB"))
+        # The block starting at first_a must be contiguous: data, sleep, submit
+        block_a = call_log[first_a : first_a + 3]
+        assert block_a == [("write", b"AAA"), ("sleep",), ("write", b"\r")]
 
-            # The block starting at first_a must be contiguous: data, sleep, submit
-            block_a = call_log[first_a : first_a + 3]
-            assert block_a == [("write", b"AAA"), ("sleep",), ("write", b"\r")]
+        block_b = call_log[first_b : first_b + 3]
+        assert block_b == [("write", b"BBB"), ("sleep",), ("write", b"\r")]
 
-            block_b = call_log[first_b : first_b + 3]
-            assert block_b == [("write", b"BBB"), ("sleep",), ("write", b"\r")]
-
-            # Blocks must not overlap (one starts after the other ends)
-            assert abs(first_a - first_b) >= 3
-        finally:
-            os.write = original_write
+        # Blocks must not overlap (one starts after the other ends)
+        assert abs(first_a - first_b) >= 3
 
 
 class TestControllerStatusTransitions:
