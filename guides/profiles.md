@@ -39,6 +39,7 @@ command: "claude"           # 起動する CLI コマンド
 # オプションフィールド
 args: []                    # コマンドライン引数（現在未使用）
 submit_sequence: "\n"       # 送信時に付与するキーシーケンス
+write_delay: 0.5            # データ→submit_sequence 間の遅延（秒）。省略時は 0.5s
 idle_detection:            # IDLE 状態検出設定（新形式）
   strategy: "pattern"       # "pattern" | "timeout" | "hybrid"
   pattern: "> $"           # 正規表現パターン
@@ -58,6 +59,7 @@ env:                        # 環境変数
 | `command` | string | Yes | - | 起動する CLI コマンド |
 | `args` | array | No | `[]` | コマンドライン引数 |
 | `submit_sequence` | string | No | `\n` | 送信時のキーシーケンス |
+| `write_delay` | float\|null | No | `null` (→ 0.5s) | データ送信後、submit_sequence 送信前の遅延（秒）。`0` で遅延なし。省略時は `WRITE_PROCESSING_DELAY` (0.5s) を使用 |
 | `idle_detection` | object | No | `{strategy: "timeout", timeout: 1.5}` | IDLE 検出戦略 |
 | `env` | object | No | `{}` | 追加/上書きする環境変数 |
 
@@ -194,7 +196,40 @@ submit_sequence: "\r"    # CR
 
 ---
 
-### 3.4 env
+### 3.4 write_delay
+
+データ送信後、`submit_sequence` 送信前に挿入する遅延（秒）です。Ink/TUI 系 CLI でブラケテッドペーストモードの境界が閉じるまで待機するために使用します。
+
+```yaml
+# デフォルト（キー省略時）: WRITE_PROCESSING_DELAY (0.5s) を使用
+# write_delay を指定しない → 0.5 秒の遅延
+
+# 遅延なし（ペースト境界を高速にクローズする TUI 向け）
+write_delay: 0
+
+# 明示的に 0.5 秒を指定
+write_delay: 0.5
+
+# 遅い TUI フレームワーク向け
+write_delay: 1.0
+```
+
+| 値 | 動作 |
+|----|------|
+| 省略 (null) | `WRITE_PROCESSING_DELAY` (0.5s) を使用 |
+| `0` | `time.sleep()` をスキップし、即座に submit_sequence を送信 |
+| `> 0` | 指定秒数だけ待機してから submit_sequence を送信 |
+
+**使い分け**:
+
+- **Claude Code**: デフォルト（0.5s）。ブラケテッドペーストモードの境界クローズに時間がかかるため遅延が必要
+- **Copilot CLI**: `write_delay: 0`。Ink TUI が高速にペースト境界をクローズするため遅延不要
+
+詳細は `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` を参照。
+
+---
+
+### 3.5 env
 
 起動時に設定する環境変数です。システム環境変数に追加/上書きされます。
 
@@ -317,6 +352,7 @@ env:
 command: "copilot"
 args: []
 submit_sequence: "\r"
+write_delay: 0                   # No delay — Copilot's Ink TUI closes paste boundaries fast
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
@@ -334,6 +370,7 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
+- **`write_delay: 0`**: Copilot の Ink TUI はペースト境界を高速にクローズするため、データ送信と submit_sequence 送信の間に遅延不要
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
 - **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出

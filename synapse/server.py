@@ -129,6 +129,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     env["SYNAPSE_AGENT_TYPE"] = profile_name
     env["SYNAPSE_PORT"] = str(agent_port)
 
+    # Per-profile write delay (None = use default WRITE_PROCESSING_DELAY)
+    write_delay = profile.get("write_delay")
+
     controller = TerminalController(
         command=profile["command"],
         args=all_args,
@@ -143,6 +146,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         submit_seq=submit_sequence,
         port=agent_port,
         registry=registry,
+        write_delay=write_delay,
     )
     controller.start()
 

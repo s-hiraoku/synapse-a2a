@@ -33,7 +33,7 @@ idle_detection:
 - This indicates the TUI is ready to accept input
 
 ### Input Submission
-- Text and submit sequence are written as **separate** `os.write()` calls with a 0.5s delay between them
+- Text and submit sequence are written as **separate** `os.write()` calls with a configurable delay between them (default 0.5s, per-profile via `write_delay`)
 - CR is required because CRLF does not submit in v2.0.76
 
 ### Bracketed Paste Mode (v2.1.52+)
@@ -41,7 +41,7 @@ Claude Code v2.1.52 enables bracketed paste mode (`ESC[?2004h`). When this mode 
 
 **Solution**: Split the write into two separate `os.write()` calls:
 1. First write: the message data (wrapped in paste boundary by the terminal)
-2. Delay: `WRITE_PROCESSING_DELAY` (0.5s) to let the paste boundary close
+2. Delay: configurable per profile via `write_delay` (default `WRITE_PROCESSING_DELAY` = 0.5s) to let the paste boundary close
 3. Second write: the submit sequence (`\r`) — arrives as a fresh keypress outside any paste context
 
 This approach was introduced to fix the `[Pasted text #1 +27 lines]` issue where initial instructions were pasted but not submitted automatically.
@@ -58,6 +58,37 @@ This approach was introduced to fix the `[Pasted text #1 +27 lines]` issue where
 
 This is likely due to Node.js/Ink's terminal input handling which processes line endings differently than traditional Unix terminal apps.
 
+### Per-Profile Write Delay (`write_delay`)
+
+The delay between the data write and the submit sequence write is configurable per agent profile via the `write_delay` YAML key:
+
+**Default** — omit the key to use `WRITE_PROCESSING_DELAY` (0.5s):
+
+```yaml
+# No write_delay key → defaults to 0.5s
+submit_sequence: "\r"
+```
+
+**Copilot CLI** — no delay (Ink TUI closes paste boundaries fast):
+
+```yaml
+write_delay: 0
+```
+
+**Claude Code** — explicit default (0.5s for paste boundary to close):
+
+```yaml
+write_delay: 0.5
+```
+
+**Slower TUI frameworks** — longer delay if needed:
+
+```yaml
+write_delay: 1.0
+```
+
+When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequence is sent immediately after the data write. This is useful for TUI apps that process paste boundaries faster than the default 0.5s delay.
+
 ### Write Strategy Evolution
 
 | Bug | Strategy | Problem |
@@ -65,6 +96,7 @@ This is likely due to Node.js/Ink's terminal input handling which processes line
 | Bug 2 | Atomic write (data+CR in 1 call) | Split writes caused TUI apps to miss Enter |
 | Bug 3 | Atomic write + retry loop | Partial writes lost data |
 | Bug 4 | Split write + delay + retry loop | Fixed: bracketed paste mode previously trapped CR inside paste boundary |
+| Bug 5 | Split write + per-profile delay | Fixed: Copilot CLI needed different delay than Claude Code |
 
 ## Comparison with Other Agents
 

@@ -57,6 +57,7 @@ class TerminalController:
         role: str | None = None,
         delegate_mode: bool = False,
         skill_set: str | None = None,
+        write_delay: float | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -157,6 +158,18 @@ class TerminalController:
         self.name = name
         self.role = role
         self.skill_set = skill_set
+        if write_delay is not None:
+            try:
+                write_delay = float(write_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"write_delay must be a numeric value, got {write_delay!r}"
+                ) from None
+            if write_delay < 0:
+                raise ValueError(f"write_delay must be non-negative, got {write_delay}")
+        self._write_delay = (
+            write_delay if write_delay is not None else WRITE_PROCESSING_DELAY
+        )
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -704,7 +717,8 @@ class TerminalController:
             try:
                 self._write_all(data.encode("utf-8"))
                 if submit_seq:
-                    time.sleep(WRITE_PROCESSING_DELAY)
+                    if self._write_delay > 0:
+                        time.sleep(self._write_delay)
                     self._write_all(submit_seq.encode("utf-8"))
                 return True
             except OSError as e:
