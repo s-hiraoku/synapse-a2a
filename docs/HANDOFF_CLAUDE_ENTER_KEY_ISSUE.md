@@ -69,10 +69,10 @@ The delay between the data write and the submit sequence write is configurable p
 submit_sequence: "\r"
 ```
 
-**Copilot CLI** — minimal delay (50ms for paste boundary to close):
+**Copilot CLI** — wait for Ink TUI rendering (shortcut display collapse):
 
 ```yaml
-write_delay: 0.05
+write_delay: 1.0
 ```
 
 **Claude Code** — explicit default (0.5s for paste boundary to close):
