@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write    # Tag creation + Release creation
+      actions: write     # Trigger publish.yml via workflow_dispatch
     steps:
       - uses: actions/checkout@v6
         with:
@@ -66,5 +67,17 @@ jobs:
             --title "${TAG}" \
             --notes-file /tmp/release-notes.md
 
-  # publish.yml triggers on 'release: published' event (created above)
-  # update-installers.yml triggers on 'workflow_run: Publish to PyPI completed'
+      - name: Trigger Publish to PyPI
+        if: steps.create_release.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "Triggering Publish to PyPI for ${TAG}..."
+          gh workflow run "Publish to PyPI" -f tag="${TAG}"
+          echo "Publish workflow dispatched for ${TAG}"
+
+  # Chain: auto-release → (workflow_dispatch) → publish.yml → (workflow_run) → update-installers.yml
+  # Note: GITHUB_TOKEN supports workflow_dispatch since Sep 2022.
+  # The 'release: published' trigger on publish.yml is kept as a fallback
+  # for manual releases created with a PAT.

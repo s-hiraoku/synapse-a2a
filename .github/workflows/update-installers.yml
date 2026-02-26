@@ -48,16 +48,18 @@ jobs:
       - name: Wait for PyPI availability
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          echo "Waiting for synapse-a2a==${VERSION} on PyPI..."
+          echo "Waiting for synapse-a2a==${VERSION} to be installable from PyPI..."
           for i in $(seq 1 30); do
-            if curl -sf "https://pypi.org/pypi/synapse-a2a/${VERSION}/json" > /dev/null 2>&1; then
-              echo "Found on PyPI after ${i} attempts"
+            # Use pip install --dry-run to verify actual installability
+            # (curl on JSON API succeeds before package files are distributed)
+            if pip install --dry-run "synapse-a2a==${VERSION}" > /dev/null 2>&1; then
+              echo "Package installable from PyPI after ${i} attempts"
               exit 0
             fi
-            echo "Attempt ${i}/30 - not yet available, waiting 30s..."
+            echo "Attempt ${i}/30 - not yet installable, waiting 30s..."
             sleep 30
           done
-          echo "ERROR: synapse-a2a==${VERSION} not found on PyPI after 15 minutes"
+          echo "ERROR: synapse-a2a==${VERSION} not installable from PyPI after 15 minutes"
           exit 1
 
       - name: Generate Homebrew formula with poet
