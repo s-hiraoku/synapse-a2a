@@ -1,0 +1,139 @@
+site_name: Synapse A2A
+site_url: https://s-hiraoku.github.io/synapse-a2a/
+site_description: Multi-agent collaboration framework using Google A2A Protocol
+site_author: s-hiraoku
+repo_url: https://github.com/s-hiraoku/synapse-a2a
+repo_name: s-hiraoku/synapse-a2a
+docs_dir: site-docs
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/connection
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/s-hiraoku/synapse-a2a
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/synapse-a2a/
+  generator: false
+
+copyright: Copyright &copy; 2025-2026 s-hiraoku
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Interactive Setup: getting-started/setup.md
+  - Core Concepts:
+    - Architecture: concepts/architecture.md
+    - A2A Protocol: concepts/a2a-protocol.md
+    - Agent Profiles: concepts/profiles.md
+    - Design Philosophy: concepts/philosophy.md
+  - User Guide:
+    - Agent Management: guide/agent-management.md
+    - Communication: guide/communication.md
+    - Agent Teams: guide/agent-teams.md
+    - Task Board: guide/task-board.md
+    - File Safety: guide/file-safety.md
+    - Skills: guide/skills.md
+    - History & Tracing: guide/history.md
+    - Settings & Configuration: guide/settings.md
+  - Reference:
+    - CLI Commands: reference/cli.md
+    - API Endpoints: reference/api.md
+    - Configuration: reference/configuration.md
+    - Profile YAML Schema: reference/profiles-yaml.md
+    - Port Ranges: reference/ports.md
+  - Advanced:
+    - External Agents: advanced/external-agents.md
+    - Authentication: advanced/authentication.md
+    - Webhooks: advanced/webhooks.md
+    - Worktree Isolation: advanced/worktree.md
+    - Enterprise: advanced/enterprise.md
+  - Troubleshooting: troubleshooting.md
+  - Changelog: changelog.md
