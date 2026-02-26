@@ -73,6 +73,25 @@ Claude Code プラグイン。
 | `skills/synapse-a2a/SKILL.md` | synapse-a2aスキル本体 | A2A機能変更、コマンド追加 |
 | `skills/synapse-a2a/references/*.md` | スキルリファレンス | 詳細仕様の変更 |
 
+## site-docs/ ディレクトリ
+
+GitHub Pages 公開サイト。`github-pages-sync` スキルが主に管理するが、`synapse-docs` も認識しておく必要がある。
+
+| ファイル | 役割 | 更新トリガー |
+|---------|------|-------------|
+| `site-docs/index.md` | ランディングページ | `README.md` 変更、新機能追加 |
+| `site-docs/getting-started/*.md` | インストール・クイックスタート | セットアップ手順変更 |
+| `site-docs/concepts/*.md` | アーキテクチャ・プロトコル・哲学 | 設計変更 |
+| `site-docs/guide/*.md` | ユーザーガイド（8ページ） | 機能変更、CLI/API変更 |
+| `site-docs/reference/*.md` | CLI・API・設定リファレンス | コマンド/エンドポイント追加 |
+| `site-docs/advanced/*.md` | エンタープライズ・外部連携・Worktree | 高度な機能変更 |
+| `site-docs/troubleshooting.md` | トラブルシューティング | 新しい問題発見 |
+| `site-docs/changelog.md` | リリースノート | 各リリース時 |
+
+> **Note**: `site-docs/` の詳細な管理は `github-pages-sync` スキルが担当する。
+> `synapse-docs` がコード変更に伴い内部ドキュメント（guides/, docs/）を更新した場合、
+> `github-pages-sync` が対応する site-docs ページを同期する。
+
 ## 同期が必要なファイル群
 
 以下のファイル群は内容を同期する必要がある：
