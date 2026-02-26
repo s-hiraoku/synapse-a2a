@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Make `write_delay` configurable per agent profile YAML (`write_delay: 0` for Copilot, default 0.5s for Claude Code)
+- Make `write_delay` configurable per agent profile YAML (`write_delay: 0.05` for Copilot, default 0.5s for Claude Code)
 
 ### Documentation
 

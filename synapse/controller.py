@@ -167,9 +167,9 @@ class TerminalController:
                 ) from None
             if write_delay < 0:
                 raise ValueError(f"write_delay must be non-negative, got {write_delay}")
-        self._write_delay = (
-            write_delay if write_delay is not None else WRITE_PROCESSING_DELAY
-        )
+            self._write_delay = write_delay
+        else:
+            self._write_delay = WRITE_PROCESSING_DELAY
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""

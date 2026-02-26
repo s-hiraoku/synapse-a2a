@@ -512,7 +512,7 @@ GitHub Copilot CLI uses interactive TUI (similar to Claude Code):
 ```yaml
 # synapse/profiles/copilot.yaml
 submit_sequence: "\r"
-write_delay: 0                   # No delay — Copilot's Ink TUI closes paste boundaries fast
+write_delay: 0.05                # 50ms delay — lets paste boundary close before CR
 
 idle_detection:
   strategy: "timeout"
@@ -522,7 +522,7 @@ idle_detection:
 
 **Why timeout?**: GitHub Copilot CLI uses an interactive TUI without consistent prompt patterns. Timeout-based detection (0.5s) reliably detects when Copilot CLI is waiting for input.
 
-**Why `write_delay: 0`?**: Copilot's Ink TUI closes paste boundaries fast enough that the submit sequence (CR) does not need a delay after the data write. Setting `write_delay` to `0` skips `time.sleep()` entirely, sending CR immediately after the data.
+**Why `write_delay: 0.05`?**: Copilot's Ink TUI needs a minimal delay (50ms) between data and submit sequence so the paste boundary (`ESC[201~`) has time to close before CR is sent.
 
 ## Port Ranges
 

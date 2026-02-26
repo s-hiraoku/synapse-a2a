@@ -5,9 +5,10 @@ args: []
 # CR required for interactive TUI to process Enter key
 submit_sequence: "\r"
 # PTY write delay between data and submit_seq (seconds)
-# 0 = no delay (split write without sleep); Copilot's Ink TUI closes
-# paste boundaries fast enough that CR arrives outside the boundary.
-write_delay: 0
+# Copilot's Ink TUI collapses long pasted text into a shortcut display.
+# CR sent during this rendering is ignored.  1.0s ensures the TUI
+# finishes rendering before CR is sent as a submit action.
+write_delay: 0.05
 env:
   TERM: "xterm-256color"
 

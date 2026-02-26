@@ -673,6 +673,29 @@ class TestInterAgentMessageWrite:
             ctrl.write("hello", submit_seq="\r")
             mock_sleep.assert_called_once_with(WRITE_PROCESSING_DELAY)
 
+    def test_write_uses_small_delay(self):
+        """Write should sleep for the configured small delay (e.g., 0.05s).
+
+        Copilot CLI needs a small but non-zero delay so that the PTY paste
+        boundary has time to close before the submit sequence (CR) is sent.
+        """
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.05,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        with (
+            patch(
+                "synapse.controller.os.write", side_effect=lambda fd, data: len(data)
+            ),
+            patch("synapse.controller.time.sleep") as mock_sleep,
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            mock_sleep.assert_called_once_with(0.05)
+
     def test_write_delay_string_coerced_to_float(self):
         """write_delay given as a string (e.g. YAML quoted value) should be
         coerced to float automatically."""
