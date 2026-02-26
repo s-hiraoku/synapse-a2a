@@ -1333,7 +1333,7 @@ The display automatically updates when agent status changes (via file watcher) w
 | 1-9 | Select agent row (direct) |
 | ↑/↓ | Navigate agent rows |
 | **Enter** or **j** | Jump to selected agent's terminal |
-| **k** | Kill selected agent (with confirmation) |
+| **K** | Kill selected agent (with confirmation) |
 | **/** | Filter by TYPE, NAME, or WORKING_DIR |
 | ESC | Clear filter/selection |
 | q | Quit |

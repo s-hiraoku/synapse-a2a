@@ -14,19 +14,42 @@
 {
   "env": {
     "SYNAPSE_HISTORY_ENABLED": "true",
-    "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "true",
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
+    "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
+    "SYNAPSE_AUTH_ENABLED": "false",
+    "SYNAPSE_API_KEYS": "",
+    "SYNAPSE_ADMIN_KEY": "",
+    "SYNAPSE_ALLOW_LOCALHOST": "true",
+    "SYNAPSE_USE_HTTPS": "false",
+    "SYNAPSE_WEBHOOK_SECRET": "",
+    "SYNAPSE_WEBHOOK_TIMEOUT": "10",
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
+    "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",
+    "SYNAPSE_LONG_MESSAGE_TTL": "3600",
+    "SYNAPSE_LONG_MESSAGE_DIR": "",
     "SYNAPSE_TASK_BOARD_ENABLED": "true",
+    "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
-    "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
-    "SYNAPSE_UDS_DIR": "/tmp/synapse-a2a",
-    "SYNAPSE_SKILLS_DIR": "~/.synapse/skills"
+    "SYNAPSE_LEARNING_MODE_TRANSLATION": "false"
   },
-  "a2a_flow": "auto",
+  "instructions": {
+    "default": "default.md",
+    "claude": "",
+    "gemini": "",
+    "codex": ""
+  },
   "approvalMode": "required",
-  "hooks": {
-    "on_idle": "",
-    "on_task_completed": ""
+  "a2a": {
+    "flow": "auto"
+  },
+  "resume_flags": {
+    "claude": ["--continue", "--resume", "-c", "-r"],
+    "codex": ["resume"],
+    "gemini": ["--resume", "-r"]
+  },
+  "list": {
+    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR", "EDITING_FILE"]
   },
   "shutdown": {
     "timeout_seconds": 30,
@@ -35,8 +58,9 @@
   "delegate_mode": {
     "deny_file_locks": true
   },
-  "list": {
-    "columns": ["ID", "NAME", "STATUS", "TYPE", "PORT", "TRANSPORT", "WORKING_DIR"]
+  "hooks": {
+    "on_idle": "",
+    "on_task_completed": ""
   }
 }
 ```
@@ -57,7 +81,8 @@
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SYNAPSE_HISTORY_ENABLED` | `true` | Task history tracking |
-| `SYNAPSE_FILE_SAFETY_ENABLED` | `false` | File locking and tracking |
+| `SYNAPSE_FILE_SAFETY_ENABLED` | `true` | File locking and tracking |
+| `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | `30` | Retention period for file safety records |
 | `SYNAPSE_TASK_BOARD_ENABLED` | `true` | Shared task board |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Prompt improvement feedback |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | JP→EN translation assistance |
@@ -70,6 +95,7 @@
 | `SYNAPSE_API_KEYS` | — | Comma-separated API keys |
 | `SYNAPSE_ADMIN_KEY` | — | Admin key for management ops |
 | `SYNAPSE_ALLOW_LOCALHOST` | `true` | Skip auth for localhost |
+| `SYNAPSE_USE_HTTPS` | `false` | Enable HTTPS URLs in generated endpoints |
 
 ### Storage Paths
 
@@ -77,6 +103,7 @@
 |----------|---------|-------------|
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
+| `SYNAPSE_TASK_BOARD_DB_PATH` | `.synapse/task_board.db` | Task board database |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -86,6 +113,7 @@
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | ~100KB | Auto-file for `synapse send` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | 200 chars | PTY long message threshold |
 | `SYNAPSE_LONG_MESSAGE_TTL` | 3600s | Temp message file TTL |
+| `SYNAPSE_LONG_MESSAGE_DIR` | System temp dir | Override long message temp directory |
 
 ### Timeouts
 
@@ -113,7 +141,7 @@
 | User Settings | `~/.synapse/settings.json` | JSON | User preferences |
 | Project Settings | `.synapse/settings.json` | JSON | Project config |
 | Local Settings | `.synapse/settings.local.json` | JSON | Local overrides |
-| Task History | `~/.synapse/history.db` | SQLite | Task records |
+| Task History | `~/.synapse/history/history.db` | SQLite | Task records |
 | Task Board | `.synapse/task_board.db` | SQLite (WAL) | Task coordination |
 | File Safety | `.synapse/file_safety.db` | SQLite (WAL) | File locks/tracking |
 | Logs | `~/.synapse/logs/` | Text | Agent logs |
@@ -125,11 +153,11 @@ Available in instruction templates:
 
 | Placeholder | Replaced With |
 |-------------|---------------|
-| `{agent_id}` | Agent ID (`synapse-claude-8100`) |
-| `{port}` | Server port (`8100`) |
-| `{agent_type}` | Agent type (`claude`) |
-| `{name}` | Custom name |
-| `{role}` | Agent role |
+| `{{agent_id}}` | Agent ID (`synapse-claude-8100`) |
+| `{{port}}` | Server port (`8100`) |
+| `{{agent_type}}` | Agent type (`claude`) |
+| `{{agent_name}}` | Custom name (fallback: agent ID) |
+| `{{role}}` | Agent role |
 
 ## Hook Configuration
 

@@ -63,10 +63,12 @@ Displays a live table with:
 | `ID` | Agent identifier |
 | `NAME` | Custom name (if set) |
 | `STATUS` | Current state with color coding |
-| `TYPE` | Agent type (claude/gemini/codex/etc.) |
-| `PORT` | A2A server port |
+| `CURRENT` | Current task preview |
 | `TRANSPORT` | Active communication (`UDS→` / `→UDS` / `-`) |
 | `WORKING_DIR` | Agent's working directory |
+| `EDITING_FILE` | Locked file name (shown when File Safety is enabled) |
+
+Optional columns (`list.columns`): `TYPE`, `ROLE`.
 
 **Interactive controls:**
 
@@ -75,7 +77,7 @@ Displays a live table with:
 | ++up++ / ++down++ | Select agent row |
 | `1`-`9` | Jump to row number |
 | ++enter++ / `j` | Jump to agent's terminal |
-| `k` | Kill agent (with confirmation) |
+| `K` | Kill agent (with confirmation) |
 | `/` | Filter by TYPE, NAME, or WORKING_DIR |
 | ++escape++ | Clear filter |
 | `q` | Quit |
