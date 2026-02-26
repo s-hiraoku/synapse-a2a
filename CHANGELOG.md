@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.12] - 2026-02-26
+
+### Fixed
+
+- Store long identity instructions in files via `LongMessageStore` to prevent Ink TUI from collapsing large paste into shortcut display and ignoring CR submit
+- Increase Copilot CLI `write_delay` from 0.05s to 0.5s for reliable TUI rendering before CR
+- Fix Update Installers workflow version extraction — fall back to `gh release view` when `head_branch` is not a version tag
+
+### Tests
+
+- Update identity instruction tests to verify file storage behavior
+- Add `_read_stored_instruction` helper for reading stored file content in tests
+
 ## [0.6.11] - 2026-02-26
 
 ### Fixed
@@ -1605,6 +1618,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.6.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.11...v0.6.12
 [0.6.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.9...v0.6.10
 [0.6.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.8...v0.6.9

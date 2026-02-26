@@ -7,6 +7,7 @@ import pytest
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 from synapse.skills import SkillSetDefinition
+from tests.helpers import read_stored_instruction
 
 
 class TestSkillSetInInstructions:
@@ -90,7 +91,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = written_data[0]
+        instruction = read_stored_instruction(written_data[0])
 
         # Should contain skill set name
         assert "architect" in instruction
@@ -126,7 +127,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = written_data[0]
+        instruction = read_stored_instruction(written_data[0])
 
         # Should NOT contain skill set section header
         assert "SKILL SET" not in instruction
@@ -165,7 +166,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = written_data[0]
+        instruction = read_stored_instruction(written_data[0])
 
         # Should not crash, and should not include skill set section
         assert "SKILL SET" not in instruction
@@ -207,7 +208,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = written_data[0]
+        instruction = read_stored_instruction(written_data[0])
 
         # Verify section structure
         assert "SKILL SET" in instruction

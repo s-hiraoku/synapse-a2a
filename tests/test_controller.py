@@ -9,6 +9,7 @@ import pytest
 from synapse.config import WRITE_PROCESSING_DELAY
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
+from tests.helpers import read_stored_instruction
 
 
 class TestIdentityInstruction:
@@ -135,8 +136,8 @@ class TestIdentityInstruction:
         assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
 
-    def test_identity_instruction_content(self, controller, mock_registry, monkeypatch):
-        """Identity instruction should contain correct full instructions with A2A format."""
+    def _send_identity_and_capture(self, controller, monkeypatch):
+        """Send identity instruction and return the raw PTY message written."""
         monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
         controller.running = True
         controller.master_fd = 1
@@ -148,7 +149,6 @@ class TestIdentityInstruction:
 
         controller.write = mock_write
 
-        # Patch get_settings to return deterministic file paths
         with patch("synapse.controller.get_settings") as mock_get_settings:
             mock_settings = Mock()
             mock_settings.get_instruction_file_paths.return_value = [
@@ -156,23 +156,50 @@ class TestIdentityInstruction:
             ]
             mock_get_settings.return_value = mock_settings
 
-            # Call directly to test content
             controller._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = written_data[0]
+        return written_data[0]
 
-        # Check A2A message prefix
-        assert instruction.startswith("A2A: ")
+    def test_identity_instruction_content(self, controller, mock_registry, monkeypatch):
+        """Identity instruction should use file storage and send short reference.
 
-        # Check key content - bootstrap message format
-        assert "synapse-claude-8100" in instruction
-        assert "8100" in instruction
-        # Check for instruction file list
-        assert ".synapse/default.md" in instruction
-        # Check $SYNAPSE_AGENT_ID guidance
-        assert "$SYNAPSE_AGENT_ID" in instruction
-        assert "--from" in instruction
+        The identity message body always exceeds the LongMessageStore threshold
+        (200 chars), so it should be stored in a file and only a short reference
+        sent to the PTY.  The full content is readable from the stored file.
+        """
+        pty_message = self._send_identity_and_capture(controller, monkeypatch)
+
+        # PTY message should be a file reference wrapped in A2A prefix
+        assert pty_message.startswith("A2A: ")
+        assert "[LONG MESSAGE - FILE ATTACHED]" in pty_message
+        assert "Please read this file" in pty_message
+
+        # The stored file should contain the full identity message
+        stored_content = read_stored_instruction(pty_message)
+        assert "synapse-claude-8100" in stored_content
+        assert "8100" in stored_content
+        assert ".synapse/default.md" in stored_content
+        assert "$SYNAPSE_AGENT_ID" in stored_content
+        assert "--from" in stored_content
+
+    def test_identity_pty_message_is_short(
+        self, controller, mock_registry, monkeypatch
+    ):
+        """PTY message for identity should be short enough for TUI paste.
+
+        The file reference message sent to the PTY must stay well under the
+        200-char threshold that Ink TUI uses for its shortcut display.
+        """
+        pty_message = self._send_identity_and_capture(controller, monkeypatch)
+
+        # The file reference (A2A prefix + path + instructions) is typically
+        # ~200-250 chars depending on the temp directory path length.
+        # This must stay well under the original identity message size (~500+).
+        assert len(pty_message) < 300, (
+            f"PTY message too long ({len(pty_message)} chars), "
+            f"should use file storage for short reference"
+        )
 
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""

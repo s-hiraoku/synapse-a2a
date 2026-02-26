@@ -21,6 +21,7 @@ from synapse.config import (
     STARTUP_DELAY,
     WRITE_PROCESSING_DELAY,
 )
+from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
@@ -626,9 +627,31 @@ class TerminalController:
 
         prefixed = self._build_identity_message(instruction_file_paths)
 
+        # Use file storage for long identity messages to avoid TUI paste issues.
+        # Ink TUI (Copilot, Claude Code) collapses large paste into a shortcut
+        # display and ignores the CR submit sequence.  By storing the full
+        # message in a file and sending only a short reference, the PTY write
+        # stays small enough to be submitted reliably.
+        pty_message = prefixed
+        try:
+            store = get_long_message_store()
+            if store.needs_file_storage(prefixed):
+                task_id = f"identity-{self.agent_id}"
+                file_path = store.store_message(task_id, prefixed)
+                reference = format_file_reference(file_path)
+                pty_message = format_a2a_message(reference)
+                logger.info(
+                    f"[{self.agent_id}] Identity message stored to {file_path} "
+                    f"(original={len(prefixed)} chars)"
+                )
+        except Exception as e:
+            logger.error(
+                f"[{self.agent_id}] File storage failed, sending identity inline: {e}"
+            )
+
         logger.info(
-            f"[{self.agent_id}] Sending file reference instruction: "
-            f"{instruction_file_paths}"
+            f"[{self.agent_id}] Sending identity instruction: "
+            f"pty_size={len(pty_message)} files={instruction_file_paths}"
         )
 
         input_ready_desc = self._wait_for_input_ready()
@@ -637,10 +660,10 @@ class TerminalController:
         time.sleep(POST_WRITE_IDLE_DELAY)
 
         try:
-            result = self.write(prefixed, self._submit_seq)
+            result = self.write(pty_message, self._submit_seq)
             self._log_inject(
                 "DELIVER",
-                f"input_ready={input_ready_desc} write_size={len(prefixed)} result=ok",
+                f"input_ready={input_ready_desc} write_size={len(pty_message)} result=ok",
             )
             logger.info(f"[{self.agent_id}] Write result: {result}")
             self._identity_sent = True
@@ -650,7 +673,7 @@ class TerminalController:
             self._log_inject(
                 "DELIVER",
                 f"input_ready={input_ready_desc} "
-                f"write_size={len(prefixed)} result=error",
+                f"write_size={len(pty_message)} result=error",
             )
             logger.error(f"Failed to send initial instructions: {e}")
             self._log_inject(
