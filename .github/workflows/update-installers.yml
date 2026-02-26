@@ -1,16 +1,14 @@
 name: Update Installers
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        description: 'Tag name (e.g. v1.2.3)'
-        required: true
-        type: string
+  workflow_run:
+    workflows: ["Publish to PyPI"]
+    types: [completed]
 
 jobs:
   update-installers:
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write
       pull-requests: write
@@ -24,10 +22,16 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Extract version from tag
+      - name: Extract version from release tag
         id: version
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
+          # workflow_run event carries the head_branch (tag name for release-triggered runs)
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          if [ -z "$TAG" ]; then
+            echo "ERROR: Could not determine tag from workflow_run event"
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for PyPI availability
