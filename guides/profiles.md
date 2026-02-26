@@ -204,10 +204,7 @@ submit_sequence: "\r"    # CR
 # デフォルト（キー省略時）: WRITE_PROCESSING_DELAY (0.5s) を使用
 # write_delay を指定しない → 0.5 秒の遅延
 
-# 最小遅延（ペースト境界クローズ待ち、Copilot 向け）
-write_delay: 0.05
-
-# 明示的に 0.5 秒を指定
+# 明示的に 0.5 秒を指定（Claude Code, Copilot CLI）
 write_delay: 0.5
 
 # 遅い TUI フレームワーク向け
@@ -223,7 +220,7 @@ write_delay: 1.0
 **使い分け**:
 
 - **Claude Code**: デフォルト（0.5s）。ブラケテッドペーストモードの境界クローズに時間がかかるため遅延が必要
-- **Copilot CLI**: `write_delay: 0.05`。50ms の最小遅延でペースト境界のクローズを待つ
+- **Copilot CLI**: `write_delay: 0.5`。TUI の描画完了を待ってから CR を送信
 
 詳細は `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` を参照。
 
@@ -352,7 +349,7 @@ env:
 command: "copilot"
 args: []
 submit_sequence: "\r"
-write_delay: 0.05                # 50ms delay — lets paste boundary close before CR
+write_delay: 0.5                 # 500ms delay — lets TUI finish rendering before CR
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
@@ -370,7 +367,7 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
-- **`write_delay: 0.05`**: 50ms の最小遅延。ペースト境界が閉じるのを待ってから CR を送信
+- **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
 - **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出

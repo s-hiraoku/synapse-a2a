@@ -24,13 +24,24 @@ jobs:
 
       - name: Extract version from release tag
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # workflow_run event carries the head_branch (tag name for release-triggered runs)
+          # Try 1: Get tag from workflow_run head_branch (works for release-triggered runs)
           TAG="${{ github.event.workflow_run.head_branch }}"
-          if [ -z "$TAG" ]; then
-            echo "ERROR: Could not determine tag from workflow_run event"
-            exit 1
+
+          # Try 2: If head_branch is a branch name (e.g. "main" from workflow_dispatch),
+          #         fall back to the latest release tag
+          if [ -z "$TAG" ] || ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "head_branch='${TAG}' is not a version tag, querying latest release..."
+            TAG=$(gh release view --json tagName -q '.tagName')
+            if [ -z "$TAG" ]; then
+              echo "ERROR: Could not determine tag from workflow_run or latest release"
+              exit 1
+            fi
+            echo "Using latest release tag: ${TAG}"
           fi
+
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
