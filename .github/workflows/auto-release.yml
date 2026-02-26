@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write    # Tag creation + Release creation
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
-      released: ${{ steps.create_release.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -69,22 +66,5 @@ jobs:
             --title "${TAG}" \
             --notes-file /tmp/release-notes.md
 
-  publish:
-    needs: release
-    if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/publish.yml
-    with:
-      tag: ${{ needs.release.outputs.tag }}
-    permissions:
-      contents: read
-      id-token: write
-
-  update-installers:
-    needs: [release, publish]
-    if: needs.release.outputs.released == 'true'
-    uses: ./.github/workflows/update-installers.yml
-    with:
-      tag: ${{ needs.release.outputs.tag }}
-    permissions:
-      contents: write
-      pull-requests: write
+  # publish.yml triggers on 'release: published' event (created above)
+  # update-installers.yml triggers on 'workflow_run: Publish to PyPI completed'
