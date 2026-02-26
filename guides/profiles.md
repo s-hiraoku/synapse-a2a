@@ -204,8 +204,8 @@ submit_sequence: "\r"    # CR
 # デフォルト（キー省略時）: WRITE_PROCESSING_DELAY (0.5s) を使用
 # write_delay を指定しない → 0.5 秒の遅延
 
-# 遅延なし（ペースト境界を高速にクローズする TUI 向け）
-write_delay: 0
+# 最小遅延（ペースト境界クローズ待ち、Copilot 向け）
+write_delay: 0.05
 
 # 明示的に 0.5 秒を指定
 write_delay: 0.5
@@ -217,13 +217,13 @@ write_delay: 1.0
 | 値 | 動作 |
 |----|------|
 | 省略 (null) | `WRITE_PROCESSING_DELAY` (0.5s) を使用 |
-| `0` | `time.sleep()` をスキップし、即座に submit_sequence を送信 |
+| `0` | `time.sleep()` をスキップし即座に送信（短文のみ推奨） |
 | `> 0` | 指定秒数だけ待機してから submit_sequence を送信 |
 
 **使い分け**:
 
 - **Claude Code**: デフォルト（0.5s）。ブラケテッドペーストモードの境界クローズに時間がかかるため遅延が必要
-- **Copilot CLI**: `write_delay: 0`。Ink TUI が高速にペースト境界をクローズするため遅延不要
+- **Copilot CLI**: `write_delay: 0.05`。50ms の最小遅延でペースト境界のクローズを待つ
 
 詳細は `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` を参照。
 
@@ -352,7 +352,7 @@ env:
 command: "copilot"
 args: []
 submit_sequence: "\r"
-write_delay: 0                   # No delay — Copilot's Ink TUI closes paste boundaries fast
+write_delay: 0.05                # 50ms delay — lets paste boundary close before CR
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
@@ -370,7 +370,7 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
-- **`write_delay: 0`**: Copilot の Ink TUI はペースト境界を高速にクローズするため、データ送信と submit_sequence 送信の間に遅延不要
+- **`write_delay: 0.05`**: 50ms の最小遅延。ペースト境界が閉じるのを待ってから CR を送信
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
 - **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出

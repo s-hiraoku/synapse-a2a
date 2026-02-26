@@ -5,9 +5,10 @@ args: []
 # CR required for interactive TUI to process Enter key
 submit_sequence: "\r"
 # PTY write delay between data and submit_seq (seconds)
-# 0 = no delay (split write without sleep); Copilot's Ink TUI closes
-# paste boundaries fast enough that CR arrives outside the boundary.
-write_delay: 0
+# A small delay is needed so the PTY paste boundary (ESC[201~) closes
+# before CR is sent.  0 works for short messages but long payloads
+# (e.g. initial instructions) need time for the boundary to flush.
+write_delay: 0.05
 env:
   TERM: "xterm-256color"
 
