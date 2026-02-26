@@ -1,0 +1,191 @@
+/* Synapse A2A - Custom Styles */
+
+/* Hero section on home page */
+.md-typeset .hero {
+  text-align: center;
+  padding: 2rem 0 3rem;
+}
+
+.md-typeset .hero h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #b388ff 0%, #00bcd4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.md-typeset .hero .hero-subtitle {
+  font-size: 1.3rem;
+  opacity: 0.8;
+  margin-bottom: 2rem;
+}
+
+.md-typeset .hero .hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.md-typeset .hero .hero-buttons a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.md-typeset .hero .hero-buttons a:hover,
+.md-typeset .hero .hero-buttons a:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.md-typeset .hero .hero-buttons a:focus-visible {
+  outline: 2px solid #b388ff;
+  outline-offset: 2px;
+}
+
+.md-typeset .hero .hero-buttons .primary {
+  background: linear-gradient(135deg, #7c4dff, #00bcd4);
+  color: #fff;
+}
+
+.md-typeset .hero .hero-buttons .secondary {
+  border: 2px solid #7c4dff;
+  color: #b388ff;
+}
+
+[data-md-color-scheme="default"] .md-typeset .hero .hero-buttons .secondary {
+  color: #7c4dff;
+}
+
+/* Feature grid */
+.md-typeset .feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.md-typeset .feature-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.md-typeset .feature-card:hover,
+.md-typeset .feature-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: #7c4dff;
+}
+
+.md-typeset .feature-card:focus-visible {
+  outline: 2px solid #7c4dff;
+  outline-offset: 2px;
+}
+
+.md-typeset .feature-card .feature-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.md-typeset .feature-card h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.md-typeset .feature-card p {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin-bottom: 0;
+}
+
+/* Agent badges */
+.md-typeset .agent-badges {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.md-typeset .agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Status indicators */
+.md-typeset .status-ready { color: #4caf50; }
+.md-typeset .status-processing { color: #ffb300; }
+.md-typeset .status-waiting { color: #00bcd4; }
+.md-typeset .status-done { color: #42a5f5; }
+.md-typeset .status-shutdown { color: #ef5350; }
+
+/* Terminal-style code blocks */
+.md-typeset .terminal {
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.md-typeset .terminal-header {
+  background: #16213e;
+  padding: 0.5rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.md-typeset .terminal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.md-typeset .terminal-dot.red { background: #ff5f56; }
+.md-typeset .terminal-dot.yellow { background: #ffbd2e; }
+.md-typeset .terminal-dot.green { background: #27c93f; }
+
+/* Architecture diagram styling */
+.md-typeset .mermaid {
+  text-align: center;
+}
+
+/* Quick reference tables */
+.md-typeset table.quick-ref {
+  font-size: 0.85rem;
+}
+
+.md-typeset table.quick-ref code {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .md-typeset .hero h1 {
+    font-size: 2rem;
+  }
+
+  .md-typeset .hero .hero-subtitle {
+    font-size: 1.1rem;
+  }
+
+  .md-typeset .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}

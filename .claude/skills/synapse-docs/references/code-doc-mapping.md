@@ -81,23 +81,27 @@
 2. `guides/usage.md` - 詳細な使い方を追加
 3. `guides/references.md` - リファレンスに追加
 4. `CLAUDE.md` - 開発者向け情報（必要に応じて）
+5. `site-docs/reference/cli.md` - CLIリファレンスに追加（`github-pages-sync` が担当）
 
 ### 新しいAPIエンドポイントを追加した場合
 
 1. `README.md` - APIエンドポイントテーブルに追加
 2. `guides/references.md` - 詳細仕様を追加
 3. `guides/enterprise.md` - エンタープライズ機能の場合
+4. `site-docs/reference/api.md` - APIリファレンスに追加（`github-pages-sync` が担当）
 
 ### 新しい環境変数を追加した場合
 
 1. `README.md` - 設定ファイルセクションに追加
 2. `guides/settings.md` - 詳細説明を追加
 3. `synapse/templates/.synapse/settings.json` - デフォルト値を追加
+4. `site-docs/reference/configuration.md` - 設定リファレンスに追加（`github-pages-sync` が担当）
 
 ### 新しいプロファイル設定を追加した場合
 
 1. `guides/profiles.md` - 設定項目を追加
 2. `CLAUDE.md` - 必要に応じてプロファイル説明を更新
+3. `site-docs/concepts/profiles.md`, `site-docs/reference/profiles-yaml.md` - プロファイル情報を更新（`github-pages-sync` が担当）
 
 ### File Safety機能を変更した場合
 
@@ -106,12 +110,14 @@
 3. `guides/usage.md` - CLIコマンドを更新
 4. `synapse/templates/.synapse/file-safety.md` - テンプレートを更新
 5. `plugins/synapse-a2a/skills/synapse-a2a/references/file-safety.md` - スキルリファレンスを更新
+6. `site-docs/guide/file-safety.md` - ファイル安全ガイドを更新（`github-pages-sync` が担当）
 
 ### タスク履歴機能を変更した場合
 
 1. `README.md` - 機能概要を更新
 2. `guides/usage.md` - CLIコマンドを更新
 3. `CLAUDE.md` - 開発者向け情報を更新
+4. `site-docs/guide/history.md` - 履歴ガイドを更新（`github-pages-sync` が担当）
 
 ### スキル管理機能を変更した場合
 
@@ -119,6 +125,7 @@
 2. `guides/usage.md` - スキル管理セクション
 3. `guides/references.md` - CLIリファレンスの synapse skills セクション
 4. `CLAUDE.md` - コマンド例、アーキテクチャ、ストレージ
+5. `site-docs/guide/skills.md` - スキルガイドを更新（`github-pages-sync` が担当）
 
 ### スキルを変更した場合
 
@@ -126,3 +133,7 @@
 2. `.claude/skills/*/SKILL.md` - 同期
 3. `.agents/skills/*/SKILL.md` - 同期
 4. `plugins/synapse-a2a/README.md` - 必要に応じて更新
+
+> **Note**: 上記の `site-docs/` への更新は `github-pages-sync` スキルが担当する。
+> `synapse-docs` は内部ドキュメント（README.md, guides/, docs/）を更新し、
+> `github-pages-sync` が対応する site-docs ページを同期する連携フローとなる。

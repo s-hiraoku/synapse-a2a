@@ -543,7 +543,7 @@ synapse list                      # 自動更新 Rich TUI
 │ │ 3 │ synapse-codex-8120   │ tester   │ READY      │ -         │ -         │ third      │ -            │ │
 │ ╰───┴──────────────────────┴──────────┴────────────┴───────────┴───────────┴────────────┴──────────────┘ │
 ╰────────────────────── Last updated: 2024-01-15 10:30:45 ─────────────────────╯
-[1-3/↑↓: select] [Enter/j: jump] [k: kill] [/: filter] [ESC: clear] [q: quit]
+[1-3/↑↓: select] [Enter/j: jump] [K: kill] [/: filter] [ESC: clear] [q: quit]
 ```
 
 **表示カラム（`list.columns`）**:
