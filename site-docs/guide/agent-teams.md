@@ -140,6 +140,7 @@ synapse send worker-1 "Progress?" --from $SYNAPSE_AGENT_ID --response
 | **iTerm2** | :material-check: | :material-check: | :material-check: |
 | **Terminal.app** | :material-check: | :material-check: | :material-check: |
 | **Ghostty** | :material-check: | :material-check: | :material-check: |
+| **VS Code** | :material-check: | :material-check: | :material-check: |
 | **Zellij** | :material-check: | :material-check: | :material-check: |
 
 !!! note
