@@ -8,7 +8,7 @@ submit_sequence: "\r"
 # Copilot's Ink TUI collapses long pasted text into a shortcut display.
 # CR sent during this rendering is ignored.  1.0s ensures the TUI
 # finishes rendering before CR is sent as a submit action.
-write_delay: 1.0
+write_delay: 0.05
 env:
   TERM: "xterm-256color"
 
