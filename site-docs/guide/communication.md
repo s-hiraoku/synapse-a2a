@@ -38,14 +38,24 @@ synapse send gemini "Urgent: check this security issue" \
 
 ```bash
 synapse send <target> "<message>" \
-  [--from <sender_id>] \           # Sender identification
-  [--priority 1-5] \               # Priority level (default: 3)
-  [--response | --no-response] \   # Roundtrip or fire-and-forget
-  [--message-file <path>] \        # Read message from file
-  [--stdin] \                      # Read message from stdin
-  [--attach <file>] \              # Attach file(s) — repeatable
-  [--force]                        # Bypass working_dir mismatch check
+  --from <sender_id> \
+  --priority 1-5 \
+  --response | --no-response \
+  --message-file <path> \
+  --stdin \
+  --attach <file> \
+  --force
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--from <sender_id>` | Sender identification |
+| `--priority 1-5` | Priority level (default: 3) |
+| `--response` / `--no-response` | Roundtrip or fire-and-forget |
+| `--message-file <path>` | Read message from file |
+| `--stdin` | Read message from stdin |
+| `--attach <file>` | Attach file(s) — repeatable |
+| `--force` | Bypass working_dir mismatch check |
 
 ## Receiving Messages
 

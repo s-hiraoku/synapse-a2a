@@ -77,5 +77,6 @@ curl -H "Authorization: Bearer <api-key>" \
 - Rotate API keys regularly
 - Use separate keys for each agent or service
 - Enable `SYNAPSE_ALLOW_LOCALHOST=false` in production environments
-- Store keys in environment variables, not in config files
+- **Development**: Store keys in `.synapse/settings.json` (add to `.gitignore`)
+- **Production**: Store keys in environment variables or a secrets manager — never commit to source control
 - Use the admin key only for management operations

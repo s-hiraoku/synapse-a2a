@@ -40,9 +40,15 @@
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.md-typeset .hero .hero-buttons a:hover {
+.md-typeset .hero .hero-buttons a:hover,
+.md-typeset .hero .hero-buttons a:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.md-typeset .hero .hero-buttons a:focus-visible {
+  outline: 2px solid #b388ff;
+  outline-offset: 2px;
 }
 
 .md-typeset .hero .hero-buttons .primary {
@@ -74,9 +80,15 @@
   transition: transform 0.2s, border-color 0.2s;
 }
 
-.md-typeset .feature-card:hover {
+.md-typeset .feature-card:hover,
+.md-typeset .feature-card:focus-visible {
   transform: translateY(-4px);
   border-color: #7c4dff;
+}
+
+.md-typeset .feature-card:focus-visible {
+  outline: 2px solid #7c4dff;
+  outline-offset: 2px;
 }
 
 .md-typeset .feature-card .feature-icon {

@@ -164,6 +164,7 @@ synapse trace <task_id>
 <span class="agent-badge">:material-github: Copilot CLI</span>
 </div>
 
+<!-- markdownlint-disable MD046 -->
 ## Quick Start
 
 === "Install"
@@ -196,6 +197,8 @@ synapse trace <task_id>
     # Monitor all agents
     synapse list
     ```
+
+<!-- markdownlint-enable MD046 -->
 
 ---
 

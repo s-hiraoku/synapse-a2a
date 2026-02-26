@@ -55,6 +55,7 @@ You'll see a Rich TUI table showing both agents:
     - ++enter++ or `j` to jump to that agent's terminal
     - `k` to kill an agent (with confirmation)
     - `/` to filter by type, name, or directory
+    - ++esc++ to clear filter or selection
     - `q` to quit
 
 ## Step 4: Send a Message

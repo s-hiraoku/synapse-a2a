@@ -9,9 +9,6 @@ Complete reference for all Synapse A2A HTTP endpoints.
 | GET | `/.well-known/agent.json` | Agent Card discovery |
 | POST | `/tasks/send` | Send message (subject to Readiness Gate) |
 | GET | `/tasks/{id}` | Get task status |
-| GET | `/tasks` | List all tasks |
-| POST | `/tasks/{id}/cancel` | Cancel a task |
-| GET | `/status` | Agent status (READY/PROCESSING) |
 
 ## Synapse Extensions
 
@@ -19,6 +16,9 @@ Complete reference for all Synapse A2A HTTP endpoints.
 |:------:|----------|-------------|
 | POST | `/tasks/send-priority` | Priority message delivery (1-5); 5 = interrupt |
 | POST | `/tasks/create` | Create task context without PTY delivery |
+| GET | `/tasks` | List all tasks |
+| POST | `/tasks/{id}/cancel` | Cancel a task |
+| GET | `/status` | Agent status (READY/PROCESSING/WAITING/DONE) |
 
 ### Priority Send
 

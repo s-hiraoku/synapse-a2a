@@ -114,14 +114,14 @@ synapse claude --continue
 For persistent configuration, use `synapse init` to create settings files:
 
 ```bash
-# Project-scoped settings
+# Project-scoped settings (creates ./.synapse/settings.json)
 synapse init --scope project
 
-# User-scoped settings (applies to all projects)
+# User-scoped settings (creates ~/.synapse/settings.json, applies to all projects)
 synapse init --scope user
 ```
 
-This creates `.synapse/settings.json` with defaults you can customize. See [Settings & Configuration](../guide/settings.md) for details.
+See [Settings & Configuration](../guide/settings.md) for details.
 
 ## Next Steps
 
