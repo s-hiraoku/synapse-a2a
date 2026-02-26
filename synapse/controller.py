@@ -632,18 +632,22 @@ class TerminalController:
         # display and ignores the CR submit sequence.  By storing the full
         # message in a file and sending only a short reference, the PTY write
         # stays small enough to be submitted reliably.
-        store = get_long_message_store()
-        if store.needs_file_storage(prefixed):
-            task_id = f"identity-{self.agent_id}"
-            file_path = store.store_message(task_id, prefixed)
-            reference = format_file_reference(file_path)
-            pty_message = format_a2a_message(reference)
-            logger.info(
-                f"[{self.agent_id}] Identity message stored to {file_path} "
-                f"(original={len(prefixed)} chars)"
+        pty_message = prefixed
+        try:
+            store = get_long_message_store()
+            if store.needs_file_storage(prefixed):
+                task_id = f"identity-{self.agent_id}"
+                file_path = store.store_message(task_id, prefixed)
+                reference = format_file_reference(file_path)
+                pty_message = format_a2a_message(reference)
+                logger.info(
+                    f"[{self.agent_id}] Identity message stored to {file_path} "
+                    f"(original={len(prefixed)} chars)"
+                )
+        except Exception as e:
+            logger.error(
+                f"[{self.agent_id}] File storage failed, sending identity inline: {e}"
             )
-        else:
-            pty_message = prefixed
 
         logger.info(
             f"[{self.agent_id}] Sending identity instruction: "

@@ -1,7 +1,5 @@
 """Tests for skill set information in initial instructions."""
 
-import re
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,21 +7,7 @@ import pytest
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
 from synapse.skills import SkillSetDefinition
-
-
-def _read_stored_instruction(pty_message: str) -> str:
-    """Extract stored file path from PTY reference message and read content.
-
-    Identity instructions are stored in files via LongMessageStore.
-    The PTY message contains a reference like:
-        The full message content is stored at: /path/to/file.txt
-
-    Returns the stored file content, or the original message if no file ref.
-    """
-    match = re.search(r"stored at: (.+\.txt)", pty_message)
-    if match:
-        return Path(match.group(1)).read_text()
-    return pty_message
+from tests.helpers import read_stored_instruction
 
 
 class TestSkillSetInInstructions:
@@ -107,7 +91,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = _read_stored_instruction(written_data[0])
+        instruction = read_stored_instruction(written_data[0])
 
         # Should contain skill set name
         assert "architect" in instruction
@@ -143,7 +127,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = _read_stored_instruction(written_data[0])
+        instruction = read_stored_instruction(written_data[0])
 
         # Should NOT contain skill set section header
         assert "SKILL SET" not in instruction
@@ -182,7 +166,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = _read_stored_instruction(written_data[0])
+        instruction = read_stored_instruction(written_data[0])
 
         # Should not crash, and should not include skill set section
         assert "SKILL SET" not in instruction
@@ -224,7 +208,7 @@ class TestSkillSetInInstructions:
             ctrl._send_identity_instruction()
 
         assert len(written_data) == 1
-        instruction = _read_stored_instruction(written_data[0])
+        instruction = read_stored_instruction(written_data[0])
 
         # Verify section structure
         assert "SKILL SET" in instruction

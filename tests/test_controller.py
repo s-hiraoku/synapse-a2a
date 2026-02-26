@@ -1,9 +1,7 @@
 """Tests for TerminalController identity instruction functionality."""
 
-import re
 import threading
 import time
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,21 +9,7 @@ import pytest
 from synapse.config import WRITE_PROCESSING_DELAY
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
-
-
-def _read_stored_instruction(pty_message: str) -> str:
-    """Extract stored file path from PTY reference message and read content.
-
-    Identity instructions are stored in files via LongMessageStore.
-    The PTY message contains a reference like:
-        The full message content is stored at: /path/to/file.txt
-
-    Returns the stored file content, or the original message if no file ref.
-    """
-    match = re.search(r"stored at: (.+\.txt)", pty_message)
-    if match:
-        return Path(match.group(1)).read_text()
-    return pty_message
+from tests.helpers import read_stored_instruction
 
 
 class TestIdentityInstruction:
@@ -192,7 +176,7 @@ class TestIdentityInstruction:
         assert "Please read this file" in pty_message
 
         # The stored file should contain the full identity message
-        stored_content = _read_stored_instruction(pty_message)
+        stored_content = read_stored_instruction(pty_message)
         assert "synapse-claude-8100" in stored_content
         assert "8100" in stored_content
         assert ".synapse/default.md" in stored_content
@@ -209,7 +193,10 @@ class TestIdentityInstruction:
         """
         pty_message = self._send_identity_and_capture(controller, monkeypatch)
 
-        assert len(pty_message) < 400, (
+        # The file reference (A2A prefix + path + instructions) is typically
+        # ~200-250 chars depending on the temp directory path length.
+        # This must stay well under the original identity message size (~500+).
+        assert len(pty_message) < 300, (
             f"PTY message too long ({len(pty_message)} chars), "
             f"should use file storage for short reference"
         )
