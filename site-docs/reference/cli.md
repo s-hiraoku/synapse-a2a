@@ -22,7 +22,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--role ROLE` | Agent role description |
 | `--skill-set SET` | Activate skill set |
 | `--no-setup` | Skip interactive setup |
-| `--resume` / `--continue` | Skip initial instructions |
+| `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
 | `--delegate-mode` | Start as coordinator (no file editing) |
 | `--port PORT` | Override default port |
 
@@ -41,7 +41,7 @@ synapse start <profile> [--port PORT] [-f]
 
 ```bash
 synapse stop <target>        # Stop specific agent
-synapse stop --all           # Stop all agents
+synapse stop <target> -a     # Stop all instances of that profile
 ```
 
 ## Agent Management
@@ -108,7 +108,7 @@ synapse reply --list-targets               # List pending senders
 synapse broadcast "<message>" [OPTIONS]
 ```
 
-Same options as `send`. Targets all agents in the current working directory.
+Same options as `send`, but default priority is **1** (not 3). Targets all agents in the current working directory.
 
 ### Interrupt
 

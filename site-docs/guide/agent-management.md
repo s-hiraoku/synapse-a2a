@@ -36,12 +36,14 @@ synapse start claude --port 8100 -f   # Foreground (don't detach)
 
 ### Resume Mode
 
-Skip initial instructions (useful after context reset):
+Pass resume flags to the underlying CLI tool via `--` to skip initial instructions (useful after context reset):
 
 ```bash
-synapse claude --resume
-synapse claude --continue   # Same as --resume
+synapse claude -- --resume
+synapse claude -- --continue   # Same as --resume
 ```
+
+Synapse detects these flags and automatically skips sending initial instructions.
 
 ## Monitoring Agents
 
@@ -106,7 +108,7 @@ synapse kill my-claude -f         # Immediate SIGKILL
 
 ```bash
 synapse stop my-claude
-synapse stop --all                # Stop all agents
+synapse stop claude -a            # Stop all Claude instances
 ```
 
 ## Terminal Jump

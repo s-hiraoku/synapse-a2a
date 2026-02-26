@@ -176,9 +176,9 @@ Synapse supports three strategies for detecting when an agent is idle:
 
 | Strategy | How It Works | Best For |
 |----------|-------------|----------|
-| **Pattern** | Regex match on recurring PTY output | Codex (consistent `›` prompt) |
-| **Timeout** | No output for N seconds | Claude Code, OpenCode, Copilot |
-| **Hybrid** | Pattern for first idle, timeout after | Gemini |
+| **Pattern** | Regex match on recurring PTY output | Agents with consistent prompts |
+| **Timeout** | No output for N seconds | Codex, OpenCode, Copilot |
+| **Hybrid** | Pattern for first idle, timeout after | Claude Code, Gemini |
 
 See [Agent Profiles](profiles.md) for per-agent configuration details.
 

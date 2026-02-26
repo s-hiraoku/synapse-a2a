@@ -10,11 +10,11 @@ Profiles are stored in `synapse/profiles/` and loaded automatically when you sta
 
 | Profile | Command | Port Range | Submit | Idle Strategy | Write Delay |
 |---------|---------|:----------:|:------:|:-------------:|:-----------:|
-| **Claude** | `claude` | 8100-8109 | `\r` (CR) | Timeout (0.5s) | 0.5s |
-| **Gemini** | `gemini` | 8110-8119 | `\r` (CR) | Hybrid | 0s |
-| **Codex** | `codex` | 8120-8129 | `\r` (CR) | Pattern (`›`) | 0s |
-| **OpenCode** | `opencode` | 8130-8139 | `\r` (CR) | Timeout (1.0s) | 0s |
-| **Copilot** | `gh copilot` | 8140-8149 | `\r` (CR) | Timeout (0.5s) | 0.5s |
+| **Claude** | `claude` | 8100-8109 | `\r` (CR) | Hybrid (0.5s) | — (default 0.5s) |
+| **Gemini** | `gemini` | 8110-8119 | `\r` (CR) | Hybrid (3.0s) | — (default 0.5s) |
+| **Codex** | `codex` | 8120-8129 | `\r` (CR) | Timeout (3.0s) | — (default 0.5s) |
+| **OpenCode** | `opencode` | 8130-8139 | `\r` (CR) | Timeout (1.0s) | — (default 0.5s) |
+| **Copilot** | `copilot` | 8140-8149 | `\r` (CR) | Timeout (0.5s) | 0.5s |
 
 ## Profile Structure
 
@@ -23,10 +23,9 @@ Profiles are stored in `synapse/profiles/` and loaded automatically when you sta
 command: claude                    # CLI command to run
 args: []                          # Additional arguments
 submit_sequence: "\r"             # How to send Enter (CR/LF)
-write_delay: 0.5                  # Delay between data and submit (seconds)
 
 idle_detection:
-  strategy: "timeout"             # pattern | timeout | hybrid
+  strategy: "hybrid"              # pattern | timeout | hybrid
   pattern: "BRACKETED_PASTE_MODE" # Regex or special name
   pattern_use: "startup_only"     # always | startup_only | never
   timeout: 0.5                    # Seconds of no output = idle
@@ -49,11 +48,11 @@ Matches a regex pattern in PTY output to detect idle state.
 ```yaml
 idle_detection:
   strategy: "pattern"
-  pattern: "›"          # Codex prompt character
+  pattern: "›"          # Example: prompt character
   timeout: 1.5          # Fallback if pattern fails
 ```
 
-**Best for**: Agents with a consistent prompt character (Codex).
+**Best for**: Agents with a consistent prompt character.
 
 ### Timeout Strategy
 
@@ -66,7 +65,7 @@ idle_detection:
   timeout: 0.5          # 500ms of silence = idle
 ```
 
-**Best for**: Agents with TUI interfaces that don't have consistent prompts (Claude Code, OpenCode, Copilot).
+**Best for**: Agents with TUI interfaces that don't have consistent prompts (Codex, OpenCode, Copilot).
 
 ### Hybrid Strategy
 
@@ -80,7 +79,7 @@ idle_detection:
   timeout: 3.0                     # After first idle, use timeout
 ```
 
-**Best for**: Agents where a specific signal indicates TUI readiness but isn't repeated (Gemini).
+**Best for**: Agents where a specific signal indicates TUI readiness but isn't repeated (Claude Code, Gemini).
 
 ## Submit Sequence and Write Delay
 
@@ -121,16 +120,18 @@ This prevents the submit sequence from being consumed as part of the paste conte
 ```yaml
 command: claude
 submit_sequence: "\r"
-write_delay: 0.5
 
 idle_detection:
-  strategy: "timeout"
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
   timeout: 0.5
 ```
 
 - Uses Ink-based TUI with bracketed paste mode
-- `BRACKETED_PASTE_MODE` appears once during TUI initialization (not reliable for ongoing detection)
-- Pure timeout detection (0.5s) reliably detects idle state
+- `BRACKETED_PASTE_MODE` (ESC[?2004h) indicates idle at startup
+- Hybrid approach: pattern for fast startup detection, 0.5s timeout for subsequent idles
+- No `write_delay` in profile — uses the global default (`WRITE_PROCESSING_DELAY = 0.5s`)
 
 ### Gemini CLI
 
@@ -156,13 +157,13 @@ command: codex
 submit_sequence: "\r"
 
 idle_detection:
-  strategy: "pattern"
-  pattern: "›"
-  timeout: 1.5
+  strategy: "timeout"
+  timeout: 3.0
 ```
 
-- Consistent `›` prompt character after each response
-- Pattern matching is reliable for this agent
+- Timeout-based detection (3.0s) is more reliable than pattern matching
+- Pattern matching is unreliable because prompt patterns may appear in conversation history
+- Uses `input_ready_pattern: "›"` only for initial instruction delivery
 
 ### OpenCode
 
@@ -182,8 +183,8 @@ idle_detection:
 ### GitHub Copilot CLI
 
 ```yaml
-command: gh
-args: ["copilot"]
+command: copilot
+args: []
 submit_sequence: "\r"
 write_delay: 0.5
 
@@ -194,7 +195,7 @@ idle_detection:
 ```
 
 - Interactive TUI without consistent prompt patterns
-- Requires write delay (0.5s) for Ink TUI paste handling
+- Requires explicit `write_delay: 0.5` — Ink TUI collapses pasted text and needs time to finish rendering before CR
 
 ## Custom Profiles
 

@@ -57,10 +57,10 @@ export SYNAPSE_ALLOW_LOCALHOST=false   # Require auth even for localhost
 
 ## Protected Endpoints
 
-When authentication is enabled, all API endpoints require an API key in the `Authorization` header:
+When authentication is enabled, all API endpoints require an API key in the `X-API-Key` header:
 
 ```bash
-curl -H "Authorization: Bearer <api-key>" \
+curl -H "X-API-Key: <api-key>" \
   http://localhost:8100/tasks/send \
   -d '...'
 ```
@@ -69,7 +69,7 @@ curl -H "Authorization: Bearer <api-key>" \
 
 - **SHA-256 hashing**: Keys are stored as hashes, not plaintext
 - **Key scoping**: Read/write/admin permission levels
-- **Rate limiting**: 1000 requests/hour per key (default)
+- **Rate limiting**: Planned (data field exists, not yet enforced)
 - **Key expiration**: Optional TTL per key
 
 ## Security Best Practices

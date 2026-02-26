@@ -11,7 +11,7 @@ Each agent type has a dedicated port range supporting up to 10 concurrent instan
 | **Codex CLI** | 8120 – 8129 | 10 |
 | **OpenCode** | 8130 – 8139 | 10 |
 | **Copilot CLI** | 8140 – 8149 | 10 |
-| **Dummy (test)** | 8190 | 1 |
+| **Dummy (test)** | 8190 – 8199 | 10 |
 
 ## Port Auto-Assignment
 

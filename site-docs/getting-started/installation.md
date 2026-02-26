@@ -9,7 +9,7 @@
     - [Gemini CLI](https://github.com/google-gemini/gemini-cli) (`gemini`)
     - [Codex CLI](https://github.com/openai/codex) (`codex`)
     - [OpenCode](https://github.com/opencode-ai/opencode) (`opencode`)
-    - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) (`gh copilot`)
+    - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) (`copilot`)
 
 ## Install Synapse A2A
 

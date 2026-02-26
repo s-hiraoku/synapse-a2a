@@ -7,7 +7,7 @@
 command: string                    # CLI command to execute (required)
 args: [string]                     # Additional CLI arguments (optional)
 submit_sequence: "\r" | "\n"       # Submit key: CR or LF (default: "\r")
-write_delay: float                 # Delay between data and submit (seconds, default: 0)
+write_delay: float                 # Delay between data and submit (seconds, default: WRITE_PROCESSING_DELAY=0.5)
 
 idle_detection:
   strategy: "pattern" | "timeout" | "hybrid"  # Detection strategy (required)
@@ -33,7 +33,7 @@ The CLI command to execute.
 ```yaml
 command: claude          # Claude Code
 command: gemini          # Gemini CLI
-command: gh              # GitHub Copilot (with args: ["copilot"])
+command: copilot         # GitHub Copilot CLI
 command: opencode        # OpenCode
 command: codex           # Codex CLI
 ```
@@ -43,7 +43,7 @@ command: codex           # Codex CLI
 Additional arguments passed to the command.
 
 ```yaml
-args: ["copilot"]        # For Copilot: gh copilot
+args: []                 # Most agents use no extra args
 args: ["--verbose"]      # Custom flags
 ```
 
@@ -61,8 +61,8 @@ The character sent to submit input (press Enter).
 Delay in seconds between writing message data and sending the submit sequence.
 
 ```yaml
-write_delay: 0.5    # Claude, Copilot (Ink TUI needs time)
-write_delay: 0      # Gemini, Codex, OpenCode (no delay needed)
+write_delay: 0.5    # Copilot (explicit in profile — Ink TUI needs time)
+# Other profiles omit write_delay; the default (0.5s) is used
 ```
 
 ### idle_detection.strategy
@@ -79,8 +79,7 @@ Regex pattern or special name:
 
 | Value | Meaning |
 |-------|---------|
-| `"BRACKETED_PASTE_MODE"` | `ESC[?2004h` sequence (TUI ready) |
-| `"›"` | Codex prompt character |
+| `"BRACKETED_PASTE_MODE"` | `ESC[?2004h` sequence (TUI ready, used by Claude/Gemini) |
 | Custom regex | Any valid regex |
 
 ### idle_detection.pattern_use
@@ -102,9 +101,10 @@ Seconds of no PTY output before considering the agent idle.
 ```yaml
 command: claude
 submit_sequence: "\r"
-write_delay: 0.5
 idle_detection:
-  strategy: "timeout"
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
   timeout: 0.5
 ```
 
@@ -126,9 +126,8 @@ idle_detection:
 command: codex
 submit_sequence: "\r"
 idle_detection:
-  strategy: "pattern"
-  pattern: "›"
-  timeout: 1.5
+  strategy: "timeout"
+  timeout: 3.0
 ```
 
 ### OpenCode
@@ -145,8 +144,8 @@ idle_detection:
 ### GitHub Copilot CLI
 
 ```yaml
-command: gh
-args: ["copilot"]
+command: copilot
+args: []
 submit_sequence: "\r"
 write_delay: 0.5
 idle_detection:
