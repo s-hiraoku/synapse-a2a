@@ -2381,13 +2381,20 @@ def _memory_broadcast_notify(key: str) -> None:
         for agent_id, agent_info in agents.items():
             if agent_id != my_id:
                 name = agent_info.get("name") or agent_id
+                endpoint = agent_info.get("endpoint", "")
+                if not endpoint:
+                    print(f"  Skipped: {name} (no endpoint)")
+                    continue
                 try:
-                    client.send_to_local(
-                        endpoint=agent_info.get("endpoint", ""),
+                    task = client.send_to_local(
+                        endpoint=endpoint,
                         message=f"Shared memory updated: {key}",
                         response_expected=False,
                     )
-                    print(f"  Notified: {name}")
+                    if task is None:
+                        print(f"  Failed: {name}: no response")
+                    else:
+                        print(f"  Notified: {name}")
                 except Exception as e:
                     print(f"  Failed: {name}: {e}")
     except Exception:

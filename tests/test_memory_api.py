@@ -7,6 +7,7 @@ for /memory/* endpoints.
 from __future__ import annotations
 
 import os
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -184,3 +185,191 @@ class TestMemoryDeleteEndpoint:
         """DELETE /memory/{key} should return 404 for nonexistent."""
         response = app_client.delete("/memory/nonexistent")
         assert response.status_code == 404
+
+
+# --------------------------------------------------------
+# #286: MemorySaveRequest.notify field should trigger broadcast
+# --------------------------------------------------------
+
+
+class TestMemorySaveNotify:
+    """Tests for POST /memory/save with notify=True (#286)."""
+
+    def test_save_with_notify_calls_broadcast(self, app_client):
+        """POST /memory/save with notify=True should trigger broadcast."""
+        with patch("synapse.a2a_compat._memory_broadcast_notify_api") as mock_broadcast:
+            response = app_client.post(
+                "/memory/save",
+                json={
+                    "key": "shared-info",
+                    "content": "Important knowledge",
+                    "author": "claude",
+                    "notify": True,
+                },
+            )
+            assert response.status_code == 200
+            mock_broadcast.assert_called_once_with("shared-info")
+
+    def test_save_without_notify_does_not_broadcast(self, app_client):
+        """POST /memory/save with notify=False should NOT trigger broadcast."""
+        with patch("synapse.a2a_compat._memory_broadcast_notify_api") as mock_broadcast:
+            response = app_client.post(
+                "/memory/save",
+                json={
+                    "key": "quiet-info",
+                    "content": "No broadcast needed",
+                    "author": "claude",
+                    "notify": False,
+                },
+            )
+            assert response.status_code == 200
+            mock_broadcast.assert_not_called()
+
+    def test_save_default_notify_is_false(self, app_client):
+        """POST /memory/save without notify field should default to no broadcast."""
+        with patch("synapse.a2a_compat._memory_broadcast_notify_api") as mock_broadcast:
+            response = app_client.post(
+                "/memory/save",
+                json={
+                    "key": "default-info",
+                    "content": "Uses default",
+                    "author": "claude",
+                },
+            )
+            assert response.status_code == 200
+            mock_broadcast.assert_not_called()
+
+
+# --------------------------------------------------------
+# #287: Consistent 503 handling across /memory/* endpoints
+# --------------------------------------------------------
+
+
+@pytest.fixture
+def disabled_client(tmp_path):
+    """Create a FastAPI test client with shared memory DISABLED."""
+    os.environ["SYNAPSE_SHARED_MEMORY_DB_PATH"] = str(tmp_path / "memory.db")
+    os.environ["SYNAPSE_SHARED_MEMORY_ENABLED"] = "false"
+
+    from fastapi import FastAPI
+
+    from synapse.a2a_compat import create_a2a_router
+
+    app = FastAPI()
+    router = create_a2a_router(
+        controller=None,
+        agent_type="claude",
+        port=8100,
+        agent_id="synapse-claude-8100",
+    )
+    app.include_router(router)
+    yield TestClient(app)
+
+    os.environ.pop("SYNAPSE_SHARED_MEMORY_DB_PATH", None)
+    os.environ.pop("SYNAPSE_SHARED_MEMORY_ENABLED", None)
+
+
+class TestMemoryDisabled503:
+    """All /memory/* endpoints should return 503 when disabled (#287)."""
+
+    def test_save_returns_503(self, disabled_client):
+        """POST /memory/save should return 503 when disabled."""
+        response = disabled_client.post(
+            "/memory/save",
+            json={"key": "k", "content": "v", "author": "claude"},
+        )
+        assert response.status_code == 503
+
+    def test_list_returns_503(self, disabled_client):
+        """GET /memory/list should return 503 when disabled."""
+        response = disabled_client.get("/memory/list")
+        assert response.status_code == 503
+
+    def test_search_returns_503(self, disabled_client):
+        """GET /memory/search should return 503 when disabled."""
+        response = disabled_client.get("/memory/search?q=test")
+        assert response.status_code == 503
+
+    def test_get_returns_503(self, disabled_client):
+        """GET /memory/{key} should return 503 when disabled."""
+        response = disabled_client.get("/memory/some-key")
+        assert response.status_code == 503
+
+    def test_delete_returns_503(self, disabled_client):
+        """DELETE /memory/{key} should return 503 when disabled."""
+        response = disabled_client.delete("/memory/some-key")
+        assert response.status_code == 503
+
+
+# --------------------------------------------------------
+# #288: Input validation on /memory/list limit and tags
+# --------------------------------------------------------
+
+
+class TestMemoryListValidation:
+    """Tests for limit/tags validation on GET /memory/list (#288)."""
+
+    def test_limit_zero_clamped_to_1(self, app_client):
+        """limit=0 should be clamped to 1."""
+        app_client.post(
+            "/memory/save",
+            json={"key": "k1", "content": "v1", "author": "claude"},
+        )
+        app_client.post(
+            "/memory/save",
+            json={"key": "k2", "content": "v2", "author": "claude"},
+        )
+        response = app_client.get("/memory/list?limit=0")
+        assert response.status_code == 200
+        assert len(response.json()["memories"]) >= 1
+
+    def test_negative_limit_clamped_to_1(self, app_client):
+        """limit=-5 should be clamped to 1."""
+        app_client.post(
+            "/memory/save",
+            json={"key": "k1", "content": "v1", "author": "claude"},
+        )
+        response = app_client.get("/memory/list?limit=-5")
+        assert response.status_code == 200
+        assert len(response.json()["memories"]) >= 1
+
+    def test_huge_limit_clamped_to_100(self, app_client):
+        """limit=999999 should be clamped to 100."""
+        app_client.post(
+            "/memory/save",
+            json={"key": "k1", "content": "v1", "author": "claude"},
+        )
+        response = app_client.get("/memory/list?limit=999999")
+        assert response.status_code == 200
+
+    def test_tags_with_whitespace_trimmed(self, app_client):
+        """tags with whitespace should be trimmed."""
+        app_client.post(
+            "/memory/save",
+            json={
+                "key": "k1",
+                "content": "v1",
+                "author": "claude",
+                "tags": ["arch"],
+            },
+        )
+        response = app_client.get("/memory/list?tags= arch , ")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["memories"]) == 1
+
+    def test_tags_empty_strings_filtered(self, app_client):
+        """Trailing commas in tags should not produce empty strings."""
+        app_client.post(
+            "/memory/save",
+            json={
+                "key": "k1",
+                "content": "v1",
+                "author": "claude",
+                "tags": ["security"],
+            },
+        )
+        response = app_client.get("/memory/list?tags=security,")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["memories"]) == 1
