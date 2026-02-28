@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-28
+
+### Added
+
+- add GitHub Pages documentation site with MkDocs Material
+- add github-pages-sync skill for site-docs maintenance
+- add shared memory for cross-agent knowledge sharing
+
+### Documentation
+
+- sync list and configuration docs with current implementation
+- add shared memory feature to documentation
+- add shared-memory commands and architecture to CLAUDE.md
+- fix Material icon rendering by adding markdown attribute to HTML tags
+- add shared memory feature card to site-docs homepage
+
+### Fixed
+
+- address CodeRabbit review findings for GitHub Pages docs
+- correct 16 documentation inaccuracies against actual codebase
+- address CodeRabbit review findings for quickstart and agent-teams
+
 ## [0.6.12] - 2026-02-26
 
 ### Fixed
