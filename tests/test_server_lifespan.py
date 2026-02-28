@@ -29,6 +29,7 @@ class TestServerLifespan:
         with (
             patch("os.environ.get", side_effect=mock_env_get),
             patch("synapse.server.load_profile") as mock_load,
+            patch("synapse.server.setup_logging") as mock_setup_logging,
             patch("synapse.server.AgentRegistry") as mock_reg_cls,
             patch("synapse.server.TerminalController") as mock_ctrl_cls,
             patch("synapse.server.create_a2a_router"),
@@ -49,6 +50,7 @@ class TestServerLifespan:
                 # Verify startup
                 mock_ctrl.start.assert_called_once()
                 mock_reg.register.assert_called()
+                mock_setup_logging.assert_called_once_with(agent_name="dummy-8199")
 
             # Verify shutdown
             mock_ctrl.stop.assert_called_once()

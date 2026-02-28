@@ -365,3 +365,46 @@ class TestGracefulShutdownFlow:
 
         # Registry should still be cleaned up
         mock_registry.unregister.assert_called_once_with("synapse-claude-8100")
+
+    def test_graceful_shutdown_logs_event(self, mock_registry, caplog):
+        """Graceful shutdown should emit structured event log."""
+        import argparse
+        import logging
+
+        args = argparse.Namespace(target="test-claude", force=False)
+        loggers_to_fix = [
+            logging.getLogger("synapse"),
+            logging.getLogger("synapse.cli"),
+        ]
+        orig_propagate = {lg.name: lg.propagate for lg in loggers_to_fix}
+        for lg in loggers_to_fix:
+            lg.propagate = True
+
+        try:
+            with (
+                patch("synapse.cli.AgentRegistry", return_value=mock_registry),
+                patch("synapse.settings.get_settings") as mock_settings,
+                patch("synapse.cli._send_shutdown_request") as mock_send,
+                patch("builtins.input", return_value="y"),
+                patch("os.kill"),
+                patch("time.sleep"),
+                patch("synapse.cli.is_process_alive", return_value=False),
+                caplog.at_level(logging.INFO, logger="synapse.cli"),
+            ):
+                mock_settings_inst = MagicMock()
+                mock_settings_inst.get_shutdown_settings.return_value = {
+                    "timeout_seconds": 30,
+                    "graceful_enabled": True,
+                }
+                mock_settings.return_value = mock_settings_inst
+                mock_send.return_value = True
+
+                from synapse.cli import cmd_kill
+
+                cmd_kill(args)
+        finally:
+            for lg in loggers_to_fix:
+                lg.propagate = orig_propagate[lg.name]
+
+        assert "event=graceful_shutdown_request" in caplog.text
+        assert "agent_id=synapse-claude-8100" in caplog.text

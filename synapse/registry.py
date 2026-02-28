@@ -313,7 +313,12 @@ class AgentRegistry:
                     raise
 
         except (json.JSONDecodeError, OSError) as e:
-            logger.error(f"Failed to update {field_name} for {agent_id}: {e}")
+            logger.error(
+                "event=registry_update_failed field=%s agent_id=%s error=%s",
+                field_name,
+                agent_id,
+                e,
+            )
             return False
 
     def update_status(self, agent_id: str, status: str) -> bool:

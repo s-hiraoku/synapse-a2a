@@ -13,6 +13,7 @@ from fastapi import FastAPI
 
 from synapse.a2a_compat import create_a2a_router
 from synapse.controller import TerminalController
+from synapse.logging_config import setup_logging
 from synapse.registry import AgentRegistry, resolve_uds_path
 from synapse.utils import resolve_command_path
 
@@ -122,6 +123,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Registry Registration (before controller to pass agent_id)
     registry = AgentRegistry()
     current_agent_id = registry.get_agent_id(profile_name, agent_port)
+    setup_logging(agent_name=current_agent_id)
 
     # Set sender identification environment variables for child processes
     # These are used by CLI tools (a2a.py) to auto-detect sender info

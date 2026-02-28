@@ -563,7 +563,12 @@ class FileSafetyManager:
                         "expires_at": None,
                     }
             except sqlite3.Error as e:
-                logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
+                logger.error(
+                    "event=file_lock_acquire_failed file_path=%s agent=%s error=%s",
+                    normalized_path,
+                    effective_agent_id,
+                    e,
+                )
                 return {"status": LockStatus.FAILED, "reason": str(e)}
             finally:
                 if conn:

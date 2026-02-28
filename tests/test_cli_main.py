@@ -1,11 +1,28 @@
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
+from synapse.agent_profiles import AgentProfileError
 from synapse.cli import main
 
 
 class TestCliMain:
     """Tests for synapse.cli.main() function."""
+
+    @patch("synapse.cli.setup_logging")
+    @patch("synapse.cli.cmd_list")
+    @patch("synapse.cli.install_skills")
+    def test_main_initializes_logging(
+        self, mock_install, mock_cmd_list, mock_setup_logging
+    ):
+        """main() should initialize logging before command dispatch."""
+        with patch.object(sys, "argv", ["synapse", "list"]):
+            main()
+
+        mock_setup_logging.assert_called_once_with()
+        mock_cmd_list.assert_called_once()
 
     @patch("synapse.cli.cmd_run_interactive")
     @patch("synapse.cli.PortManager")
@@ -372,3 +389,120 @@ class TestCliMain:
         args = mock_cmd_rename.call_args[0][0]
         assert args.target == "claude"
         assert args.name == "my-claude"
+
+    @patch("synapse.cli.cmd_run_interactive")
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.AgentProfileStore")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_agent_resolves_saved_definition(
+        self, mock_install, mock_store_cls, mock_registry, mock_pm, mock_run_interactive
+    ):
+        """--agent should resolve saved agent defaults for shortcut mode."""
+        mock_pm_inst = mock_pm.return_value
+        mock_pm_inst.get_available_port.return_value = 8100
+        mock_store = mock_store_cls.return_value
+        mock_store.resolve.return_value = SimpleNamespace(
+            profile="claude",
+            name="saved-name",
+            role="saved-role",
+            skill_set="saved-set",
+        )
+
+        with patch.object(
+            sys, "argv", ["synapse", "claude", "--agent", "silent-snake"]
+        ):
+            main()
+
+        mock_run_interactive.assert_called_once_with(
+            "claude",
+            8100,
+            [],
+            name="saved-name",
+            role="saved-role",
+            no_setup=False,
+            delegate_mode=False,
+            skill_set="saved-set",
+            headless=False,
+        )
+
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.AgentProfileStore")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_agent_unknown_exits(
+        self, mock_install, mock_store_cls, mock_registry, mock_pm, capsys
+    ):
+        """Unknown --agent should exit with a helpful error."""
+        mock_store = mock_store_cls.return_value
+        mock_store.resolve.return_value = None
+
+        with patch.object(sys, "argv", ["synapse", "claude", "--agent", "missing"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Unknown saved agent: missing" in captured.err
+
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.AgentProfileStore")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_agent_profile_mismatch_exits(
+        self, mock_install, mock_store_cls, mock_registry, mock_pm, capsys
+    ):
+        """--agent with mismatched profile should exit."""
+        mock_store = mock_store_cls.return_value
+        mock_store.resolve.return_value = SimpleNamespace(
+            profile="gemini",
+            name="saved-name",
+            role="saved-role",
+            skill_set="saved-set",
+        )
+
+        with patch.object(
+            sys, "argv", ["synapse", "claude", "--agent", "silent-snake"]
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "uses profile 'gemini'" in captured.err
+
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.AgentProfileStore")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_agent_resolve_error_exits(
+        self, mock_install, mock_store_cls, mock_registry, mock_pm, capsys
+    ):
+        """Store resolution errors should be surfaced as fatal errors."""
+        mock_store = mock_store_cls.return_value
+        mock_store.resolve.side_effect = AgentProfileError("resolve failed")
+
+        with patch.object(
+            sys, "argv", ["synapse", "claude", "--agent", "silent-snake"]
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "resolve failed" in captured.err
+
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.install_skills")
+    def test_main_shortcut_with_agent_missing_value_exits(
+        self, mock_install, mock_registry, mock_pm, capsys
+    ):
+        """--agent without value should fail instead of parsing the next flag."""
+        with patch.object(sys, "argv", ["synapse", "claude", "--agent", "--role", "x"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "--agent/-A requires a value" in captured.err

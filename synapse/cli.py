@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import logging
 import os
 import shutil
 import signal
@@ -26,6 +27,7 @@ from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
+from synapse.logging_config import setup_logging
 from synapse.port_manager import (
     PORT_RANGES,
     PortManager,
@@ -38,6 +40,7 @@ from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
 KNOWN_PROFILES = set(PORT_RANGES.keys())
+logger = logging.getLogger(__name__)
 
 
 def install_skills() -> None:
@@ -288,8 +291,20 @@ def cmd_kill(args: argparse.Namespace) -> None:
         registry.update_status(agent_id, "SHUTTING_DOWN")
 
         # 2. Send graceful shutdown request via A2A
+        logger.info(
+            "event=graceful_shutdown_request agent_id=%s target=%s timeout_seconds=%s",
+            agent_id,
+            target,
+            http_timeout,
+        )
         print(f"Sending shutdown request to {display_name}...")
         acknowledged = _send_shutdown_request(agent_info, timeout_seconds=http_timeout)
+        logger.info(
+            "event=graceful_shutdown_result agent_id=%s target=%s acknowledged=%s",
+            agent_id,
+            target,
+            acknowledged,
+        )
 
         if acknowledged:
             print(f"Shutdown acknowledged by {display_name}.")
@@ -3562,6 +3577,8 @@ def cmd_run_interactive(
 
 
 def main() -> None:
+    setup_logging()
+
     # Install A2A skills if not present
     install_skills()
 
@@ -3584,7 +3601,10 @@ def main() -> None:
             if flag in synapse_args:
                 idx = synapse_args.index(flag)
                 if idx + 1 < len(synapse_args):
-                    return synapse_args[idx + 1]
+                    value = synapse_args[idx + 1]
+                    if value.startswith("-"):
+                        return None
+                    return value
             return None
 
         # Parse --port from synapse_args
@@ -3604,6 +3624,38 @@ def main() -> None:
         no_setup = "--no-setup" in synapse_args
         headless = "--headless" in synapse_args
         delegate_mode = "--delegate-mode" in synapse_args
+
+        # Resolve --agent / -A flag from saved agent definitions
+        has_agent_flag = "--agent" in synapse_args or "-A" in synapse_args
+        agent_arg = parse_arg("--agent") or parse_arg("-A")
+        if has_agent_flag and not agent_arg:
+            print("Error: --agent/-A requires a value.", file=sys.stderr)
+            sys.exit(1)
+        if agent_arg:
+            store = AgentProfileStore()
+            try:
+                saved = store.resolve(agent_arg)
+            except AgentProfileError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+            if saved is None:
+                print(
+                    f"Error: Unknown saved agent: {agent_arg}\n"
+                    "Run 'synapse agents list' to see saved agents.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if saved.profile != profile:
+                print(
+                    f"Error: Saved agent '{agent_arg}' uses profile "
+                    f"'{saved.profile}', but you ran 'synapse {profile}'.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            # CLI args override saved values
+            name = name or saved.name
+            role = role or saved.role
+            skill_set_arg = skill_set_arg or saved.skill_set
 
         # Auto-select available port if not specified
         if port is None:
