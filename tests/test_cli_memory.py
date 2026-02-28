@@ -363,7 +363,8 @@ class TestMemoryBroadcastNotify:
             patch("synapse.cli.A2AClient") as mock_client_cls,
         ):
             mock_client = MagicMock()
-            mock_client.send_to_local.return_value = None
+            mock_task = MagicMock()
+            mock_client.send_to_local.return_value = mock_task
             mock_client_cls.return_value = mock_client
 
             from synapse.cli import _memory_broadcast_notify
@@ -431,4 +432,5 @@ class TestMemoryBroadcastNotify:
             _memory_broadcast_notify("test-key")
 
         out = capsys.readouterr().out
-        assert "failed" in out.lower() or "Notified" not in out
+        assert "Failed:" in out
+        assert "connection refused" in out

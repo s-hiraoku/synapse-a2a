@@ -2397,8 +2397,8 @@ def _memory_broadcast_notify(key: str) -> None:
                         print(f"  Notified: {name}")
                 except Exception as e:
                     print(f"  Failed: {name}: {e}")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  Broadcast failed: {e}", file=sys.stderr)
 
 
 def cmd_memory_list(args: argparse.Namespace) -> None:

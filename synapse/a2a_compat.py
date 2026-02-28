@@ -1152,7 +1152,11 @@ def create_a2a_router(
         if not result:
             raise HTTPException(status_code=503, detail="Shared memory is disabled")
         if request.notify:
-            _memory_broadcast_notify_api(request.key)
+            threading.Thread(
+                target=_memory_broadcast_notify_api,
+                args=(request.key,),
+                daemon=True,
+            ).start()
         return dict(result)
 
     @router.get("/memory/search")

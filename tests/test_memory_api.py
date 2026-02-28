@@ -193,7 +193,12 @@ class TestMemoryDeleteEndpoint:
 
 
 class TestMemorySaveNotify:
-    """Tests for POST /memory/save with notify=True (#286)."""
+    """Tests for POST /memory/save with notify=True (#286).
+
+    Notification runs in a background daemon thread. We mock
+    _memory_broadcast_notify_api so the thread executes the mock
+    instantly (no real network calls).
+    """
 
     def test_save_with_notify_calls_broadcast(self, app_client):
         """POST /memory/save with notify=True should trigger broadcast."""
@@ -310,7 +315,7 @@ class TestMemoryListValidation:
     """Tests for limit/tags validation on GET /memory/list (#288)."""
 
     def test_limit_zero_clamped_to_1(self, app_client):
-        """limit=0 should be clamped to 1."""
+        """limit=0 should be clamped to 1, returning exactly 1 result."""
         app_client.post(
             "/memory/save",
             json={"key": "k1", "content": "v1", "author": "claude"},
@@ -321,26 +326,34 @@ class TestMemoryListValidation:
         )
         response = app_client.get("/memory/list?limit=0")
         assert response.status_code == 200
-        assert len(response.json()["memories"]) >= 1
+        assert len(response.json()["memories"]) == 1
 
     def test_negative_limit_clamped_to_1(self, app_client):
-        """limit=-5 should be clamped to 1."""
+        """limit=-5 should be clamped to 1, returning exactly 1 result."""
         app_client.post(
             "/memory/save",
             json={"key": "k1", "content": "v1", "author": "claude"},
+        )
+        app_client.post(
+            "/memory/save",
+            json={"key": "k2", "content": "v2", "author": "claude"},
         )
         response = app_client.get("/memory/list?limit=-5")
         assert response.status_code == 200
-        assert len(response.json()["memories"]) >= 1
+        assert len(response.json()["memories"]) == 1
 
-    def test_huge_limit_clamped_to_100(self, app_client):
+    def test_huge_limit_clamped_to_100(self, app_client, tmp_path):
         """limit=999999 should be clamped to 100."""
-        app_client.post(
-            "/memory/save",
-            json={"key": "k1", "content": "v1", "author": "claude"},
-        )
-        response = app_client.get("/memory/list?limit=999999")
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory(db_path=str(tmp_path / "memory.db"))
+        for i in range(101):
+            mem.save(key=f"clamp-k{i}", content=f"v{i}", author="claude")
+        # Patch from_env to use the pre-populated instance
+        with patch("synapse.shared_memory.SharedMemory.from_env", return_value=mem):
+            response = app_client.get("/memory/list?limit=999999")
         assert response.status_code == 200
+        assert len(response.json()["memories"]) == 100
 
     def test_tags_with_whitespace_trimmed(self, app_client):
         """tags with whitespace should be trimmed."""
