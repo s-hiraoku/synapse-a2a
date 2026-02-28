@@ -388,6 +388,62 @@ class TestGhosttyPaneCreation:
         # Each agent should produce a command
         assert len(commands) == 2
 
+    def test_ghostty_e_flag_receives_separate_args(self) -> None:
+        """Ghostty -e expects command and args as SEPARATE argv entries.
+
+        When `open --args -e ...` is used, everything after -e must be
+        separate arguments so that Ghostty can execvp() the command.
+        Passing the whole command as a single quoted string causes Ghostty
+        to look for a binary named "/bin/zsh -lc '...'" (literally), which
+        fails.
+        """
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude"], cwd="/tmp/test")
+        assert len(commands) == 1
+        argv = shlex.split(commands[0])
+
+        # Find -e flag position
+        e_idx = argv.index("-e")
+
+        # After -e, each part must be a separate argv entry:
+        # argv[e_idx+1] = "/bin/zsh" (or shell path)
+        # argv[e_idx+2] = "-lc"
+        # argv[e_idx+3] = "cd /tmp/test && exec ..."  (the shell script)
+        assert argv[e_idx + 1].endswith("/zsh") or argv[e_idx + 1].endswith("/bash"), (
+            f"Expected shell path after -e, got: {argv[e_idx + 1]}"
+        )
+        assert argv[e_idx + 2] == "-lc"
+        assert argv[e_idx + 3].startswith("cd /tmp/test && ")
+
+    def test_ghostty_e_flag_with_spaces_in_cwd(self) -> None:
+        """cwd with spaces must be correctly quoted inside the -lc argument."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        cwd = "/home/user/my project"
+        commands = create_ghostty_window(agents=["claude"], cwd=cwd)
+        argv = shlex.split(commands[0])
+
+        e_idx = argv.index("-e")
+        shell_script = argv[e_idx + 3]
+        # The cwd must be shell-quoted in the cd command
+        assert shlex.quote(cwd) in shell_script
+
+    def test_ghostty_e_flag_with_tool_args(self) -> None:
+        """tool_args should appear in the shell script passed to -lc."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(
+            agents=["claude"],
+            tool_args=["--dangerously-skip-permissions"],
+            cwd="/tmp/test",
+        )
+        argv = shlex.split(commands[0])
+
+        e_idx = argv.index("-e")
+        shell_script = argv[e_idx + 3]
+        assert "-- --dangerously-skip-permissions" in shell_script
+
 
 # ============================================================
 # TestBuildAgentCommandPort - Port field in agent spec

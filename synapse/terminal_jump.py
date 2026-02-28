@@ -784,9 +784,12 @@ def create_ghostty_window(
     for agent_spec in agents:
         full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
-        # Use 'open -na Ghostty' to open a new Ghostty window running the command
-        safe_cmd = shlex.quote(f"/bin/zsh -lc {shlex.quote(cd_cmd)}")
-        commands.append(f"open -na Ghostty --args -e {safe_cmd}")
+        # Ghostty -e expects command and arguments as SEPARATE argv entries
+        # (like execvp), not as a single quoted string.
+        # open --args passes everything after it as individual argv to Ghostty.
+        commands.append(
+            f"open -na Ghostty --args -e /bin/zsh -lc {shlex.quote(cd_cmd)}"
+        )
 
     return commands
 
