@@ -152,6 +152,18 @@ synapse trace <task_id>
 ```
 </div>
 
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-brain:</div>
+
+### Shared Memory
+Cross-agent knowledge sharing via project-local SQLite. Save, search, and broadcast learned knowledge.
+
+```bash
+synapse memory save auth-pattern \
+  "Use OAuth2 with PKCE" --tags auth --notify
+```
+</div>
+
 </div>
 
 ## Supported Agents
