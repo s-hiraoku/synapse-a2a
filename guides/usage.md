@@ -1200,7 +1200,7 @@ Ink ベースの TUI（Claude Code など）では、以下の問題が発生す
 
 ### 7.3 レスポンス待ちのタイムアウト
 
-`@Agent` パターンはデフォルトでレスポンスを待ちます（最大 60 秒）。レスポンスを待たずに送信のみ行いたい場合は、`synapse send` コマンドの `--no-response` オプションを使用してください。長時間の処理を依頼する場合は、別途 `/status` API でポーリングしてください。
+`@Agent` パターンはデフォルトでレスポンスを待ちます（最大 60 秒）。レスポンスを待たずに送信のみ行いたい場合は、`synapse send --no-response` を使用してください。`--no-response` でも受信側の完了時に sender 側 history の該当タスク（`sent`）を `completed` / `failed` / `canceled` へ best-effort で更新します（通知不達時は `sent` のまま）。
 
 ---
 

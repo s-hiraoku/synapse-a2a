@@ -204,6 +204,99 @@ class HistoryManager:
                 print(f"Warning: Failed to retrieve observation: {e}", file=sys.stderr)
                 return None
 
+    def update_observation_status(
+        self,
+        task_id: str,
+        status: str,
+        output_text: str | None = None,
+        metadata_update: dict[str, Any] | None = None,
+    ) -> bool:
+        """Update status of an existing observation.
+
+        Args:
+            task_id: Task identifier to update
+            status: New task status
+            output_text: Optional replacement output text
+            metadata_update: Optional metadata keys to merge into existing metadata
+
+        Returns:
+            True if an existing observation was updated, otherwise False
+        """
+        if not self.enabled:
+            return False
+
+        with self._lock:
+            try:
+                with _db_connection(self.db_path, row_factory=True) as conn:
+                    cursor = conn.cursor()
+
+                    metadata_json: str | None = None
+                    if metadata_update is not None:
+                        cursor.execute(
+                            "SELECT metadata FROM observations WHERE task_id = ?",
+                            (task_id,),
+                        )
+                        row = cursor.fetchone()
+                        if row is None:
+                            return False
+
+                        current_metadata: dict[str, Any] = {}
+                        raw_metadata = row["metadata"]
+                        if raw_metadata:
+                            with contextlib.suppress(TypeError, ValueError):
+                                parsed = json.loads(raw_metadata)
+                                if isinstance(parsed, dict):
+                                    current_metadata = parsed
+
+                        current_metadata.update(metadata_update)
+                        with contextlib.suppress(TypeError, ValueError):
+                            metadata_json = json.dumps(current_metadata)
+
+                    if output_text is None and metadata_json is None:
+                        cursor.execute(
+                            """
+                            UPDATE observations
+                            SET status = ?, timestamp = CURRENT_TIMESTAMP
+                            WHERE task_id = ?
+                            """,
+                            (status, task_id),
+                        )
+                    elif output_text is None:
+                        cursor.execute(
+                            """
+                            UPDATE observations
+                            SET status = ?, metadata = ?, timestamp = CURRENT_TIMESTAMP
+                            WHERE task_id = ?
+                            """,
+                            (status, metadata_json, task_id),
+                        )
+                    elif metadata_json is None:
+                        cursor.execute(
+                            """
+                            UPDATE observations
+                            SET status = ?, output = ?, timestamp = CURRENT_TIMESTAMP
+                            WHERE task_id = ?
+                            """,
+                            (status, output_text, task_id),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE observations
+                            SET status = ?, output = ?, metadata = ?, timestamp = CURRENT_TIMESTAMP
+                            WHERE task_id = ?
+                            """,
+                            (status, output_text, metadata_json, task_id),
+                        )
+
+                    return cursor.rowcount > 0
+            except sqlite3.Error as e:
+                print(
+                    f"Warning: Failed to update observation status: {e}",
+                    file=sys.stderr,
+                )
+                return False
+
     def list_observations(
         self,
         limit: int = 50,
