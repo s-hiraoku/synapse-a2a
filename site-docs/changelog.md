@@ -4,13 +4,20 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.7.x (Post v0.7.0)
+### v0.8.0
 
-- **Fixed**: Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows, preserving existing panes
-- **Fixed**: Ghostty commands injected via clipboard paste (`Cmd+V`) to avoid character mangling with long arguments
-- **Fixed**: `team start` pre-allocates unique ports to prevent race conditions when multiple agents of the same type start simultaneously
-- **Changed**: Agent spec format simplified to `profile[:name[:role[:skill_set[:port]]]]` (removed 6th `headless` field)
-- **Changed**: `_build_agent_command` always adds `--no-setup --headless` for all spawned agents
+- **Added**: Saved Agent Manager — reusable agent configurations via `synapse agents` commands
+- **Added**: Completion callback for `--no-response` task tracking (`POST /history/update`)
+- **Added**: Sender identification in PTY-injected A2A messages
+- **Added**: Ghostty split pane support for `team start` and `spawn`
+- **Added**: Agent name uniqueness enforcement across interactive start, spawn, and team start
+- **Changed**: `synapse spawn` and `synapse team start` accept saved-agent ID/name
+- **Changed**: Registry writes hardened with registry-wide lock and atomic name conflict rejection
+- **Fixed**: Ghostty split panes (`Cmd+D`) instead of new windows, clipboard paste for commands
+- **Fixed**: Port pre-allocation in `team start` to avoid race conditions
+- **Fixed**: Shared memory bugs (#286-#291) and memory CLI tag parsing
+- **Fixed**: Soft interrupt priority corrected (p5→p4)
+- **Docs**: Saved-agent definitions guide and CLI reference
 
 ### v0.7.0
 

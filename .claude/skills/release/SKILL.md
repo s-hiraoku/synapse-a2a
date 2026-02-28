@@ -79,6 +79,11 @@ Update hardcoded version strings in GitHub Pages documentation:
 
 3. `site-docs/changelog.md` — add new version entry at the top of "Recent Highlights" (only if CHANGELOG.md was updated in Step 4-5).
 
+4. `mkdocs.yml` — `repo_name` includes version displayed in GitHub Pages header:
+   ```yaml
+   repo_name: s-hiraoku/synapse-a2a vNEW_VERSION
+   ```
+
 **Important:** Keep site-docs version in sync with pyproject.toml version.
 
 ### Step 4: Generate Changelog with git-cliff
@@ -142,6 +147,7 @@ Display:
 - Version: `pyproject.toml` (line with `version = "..."`)
 - Plugin Version: `plugins/synapse-a2a/.claude-plugin/plugin.json` (line with `"version": "..."`)
 - Site Docs Version: `site-docs/getting-started/installation.md`, `site-docs/concepts/a2a-protocol.md`
+- Site Header Version: `mkdocs.yml` (`repo_name` field)
 - Changelog: `CHANGELOG.md`
 - Site Docs Changelog: `site-docs/changelog.md`
 
