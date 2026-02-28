@@ -336,6 +336,16 @@ class TestSharedMemorySearch:
         sig = inspect.signature(SharedMemory.search)
         assert sig.parameters["limit"].default == 100
 
+    def test_search_rejects_zero_limit(self, memory):
+        """search() should reject zero limit with ValueError."""
+        with pytest.raises(ValueError, match="limit must be greater than 0"):
+            memory.search("api", limit=0)
+
+    def test_search_rejects_negative_limit(self, memory):
+        """search() should reject negative limit with ValueError."""
+        with pytest.raises(ValueError, match="limit must be greater than 0"):
+            memory.search("api", limit=-1)
+
 
 # ============================================================
 # TestSharedMemoryDelete - Delete operations

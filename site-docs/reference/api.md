@@ -126,7 +126,7 @@ curl -X POST http://localhost:8100/spawn \
 |:------:|----------|-------------|
 | GET | `/memory/list` | List memories (query: `author`, `tags`, `limit`) |
 | POST | `/memory/save` | Save or update a memory (UPSERT on key) |
-| GET | `/memory/search` | Search memories (query: `q`, default limit: 100) |
+| GET | `/memory/search` | Search memories (query: `q`, `limit` [default: 100]) |
 | GET | `/memory/{id_or_key}` | Get a specific memory by ID or key |
 | DELETE | `/memory/{id_or_key}` | Delete a memory |
 

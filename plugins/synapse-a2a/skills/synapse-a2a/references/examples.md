@@ -24,13 +24,15 @@ synapse list
 
 ```bash
 # Delegate a task (no reply needed)
-synapse send codex "Please refactor the authentication module" --no-response```
+synapse send codex "Please refactor the authentication module" --no-response
+```
 
 ### Request with Reply
 
 ```bash
 # Ask a question and wait for response
-synapse send gemini "What is the best approach for caching?" --response```
+synapse send gemini "What is the best approach for caching?" --response
+```
 
 ### With Priority
 
@@ -38,7 +40,8 @@ synapse send gemini "What is the best approach for caching?" --response```
 # Urgent follow-up
 synapse send gemini "Status update?" --priority 4 --response
 # Emergency interrupt
-synapse send codex "STOP" --priority 5```
+synapse send codex "STOP" --priority 5
+```
 
 ### Broadcast to All Agents
 
@@ -48,7 +51,8 @@ synapse broadcast "Status check - what are you working on?" --response
 # Notify all agents of a completed build
 synapse broadcast "FYI: Build passed, main branch updated" --no-response
 # Urgent broadcast to stop all work
-synapse broadcast "STOP: Critical bug found in shared module" --priority 4```
+synapse broadcast "STOP: Critical bug found in shared module" --priority 4
+```
 
 ## File Coordination Example
 
@@ -79,7 +83,8 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --response```
+   synapse send gemini "What's your progress on src/auth.py?" --response
+```
 
 ## Collaborative Development
 
@@ -99,7 +104,9 @@ synapse reply "LGTM. Two suggestions: ..."
 
 ```bash
 # Ask multiple agents simultaneously (no reply needed - they'll work independently)
-synapse send gemini "Research best practices for authentication" --no-responsesynapse send codex "Check how other projects implement this pattern" --no-response```
+synapse send gemini "Research best practices for authentication" --no-response
+synapse send codex "Check how other projects implement this pattern" --no-response
+```
 
 ## Monitoring Tasks
 
@@ -221,7 +228,9 @@ synapse gemini --name worker-1
 synapse codex --name worker-2
 
 # Coordinator delegates tasks
-synapse send worker-1 "Implement auth in src/auth.py"synapse send worker-2 "Write tests in tests/test_auth.py"```
+synapse send worker-1 "Implement auth in src/auth.py"
+synapse send worker-2 "Write tests in tests/test_auth.py"
+```
 
 ### Coordinator + Worker with Worktree Isolation
 
@@ -239,9 +248,11 @@ synapse spawn claude --name worker-2 --role "test writer" -- --worktree
 synapse list   # Verify worker-1 and worker-2 show STATUS=READY
 
 # Delegate parallel tasks — no file conflicts thanks to worktrees
-synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-responsesynapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response
+synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-response
+synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response
 # Collect results
-synapse send worker-1 "Report your progress" --responsesynapse send worker-2 "Report your progress" --response
+synapse send worker-1 "Report your progress" --response
+synapse send worker-2 "Report your progress" --response
 # Cleanup — MUST kill Workers when done
 synapse kill worker-1 -f
 synapse kill worker-2 -f
@@ -356,9 +367,11 @@ synapse spawn codex --name Fixer --role "bug fixer"
 synapse list   # Verify both Tester and Fixer show STATUS=READY
 
 # Delegate parallel subtasks
-synapse send Tester "Write tests for src/auth.py" --no-responsesynapse send Fixer "Fix the timeout bug in src/server.py" --no-response
+synapse send Tester "Write tests for src/auth.py" --no-response
+synapse send Fixer "Fix the timeout bug in src/server.py" --no-response
 # Monitor progress, then collect results
-synapse send Tester "Report your progress" --responsesynapse send Fixer "Report your progress" --response
+synapse send Tester "Report your progress" --response
+synapse send Fixer "Report your progress" --response
 # Evaluate: verify artifacts (e.g., git diff, pytest)
 
 # All done — MUST kill all
@@ -448,11 +461,13 @@ git push
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --response   ```
+   synapse send <agent> "Status?" --priority 4 --response
+   ```
 
 3. Emergency stop:
    ```bash
-   synapse send <agent> "STOP" --priority 5   ```
+   synapse send <agent> "STOP" --priority 5
+   ```
 
 ### Agent Not Found
 

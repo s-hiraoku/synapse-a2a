@@ -399,8 +399,8 @@ To inject instructions later: `synapse instructions send <agent>`.
 
 - **Agent Naming**: Custom names and roles for easy identification
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
-- **Sender Identification**: Auto-identify sender via `metadata.sender` + PID matching
-- **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --no-response` (urgent, fire-and-forget)
+- **Sender Identification**: Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (fallback)
+- **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 5 --no-response` (urgent, fire-and-forget)
 - **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop, bypasses Readiness Gate)
 - **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` return HTTP 503 with `Retry-After: 5` while agent is initializing; priority 5 and replies bypass
 - **Multi-Instance**: Run multiple agents of the same type with automatic port assignment

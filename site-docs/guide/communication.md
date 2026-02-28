@@ -110,13 +110,13 @@ synapse reply "Result" --from $SYNAPSE_AGENT_ID
 
 ## Soft Interrupt
 
-A convenience shorthand for priority-4 fire-and-forget messages:
+A convenience shorthand for priority-5 fire-and-forget messages:
 
 ```bash
 synapse interrupt claude "Stop and review the current approach"
 
 # Equivalent to:
-synapse send claude "Stop and review" -p 4 --no-response
+synapse send claude "Stop and review" -p 5 --no-response
 ```
 
 ## Broadcast

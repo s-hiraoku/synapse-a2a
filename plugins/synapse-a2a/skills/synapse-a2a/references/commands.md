@@ -318,7 +318,7 @@ Analyze the message content and determine if a reply is expected:
 synapse send gemini "What is the best approach?" --response
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit"
+synapse send codex "Fix this bug and commit" --no-response
 
 # Send to specific instance with status check
 synapse send claude-8100 "What is your status?" --response

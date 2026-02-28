@@ -233,6 +233,9 @@ class SharedMemory:
         """
         if not self.enabled:
             return []
+        if limit <= 0:
+            msg = "limit must be greater than 0"
+            raise ValueError(msg)
 
         with self._lock:
             conn = self._get_connection()
