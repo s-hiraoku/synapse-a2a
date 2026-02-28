@@ -67,6 +67,67 @@ This cross-references:
 synapse history cleanup --days 30            # Remove records older than 30 days
 ```
 
+## Advanced Usage
+
+### Keyword Search
+
+Search for specific implementation details across all past tasks:
+
+```bash
+# Search input and output for "OAuth"
+synapse history search "OAuth"
+
+# Multiple terms with logical AND
+synapse history search "OAuth" "JWT" --logic AND
+```
+
+### Statistics and Token Usage
+
+Monitor agent productivity and estimated costs:
+
+```bash
+synapse history stats
+synapse history stats --agent gemini
+```
+
+If token usage data is available (detected in agent output), the stats command will show a **TOKEN USAGE** section with estimated costs per agent.
+
+### Data Export for Analysis
+
+Export history to standard formats for external review or training:
+
+```bash
+# JSON for programmatic analysis
+synapse history export --format json --output audit_log.json
+
+# CSV for spreadsheet review
+synapse history export --format csv --agent reviewer > review_stats.csv
+```
+
+## Data Lifecycle
+
+### Automatic Maintenance
+
+Synapse maintains the history database automatically to prevent disk bloat:
+
+- **Indexing**: Task ID, timestamps, and agent names are indexed for fast searching.
+- **WAL Mode**: SQLite Write-Ahead Logging allows background agents to write history without blocking CLI reads.
+
+### Manual Cleanup
+
+If the database grows too large, use the cleanup command:
+
+```bash
+# Remove everything older than 30 days
+synapse history cleanup --days 30
+
+# Force cleanup without confirmation
+synapse history cleanup --days 14 --force
+
+# Preview what will be deleted
+synapse history cleanup --days 90 --dry-run
+```
+
 ## Configuration
 
 ```bash

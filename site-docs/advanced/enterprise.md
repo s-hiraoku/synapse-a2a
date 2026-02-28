@@ -96,7 +96,7 @@ synapse codex
 ### Multi-Machine (Production)
 
 ```bash
-# Machine A: Claude coordinator
+# Machine A: Claude manager
 SYNAPSE_AUTH_ENABLED=true synapse claude --delegate-mode
 
 # Machine B: Gemini worker

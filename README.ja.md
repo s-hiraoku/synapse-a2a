@@ -86,8 +86,10 @@ flowchart LR
 | **CLI 統合** | 既存の CLI ツールをそのまま A2A エージェント化 |
 | **synapse send** | `synapse send <agent> "message"` でエージェント間通信 |
 | **送信者識別** | `metadata.sender` + PID マッチングで送信者を自動識別 |
+| **完了コールバック** | `--no-response` タスク完了時に送信側でコマンドを実行 (`--callback`) |
 | **優先度割り込み** | Priority 5 でメッセージ前に SIGINT（緊急停止） |
 | **マルチインスタンス** | 同じタイプのエージェントを複数起動（自動ポート割り当て） |
+| **保存済みエージェント** | よく使う設定（名前・ロール・スキルセット）を保存して再利用 (`synapse agents`) |
 | **外部連携** | 他の Google A2A エージェントと通信 |
 | **File Safety** | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` で表示可能） |
 | **エージェント命名** | カスタム名とロールで識別しやすく（`synapse send my-claude "hello"`） |
@@ -97,7 +99,7 @@ flowchart LR
 | **クオリティゲート** | ステータス遷移を制御する構成可能なフック (`on_idle`, `on_task_completed`) |
 | **プラン承認** | ヒューマン・イン・ザ・ループのレビューのためのプランモードワークフロー (`synapse approve/reject`) |
 | **グレースフルシャットダウン** | `synapse kill` は SIGTERM の前に終了リクエストを送信 (30秒タイムアウト) |
-| **委譲モード** | `--delegate-mode` は、ファイルを編集する代わりに委譲を行うコーディネーターにする |
+| **委譲モード** | `--delegate-mode` と `synapse-manager` スキルによる、構造化された 5 ステップのマルチエージェント管理 |
 | **ペイン自動生成** | `synapse team start` — 最初のエージェントが現在のターミナルを引き継ぎ、他は新しいペインで起動 |
 | **エージェント単体起動** | `synapse spawn <profile>` — 1つのエージェントを新しいペインまたはウィンドウで起動 |
 
@@ -350,6 +352,8 @@ npx skills add s-hiraoku/synapse-a2a
 | スキル | 説明 |
 |--------|------|
 | **synapse-a2a** | エージェント間通信の総合ガイド：`synapse send`、優先度、A2A プロトコル、履歴、File Safety、設定 |
+| **synapse-manager** | 5ステップのマルチエージェント管理（委譲、監視、検証、フィードバック、レビュー） |
+| **doc-organizer** | ドキュメントの監査、再構成、重複排除、同期管理 |
 
 ### スキル管理
 
@@ -388,6 +392,8 @@ synapse skills create                        # 新しいスキルテンプレー
 # スキルセット (名前付きグループ)
 synapse skills set list
 synapse skills set show <name>
+synapse skills apply <target> <set_name>     # 稼働中のエージェントにスキルセットを適用
+synapse skills apply <target> <set_name> --dry-run  # 変更をプレビュー（適用しない）
 ```
 
 ### ディレクトリ構造
@@ -596,15 +602,19 @@ synapse kill my-claude
 | `synapse skills create` | 新しいスキルを作成 |
 | `synapse skills set list` | スキルセットの一覧 |
 | `synapse skills set show <name>` | スキルセットの詳細を表示 |
+| `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用 |
 | `synapse config` | 設定管理（インタラクティブ TUI） |
 | `synapse config show` | 現在の設定を表示 |
+| `synapse agents list` | 保存済みエージェントの一覧 |
+| `synapse agents add` | エージェント設定を保存 |
+| `synapse agents delete` | 保存済みエージェントを削除 |
 | `synapse tasks list` | 共有タスクボードを表示 |
 | `synapse tasks create` | タスクを作成 |
 | `synapse tasks assign` | タスクをエージェントに割り当て |
 | `synapse tasks complete` | タスクを完了にする |
 | `synapse approve <task_id>` | プランを承認する |
 | `synapse reject <task_id>` | 理由を添えてプランを拒否する |
-| `synapse team start` | エージェントを起動 (1番目は引き継ぎ、残りは新しいペイン)。`--all-new` はすべて新しいペイン。 |
+| `synapse team start` | 複数エージェントを起動 (1番目は引き継ぎ、残りは新しいペイン)。`--all-new` はすべて新しいペイン。 |
 | `synapse spawn <profile>` | 1つのエージェントを新しいペインで起動 |
 
 ### Resume モード
@@ -796,32 +806,50 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | `--response` | - | ラウンドトリップ - 送信者が待機、受信者は `synapse reply` で返信 |
 | `--no-response` | - | ワンウェイ - ファイア&フォーゲット、返信不要 |
 
+**`--response` vs `--no-response` の使い分け：**
+
+| メッセージ種類 | フラグ | 例 |
+|---------------|--------|-----|
+| 質問 | `--response` | "現在のステータスは？" |
+| 分析依頼 | `--response` | "このコードをレビューして" |
+| 結果を期待するタスク | `--response` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--no-response` | "このバグを修正してコミットして" |
+| 通知 | `--no-response` | "FYI: ビルドが完了しました" |
+
+迷った場合は `--response` を使用（安全なデフォルト）。
+
 **例：**
 
 ```bash
-# メッセージ送信（単一インスタンス）
-synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+# 結果を期待するタスク（ラウンドトリップ）
+synapse send gemini "これを分析して結果を報告して" --response
+
+# 委任タスク、fire-and-forget
+synapse send codex "このバグを修正してコミットして" --no-response
+
+# メッセージ送信（単一インスタンス; --from 自動検出）
+synapse send claude "Hello" --priority 1
 
 # 長いメッセージのサポート (自動的な一時ファイルフォールバック)
 synapse send claude --message-file /path/to/message.txt --no-response
 echo "very long content..." | synapse send claude --stdin --no-response
 
 # ファイル添付
-synapse send claude "これをレビューして" --attach src/main.py --no-response
+synapse send claude "これをレビューして" --attach src/main.py --response
 
 # 特定のインスタンスに送信（同タイプが複数の場合）
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "Hello"
 
 # 緊急停止
-synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
+synapse send claude "Stop!" --priority 5
 
 # 応答を待つ（ラウンドトリップ）
-synapse send gemini "これを分析して" --response --from synapse-claude-8100
+synapse send gemini "これを分析して" --response
 ```
 
 **デフォルトの挙動:** `a2a.flow=auto` (デフォルト) では、`--no-response` が指定されない限り、`synapse send` は応答を待ちます。
 
-**重要:** 送信者を識別するため常に `--from` に自身のエージェント ID (形式: `synapse-<type>-<port>`) を使用してください。
+**送信元の自動検出:** `--from` は省略可能です。Synapse は `SYNAPSE_AGENT_ID` 環境変数（起動時に自動設定）から送信元を検出します。サンドボックス環境（Codex 等）では明示的に `--from` を指定してください。
 
 ### synapse reply コマンド
 

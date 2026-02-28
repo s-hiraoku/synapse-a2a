@@ -2281,6 +2281,19 @@ def cmd_skills_set_show(args: argparse.Namespace) -> None:
     _show(args.name)
 
 
+def cmd_skills_apply(args: argparse.Namespace) -> None:
+    """Apply a skill set to a running agent."""
+    from synapse.commands.skill_manager import cmd_skills_apply as _apply
+
+    ok = _apply(
+        target=args.target,
+        set_name=args.set_name,
+        dry_run=args.dry_run,
+    )
+    if not ok:
+        sys.exit(1)
+
+
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -5009,6 +5022,20 @@ Scopes:
     p_sk_set_show = sk_set_subparsers.add_parser("show", help="Show skill set details")
     p_sk_set_show.add_argument("name", help="Skill set name")
     p_sk_set_show.set_defaults(func=cmd_skills_set_show)
+
+    # skills apply <target> <set_name> [--dry-run]
+    p_sk_apply = skills_subparsers.add_parser(
+        "apply", help="Apply a skill set to a running agent"
+    )
+    p_sk_apply.add_argument("target", help="Agent name, ID, or type")
+    p_sk_apply.add_argument("set_name", help="Skill set name to apply")
+    p_sk_apply.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Preview changes without applying",
+    )
+    p_sk_apply.set_defaults(func=cmd_skills_apply)
 
     # Pre-extract tool_args from sys.argv for commands that support '--'.
     # argparse.REMAINDER had a bug where it swallowed named options (--name,

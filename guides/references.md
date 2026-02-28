@@ -41,6 +41,10 @@ flowchart TB
         skills["skills"]
         config["config"]
         memory["memory"]
+        agents["agents"]
+        tasks["tasks"]
+        approve["approve"]
+        reject["reject"]
         init["init"]
         reset["reset"]
         auth["auth"]
@@ -364,20 +368,37 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--attach`, `-a` | No | ファイル添付（複数指定可） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
 | `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
+| `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--no-response時のみ） |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
+**`--response` vs `--no-response` の使い分け**:
+
+| メッセージ種類 | フラグ | 例 |
+|---------------|--------|-----|
+| 質問 | `--response` | "現在のステータスは？" |
+| 分析依頼 | `--response` | "このコードをレビューして" |
+| 結果を期待するタスク | `--response` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--no-response` | "このバグを修正してコミットして" |
+| 通知 | `--no-response` | "FYI: ビルドが完了しました" |
+
+迷った場合は `--response` を使用（安全なデフォルト）。
+
 **例**:
 
 ```bash
+# 結果を期待するタスク（ラウンドトリップ）
+synapse send codex "結果を教えて" --response
+
+# 委任タスク、fire-and-forget
+synapse send codex "設計して" --no-response
+
 synapse send claude "Hello!"                                  # --from 自動検出
-synapse send codex "設計して" -p 1                             # --from 自動検出
 synapse send claude-8100 "Hello"                               # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5
-synapse send codex "結果を教えて" --response
 synapse send codex --message-file ./message.txt --no-response
 echo "from stdin" | synapse send codex --stdin --no-response
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --no-response
@@ -875,6 +896,27 @@ synapse skills set show <name>
 | `name` | Yes | スキルセット名 |
 
 > **Note:** スキルセットを選択してエージェントを起動すると、スキルセットの詳細（名前・説明・含まれるスキル一覧）が初期インストラクションに自動的に含まれます。これによりエージェントは自分に割り当てられたスキルセットの目的と利用可能なスキルを認識できます。
+
+#### 1.11.11 synapse skills apply
+
+稼働中のエージェントにスキルセットを適用します。スキルファイルをエージェントのスキルディレクトリにコピーし、レジストリの `skill_set` フィールドを更新し、スキルセット情報を A2A 経由でエージェントに送信します。
+
+```bash
+synapse skills apply <target> <set_name> [--dry-run]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `target` | Yes | 対象エージェント（名前、ID、タイプ等） |
+| `set_name` | Yes | 適用するスキルセット名 |
+| `--dry-run` | No | 変更をプレビューするのみ（実際には適用しない） |
+
+**例**:
+
+```bash
+synapse skills apply my-claude manager
+synapse skills apply gemini-8110 developer --dry-run
+```
 
 ---
 

@@ -75,7 +75,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
 | Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
-| Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
+| Delegate mode | `synapse claude --delegate-mode [--name manager]` |
 | Version info | `synapse --version` |
 | Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
 | Fix CI failures | `/fix-ci` (auto-diagnose and fix GitHub Actions failures) |
@@ -444,7 +444,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
-- **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
+- **Delegate Mode**: `--delegate-mode` creates a manager that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. `--no-setup --headless` are always added.
 - **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
@@ -452,16 +452,16 @@ To inject instructions later: `synapse instructions send <agent>`.
 
 ### Task Board Workflow Pattern (Kanban)
 
-Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker agents:
+Manager (delegate-mode) monitors the TaskBoard and assigns tasks to worker agents:
 
-1. **Coordinator** creates tasks with dependencies and priorities
+1. **Manager** creates tasks with dependencies and priorities
    ```bash
    synapse tasks create "Write tests" --priority 5
    synapse tasks create "Implement feature" --blocked-by <test-task-id> --priority 4
    synapse tasks create "Code review" --blocked-by <impl-task-id> --priority 3
    ```
 
-2. **Coordinator** checks available tasks, assigns, and notifies agents
+2. **Manager** checks available tasks, assigns, and notifies agents
    ```bash
    synapse tasks list --status pending
    synapse tasks assign <task_id> <agent>
@@ -474,7 +474,7 @@ Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker a
    synapse tasks fail <task_id> --reason "Tests failed"
    ```
 
-4. **Coordinator** handles failures
+4. **Manager** handles failures
    ```bash
    synapse tasks list --status failed
    synapse tasks reopen <task_id>    # Return to pending for retry
@@ -692,6 +692,7 @@ For detailed documentation, read:
 | Skill | Purpose |
 |-------|---------|
 | `/synapse-manager` | Multi-agent management — task delegation, monitoring, quality verification, feedback, and cross-review orchestration |
+| `/synapse-reinst` | Re-inject Synapse A2A initial instructions after `/clear` or context reset |
 | `/doc-organizer` | Audit, restructure, and consolidate project documentation for clarity and maintainability |
 | `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
 | `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |

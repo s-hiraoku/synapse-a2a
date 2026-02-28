@@ -23,7 +23,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--skill-set SET` | Activate skill set |
 | `--no-setup` | Skip interactive setup |
 | `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
-| `--delegate-mode` | Start as coordinator (no file editing) |
+| `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 
 ### Background Start
@@ -132,10 +132,14 @@ synapse send <target> "<message>" [OPTIONS]
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
 | `--response` | Wait for reply (roundtrip) |
 | `--no-response` | Fire-and-forget |
+| `--callback CMD` | Shell command to run on sender after task completion (requires `--no-response`) |
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
 | `--force` | Bypass working_dir mismatch check |
+
+!!! tip "Choosing --response vs --no-response"
+    Use `--response` when the message expects a reply (questions, result requests). Use `--no-response` for fire-and-forget tasks (notifications, delegated work). **If unsure, use `--response`** — it is the safer default.
 
 ### Reply
 
@@ -296,7 +300,22 @@ synapse skills add <repo>
 synapse skills create
 synapse skills set list
 synapse skills set show <name>
+synapse skills apply <target> <set_name> [--dry-run]
 ```
+
+### Apply Skill Set
+
+Apply a skill set to a running agent. Copies skill files to the agent's skill directory, updates the registry, and sends skill set info via A2A.
+
+```bash
+synapse skills apply <target> <set_name> [--dry-run]
+```
+
+| Flag | Description |
+|------|-------------|
+| `<target>` | Agent name, ID, type-port, or type |
+| `<set_name>` | Skill set name (e.g., `manager`, `developer`, `reviewer`) |
+| `--dry-run` | Preview changes without applying |
 
 ## Settings
 

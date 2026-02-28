@@ -148,6 +148,8 @@ synapse skills add <repo>                 # Install from repo (npx skills wrappe
 synapse skills create                     # Show guided skill creation steps
 synapse skills set list                   # List skill sets
 synapse skills set show <name>            # Show skill set details
+synapse skills apply <target> <set_name>        # Apply skill set to running agent
+synapse skills apply <target> <set_name> --dry-run  # Preview changes only
 
 # Saved agent definitions (reusable templates for synapse spawn)
 synapse agents list                       # List saved agent definitions
@@ -188,9 +190,13 @@ synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 # Send messages (--response waits for reply, --no-response sends only)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
 # Note: --from is optional — auto-detected from SYNAPSE_AGENT_ID env var (set by Synapse at startup)
+# Choosing --response vs --no-response:
+#   Task with result expected (question, review, analysis) → --response
+#   Delegated task (fire-and-forget, no result needed)     → --no-response
+#   If unsure, use --response (safer default)
 synapse send my-claude "Review this code" --response
 synapse send gemini "Analyze this" --response
-synapse send codex "Process this" --no-response
+synapse send codex "Fix this bug and commit" --no-response
 
 # Working directory mismatch warning:
 # synapse send checks if sender CWD matches target's working_dir.
@@ -206,8 +212,8 @@ echo "long message" | synapse send claude --stdin --no-response
 synapse send claude --message-file - --no-response   # '-' reads from stdin
 
 # Attach files to messages
-synapse send claude "Review this" --attach src/main.py --no-response
-synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+synapse send claude "Review this" --attach src/main.py --response
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --response
 
 # Messages >100KB are automatically written to temp files (configurable via SYNAPSE_SEND_MESSAGE_THRESHOLD)
 
@@ -722,9 +728,9 @@ synapse history stats --agent gemini
    synapse list
    ```
 
-2. **Delegate task**:
+2. **Delegate task** (use `--response` if result is needed, `--no-response` for fire-and-forget):
    ```bash
-synapse send gemini "Write tests for X" --priority 3 --no-response
+synapse send gemini "Write tests for X and report results" --response
    ```
 
 3. **Monitor progress**:

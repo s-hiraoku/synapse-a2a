@@ -48,6 +48,13 @@ synapse team start \
 !!! tip "Automatic Port Pre-Allocation"
     When launching multiple agents of the same type, `team start` pre-allocates a unique port for each agent before spawning. This prevents race conditions where simultaneous agents could bind to the same port.
 
+!!! tip "Dynamic Skill Set Changes"
+    Skill sets specified in the extended spec are applied at startup. To change an agent's skill set after it has started, use `synapse skills apply`:
+    ```bash
+    synapse skills apply Reviewer developer
+    ```
+    See [Applying Skill Sets](skills.md#apply-to-a-running-agent) for details.
+
 ### Tool Arguments
 
 Pass arguments to the underlying CLI tools after `--`:
@@ -115,13 +122,13 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Delegate Mode
 
-Start an agent as a coordinator that delegates instead of editing files directly:
+Start an agent as a manager that delegates instead of editing files directly:
 
 ```bash
-synapse claude --delegate-mode --name coordinator --role "task manager"
+synapse claude --delegate-mode --name manager --role "task manager"
 ```
 
-The coordinator receives instructions to:
+The manager receives instructions to:
 
 - Use `synapse send` to delegate tasks
 - Monitor progress via `synapse list` and `synapse history`
@@ -131,18 +138,18 @@ The coordinator receives instructions to:
 ### Delegate Workflow
 
 ```bash
-# Terminal 1: Coordinator
-synapse claude --delegate-mode --name coordinator
+# Terminal 1: Manager
+synapse claude --delegate-mode --name manager
 
 # Terminal 2-3: Workers
 synapse gemini --name worker-1
 synapse codex --name worker-2
 
-# Coordinator delegates
+# Manager delegates (fire-and-forget — no reply needed)
 synapse send worker-1 "Implement OAuth2 authentication" --no-response
 synapse send worker-2 "Write tests for auth module" --no-response
 
-# Check progress
+# Check progress (expects a reply — use --response)
 synapse send worker-1 "Progress?" --response
 ```
 
@@ -188,7 +195,7 @@ curl -X POST http://localhost:8100/team/start \
 Git worktrees give each agent an isolated copy of the repository:
 
 ```
-Main Worktree (Coordinator)
+Main Worktree (Manager)
 ├── Coordinates and integrates
 └── Reviews merged results
 
@@ -299,15 +306,59 @@ synapse kill Tester -f
 synapse spawn gemini --name Tester --role "test writer"
 synapse spawn codex --name Fixer --role "bug fixer"
 
-# Parallel tasks
+# Parallel tasks (fire-and-forget — no reply needed)
 synapse send Tester "Write tests for auth.py" --no-response
 synapse send Fixer "Fix timeout bug in server.py" --no-response
 
-# Collect results
+# Collect results (expects a reply — use --response)
 synapse send Tester "Progress?" --response
 synapse send Fixer "Progress?" --response
 
 # Cleanup
 synapse kill Tester -f
 synapse kill Fixer -f
+```
+
+## Best Practices
+
+### team start vs spawn
+
+| Feature | `team start` | `spawn` |
+|---------|--------------|---------|
+| **Usage** | Manual orchestration by human | Programmatic delegation by agent |
+| **Visibility** | Always visible in panes/tabs | Usually headless/minimized |
+| **Lifecycle** | Long-running session | Task-oriented (spawn-work-kill) |
+| **Isolation** | Shared or isolated worktrees | Shared or isolated worktrees |
+
+### Use Worktrees for Workers
+
+Always use `-- --worktree` for agents that modify code. This prevents:
+- **Git lock conflicts**: Multiple agents trying to `git add` simultaneously.
+- **PTY mangling**: One agent seeing the other's unfinished changes in `git status`.
+- **Merge noise**: Uncontrolled file system changes affecting both agents.
+
+### Kill Your Darlings
+
+Ensure your implementation includes `synapse kill <name> -f` at the end of a delegated task. Unused resident agents consume:
+- **Memory**: ~12MB per process.
+- **Ports**: Limited to 10 per type (e.g., 8100-8109).
+- **Registry space**: `synapse list` becomes cluttered.
+
+### Verification Pattern
+
+After an agent completes a task, always verify its work from the manager's perspective:
+
+```bash
+# 1. Wait for completion
+synapse send Worker "Status?" --response
+
+# 2. Inspect artifacts
+git diff worktree-worker-1
+
+# 3. Run validation tests
+pytest tests/affected_module.py
+
+# 4. Finalize
+synapse kill Worker -f
+git merge worktree-worker-1
 ```

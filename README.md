@@ -99,7 +99,7 @@ flowchart LR
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
-| **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
+| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --no-response` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
@@ -404,7 +404,22 @@ synapse skills create                        # Show guided skill creation steps
 # Skill sets (named groups)
 synapse skills set list
 synapse skills set show <name>
+synapse skills apply <target> <set_name>     # Apply skill set to running agent
+synapse skills apply <target> <set_name> --dry-run  # Preview changes without applying
 ```
+
+#### Default Skill Sets
+
+Synapse ships with 6 built-in skill sets (defined in `.synapse/skill_sets.json`):
+
+| Skill Set | Description | Skills |
+|-----------|-------------|--------|
+| **architect** | System architecture and design — design docs, API contracts, code review | synapse-a2a, system-design, api-design, code-review, project-docs |
+| **developer** | Implementation and quality — test-first development, refactoring, code simplification | synapse-a2a, test-first, refactoring, code-simplifier, agent-memory |
+| **reviewer** | Code review and security — structured reviews, security audits, code simplification | synapse-a2a, code-review, security-audit, code-simplifier |
+| **frontend** | Frontend development — React/Next.js performance, component composition, design systems, accessibility | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
+| **manager** | Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
+| **documentation** | Documentation expert — audit, restructure, synchronize, and maintain project documentation | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
 
 ### Directory Structure
 
@@ -616,6 +631,7 @@ synapse kill my-claude
 | `synapse skills create` | Show guided skill creation steps (uses anthropic-skill-creator) |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
+| `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
 | `synapse tasks list` | List shared task board |
@@ -825,11 +841,29 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--no-response` | - | Oneway - fire and forget, no reply needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
 
+**Choosing `--response` vs `--no-response`:**
+
+| Message Type | Flag | Example |
+|--------------|------|---------|
+| Question | `--response` | "What is the status?" |
+| Request for analysis | `--response` | "Please review this code" |
+| Task with result expected | `--response` | "Run tests and report the results" |
+| Delegated task (fire-and-forget) | `--no-response` | "Fix this bug and commit" |
+| Notification | `--no-response` | "FYI: Build completed" |
+
+If unsure, use `--response` (safer default).
+
 **Working directory check:** `synapse send` verifies that the sender's current working directory matches the target agent's `working_dir`. If they differ, a warning is shown with available agents in the current directory (or a `synapse spawn` suggestion) and the command exits with code 1. Use `--force` to bypass this check.
 
 **Examples:**
 
 ```bash
+# Task with result expected (roundtrip)
+synapse send gemini "Analyze this and report findings" --response
+
+# Delegated task, fire-and-forget
+synapse send codex "Fix this bug and commit" --no-response
+
 # Send message (single instance; --from auto-detected)
 synapse send claude "Hello" --priority 1
 
@@ -838,16 +872,13 @@ synapse send claude --message-file /path/to/message.txt --no-response
 echo "very long content..." | synapse send claude --stdin --no-response
 
 # File attachments
-synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review this" --attach src/main.py --response
 
 # Send to specific instance (multiple of same type)
 synapse send claude-8100 "Hello"
 
 # Emergency stop
 synapse send claude "Stop!" --priority 5
-
-# Wait for response (roundtrip)
-synapse send gemini "Analyze this" --response
 
 # Bypass working directory mismatch check
 synapse send claude "Review this" --force

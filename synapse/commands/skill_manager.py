@@ -15,6 +15,7 @@ Commands:
     synapse skills add <repo>                   Add from repository
     synapse skills set list                     List skill sets
     synapse skills set show <name>              Show skill set details
+    synapse skills apply <target> <set_name>    Apply skill set to agent
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from synapse.skills import (
     AGENT_SKILL_DIRS,
     SkillInfo,
     SkillScope,
+    apply_skill_set,
     check_deploy_status,
     create_skill,
     create_skill_set,
@@ -483,6 +485,149 @@ def cmd_skills_set_show(name: str, sets_path: Path | None = None) -> None:
     print(f"Skills ({len(ssd.skills)}):")
     for s in ssd.skills:
         print(f"  - {s}")
+
+
+# ──────────────────────────────────────────────────────────
+# Apply skill set to a running agent
+# ──────────────────────────────────────────────────────────
+
+
+def _send_skill_set_message(
+    *,
+    target: str,
+    message: str,
+) -> bool:
+    """Send skill set info to a running agent via A2A.
+
+    Delegates to ``synapse send <target> <message> --no-response --force``.
+
+    Returns:
+        True if the message was sent successfully.
+    """
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "synapse.cli",
+            "send",
+            target,
+            message,
+            "--no-response",
+            "--force",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def cmd_skills_apply(
+    target: str,
+    set_name: str,
+    *,
+    dry_run: bool = False,
+    project_dir: Path | None = None,
+    user_dir: Path | None = None,
+    skill_sets_path: Path | None = None,
+    synapse_dir: Path | None = None,
+) -> bool:
+    """Apply a skill set to a running agent.
+
+    Steps:
+    1. Resolve target agent (name / ID / type).
+    2. Validate skill set exists.
+    3. Copy skill files to the agent's skill directory.
+    4. Update registry with the new skill set.
+    5. Send skill set info to the agent via A2A.
+
+    Args:
+        target: Agent name, ID, or type.
+        set_name: Skill set name.
+        dry_run: If True, preview only — no changes.
+        project_dir: Override for project root directory.
+        user_dir: Override for user home directory.
+        skill_sets_path: Override for skill_sets.json path.
+        synapse_dir: Override for synapse config directory.
+
+    Returns:
+        True on success, False on error.
+    """
+    from synapse.registry import AgentRegistry
+    from synapse.tools.a2a import _resolve_target_agent
+    from synapse.utils import format_skill_set_section
+
+    # 1. Resolve target agent
+    registry = AgentRegistry()
+    agent_info, error = _resolve_target_agent(target, registry.list_agents())
+    if error or agent_info is None:
+        print(f"Error: {error or 'Agent not found'}")
+        return False
+
+    agent_id = agent_info["agent_id"]
+    agent_type = agent_info.get("agent_type", "claude")
+    agent_name = agent_info.get("name") or agent_id
+
+    # 2. Validate skill set exists
+    sets = load_skill_sets(skill_sets_path)
+    if set_name not in sets:
+        print(f"Error: Skill set '{set_name}' not found.")
+        available = ", ".join(sorted(sets.keys())) if sets else "(none)"
+        print(f"  Available skill sets: {available}")
+        return False
+
+    skill_set = sets[set_name]
+
+    if dry_run:
+        print(f"[Dry Run] Would apply skill set '{set_name}' to {agent_name}")
+        print(f"  Agent:       {agent_name} ({agent_id})")
+        print(f"  Agent type:  {agent_type}")
+        print(f"  Skill set:   {skill_set.name}")
+        print(f"  Description: {skill_set.description}")
+        print(f"  Skills:      {', '.join(skill_set.skills)}")
+        print()
+        print("  Actions that would be performed:")
+        print(f"    1. Copy skills to {agent_type} skill directory")
+        print(f"    2. Update registry skill_set → '{set_name}'")
+        print(f"    3. Send skill set info via A2A to {agent_name}")
+        return True
+
+    # 3. Copy skill files
+    apply_result = apply_skill_set(
+        set_name=set_name,
+        agent_type=agent_type,
+        user_dir=user_dir,
+        project_dir=project_dir,
+        skill_sets_path=skill_sets_path,
+        synapse_dir=synapse_dir,
+    )
+    for msg in apply_result.messages:
+        print(f"  {msg}")
+
+    # 4. Update registry
+    updated = registry.update_skill_set(agent_id, set_name)
+    if updated:
+        print(f"  Registry updated: {agent_id} → skill_set='{set_name}'")
+    else:
+        print(f"  Warning: Failed to update registry for {agent_id}")
+
+    # 5. Send A2A message with skill set info
+    message = format_skill_set_section(
+        name=skill_set.name,
+        description=skill_set.description,
+        skills=skill_set.skills,
+    )
+    sent = _send_skill_set_message(target=target, message=message)
+    if sent:
+        print(f"  Skill set info sent to {agent_name}")
+    else:
+        print(f"  Warning: Failed to send skill set info to {agent_name}")
+
+    print()
+    print(f"Applied skill set '{set_name}' to {agent_name}")
+    return True
 
 
 # ──────────────────────────────────────────────────────────

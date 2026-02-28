@@ -64,8 +64,8 @@ synapse claude --name my-claude --role "code reviewer"
 # With skill set
 synapse claude --skill-set dev-set
 
-# Delegate/coordinator mode (no file editing, delegates via synapse send)
-synapse claude --delegate-mode --name coordinator --role "task manager"
+# Delegate/manager mode (no file editing, delegates via synapse send)
+synapse claude --delegate-mode --name manager --role "task manager"
 
 # Skip interactive name/role setup
 synapse claude --no-setup
@@ -330,7 +330,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--force]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--callback "<command>"] [--force]
 ```
 
 **Target Formats (in priority order):**
@@ -351,6 +351,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
   - 5: Critical/emergency (sends SIGINT first)
 - `--response`: Roundtrip mode - sender waits, receiver MUST reply
 - `--no-response`: Oneway mode - fire and forget, no reply expected
+- `--callback`: Shell command to run on sender after task completion (requires `--no-response`)
 - `--message-file`: Read message from file (use `-` for stdin)
 - `--stdin`: Read message from stdin
 - `--attach`: Attach file(s) to message (repeatable)
@@ -364,21 +365,26 @@ Analyze the message content and determine if a reply is expected:
 - If the message expects or benefits from a reply → use `--response`
 - If the message is purely informational with no reply needed → use `--no-response`
 - **If unsure, use `--response`** (safer default)
+- **Key rule:** If you say "report", "let me know", "what is", or expect ANY result back → `--response`
 
 | Message Type | Flag | Example |
 |--------------|------|---------|
 | Question | `--response` | "What is the status?" |
 | Request for analysis | `--response` | "Please review this code" |
 | Status check | `--response` | "Are you ready?" |
+| Task with result expected | `--response` | "Run tests and report the results" |
+| Delegated task (fire-and-forget) | `--no-response` | "Fix this bug and commit" |
 | Notification | `--no-response` | "FYI: Build completed" |
-| Delegated task | `--no-response` | "Run tests and commit" |
 
 **Examples:**
 ```bash
 # Question - needs reply
 synapse send gemini "What is the best approach?" --response
 
-# Delegation - no reply needed
+# Task with result expected - needs reply
+synapse send codex "Run pytest and report the results" --response
+
+# Delegation with no result needed - fire and forget
 synapse send codex "Fix this bug and commit" --no-response
 
 # Send to specific instance with status check
@@ -1166,7 +1172,37 @@ synapse skills create [--name <name>]              # Create new skill template
 # Skill sets (named groups)
 synapse skills set list
 synapse skills set show <name>
+
+### Apply Skill Set to Running Agent
+
+Apply a skill set to a running agent. This command copies skill files to the agent's skill directory, updates the registry, and re-injects skill set information via A2A.
+
+```bash
+synapse skills apply <target> <set_name> [--dry-run]
 ```
+
+**Parameters:**
+- `target`: Target agent (name, ID, type-port, or agent type)
+- `set_name`: Name of the skill set to apply (e.g., `developer`, `architect`)
+- `--dry-run`: Preview changes without applying them
+
+**Example:**
+```bash
+synapse skills apply my-claude manager
+synapse skills apply gemini-8110 developer --dry-run
+```
+```
+
+**Default Skill Sets (6):**
+
+| Set | Description | Skills (+ synapse-a2a base) |
+|-----|-------------|----------------------------|
+| `architect` | System architecture and design — design docs, API contracts, code review | system-design, api-design, code-review, project-docs |
+| `developer` | Implementation and quality — test-first development, refactoring, code simplification | test-first, refactoring, code-simplifier, agent-memory |
+| `reviewer` | Code review and security — structured reviews, security audits, code simplification | code-review, security-audit, code-simplifier |
+| `frontend` | Frontend development — React/Next.js performance, component composition, design systems, accessibility | react-performance, frontend-design, react-composition, web-accessibility |
+| `manager` | Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction | synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
+| `documentation` | Documentation expert — audit, restructure, synchronize, and maintain project documentation | project-docs, doc-organizer, api-design, agent-memory |
 
 **Skill Set in Initial Instructions:** When an agent starts with a skill set (via `--skill-set` or interactive selection), the skill set details (name, description, included skills) are automatically included in the agent's initial instructions. This allows the agent to understand its assigned capabilities.
 

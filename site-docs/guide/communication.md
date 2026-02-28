@@ -17,9 +17,20 @@ Synapse A2A provides three ways to send messages between agents:
 ```bash
 synapse send <target> "<message>" \
   --response          # Wait for reply
+  --callback "ruff check"  # Run command after task completion
 ```
 
 `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at agent startup). You can omit it in most cases.
+
+### Completion Callbacks
+
+For fire-and-forget tasks (`--no-response`), you can specify a shell command to run after the recipient agent completes the task:
+
+```bash
+synapse send codex "Fix lint errors" --no-response --callback "pytest"
+```
+
+The callback runs on the **sender's** machine once the task status changes to `completed` or `failed` on the target agent.
 
 ### Fire-and-Forget
 
@@ -51,7 +62,7 @@ synapse send <target> "<message>" \
 |--------|-------------|
 | `--from <sender_id>` | Sender identification (optional — auto-detected from `$SYNAPSE_AGENT_ID`) |
 | `--priority 1-5` | Priority level (default: 3) |
-| `--response` / `--no-response` | Roundtrip or fire-and-forget |
+| `--response` / `--no-response` | Wait for reply (roundtrip) or fire-and-forget |
 | `--message-file <path>` | Read message from file |
 | `--stdin` | Read message from stdin |
 | `--attach <file>` | Attach file(s) — repeatable |
@@ -59,6 +70,22 @@ synapse send <target> "<message>" \
 
 !!! info "Sender Auto-Detection"
     The `--from` flag is resolved in the following order: (1) explicit `--from` value, (2) `SYNAPSE_AGENT_ID` environment variable (auto-set at startup), (3) PID ancestry matching against the registry. In most environments, you can omit `--from` entirely.
+
+### Choosing --response vs --no-response
+
+Analyze the message content and determine whether a reply is expected:
+
+- If the message **expects or benefits from a reply** (questions, requests for results) → use `--response`
+- If the message is **purely informational** with no reply needed (notifications, delegated tasks) → use `--no-response`
+- **If unsure, use `--response`** — it is the safer default
+
+```bash
+# Task with result expected — use --response
+synapse send gemini "What is the best approach for auth?" --response
+
+# Delegated task (fire-and-forget) — use --no-response
+synapse send codex "FYI: Build completed" --no-response
+```
 
 ### Name vs ID
 
@@ -88,12 +115,15 @@ When a message arrives at an agent, it appears in the PTY with a prefix that inc
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
 
-- **From**: Identifies the sender's display name and unique agent ID.
+- **From**: Identifies the sender's display name and unique agent ID. This helps you know who you are talking to.
 - **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
 
-If sender information is not available, it falls back to:
-- `A2A: [From: SENDER_ID] <message content>`
-- `A2A: <message content>` (backward-compatible format)
+If sender information is not fully available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>` (No name found in registry)
+- `A2A: <message content>` (Backward-compatible format)
+
+!!! info "Sender Identification"
+    The name is retrieved from the agent registry based on the sender's PID or explicit `--from` ID. If an agent has a custom name (e.g., `釘崎野薔薇`), that name is shown for better context.
 
 ## Replying
 
@@ -236,6 +266,55 @@ Type directly in the agent's terminal:
 ```
 
 The InputRouter detects the `@agent` pattern and routes it via A2A.
+
+## Advanced Patterns
+
+### Automation with Callbacks
+
+Run a command automatically after a fire-and-forget task completes:
+
+```bash
+# Delegate implementation and auto-run tests on completion
+synapse send codex "Implement feature X" --no-response --callback "pytest tests/test_x.py"
+```
+
+The callback executes on the **sender's machine** as soon as the target agent transitions to `completed` or `failed`.
+
+### Priority Interruption
+
+Interrupt a busy agent without killing it:
+
+```bash
+# High priority message (does not interrupt execution)
+synapse send gemini "Status?" --priority 4 --response
+
+# Emergency interrupt (sends SIGINT first)
+synapse send gemini "STOP - critical vulnerability in current path" --priority 5
+```
+
+!!! info "Readiness Gate Bypass"
+    Priority 5 messages bypass the Readiness Gate, meaning they are delivered even if the agent hasn't finished its initial setup instructions.
+
+### Cross-Project Messaging
+
+Communicate with agents working in different directories using the `--force` flag:
+
+```bash
+# Warning: Target agent "worker" is in /path/to/project-b (Sender: /path/to/project-a)
+synapse send worker "Can you check the API compatibility?" --force
+```
+
+### Response Polling (Agent-to-Agent)
+
+When an agent needs to check if a delegated task is done without blocking:
+
+```bash
+# Initial delegation
+synapse send Worker "Fix bug" --no-response
+
+# Later, check status
+synapse send Worker "Are you finished?" --response
+```
 
 ## A2A Flow Configuration
 
