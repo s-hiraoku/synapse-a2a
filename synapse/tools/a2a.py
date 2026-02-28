@@ -90,6 +90,8 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
         sender_info["sender_endpoint"] = info["endpoint"]
     if info.get("uds_path"):
         sender_info["sender_uds_path"] = info["uds_path"]
+    if info.get("name"):
+        sender_info["sender_name"] = info["name"]
     return sender_info
 
 

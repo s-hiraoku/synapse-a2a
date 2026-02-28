@@ -245,9 +245,12 @@ class TestReceiverDisplaysSenderTaskId:
         call_args = mock_controller.write.call_args
         written_content = call_args[0][0]
 
-        # PTY output includes A2A prefix and [REPLY EXPECTED] marker
+        # PTY output includes A2A prefix with sender and [REPLY EXPECTED] marker
         # when response_expected is True
-        assert written_content == "A2A: [REPLY EXPECTED] Test message"
+        assert (
+            written_content
+            == "A2A: [From: synapse-claude-8100] [REPLY EXPECTED] Test message"
+        )
 
 
 # ============================================================

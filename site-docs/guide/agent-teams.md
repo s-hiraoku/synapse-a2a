@@ -150,6 +150,9 @@ synapse send worker-1 "Progress?" --response
 !!! info "Ghostty Pane Creation"
     Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
 
+!!! warning "Ghostty Limitation: Focus-dependent targeting"
+    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while `spawn` or `team start` is running, agents may be created in the wrong tab. Wait for the command to complete before interacting with the terminal.
+
 ## Team Start via API
 
 ```bash
