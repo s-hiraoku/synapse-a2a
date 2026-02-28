@@ -1546,7 +1546,7 @@ scoop update synapse-a2a
 
 - **Renderizado TUI**: La visualización puede distorsionarse con CLIs basados en Ink
 - **Limitaciones PTY**: Algunas secuencias de entrada especiales no son soportadas
-- **Foco de Ghostty**: Ghostty utiliza AppleScript para dirigirse a la ventana o pestaña actualmente enfocada. Si cambia de pestaña mientras se ejecuta un comando `spawn` o `team start` se ejecuta, el agente puede generarse en la pestaña no deseada. Espere a que se complete el comando antes de interactuar con la terminal.
+- **Foco de Ghostty**: Ghostty utiliza AppleScript para dirigirse a la ventana o pestaña actualmente enfocada. Si cambia de pestaña mientras se ejecuta un comando `spawn` o `team start`, el agente puede generarse en la pestaña no deseada. Espere a que se complete el comando antes de interactuar con la terminal.
 - **Sandbox de Codex**: El sandbox de Codex CLI bloquea el acceso a red, requiriendo configuración para la comunicación entre agentes (ver abajo)
 
 ### Comunicación Entre Agentes en Codex CLI

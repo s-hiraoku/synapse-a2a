@@ -133,7 +133,7 @@ synapse jump my-claude
 | Zellij | :material-check: |
 
 !!! info "Ghostty Focus Limitation"
-    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while a `jump` or `spawn` command is running, the agent may be spawned in the unintended tab. Wait for the command to complete before switching tabs.
+    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while a `spawn` or `team start` command is running, the agent may be created in the unintended tab. Wait for the command to complete before switching tabs. The `jump` command only moves focus to an existing terminal and is not affected by this limitation.
 
 ## Naming and Roles
 

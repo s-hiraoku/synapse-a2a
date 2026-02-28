@@ -79,7 +79,7 @@ For multi-agent features like `synapse team start` and `synapse spawn`, you need
 | **Zellij** | :material-check: | :material-check: | :material-check: |
 
 !!! info "Ghostty Focus Limitation"
-    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while a `jump` or `spawn` command is running, the agent may be spawned in the unintended tab. Wait for the command to complete before switching tabs.
+    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while a `spawn` or `team start` command is running, the agent may be created in the unintended tab. Wait for the command to complete before switching tabs.
 
 ## Next Steps
 

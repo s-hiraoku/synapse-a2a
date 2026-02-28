@@ -93,7 +93,7 @@ A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 
 If sender information is not available, it falls back to:
 - `A2A: [From: SENDER_ID] <message content>`
-- `A2A: <message content>` (backward compatible format)
+- `A2A: <message content>` (backward-compatible format)
 
 ## Replying
 
