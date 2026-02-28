@@ -309,6 +309,50 @@ class TestTeamStartExecution:
         # All 3 agents in split panes via subprocess.run
         assert mock_run.call_count >= 3
 
+    def test_team_start_pre_allocates_ports(self) -> None:
+        """Same-type agents must get distinct pre-allocated ports."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "claude"],
+            layout="split",
+            all_new=True,
+        )
+
+        captured_agents: list[list[str]] = []
+
+        def capture_create_panes(agents, **kwargs):  # noqa: ANN001, ANN003
+            captured_agents.append(list(agents))
+            return ["echo noop"]
+
+        with (
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            patch(
+                "synapse.terminal_jump.create_panes", side_effect=capture_create_panes
+            ),
+            patch("subprocess.run"),
+        ):
+            cmd_team_start(args)
+
+        # Should have captured one call with agent specs containing ports
+        assert len(captured_agents) == 1
+        specs = captured_agents[0]
+        assert len(specs) == 2
+
+        # Both specs should contain a port field (5th colon field)
+        ports = []
+        for spec in specs:
+            parts = spec.split(":")
+            assert len(parts) >= 5, f"Spec should have port field: {spec}"
+            port = parts[4]
+            assert port.isdigit(), f"Port should be numeric: {port}"
+            ports.append(int(port))
+
+        # Ports must be different
+        assert ports[0] != ports[1], f"Same port allocated: {ports}"
+
 
 # ============================================================
 # TestPaneLayout - Layout configurations

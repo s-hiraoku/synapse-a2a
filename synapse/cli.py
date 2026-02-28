@@ -2572,6 +2572,77 @@ def _run_pane_commands(commands: list[str]) -> None:
         subprocess.run(shlex.split(cmd))
 
 
+def _inject_ports(agents: list[str]) -> list[str]:
+    """Pre-allocate a unique port for each agent and inject into its spec.
+
+    When multiple agents of the same type start simultaneously, each child
+    process would call ``get_available_port`` independently and potentially
+    pick the same port (race condition).  By allocating ports upfront and
+    embedding them in the colon-separated spec, each agent binds to a
+    guaranteed-unique port.
+
+    Spec format: ``profile[:name[:role[:skill_set[:port]]]]``
+    """
+    from synapse.port_manager import get_port_range, is_port_available
+
+    registry = AgentRegistry()
+    allocated: set[int] = set()
+    result: list[str] = []
+
+    for spec in agents:
+        parts = spec.split(":")
+        profile = parts[0]
+
+        # If the user already provided a port (5th field), keep it
+        existing_port = parts[4] if len(parts) > 4 and parts[4] else ""
+        if existing_port and existing_port.isdigit():
+            allocated.add(int(existing_port))
+            result.append(spec)
+            continue
+
+        # Scan the port range, skipping already-allocated ports in this batch
+        start_port, end_port = get_port_range(profile)
+        agents_map = registry.list_agents()
+        chosen_port: int | None = None
+
+        for port in range(start_port, end_port + 1):
+            if port in allocated:
+                continue
+            agent_id = f"synapse-{profile}-{port}"
+            if agent_id in agents_map:
+                info = agents_map[agent_id]
+                pid = info.get("pid")
+                if pid and _is_pid_alive(pid):
+                    continue
+            if is_port_available(port):
+                chosen_port = port
+                break
+
+        if chosen_port is None:
+            print(f"Warning: No available port for {profile}, skipping port injection")
+            result.append(spec)
+            continue
+
+        allocated.add(chosen_port)
+
+        # Ensure parts has at least 5 fields (profile:name:role:skill_set:port)
+        while len(parts) < 5:
+            parts.append("")
+        parts[4] = str(chosen_port)
+        result.append(":".join(parts))
+
+    return result
+
+
+def _is_pid_alive(pid: int) -> bool:
+    """Check if a process is still running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
 def cmd_team_start(args: argparse.Namespace) -> None:
     """Start multiple agents with split panes.
 
@@ -2604,6 +2675,10 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 start_new_session=True,
             )
         return
+
+    # Pre-allocate unique ports to avoid race conditions when multiple
+    # agents of the same type start simultaneously.
+    agents = _inject_ports(agents)
 
     cwd = os.getcwd()
 
