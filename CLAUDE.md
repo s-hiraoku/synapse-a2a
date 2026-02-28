@@ -232,6 +232,7 @@ synapse claude --delegate-mode            # Start as coordinator (no file editin
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
 # Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
+# Ghostty limitation: targets the focused window/tab — do not switch tabs during spawn
 # Default: 1st agent takes over current terminal, others get new panes
 synapse team start claude gemini          # claude=here, gemini=new pane
 synapse team start claude gemini codex --layout horizontal  # Custom layout
