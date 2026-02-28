@@ -258,13 +258,12 @@ class TestTeamStartExecution:
         # Should call subprocess.run for the remaining agents
         assert mock_run.call_count > 0
 
-    def test_ghostty_never_uses_execvp(self) -> None:
-        """Ghostty always opens new windows, so execvp must never be called.
+    def test_ghostty_default_uses_handoff(self) -> None:
+        """Ghostty default mode: first agent handoff, others in split panes.
 
-        Without --all-new, the default behavior uses os.execvp for the first
-        agent, which replaces the current process and destroys the existing
-        pane. Ghostty always creates new windows via 'open -na', so the
-        current terminal should remain untouched regardless of --all-new.
+        Now that Ghostty uses Cmd+D split panes (not open -na), the default
+        handoff behaviour is safe — os.execvp replaces the current process
+        but does not affect other split panes in the same window.
         """
         import argparse
 
@@ -273,7 +272,7 @@ class TestTeamStartExecution:
         args = argparse.Namespace(
             agents=["claude", "gemini"],
             layout="split",
-            all_new=False,  # Default mode — normally uses execvp
+            all_new=False,
         )
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
@@ -281,13 +280,13 @@ class TestTeamStartExecution:
                 with patch("os.execvp") as mock_exec:
                     cmd_team_start(args)
 
-        # execvp must NOT be called — current pane must stay alive
-        assert not mock_exec.called
-        # All agents (including the first) should be started via subprocess.run
-        assert mock_run.call_count >= 2
+        # First agent should be handed off via execvp (same as tmux/iTerm2)
+        assert mock_exec.called
+        # Remaining agents should be started via subprocess.run (split panes)
+        assert mock_run.call_count >= 1
 
-    def test_ghostty_all_new_starts_all_agents(self) -> None:
-        """Ghostty with --all-new should start all agents in new windows."""
+    def test_ghostty_all_new_skips_handoff(self) -> None:
+        """Ghostty --all-new: all agents in split panes, no handoff."""
         import argparse
 
         from synapse.cli import cmd_team_start
@@ -300,9 +299,12 @@ class TestTeamStartExecution:
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
             with patch("subprocess.run") as mock_run:
-                cmd_team_start(args)
+                with patch("os.execvp") as mock_exec:
+                    cmd_team_start(args)
 
-        # All 3 agents should be started via subprocess.run (new windows)
+        # --all-new: no handoff
+        assert not mock_exec.called
+        # All 3 agents in split panes via subprocess.run
         assert mock_run.call_count >= 3
 
 
