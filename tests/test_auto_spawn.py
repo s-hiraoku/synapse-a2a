@@ -343,15 +343,16 @@ class TestAgentSpecParsing:
     """Tests for profile:name:role:skill_set parsing."""
 
     def test_build_agent_command_simple(self) -> None:
-        """Simple profile should produce simple command."""
+        """Simple profile should always include --no-setup and --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude")
-        assert cmd.endswith(" claude")
         assert "-m synapse.cli claude" in cmd
+        assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_full(self) -> None:
-        """Full spec should produce options and --no-setup."""
+        """Full spec should produce options and --no-setup --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude:Reviewer:code review:dev-set")
@@ -362,15 +363,17 @@ class TestAgentSpecParsing:
         assert "code review" in cmd
         assert "--skill-set dev-set" in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_partial(self) -> None:
-        """Partial spec should omit missing parts."""
+        """Partial spec should omit missing parts but include --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("gemini:Searcher")
         assert "--name Searcher" in cmd
         assert "--role" not in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_with_skips(self) -> None:
         """Should handle empty parts in colon-separated spec."""
@@ -382,6 +385,7 @@ class TestAgentSpecParsing:
         assert "--role" in cmd
         assert "test writer" in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_create_panes_with_specs(self) -> None:
         """create_panes should respect extended specs across all platforms."""

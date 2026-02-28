@@ -48,10 +48,13 @@ def _build_agent_command(
     use_exec: bool = False,
     tool_args: list[str] | None = None,
 ) -> str:
-    """Parse 'profile[:name[:role[:skill_set[:port[:headless]]]]]' and build command.
+    """Parse 'profile[:name[:role[:skill_set[:port]]]]' and build command.
 
-    Example: 'claude:Reviewer:code review:dev-set:8105:headless'
-    -> 'synapse claude --name Reviewer --role "code review" --skill-set dev-set --port 8105 --headless --no-setup'
+    ``--no-setup`` and ``--headless`` are always added so that spawned
+    agents skip interactive prompts (name/role setup and approval).
+
+    Example: 'claude:Reviewer:code review:dev-set:8105'
+    -> 'synapse claude --no-setup --headless --name Reviewer --role "code review" --skill-set dev-set --port 8105'
 
     Args:
         agent_spec: Colon-separated agent spec string.
@@ -76,10 +79,9 @@ def _build_agent_command(
     role = _get_spec_field(parts, 2)
     skill_set = _get_spec_field(parts, 3)
     port = _get_spec_field(parts, 4)
-    headless = _get_spec_field(parts, 5)
 
-    if len(parts) > 1:
-        cmd += " --no-setup"
+    # Always skip interactive prompts — spawned agents run unattended.
+    cmd += " --no-setup --headless"
 
     if name:
         cmd += f" --name {shlex.quote(name)}"
@@ -91,8 +93,6 @@ def _build_agent_command(
         if not port.isdigit():
             raise ValueError(f"Port must be numeric: {port}")
         cmd += f" --port {port}"
-    if headless == "headless":
-        cmd += " --headless"
 
     # Append tool_args after '--' separator
     if tool_args:

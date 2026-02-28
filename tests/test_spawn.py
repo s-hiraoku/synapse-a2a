@@ -545,12 +545,12 @@ class TestHeadlessMode:
         assert "--no-setup" in cmd
         assert "--port 8100" in cmd
 
-    def test_build_agent_command_no_headless_backward_compat(self) -> None:
-        """5-field spec without headless should not add --headless."""
+    def test_build_agent_command_always_headless(self) -> None:
+        """--headless should always be added regardless of spec fields."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude::::8100")
-        assert "--headless" not in cmd
+        assert "--headless" in cmd
 
 
 # ============================================================
