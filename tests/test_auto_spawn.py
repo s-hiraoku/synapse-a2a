@@ -258,6 +258,53 @@ class TestTeamStartExecution:
         # Should call subprocess.run for the remaining agents
         assert mock_run.call_count > 0
 
+    def test_ghostty_never_uses_execvp(self) -> None:
+        """Ghostty always opens new windows, so execvp must never be called.
+
+        Without --all-new, the default behavior uses os.execvp for the first
+        agent, which replaces the current process and destroys the existing
+        pane. Ghostty always creates new windows via 'open -na', so the
+        current terminal should remain untouched regardless of --all-new.
+        """
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini"],
+            layout="split",
+            all_new=False,  # Default mode — normally uses execvp
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
+            with patch("subprocess.run") as mock_run:
+                with patch("os.execvp") as mock_exec:
+                    cmd_team_start(args)
+
+        # execvp must NOT be called — current pane must stay alive
+        assert not mock_exec.called
+        # All agents (including the first) should be started via subprocess.run
+        assert mock_run.call_count >= 2
+
+    def test_ghostty_all_new_starts_all_agents(self) -> None:
+        """Ghostty with --all-new should start all agents in new windows."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            all_new=True,
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
+            with patch("subprocess.run") as mock_run:
+                cmd_team_start(args)
+
+        # All 3 agents should be started via subprocess.run (new windows)
+        assert mock_run.call_count >= 3
+
 
 # ============================================================
 # TestPaneLayout - Layout configurations

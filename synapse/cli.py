@@ -2607,6 +2607,12 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
     cwd = os.getcwd()
 
+    # Ghostty always opens new windows via 'open -na', so the handoff
+    # mode (os.execvp replacing the current process) would destroy the
+    # existing pane for no reason.  Force all-new behaviour.
+    if terminal == "Ghostty":
+        all_new = True
+
     if all_new:
         commands = create_panes(
             agents,
