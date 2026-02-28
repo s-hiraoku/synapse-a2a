@@ -16,7 +16,7 @@ from synapse.reply_target import (
 
 def test_save_and_load(tmp_path, monkeypatch) -> None:
     """save_reply_target should persist data and load_reply_target should return it."""
-    monkeypatch.setenv("SYNAPSE_REGISTRY_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
     agent_id = "synapse-codex-8122"
     sender_info = {
         "sender_endpoint": "http://localhost:8110",
@@ -32,7 +32,7 @@ def test_save_and_load(tmp_path, monkeypatch) -> None:
 
 def test_clear(tmp_path, monkeypatch) -> None:
     """clear_reply_target should remove the persistence file."""
-    monkeypatch.setenv("SYNAPSE_REGISTRY_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
     agent_id = "synapse-codex-8122"
     sender_info = {"sender_endpoint": "http://localhost:8110"}
     reply_file = Path(tmp_path) / f"{agent_id}.reply.json"
@@ -47,13 +47,13 @@ def test_clear(tmp_path, monkeypatch) -> None:
 
 def test_load_missing(tmp_path, monkeypatch) -> None:
     """load_reply_target should return None when no persistence file exists."""
-    monkeypatch.setenv("SYNAPSE_REGISTRY_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
     assert load_reply_target("missing-agent") is None
 
 
 def test_save_overwrites(tmp_path, monkeypatch) -> None:
     """Second save should overwrite the previous sender info."""
-    monkeypatch.setenv("SYNAPSE_REGISTRY_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
     agent_id = "synapse-codex-8122"
 
     save_reply_target(agent_id, {"sender_endpoint": "http://localhost:8100"})

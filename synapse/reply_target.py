@@ -6,13 +6,13 @@ import json
 from pathlib import Path
 from typing import cast
 
-from synapse.paths import get_registry_dir
+from synapse.paths import get_reply_target_dir
 from synapse.reply_stack import SenderInfo
 
 
 def _get_reply_target_path(agent_id: str) -> Path:
     """Return the reply target persistence file path for an agent."""
-    return Path(get_registry_dir()) / f"{agent_id}.reply.json"
+    return Path(get_reply_target_dir()) / f"{agent_id}.reply.json"
 
 
 def save_reply_target(agent_id: str, sender_info: SenderInfo) -> None:

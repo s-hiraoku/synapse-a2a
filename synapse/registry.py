@@ -161,7 +161,7 @@ class AgentRegistry:
                 with open(p) as f:
                     data = json.load(f)
                     agents[data["agent_id"]] = data
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, KeyError, OSError):
                 continue
         return agents
 
