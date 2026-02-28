@@ -352,41 +352,100 @@ class TestSpawnCLIExecution:
 
 
 class TestGhosttyPaneCreation:
-    """Tests for create_ghostty_window() function."""
+    """Tests for create_ghostty_window() function.
 
-    def test_create_ghostty_window_generates_open_command(self) -> None:
-        """Should generate macOS 'open' command for Ghostty."""
+    Ghostty supports split panes via Cmd+D (right) / Cmd+Shift+D (down).
+    We use AppleScript to trigger the split keybinding and type the command.
+    This avoids 'open -na' which spawns a separate process and can disrupt
+    existing windows.
+    """
+
+    def test_uses_osascript(self) -> None:
+        """Should generate osascript commands (not 'open -na')."""
         from synapse.terminal_jump import create_ghostty_window
 
-        commands = create_ghostty_window(
-            agents=["claude"],
-        )
+        commands = create_ghostty_window(agents=["claude"])
         assert isinstance(commands, list)
         assert len(commands) > 0
-        # Should use 'open -na Ghostty' pattern
-        assert any("open" in cmd and "Ghostty" in cmd for cmd in commands)
+        for cmd in commands:
+            assert cmd.startswith("osascript -e ")
+            assert "Ghostty" in cmd
+            assert "open -na" not in cmd
 
-    def test_create_ghostty_window_includes_agent_command(self) -> None:
+    def test_includes_agent_command(self) -> None:
         """The generated command should include synapse agent command."""
         from synapse.terminal_jump import create_ghostty_window
 
-        commands = create_ghostty_window(
-            agents=["claude:Reviewer:code-review"],
-        )
-        # Should contain synapse command for the agent
+        commands = create_ghostty_window(agents=["claude:Reviewer:code-review"])
         full = " ".join(commands)
         assert "synapse" in full
         assert "claude" in full
 
-    def test_create_ghostty_window_multiple_agents(self) -> None:
-        """Multiple agents should each get their own Ghostty window."""
+    def test_multiple_agents(self) -> None:
+        """Multiple agents should each get their own split pane."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude", "gemini"])
+        assert len(commands) == 2
+
+    def test_creates_split_pane_via_keystroke(self) -> None:
+        """Should create split panes via Cmd+D keystroke (Ghostty default)."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude"])
+        full = commands[0]
+        # Must trigger the split keybinding via System Events keystroke
+        assert 'keystroke "d" using {command down}' in full
+
+    def test_uses_clipboard_paste_not_keystroke_typing(self) -> None:
+        """Command should be pasted via clipboard (Cmd+V), not typed char-by-char.
+
+        AppleScript 'keystroke' can drop or mangle characters (especially
+        hyphens like --no-setup) when typing long strings.  Using clipboard
+        + Cmd+V is reliable for any command length.
+        """
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude:test:tester"], cwd="/tmp/test")
+        full = commands[0]
+        # Should set clipboard and paste, not keystroke the command
+        assert "set the clipboard to" in full
+        assert 'keystroke "v" using {command down}' in full
+
+    def test_includes_cd_without_exec(self) -> None:
+        """The pasted command should cd to cwd but NOT use exec.
+
+        Ghostty uses clipboard paste (Cmd+V) to inject commands, and
+        ``exec`` is unreliable with this method — it can cause the pane
+        to close before the agent fully starts.
+        """
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude"], cwd="/tmp/test")
+        full = commands[0]
+        assert "cd /tmp/test" in full
+        assert "exec env" not in full
+
+    def test_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be quoted in the typed command."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        cwd = "/home/user/my project"
+        commands = create_ghostty_window(agents=["claude"], cwd=cwd)
+        full = commands[0]
+        assert shlex.quote(cwd) in full
+
+    def test_tool_args_included(self) -> None:
+        """tool_args should appear in the typed command."""
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(
-            agents=["claude", "gemini"],
+            agents=["claude"],
+            tool_args=["--dangerously-skip-permissions"],
+            cwd="/tmp/test",
         )
-        # Each agent should produce a command
-        assert len(commands) == 2
+        full = commands[0]
+        assert "-- --dangerously-skip-permissions" in full
 
 
 # ============================================================
@@ -491,12 +550,12 @@ class TestHeadlessMode:
         assert "--no-setup" in cmd
         assert "--port 8100" in cmd
 
-    def test_build_agent_command_no_headless_backward_compat(self) -> None:
-        """5-field spec without headless should not add --headless."""
+    def test_build_agent_command_always_headless(self) -> None:
+        """--headless should always be added regardless of spec fields."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude::::8100")
-        assert "--headless" not in cmd
+        assert "--headless" in cmd
 
 
 # ============================================================

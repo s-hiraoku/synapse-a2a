@@ -131,7 +131,10 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 | `--layout LAYOUT` | `split`, `horizontal`, or `vertical` |
 | `--all-new` | All agents in new panes |
 
-**Profile spec format**: `profile[:name[:role[:skill_set]]]`
+**Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
+
+!!! note
+    Ports are typically pre-allocated automatically by `team start` to avoid race conditions. You only need to specify a port explicitly if you want to override the default.
 
 ### Spawn
 
