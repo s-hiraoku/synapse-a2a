@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,7 @@ class AgentProfileError(ValueError):
 
 Scope = Literal["project", "user"]
 PETNAME_PATTERN = re.compile(r"^[a-z]+-[a-z]+$")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -131,7 +133,13 @@ class AgentProfileStore:
         )
         for scope, root in scopes:
             for file_path in sorted(root.glob("*.agent")):
-                parsed = self._read_file(file_path, scope=scope)
+                try:
+                    parsed = self._read_file(file_path, scope=scope)
+                except AgentProfileError as e:
+                    logger.warning(
+                        "Skipping invalid agent profile %s: %s", file_path, e
+                    )
+                    continue
                 merged[parsed.profile_id] = parsed
         return sorted(merged.values(), key=lambda item: item.profile_id)
 
@@ -178,5 +186,5 @@ class AgentProfileStore:
 
     @staticmethod
     def _validate_required(value: str, field_name: str) -> None:
-        if not value:
+        if not value.strip():
             raise AgentProfileError(f"{field_name} is required")

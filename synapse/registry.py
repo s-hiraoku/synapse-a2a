@@ -281,35 +281,36 @@ class AgentRegistry:
             True if updated successfully, False otherwise.
         """
         file_path = self.registry_dir / f"{agent_id}.json"
-        if not file_path.exists():
-            return False
-
         try:
-            with open(file_path) as f:
-                data = json.load(f)
+            with self._registry_write_lock():
+                if not file_path.exists():
+                    return False
 
-            updater(data)
+                with open(file_path) as f:
+                    data = json.load(f)
 
-            # Atomic write: write to temp file, then rename
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.registry_dir,
-                prefix=f".{agent_id}.",
-                suffix=".tmp",
-            )
-            try:
-                with os.fdopen(temp_fd, "w") as f:
-                    json.dump(data, f, indent=2)
-                    f.flush()
-                    os.fsync(f.fileno())
+                updater(data)
 
-                # Atomic rename (POSIX guarantee)
-                os.replace(temp_path, file_path)
-                return True
-            except Exception:
-                if os.path.exists(temp_path):
-                    with contextlib.suppress(OSError):
-                        os.unlink(temp_path)
-                raise
+                # Atomic write: write to temp file, then rename
+                temp_fd, temp_path = tempfile.mkstemp(
+                    dir=self.registry_dir,
+                    prefix=f".{agent_id}.",
+                    suffix=".tmp",
+                )
+                try:
+                    with os.fdopen(temp_fd, "w") as f:
+                        json.dump(data, f, indent=2)
+                        f.flush()
+                        os.fsync(f.fileno())
+
+                    # Atomic rename (POSIX guarantee)
+                    os.replace(temp_path, file_path)
+                    return True
+                except Exception:
+                    if os.path.exists(temp_path):
+                        with contextlib.suppress(OSError):
+                            os.unlink(temp_path)
+                    raise
 
         except (json.JSONDecodeError, OSError) as e:
             logger.error(f"Failed to update {field_name} for {agent_id}: {e}")

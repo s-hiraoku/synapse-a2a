@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -255,6 +256,27 @@ def test_update_status_multiple_times(registry):
 
     registry.update_status(agent_id, "IDLE")
     assert registry.get_agent(agent_id)["status"] == "IDLE"
+
+
+def test_atomic_updates_use_registry_write_lock(registry):
+    """update_* operations should all run under registry-wide write lock."""
+    agent_id = "test_write_lock_updates"
+    registry.register(agent_id, "claude", 8100, name="lock-agent")
+
+    entered = 0
+
+    @contextmanager
+    def fake_lock():
+        nonlocal entered
+        entered += 1
+        yield
+
+    registry._registry_write_lock = fake_lock  # type: ignore[method-assign]
+
+    assert registry.update_status(agent_id, "READY") is True
+    assert registry.update_transport(agent_id, "UDS→") is True
+    assert registry.update_name(agent_id, "lock-agent-renamed") is True
+    assert entered == 3
 
 
 # ============================================================================
