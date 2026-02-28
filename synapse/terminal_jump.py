@@ -759,23 +759,20 @@ def create_ghostty_window(
     tool_args: list[str] | None = None,
     cwd: str | None = None,
 ) -> list[str]:
-    """Generate commands to open Ghostty windows for each agent.
+    """Generate commands to create Ghostty split panes for each agent.
 
-    Uses AppleScript to create new windows inside the *existing* Ghostty
-    instance via the ``File > New Window`` menu.  The previous approach
-    (``open -na Ghostty``) spawned a separate process which could close or
-    disrupt existing windows/tabs.
+    Uses AppleScript to trigger Ghostty's ``Cmd+D`` keybinding
+    (``new_split:right``) which creates a new split pane inside the
+    current window.  This preserves all existing panes.
 
     Note:
-        Ghostty only supports window-level operations.  The ``layout``
-        and ``all_new`` parameters accepted by other ``create_*`` helpers
-        are intentionally not supported here — every agent always gets
-        its own window.
+        ``open -na Ghostty`` must NOT be used — it spawns a separate
+        process which can close or disrupt existing windows/tabs.
 
     Args:
         agents: List of agent specs.
         tool_args: Extra arguments passed through to underlying CLI tools.
-        cwd: Working directory for new windows. Defaults to os.getcwd().
+        cwd: Working directory for new panes. Defaults to os.getcwd().
 
     Returns:
         List of osascript command strings to execute.
@@ -788,15 +785,12 @@ def create_ghostty_window(
         full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
         escaped = _escape_applescript_string(cd_cmd)
-        # Use AppleScript to open a new window in the existing Ghostty
-        # instance.  "open -na Ghostty" would spawn a separate process
-        # and can disrupt existing windows.
+        # Trigger Ghostty's Cmd+D (new_split:right) to create a split
+        # pane, then type the agent command and press return.
         script = (
-            'tell application "Ghostty"\n'
-            "    activate\n"
-            "end tell\n"
+            'tell application "Ghostty" to activate\n'
             'tell application "System Events" to tell process "Ghostty"\n'
-            '    click menu item "New Window" of menu "File" of menu bar 1\n'
+            '    keystroke "d" using {command down}\n'
             "end tell\n"
             "delay 0.5\n"
             'tell application "System Events" to tell process "Ghostty"\n'
