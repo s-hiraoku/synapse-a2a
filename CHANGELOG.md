@@ -10,8 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add GitHub Pages documentation site with MkDocs Material
+- add `get_reply_target_dir()` to `synapse/paths.py` with `SYNAPSE_REPLY_TARGET_DIR` env var override
 - add github-pages-sync skill for site-docs maintenance
 - add shared memory for cross-agent knowledge sharing
+- add `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
+- add `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for coordinator agents
+- add `doc-organizer` skill — documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection
+- add `documentation` skill set — combines synapse-a2a, project-docs, doc-organizer, api-design, and agent-memory for documentation-focused agents
 
 ### Documentation
 
@@ -23,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- move reply target persistence from `~/.a2a/registry/` to `~/.a2a/reply/` to prevent `.reply.json` files from causing `KeyError: 'agent_id'` in `list_agents()`
+- add `KeyError` to exception handling in `registry.py` `list_agents()` as defense-in-depth against malformed registry files
 - address CodeRabbit review findings for GitHub Pages docs
 - correct 16 documentation inaccuracies against actual codebase
 - address CodeRabbit review findings for quickstart and agent-teams
@@ -278,7 +285,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`POST /spawn` API endpoint**: Agents can programmatically spawn other agents via A2A protocol with `run_in_threadpool` for non-blocking execution
 - **Headless mode (`--headless`)**: Spawned agents skip all interactive setup (name/role prompts, startup animation, approval prompts) while keeping A2A server and initial instructions active
 - **Ghostty terminal support**: New `create_ghostty_window()` for spawning agents in Ghostty windows on macOS
-- **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app/Ghostty use `exec` to replace the shell process
+- **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app use `exec` to replace the shell process, Ghostty uses `; exit` suffix (clipboard-paste injection is incompatible with `exec`)
 - **tool_args passthrough**: `synapse spawn` and `synapse team start` now accept `-- <args>` to pass CLI flags (e.g., `--dangerously-skip-permissions`) through to the underlying agent tool. Also available via `tool_args` field in `POST /spawn` and `POST /team/start` API endpoints (#229)
 - **Injection observability**: Structured `INJECT/{RESOLVE,DECISION,DELIVER,SUMMARY}` log points in `_send_identity_instruction()` for diagnosing initial instruction injection failures (`grep INJECT` in logs) (#229)
 

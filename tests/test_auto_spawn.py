@@ -174,6 +174,15 @@ class TestExecPrefixForPaneAutoClose:
         for cmd in commands:
             assert "exec env" not in cmd
 
+    def test_ghostty_commands_exit_suffix(self) -> None:
+        """Ghostty commands should end with '; exit' so pane closes after agent exits."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude"])
+        for cmd in commands:
+            # '; exit' appears inside the clipboard payload pasted into the pane
+            assert "; exit" in cmd
+
     def test_tmux_split_window_no_exec(self) -> None:
         """tmux split-window runs command directly, no exec needed."""
         from synapse.terminal_jump import create_tmux_panes

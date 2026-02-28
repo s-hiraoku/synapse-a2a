@@ -136,8 +136,11 @@ class TestBuildSenderInfo:
 
     @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a.is_descendant_of")
-    def test_auto_detect_from_registry(self, mock_is_descendant, mock_registry_cls):
+    def test_auto_detect_from_registry(
+        self, mock_is_descendant, mock_registry_cls, monkeypatch
+    ):
         """Should auto-detect sender from registry PID matching."""
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-claude-8100": {
@@ -185,10 +188,10 @@ class TestBuildSenderInfo:
 
     @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a._find_sender_by_pid")
-    def test_auto_detect_env_falls_back_to_pid_when_not_found(
+    def test_env_sender_id_used_when_not_in_registry(
         self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
     ):
-        """Should fall back to PID matching when SYNAPSE_AGENT_ID is not in registry."""
+        """Should return env sender ID when SYNAPSE_AGENT_ID is not in registry."""
         monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-missing-9999")
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -204,13 +207,16 @@ class TestBuildSenderInfo:
 
         result = build_sender_info()
 
-        assert result == {"sender_id": "synapse-claude-8100"}
-        mock_find_sender_by_pid.assert_called_once()
+        assert result == {"sender_id": "synapse-missing-9999"}
+        mock_find_sender_by_pid.assert_not_called()
 
     @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a.is_descendant_of")
-    def test_no_match_returns_empty(self, mock_is_descendant, mock_registry_cls):
+    def test_no_match_returns_empty(
+        self, mock_is_descendant, mock_registry_cls, monkeypatch
+    ):
         """Should return empty dict when no matching agent."""
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {}
         mock_registry_cls.return_value = mock_registry
@@ -220,8 +226,9 @@ class TestBuildSenderInfo:
         assert result == {}
 
     @patch("synapse.tools.a2a.AgentRegistry")
-    def test_handles_registry_exception(self, mock_registry_cls):
+    def test_handles_registry_exception(self, mock_registry_cls, monkeypatch):
         """Should handle registry exceptions gracefully."""
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
         mock_registry_cls.side_effect = Exception("Registry error")
 
         result = build_sender_info()
@@ -1946,6 +1953,95 @@ class TestCmdReply:
         assert call_kwargs["uds_path"] == "/tmp/synapse-a2a/gemini-8110.sock"
         # Safe fallback endpoint when no HTTP (avoids relative URL issues)
         assert call_kwargs["endpoint"] == "http://localhost"
+
+    @patch("synapse.tools.a2a.clear_reply_target")
+    @patch("synapse.tools.a2a.load_reply_target")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_fallbacks_to_persisted_target_when_stack_empty(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        mock_load_reply_target,
+        mock_clear_reply_target,
+        capsys,
+    ):
+        """Should use persisted reply target when in-memory reply stack is empty."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-codex-8122",
+            "sender_endpoint": "http://localhost:8122",
+        }
+
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 404
+        mock_requests_get.return_value = mock_get_response
+
+        mock_load_reply_target.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "persisted-task",
+        }
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello from fallback", to=None)
+        cmd_reply(args)
+
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["endpoint"] == "http://localhost:8110"
+        assert call_kwargs["in_reply_to"] == "persisted-task"
+        mock_load_reply_target.assert_called_once_with("synapse-codex-8122")
+        mock_clear_reply_target.assert_called_once_with("synapse-codex-8122")
+
+        captured = capsys.readouterr()
+        assert "Reply sent" in captured.out
+
+    @patch("synapse.tools.a2a.clear_reply_target")
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_success_clears_persisted_target(
+        self,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        mock_clear_reply_target,
+    ):
+        """Should clear persisted reply target after successful reply send."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-codex-8122",
+            "sender_endpoint": "http://localhost:8122",
+        }
+
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "abc12345",
+        }
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="Hello back!")
+        cmd_reply(args)
+
+        mock_clear_reply_target.assert_called_once_with("synapse-codex-8122")
 
 
 # ============================================================

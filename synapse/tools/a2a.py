@@ -21,6 +21,8 @@ from synapse.registry import (
     is_port_open,
     is_process_running,
 )
+from synapse.reply_stack import SenderInfo
+from synapse.reply_target import clear_reply_target, load_reply_target
 from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -84,14 +86,16 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
         Dict with sender_id and optional sender_type, sender_endpoint, sender_uds_path
     """
     sender_info: dict[str, str] = {"sender_id": agent_id}
-    if info.get("agent_type"):
-        sender_info["sender_type"] = info["agent_type"]
-    if info.get("endpoint"):
-        sender_info["sender_endpoint"] = info["endpoint"]
-    if info.get("uds_path"):
-        sender_info["sender_uds_path"] = info["uds_path"]
-    if info.get("name"):
-        sender_info["sender_name"] = info["name"]
+    field_mapping = {
+        "agent_type": "sender_type",
+        "endpoint": "sender_endpoint",
+        "uds_path": "sender_uds_path",
+        "name": "sender_name",
+    }
+    for registry_key, sender_key in field_mapping.items():
+        value = info.get(registry_key)
+        if value:
+            sender_info[sender_key] = value
     return sender_info
 
 
@@ -129,19 +133,60 @@ def _validate_explicit_sender(sender: str) -> str | None:
     )
 
 
+def _lookup_sender_in_registry(agent_id: str) -> dict[str, str]:
+    """Look up sender info from the agent registry.
+
+    Returns a dict with sender_id and optional sender_type, sender_endpoint, etc.
+    Falls back to a minimal dict with just sender_id if not found in registry.
+    """
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        if agent_id in agents:
+            return _extract_sender_info_from_agent(agent_id, agents[agent_id])
+    except Exception:
+        pass
+    return {"sender_id": agent_id}
+
+
+def _get_current_tty() -> str | None:
+    """Return the TTY device name for the current process, or None."""
+    for fd in (0, 1, 2):
+        try:
+            tty = os.ttyname(fd)
+            if tty:
+                return tty
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def _find_sender_by_pid() -> dict[str, str]:
-    """Find sender info by matching current process ancestry to registered agents."""
+    """Find sender info by matching current process ancestry to registered agents.
+
+    Also uses TTY matching as fallback for tmux/spawned agents where process
+    ancestry might be broken.
+    """
     try:
         reg = AgentRegistry()
         agents = reg.list_agents()
         current_pid = os.getpid()
 
+        # Priority 1: PID Ancestry match
         for agent_id, info in agents.items():
             agent_pid = info.get("pid")
             if agent_pid and is_descendant_of(current_pid, agent_pid):
                 return _extract_sender_info_from_agent(agent_id, info)
-    except Exception:
-        pass
+
+        # Priority 2: TTY match (fallback for tmux/spawned shells)
+        current_tty = _get_current_tty()
+        if current_tty:
+            for agent_id, info in agents.items():
+                if info.get("tty_device") == current_tty:
+                    return _extract_sender_info_from_agent(agent_id, info)
+
+    except Exception as e:
+        logger.error("Error in _find_sender_by_pid: %s", e, exc_info=True)
     return {}
 
 
@@ -152,7 +197,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     Resolution order:
     1. explicit_sender (--from)
     2. SYNAPSE_AGENT_ID environment variable
-    3. Registry PID ancestry matching
+    3. Registry PID ancestry/TTY matching
 
     Args:
         explicit_sender: Must be an agent ID (e.g., synapse-claude-8100).
@@ -165,15 +210,9 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     if not explicit_sender:
         env_sender = os.environ.get("SYNAPSE_AGENT_ID")
         if env_sender:
-            try:
-                reg = AgentRegistry()
-                agents = reg.list_agents()
-                if env_sender in agents:
-                    return _extract_sender_info_from_agent(
-                        env_sender, agents[env_sender]
-                    )
-            except Exception:
-                pass
+            # If SYNAPSE_AGENT_ID is set, use it even if not in registry
+            # instead of falling back to PID detection which might be wrong
+            return _lookup_sender_in_registry(env_sender)
         return _find_sender_by_pid()
 
     # Validate explicit sender format
@@ -181,18 +220,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     if error:
         return error
 
-    # Look up endpoint and uds_path from registry
-    try:
-        reg = AgentRegistry()
-        agents = reg.list_agents()
-        if explicit_sender in agents:
-            return _extract_sender_info_from_agent(
-                explicit_sender, agents[explicit_sender]
-            )
-    except Exception:
-        pass
-
-    return {"sender_id": explicit_sender}
+    return _lookup_sender_in_registry(explicit_sender)
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -867,19 +895,37 @@ def cmd_reply(args: argparse.Namespace) -> None:
         print(f"Error: Failed to get reply target: {e}", file=sys.stderr)
         sys.exit(1)
 
+    target: dict[str, str | None] | SenderInfo | None = None
+    got_target_from_stack = False
+    # sender_info is guaranteed to be dict here (str case exits above)
+    my_agent_id = sender_info.get("sender_id")
+
     if resp.status_code == 404:
-        print(
-            "Error: No reply target. No pending messages to reply to.", file=sys.stderr
-        )
-        sys.exit(1)
+        if my_agent_id:
+            persisted = load_reply_target(my_agent_id)
+            if persisted:
+                target = persisted
+        if not target:
+            print(
+                "Error: No reply target. No pending messages to reply to.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
     elif resp.status_code != 200:
         print(
             f"Error: Failed to get reply target: HTTP {resp.status_code}",
             file=sys.stderr,
         )
         sys.exit(1)
+    else:
+        target = resp.json()
+        got_target_from_stack = True
 
-    target = resp.json()
+    if not target:
+        print(
+            "Error: No reply target. No pending messages to reply to.", file=sys.stderr
+        )
+        sys.exit(1)
     target_endpoint = target.get("sender_endpoint")
     target_uds_path = target.get("sender_uds_path")
     task_id = target.get("sender_task_id")  # May be None
@@ -895,10 +941,10 @@ def cmd_reply(args: argparse.Namespace) -> None:
         endpoint=target_endpoint or "http://localhost",
         message=args.message,
         priority=3,  # Normal priority for replies
-        sender_info=sender_info if isinstance(sender_info, dict) else None,
+        sender_info=sender_info,
         response_expected=False,  # Reply doesn't expect a reply back
         in_reply_to=task_id,
-        uds_path=target_uds_path if target_uds_path else None,
+        uds_path=target_uds_path or None,
     )
 
     if not result:
@@ -906,11 +952,16 @@ def cmd_reply(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Only pop from stack after successful send
-    pop_url = f"{my_endpoint}/reply-stack/pop"
-    if to_sender:
-        pop_url += f"?sender_id={to_sender}"
-    with contextlib.suppress(requests.RequestException):
-        requests.get(pop_url, timeout=5)
+    if got_target_from_stack:
+        pop_url = f"{my_endpoint}/reply-stack/pop"
+        if to_sender:
+            pop_url += f"?sender_id={to_sender}"
+        with contextlib.suppress(requests.RequestException):
+            requests.get(pop_url, timeout=5)
+
+    # Clear persisted fallback target after successful send
+    if my_agent_id:
+        clear_reply_target(my_agent_id)
 
     # Display target info (prefer UDS path if no HTTP endpoint)
     target_short = _get_target_display_name(target_endpoint, target_uds_path)

@@ -6,6 +6,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.7.x (Post v0.7.0)
 
+- **Changed**: Reply target persistence moved from `~/.a2a/registry/` to dedicated `~/.a2a/reply/` directory (configurable via `SYNAPSE_REPLY_TARGET_DIR`)
+- **Fixed**: `registry.py` `list_agents()` now handles `KeyError` gracefully when registry JSON files have missing keys
+- **Added**: `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
+- **Added**: `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for coordinator agents
+- **Added**: `doc-organizer` skill — documentation audit, restructure, deduplication, terminology normalization, and navigation improvement
+- **Added**: `documentation` skill set — combines synapse-a2a, project-docs, doc-organizer, api-design, and agent-memory for documentation-focused agents
+- **Fixed**: Ghostty panes now auto-close when the agent process exits (appends `; exit` to spawned commands; `exec` is incompatible with clipboard paste injection)
 - **Fixed**: Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows, preserving existing panes
 - **Fixed**: Ghostty commands injected via clipboard paste (`Cmd+V`) to avoid character mangling with long arguments
 - **Fixed**: `team start` pre-allocates unique ports to prevent race conditions when multiple agents of the same type start simultaneously

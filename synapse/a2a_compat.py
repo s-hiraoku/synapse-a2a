@@ -40,6 +40,7 @@ from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
+from synapse.reply_target import save_reply_target
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -870,7 +871,15 @@ def create_a2a_router(
             and sender_info.sender_id
         ):
             reply_stack = get_reply_stack()
-            reply_stack.set(sender_info.sender_id, sender_info.to_reply_stack_entry())
+            reply_entry = sender_info.to_reply_stack_entry()
+            reply_stack.set(sender_info.sender_id, reply_entry)
+            if agent_id:
+                try:
+                    await asyncio.to_thread(save_reply_target, agent_id, reply_entry)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to persist reply target for %s: %s", agent_id, e
+                    )
 
         # Prepare message for PTY (may store to file if too long)
         pty_text, used_file = _prepare_pty_message(

@@ -1944,6 +1944,7 @@ env:
 | `SYNAPSE_PORT` | デフォルトポート（サーバーモード用） |
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス（デフォルト: `~/.a2a/registry`） |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス（デフォルト: `~/.a2a/external`） |
+| `SYNAPSE_REPLY_TARGET_DIR` | リプライターゲット永続化ディレクトリのパス（デフォルト: `~/.a2a/reply`） |
 | `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス（デフォルト: `~/.synapse/history/history.db`） |
 | `SYNAPSE_SKILLS_DIR` | 中央スキルストアのパス（デフォルト: `~/.synapse/skills`） |
 

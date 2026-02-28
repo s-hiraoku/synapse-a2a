@@ -357,6 +357,8 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
+| **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **doc-organizer** | Documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection |
 | **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
 | **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
 | **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |
@@ -411,7 +413,9 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        └── synapse-a2a/SKILL.md
+        ├── synapse-a2a/SKILL.md
+        ├── synapse-manager/SKILL.md
+        └── doc-organizer/SKILL.md
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
@@ -1145,6 +1149,9 @@ Agent Card is a "business card" containing only external-facing information:
 ├── synapse-claude-8100.json
 ├── synapse-claude-8101.json
 └── synapse-gemini-8110.json
+
+~/.a2a/reply/
+└── synapse-claude-8100.reply.json   # Reply target persistence (auto-cleaned)
 ```
 
 ### Auto Cleanup
@@ -1507,6 +1514,7 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
 | `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
+| `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |

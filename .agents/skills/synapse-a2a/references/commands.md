@@ -119,8 +119,11 @@ synapse spawn claude --skill-set dev-set      # With skill set
 synapse spawn claude --terminal tmux          # Use specific terminal
 synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 
-# Pass tool-specific arguments after '--'
-synapse spawn claude -- --dangerously-skip-permissions
+# Pass tool-specific arguments after '--' (permission skip flags per CLI)
+synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
+synapse spawn gemini -- -y                               # Gemini: yolo mode
+synapse spawn codex -- --yolo                            # Codex: full access
+synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
 
 # Worktree isolation (--worktree is a Claude Code flag, passed after '--'; other CLIs silently ignore it)
 synapse spawn claude --name Impl --role "implementer" -- --worktree
@@ -625,6 +628,7 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
+| `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
 | `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
@@ -1032,8 +1036,9 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (applied to all agents)
-synapse team start claude gemini -- --dangerously-skip-permissions
+# Pass tool-specific arguments after '--' (permission skip flags per CLI)
+synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
+synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --yolo for Codex)
 
 # Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
@@ -1055,7 +1060,9 @@ curl -X POST http://localhost:8100/team/start \
 # With tool_args (passed through to underlying CLI tool)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
-  -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"agents": ["gemini", "codex"], "tool_args": ["-y"]}'
+# Note: tool_args are passed to ALL agents. Use CLI-specific flags:
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--yolo"], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1071,7 +1078,8 @@ curl -X POST http://localhost:8100/spawn \
 # With skill_set and tool_args
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--yolo"], Copilot ["--allow-all-tools"]
 # On failure: {"status": "failed", "reason": "No available port"}
 ```
 
@@ -1193,6 +1201,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 
 ```text
 ~/.a2a/registry/     # Running agents (auto-cleaned)
+~/.a2a/reply/        # Reply target persistence (auto-cleaned per agent)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store
 ~/.synapse/          # User-level settings and logs
