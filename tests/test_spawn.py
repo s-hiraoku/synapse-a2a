@@ -345,6 +345,78 @@ class TestSpawnCLIExecution:
 
         assert exc_info.value.code == 1
 
+    def test_cmd_spawn_resolves_saved_agent_by_name(self) -> None:
+        """cmd_spawn should resolve non-profile positional arg via agent definitions."""
+        from synapse.cli import cmd_spawn
+        from synapse.spawn import SpawnResult
+
+        mock_result = SpawnResult(
+            agent_id="synapse-claude-8100",
+            port=8100,
+            terminal_used="tmux",
+            status="submitted",
+        )
+        agent_info = {"agent_id": "synapse-claude-8100", "pid": 123, "port": 8100}
+
+        args = argparse.Namespace(
+            profile="狗巻棘",
+            port=None,
+            name=None,
+            role=None,
+            skill_set=None,
+            terminal=None,
+        )
+
+        with (
+            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_spawn,
+            patch("synapse.spawn.wait_for_agent", return_value=agent_info),
+        ):
+            mock_store = mock_store_cls.return_value
+            mock_registry_cls.return_value.is_name_unique.return_value = True
+            mock_saved = argparse.Namespace(
+                profile_id="silent-snake",
+                name="狗巻棘",
+                profile="claude",
+                role="@./roles/reviewer.md",
+                skill_set="reviewer",
+            )
+            mock_store.resolve.return_value = mock_saved
+            cmd_spawn(args)
+
+        kwargs = mock_spawn.call_args.kwargs
+        assert kwargs["profile"] == "claude"
+        assert kwargs["name"] == "狗巻棘"
+        assert kwargs["role"] == "@./roles/reviewer.md"
+        assert kwargs["skill_set"] == "reviewer"
+
+    def test_cmd_spawn_rejects_duplicate_name(self) -> None:
+        """cmd_spawn should fail if target name is already in use."""
+        from synapse.cli import cmd_spawn
+
+        args = argparse.Namespace(
+            profile="claude",
+            port=None,
+            name="狗巻棘",
+            role=None,
+            skill_set=None,
+            terminal=None,
+            tool_args=[],
+        )
+
+        with (
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.spawn.spawn_agent") as mock_spawn,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            mock_registry = mock_registry_cls.return_value
+            mock_registry.is_name_unique.return_value = False
+            cmd_spawn(args)
+
+        assert exc_info.value.code == 1
+        mock_spawn.assert_not_called()
+
 
 # ============================================================
 # TestGhosttyPaneCreation - Ghostty window creation

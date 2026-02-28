@@ -41,6 +41,7 @@ flowchart TB
 
     subgraph Storage["ストレージ"]
         RegistryDir["~/.a2a/registry/"]
+        ReplyDir["~/.a2a/reply/"]
         ExternalDir["~/.a2a/external/"]
         LogDir["~/.synapse/logs/"]
     end
@@ -820,6 +821,8 @@ synapse-a2a/
 ~/.a2a/
 ├── registry/               # ローカルエージェント（実行中のみ）
 │   └── <agent_id>.json
+├── reply/                  # リプライターゲット永続化（自動クリーン）
+│   └── <agent_id>.reply.json
 └── external/               # 外部エージェント（永続的）
     └── <alias>.json
 

@@ -61,7 +61,8 @@ def _build_agent_command(
         use_exec: If True, prefix command with ``exec`` so the shell process
             is replaced by the agent process.  When the agent exits the
             terminal session ends, which automatically closes the
-            pane/tab/window in iTerm2, Terminal.app, and Ghostty.
+            pane/tab/window in iTerm2 and Terminal.app.  Ghostty uses
+            ``; exit`` instead (see ``create_ghostty_window``).
         tool_args: Extra arguments to pass through to the underlying CLI tool
             (e.g., ``["--dangerously-skip-permissions"]``).  Appended after
             a ``--`` separator.
@@ -785,7 +786,7 @@ def create_ghostty_window(
         # Do NOT use exec here — Ghostty injects commands via clipboard
         # paste (Cmd+V), and exec is unreliable with this method.
         full_cmd = _build_agent_command(agent_spec, use_exec=False, tool_args=tool_args)
-        cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
+        cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}; exit"
         escaped = _escape_applescript_string(cd_cmd)
         # Trigger Ghostty's Cmd+D (new_split:right) to create a split
         # pane, then paste the command via clipboard and press return.

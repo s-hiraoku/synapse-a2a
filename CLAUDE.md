@@ -60,6 +60,9 @@ pytest tests/test_delegate_mode.py -v        # B5: Delegate Mode
 pytest tests/test_auto_spawn.py -v           # B6: Auto-Spawn Panes
 pytest tests/test_team_start_api.py -v       # B6: Team Start API
 
+# Saved agent definitions tests
+pytest tests/test_agent_profiles.py -v      # AgentProfileStore core tests
+
 # Spawn command tests
 pytest tests/test_spawn.py -v               # Spawn CLI + core function
 pytest tests/test_spawn_api.py -v           # Spawn API endpoint
@@ -145,6 +148,12 @@ synapse skills add <repo>                 # Install from repo (npx skills wrappe
 synapse skills create                     # Show guided skill creation steps
 synapse skills set list                   # List skill sets
 synapse skills set show <name>            # Show skill set details
+
+# Saved agent definitions (reusable templates for synapse spawn)
+synapse agents list                       # List saved agent definitions
+synapse agents show <id_or_name>          # Show details for a saved agent
+synapse agents add <id> --name <name> --profile <profile> [--role <role>] [--skill-set <set>] [--scope project|user]
+synapse agents delete <id_or_name>        # Delete a saved agent by ID or name
 
 # Settings management (interactive TUI)
 synapse config                            # Interactive config editor
@@ -264,6 +273,7 @@ curl -X POST http://localhost:8100/team/start \
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 synapse spawn claude                          # Spawn Claude in a new pane
+synapse spawn silent-snake                    # Spawn by saved agent ID (petname)
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
@@ -329,8 +339,10 @@ synapse/
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
+├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
+├── reply_target.py  # Reply target file-based persistence (~/.a2a/reply/)
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
 │   ├── instructions.py    # synapse instructions command
@@ -347,6 +359,12 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
     ├── examples.md
     └── file-safety.md
 
+plugins/synapse-a2a/skills/synapse-manager/  # Multi-agent management skill
+└── SKILL.md                                 # Delegation, monitoring, verification, feedback, review
+
+plugins/synapse-a2a/skills/doc-organizer/    # Documentation organization skill
+└── SKILL.md                                 # Audit, restructure, deduplication, terminology, staleness
+
 .claude/hooks/                             # Claude Code PostToolUse hooks
 ├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create
 ├── poll-ci.sh                             # Background: polls GitHub Actions CI status
@@ -359,14 +377,20 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
 └── fix-review/SKILL.md                    # /fix-review: auto-fix CodeRabbit review comments
 
 # Sync targets (auto-synced from plugins/ via sync-plugin-skills):
-.claude/skills/synapse-a2a/   # Claude Code
-.agents/skills/synapse-a2a/   # Codex / OpenCode / Copilot
-.gemini/skills/synapse-a2a/   # Gemini
+.claude/skills/synapse-a2a/      # Claude Code
+.claude/skills/synapse-manager/  # Claude Code
+.claude/skills/doc-organizer/    # Claude Code
+.agents/skills/synapse-a2a/      # Codex / OpenCode / Copilot
+.agents/skills/synapse-manager/  # Codex / OpenCode / Copilot
+.agents/skills/doc-organizer/    # Codex / OpenCode / Copilot
+.gemini/skills/synapse-a2a/      # Gemini
+.gemini/skills/synapse-manager/  # Gemini
+.gemini/skills/doc-organizer/    # Gemini
 ```
 
 ### Skill Update Rules
 
-**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager`, `doc-organizer` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ### CI Automation: Hooks and Skills
 
@@ -558,10 +582,13 @@ idle_detection:
 
 ```
 ~/.a2a/registry/     # Running agents (auto-cleaned)
+~/.a2a/reply/        # Reply target persistence (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store (SYNAPSE scope)
+~/.synapse/agents/   # Saved agent definitions (user scope)
 ~/.synapse/logs/     # Log files
 
+.synapse/agents/     # Saved agent definitions (project scope)
 .synapse/memory.db   # Shared memory database (project-local, SQLite WAL)
 .synapse/file_safety.db  # File safety database (project-local)
 .synapse/task_board.db   # Shared task board database (project-local)

@@ -138,7 +138,12 @@ class TestSynapseSettings:
     def setup_method(self):
         """Clear environment variables that affect instruction generation."""
         # Remove env vars that trigger optional instruction injection
-        for key in ("SYNAPSE_FILE_SAFETY_ENABLED", "SYNAPSE_SHARED_MEMORY_ENABLED"):
+        for key in (
+            "SYNAPSE_FILE_SAFETY_ENABLED",
+            "SYNAPSE_SHARED_MEMORY_ENABLED",
+            "SYNAPSE_LEARNING_MODE_ENABLED",
+            "SYNAPSE_LEARNING_MODE_TRANSLATION",
+        ):
             os.environ.pop(key, None)
 
     def test_from_defaults(self):
@@ -402,7 +407,12 @@ class TestInstructionPlaceholders:
 
     def setup_method(self):
         """Clear environment variables that affect instruction generation."""
-        for key in ("SYNAPSE_FILE_SAFETY_ENABLED", "SYNAPSE_SHARED_MEMORY_ENABLED"):
+        for key in (
+            "SYNAPSE_FILE_SAFETY_ENABLED",
+            "SYNAPSE_SHARED_MEMORY_ENABLED",
+            "SYNAPSE_LEARNING_MODE_ENABLED",
+            "SYNAPSE_LEARNING_MODE_TRANSLATION",
+        ):
             os.environ.pop(key, None)
 
     def test_agent_id_placeholder(self):

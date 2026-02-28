@@ -103,7 +103,8 @@ flowchart LR
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --no-response` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
-| **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
+| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with petname IDs. `synapse spawn` accepts saved agent IDs/names in addition to profile names |
+| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
@@ -357,6 +358,8 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
+| **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **doc-organizer** | Documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection |
 | **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
 | **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
 | **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |
@@ -411,7 +414,9 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        └── synapse-a2a/SKILL.md
+        ├── synapse-a2a/SKILL.md
+        ├── synapse-manager/SKILL.md
+        └── doc-organizer/SKILL.md
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
@@ -468,6 +473,7 @@ Each agent is:
 | AgentRegistry | `synapse/registry.py` | Agent registration and lookup |
 | SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
+| AgentProfileStore | `synapse/agent_profiles.py` | Saved agent definitions (reusable templates for spawn) |
 
 ### Startup Sequence
 
@@ -621,7 +627,11 @@ synapse kill my-claude
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
-| `synapse spawn <profile>` | Spawn a single agent in a new terminal pane. `-- --worktree` for git worktree isolation (Claude only) |
+| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `-- --worktree` for git worktree isolation (Claude only) |
+| `synapse agents list` | List saved agent definitions |
+| `synapse agents show <id_or_name>` | Show details for a saved agent |
+| `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |
+| `synapse agents delete <id_or_name>` | Delete a saved agent by ID or name |
 
 ### Resume Mode
 
@@ -846,7 +856,7 @@ synapse send claude "Review this" --force
 synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 ```
 
-**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.
+**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified. In `--no-response` mode, sender-side history is updated on receiver completion via best-effort callback (`sent` -> `completed`/`failed`/`canceled`).
 
 **Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
 
@@ -1145,6 +1155,9 @@ Agent Card is a "business card" containing only external-facing information:
 ├── synapse-claude-8100.json
 ├── synapse-claude-8101.json
 └── synapse-gemini-8110.json
+
+~/.a2a/reply/
+└── synapse-claude-8100.reply.json   # Reply target persistence (auto-cleaned)
 ```
 
 ### Auto Cleanup
@@ -1507,6 +1520,7 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
 | `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
+| `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |

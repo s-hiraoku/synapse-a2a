@@ -12,7 +12,7 @@ You'll see prompts for:
 
 1. **Agent Name** — A custom name for easy identification (e.g., `my-claude`, `reviewer`)
 2. **Agent Role** — What the agent specializes in (e.g., `code reviewer`, `test writer`)
-3. **Skill Set** — A predefined group of skills to activate (e.g., `architect`, `developer`)
+3. **Skill Set** — A predefined group of skills to activate (e.g., `architect`, `developer`, `manager`, `documentation`)
 
 All fields are optional. Press ++enter++ to skip.
 

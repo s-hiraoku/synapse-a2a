@@ -24,6 +24,7 @@ graph TB
 
     subgraph "Storage"
         REG[AgentRegistry<br/>~/.a2a/registry/]
+        RPL[ReplyTargets<br/>~/.a2a/reply/]
         FSM[FileSafetyManager<br/>.synapse/file_safety.db]
         HIST[History<br/>~/.synapse/history.db]
         TB[TaskBoard<br/>.synapse/task_board.db]
@@ -226,6 +227,7 @@ sequenceDiagram
 | Storage | Location | Purpose | Format |
 |---------|----------|---------|--------|
 | Registry | `~/.a2a/registry/` | Running agents | JSON files |
+| Reply Targets | `~/.a2a/reply/` | Reply routing persistence | JSON files |
 | External Agents | `~/.a2a/external/` | External A2A agents | JSON files |
 | Settings (User) | `~/.synapse/settings.json` | User preferences | JSON |
 | Settings (Project) | `.synapse/settings.json` | Project config | JSON |

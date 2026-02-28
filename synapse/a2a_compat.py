@@ -40,6 +40,7 @@ from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
+from synapse.reply_target import save_reply_target
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -358,6 +359,14 @@ class SendMessageResponse(BaseModel):
     task: Task
 
 
+class HistoryUpdateRequest(BaseModel):
+    """Request to update sender-side history status."""
+
+    task_id: str
+    status: Literal["completed", "failed", "canceled"]
+    output_summary: str | None = None
+
+
 class CreateTaskRequest(BaseModel):
     """Request to create a task (without sending to PTY)."""
 
@@ -591,6 +600,77 @@ async def _send_response_to_sender(
         return False
     except Exception as e:
         logger.error(f"Unexpected error sending response to {sender_endpoint}: {e}")
+        return False
+
+
+async def _notify_sender_completion(
+    task: Task,
+    sender_endpoint: str,
+    sender_uds_path: str | None = None,
+    sender_task_id: str | None = None,
+    status: str | None = None,
+) -> bool:
+    """Notify sender to update history for no-response tasks.
+
+    Uses UDS first (when available), then falls back to HTTP.
+    Best effort: failures are logged and return False.
+    """
+    callback_task_id = sender_task_id or task.id
+    callback_status = status or task.status
+
+    output_parts = [_format_artifact_text(a) for a in task.artifacts]
+    output_summary = "\n".join(output_parts) if output_parts else None
+
+    payload = {
+        "task_id": callback_task_id,
+        "status": callback_status,
+        "output_summary": output_summary,
+    }
+
+    if sender_uds_path and os.path.exists(sender_uds_path):
+        try:
+            transport = httpx.AsyncHTTPTransport(uds=sender_uds_path)
+            async with httpx.AsyncClient(transport=transport, timeout=10.0) as client:
+                response = await client.post(
+                    "http://localhost/history/update", json=payload
+                )
+                response.raise_for_status()
+                logger.info(
+                    "Completion callback sent via UDS for task %s", callback_task_id[:8]
+                )
+                return True
+        except httpx.HTTPError as e:
+            logger.warning(
+                "UDS completion callback failed for %s: %s", callback_task_id, e
+            )
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{sender_endpoint}/history/update"
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info(
+                "Completion callback sent to %s for task %s",
+                sender_endpoint,
+                callback_task_id[:8],
+            )
+            return True
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            "Failed to send completion callback to %s: HTTP %s",
+            sender_endpoint,
+            e.response.status_code,
+        )
+        return False
+    except httpx.RequestError as e:
+        logger.warning(
+            "Failed to send completion callback to %s: %s", sender_endpoint, e
+        )
+        return False
+    except Exception as e:
+        logger.error(
+            "Unexpected completion callback error to %s: %s", sender_endpoint, e
+        )
         return False
 
 
@@ -870,7 +950,15 @@ def create_a2a_router(
             and sender_info.sender_id
         ):
             reply_stack = get_reply_stack()
-            reply_stack.set(sender_info.sender_id, sender_info.to_reply_stack_entry())
+            reply_entry = sender_info.to_reply_stack_entry()
+            reply_stack.set(sender_info.sender_id, reply_entry)
+            if agent_id:
+                try:
+                    await asyncio.to_thread(save_reply_target, agent_id, reply_entry)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to persist reply target for %s: %s", agent_id, e
+                    )
 
         # Prepare message for PTY (may store to file if too long)
         pty_text, used_file = _prepare_pty_message(
@@ -1003,6 +1091,22 @@ def create_a2a_router(
         )
         task_store.update_status(task.id, "working")
         return CreateTaskResponse(task=task)
+
+    @router.post("/history/update")
+    async def update_history(  # noqa: B008
+        request: HistoryUpdateRequest, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Update an existing history observation by task ID."""
+        updated = history_manager.update_observation_status(
+            task_id=request.task_id,
+            status=request.status,
+            output_text=request.output_summary,
+            metadata_update={"completion_callback": True},
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Task not found in history")
+
+        return {"updated": True, "task_id": request.task_id, "status": request.status}
 
     # --------------------------------------------------------
     # Task Board Endpoints (B1: Shared Task Board)
@@ -1361,16 +1465,28 @@ def create_a2a_router(
                     response_expected = metadata.get("response_expected", False)
                     sender_info = _extract_sender_info(metadata)
 
-                    if response_expected and sender_info.sender_endpoint:
-                        # Send response asynchronously
-                        asyncio.create_task(
-                            _send_response_to_sender(
-                                updated_task,
-                                sender_info.sender_endpoint,
-                                agent_id or "unknown",
-                                sender_task_id=sender_info.sender_task_id,
+                    if sender_info.sender_endpoint:
+                        if response_expected:
+                            # Send response asynchronously
+                            asyncio.create_task(
+                                _send_response_to_sender(
+                                    updated_task,
+                                    sender_info.sender_endpoint,
+                                    agent_id or "unknown",
+                                    sender_task_id=sender_info.sender_task_id,
+                                )
                             )
-                        )
+                        else:
+                            # Best-effort callback for no-response flow
+                            asyncio.create_task(
+                                _notify_sender_completion(
+                                    task=updated_task,
+                                    sender_endpoint=sender_info.sender_endpoint,
+                                    sender_uds_path=sender_info.sender_uds_path,
+                                    sender_task_id=sender_info.sender_task_id,
+                                    status=updated_task.status,
+                                )
+                            )
 
             updated_task = task_store.get(task_id)
             if updated_task:

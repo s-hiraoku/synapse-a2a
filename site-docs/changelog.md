@@ -11,12 +11,20 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: Sender identification in PTY-injected A2A messages
 - **Added**: Ghostty split pane support for `team start` and `spawn`
 - **Added**: Agent name uniqueness enforcement across interactive start, spawn, and team start
+- **Added**: Save-on-exit prompt for interactive named agents
+- **Added**: `synapse-manager` skill — structured 5-step multi-agent management workflow
+- **Added**: `manager` and `documentation` skill sets for coordinator and docs-focused agents
+- **Added**: `doc-organizer` skill — documentation audit, restructure, and deduplication
 - **Changed**: `synapse spawn` and `synapse team start` accept saved-agent ID/name
+- **Changed**: Reply target persistence moved to dedicated `~/.a2a/reply/` directory
 - **Changed**: Registry writes hardened with registry-wide lock and atomic name conflict rejection
+- **Changed**: Agent spec format simplified to `profile[:name[:role[:skill_set[:port]]]]`
 - **Fixed**: Ghostty split panes (`Cmd+D`) instead of new windows, clipboard paste for commands
+- **Fixed**: Ghostty panes auto-close on agent exit
 - **Fixed**: Port pre-allocation in `team start` to avoid race conditions
 - **Fixed**: Shared memory bugs (#286-#291) and memory CLI tag parsing
 - **Fixed**: Soft interrupt priority corrected (p5→p4)
+- **Fixed**: `registry.py` `list_agents()` handles `KeyError` gracefully
 - **Docs**: Saved-agent definitions guide and CLI reference
 
 ### v0.7.0

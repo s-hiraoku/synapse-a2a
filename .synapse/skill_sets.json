@@ -51,5 +51,27 @@
       "react-composition",
       "web-accessibility"
     ]
+  },
+  "manager": {
+    "name": "manager",
+    "description": "Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration",
+    "skills": [
+      "synapse-a2a",
+      "synapse-manager",
+      "task-planner",
+      "agent-memory",
+      "code-review"
+    ]
+  },
+  "documentation": {
+    "name": "documentation",
+    "description": "Documentation expert — audit, restructure, synchronize, and maintain project documentation",
+    "skills": [
+      "synapse-a2a",
+      "project-docs",
+      "doc-organizer",
+      "api-design",
+      "agent-memory"
+    ]
   }
 }
