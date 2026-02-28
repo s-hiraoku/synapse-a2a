@@ -78,7 +78,7 @@ synapse send gemini "Analyze this codebase"
 synapse send gemini "What is the best approach for auth?" --wait
 
 # Fire-and-forget — no completion notification
-synapse send codex "FYI: Build completed" --silent
+synapse send codex "Run the full test suite and fix any failures" --silent
 ```
 
 ### Name vs ID

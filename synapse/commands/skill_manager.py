@@ -35,6 +35,7 @@ from synapse.skills import (
     deploy_skill,
     discover_skills,
     edit_skill_set,
+    get_agent_skill_dir,
     import_skill,
     load_skill_sets,
     move_skill,
@@ -576,6 +577,13 @@ def cmd_skills_apply(
     agent_type = agent_info.get("agent_type", "claude")
     agent_name = agent_info.get("name") or agent_id
 
+    # Use the target agent's working_dir for skill file copies,
+    # falling back to caller's project_dir → cwd if not available.
+    agent_working_dir = agent_info.get("working_dir")
+    target_project_dir: Path = (
+        Path(agent_working_dir) if agent_working_dir else (project_dir or Path.cwd())
+    )
+
     # 2. Validate skill set exists
     sets = load_skill_sets(skill_sets_path)
     if set_name not in sets:
@@ -590,17 +598,21 @@ def cmd_skills_apply(
         print(f"[Dry Run] Would apply skill set '{set_name}' to {agent_name}")
         print(f"  Agent:       {agent_name} ({agent_id})")
         print(f"  Agent type:  {agent_type}")
+        print(f"  Target dir:  {target_project_dir}")
         print(f"  Skill set:   {skill_set.name}")
         print(f"  Description: {skill_set.description}")
         print(f"  Skills:      {', '.join(skill_set.skills)}")
         print()
         print("  Actions that would be performed:")
-        print(f"    1. Copy skills to {agent_type} skill directory")
+        print(
+            f"    1. Copy skills to {target_project_dir / get_agent_skill_dir(agent_type)}"
+        )
         print(f"    2. Update registry skill_set → '{set_name}'")
         print(f"    3. Send skill set info via A2A to {agent_name}")
         return True
 
-    # 3. Copy skill files
+    # 3. Copy skill files to the target agent's working directory
+    #    Discovery uses caller's project_dir; copy destination uses agent's dir.
     apply_result = apply_skill_set(
         set_name=set_name,
         agent_type=agent_type,
@@ -608,9 +620,16 @@ def cmd_skills_apply(
         project_dir=project_dir,
         skill_sets_path=skill_sets_path,
         synapse_dir=synapse_dir,
+        target_dir=target_project_dir,
     )
     for msg in apply_result.messages:
         print(f"  {msg}")
+
+    # Abort if no skills were copied and some were not found
+    if not apply_result.copied and apply_result.not_found:
+        print()
+        print(f"Error: No skills were copied for '{set_name}'. Aborting.")
+        return False
 
     # 4. Update registry
     updated = registry.update_skill_set(agent_id, set_name)

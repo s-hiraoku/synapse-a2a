@@ -57,7 +57,7 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | 
 
 | パラメータ | 説明 |
 |-----------|------|
-| `target` | エージェント名（例: `my-claude`）、ID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
+| `target` | ターゲットの指定（解決優先順位順）: カスタム名（例: `my-claude`）、フルID（例: `synapse-claude-8100`）、タイプ-ポート（例: `claude-8100`）、またはタイプ（例: `claude`、単一インスタンスのみ） |
 | `--from, -f` | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--wait` | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |

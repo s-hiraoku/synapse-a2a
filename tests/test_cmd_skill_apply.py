@@ -324,3 +324,51 @@ class TestSkillsApplyDryRun:
             )
 
         mock_send.assert_not_called()
+
+
+class TestSkillsApplyCrossWorkingDir:
+    """Regression: skills must be copied to the target agent's working_dir,
+    not the caller's project_dir."""
+
+    def test_apply_copies_to_agent_working_dir(
+        self, setup_env, tmp_path, capsys
+    ) -> None:
+        """When caller CWD != agent working_dir, skills land in agent's dir."""
+        home, _caller_project, synapse, registry, sets_file = setup_env
+
+        # Create a separate project directory for the target agent
+        agent_project = tmp_path / "agent_project"
+        agent_project.mkdir()
+
+        # Register target agent with a different working_dir
+        _register_agent(
+            registry,
+            agent_id="synapse-claude-8100-crosswd",
+            agent_type="claude",
+            port=8101,
+            name="cross-agent",
+            working_dir=str(agent_project),
+        )
+
+        from synapse.commands.skill_manager import cmd_skills_apply
+
+        with patch(
+            "synapse.commands.skill_manager._send_skill_set_message"
+        ) as mock_send:
+            mock_send.return_value = True
+            result = cmd_skills_apply(
+                target="cross-agent",
+                set_name="developer",
+                # Caller passes its own project_dir (different from agent's)
+                project_dir=_caller_project,
+                user_dir=home,
+                skill_sets_path=sets_file,
+                synapse_dir=synapse,
+            )
+
+        assert result is True
+        # Skills should be in agent's working_dir, NOT caller's project_dir
+        assert (agent_project / ".claude" / "skills" / "synapse-a2a").exists()
+        assert (agent_project / ".claude" / "skills" / "code-review").exists()
+        # Caller's project should NOT have the skills copied
+        assert not (_caller_project / ".claude" / "skills" / "synapse-a2a").exists()

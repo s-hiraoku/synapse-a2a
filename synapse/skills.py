@@ -908,24 +908,29 @@ def apply_skill_set(
     project_dir: Path | None = None,
     skill_sets_path: Path | None = None,
     synapse_dir: Path | None = None,
+    target_dir: Path | None = None,
 ) -> ApplyResult:
     """Apply a skill set by copying skills to the agent's skill directory.
 
-    Skills are copied into the project-level agent skill directory.
+    Skills are discovered from ``project_dir`` (caller's project) and copied
+    into ``target_dir`` (agent's working directory).  When ``target_dir`` is
+    not provided it defaults to ``project_dir`` (same-directory case).
 
     Args:
         set_name: Name of the skill set to apply.
         agent_type: Agent type (determines target dir).
         user_dir: User home for skill discovery. Defaults to Path.home().
-        project_dir: Project root for skill discovery and target. Defaults to cwd.
+        project_dir: Project root for skill discovery. Defaults to cwd.
         skill_sets_path: Path to skill_sets.json.
         synapse_dir: Synapse config dir for SYNAPSE scope discovery.
+        target_dir: Directory to copy skills into. Defaults to project_dir.
 
     Returns:
         ApplyResult with copied/skipped/not_found lists.
     """
     user_dir = user_dir or Path.home()
     project_dir = project_dir or Path.cwd()
+    target_dir = target_dir or project_dir
 
     sets = load_skill_sets(skill_sets_path)
     if set_name not in sets:
@@ -941,7 +946,7 @@ def apply_skill_set(
     skill_map = {s.name: s for s in all_skills}
 
     target_rel = get_agent_skill_dir(agent_type)
-    target_base = project_dir / target_rel
+    target_base = target_dir / target_rel
 
     result = ApplyResult()
 
