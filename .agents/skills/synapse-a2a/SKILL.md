@@ -185,13 +185,19 @@ synapse broadcast "FYI: Build completed" --no-response
 
 ## Receiving and Replying to Messages
 
-When you receive an A2A message, it appears with the `A2A:` prefix:
+When you receive an A2A message, it appears with the `A2A:` prefix that includes optional sender identification and reply expectations:
 
 **Message Formats:**
 ```
-A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
-A2A: <message>                    <- Reply is optional (one-way notification)
+A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
+
+- **From**: Identifies the sender's display name and unique agent ID.
+- **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
+
+If sender information is not available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (backward compatible format)
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
@@ -215,13 +221,13 @@ synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 
 **Example - Question received (MUST reply):**
 ```
-Received: A2A: [REPLY EXPECTED] What is the project structure?
+Received: A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..."
 ```
 
 **Example - Delegation received (no reply needed):**
 ```
-Received: A2A: Run the tests and fix failures
+Received: A2A: [From: Gemini (synapse-gemini-8110)] Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -298,7 +304,7 @@ In `synapse list`, you can interact with agents:
 **Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
-- Ghostty (macOS) - Activates application
+- Ghostty (macOS) - Activates application. **Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs during spawn.
 - VS Code integrated terminal - Opens to working directory
 - tmux - Switches to agent's session
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)

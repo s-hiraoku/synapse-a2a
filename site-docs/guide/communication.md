@@ -82,12 +82,18 @@ See [Agent Management](agent-management.md#target-resolution-priority) for detai
 
 ## Receiving Messages
 
-When a message arrives at an agent, it appears in the PTY as:
+When a message arrives at an agent, it appears in the PTY with a prefix that includes optional sender identification and reply expectations:
 
 ```
-A2A: <message>                        # No reply needed
-A2A: [REPLY EXPECTED] <message>       # Must reply with synapse reply
+A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
+
+- **From**: Identifies the sender's display name and unique agent ID.
+- **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
+
+If sender information is not available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (backward compatible format)
 
 ## Replying
 
@@ -163,7 +169,7 @@ sequenceDiagram
     A->>S: synapse send gemini "question" --response
     S->>S: Create task context (no PTY send yet)
     S->>B: POST /tasks/send with [REPLY EXPECTED]
-    B->>B: PTY shows "A2A: [REPLY EXPECTED] question"
+    B->>B: PTY shows "A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] question"
     B->>S: synapse reply "answer"
     S->>S: Pop reply stack → route to sender
     S->>A: Display response
