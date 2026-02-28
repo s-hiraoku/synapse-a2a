@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add GitHub Pages documentation site with MkDocs Material
 - add github-pages-sync skill for site-docs maintenance
 - add shared memory for cross-agent knowledge sharing
+- add `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
+- add `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for coordinator agents
+- add `doc-organizer` skill — documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection
+- add `documentation` skill set — combines synapse-a2a, project-docs, doc-organizer, api-design, and agent-memory for documentation-focused agents
 
 ### Documentation
 

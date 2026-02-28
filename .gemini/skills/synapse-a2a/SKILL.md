@@ -679,6 +679,8 @@ For detailed documentation, read:
 
 | Skill | Purpose |
 |-------|---------|
+| `/synapse-manager` | Multi-agent management — task delegation, monitoring, quality verification, feedback, and cross-review orchestration |
+| `/doc-organizer` | Audit, restructure, and consolidate project documentation for clarity and maintainability |
 | `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
 | `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |
 | `/fix-conflict` | Auto-resolve merge conflicts with the base branch |

@@ -357,6 +357,8 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
+| **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **doc-organizer** | Documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection |
 | **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
 | **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
 | **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |
@@ -411,7 +413,9 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        └── synapse-a2a/SKILL.md
+        ├── synapse-a2a/SKILL.md
+        ├── synapse-manager/SKILL.md
+        └── doc-organizer/SKILL.md
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
