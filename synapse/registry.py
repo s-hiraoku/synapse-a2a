@@ -161,7 +161,8 @@ class AgentRegistry:
                 with open(p) as f:
                     data = json.load(f)
                     agents[data["agent_id"]] = data
-            except (json.JSONDecodeError, KeyError, OSError):
+            except (json.JSONDecodeError, KeyError, OSError) as e:
+                logger.warning("Skipping invalid registry file %s: %s", p.name, e)
                 continue
         return agents
 

@@ -188,7 +188,7 @@ class TestBuildSenderInfo:
 
     @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a._find_sender_by_pid")
-    def test_auto_detect_env_falls_back_to_pid_when_not_found(
+    def test_env_sender_id_used_when_not_in_registry(
         self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
     ):
         """Should return env sender ID when SYNAPSE_AGENT_ID is not in registry."""

@@ -875,7 +875,7 @@ def create_a2a_router(
             reply_stack.set(sender_info.sender_id, reply_entry)
             if agent_id:
                 try:
-                    save_reply_target(agent_id, reply_entry)
+                    await asyncio.to_thread(save_reply_target, agent_id, reply_entry)
                 except Exception as e:
                     logger.warning(
                         "Failed to persist reply target for %s: %s", agent_id, e

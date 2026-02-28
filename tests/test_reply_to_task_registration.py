@@ -214,6 +214,8 @@ class TestBuildSenderInfoWithEndpointInfo:
 
     def test_pid_matching_includes_endpoint_and_uds_path(self, monkeypatch):
         """PID matching should include endpoint and uds_path."""
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
+
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
             "synapse-gemini-8110": {

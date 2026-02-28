@@ -102,9 +102,22 @@ class TestSenderDetection:
         # Setup: Registry throws exception
         mock_registry_cls.side_effect = Exception("Registry error")
 
-        # Execute
-        with caplog.at_level(logging.ERROR):
-            result = _find_sender_by_pid()
+        # Enable propagation temporarily so caplog can capture log messages
+        # (synapse logger has propagate=False when logging_config is loaded)
+        loggers_to_fix = [
+            logging.getLogger("synapse"),
+            logging.getLogger("synapse.tools"),
+            logging.getLogger("synapse.tools.a2a"),
+        ]
+        orig_propagate = {lg.name: lg.propagate for lg in loggers_to_fix}
+        for lg in loggers_to_fix:
+            lg.propagate = True
+        try:
+            with caplog.at_level(logging.ERROR, logger="synapse.tools.a2a"):
+                result = _find_sender_by_pid()
+        finally:
+            for lg in loggers_to_fix:
+                lg.propagate = orig_propagate[lg.name]
 
         # Verify
         assert result == {}
@@ -134,13 +147,10 @@ class TestSenderDetection:
         assert result["sender_id"] == "synapse-claude-8100"
         mock_find_pid.assert_not_called()
 
-        # 3. Test prioritization of SYNAPSE_AGENT_ID even if NOT in registry (Instruction 3)
+        # 3. SYNAPSE_AGENT_ID takes priority even if NOT in registry
         mock_registry.list_agents.return_value = {}
         mock_find_pid.return_value = {"sender_id": "pid-detected"}
 
         result = build_sender_info(None)
-        # Expected behavior after change: should return {"sender_id": "synapse-claude-8100"}
-        # and NOT call mock_find_pid.
-        # But currently it falls through.
         assert result["sender_id"] == "synapse-claude-8100"
         mock_find_pid.assert_not_called()
