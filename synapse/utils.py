@@ -116,12 +116,19 @@ def format_file_parts_for_pty(file_parts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def format_a2a_message(content: str, response_expected: bool = False) -> str:
+def format_a2a_message(
+    content: str,
+    response_expected: bool = False,
+    sender_id: str | None = None,
+    sender_name: str | None = None,
+) -> str:
     """
-    Format a message with A2A prefix.
+    Format a message with A2A prefix and optional sender identification.
 
-    Creates the format: A2A: [REPLY EXPECTED] <content> (if response expected)
-    Or simply: A2A: <content> (if no response expected)
+    Creates the format:
+    - ``A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <content>``
+    - ``A2A: [From: SENDER_ID] <content>`` (no name)
+    - ``A2A: <content>`` (no sender info, backward compatible)
 
     Strips any leading ``[REPLY EXPECTED]`` marker already present in *content*
     before formatting so that the marker is never duplicated (defensive dedup
@@ -130,16 +137,26 @@ def format_a2a_message(content: str, response_expected: bool = False) -> str:
     Args:
         content: Message content
         response_expected: Whether the sender expects a response
+        sender_id: Sender agent ID (e.g., synapse-claude-8100)
+        sender_name: Sender display name (e.g., 虎杖悠仁)
 
     Returns:
-        Formatted message string with A2A prefix and optional reply marker
+        Formatted message string with A2A prefix, optional sender, and reply marker
     """
+    # Build sender prefix
+    sender_prefix = ""
+    if sender_id:
+        if sender_name:
+            sender_prefix = f"[From: {sender_name} ({sender_id})] "
+        else:
+            sender_prefix = f"[From: {sender_id}] "
+
     if response_expected:
         # Strip any existing leading [REPLY EXPECTED] to prevent duplication
         # (LLMs sometimes echo the marker back in their content)
         content = _REPLY_EXPECTED_PREFIX.sub("", content)
-        return f"A2A: [REPLY EXPECTED] {content}"
-    return f"A2A: {content}"
+        return f"A2A: {sender_prefix}[REPLY EXPECTED] {content}"
+    return f"A2A: {sender_prefix}{content}"
 
 
 def get_iso_timestamp() -> str:
@@ -246,6 +263,39 @@ def resolve_command_path(command: str) -> str | None:
     return shutil.which(cmd_name)
 
 
+def find_role_template(filename: str) -> Path | None:
+    """
+    Search for a role template file in project and user directories.
+
+    Search order:
+    1. Project: .synapse/roles/<filename>
+    2. User: ~/.synapse/roles/<filename>
+
+    Args:
+        filename: The role template filename (e.g., "architect.md").
+
+    Returns:
+        Path to the found file, or None if not found.
+    """
+    if not filename:
+        return None
+
+    # Ensure it has .md extension if not already
+    if not filename.endswith(".md"):
+        filename += ".md"
+
+    search_paths = [
+        Path.cwd() / ".synapse" / "roles" / filename,
+        Path.home() / ".synapse" / "roles" / filename,
+    ]
+
+    for path in search_paths:
+        if path.exists():
+            return path
+
+    return None
+
+
 # ============================================================================
 # Role file reference functions
 # ============================================================================
@@ -288,20 +338,21 @@ def resolve_role_value(
     role: str | None, agent_id: str, registry_dir: Path
 ) -> str | None:
     """
-    Resolve a role value, copying file if it's a file reference.
+    Resolve a role value, copying file if it's a file reference or template.
 
-    If role starts with @, the referenced file is copied to the registry's
-    roles directory and the new path (with @ prefix) is returned.
+    If role starts with @ or matches a template name in roles/, the
+    referenced file is copied to the registry's roles directory and the
+    new path (with @ prefix) is returned.
 
     Args:
-        role: The role value (string or @file reference).
+        role: The role value (string, @file reference, or template name).
         agent_id: The agent ID (used for naming the copied file).
         registry_dir: Path to the registry directory.
 
     Returns:
         The resolved role value:
-        - Original string if not a file reference
-        - "@{copied_path}" if file reference
+        - Original string if not a file/template reference
+        - "@{copied_path}" if file/template reference
         - None if role is None
 
     Raises:
@@ -310,25 +361,32 @@ def resolve_role_value(
     if role is None:
         return None
 
-    if not is_role_file_reference(role):
-        return role
+    # 1. Determine if it's a file reference or template
+    source_path: Path | None = None
+    if is_role_file_reference(role):
+        file_path_str = role[1:]  # Remove @ prefix
+        source_path = Path(os.path.expanduser(file_path_str)).resolve()
+    else:
+        # Check if it's a template name
+        source_path = find_role_template(role)
 
-    # Extract and expand the file path (role[1:] is safe here due to is_role_file_reference check)
-    file_path_str = role[1:]  # Remove @ prefix
-    file_path = Path(os.path.expanduser(file_path_str)).resolve()
+    # 2. If it's a file/template, copy it to the registry
+    if source_path:
+        if not source_path.exists():
+            raise RoleFileNotFoundError(f"Role file not found: {source_path}")
 
-    if not file_path.exists():
-        raise RoleFileNotFoundError(f"Role file not found: {file_path}")
+        # Create roles directory if needed
+        roles_dir = registry_dir / "roles"
+        roles_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create roles directory if needed
-    roles_dir = registry_dir / "roles"
-    roles_dir.mkdir(parents=True, exist_ok=True)
+        # Copy file to registry with agent-specific name
+        dest_path = roles_dir / f"{agent_id}-role.md"
+        shutil.copy2(source_path, dest_path)
 
-    # Copy file to registry with agent-specific name
-    dest_path = roles_dir / f"{agent_id}-role.md"
-    shutil.copy2(file_path, dest_path)
+        return f"@{dest_path}"
 
-    return f"@{dest_path}"
+    # 3. Otherwise, return as-is (literal string)
+    return role
 
 
 def get_role_content(role: str | None) -> str | None:
@@ -336,7 +394,7 @@ def get_role_content(role: str | None) -> str | None:
     Get the actual role content, reading from file if it's a reference.
 
     Args:
-        role: The role value (string or @file reference).
+        role: The role value (string, @file reference, or template name).
 
     Returns:
         The role content as a string, or None if role is None.
@@ -347,28 +405,35 @@ def get_role_content(role: str | None) -> str | None:
     if role is None:
         return None
 
-    if not is_role_file_reference(role):
-        return role
+    # 1. Check if it's an explicit file reference (starts with @)
+    if is_role_file_reference(role):
+        # role[1:] is safe here due to is_role_file_reference check
+        file_path_str = role[1:]
+        file_path = Path(os.path.expanduser(file_path_str))
 
-    # Read from file (role[1:] is safe here due to is_role_file_reference check)
-    file_path_str = role[1:]  # Remove @ prefix
-    file_path = Path(os.path.expanduser(file_path_str))
+        if not file_path.exists():
+            raise RoleFileNotFoundError(f"Role file not found: {file_path}")
 
-    if not file_path.exists():
-        raise RoleFileNotFoundError(f"Role file not found: {file_path}")
+        return file_path.read_text(encoding="utf-8")
 
-    return file_path.read_text(encoding="utf-8")
+    # 2. Check if it's a role template name (exists in .synapse/roles/)
+    template_path = find_role_template(role)
+    if template_path:
+        return template_path.read_text(encoding="utf-8")
+
+    # 3. Treat as literal role description
+    return role
 
 
 def get_role_display(role: str | None) -> str | None:
     """
     Get a display-friendly version of the role value.
 
-    For file references, returns just the filename with @ prefix.
-    For strings, returns as-is.
+    For file references and templates, returns just the filename with @ prefix.
+    For literal strings, returns as-is.
 
     Args:
-        role: The role value (string or @file reference).
+        role: The role value (string, @file reference, or template name).
 
     Returns:
         Display-friendly role string, or None if role is None.
@@ -376,10 +441,16 @@ def get_role_display(role: str | None) -> str | None:
     if role is None:
         return None
 
-    if not is_role_file_reference(role):
-        return role
+    # 1. Check if it's an explicit file reference
+    if is_role_file_reference(role):
+        file_path_str = role[1:]  # Remove @ prefix
+        file_path = Path(file_path_str)
+        return f"@{file_path.name}"
 
-    # Extract filename only for display
-    file_path_str = role[1:]  # Remove @ prefix
-    file_path = Path(file_path_str)
-    return f"@{file_path.name}"
+    # 2. Check if it's a role template name
+    template_path = find_role_template(role)
+    if template_path:
+        return f"@{template_path.name}"
+
+    # 3. Literal string
+    return role
