@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.1
+
+- **Fixed**: Add missing `manager` and `documentation` skill set definitions to bundled defaults
+- **Fixed**: Merge `coordinator` skill set into `manager` (adds `synapse-reinst`)
+- **Docs**: Update skill set tables across all documentation to reflect 6 default sets
+
 ### v0.8.0
 
 - **Added**: Saved Agent Manager — reusable agent configurations via `synapse agents` commands
@@ -13,7 +19,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: Agent name uniqueness enforcement across interactive start, spawn, and team start
 - **Added**: Save-on-exit prompt for interactive named agents
 - **Added**: `synapse-manager` skill — structured 5-step multi-agent management workflow
-- **Added**: `manager` and `documentation` skill sets for coordinator and docs-focused agents
+- **Added**: `manager` and `documentation` skill sets for multi-agent management and docs-focused agents
 - **Added**: `doc-organizer` skill — documentation audit, restructure, and deduplication
 - **Changed**: `synapse spawn` and `synapse team start` accept saved-agent ID/name
 - **Changed**: Reply target persistence moved to dedicated `~/.a2a/reply/` directory
