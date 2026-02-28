@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Do NOT change branches during active work** - Stay on the current branch until the task is complete
 - **If branch change is needed**, always ask the user for confirmation first
 - Before switching branches, ensure all changes are committed or stashed
-- When sending tasks to other agents, they must work on the same branch
+- When receiving tasks from other agents, work on the same branch
 
 ## Project Overview
 
@@ -77,9 +77,9 @@ pytest tests/test_token_parser.py -v           # Token parser registry + TokenUs
 pytest tests/test_token_stats.py -v            # Token statistics aggregation
 
 # Shared Memory tests
-pytest tests/test_shared_memory.py -v          # SharedMemory core class (28 tests)
-pytest tests/test_cli_memory.py -v             # CLI memory commands (11 tests)
-pytest tests/test_memory_api.py -v             # Memory API endpoints (12 tests)
+pytest tests/test_shared_memory.py -v    # SharedMemory core tests
+pytest tests/test_cli_memory.py -v       # CLI command tests  
+pytest tests/test_memory_api.py -v       # API endpoint tests
 
 # Run agent (interactive)
 synapse claude
