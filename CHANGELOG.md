@@ -278,7 +278,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`POST /spawn` API endpoint**: Agents can programmatically spawn other agents via A2A protocol with `run_in_threadpool` for non-blocking execution
 - **Headless mode (`--headless`)**: Spawned agents skip all interactive setup (name/role prompts, startup animation, approval prompts) while keeping A2A server and initial instructions active
 - **Ghostty terminal support**: New `create_ghostty_window()` for spawning agents in Ghostty windows on macOS
-- **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app/Ghostty use `exec` to replace the shell process
+- **Pane auto-close**: All supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty) automatically close spawned panes when agent process terminates — zellij uses `--close-on-exit`, iTerm2/Terminal.app use `exec` to replace the shell process, Ghostty uses `; exit` suffix (clipboard-paste injection is incompatible with `exec`)
 - **tool_args passthrough**: `synapse spawn` and `synapse team start` now accept `-- <args>` to pass CLI flags (e.g., `--dangerously-skip-permissions`) through to the underlying agent tool. Also available via `tool_args` field in `POST /spawn` and `POST /team/start` API endpoints (#229)
 - **Injection observability**: Structured `INJECT/{RESOLVE,DECISION,DELIVER,SUMMARY}` log points in `_send_identity_instruction()` for diagnosing initial instruction injection failures (`grep INJECT` in logs) (#229)
 

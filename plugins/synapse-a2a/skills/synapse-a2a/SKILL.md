@@ -565,6 +565,29 @@ After receiving a `--response` reply from a spawned agent:
    - Result is sufficient → `synapse kill <child> -f`
    - Result is insufficient → re-send with refined instructions (do NOT kill and re-spawn)
 
+### Permission Skip Flags (per CLI)
+
+Each CLI has its own flag to skip interactive permission prompts. Pass these after `--` as tool args:
+
+| CLI | Flag | Notes |
+|-----|------|-------|
+| **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
+| **Gemini CLI** | `-y` | Yolo mode — auto-approve all actions |
+| **Codex CLI** | `--yolo` | Full Access mode — no confirmations |
+| **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
+
+```bash
+# Spawn with permission skip (per CLI)
+synapse spawn claude -- --dangerously-skip-permissions
+synapse spawn gemini -- -y
+synapse spawn codex -- --yolo
+synapse spawn copilot -- --allow-all-tools
+
+# Team start with permission skip (flag applies to ALL agents)
+# Only use when all agents support the same flag, or target specific CLIs:
+synapse team start claude gemini -- --dangerously-skip-permissions  # Only Claude uses it; Gemini ignores unknown flags
+```
+
 ### CLI & API
 
 ```bash
@@ -574,11 +597,18 @@ synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
+synapse spawn gemini -- -y                               # Gemini yolo mode
+synapse spawn codex -- --yolo                            # Codex full access
+synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```
 
 ```jsonc
 // POST /spawn (API — agents can spawn programmatically)
-{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}
+{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["-y"]}
+// Claude example:
+{"profile": "claude", "name": "Worker", "tool_args": ["--dangerously-skip-permissions"]}
+// Codex example:
+{"profile": "codex", "name": "Coder", "tool_args": ["--yolo"]}
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 
