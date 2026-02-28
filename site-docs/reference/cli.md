@@ -111,6 +111,19 @@ synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
 synapse agents delete <id_or_name>
 ```
 
+### Save Prompt on Interactive Exit
+
+When an interactive `synapse <profile>` session exits (with a configured name),
+Synapse can prompt to save the current agent definition:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- Not shown in `--headless` mode or non-TTY sessions.
+- Not shown when stopping agents via `synapse stop ...` or `synapse kill ...`.
+- Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
+
 !!! tip "Using Saved Agents with Spawn"
     Once defined, saved agents can be spawned by ID or name:
     ```bash

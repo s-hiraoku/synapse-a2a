@@ -383,6 +383,17 @@ synapse jump my-claude
 | 内部処理 | 常にエージェントID（`synapse-claude-8100`） |
 | `synapse list` NAME列 | カスタム名、なければタイプ |
 
+**終了時の保存プロンプト（再利用用定義）**:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- `synapse <profile>` の対話起動終了時のみ表示されます（名前が設定されている場合）。
+- `--headless` または非TTY環境では表示されません。
+- `synapse stop ...` / `synapse kill ...` で停止した場合は表示されません。
+- 無効化: `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`
+
 ---
 
 ### 2.2.2 チーム起動（分割ペイン）

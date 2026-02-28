@@ -584,6 +584,20 @@ synapse kill my-claude
 - **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
 - **Target resolution**: Name has highest priority when matching targets
 
+### Save Prompt on Exit
+
+When an interactive agent session exits, Synapse can prompt to save the current
+agent definition for reuse:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- Triggered only for interactive `synapse <profile>` sessions with a configured name.
+- Not shown in `--headless` mode or non-TTY environments.
+- Not shown for `synapse stop ...` or `synapse kill ...` (those commands only stop running processes).
+- Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
+
 ### Command List
 
 | Command | Description |

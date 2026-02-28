@@ -178,6 +178,18 @@ synapse agents list
 synapse spawn silent-snake     # Spawn using saved definition
 ```
 
+On interactive exit, Synapse also offers a save prompt for the current
+definition:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- Appears for interactive `synapse <profile>` sessions with a configured name.
+- Does not appear in `--headless` or non-TTY sessions.
+- Does not appear when terminating agents with `synapse stop ...` or `synapse kill ...`.
+- Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
+
 See [Saved Agent Definitions](agent-teams.md#saved-agent-definitions) for full details.
 
 ### Target Resolution Priority

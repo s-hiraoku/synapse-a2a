@@ -338,6 +338,10 @@ synapse spawn 狗巻棘
 **終了時保存プロンプト**:
 - 対話起動の終了時に「このエージェント定義を保存するか」を確認します
 - 無効化する場合: `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`
+- 実際のプロンプト:
+  `Save this agent definition for reuse? [y/N]:`
+- `--headless` / 非TTY環境では表示されません
+- `synapse stop ...` / `synapse kill ...` で停止した場合は表示されません
 
 ---
 

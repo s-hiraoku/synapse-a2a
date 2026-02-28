@@ -6,6 +6,14 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ## Contents
 
+## Operational Notes
+
+- Save-on-exit prompt for interactive agents:
+  `Save this agent definition for reuse? [y/N]:`
+- Displayed only for interactive `synapse <profile>` exits with a configured name.
+- Not displayed in `--headless`, non-TTY sessions, or when stopping via
+  `synapse stop ...` / `synapse kill ...`.
+
 ### プロジェクト哲学
 
 - `project-philosophy.md` - **Synapse A2A プロジェクトの哲学と設計原則**
