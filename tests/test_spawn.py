@@ -352,19 +352,26 @@ class TestSpawnCLIExecution:
 
 
 class TestGhosttyPaneCreation:
-    """Tests for create_ghostty_window() function."""
+    """Tests for create_ghostty_window() function.
 
-    def test_create_ghostty_window_generates_open_command(self) -> None:
-        """Should generate macOS 'open' command for Ghostty."""
+    Ghostty on macOS does not support 'open -n' for new windows in an existing
+    instance — it creates a separate process that can disrupt existing windows.
+    Instead, we use AppleScript to open new windows via the File > New Window
+    menu and type the command via keystroke.
+    """
+
+    def test_create_ghostty_window_uses_osascript(self) -> None:
+        """Should generate osascript commands (not 'open -na')."""
         from synapse.terminal_jump import create_ghostty_window
 
-        commands = create_ghostty_window(
-            agents=["claude"],
-        )
+        commands = create_ghostty_window(agents=["claude"])
         assert isinstance(commands, list)
         assert len(commands) > 0
-        # Should use 'open -na Ghostty' pattern
-        assert any("open" in cmd and "Ghostty" in cmd for cmd in commands)
+        for cmd in commands:
+            assert cmd.startswith("osascript -e ")
+            assert "Ghostty" in cmd
+            # Must NOT use 'open -na' which spawns new instances
+            assert "open -na" not in cmd
 
     def test_create_ghostty_window_includes_agent_command(self) -> None:
         """The generated command should include synapse agent command."""
@@ -373,7 +380,6 @@ class TestGhosttyPaneCreation:
         commands = create_ghostty_window(
             agents=["claude:Reviewer:code-review"],
         )
-        # Should contain synapse command for the agent
         full = " ".join(commands)
         assert "synapse" in full
         assert "claude" in full
@@ -385,52 +391,36 @@ class TestGhosttyPaneCreation:
         commands = create_ghostty_window(
             agents=["claude", "gemini"],
         )
-        # Each agent should produce a command
         assert len(commands) == 2
 
-    def test_ghostty_e_flag_receives_separate_args(self) -> None:
-        """Ghostty -e expects command and args as SEPARATE argv entries.
+    def test_ghostty_uses_new_window_menu(self) -> None:
+        """Should create new windows via File > New Window menu item."""
+        from synapse.terminal_jump import create_ghostty_window
 
-        When `open --args -e ...` is used, everything after -e must be
-        separate arguments so that Ghostty can execvp() the command.
-        Passing the whole command as a single quoted string causes Ghostty
-        to look for a binary named "/bin/zsh -lc '...'" (literally), which
-        fails.
-        """
+        commands = create_ghostty_window(agents=["claude"])
+        assert any("New Window" in cmd for cmd in commands)
+
+    def test_ghostty_includes_cd_and_exec(self) -> None:
+        """The typed command should cd to cwd and exec the agent."""
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(agents=["claude"], cwd="/tmp/test")
-        assert len(commands) == 1
-        argv = shlex.split(commands[0])
+        full = commands[0]
+        assert "cd /tmp/test" in full
+        assert "exec " in full
 
-        # Find -e flag position
-        e_idx = argv.index("-e")
-
-        # After -e, each part must be a separate argv entry:
-        # argv[e_idx+1] = "/bin/zsh" (or shell path)
-        # argv[e_idx+2] = "-lc"
-        # argv[e_idx+3] = "cd /tmp/test && exec ..."  (the shell script)
-        assert argv[e_idx + 1].endswith("/zsh") or argv[e_idx + 1].endswith("/bash"), (
-            f"Expected shell path after -e, got: {argv[e_idx + 1]}"
-        )
-        assert argv[e_idx + 2] == "-lc"
-        assert argv[e_idx + 3].startswith("cd /tmp/test && ")
-
-    def test_ghostty_e_flag_with_spaces_in_cwd(self) -> None:
-        """cwd with spaces must be correctly quoted inside the -lc argument."""
+    def test_ghostty_cwd_with_spaces(self) -> None:
+        """cwd with spaces must be quoted in the typed command."""
         from synapse.terminal_jump import create_ghostty_window
 
         cwd = "/home/user/my project"
         commands = create_ghostty_window(agents=["claude"], cwd=cwd)
-        argv = shlex.split(commands[0])
+        full = commands[0]
+        # shlex.quote wraps with single quotes
+        assert shlex.quote(cwd) in full
 
-        e_idx = argv.index("-e")
-        shell_script = argv[e_idx + 3]
-        # The cwd must be shell-quoted in the cd command
-        assert shlex.quote(cwd) in shell_script
-
-    def test_ghostty_e_flag_with_tool_args(self) -> None:
-        """tool_args should appear in the shell script passed to -lc."""
+    def test_ghostty_tool_args_included(self) -> None:
+        """tool_args should appear in the typed command."""
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(
@@ -438,11 +428,8 @@ class TestGhosttyPaneCreation:
             tool_args=["--dangerously-skip-permissions"],
             cwd="/tmp/test",
         )
-        argv = shlex.split(commands[0])
-
-        e_idx = argv.index("-e")
-        shell_script = argv[e_idx + 3]
-        assert "-- --dangerously-skip-permissions" in shell_script
+        full = commands[0]
+        assert "-- --dangerously-skip-permissions" in full
 
 
 # ============================================================

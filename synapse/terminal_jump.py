@@ -761,7 +761,10 @@ def create_ghostty_window(
 ) -> list[str]:
     """Generate commands to open Ghostty windows for each agent.
 
-    Each agent gets its own Ghostty window via macOS ``open -na`` command.
+    Uses AppleScript to create new windows inside the *existing* Ghostty
+    instance via the ``File > New Window`` menu.  The previous approach
+    (``open -na Ghostty``) spawned a separate process which could close or
+    disrupt existing windows/tabs.
 
     Note:
         Ghostty only supports window-level operations.  The ``layout``
@@ -775,7 +778,7 @@ def create_ghostty_window(
         cwd: Working directory for new windows. Defaults to os.getcwd().
 
     Returns:
-        List of shell command strings to execute.
+        List of osascript command strings to execute.
     """
     cwd = cwd or os.getcwd()
 
@@ -784,12 +787,24 @@ def create_ghostty_window(
     for agent_spec in agents:
         full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
-        # Ghostty -e expects command and arguments as SEPARATE argv entries
-        # (like execvp), not as a single quoted string.
-        # open --args passes everything after it as individual argv to Ghostty.
-        commands.append(
-            f"open -na Ghostty --args -e /bin/zsh -lc {shlex.quote(cd_cmd)}"
+        escaped = _escape_applescript_string(cd_cmd)
+        # Use AppleScript to open a new window in the existing Ghostty
+        # instance.  "open -na Ghostty" would spawn a separate process
+        # and can disrupt existing windows.
+        script = (
+            'tell application "Ghostty"\n'
+            "    activate\n"
+            "end tell\n"
+            'tell application "System Events" to tell process "Ghostty"\n'
+            '    click menu item "New Window" of menu "File" of menu bar 1\n'
+            "end tell\n"
+            "delay 0.5\n"
+            'tell application "System Events" to tell process "Ghostty"\n'
+            f'    keystroke "{escaped}"\n'
+            "    keystroke return\n"
+            "end tell"
         )
+        commands.append(f"osascript -e {shlex.quote(script)}")
 
     return commands
 
