@@ -64,10 +64,10 @@ From Claude's terminal, send a message to Gemini:
 
 ```bash
 synapse send gemini "What are the best practices for error handling in Python?" \
-  --from $SYNAPSE_AGENT_ID --response
+  --response
 ```
 
-- `--from $SYNAPSE_AGENT_ID` identifies the sender (auto-set by Synapse)
+- `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at agent startup), so you can omit it
 - `--response` waits for Gemini's reply (roundtrip mode)
 
 Gemini will receive the message as:
@@ -108,22 +108,20 @@ sequenceDiagram
 ### Fire-and-Forget (No Reply Needed)
 
 ```bash
-synapse send codex "Refactor the auth module" \
-  --from $SYNAPSE_AGENT_ID --no-response
+synapse send codex "Refactor the auth module" --no-response
 ```
 
 ### Urgent Message (Priority 4)
 
 ```bash
 synapse send gemini "Stop current task and check this" \
-  --from $SYNAPSE_AGENT_ID --priority 4 --response
+  --priority 4 --response
 ```
 
 ### Broadcast to All Agents
 
 ```bash
-synapse broadcast "Status check — what are you working on?" \
-  --from $SYNAPSE_AGENT_ID --response
+synapse broadcast "Status check — what are you working on?" --response
 ```
 
 ### Emergency Interrupt (Priority 5)

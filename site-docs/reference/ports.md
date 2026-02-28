@@ -45,7 +45,7 @@ synapse-codex-8121      # Codex on port 8121
 This enables the type-port shorthand for targeting:
 
 ```bash
-synapse send claude-8100 "message" --from $SYNAPSE_AGENT_ID
+synapse send claude-8100 "message"
 ```
 
 ## Transport

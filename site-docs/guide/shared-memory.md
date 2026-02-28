@@ -63,12 +63,15 @@ synapse memory list
 # Filter by author agent
 synapse memory list --author synapse-claude-8100
 
-# Filter by tag
+# Filter by tag (exact match)
 synapse memory list --tags architecture
 
 # Limit results
 synapse memory list --limit 10
 ```
+
+!!! info "Exact Tag Matching"
+    Tag filtering uses exact matching. For example, `--tags auth` matches the tag `auth` but not `authentication`. This prevents false positives from partial matches.
 
 ## Viewing Details
 
@@ -86,7 +89,7 @@ synapse memory show a1b2c3d4-e5f6-...
 
 ## Searching
 
-Search across key, content, and tags fields:
+Search across key, content, and tags fields (returns up to 100 results by default):
 
 ```bash
 synapse memory search <query>
@@ -130,7 +133,7 @@ Shared Memory is also accessible via the A2A REST API:
 |:------:|----------|-------------|
 | GET | `/memory/list` | List memories (query: `author`, `tags`, `limit`) |
 | POST | `/memory/save` | Save or update a memory |
-| GET | `/memory/search` | Search memories (query: `q`) |
+| GET | `/memory/search` | Search memories (query: `q`, default limit: 100) |
 | GET | `/memory/{id_or_key}` | Get a specific memory |
 | DELETE | `/memory/{id_or_key}` | Delete a memory |
 
@@ -205,11 +208,12 @@ result = memory.save(
 # Get by key or ID
 entry = memory.get("auth-pattern")
 
-# List with filters
+# List with filters (tags use exact matching)
 entries = memory.list_memories(author="synapse-claude-8100", tags=["security"])
 
-# Search across key, content, and tags
+# Search across key, content, and tags (default limit: 100)
 results = memory.search("OAuth2")
+results = memory.search("OAuth2", limit=20)  # Custom limit
 
 # Delete by key or ID
 memory.delete("auth-pattern")

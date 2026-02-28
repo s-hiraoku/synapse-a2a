@@ -129,7 +129,7 @@ flowchart TB
 
 | カテゴリ | 機能 | 説明 | 有効化 |
 |---------|------|------|--------|
-| **通信** | synapse send | `synapse send <agent> "<message>" --from <sender>` で送信 | 常時 |
+| **通信** | synapse send | `synapse send <agent> "<message>"` で送信（`--from` は自動検出） | 常時 |
 | | @Agent記法 | `@gemini メッセージ` でユーザー入力から直接送信 | 常時 |
 | | A2A Flow設定 | roundtrip/oneway/auto で通信方式を制御 | `settings.json` |
 | | Priority Interrupt | Priority 5 で SIGINT 送信（緊急停止） | 常時 |
@@ -389,11 +389,11 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 
 **例:**
 ```bash
-synapse send gemini "分析結果を教えて" --from synapse-claude-8100
-synapse send codex "テストを実行して" --from synapse-claude-8100
+synapse send gemini "分析結果を教えて"
+synapse send codex "テストを実行して"
 ```
 
-**重要:** `--from` オプションで送信元エージェントIDを指定してください。受信側が返信先を特定できます。
+**送信元の自動検出:** `--from` は省略可能です。Synapse は `SYNAPSE_AGENT_ID` 環境変数から送信元を自動検出します。サンドボックス環境では明示的に `--from $SYNAPSE_AGENT_ID` を指定してください。
 
 ### 応答制御（a2a.flow 設定）
 

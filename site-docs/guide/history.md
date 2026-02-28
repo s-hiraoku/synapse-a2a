@@ -105,7 +105,7 @@ synapse list
 
 # 2. Delegate task
 synapse send gemini "Write tests for X" \
-  --priority 3 --from $SYNAPSE_AGENT_ID --no-response
+  --priority 3 --no-response
 
 # 3. Monitor progress
 synapse list
@@ -113,7 +113,7 @@ git status && git log --oneline -5
 
 # 4. Send follow-up
 synapse send gemini "Status update?" \
-  --priority 4 --from $SYNAPSE_AGENT_ID --response
+  --priority 4 --response
 
 # 5. Review completion
 synapse history list --agent gemini --limit 5

@@ -145,10 +145,12 @@ def _find_sender_by_pid() -> dict[str, str]:
 
 def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     """
-    Build sender info using Registry PID matching.
+    Build sender info using explicit sender, environment variable, or PID matching.
 
-    Identifies the sender by checking which registered agent's PID
-    is an ancestor of the current process.
+    Resolution order:
+    1. explicit_sender (--from)
+    2. SYNAPSE_AGENT_ID environment variable
+    3. Registry PID ancestry matching
 
     Args:
         explicit_sender: Must be an agent ID (e.g., synapse-claude-8100).
@@ -159,6 +161,17 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
         Returns error string if explicit_sender is invalid format.
     """
     if not explicit_sender:
+        env_sender = os.environ.get("SYNAPSE_AGENT_ID")
+        if env_sender:
+            try:
+                reg = AgentRegistry()
+                agents = reg.list_agents()
+                if env_sender in agents:
+                    return _extract_sender_info_from_agent(
+                        env_sender, agents[env_sender]
+                    )
+            except Exception:
+                pass
         return _find_sender_by_pid()
 
     # Validate explicit sender format

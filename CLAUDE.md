@@ -92,6 +92,10 @@ synapse copilot
 synapse claude --name my-claude --role "code reviewer"
 synapse gemini --name test-writer --role "test specialist"
 
+# Run agent with role from file (@prefix reads file content as role)
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+synapse gemini --role "@~/my-roles/analyst.md"
+
 # Skip interactive name/role setup
 synapse claude --no-setup
 
@@ -159,7 +163,7 @@ synapse reset --scope both -f             # Reset both without confirmation
 
 # Soft interrupt (shorthand for send -p 4 --no-response)
 synapse interrupt claude "Stop and review"                  # Interrupt an agent
-synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"  # With explicit sender
+synapse interrupt gemini "Check status"                            # --from auto-detected
 synapse interrupt claude "Stop" --force                     # Bypass working_dir mismatch check
 
 # Broadcast message to all agents in current directory
@@ -174,17 +178,18 @@ synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
 # Send messages (--response waits for reply, --no-response sends only)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
-synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID --response
-synapse send gemini "Analyze this" --from $SYNAPSE_AGENT_ID --response
-synapse send codex "Process this" --from $SYNAPSE_AGENT_ID --no-response
+# Note: --from is optional — auto-detected from SYNAPSE_AGENT_ID env var (set by Synapse at startup)
+synapse send my-claude "Review this code" --response
+synapse send gemini "Analyze this" --response
+synapse send codex "Process this" --no-response
 
 # Working directory mismatch warning:
 # synapse send checks if sender CWD matches target's working_dir.
 # If different, it warns and exits with code 1. Use --force to bypass.
-synapse send claude "Review this" --from $SYNAPSE_AGENT_ID --force  # Bypass working_dir check
+synapse send claude "Review this" --force  # Bypass working_dir check
 
 # Send to specific instance when multiple agents of same type exist
-synapse send claude-8100 "Hello" --from $SYNAPSE_AGENT_ID
+synapse send claude-8100 "Hello"
 
 # Send long messages via file or stdin (avoids ARG_MAX shell limits)
 synapse send claude --message-file /tmp/review.txt --no-response
@@ -590,7 +595,7 @@ synapse list
 **Observing TRANSPORT column**:
 ```bash
 # In Terminal 1 (Claude), send message to Gemini:
-synapse send gemini "hello" --from $SYNAPSE_AGENT_ID
+synapse send gemini "hello"
 
 # In Terminal 3, observe:
 # - Claude shows "UDS→" (sending via UDS)
@@ -691,7 +696,7 @@ synapse history stats --agent gemini
 
 2. **Delegate task**:
    ```bash
-synapse send gemini "Write tests for X" --priority 3 --from $SYNAPSE_AGENT_ID --no-response
+synapse send gemini "Write tests for X" --priority 3 --no-response
    ```
 
 3. **Monitor progress**:
@@ -702,7 +707,7 @@ synapse send gemini "Write tests for X" --priority 3 --from $SYNAPSE_AGENT_ID --
 
 4. **Send follow-up** (if needed):
    ```bash
-synapse send gemini "Status update?" --priority 4 --from $SYNAPSE_AGENT_ID --response
+synapse send gemini "Status update?" --priority 4 --response
    ```
 
 5. **Review completion**:

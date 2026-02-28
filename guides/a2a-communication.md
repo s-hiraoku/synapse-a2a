@@ -58,7 +58,7 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | パラメータ | 説明 |
 |-----------|------|
 | `target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
-| `--from, -f` | 送信元エージェントID（返信先特定用）- **常に指定推奨** |
+| `--from, -f` | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
 | `--no-response` | Onewayモード - 送りっぱなし、返信不要 |
@@ -69,23 +69,26 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 ### 例
 
 ```bash
-# 通常のメッセージ送信
-synapse send gemini "分析結果を教えて" --from synapse-claude-8100
+# 通常のメッセージ送信（--from は自動検出）
+synapse send gemini "分析結果を教えて"
 
 # 転送のみ（fire-and-forget）
-synapse send codex "テストを実行して" --from synapse-claude-8100 --no-response
+synapse send codex "テストを実行して" --no-response
 
 # 緊急割り込み（Priority 5）
-synapse send codex "STOP" --priority 5 --from synapse-claude-8100
+synapse send codex "STOP" --priority 5
 
 # 応答を待つ（roundtrip）
-synapse send gemini "分析して" --response --from synapse-claude-8100
+synapse send gemini "分析して" --response
 
 # 作業ディレクトリが異なるエージェントに強制送信
-synapse send codex "テストして" --force --from synapse-claude-8100
+synapse send codex "テストして" --force
+
+# 明示指定（サンドボックス環境向け）
+synapse send gemini "分析して" --from synapse-claude-8100
 ```
 
-**重要:** `--from` オプションで送信元を常に指定してください。
+**送信元の自動検出:** `--from` は省略可能です。Synapse は `SYNAPSE_AGENT_ID` 環境変数（起動時に自動設定）から送信元を検出し、次にプロセス祖先のマッチングにフォールバックします。サンドボックス環境（Codex など）では明示的に `--from` を指定してください。
 
 ---
 
@@ -108,8 +111,8 @@ synapse broadcast "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response |
 ### 例
 
 ```bash
-synapse broadcast "全員、現状を報告して" --from synapse-claude-8100
-synapse broadcast "緊急レビュー依頼" -p 4 --response --from synapse-codex-8120
+synapse broadcast "全員、現状を報告して"                        # --from 自動検出（自身を除外）
+synapse broadcast "緊急レビュー依頼" -p 4 --response
 synapse broadcast "FYI: 先に進めてください" --no-response
 ```
 
@@ -238,7 +241,7 @@ A2A: テストを実行してコミットして
 ### 結果を統合して報告
 
 ```bash
-synapse send codex "ファイルを修正して" --response --from synapse-claude-8100
+synapse send codex "ファイルを修正して" --response
 ```
 
 結果を待ち、完了後に統合して報告できます。
@@ -246,8 +249,8 @@ synapse send codex "ファイルを修正して" --response --from synapse-claud
 ### 並列タスク実行
 
 ```bash
-synapse send gemini "APIドキュメントを調査して" --from synapse-claude-8100
-synapse send codex "テストを書いて" --from synapse-claude-8100
+synapse send gemini "APIドキュメントを調査して"
+synapse send codex "テストを書いて"
 ```
 
 複数のタスクを並列で実行し、各エージェントが独立して作業を進めます。

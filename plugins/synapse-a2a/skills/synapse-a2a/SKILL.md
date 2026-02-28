@@ -12,14 +12,14 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter by TYPE/NAME/WORKING_DIR) |
-| Send message | `synapse send <target> "<message>" --from <sender>` (warns if target is in a different working directory; use `--force` to bypass) |
-| Broadcast to cwd agents | `synapse broadcast "<message>" --from <sender>` |
-| Wait for reply | `synapse send <target> "<message>" --response --from <sender>` |
+| Send message | `synapse send <target> "<message>"` (`--from` auto-detected; warns if target is in a different working directory; use `--force` to bypass) |
+| Broadcast to cwd agents | `synapse broadcast "<message>"` |
+| Wait for reply | `synapse send <target> "<message>" --response` |
 | Reply to last message | `synapse reply "<response>"` |
 | Reply to specific sender | `synapse reply "<response>" --to <sender_id>` |
 | List reply targets | `synapse reply --list-targets` |
 | Soft interrupt (priority 4) | `synapse interrupt <target> "<message>" [--from <sender>]` (same `--force` flag available) |
-| Emergency stop | `synapse send <target> "STOP" --priority 5 --from <sender>` |
+| Emergency stop | `synapse send <target> "STOP" --priority 5` |
 | Stop agent | `synapse stop <profile\|id>` |
 | Kill agent (graceful) | `synapse kill <target>` (shutdown request → SIGTERM → SIGKILL, 30s budget) |
 | Kill agent (force) | `synapse kill <target> -f` (immediate SIGKILL) |
@@ -55,7 +55,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Save memory | `synapse memory save <key> "<content>" [--tags tag1,tag2] [--notify]` |
 | List memories | `synapse memory list [--author <id>] [--tags <tags>] [--limit N]` |
 | Show memory | `synapse memory show <id_or_key>` |
-| Search memories | `synapse memory search <query>` |
+| Search memories | `synapse memory search <query>` (default limit: 100) |
 | Delete memory | `synapse memory delete <id_or_key> [--force]` |
 | Memory stats | `synapse memory stats` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
@@ -85,16 +85,16 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --response --from $SYNAPSE_AGENT_ID
-synapse send claude "What is the status?" --response --from $SYNAPSE_AGENT_ID
-synapse send codex-8120 "Fix this bug" --response --priority 3 --from $SYNAPSE_AGENT_ID
+synapse send gemini "Please review this code" --response
+synapse send claude "What is the status?" --response
+synapse send codex-8120 "Fix this bug" --response --priority 3
 ```
 
 **Important:**
-- Always use `--from` with your **agent ID** (format: `synapse-<type>-<port>`). Do NOT use custom names or agent types for `--from`.
+- `--from` is **auto-detected** from the `SYNAPSE_AGENT_ID` environment variable (set by Synapse at startup). You can omit it in most environments.
+- If auto-detection fails (e.g., sandboxed environments like Codex), specify explicitly: `--from $SYNAPSE_AGENT_ID`.
+- When using `--from`, always use the **agent ID** format (`synapse-<type>-<port>`). Do NOT use custom names or agent types.
 - By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
-
-**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse at startup. Always use it for `--from` — never copy example IDs.
 
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
@@ -131,7 +131,7 @@ Use --force to send anyway.
 To bypass the check, use `--force`:
 
 ```bash
-synapse send my-claude "Cross-project message" --force --from $SYNAPSE_AGENT_ID
+synapse send my-claude "Cross-project message" --force
 synapse interrupt my-claude "Urgent" --force
 ```
 
@@ -144,10 +144,10 @@ Analyze the message content and determine if a reply is expected:
 
 ```bash
 # Message that expects a reply
-synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
+synapse send gemini "What is the best approach?" --response
 
 # Purely informational, no reply needed
-synapse send codex "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
+synapse send codex "FYI: Build completed" --no-response
 ```
 
 ### Roundtrip Communication (--response)
@@ -156,7 +156,7 @@ For request-response patterns:
 
 ```bash
 # Sender: Wait for response (blocks until reply received)
-synapse send gemini "Analyze this data" --response --from $SYNAPSE_AGENT_ID
+synapse send gemini "Analyze this data" --response
 
 # Receiver: Reply to sender (auto-routes via reply tracking)
 synapse reply "Analysis result: ..."
@@ -172,13 +172,13 @@ Send a message to all agents sharing the same working directory:
 
 ```bash
 # Broadcast status check to all cwd agents
-synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
+synapse broadcast "Status check"
 
 # Urgent broadcast
-synapse broadcast "Urgent: stop all work" --priority 4 --from $SYNAPSE_AGENT_ID
+synapse broadcast "Urgent: stop all work" --priority 4
 
 # Fire-and-forget broadcast
-synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
+synapse broadcast "FYI: Build completed" --no-response
 ```
 
 **Note:** Broadcast only targets agents in the **same working directory** as the sender. This prevents unintended messages to agents working on different projects.
@@ -238,16 +238,16 @@ Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
 
 ```bash
 # Normal priority (default: 3) - with response
-synapse send gemini "Analyze this" --response --from $SYNAPSE_AGENT_ID
+synapse send gemini "Analyze this" --response
 
 # Higher priority - urgent request
-synapse send claude "Urgent review needed" --response --priority 4 --from $SYNAPSE_AGENT_ID
+synapse send claude "Urgent review needed" --response --priority 4
 
 # Soft interrupt (shorthand for send -p 4 --no-response)
-synapse interrupt gemini "Stop and review" --from $SYNAPSE_AGENT_ID
+synapse interrupt gemini "Stop and review"
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
+synapse send codex "STOP" --priority 5
 ```
 
 ## Agent Status
@@ -328,7 +328,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from $SYNAPSE_AGENT_ID
+synapse send my-claude "Review this code"
 synapse jump my-claude
 synapse kill my-claude
 ```
@@ -424,7 +424,7 @@ To inject instructions later: `synapse instructions send <agent>`.
   - `reopen_task()` clears assignee/fail_reason, returns task to available pool
 - **Shared Memory**: Project-local SQLite knowledge base for cross-agent knowledge sharing (`synapse memory`)
   - UPSERT on key: `synapse memory save <key> "<content>" [--tags tag1,tag2]`
-  - Search across key, content, and tags: `synapse memory search <query>`
+  - Search across key, content, and tags: `synapse memory search <query>` (bounded, default limit: 100)
   - Filter by author or tags: `synapse memory list [--author <id>] [--tags <tags>]`
   - Statistics: `synapse memory stats` (total, per-author, per-tag breakdown)
   - Optional broadcast notification on save: `--notify` flag
@@ -454,7 +454,7 @@ Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker a
    ```bash
    synapse tasks list --status pending
    synapse tasks assign <task_id> <agent>
-   synapse send <agent> "Execute task: <description>" --no-response --from "$SYNAPSE_AGENT_ID"
+   synapse send <agent> "Execute task: <description>" --no-response
    ```
 
 3. **Worker agents** report completion or failure
@@ -544,16 +544,16 @@ while ! synapse list | grep -q "Tester.*READY"; do
 done
 
 # 3. Send task (wait for result)
-synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID
+synapse send Tester "Write unit tests for src/auth.py" --response
 
 # 4. Evaluate result — if insufficient, re-send
-synapse send Tester "Add edge-case tests for expired tokens" --response --from $SYNAPSE_AGENT_ID
+synapse send Tester "Add edge-case tests for expired tokens" --response
 
 # 5. MUST kill when done (parent owns lifecycle)
 synapse kill Tester -f
 ```
 
-**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse when an agent starts (e.g., `synapse-claude-8100`). Use it as-is in `--from` flags. You can verify your ID with `synapse list`.
+**Note:** `$SYNAPSE_AGENT_ID` is automatically set by Synapse when an agent starts (e.g., `synapse-claude-8100`). The `--from` flag is auto-detected from this env var, so you can usually omit it. You can verify your ID with `synapse list`.
 
 ### How to Evaluate Results
 
@@ -623,7 +623,7 @@ synapse team start claude -- --worktree
 - **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
 - **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
-- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` for bidirectional communication.
+- **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message"` for bidirectional communication (`--from` is auto-detected).
 
 ## Path Overrides
 
