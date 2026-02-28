@@ -765,16 +765,12 @@ def create_a2a_router(
                     sender_id=reply_sender.sender_id,
                     sender_name=reply_sender.sender_name,
                 )
-                if used_file:
-                    # File reference already contains sender prefix
-                    controller.write("A2A: " + pty_text, submit_seq=submit_seq)
-                else:
-                    prefixed = format_a2a_message(
-                        pty_text,
-                        sender_id=reply_sender.sender_id,
-                        sender_name=reply_sender.sender_name,
-                    )
-                    controller.write(prefixed, submit_seq=submit_seq)
+                prefixed = format_a2a_message(
+                    pty_text,
+                    sender_id=reply_sender.sender_id if not used_file else None,
+                    sender_name=reply_sender.sender_name if not used_file else None,
+                )
+                controller.write(prefixed, submit_seq=submit_seq)
 
             updated_task = task_store.get(full_task_id)
             if not updated_task:

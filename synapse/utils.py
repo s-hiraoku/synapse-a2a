@@ -116,6 +116,24 @@ def format_file_parts_for_pty(file_parts: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def build_sender_prefix(
+    sender_id: str | None = None, sender_name: str | None = None
+) -> str:
+    """
+    Build a ``[From: ...]`` prefix string from sender identification.
+
+    Returns:
+        - ``"[From: NAME (SENDER_ID)] "`` when both are provided
+        - ``"[From: SENDER_ID] "`` when only sender_id is provided
+        - ``""`` when sender_id is falsy
+    """
+    if not sender_id:
+        return ""
+    if sender_name:
+        return f"[From: {sender_name} ({sender_id})] "
+    return f"[From: {sender_id}] "
+
+
 def format_a2a_message(
     content: str,
     response_expected: bool = False,
@@ -143,13 +161,7 @@ def format_a2a_message(
     Returns:
         Formatted message string with A2A prefix, optional sender, and reply marker
     """
-    # Build sender prefix
-    sender_prefix = ""
-    if sender_id:
-        if sender_name:
-            sender_prefix = f"[From: {sender_name} ({sender_id})] "
-        else:
-            sender_prefix = f"[From: {sender_id}] "
+    sender_prefix = build_sender_prefix(sender_id, sender_name)
 
     if response_expected:
         # Strip any existing leading [REPLY EXPECTED] to prevent duplication

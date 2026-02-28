@@ -15,6 +15,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from synapse.utils import build_sender_prefix
+
 logger = logging.getLogger(__name__)
 
 # Default configuration values
@@ -212,13 +214,7 @@ def format_file_reference(
     Returns:
         Formatted reference message string with optional sender and reply marker.
     """
-    sender_prefix = ""
-    if sender_id:
-        if sender_name:
-            sender_prefix = f"[From: {sender_name} ({sender_id})] "
-        else:
-            sender_prefix = f"[From: {sender_id}] "
-
+    sender_prefix = build_sender_prefix(sender_id, sender_name)
     reply_marker = "[REPLY EXPECTED] " if response_expected else ""
     return (
         f"{sender_prefix}{reply_marker}[LONG MESSAGE - FILE ATTACHED]\n"
