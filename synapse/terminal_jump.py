@@ -786,15 +786,19 @@ def create_ghostty_window(
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
         escaped = _escape_applescript_string(cd_cmd)
         # Trigger Ghostty's Cmd+D (new_split:right) to create a split
-        # pane, then type the agent command and press return.
+        # pane, then paste the command via clipboard and press return.
+        # Using clipboard + Cmd+V instead of keystroke for the command
+        # because keystroke can mangle characters (e.g. hyphens in
+        # --no-setup) when typing long strings.
         script = (
             'tell application "Ghostty" to activate\n'
             'tell application "System Events" to tell process "Ghostty"\n'
             '    keystroke "d" using {command down}\n'
             "end tell\n"
             "delay 0.5\n"
+            f'set the clipboard to "{escaped}"\n'
             'tell application "System Events" to tell process "Ghostty"\n'
-            f'    keystroke "{escaped}"\n'
+            '    keystroke "v" using {command down}\n'
             "    keystroke return\n"
             "end tell"
         )

@@ -397,6 +397,21 @@ class TestGhosttyPaneCreation:
         # Must trigger the split keybinding via System Events keystroke
         assert 'keystroke "d" using {command down}' in full
 
+    def test_uses_clipboard_paste_not_keystroke_typing(self) -> None:
+        """Command should be pasted via clipboard (Cmd+V), not typed char-by-char.
+
+        AppleScript 'keystroke' can drop or mangle characters (especially
+        hyphens like --no-setup) when typing long strings.  Using clipboard
+        + Cmd+V is reliable for any command length.
+        """
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(agents=["claude:test:tester"], cwd="/tmp/test")
+        full = commands[0]
+        # Should set clipboard and paste, not keystroke the command
+        assert "set the clipboard to" in full
+        assert 'keystroke "v" using {command down}' in full
+
     def test_includes_cd_and_exec(self) -> None:
         """The typed command should cd to cwd and exec the agent."""
         from synapse.terminal_jump import create_ghostty_window
