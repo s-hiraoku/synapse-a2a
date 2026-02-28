@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add saved-agent manager (`synapse agents list/show/add/delete`) for reusable agent configurations (#307)
 - add completion callback for `--no-response` task tracking (`POST /history/update`) (#308)
+- add `synapse-manager` skill — structured 5-step multi-agent management workflow
+- add `manager` and `documentation` skill sets for coordinator and docs-focused agents
+- add `doc-organizer` skill — documentation audit, restructure, and deduplication
 - include sender identification in PTY-injected A2A messages
 - implement Ghostty split pane support for `team start` and `spawn`
 - enforce agent name uniqueness across interactive start, spawn, and team start
@@ -19,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - extend `synapse spawn` and `synapse team start` to accept saved-agent ID/name
+- move reply target persistence to dedicated `~/.a2a/reply/` directory (configurable via `SYNAPSE_REPLY_TARGET_DIR`)
 - extract `build_sender_prefix` and unify reply path formatting
 - always add `--no-setup --headless` for spawned agents
 - simplify agent spec format to `profile[:name[:role[:skill_set[:port]]]]`
@@ -28,12 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows
 - Ghostty commands injected via clipboard paste to avoid character mangling
+- Ghostty panes auto-close on agent exit
 - pass Ghostty `-e` arguments as separate argv entries
 - pre-allocate ports in `team start` to avoid race conditions
 - resolve shared memory bugs (#286-#291)
 - resolve memory CLI tag parsing and broadcast notify issues
 - correct soft interrupt priority (p5→p4) and unify PID matching terminology
 - pass interactive setup name/role to TerminalController
+- `registry.py` `list_agents()` handles `KeyError` gracefully for malformed registry files
 
 ### Documentation
 
