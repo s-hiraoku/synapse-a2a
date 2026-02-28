@@ -412,14 +412,19 @@ class TestGhosttyPaneCreation:
         assert "set the clipboard to" in full
         assert 'keystroke "v" using {command down}' in full
 
-    def test_includes_cd_and_exec(self) -> None:
-        """The typed command should cd to cwd and exec the agent."""
+    def test_includes_cd_without_exec(self) -> None:
+        """The pasted command should cd to cwd but NOT use exec.
+
+        Ghostty uses clipboard paste (Cmd+V) to inject commands, and
+        ``exec`` is unreliable with this method — it can cause the pane
+        to close before the agent fully starts.
+        """
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(agents=["claude"], cwd="/tmp/test")
         full = commands[0]
         assert "cd /tmp/test" in full
-        assert "exec " in full
+        assert "exec env" not in full
 
     def test_cwd_with_spaces(self) -> None:
         """cwd with spaces must be quoted in the typed command."""

@@ -782,7 +782,9 @@ def create_ghostty_window(
     commands: list[str] = []
 
     for agent_spec in agents:
-        full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
+        # Do NOT use exec here — Ghostty injects commands via clipboard
+        # paste (Cmd+V), and exec is unreliable with this method.
+        full_cmd = _build_agent_command(agent_spec, use_exec=False, tool_args=tool_args)
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
         escaped = _escape_applescript_string(cd_cmd)
         # Trigger Ghostty's Cmd+D (new_split:right) to create a split

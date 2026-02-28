@@ -165,12 +165,14 @@ class TestExecPrefixForPaneAutoClose:
         commands = create_terminal_app_tabs(agents=["claude"])
         assert any("exec " in cmd for cmd in commands)
 
-    def test_ghostty_commands_use_exec(self) -> None:
-        """Ghostty commands should use exec prefix."""
+    def test_ghostty_commands_no_exec(self) -> None:
+        """Ghostty commands should NOT use exec (clipboard paste is unreliable with exec)."""
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(agents=["claude"])
-        assert any("exec " in cmd for cmd in commands)
+        # Extract clipboard content from AppleScript
+        for cmd in commands:
+            assert "exec env" not in cmd
 
     def test_tmux_split_window_no_exec(self) -> None:
         """tmux split-window runs command directly, no exec needed."""
