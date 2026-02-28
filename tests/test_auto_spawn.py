@@ -165,12 +165,14 @@ class TestExecPrefixForPaneAutoClose:
         commands = create_terminal_app_tabs(agents=["claude"])
         assert any("exec " in cmd for cmd in commands)
 
-    def test_ghostty_commands_use_exec(self) -> None:
-        """Ghostty commands should use exec prefix."""
+    def test_ghostty_commands_no_exec(self) -> None:
+        """Ghostty commands should NOT use exec (clipboard paste is unreliable with exec)."""
         from synapse.terminal_jump import create_ghostty_window
 
         commands = create_ghostty_window(agents=["claude"])
-        assert any("exec " in cmd for cmd in commands)
+        # Extract clipboard content from AppleScript
+        for cmd in commands:
+            assert "exec env" not in cmd
 
     def test_tmux_split_window_no_exec(self) -> None:
         """tmux split-window runs command directly, no exec needed."""
@@ -258,6 +260,99 @@ class TestTeamStartExecution:
         # Should call subprocess.run for the remaining agents
         assert mock_run.call_count > 0
 
+    def test_ghostty_default_uses_handoff(self) -> None:
+        """Ghostty default mode: first agent handoff, others in split panes.
+
+        Now that Ghostty uses Cmd+D split panes (not open -na), the default
+        handoff behaviour is safe — os.execvp replaces the current process
+        but does not affect other split panes in the same window.
+        """
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini"],
+            layout="split",
+            all_new=False,
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
+            with patch("subprocess.run") as mock_run:
+                with patch("os.execvp") as mock_exec:
+                    cmd_team_start(args)
+
+        # First agent should be handed off via execvp (same as tmux/iTerm2)
+        assert mock_exec.called
+        # Remaining agents should be started via subprocess.run (split panes)
+        assert mock_run.call_count >= 1
+
+    def test_ghostty_all_new_skips_handoff(self) -> None:
+        """Ghostty --all-new: all agents in split panes, no handoff."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            all_new=True,
+        )
+
+        with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
+            with patch("subprocess.run") as mock_run:
+                with patch("os.execvp") as mock_exec:
+                    cmd_team_start(args)
+
+        # --all-new: no handoff
+        assert not mock_exec.called
+        # All 3 agents in split panes via subprocess.run
+        assert mock_run.call_count >= 3
+
+    def test_team_start_pre_allocates_ports(self) -> None:
+        """Same-type agents must get distinct pre-allocated ports."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude", "claude"],
+            layout="split",
+            all_new=True,
+        )
+
+        captured_agents: list[list[str]] = []
+
+        def capture_create_panes(agents, **kwargs):  # noqa: ANN001, ANN003
+            captured_agents.append(list(agents))
+            return ["echo noop"]
+
+        with (
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            patch(
+                "synapse.terminal_jump.create_panes", side_effect=capture_create_panes
+            ),
+            patch("subprocess.run"),
+        ):
+            cmd_team_start(args)
+
+        # Should have captured one call with agent specs containing ports
+        assert len(captured_agents) == 1
+        specs = captured_agents[0]
+        assert len(specs) == 2
+
+        # Both specs should contain a port field (5th colon field)
+        ports = []
+        for spec in specs:
+            parts = spec.split(":")
+            assert len(parts) >= 5, f"Spec should have port field: {spec}"
+            port = parts[4]
+            assert port.isdigit(), f"Port should be numeric: {port}"
+            ports.append(int(port))
+
+        # Ports must be different
+        assert ports[0] != ports[1], f"Same port allocated: {ports}"
+
 
 # ============================================================
 # TestPaneLayout - Layout configurations
@@ -294,15 +389,16 @@ class TestAgentSpecParsing:
     """Tests for profile:name:role:skill_set parsing."""
 
     def test_build_agent_command_simple(self) -> None:
-        """Simple profile should produce simple command."""
+        """Simple profile should always include --no-setup and --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude")
-        assert cmd.endswith(" claude")
         assert "-m synapse.cli claude" in cmd
+        assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_full(self) -> None:
-        """Full spec should produce options and --no-setup."""
+        """Full spec should produce options and --no-setup --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("claude:Reviewer:code review:dev-set")
@@ -313,15 +409,17 @@ class TestAgentSpecParsing:
         assert "code review" in cmd
         assert "--skill-set dev-set" in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_partial(self) -> None:
-        """Partial spec should omit missing parts."""
+        """Partial spec should omit missing parts but include --headless."""
         from synapse.terminal_jump import _build_agent_command
 
         cmd = _build_agent_command("gemini:Searcher")
         assert "--name Searcher" in cmd
         assert "--role" not in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_build_agent_command_with_skips(self) -> None:
         """Should handle empty parts in colon-separated spec."""
@@ -333,6 +431,7 @@ class TestAgentSpecParsing:
         assert "--role" in cmd
         assert "test writer" in cmd
         assert "--no-setup" in cmd
+        assert "--headless" in cmd
 
     def test_create_panes_with_specs(self) -> None:
         """create_panes should respect extended specs across all platforms."""

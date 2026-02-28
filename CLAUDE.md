@@ -236,7 +236,7 @@ synapse reject <task_id> --reason "Use different approach"  # Reject with reason
 synapse claude --delegate-mode            # Start as coordinator (no file editing)
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
-# Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/zellij)
+# Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 # Default: 1st agent takes over current terminal, others get new panes
 synapse team start claude gemini          # claude=here, gemini=new pane
 synapse team start claude gemini codex --layout horizontal  # Custom layout

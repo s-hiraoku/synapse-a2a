@@ -131,7 +131,7 @@ synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth  #
 Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it — other CLIs silently ignore unknown flags, but this is not guaranteed. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
-When an agent is started via `synapse spawn`, it automatically runs with the `--headless` flag. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+When an agent is started via `synapse spawn` or `synapse team start`, `--no-setup --headless` are always added. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
 
 **Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready. Additionally, a server-side Readiness Gate blocks `/tasks/send` until initialization completes (HTTP 503 + `Retry-After: 5` if not ready within 30s; priority 5 and replies bypass).
 
@@ -1011,7 +1011,7 @@ Start multiple agents in split terminal panes.
 
 **Default behavior:** The 1st agent takes over the current terminal (handoff via `os.execvp`), and remaining agents start in new panes. Use `--all-new` to start all agents in new panes (current terminal stays).
 
-Agent specs use `profile[:name[:role[:skill_set]]]` format. When extra fields are provided, `--no-setup` is added automatically.
+Agent specs use `profile[:name[:role[:skill_set[:port]]]]` format. `--no-setup --headless` are always added to spawned agents. Ports are pre-allocated by the parent process to avoid race conditions when multiple agents of the same type start simultaneously.
 
 ```bash
 # Default: claude=current terminal, gemini=new pane
@@ -1035,7 +1035,7 @@ synapse team start claude gemini -- --worktree
 synapse team start claude -- --worktree
 ```
 
-**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), zellij. Falls back to sequential start if unsupported.
+**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), Ghostty (split panes via Cmd+D), zellij. Falls back to sequential start if unsupported.
 
 ### Team Start via A2A API
 

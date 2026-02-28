@@ -234,6 +234,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 - `profile:name`: 名前を指定
 - `profile:name:role`: 名前とロールを指定
 - `profile:name:role:skill_set`: 名前、ロール、スキルセットを指定
+- `profile:name:role:skill_set:port`: 名前、ロール、スキルセット、ポートを指定
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
@@ -246,6 +247,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 - `tmux`
 - `iTerm2`
 - `Terminal.app`（タブで起動）
+- `Ghostty`（AppleScript Cmd+D による分割ペイン）
 - `zellij`
 
 **例**:
@@ -282,7 +284,7 @@ synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set S
 
 **動作**:
 - 新しいペイン/ウィンドウでエージェントを起動
-- 自動的に `--headless` フラグを付与（対話型ステップのスキップ）
+- 自動的に `--no-setup --headless` フラグを付与（対話型セットアップと承認のスキップ）
 - 起動成功後、エージェント ID とポートを出力
 - 親エージェントは `synapse list` で READY 確認後にタスクを送信し、結果評価後に `synapse kill -f` で終了させる
 

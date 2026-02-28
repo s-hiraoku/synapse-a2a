@@ -48,10 +48,13 @@ def _build_agent_command(
     use_exec: bool = False,
     tool_args: list[str] | None = None,
 ) -> str:
-    """Parse 'profile[:name[:role[:skill_set[:port[:headless]]]]]' and build command.
+    """Parse 'profile[:name[:role[:skill_set[:port]]]]' and build command.
 
-    Example: 'claude:Reviewer:code review:dev-set:8105:headless'
-    -> 'synapse claude --name Reviewer --role "code review" --skill-set dev-set --port 8105 --headless --no-setup'
+    ``--no-setup`` and ``--headless`` are always added so that spawned
+    agents skip interactive prompts (name/role setup and approval).
+
+    Example: 'claude:Reviewer:code review:dev-set:8105'
+    -> 'synapse claude --no-setup --headless --name Reviewer --role "code review" --skill-set dev-set --port 8105'
 
     Args:
         agent_spec: Colon-separated agent spec string.
@@ -76,10 +79,9 @@ def _build_agent_command(
     role = _get_spec_field(parts, 2)
     skill_set = _get_spec_field(parts, 3)
     port = _get_spec_field(parts, 4)
-    headless = _get_spec_field(parts, 5)
 
-    if len(parts) > 1:
-        cmd += " --no-setup"
+    # Always skip interactive prompts — spawned agents run unattended.
+    cmd += " --no-setup --headless"
 
     if name:
         cmd += f" --name {shlex.quote(name)}"
@@ -91,8 +93,6 @@ def _build_agent_command(
         if not port.isdigit():
             raise ValueError(f"Port must be numeric: {port}")
         cmd += f" --port {port}"
-    if headless == "headless":
-        cmd += " --headless"
 
     # Append tool_args after '--' separator
     if tool_args:
@@ -759,34 +759,52 @@ def create_ghostty_window(
     tool_args: list[str] | None = None,
     cwd: str | None = None,
 ) -> list[str]:
-    """Generate commands to open Ghostty windows for each agent.
+    """Generate commands to create Ghostty split panes for each agent.
 
-    Each agent gets its own Ghostty window via macOS ``open -na`` command.
+    Uses AppleScript to trigger Ghostty's ``Cmd+D`` keybinding
+    (``new_split:right``) which creates a new split pane inside the
+    current window.  This preserves all existing panes.
 
     Note:
-        Ghostty only supports window-level operations.  The ``layout``
-        and ``all_new`` parameters accepted by other ``create_*`` helpers
-        are intentionally not supported here — every agent always gets
-        its own window.
+        ``open -na Ghostty`` must NOT be used — it spawns a separate
+        process which can close or disrupt existing windows/tabs.
 
     Args:
         agents: List of agent specs.
         tool_args: Extra arguments passed through to underlying CLI tools.
-        cwd: Working directory for new windows. Defaults to os.getcwd().
+        cwd: Working directory for new panes. Defaults to os.getcwd().
 
     Returns:
-        List of shell command strings to execute.
+        List of osascript command strings to execute.
     """
     cwd = cwd or os.getcwd()
 
     commands: list[str] = []
 
     for agent_spec in agents:
-        full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
+        # Do NOT use exec here — Ghostty injects commands via clipboard
+        # paste (Cmd+V), and exec is unreliable with this method.
+        full_cmd = _build_agent_command(agent_spec, use_exec=False, tool_args=tool_args)
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}"
-        # Use 'open -na Ghostty' to open a new Ghostty window running the command
-        safe_cmd = shlex.quote(f"/bin/zsh -lc {shlex.quote(cd_cmd)}")
-        commands.append(f"open -na Ghostty --args -e {safe_cmd}")
+        escaped = _escape_applescript_string(cd_cmd)
+        # Trigger Ghostty's Cmd+D (new_split:right) to create a split
+        # pane, then paste the command via clipboard and press return.
+        # Using clipboard + Cmd+V instead of keystroke for the command
+        # because keystroke can mangle characters (e.g. hyphens in
+        # --no-setup) when typing long strings.
+        script = (
+            'tell application "Ghostty" to activate\n'
+            'tell application "System Events" to tell process "Ghostty"\n'
+            '    keystroke "d" using {command down}\n'
+            "end tell\n"
+            "delay 0.5\n"
+            f'set the clipboard to "{escaped}"\n'
+            'tell application "System Events" to tell process "Ghostty"\n'
+            '    keystroke "v" using {command down}\n'
+            "    keystroke return\n"
+            "end tell"
+        )
+        commands.append(f"osascript -e {shlex.quote(script)}")
 
     return commands
 

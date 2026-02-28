@@ -77,7 +77,7 @@ def spawn_agent(
             "Supported: tmux, iTerm2, Terminal.app, Ghostty, zellij"
         )
 
-    # 4. Build agent spec: profile:name:role:skill_set:port:headless
+    # 4. Build agent spec: profile:name:role:skill_set:port
     agent_spec = ":".join(
         [
             profile,
@@ -85,7 +85,6 @@ def spawn_agent(
             role or "",
             skill_set or "",
             str(port),
-            "headless",
         ]
     )
 
