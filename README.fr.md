@@ -994,11 +994,18 @@ L'expéditeur des messages A2A peut être identifié via `metadata.sender`.
 
 ### Format de Sortie PTY
 
-Les messages sont envoyés au PTY de l'agent avec un simple préfixe `A2A:` :
+Les messages sont envoyés au PTY de l'agent avec un préfixe qui inclut l'identification facultative de l'expéditeur et les attentes de réponse :
 
 ```
-A2A: <contenu du message>
+A2A: [From: NOM (ID_EXPÉDITEUR)] [REPLY EXPECTED] <contenu du message>
 ```
+
+- **From** : Identifie le nom d'affichage de l'expéditeur et son ID d'agent unique.
+- **REPLY EXPECTED** : Indique que l'expéditeur attend une réponse (bloquante).
+
+Si les informations sur l'expéditeur ne sont pas disponibles, le système revient à :
+- `A2A: [From: ID_EXPÉDITEUR] <contenu du message>`
+- `A2A: <contenu du message>` (format rétrocompatible)
 
 ### Gestion des Réponses
 
@@ -1539,6 +1546,7 @@ scoop update synapse-a2a
 
 - **Rendu TUI** : L'affichage peut être corrompu avec les CLI basés sur Ink
 - **Limitations PTY** : Certaines séquences d'entrée spéciales ne sont pas supportées
+- **Focus Ghostty** : Ghostty utilise AppleScript pour cibler la fenêtre ou l'onglet actuellement focalisé. Si vous changez d'onglet pendant l'exécution d'une commande `spawn` ou `team start`, l'agent peut être généré dans l'onglet non souhaité. Veuillez attendre la fin de la commande avant d'interagir avec le terminal.
 - **Sandbox Codex** : Le sandbox de Codex CLI bloque l'accès réseau, nécessitant une configuration pour la communication inter-agents (voir ci-dessous)
 
 ### Communication Inter-Agents dans Codex CLI

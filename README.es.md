@@ -994,11 +994,18 @@ El remitente de los mensajes A2A puede identificarse mediante `metadata.sender`.
 
 ### Formato de Salida PTY
 
-Los mensajes se envian al PTY del agente con un prefijo simple `A2A:`:
+Los mensajes se envían al PTY del agente con un prefijo que incluye identificación opcional del remitente y expectativas de respuesta:
 
 ```
-A2A: <contenido del mensaje>
+A2A: [From: NOMBRE (ID_REMITENTE)] [REPLY EXPECTED] <contenido del mensaje>
 ```
+
+- **From**: Identifica el nombre visible del remitente y su ID de agente único.
+- **REPLY EXPECTED**: Indica que el remitente está esperando una respuesta (bloqueante).
+
+Si la información del remitente no está disponible, se recurre a:
+- `A2A: [From: ID_REMITENTE] <contenido del mensaje>`
+- `A2A: <contenido del mensaje>` (formato de compatibilidad hacia atrás)
 
 ### Manejo de Respuestas
 
@@ -1539,6 +1546,7 @@ scoop update synapse-a2a
 
 - **Renderizado TUI**: La visualización puede distorsionarse con CLIs basados en Ink
 - **Limitaciones PTY**: Algunas secuencias de entrada especiales no son soportadas
+- **Foco de Ghostty**: Ghostty utiliza AppleScript para dirigirse a la ventana o pestaña actualmente enfocada. Si cambia de pestaña mientras se ejecuta un comando `spawn` o `team start`, el agente puede generarse en la pestaña no deseada. Espere a que se complete el comando antes de interactuar con la terminal.
 - **Sandbox de Codex**: El sandbox de Codex CLI bloquea el acceso a red, requiriendo configuración para la comunicación entre agentes (ver abajo)
 
 ### Comunicación Entre Agentes en Codex CLI

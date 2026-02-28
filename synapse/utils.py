@@ -116,12 +116,37 @@ def format_file_parts_for_pty(file_parts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def format_a2a_message(content: str, response_expected: bool = False) -> str:
+def build_sender_prefix(
+    sender_id: str | None = None, sender_name: str | None = None
+) -> str:
     """
-    Format a message with A2A prefix.
+    Build a ``[From: ...]`` prefix string from sender identification.
 
-    Creates the format: A2A: [REPLY EXPECTED] <content> (if response expected)
-    Or simply: A2A: <content> (if no response expected)
+    Returns:
+        - ``"[From: NAME (SENDER_ID)] "`` when both are provided
+        - ``"[From: SENDER_ID] "`` when only sender_id is provided
+        - ``""`` when sender_id is falsy
+    """
+    if not sender_id:
+        return ""
+    if sender_name:
+        return f"[From: {sender_name} ({sender_id})] "
+    return f"[From: {sender_id}] "
+
+
+def format_a2a_message(
+    content: str,
+    response_expected: bool = False,
+    sender_id: str | None = None,
+    sender_name: str | None = None,
+) -> str:
+    """
+    Format a message with A2A prefix and optional sender identification.
+
+    Creates the format:
+    - ``A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <content>``
+    - ``A2A: [From: SENDER_ID] <content>`` (no name)
+    - ``A2A: <content>`` (no sender info, backward compatible)
 
     Strips any leading ``[REPLY EXPECTED]`` marker already present in *content*
     before formatting so that the marker is never duplicated (defensive dedup
@@ -130,16 +155,20 @@ def format_a2a_message(content: str, response_expected: bool = False) -> str:
     Args:
         content: Message content
         response_expected: Whether the sender expects a response
+        sender_id: Sender agent ID (e.g., synapse-claude-8100)
+        sender_name: Sender display name (e.g., 虎杖悠仁)
 
     Returns:
-        Formatted message string with A2A prefix and optional reply marker
+        Formatted message string with A2A prefix, optional sender, and reply marker
     """
+    sender_prefix = build_sender_prefix(sender_id, sender_name)
+
     if response_expected:
         # Strip any existing leading [REPLY EXPECTED] to prevent duplication
         # (LLMs sometimes echo the marker back in their content)
         content = _REPLY_EXPECTED_PREFIX.sub("", content)
-        return f"A2A: [REPLY EXPECTED] {content}"
-    return f"A2A: {content}"
+        return f"A2A: {sender_prefix}[REPLY EXPECTED] {content}"
+    return f"A2A: {sender_prefix}{content}"
 
 
 def get_iso_timestamp() -> str:

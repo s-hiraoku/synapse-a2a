@@ -287,7 +287,7 @@ class TestA2ARouterEndpoints:
         mock_controller.write.assert_called_once()
 
     def test_tasks_send_outputs_plain_message(self, client, mock_controller):
-        """/tasks/send should output message with A2A prefix for agent identification."""
+        """/tasks/send should output message with A2A prefix and sender for agent identification."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {"sender": {"sender_id": "synapse-claude-8100"}},
@@ -298,8 +298,8 @@ class TestA2ARouterEndpoints:
         assert response.status_code == 200
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        # PTY output includes A2A prefix
-        assert write_args[0][0] == "A2A: Hello"
+        # PTY output includes A2A prefix with sender identification
+        assert write_args[0][0] == "A2A: [From: synapse-claude-8100] Hello"
 
     def test_tasks_send_with_response_expected_includes_marker(
         self, client, mock_controller
@@ -321,8 +321,11 @@ class TestA2ARouterEndpoints:
         assert response.status_code == 200
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        # PTY output includes [REPLY EXPECTED] marker
-        assert write_args[0][0] == "A2A: [REPLY EXPECTED] What is the status?"
+        # PTY output includes sender and [REPLY EXPECTED] marker
+        assert (
+            write_args[0][0]
+            == "A2A: [From: synapse-claude-8100] [REPLY EXPECTED] What is the status?"
+        )
 
     def test_tasks_send_without_response_expected_no_marker(
         self, client, mock_controller
@@ -344,8 +347,8 @@ class TestA2ARouterEndpoints:
         assert response.status_code == 200
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        # PTY output should NOT include [REPLY EXPECTED] marker
-        assert write_args[0][0] == "A2A: FYI: done"
+        # PTY output should NOT include [REPLY EXPECTED] marker but includes sender
+        assert write_args[0][0] == "A2A: [From: synapse-claude-8100] FYI: done"
         assert "[REPLY EXPECTED]" not in write_args[0][0]
 
     def test_tasks_send_priority_endpoint(self, client, mock_controller):
@@ -373,7 +376,7 @@ class TestA2ARouterEndpoints:
     def test_tasks_send_priority_outputs_message_with_prefix(
         self, client, mock_controller
     ):
-        """/tasks/send-priority should output message with A2A prefix."""
+        """/tasks/send-priority should output message with A2A prefix and sender."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Urgent!"}]},
             "metadata": {"sender": {"sender_id": "synapse-gemini-8110"}},
@@ -385,8 +388,8 @@ class TestA2ARouterEndpoints:
         mock_controller.interrupt.assert_called_once()
         mock_controller.write.assert_called_once()
         write_args = mock_controller.write.call_args
-        # PTY output includes A2A prefix
-        assert write_args[0][0] == "A2A: Urgent!"
+        # PTY output includes A2A prefix with sender identification
+        assert write_args[0][0] == "A2A: [From: synapse-gemini-8110] Urgent!"
 
     def test_tasks_send_reply_to_updates_existing_task(self, client, mock_controller):
         """POST /tasks/send with in_reply_to should complete existing task."""
@@ -985,5 +988,5 @@ class TestA2APrefixedPTYOutput:
             call_args[0][0] if call_args[0] else call_args[1].get("content", "")
         )
 
-        # Should have A2A prefix
-        assert written_content == "A2A: Hello, agent!"
+        # Should have A2A prefix with sender identification
+        assert written_content == "A2A: [From: synapse-claude-8100] Hello, agent!"

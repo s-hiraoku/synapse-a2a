@@ -52,6 +52,17 @@ def get_registry_dir() -> str:
     )
 
 
+def get_reply_target_dir() -> str:
+    """Get the path to the reply target persistence directory.
+
+    Override with SYNAPSE_REPLY_TARGET_DIR environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_REPLY_TARGET_DIR",
+        Path.home() / ".a2a" / "reply",
+    )
+
+
 def get_external_registry_dir() -> str:
     """Get the path to the external agent registry directory.
 

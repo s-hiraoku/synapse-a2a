@@ -40,6 +40,7 @@ from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
+from synapse.reply_target import save_reply_target
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -77,6 +78,7 @@ class SenderInfo:
     """Extracted sender information from metadata."""
 
     sender_id: str | None = None
+    sender_name: str | None = None
     sender_endpoint: str | None = None
     sender_uds_path: str | None = None
     sender_task_id: str | None = None
@@ -112,6 +114,7 @@ def _extract_sender_info(metadata: dict[str, Any] | None) -> SenderInfo:
     sender = metadata.get("sender", {})
     return SenderInfo(
         sender_id=sender.get("sender_id"),
+        sender_name=sender.get("sender_name"),
         sender_endpoint=sender.get("sender_endpoint"),
         sender_uds_path=sender.get("sender_uds_path"),
         sender_task_id=metadata.get("sender_task_id"),
@@ -155,6 +158,8 @@ def _prepare_pty_message(
     task_id: str,
     content: str,
     response_expected: bool = False,
+    sender_id: str | None = None,
+    sender_name: str | None = None,
 ) -> tuple[str, bool]:
     """Prepare message content for PTY, storing to file if too long.
 
@@ -166,6 +171,8 @@ def _prepare_pty_message(
         task_id: Task ID for file naming
         content: Original message content
         response_expected: Whether sender expects a response
+        sender_id: Sender agent ID for file reference
+        sender_name: Sender display name for file reference
 
     Returns:
         Tuple of (pty_text, used_file_storage) where pty_text is the content
@@ -175,7 +182,9 @@ def _prepare_pty_message(
         return content, False
 
     file_path = store.store_message(task_id, content)
-    reference = format_file_reference(file_path, response_expected)
+    reference = format_file_reference(
+        file_path, response_expected, sender_id=sender_id, sender_name=sender_name
+    )
     logger.info(f"Long message stored to {file_path} for task {task_id[:8]}")
     return reference, True
 
@@ -793,10 +802,20 @@ def create_a2a_router(
 
             # Write reply to PTY so the agent can see it and continue conversation
             if controller:
-                pty_text, _ = _prepare_pty_message(
-                    get_long_message_store(), full_task_id, pty_payload_text
+                reply_sender = _extract_sender_info(metadata)
+                pty_text, used_file = _prepare_pty_message(
+                    get_long_message_store(),
+                    full_task_id,
+                    pty_payload_text,
+                    sender_id=reply_sender.sender_id,
+                    sender_name=reply_sender.sender_name,
                 )
-                controller.write("A2A: " + pty_text, submit_seq=submit_seq)
+                prefixed = format_a2a_message(
+                    pty_text,
+                    sender_id=reply_sender.sender_id if not used_file else None,
+                    sender_name=reply_sender.sender_name if not used_file else None,
+                )
+                controller.write(prefixed, submit_seq=submit_seq)
 
             updated_task = task_store.get(full_task_id)
             if not updated_task:
@@ -845,25 +864,41 @@ def create_a2a_router(
         # Only store if response_expected=True (sender is waiting for reply)
         metadata = request.metadata or {}
         response_expected = metadata.get("response_expected", False)
-        if response_expected:
-            sender_info = _extract_sender_info(request.metadata)
-            if sender_info.has_reply_target() and sender_info.sender_id:
-                reply_stack = get_reply_stack()
-                reply_stack.set(
-                    sender_info.sender_id, sender_info.to_reply_stack_entry()
-                )
+        sender_info = _extract_sender_info(request.metadata)
+        if (
+            response_expected
+            and sender_info.has_reply_target()
+            and sender_info.sender_id
+        ):
+            reply_stack = get_reply_stack()
+            reply_entry = sender_info.to_reply_stack_entry()
+            reply_stack.set(sender_info.sender_id, reply_entry)
+            if agent_id:
+                try:
+                    await asyncio.to_thread(save_reply_target, agent_id, reply_entry)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to persist reply target for %s: %s", agent_id, e
+                    )
 
         # Prepare message for PTY (may store to file if too long)
         pty_text, used_file = _prepare_pty_message(
-            get_long_message_store(), task.id, pty_payload_text, response_expected
+            get_long_message_store(),
+            task.id,
+            pty_payload_text,
+            response_expected,
+            sender_id=sender_info.sender_id,
+            sender_name=sender_info.sender_name,
         )
 
         # Send to PTY with A2A prefix
-        # For file references, [REPLY EXPECTED] marker is already in pty_text
+        # For file references, sender prefix is already in pty_text
         try:
             prefixed_content = format_a2a_message(
                 pty_text,
                 response_expected=response_expected if not used_file else False,
+                sender_id=sender_info.sender_id if not used_file else None,
+                sender_name=sender_info.sender_name if not used_file else None,
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:

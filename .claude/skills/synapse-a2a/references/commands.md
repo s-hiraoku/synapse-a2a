@@ -27,7 +27,7 @@ synapse list
 **Terminal Jump Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
-- Ghostty (macOS) - Activates application
+- Ghostty (macOS) - Activates application. **Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs during spawn or team start.
 - VS Code integrated terminal - Activates/focuses VS Code window
 - tmux - Switches to agent's session/pane
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)
@@ -119,8 +119,11 @@ synapse spawn claude --skill-set dev-set      # With skill set
 synapse spawn claude --terminal tmux          # Use specific terminal
 synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 
-# Pass tool-specific arguments after '--'
-synapse spawn claude -- --dangerously-skip-permissions
+# Pass tool-specific arguments after '--' (permission skip flags per CLI)
+synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
+synapse spawn gemini -- -y                               # Gemini: yolo mode
+synapse spawn codex -- --yolo                            # Codex: full access
+synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
 
 # Worktree isolation (--worktree is a Claude Code flag, passed after '--'; other CLIs silently ignore it)
 synapse spawn claude --name Impl --role "implementer" -- --worktree
@@ -278,13 +281,19 @@ synapse agents delete silent-snake
 
 ## Receiving Messages
 
-When you receive an A2A message, it appears with the `A2A:` prefix:
+When you receive an A2A message, it appears with the `A2A:` prefix that includes optional sender identification and reply expectations:
 
 **Message Formats:**
 ```
-A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
-A2A: <message>                    <- Reply is optional (one-way notification)
+A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
+
+- **From**: Identifies the sender's display name and unique agent ID.
+- **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
+
+If sender information is not available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (backward compatible format)
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
@@ -304,13 +313,13 @@ synapse reply "<your reply>" --from $SYNAPSE_AGENT_ID
 
 **Example - Question received (MUST reply):**
 ```
-Received: A2A: [REPLY EXPECTED] What is the project structure?
+Received: A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..."
 ```
 
 **Example - Delegation received (no reply needed):**
 ```
-Received: A2A: Run the tests and fix failures
+Received: A2A: [From: Gemini (synapse-gemini-8110)] Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -671,6 +680,7 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
+| `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | History database path | `~/.synapse/history/history.db` |
 | `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
@@ -1078,8 +1088,9 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (applied to all agents)
-synapse team start claude gemini -- --dangerously-skip-permissions
+# Pass tool-specific arguments after '--' (permission skip flags per CLI)
+synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
+synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --yolo for Codex)
 
 # Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
@@ -1087,7 +1098,7 @@ synapse team start claude gemini -- --worktree
 synapse team start claude -- --worktree
 ```
 
-**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), Ghostty (split panes via Cmd+D), zellij. Falls back to sequential start if unsupported.
+**Supported terminals:** tmux, iTerm2, Terminal.app (tabs), Ghostty (split panes via Cmd+D), zellij. Falls back to sequential start if unsupported. **Ghostty Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs while the team is being spawned.
 
 ### Team Start via A2A API
 
@@ -1101,7 +1112,9 @@ curl -X POST http://localhost:8100/team/start \
 # With tool_args (passed through to underlying CLI tool)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
-  -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"agents": ["gemini", "codex"], "tool_args": ["-y"]}'
+# Note: tool_args are passed to ALL agents. Use CLI-specific flags:
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--yolo"], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1117,7 +1130,8 @@ curl -X POST http://localhost:8100/spawn \
 # With skill_set and tool_args
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--yolo"], Copilot ["--allow-all-tools"]
 # On failure: {"status": "failed", "reason": "No available port"}
 ```
 
@@ -1239,6 +1253,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 
 ```text
 ~/.a2a/registry/     # Running agents (auto-cleaned)
+~/.a2a/reply/        # Reply target persistence (auto-cleaned per agent)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store
 ~/.synapse/          # User-level settings and logs

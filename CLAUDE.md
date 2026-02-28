@@ -246,6 +246,7 @@ synapse claude --delegate-mode            # Start as coordinator (no file editin
 synapse claude --delegate-mode --name coordinator --role "task manager"
 
 # Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
+# Ghostty limitation: targets the focused window/tab — do not switch tabs during spawn
 # Default: 1st agent takes over current terminal, others get new panes
 synapse team start claude gemini          # claude=here, gemini=new pane
 synapse team start claude gemini codex --layout horizontal  # Custom layout
@@ -341,6 +342,7 @@ synapse/
 ├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
+├── reply_target.py  # Reply target file-based persistence (~/.a2a/reply/)
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
 │   ├── instructions.py    # synapse instructions command
@@ -357,6 +359,12 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
     ├── examples.md
     └── file-safety.md
 
+plugins/synapse-a2a/skills/synapse-manager/  # Multi-agent management skill
+└── SKILL.md                                 # Delegation, monitoring, verification, feedback, review
+
+plugins/synapse-a2a/skills/doc-organizer/    # Documentation organization skill
+└── SKILL.md                                 # Audit, restructure, deduplication, terminology, staleness
+
 .claude/hooks/                             # Claude Code PostToolUse hooks
 ├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create
 ├── poll-ci.sh                             # Background: polls GitHub Actions CI status
@@ -369,14 +377,20 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
 └── fix-review/SKILL.md                    # /fix-review: auto-fix CodeRabbit review comments
 
 # Sync targets (auto-synced from plugins/ via sync-plugin-skills):
-.claude/skills/synapse-a2a/   # Claude Code
-.agents/skills/synapse-a2a/   # Codex / OpenCode / Copilot
-.gemini/skills/synapse-a2a/   # Gemini
+.claude/skills/synapse-a2a/      # Claude Code
+.claude/skills/synapse-manager/  # Claude Code
+.claude/skills/doc-organizer/    # Claude Code
+.agents/skills/synapse-a2a/      # Codex / OpenCode / Copilot
+.agents/skills/synapse-manager/  # Codex / OpenCode / Copilot
+.agents/skills/doc-organizer/    # Codex / OpenCode / Copilot
+.gemini/skills/synapse-a2a/      # Gemini
+.gemini/skills/synapse-manager/  # Gemini
+.gemini/skills/doc-organizer/    # Gemini
 ```
 
 ### Skill Update Rules
 
-**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager`, `doc-organizer` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ### CI Automation: Hooks and Skills
 
@@ -568,6 +582,7 @@ idle_detection:
 
 ```
 ~/.a2a/registry/     # Running agents (auto-cleaned)
+~/.a2a/reply/        # Reply target persistence (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store (SYNAPSE scope)
 ~/.synapse/agents/   # Saved agent definitions (user scope)

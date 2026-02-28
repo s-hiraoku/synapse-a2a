@@ -67,9 +67,11 @@ class TestBuildSenderInfo:
             assert "agent type" in sender.lower()
             assert "synapse-claude-8100" in sender
 
-    def test_empty_when_no_matching_agent(self):
+    def test_empty_when_no_matching_agent(self, monkeypatch):
         """Should return empty dict when no agent matches via PID."""
         from synapse.tools.a2a import build_sender_info
+
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
 
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -98,9 +100,11 @@ class TestBuildSenderInfo:
         assert isinstance(sender, dict)
         assert sender["sender_id"] == "synapse-manual-9999"
 
-    def test_pid_matching_finds_correct_agent(self):
+    def test_pid_matching_finds_correct_agent(self, monkeypatch):
         """PID matching should find the correct agent among multiple."""
         from synapse.tools.a2a import build_sender_info
+
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
 
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {

@@ -189,13 +189,19 @@ synapse broadcast "FYI: Build completed" --no-response
 
 ## Receiving and Replying to Messages
 
-When you receive an A2A message, it appears with the `A2A:` prefix:
+When you receive an A2A message, it appears with the `A2A:` prefix that includes optional sender identification and reply expectations:
 
 **Message Formats:**
 ```
-A2A: [REPLY EXPECTED] <message>   <- Reply is REQUIRED
-A2A: <message>                    <- Reply is optional (one-way notification)
+A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
+
+- **From**: Identifies the sender's display name and unique agent ID.
+- **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
+
+If sender information is not available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (backward compatible format)
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
@@ -219,13 +225,13 @@ synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 
 **Example - Question received (MUST reply):**
 ```
-Received: A2A: [REPLY EXPECTED] What is the project structure?
+Received: A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..."
 ```
 
 **Example - Delegation received (no reply needed):**
 ```
-Received: A2A: Run the tests and fix failures
+Received: A2A: [From: Gemini (synapse-gemini-8110)] Run the tests and fix failures
 Action:   Just do the task. No reply needed unless you have questions.
 ```
 
@@ -302,7 +308,7 @@ In `synapse list`, you can interact with agents:
 **Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
-- Ghostty (macOS) - Activates application
+- Ghostty (macOS) - Activates application. **Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs during spawn.
 - VS Code integrated terminal - Opens to working directory
 - tmux - Switches to agent's session
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)
@@ -570,6 +576,29 @@ After receiving a `--response` reply from a spawned agent:
    - Result is sufficient → `synapse kill <child> -f`
    - Result is insufficient → re-send with refined instructions (do NOT kill and re-spawn)
 
+### Permission Skip Flags (per CLI)
+
+Each CLI has its own flag to skip interactive permission prompts. Pass these after `--` as tool args:
+
+| CLI | Flag | Notes |
+|-----|------|-------|
+| **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
+| **Gemini CLI** | `-y` | Yolo mode — auto-approve all actions |
+| **Codex CLI** | `--yolo` | Full Access mode — no confirmations |
+| **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
+
+```bash
+# Spawn with permission skip (per CLI)
+synapse spawn claude -- --dangerously-skip-permissions
+synapse spawn gemini -- -y
+synapse spawn codex -- --yolo
+synapse spawn copilot -- --allow-all-tools
+
+# Team start with permission skip (flag applies to ALL agents)
+# Only use when all agents support the same flag, or target specific CLIs:
+synapse team start claude gemini -- --dangerously-skip-permissions  # Only Claude uses it; Gemini ignores unknown flags
+```
+
 ### CLI & API
 
 ```bash
@@ -579,11 +608,18 @@ synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
+synapse spawn gemini -- -y                               # Gemini yolo mode
+synapse spawn codex -- --yolo                            # Codex full access
+synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```
 
 ```jsonc
 // POST /spawn (API — agents can spawn programmatically)
-{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--dangerously-skip-permissions"]}
+{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["-y"]}
+// Claude example:
+{"profile": "claude", "name": "Worker", "tool_args": ["--dangerously-skip-permissions"]}
+// Codex example:
+{"profile": "codex", "name": "Coder", "tool_args": ["--yolo"]}
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 
@@ -635,6 +671,7 @@ synapse team start claude -- --worktree
 When running multiple environments or tests, override storage paths via env vars:
 
 - `SYNAPSE_REGISTRY_DIR` (default: `~/.a2a/registry`)
+- `SYNAPSE_REPLY_TARGET_DIR` (default: `~/.a2a/reply`)
 - `SYNAPSE_EXTERNAL_REGISTRY_DIR` (default: `~/.a2a/external`)
 - `SYNAPSE_HISTORY_DB_PATH` (default: `~/.synapse/history/history.db`)
 - `SYNAPSE_SKILLS_DIR` (default: `~/.synapse/skills`)
@@ -654,6 +691,8 @@ For detailed documentation, read:
 
 | Skill | Purpose |
 |-------|---------|
+| `/synapse-manager` | Multi-agent management — task delegation, monitoring, quality verification, feedback, and cross-review orchestration |
+| `/doc-organizer` | Audit, restructure, and consolidate project documentation for clarity and maintainability |
 | `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
 | `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |
 | `/fix-conflict` | Auto-resolve merge conflicts with the base branch |

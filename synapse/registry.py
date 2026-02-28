@@ -235,7 +235,13 @@ class AgentRegistry:
                     agent_id = data.get("agent_id")
                     if isinstance(agent_id, str) and agent_id:
                         agents[agent_id] = data
-            except (json.JSONDecodeError, OSError, AttributeError):
+                    else:
+                        logger.warning(
+                            "Skipping invalid registry file %s: missing agent_id",
+                            p.name,
+                        )
+            except (json.JSONDecodeError, KeyError, OSError, AttributeError) as e:
+                logger.warning("Skipping invalid registry file %s: %s", p.name, e)
                 continue
         return agents
 
