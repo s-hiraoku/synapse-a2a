@@ -159,6 +159,16 @@ synapse send claude --message-file /tmp/message.txt --no-response
 
 **Solution**: Wait for initialization to complete. Check with `synapse list`. The agent needs time to start the CLI tool and detect the first idle state.
 
+## Terminal-Specific Issues
+
+### Ghostty: Agent Spawned in Wrong Tab
+
+**Symptom**: `synapse spawn` or `synapse team start` creates new panes in a different Ghostty tab than intended.
+
+**Cause**: Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while the command is running, the agent will be spawned in whichever tab is focused at that moment.
+
+**Solution**: Wait for the `spawn` or `team start` command to complete before switching tabs in Ghostty.
+
 ## File Safety Issues
 
 ### Lock Not Releasing

@@ -73,8 +73,12 @@ synapse send gemini "What are the best practices for error handling in Python?" 
 Gemini will receive the message as:
 
 ```
-A2A: [REPLY EXPECTED] What are the best practices for error handling in Python?
+A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] What are the best practices for error handling in Python?
 ```
+
+If sender information is not available, it falls back to:
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (backward compatible format)
 
 ## Step 5: Reply
 
@@ -97,7 +101,7 @@ sequenceDiagram
     C->>S: synapse send gemini "message" --response
     S->>S: Create task context
     S->>G: POST /tasks/send (A2A Protocol)
-    G->>G: Display in PTY: "A2A: [REPLY EXPECTED] message"
+    G->>G: Display in PTY: "A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] message"
     G->>S: synapse reply "response"
     S->>C: Route reply back to sender
     C->>C: Display response
@@ -142,6 +146,9 @@ synapse team start claude gemini codex --layout split
 ```
 
 This opens each agent in a separate terminal pane (requires tmux, iTerm2, Terminal.app, Ghostty, or Zellij).
+
+!!! warning "Ghostty Limitation"
+    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while `team start` is running, agents may be created in the wrong tab. Wait for the command to complete before switching tabs.
 
 ## Next Steps
 
