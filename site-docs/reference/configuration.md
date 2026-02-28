@@ -105,6 +105,7 @@
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
+| `SYNAPSE_REPLY_TARGET_DIR` | `~/.a2a/reply` | Reply target persistence directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
 | `SYNAPSE_TASK_BOARD_DB_PATH` | `.synapse/task_board.db` | Task board database |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Shared memory database |
@@ -141,6 +142,7 @@
 | Storage | Path | Format | Purpose |
 |---------|------|--------|---------|
 | Agent Registry | `~/.a2a/registry/` | JSON files | Running agents |
+| Reply Targets | `~/.a2a/reply/` | JSON files | Reply routing persistence |
 | External Agents | `~/.a2a/external/` | JSON files | External A2A agents |
 | User Settings | `~/.synapse/settings.json` | JSON | User preferences |
 | Project Settings | `.synapse/settings.json` | JSON | Project config |

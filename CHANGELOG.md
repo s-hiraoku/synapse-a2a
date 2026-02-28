@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add GitHub Pages documentation site with MkDocs Material
+- add `get_reply_target_dir()` to `synapse/paths.py` with `SYNAPSE_REPLY_TARGET_DIR` env var override
 - add github-pages-sync skill for site-docs maintenance
 - add shared memory for cross-agent knowledge sharing
 - add `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
@@ -27,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- move reply target persistence from `~/.a2a/registry/` to `~/.a2a/reply/` to prevent `.reply.json` files from causing `KeyError: 'agent_id'` in `list_agents()`
+- add `KeyError` to exception handling in `registry.py` `list_agents()` as defense-in-depth against malformed registry files
 - address CodeRabbit review findings for GitHub Pages docs
 - correct 16 documentation inaccuracies against actual codebase
 - address CodeRabbit review findings for quickstart and agent-teams

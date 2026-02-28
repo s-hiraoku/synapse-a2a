@@ -86,14 +86,16 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
         Dict with sender_id and optional sender_type, sender_endpoint, sender_uds_path
     """
     sender_info: dict[str, str] = {"sender_id": agent_id}
-    if info.get("agent_type"):
-        sender_info["sender_type"] = info["agent_type"]
-    if info.get("endpoint"):
-        sender_info["sender_endpoint"] = info["endpoint"]
-    if info.get("uds_path"):
-        sender_info["sender_uds_path"] = info["uds_path"]
-    if info.get("name"):
-        sender_info["sender_name"] = info["name"]
+    field_mapping = {
+        "agent_type": "sender_type",
+        "endpoint": "sender_endpoint",
+        "uds_path": "sender_uds_path",
+        "name": "sender_name",
+    }
+    for registry_key, sender_key in field_mapping.items():
+        value = info.get(registry_key)
+        if value:
+            sender_info[sender_key] = value
     return sender_info
 
 
@@ -129,6 +131,22 @@ def _validate_explicit_sender(sender: str) -> str | None:
         "Error: --from requires agent ID format (synapse-<type>-<port>).\n"
         "Example: --from $SYNAPSE_AGENT_ID (or synapse-claude-8100)"
     )
+
+
+def _lookup_sender_in_registry(agent_id: str) -> dict[str, str]:
+    """Look up sender info from the agent registry.
+
+    Returns a dict with sender_id and optional sender_type, sender_endpoint, etc.
+    Falls back to a minimal dict with just sender_id if not found in registry.
+    """
+    try:
+        reg = AgentRegistry()
+        agents = reg.list_agents()
+        if agent_id in agents:
+            return _extract_sender_info_from_agent(agent_id, agents[agent_id])
+    except Exception:
+        pass
+    return {"sender_id": agent_id}
 
 
 def _get_current_tty() -> str | None:
@@ -192,18 +210,9 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     if not explicit_sender:
         env_sender = os.environ.get("SYNAPSE_AGENT_ID")
         if env_sender:
-            try:
-                reg = AgentRegistry()
-                agents = reg.list_agents()
-                if env_sender in agents:
-                    return _extract_sender_info_from_agent(
-                        env_sender, agents[env_sender]
-                    )
-            except Exception:
-                pass
-            # Instruction 3: If SYNAPSE_AGENT_ID is set, use it even if not in registry
+            # If SYNAPSE_AGENT_ID is set, use it even if not in registry
             # instead of falling back to PID detection which might be wrong
-            return {"sender_id": env_sender}
+            return _lookup_sender_in_registry(env_sender)
         return _find_sender_by_pid()
 
     # Validate explicit sender format
@@ -211,18 +220,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict | str:
     if error:
         return error
 
-    # Look up endpoint and uds_path from registry
-    try:
-        reg = AgentRegistry()
-        agents = reg.list_agents()
-        if explicit_sender in agents:
-            return _extract_sender_info_from_agent(
-                explicit_sender, agents[explicit_sender]
-            )
-    except Exception:
-        pass
-
-    return {"sender_id": explicit_sender}
+    return _lookup_sender_in_registry(explicit_sender)
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -899,9 +897,8 @@ def cmd_reply(args: argparse.Namespace) -> None:
 
     target: dict[str, str | None] | SenderInfo | None = None
     got_target_from_stack = False
-    my_agent_id = (
-        sender_info.get("sender_id") if isinstance(sender_info, dict) else None
-    )
+    # sender_info is guaranteed to be dict here (str case exits above)
+    my_agent_id = sender_info.get("sender_id")
 
     if resp.status_code == 404:
         if my_agent_id:
@@ -944,10 +941,10 @@ def cmd_reply(args: argparse.Namespace) -> None:
         endpoint=target_endpoint or "http://localhost",
         message=args.message,
         priority=3,  # Normal priority for replies
-        sender_info=sender_info if isinstance(sender_info, dict) else None,
+        sender_info=sender_info,
         response_expected=False,  # Reply doesn't expect a reply back
         in_reply_to=task_id,
-        uds_path=target_uds_path if target_uds_path else None,
+        uds_path=target_uds_path or None,
     )
 
     if not result:

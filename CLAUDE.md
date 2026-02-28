@@ -331,6 +331,7 @@ synapse/
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
+├── reply_target.py  # Reply target file-based persistence (~/.a2a/reply/)
 ├── paths.py         # Centralized path management (env var overrides)
 ├── commands/        # CLI command implementations
 │   ├── instructions.py    # synapse instructions command
@@ -570,6 +571,7 @@ idle_detection:
 
 ```
 ~/.a2a/registry/     # Running agents (auto-cleaned)
+~/.a2a/reply/        # Reply target persistence (auto-cleaned)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store (SYNAPSE scope)
 ~/.synapse/logs/     # Log files

@@ -6,6 +6,8 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.7.x (Post v0.7.0)
 
+- **Changed**: Reply target persistence moved from `~/.a2a/registry/` to dedicated `~/.a2a/reply/` directory (configurable via `SYNAPSE_REPLY_TARGET_DIR`)
+- **Fixed**: `registry.py` `list_agents()` now handles `KeyError` gracefully when registry JSON files have missing keys
 - **Added**: `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
 - **Added**: `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for coordinator agents
 - **Added**: `doc-organizer` skill — documentation audit, restructure, deduplication, terminology normalization, and navigation improvement

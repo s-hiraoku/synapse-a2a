@@ -1149,6 +1149,9 @@ Agent Card is a "business card" containing only external-facing information:
 ├── synapse-claude-8100.json
 ├── synapse-claude-8101.json
 └── synapse-gemini-8110.json
+
+~/.a2a/reply/
+└── synapse-claude-8100.reply.json   # Reply target persistence (auto-cleaned)
 ```
 
 ### Auto Cleanup
@@ -1511,6 +1514,7 @@ synapse config show --scope user
 | `SYNAPSE_WEBHOOK_TIMEOUT` | Webhook timeout (sec) | `10` |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | Webhook retry count | `3` |
 | `SYNAPSE_SKILLS_DIR` | Central skill store directory | `~/.synapse/skills` |
+| `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |

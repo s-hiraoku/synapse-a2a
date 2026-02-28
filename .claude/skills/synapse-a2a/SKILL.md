@@ -666,6 +666,7 @@ synapse team start claude -- --worktree
 When running multiple environments or tests, override storage paths via env vars:
 
 - `SYNAPSE_REGISTRY_DIR` (default: `~/.a2a/registry`)
+- `SYNAPSE_REPLY_TARGET_DIR` (default: `~/.a2a/reply`)
 - `SYNAPSE_EXTERNAL_REGISTRY_DIR` (default: `~/.a2a/external`)
 - `SYNAPSE_HISTORY_DB_PATH` (default: `~/.synapse/history/history.db`)
 - `SYNAPSE_SKILLS_DIR` (default: `~/.synapse/skills`)
