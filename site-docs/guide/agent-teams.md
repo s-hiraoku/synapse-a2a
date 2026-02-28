@@ -150,6 +150,8 @@ synapse send worker-1 "Progress?" --response
 !!! info "Ghostty Pane Creation"
     Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
 
+    **Pane auto-close**: All terminals auto-close spawned panes when the agent process exits. iTerm2 and Terminal.app use `exec` to replace the shell process, while Ghostty appends `; exit` to the command (since clipboard paste injection is incompatible with `exec`).
+
 ## Team Start via API
 
 ```bash

@@ -6,6 +6,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.7.x (Post v0.7.0)
 
+- **Fixed**: Ghostty panes now auto-close when the agent process exits (appends `; exit` to spawned commands; `exec` is incompatible with clipboard paste injection)
 - **Fixed**: Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows, preserving existing panes
 - **Fixed**: Ghostty commands injected via clipboard paste (`Cmd+V`) to avoid character mangling with long arguments
 - **Fixed**: `team start` pre-allocates unique ports to prevent race conditions when multiple agents of the same type start simultaneously
