@@ -52,6 +52,12 @@ Inter-agent communication framework via Google A2A Protocol.
 | List skill sets | `synapse skills set list` |
 | Show skill set detail | `synapse skills set show <name>` |
 | Trace task | `synapse trace <task_id>` |
+| Save memory | `synapse memory save <key> "<content>" [--tags tag1,tag2] [--notify]` |
+| List memories | `synapse memory list [--author <id>] [--tags <tags>] [--limit N]` |
+| Show memory | `synapse memory show <id_or_key>` |
+| Search memories | `synapse memory search <query>` |
+| Delete memory | `synapse memory delete <id_or_key> [--force]` |
+| Memory stats | `synapse memory stats` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -416,6 +422,14 @@ To inject instructions later: `synapse instructions send <agent>`.
   - Priority-based ordering (1-5, higher served first)
   - `fail_task()` preserves assignee for audit trail, does NOT unblock dependents
   - `reopen_task()` clears assignee/fail_reason, returns task to available pool
+- **Shared Memory**: Project-local SQLite knowledge base for cross-agent knowledge sharing (`synapse memory`)
+  - UPSERT on key: `synapse memory save <key> "<content>" [--tags tag1,tag2]`
+  - Search across key, content, and tags: `synapse memory search <query>`
+  - Filter by author or tags: `synapse memory list [--author <id>] [--tags <tags>]`
+  - Statistics: `synapse memory stats` (total, per-author, per-tag breakdown)
+  - Optional broadcast notification on save: `--notify` flag
+  - Storage: `.synapse/memory.db` (SQLite with WAL mode)
+  - Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`)
 - **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
@@ -619,6 +633,8 @@ When running multiple environments or tests, override storage paths via env vars
 - `SYNAPSE_EXTERNAL_REGISTRY_DIR` (default: `~/.a2a/external`)
 - `SYNAPSE_HISTORY_DB_PATH` (default: `~/.synapse/history/history.db`)
 - `SYNAPSE_SKILLS_DIR` (default: `~/.synapse/skills`)
+- `SYNAPSE_SHARED_MEMORY_DB_PATH` (default: `.synapse/memory.db`)
+- `SYNAPSE_SHARED_MEMORY_ENABLED` (default: `true`)
 
 ## References
 

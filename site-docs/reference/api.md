@@ -120,6 +120,61 @@ curl -X POST http://localhost:8100/spawn \
 }
 ```
 
+## Shared Memory
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| GET | `/memory/list` | List memories (query: `author`, `tags`, `limit`) |
+| POST | `/memory/save` | Save or update a memory (UPSERT on key) |
+| GET | `/memory/search` | Search memories (query: `q`) |
+| GET | `/memory/{id_or_key}` | Get a specific memory by ID or key |
+| DELETE | `/memory/{id_or_key}` | Delete a memory |
+
+### Save Memory
+
+```bash
+curl -X POST http://localhost:8100/memory/save \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "auth-pattern",
+    "content": "Use OAuth2 with PKCE flow",
+    "author": "synapse-claude-8100",
+    "tags": ["security", "auth"]
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "id": "a1b2c3d4-...",
+  "key": "auth-pattern",
+  "content": "Use OAuth2 with PKCE flow",
+  "author": "synapse-claude-8100",
+  "tags": ["security", "auth"],
+  "created_at": "2026-02-28T12:00:00",
+  "updated_at": "2026-02-28T12:00:00"
+}
+```
+
+### Search Memories
+
+```bash
+curl http://localhost:8100/memory/search?q=OAuth2
+```
+
+### Get Memory
+
+```bash
+curl http://localhost:8100/memory/auth-pattern
+```
+
+### Delete Memory
+
+```bash
+curl -X DELETE http://localhost:8100/memory/auth-pattern
+```
+
 ## External Agents
 
 | Method | Endpoint | Description |

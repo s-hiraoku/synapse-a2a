@@ -63,6 +63,16 @@ The framework automatically handles routing - you don't need to know where the m
 | `/team/start` | POST | Start multiple agents in terminal panes (agent-initiated) |
 | `/spawn` | POST | Spawn a single agent in a new terminal pane |
 
+### Shared Memory Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/memory/list` | GET | List memories (query params: `author`, `tags`, `limit`) |
+| `/memory/save` | POST | Save/update memory (`{key, content, tags?, notify?}`) |
+| `/memory/search` | GET | Search memories (query param: `q`) |
+| `/memory/{id_or_key}` | GET | Get memory by ID or key |
+| `/memory/{id_or_key}` | DELETE | Delete memory by ID or key |
+
 ### Webhook Endpoints
 
 | Endpoint | Method | Description |

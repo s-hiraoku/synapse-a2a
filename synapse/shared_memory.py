@@ -170,7 +170,6 @@ class SharedMemory:
         with self._lock:
             conn = self._get_connection()
             try:
-                # Try by ID first, then by key
                 row = conn.execute(
                     "SELECT * FROM memories WHERE id = ? OR key = ?",
                     (id_or_key, id_or_key),
@@ -209,11 +208,8 @@ class SharedMemory:
                     params.append(author)
 
                 if tags:
-                    # Match memories containing any of the specified tags
-                    tag_conditions = []
-                    for tag in tags:
-                        tag_conditions.append("tags LIKE ?")
-                        params.append(f'%"{tag}"%')
+                    tag_conditions = ["tags LIKE ?" for tag in tags]
+                    params.extend(f'%"{tag}"%' for tag in tags)
                     query += " AND (" + " OR ".join(tag_conditions) + ")"
 
                 query += " ORDER BY updated_at DESC LIMIT ?"
@@ -288,21 +284,17 @@ class SharedMemory:
         with self._lock:
             conn = self._get_connection()
             try:
-                # Total count
                 total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
 
-                # Per-author counts
                 author_rows = conn.execute(
                     "SELECT author, COUNT(*) as cnt FROM memories GROUP BY author"
                 ).fetchall()
                 by_author = {row["author"]: row["cnt"] for row in author_rows}
 
-                # Per-tag counts
                 tag_rows = conn.execute("SELECT tags FROM memories").fetchall()
                 tag_counter: Counter[str] = Counter()
                 for row in tag_rows:
-                    tags = json.loads(row["tags"] or "[]")
-                    tag_counter.update(tags)
+                    tag_counter.update(json.loads(row["tags"] or "[]"))
                 by_tag = dict(tag_counter)
 
                 return {
