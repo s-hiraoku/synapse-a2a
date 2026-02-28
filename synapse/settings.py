@@ -29,7 +29,7 @@ def get_default_instructions() -> str:
 Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 HOW TO RECEIVE A2A MESSAGES:
-Input format: [A2A:task_id:sender_id] message
+Input format: A2A: [From: NAME (SENDER_ID)] message
 Response command: synapse send SENDER_ID "YOUR_RESPONSE" --from {{agent_id}}
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:
@@ -60,7 +60,7 @@ def get_gemini_instructions() -> str:
 Agent: {{agent_name}} | Port: {{port}} | ID: {{agent_id}}
 
 HOW TO RECEIVE A2A MESSAGES:
-Input format: [A2A:task_id:sender_id] message
+Input format: A2A: [From: NAME (SENDER_ID)] message
 Response command: synapse send SENDER_ID "YOUR_RESPONSE" --from {{agent_id}}
 
 HOW TO SEND MESSAGES TO OTHER AGENTS:

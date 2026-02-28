@@ -248,6 +248,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 - `iTerm2`
 - `Terminal.app`（タブで起動）
 - `Ghostty`（AppleScript Cmd+D による分割ペイン）
+  - **制約**: Ghostty は AppleScript でフォーカス中のウィンドウ/タブを対象にするため、`spawn` や `team start` の実行中にタブを切り替えると、意図しないタブにエージェントがスポーンされます。コマンド完了まで操作を待ってください。
 - `zellij`
 
 **例**:
@@ -976,6 +977,8 @@ synapse jump <TARGET>
 | `TARGET` | Yes | エージェント名、ID、type-port、またはタイプ |
 
 **対応ターミナル**: iTerm2, Terminal.app, Ghostty, VS Code, tmux, Zellij
+
+> **Ghostty の制約**: Ghostty は AppleScript を使用して現在フォーカスされているウィンドウやタブを対象にします。`spawn` や `team start` の実行中にタブを切り替えると、意図しないタブにエージェントがスポーンされる可能性があるため、完了まで操作を控えてください。
 
 **例**:
 

@@ -155,6 +155,9 @@ synapse send worker-1 "Progress?" --response
     - iTerm2 and Terminal.app use `exec` to replace the shell process.
     - Ghostty appends `; exit` to the command (since clipboard paste injection is incompatible with `exec`).
 
+!!! warning "Ghostty Limitation: Focus-dependent targeting"
+    Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while `spawn` or `team start` is running, agents may be created in the wrong tab. Wait for the command to complete before interacting with the terminal.
+
 ## Team Start via API
 
 ```bash
