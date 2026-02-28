@@ -31,16 +31,6 @@
       "code-simplifier"
     ]
   },
-  "coordinator": {
-    "name": "coordinator",
-    "description": "Task coordination and orchestration — planning, delegation, memory, re-instruction",
-    "skills": [
-      "synapse-a2a",
-      "task-planner",
-      "agent-memory",
-      "synapse-reinst"
-    ]
-  },
   "frontend": {
     "name": "frontend",
     "description": "Frontend development — React/Next.js performance, component composition, design systems, accessibility",
@@ -54,13 +44,14 @@
   },
   "manager": {
     "name": "manager",
-    "description": "Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration",
+    "description": "Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction",
     "skills": [
       "synapse-a2a",
       "synapse-manager",
       "task-planner",
       "agent-memory",
-      "code-review"
+      "code-review",
+      "synapse-reinst"
     ]
   },
   "documentation": {
