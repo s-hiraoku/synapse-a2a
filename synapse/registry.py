@@ -1,16 +1,22 @@
 import contextlib
+import errno
 import json
 import logging
 import os
 import socket
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from synapse.utils import is_role_file_reference, resolve_role_value
 
 logger = logging.getLogger(__name__)
+
+
+class NameConflictError(ValueError):
+    """Raised when attempting to register/update a duplicated custom name."""
 
 
 def _ensure_uds_dir(path: Path) -> None:
@@ -76,6 +82,70 @@ class AgentRegistry:
         self.registry_dir = Path(get_registry_dir())
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         self.hostname = socket.gethostname()
+        self._lock_file = self.registry_dir / ".registry.lock"
+
+    @contextmanager
+    def _registry_write_lock(self) -> Iterator[None]:
+        """Cross-process lock for registry-wide write operations."""
+        self.registry_dir.mkdir(parents=True, exist_ok=True)
+        with open(self._lock_file, "a+") as lock_file:
+            try:
+                try:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                except (ImportError, OSError) as e:
+                    # Best effort on non-POSIX; continue without hard-failing.
+                    if isinstance(e, OSError) and e.errno not in (
+                        errno.ENOSYS,
+                        errno.EBADF,
+                    ):
+                        raise
+                yield
+            finally:
+                with contextlib.suppress(Exception):
+                    try:
+                        import fcntl
+
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                    except (ImportError, OSError):
+                        pass
+
+    def _is_name_taken_locked(
+        self, name: str, exclude_agent_id: str | None = None
+    ) -> bool:
+        """Check name collision while holding registry write lock."""
+        for p in self.registry_dir.glob("*.json"):
+            try:
+                with open(p) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+            agent_id = data.get("agent_id")
+            if exclude_agent_id and agent_id == exclude_agent_id:
+                continue
+            if data.get("name") == name:
+                return True
+        return False
+
+    def _write_json_atomic(self, file_path: Path, data: dict) -> None:
+        """Write JSON file atomically via temporary file + replace."""
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self.registry_dir,
+            prefix=f".{file_path.stem}.",
+            suffix=".tmp",
+        )
+        try:
+            with os.fdopen(temp_fd, "w") as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, file_path)
+        except Exception:
+            if os.path.exists(temp_path):
+                with contextlib.suppress(OSError):
+                    os.unlink(temp_path)
+            raise
 
     def get_agent_id(self, agent_type: str, port: int) -> str:
         """Generates a unique agent ID in format: synapse-{agent_type}-{port}."""
@@ -142,8 +212,10 @@ class AgentRegistry:
             data["zellij_pane_id"] = zellij_pane_id
 
         file_path = self.registry_dir / f"{agent_id}.json"
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=2)
+        with self._registry_write_lock():
+            if name and self._is_name_taken_locked(name, exclude_agent_id=agent_id):
+                raise NameConflictError(f"name '{name}' is already taken")
+            self._write_json_atomic(file_path, data)
 
         return file_path
 
@@ -160,8 +232,10 @@ class AgentRegistry:
             try:
                 with open(p) as f:
                     data = json.load(f)
-                    agents[data["agent_id"]] = data
-            except (json.JSONDecodeError, OSError):
+                    agent_id = data.get("agent_id")
+                    if isinstance(agent_id, str) and agent_id:
+                        agents[agent_id] = data
+            except (json.JSONDecodeError, OSError, AttributeError):
                 continue
         return agents
 

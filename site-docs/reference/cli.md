@@ -74,6 +74,50 @@ synapse rename <target> --name NAME [--role ROLE]
 synapse rename <target> --clear    # Clear name and role
 ```
 
+## Saved Agent Definitions
+
+### List Saved Agents
+
+```bash
+synapse agents list
+```
+
+Displays a Rich TUI table in interactive terminals, plain text otherwise.
+
+### Show Saved Agent
+
+```bash
+synapse agents show <id_or_name>
+```
+
+### Add Saved Agent
+
+```bash
+synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `<id>` | Petname-format identifier (e.g. `silent-snake`) |
+| `--name NAME` | Display name (required) |
+| `--profile PROFILE` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
+| `--role ROLE` | Role description or `@path` file reference |
+| `--skill-set SET` / `-S SET` | Skill set name |
+| `--scope SCOPE` | `project` (default) or `user` |
+
+### Delete Saved Agent
+
+```bash
+synapse agents delete <id_or_name>
+```
+
+!!! tip "Using Saved Agents with Spawn"
+    Once defined, saved agents can be spawned by ID or name:
+    ```bash
+    synapse spawn silent-snake
+    ```
+    See [Saved Agent Definitions](../guide/agent-teams.md#saved-agent-definitions) for details.
+
 ## Communication
 
 ### Send
@@ -139,8 +183,16 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 ### Spawn
 
 ```bash
-synapse spawn <profile> [OPTIONS] [-- TOOL_ARGS]
+synapse spawn <profile_or_saved_agent> [OPTIONS] [-- TOOL_ARGS]
 ```
+
+The `<profile_or_saved_agent>` argument accepts:
+
+- A built-in profile name (`claude`, `gemini`, `codex`, `opencode`, `copilot`)
+- A saved agent ID (petname format, e.g. `silent-snake`)
+- A saved agent display name (e.g. a custom name set via `synapse agents add`)
+
+When a saved agent is used, its profile, name, role, and skill set are resolved from the definition. CLI flags (`--name`, `--role`, etc.) override saved values.
 
 | Flag | Description |
 |------|-------------|

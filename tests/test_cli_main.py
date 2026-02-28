@@ -106,6 +106,47 @@ class TestCliMain:
         args = mock_cmd_list.call_args[0][0]
         assert args.command == "list"
 
+    @patch("synapse.cli.cmd_agents_list")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_agents_list(self, mock_install, mock_cmd_agents_list):
+        """synapse agents list should call cmd_agents_list."""
+        with patch.object(sys, "argv", ["synapse", "agents", "list"]):
+            main()
+
+        mock_cmd_agents_list.assert_called_once()
+        args = mock_cmd_agents_list.call_args[0][0]
+        assert args.command == "agents"
+        assert args.agents_command == "list"
+
+    @patch("synapse.cli.cmd_agents_add")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_agents_add(self, mock_install, mock_cmd_agents_add):
+        """synapse agents add should call cmd_agents_add."""
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "synapse",
+                "agents",
+                "add",
+                "silent-snake",
+                "--name",
+                "狗巻棘",
+                "--profile",
+                "claude",
+                "--scope",
+                "project",
+            ],
+        ):
+            main()
+
+        mock_cmd_agents_add.assert_called_once()
+        args = mock_cmd_agents_add.call_args[0][0]
+        assert args.command == "agents"
+        assert args.agents_command == "add"
+        assert args.id == "silent-snake"
+        assert args.name == "狗巻棘"
+
     @patch("synapse.cli.cmd_history_list")
     @patch("synapse.cli.install_skills")
     def test_main_command_history_list(self, mock_install, mock_cmd_history_list):

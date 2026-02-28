@@ -165,6 +165,18 @@ synapse rename my-claude --role "architecture review"
 synapse rename my-claude --clear
 ```
 
+### Save Agent Definition for Reuse
+
+Save frequently used name/role/skill-set combinations as reusable definitions:
+
+```bash
+synapse agents add silent-snake --name 狗巻棘 --profile codex --role @./roles/reviewer.md --scope project
+synapse agents list
+synapse spawn silent-snake     # Spawn using saved definition
+```
+
+See [Saved Agent Definitions](agent-teams.md#saved-agent-definitions) for full details.
+
 ### Target Resolution Priority
 
 When using `synapse send`, `synapse kill`, `synapse jump`, or other commands:

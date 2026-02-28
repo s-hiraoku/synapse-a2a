@@ -6,6 +6,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.7.x (Post v0.7.0)
 
+- **Added**: Saved agent definitions (`synapse agents add/list/show/delete`) for reusable agent configurations
+- **Added**: `synapse spawn` now accepts saved agent IDs and display names in addition to profile names
+- **Added**: Save-on-exit prompt offers to persist agent definitions when an interactive named agent exits
+- **Added**: Name uniqueness validation for `synapse spawn`, `team start`, and interactive startup
 - **Fixed**: Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows, preserving existing panes
 - **Fixed**: Ghostty commands injected via clipboard paste (`Cmd+V`) to avoid character mangling with long arguments
 - **Fixed**: `team start` pre-allocates unique ports to prevent race conditions when multiple agents of the same type start simultaneously

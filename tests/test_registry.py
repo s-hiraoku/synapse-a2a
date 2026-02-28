@@ -1,11 +1,12 @@
 import json
 import os
 import shutil
+import threading
 from pathlib import Path
 
 import pytest
 
-from synapse.registry import AgentRegistry, resolve_uds_path
+from synapse.registry import AgentRegistry, NameConflictError, resolve_uds_path
 
 
 @pytest.fixture
@@ -152,6 +153,49 @@ def test_register_overwrites_existing(registry):
     agents = registry.list_agents()
     assert len(agents) == 1
     assert agents[agent_id]["status"] == "IDLE"
+
+
+def test_register_rejects_duplicate_custom_name(registry):
+    """Register should reject duplicate custom names across different agent IDs."""
+    registry.register("agent_a", "claude", 8100, name="狗巻棘")
+    with pytest.raises(NameConflictError):
+        registry.register("agent_b", "gemini", 8110, name="狗巻棘")
+
+
+def test_register_allows_same_agent_id_same_name_overwrite(registry):
+    """Re-registering the same agent ID with same name should be allowed."""
+    registry.register("agent_same", "claude", 8100, name="狗巻棘")
+    registry.register("agent_same", "claude", 8100, name="狗巻棘", status="READY")
+    assert registry.get_agent("agent_same")["status"] == "READY"
+
+
+def test_register_duplicate_name_concurrent_only_one_succeeds(registry):
+    """Concurrent same-name registration should allow only one writer."""
+    errors: list[Exception] = []
+    barrier = threading.Barrier(2)
+
+    def register_one(agent_id: str, port: int) -> None:
+        try:
+            barrier.wait(timeout=2.0)
+            registry.register(agent_id, "codex", port, name="狗巻棘")
+        except Exception as e:  # noqa: BLE001 - collect for assertion
+            errors.append(e)
+
+    t1 = threading.Thread(target=register_one, args=("agent_c1", 8122))
+    t2 = threading.Thread(target=register_one, args=("agent_c2", 8123))
+    t1.start()
+    t2.start()
+    t1.join(timeout=2.0)
+    t2.join(timeout=2.0)
+
+    # Exactly one NameConflictError is expected.
+    conflicts = [e for e in errors if isinstance(e, NameConflictError)]
+    assert len(conflicts) == 1
+
+    named = [
+        info for info in registry.list_agents().values() if info.get("name") == "狗巻棘"
+    ]
+    assert len(named) == 1
 
 
 def test_get_agent_existing(registry):

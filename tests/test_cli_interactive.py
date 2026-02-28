@@ -83,6 +83,39 @@ class TestCmdRunInteractive:
         # Check Interactive Run
         mock_dependencies["controller"].run_interactive.assert_called_once()
 
+    def test_run_interactive_uses_interactive_role_for_controller(
+        self, mock_dependencies
+    ):
+        """Should pass interactive setup role/name to TerminalController."""
+        with (
+            patch("synapse.cli.time.sleep"),
+            patch("synapse.cli.sys.stdin.isatty", return_value=True),
+            patch("synapse.cli.interactive_agent_setup") as mock_setup,
+        ):
+            mock_setup.return_value = ("my-agent", "review role", "architect")
+            cmd_run_interactive("test_profile", 8100)
+
+        kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
+        assert kwargs["name"] == "my-agent"
+        assert kwargs["role"] == "review role"
+        assert kwargs["skill_set"] == "architect"
+
+    def test_run_interactive_rejects_duplicate_name(self, mock_dependencies):
+        """Should exit when selected name is already used by another agent."""
+        mock_dependencies["registry"].is_name_unique.return_value = False
+
+        with (
+            patch("synapse.cli.time.sleep"),
+            patch("synapse.cli.sys.stdin.isatty", return_value=True),
+            patch("synapse.cli.interactive_agent_setup") as mock_setup,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            mock_setup.return_value = ("狗巻棘", "review role", "architect")
+            cmd_run_interactive("test_profile", 8100)
+
+        assert exc_info.value.code == 1
+        mock_dependencies["ctrl_cls"].assert_not_called()
+
     def test_run_interactive_cleanup_on_exit(self, mock_dependencies):
         """Should clean up resources on normal exit."""
         with patch("synapse.cli.time.sleep"):
@@ -101,6 +134,22 @@ class TestCmdRunInteractive:
         # Should still clean up
         mock_dependencies["registry"].unregister.assert_called()
         mock_dependencies["controller"].stop.assert_called()
+
+    def test_run_interactive_cleanup_when_save_prompt_interrupts(
+        self, mock_dependencies
+    ):
+        """Should still cleanup when save prompt raises during shutdown."""
+        with (
+            patch("synapse.cli.time.sleep"),
+            patch(
+                "synapse.cli._maybe_prompt_save_agent_profile",
+                side_effect=EOFError,
+            ),
+        ):
+            cmd_run_interactive("test_profile", 8100)
+
+        mock_dependencies["registry"].unregister.assert_called_with("agent-123")
+        mock_dependencies["controller"].stop.assert_called_once()
 
     def test_run_interactive_missing_command_exits_with_message(
         self, mock_dependencies, capsys
