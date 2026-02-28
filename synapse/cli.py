@@ -2600,7 +2600,14 @@ def _inject_ports(agents: list[str]) -> list[str]:
         # If the user already provided a port (5th field), keep it
         existing_port = parts[4] if len(parts) > 4 and parts[4] else ""
         if existing_port and existing_port.isdigit():
-            allocated.add(int(existing_port))
+            p = int(existing_port)
+            if p in allocated:
+                print(
+                    f"Error: Duplicate port {p} in agent specs. "
+                    "Each agent must use a unique port."
+                )
+                sys.exit(1)
+            allocated.add(p)
             result.append(spec)
             continue
 
@@ -2654,6 +2661,10 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     layout = getattr(args, "layout", "split")
     all_new = getattr(args, "all_new", False)
 
+    # Pre-allocate unique ports to avoid race conditions when multiple
+    # agents of the same type start simultaneously.
+    agents = _inject_ports(agents)
+
     terminal = detect_terminal_app()
     if not terminal:
         print(
@@ -2670,10 +2681,6 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 start_new_session=True,
             )
         return
-
-    # Pre-allocate unique ports to avoid race conditions when multiple
-    # agents of the same type start simultaneously.
-    agents = _inject_ports(agents)
 
     cwd = os.getcwd()
 

@@ -384,7 +384,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 
 **エージェント指定の拡張形式**:
 
-`profile:name:role:skill_set:port` の形式で、各ペインの起動時に名前やロール、スキルセット、ポートを一括で指定できます（コロン区切り）。ポートは通常 `_inject_ports()` により自動割り当てされるため、手動指定は不要です。
+`profile:name:role:skill_set:port` の形式で、各ペインの起動時に名前やロール、スキルセット、ポートを一括で指定できます（コロン区切り）。ポートは通常自動割り当てされるため、手動指定は不要です。
 
 ```bash
 # 基本（claude=現在のターミナル、gemini,codex=新しいペイン）
