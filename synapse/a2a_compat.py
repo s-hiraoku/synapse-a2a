@@ -1058,6 +1058,91 @@ def create_a2a_router(
         return {"reopened": True, "task_id": task_id}
 
     # --------------------------------------------------------
+    # Shared Memory Endpoints
+    # --------------------------------------------------------
+
+    class MemorySaveRequest(BaseModel):
+        """Request model for saving a memory."""
+
+        key: str
+        content: str
+        author: str
+        tags: list[str] | None = None
+        notify: bool = False
+
+    @router.get("/memory/list")
+    async def list_memories(
+        author: str | None = None,
+        tags: str | None = None,
+        limit: int = 50,
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """List memories with optional filters."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        tag_list = tags.split(",") if tags else None
+        memories = mem.list_memories(author=author, tags=tag_list, limit=limit)
+        return {"memories": memories}
+
+    @router.post("/memory/save")
+    async def save_memory(
+        request: MemorySaveRequest, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Save or update a memory entry."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        result = mem.save(
+            key=request.key,
+            content=request.content,
+            author=request.author,
+            tags=request.tags,
+        )
+        if not result:
+            raise HTTPException(status_code=503, detail="Shared memory is disabled")
+        return result
+
+    @router.get("/memory/search")
+    async def search_memories(q: str, _: Any = Depends(require_auth)) -> dict[str, Any]:
+        """Search memories by key, content, or tags."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        results = mem.search(q)
+        return {"memories": results}
+
+    @router.get("/memory/{id_or_key}")
+    async def get_memory(
+        id_or_key: str, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Get a memory by ID or key."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        result = mem.get(id_or_key)
+        if not result:
+            raise HTTPException(
+                status_code=404, detail=f"Memory not found: {id_or_key}"
+            )
+        return result
+
+    @router.delete("/memory/{id_or_key}")
+    async def delete_memory(
+        id_or_key: str, _: Any = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """Delete a memory by ID or key."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        deleted = mem.delete(id_or_key)
+        if not deleted:
+            raise HTTPException(
+                status_code=404, detail=f"Memory not found: {id_or_key}"
+            )
+        return {"deleted": True, "id_or_key": id_or_key}
+
+    # --------------------------------------------------------
     # Plan Approval Endpoints (B3: Plan Approval Workflow)
     # NOTE: Must be before /tasks/{task_id} to avoid route conflicts
     # --------------------------------------------------------

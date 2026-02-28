@@ -41,6 +41,8 @@ class TestDefaultSettings:
             "SYNAPSE_WEBHOOK_SECRET",
             "SYNAPSE_WEBHOOK_TIMEOUT",
             "SYNAPSE_WEBHOOK_MAX_RETRIES",
+            "SYNAPSE_SHARED_MEMORY_ENABLED",
+            "SYNAPSE_SHARED_MEMORY_DB_PATH",
         ]
         for key in required_keys:
             assert key in DEFAULT_SETTINGS["env"]
@@ -135,9 +137,9 @@ class TestSynapseSettings:
 
     def setup_method(self):
         """Clear environment variables that affect instruction generation."""
-        # Remove file safety env var to avoid it affecting tests
-        if "SYNAPSE_FILE_SAFETY_ENABLED" in os.environ:
-            del os.environ["SYNAPSE_FILE_SAFETY_ENABLED"]
+        # Remove env vars that trigger optional instruction injection
+        for key in ("SYNAPSE_FILE_SAFETY_ENABLED", "SYNAPSE_SHARED_MEMORY_ENABLED"):
+            os.environ.pop(key, None)
 
     def test_from_defaults(self):
         """Create settings from defaults."""
@@ -400,8 +402,8 @@ class TestInstructionPlaceholders:
 
     def setup_method(self):
         """Clear environment variables that affect instruction generation."""
-        if "SYNAPSE_FILE_SAFETY_ENABLED" in os.environ:
-            del os.environ["SYNAPSE_FILE_SAFETY_ENABLED"]
+        for key in ("SYNAPSE_FILE_SAFETY_ENABLED", "SYNAPSE_SHARED_MEMORY_ENABLED"):
+            os.environ.pop(key, None)
 
     def test_agent_id_placeholder(self):
         """{{agent_id}} is replaced with actual agent ID."""
