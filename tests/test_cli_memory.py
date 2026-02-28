@@ -226,7 +226,7 @@ class TestCLIMemoryStats:
             cmd_memory_stats(args)
 
         out = capsys.readouterr().out
-        assert "2" in out  # total count
+        assert "Total memories: 2" in out
 
 
 # --------------------------------------------------------

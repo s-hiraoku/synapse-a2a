@@ -126,13 +126,11 @@ synapse gemini --name worker-1
 synapse codex --name worker-2
 
 # Coordinator delegates
-synapse send worker-1 "Implement OAuth2 authentication" \
-  --from $SYNAPSE_AGENT_ID --no-response
-synapse send worker-2 "Write tests for auth module" \
-  --from $SYNAPSE_AGENT_ID --no-response
+synapse send worker-1 "Implement OAuth2 authentication" --no-response
+synapse send worker-2 "Write tests for auth module" --no-response
 
 # Check progress
-synapse send worker-1 "Progress?" --from $SYNAPSE_AGENT_ID --response
+synapse send worker-1 "Progress?" --response
 ```
 
 ## Supported Terminals
@@ -210,8 +208,7 @@ git worktree remove .claude/worktrees/worker-2
 ```bash
 synapse spawn gemini --name Tester --role "test writer"
 # Wait for READY...
-synapse send Tester "Write unit tests for auth.py" \
-  --response --from $SYNAPSE_AGENT_ID
+synapse send Tester "Write unit tests for auth.py" --response
 # Evaluate result
 synapse kill Tester -f
 ```
@@ -223,14 +220,12 @@ synapse spawn gemini --name Tester --role "test writer"
 synapse spawn codex --name Fixer --role "bug fixer"
 
 # Parallel tasks
-synapse send Tester "Write tests for auth.py" \
-  --no-response --from $SYNAPSE_AGENT_ID
-synapse send Fixer "Fix timeout bug in server.py" \
-  --no-response --from $SYNAPSE_AGENT_ID
+synapse send Tester "Write tests for auth.py" --no-response
+synapse send Fixer "Fix timeout bug in server.py" --no-response
 
 # Collect results
-synapse send Tester "Progress?" --response --from $SYNAPSE_AGENT_ID
-synapse send Fixer "Progress?" --response --from $SYNAPSE_AGENT_ID
+synapse send Tester "Progress?" --response
+synapse send Fixer "Progress?" --response
 
 # Cleanup
 synapse kill Tester -f

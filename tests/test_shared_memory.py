@@ -234,6 +234,36 @@ class TestSharedMemoryList:
         assert len(items) == 2
         assert all("arch" in i["tags"] for i in items)
 
+    def test_list_filter_tags_exact_match(self, memory):
+        """list() tag filter should use exact matching via json_each (#293).
+
+        Tags containing SQL wildcard characters (% or _) must not cause
+        false positives due to LIKE pattern interpretation.
+        """
+        memory.save(
+            "key-d",
+            "Content D",
+            "synapse-claude-8100",
+            tags=["100%"],
+        )
+        memory.save(
+            "key-e",
+            "Content E",
+            "synapse-claude-8100",
+            tags=["100"],
+        )
+        # Searching for tag "100%" must match only key-d, not key-e
+        items = memory.list_memories(tags=["100%"])
+        assert len(items) == 1
+        assert items[0]["key"] == "key-d"
+
+        # SQL underscore wildcard: "v_1" must not match "vX1"
+        memory.save("key-f", "Content F", "synapse-claude-8100", tags=["v_1"])
+        memory.save("key-g", "Content G", "synapse-claude-8100", tags=["vX1"])
+        items = memory.list_memories(tags=["v_1"])
+        assert len(items) == 1
+        assert items[0]["key"] == "key-f"
+
     def test_list_limit(self, memory):
         """list() with limit should cap results."""
         items = memory.list_memories(limit=2)
@@ -285,6 +315,36 @@ class TestSharedMemorySearch:
         """search() should return empty list for no matches."""
         results = memory.search("nonexistent-xyz")
         assert results == []
+
+    def test_search_limit(self, memory):
+        """search() should respect limit parameter (#292)."""
+        # All 3 memories match partial key/content containing common patterns
+        # Add more items so we can test limiting
+        memory.save("api-v2", "REST API v2 design", "claude", tags=["api"])
+        memory.save("api-v3", "REST API v3 design", "claude", tags=["api"])
+        results_all = memory.search("api")
+        assert len(results_all) >= 3  # api-design, api-v2, api-v3
+        results_limited = memory.search("api", limit=2)
+        assert len(results_limited) == 2
+
+    def test_search_default_limit(self, memory):
+        """search() should have a default limit of 100 (#292)."""
+        import inspect
+
+        from synapse.shared_memory import SharedMemory
+
+        sig = inspect.signature(SharedMemory.search)
+        assert sig.parameters["limit"].default == 100
+
+    def test_search_rejects_zero_limit(self, memory):
+        """search() should reject zero limit with ValueError."""
+        with pytest.raises(ValueError, match="limit must be greater than 0"):
+            memory.search("api", limit=0)
+
+    def test_search_rejects_negative_limit(self, memory):
+        """search() should reject negative limit with ValueError."""
+        with pytest.raises(ValueError, match="limit must be greater than 0"):
+            memory.search("api", limit=-1)
 
 
 # ============================================================

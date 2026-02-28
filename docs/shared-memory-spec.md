@@ -51,6 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_memory_author ON memories(author);
 
 - `save()` は `INSERT ... ON CONFLICT(key) DO UPDATE` で UPSERT
 - `tags` は JSON 配列文字列 (`json.dumps()`/`json.loads()`)
+- `list_memories()` のタグフィルタリングは `json_each()` による完全一致（LIKE 部分一致ではない）
+- `search()` は `limit` パラメータ（デフォルト 100）で結果件数を制限
 
 ## コア API: `SharedMemory` クラス
 
@@ -70,7 +72,7 @@ class SharedMemory:
     def save(key, content, author, tags=None) -> dict    # UPSERT on key
     def get(id_or_key) -> dict | None                     # ID or key lookup
     def list_memories(author=None, tags=None, limit=50) -> list
-    def search(query) -> list                             # LIKE on key+content+tags
+    def search(query, limit=100) -> list                    # LIKE on key+content+tags
     def delete(id_or_key) -> bool
     def stats() -> dict                                   # 件数、著者別、タグ別
 ```
@@ -93,7 +95,7 @@ synapse memory stats
 ```
 GET  /memory/list?author=...&tags=...&limit=50
 POST /memory/save         {key, content, tags?, notify?}
-GET  /memory/search?q=...
+GET  /memory/search?q=...&limit=100
 GET  /memory/{id_or_key}
 DELETE /memory/{id_or_key}
 ```

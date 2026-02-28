@@ -14,10 +14,10 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def app_client(tmp_path):
+def app_client(tmp_path, monkeypatch):
     """Create a FastAPI test client with shared memory enabled."""
-    os.environ["SYNAPSE_SHARED_MEMORY_DB_PATH"] = str(tmp_path / "memory.db")
-    os.environ["SYNAPSE_SHARED_MEMORY_ENABLED"] = "true"
+    monkeypatch.setenv("SYNAPSE_SHARED_MEMORY_DB_PATH", str(tmp_path / "memory.db"))
+    monkeypatch.setenv("SYNAPSE_SHARED_MEMORY_ENABLED", "true")
 
     from fastapi import FastAPI
 
@@ -32,9 +32,6 @@ def app_client(tmp_path):
     )
     app.include_router(router)
     yield TestClient(app)
-
-    os.environ.pop("SYNAPSE_SHARED_MEMORY_DB_PATH", None)
-    os.environ.pop("SYNAPSE_SHARED_MEMORY_ENABLED", None)
 
 
 class TestMemoryListEndpoint:

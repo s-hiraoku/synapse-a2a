@@ -144,6 +144,15 @@ synapse claude --name reviewer --role "security code review"
 synapse rename claude --name reviewer --role "security code review"
 ```
 
+### Role from File
+
+Use the `@` prefix to load role content from a file:
+
+```bash
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+synapse rename my-claude --role "@./roles/architect.md"
+```
+
 ### Update Role Only
 
 ```bash

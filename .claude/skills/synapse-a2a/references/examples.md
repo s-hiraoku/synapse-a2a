@@ -24,37 +24,34 @@ synapse list
 
 ```bash
 # Delegate a task (no reply needed)
-synapse send codex "Please refactor the authentication module" --no-response --from $SYNAPSE_AGENT_ID
+synapse send codex "Please refactor the authentication module" --no-response
 ```
 
 ### Request with Reply
 
 ```bash
 # Ask a question and wait for response
-synapse send gemini "What is the best approach for caching?" --response --from $SYNAPSE_AGENT_ID
+synapse send gemini "What is the best approach for caching?" --response
 ```
 
 ### With Priority
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --response --from $SYNAPSE_AGENT_ID
-
+synapse send gemini "Status update?" --priority 4 --response
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
+synapse send codex "STOP" --priority 5
 ```
 
 ### Broadcast to All Agents
 
 ```bash
 # Ask all agents in the same directory for a status check
-synapse broadcast "Status check - what are you working on?" --response --from $SYNAPSE_AGENT_ID
-
+synapse broadcast "Status check - what are you working on?" --response
 # Notify all agents of a completed build
-synapse broadcast "FYI: Build passed, main branch updated" --no-response --from $SYNAPSE_AGENT_ID
-
+synapse broadcast "FYI: Build passed, main branch updated" --no-response
 # Urgent broadcast to stop all work
-synapse broadcast "STOP: Critical bug found in shared module" --priority 4 --from $SYNAPSE_AGENT_ID
+synapse broadcast "STOP: Critical bug found in shared module" --priority 4
 ```
 
 ## File Coordination Example
@@ -69,8 +66,7 @@ synapse list
 synapse file-safety locks
 
 # 3. Send task
-synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response --from $SYNAPSE_AGENT_ID
-
+synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response
 # 4. Monitor progress
 synapse file-safety locks
 synapse history list --agent codex --limit 5
@@ -87,7 +83,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --response --from $SYNAPSE_AGENT_ID
+   synapse send gemini "What's your progress on src/auth.py?" --response
 ```
 
 ## Collaborative Development
@@ -99,8 +95,7 @@ Options:
 # Make changes to src/feature.py
 
 # Send for review (wait for feedback)
-synapse send codex "Please review the changes in src/feature.py" --response --from $SYNAPSE_AGENT_ID
-
+synapse send codex "Please review the changes in src/feature.py" --response
 # Terminal 2 (Codex): Reply after reviewing
 synapse reply "LGTM. Two suggestions: ..."
 ```
@@ -109,8 +104,8 @@ synapse reply "LGTM. Two suggestions: ..."
 
 ```bash
 # Ask multiple agents simultaneously (no reply needed - they'll work independently)
-synapse send gemini "Research best practices for authentication" --no-response --from $SYNAPSE_AGENT_ID
-synapse send codex "Check how other projects implement this pattern" --no-response --from $SYNAPSE_AGENT_ID
+synapse send gemini "Research best practices for authentication" --no-response
+synapse send codex "Check how other projects implement this pattern" --no-response
 ```
 
 ## Monitoring Tasks
@@ -233,8 +228,8 @@ synapse gemini --name worker-1
 synapse codex --name worker-2
 
 # Coordinator delegates tasks
-synapse send worker-1 "Implement auth in src/auth.py" --from $SYNAPSE_AGENT_ID
-synapse send worker-2 "Write tests in tests/test_auth.py" --from $SYNAPSE_AGENT_ID
+synapse send worker-1 "Implement auth in src/auth.py"
+synapse send worker-2 "Write tests in tests/test_auth.py"
 ```
 
 ### Coordinator + Worker with Worktree Isolation
@@ -253,13 +248,11 @@ synapse spawn claude --name worker-2 --role "test writer" -- --worktree
 synapse list   # Verify worker-1 and worker-2 show STATUS=READY
 
 # Delegate parallel tasks — no file conflicts thanks to worktrees
-synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-response --from $SYNAPSE_AGENT_ID
-synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response --from $SYNAPSE_AGENT_ID
-
+synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-response
+synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response
 # Collect results
-synapse send worker-1 "Report your progress" --response --from $SYNAPSE_AGENT_ID
-synapse send worker-2 "Report your progress" --response --from $SYNAPSE_AGENT_ID
-
+synapse send worker-1 "Report your progress" --response
+synapse send worker-2 "Report your progress" --response
 # Cleanup — MUST kill Workers when done
 synapse kill worker-1 -f
 synapse kill worker-2 -f
@@ -333,8 +326,7 @@ synapse spawn gemini --name Tester --role "test writer"
 synapse list   # Verify Tester shows STATUS=READY
 
 # Delegate and wait for result
-synapse send Tester "Write unit tests for src/auth.py" --response --from $SYNAPSE_AGENT_ID
-
+synapse send Tester "Write unit tests for src/auth.py" --response
 # Evaluate: read reply, then verify artifacts
 # (e.g., check git diff or run pytest to confirm tests exist and pass)
 
@@ -355,11 +347,9 @@ synapse spawn codex --name Reviewer --role "code reviewer"
 synapse list   # Verify Reviewer shows STATUS=READY
 
 # First attempt
-synapse send Reviewer "Review src/server.py for security issues" --response --from $SYNAPSE_AGENT_ID
-
+synapse send Reviewer "Review src/server.py for security issues" --response
 # Evaluate: reply is too vague → re-send with specifics
-synapse send Reviewer "Also check for SQL injection in the query builder on lines 45-80" --response --from $SYNAPSE_AGENT_ID
-
+synapse send Reviewer "Also check for SQL injection in the query builder on lines 45-80" --response
 # Evaluate: now the review is thorough — MUST kill
 synapse kill Reviewer -f
 ```
@@ -377,13 +367,11 @@ synapse spawn codex --name Fixer --role "bug fixer"
 synapse list   # Verify both Tester and Fixer show STATUS=READY
 
 # Delegate parallel subtasks
-synapse send Tester "Write tests for src/auth.py" --no-response --from $SYNAPSE_AGENT_ID
-synapse send Fixer "Fix the timeout bug in src/server.py" --no-response --from $SYNAPSE_AGENT_ID
-
+synapse send Tester "Write tests for src/auth.py" --no-response
+synapse send Fixer "Fix the timeout bug in src/server.py" --no-response
 # Monitor progress, then collect results
-synapse send Tester "Report your progress" --response --from $SYNAPSE_AGENT_ID
-synapse send Fixer "Report your progress" --response --from $SYNAPSE_AGENT_ID
-
+synapse send Tester "Report your progress" --response
+synapse send Fixer "Report your progress" --response
 # Evaluate: verify artifacts (e.g., git diff, pytest)
 
 # All done — MUST kill all
@@ -400,7 +388,7 @@ synapse kill Fixer -f
 
 #### Communication Notes
 
-- Use `synapse send ... --from $SYNAPSE_AGENT_ID` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)). `$SYNAPSE_AGENT_ID` is automatically set by Synapse on agent start (e.g., `synapse-claude-8100`).
+- Use `synapse send ...` (not `synapse reply`) for all communication with spawned agents ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)). `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set by Synapse at startup, e.g., `synapse-claude-8100`).
 - **Pane auto-close:** All supported terminals automatically close spawned panes when the agent terminates.
 - **Stdout capture:** `synapse spawn` prints `<agent_id> <port>` to stdout; warnings go to stderr, so command substitution captures only the clean output:
   ```bash
@@ -473,12 +461,12 @@ git push
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --response --from $SYNAPSE_AGENT_ID
+   synapse send <agent> "Status?" --priority 4 --response
    ```
 
 3. Emergency stop:
    ```bash
-   synapse send <agent> "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
+   synapse send <agent> "STOP" --priority 5
    ```
 
 ### Agent Not Found

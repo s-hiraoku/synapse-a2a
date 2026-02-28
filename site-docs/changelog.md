@@ -15,6 +15,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.7.0
 
 - **Added**: Shared Memory for cross-agent knowledge sharing (`synapse memory` commands)
+- **Added**: GitHub Pages documentation site with MkDocs Material
+- **Added**: github-pages-sync skill for site-docs maintenance
+- **Docs**: Sync list and configuration docs with current implementation
 
 ### v0.6.12
 

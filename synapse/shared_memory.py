@@ -208,9 +208,10 @@ class SharedMemory:
                     params.append(author)
 
                 if tags:
-                    tag_conditions = ["tags LIKE ?" for tag in tags]
-                    params.extend(f'%"{tag}"%' for tag in tags)
-                    query += " AND (" + " OR ".join(tag_conditions) + ")"
+                    condition = "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)"
+                    tag_conditions = " OR ".join([condition] * len(tags))
+                    query += f" AND ({tag_conditions})"
+                    params.extend(tags)
 
                 query += " ORDER BY updated_at DESC LIMIT ?"
                 params.append(limit)
@@ -220,17 +221,21 @@ class SharedMemory:
             finally:
                 conn.close()
 
-    def search(self, query: str) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 100) -> list[dict[str, Any]]:
         """Search memories by key, content, or tags.
 
         Args:
             query: Search query string (LIKE matching).
+            limit: Maximum number of results.
 
         Returns:
             List of matching memory dicts.
         """
         if not self.enabled:
             return []
+        if limit <= 0:
+            msg = "limit must be greater than 0"
+            raise ValueError(msg)
 
         with self._lock:
             conn = self._get_connection()
@@ -240,9 +245,9 @@ class SharedMemory:
                     """
                     SELECT * FROM memories
                     WHERE key LIKE ? OR content LIKE ? OR tags LIKE ?
-                    ORDER BY updated_at DESC
+                    ORDER BY updated_at DESC LIMIT ?
                     """,
-                    (like_query, like_query, like_query),
+                    (like_query, like_query, like_query, limit),
                 ).fetchall()
                 return [self._row_to_dict(row) for row in rows]
             finally:

@@ -63,6 +63,24 @@ Edit `plugins/synapse-a2a/.claude-plugin/plugin.json`:
 
 **Important:** Keep plugin version in sync with pyproject.toml version.
 
+### Step 3.6: Update site-docs version references
+
+Update hardcoded version strings in GitHub Pages documentation:
+
+1. `site-docs/getting-started/installation.md` — version example in verification section:
+   ```
+   You should see the version number (e.g., `NEW_VERSION`).
+   ```
+
+2. `site-docs/concepts/a2a-protocol.md` — Agent Card JSON example:
+   ```json
+   "version": "NEW_VERSION",
+   ```
+
+3. `site-docs/changelog.md` — add new version entry at the top of "Recent Highlights" (only if CHANGELOG.md was updated in Step 4-5).
+
+**Important:** Keep site-docs version in sync with pyproject.toml version.
+
 ### Step 4: Generate Changelog with git-cliff
 
 Use git-cliff to automatically generate the changelog entry from Conventional Commits:
@@ -123,7 +141,9 @@ Display:
 
 - Version: `pyproject.toml` (line with `version = "..."`)
 - Plugin Version: `plugins/synapse-a2a/.claude-plugin/plugin.json` (line with `"version": "..."`)
+- Site Docs Version: `site-docs/getting-started/installation.md`, `site-docs/concepts/a2a-protocol.md`
 - Changelog: `CHANGELOG.md`
+- Site Docs Changelog: `site-docs/changelog.md`
 
 ## Changelog Format
 

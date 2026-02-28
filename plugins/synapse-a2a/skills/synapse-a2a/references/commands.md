@@ -141,7 +141,7 @@ When an agent is started via `synapse spawn` or `synapse team start`, `--no-setu
 
 **Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 
-**Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` instead ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
+**Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message"` instead (`--from` is auto-detected) ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
 
 ### Stop Agents
 
@@ -282,7 +282,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | Agent type | `claude` | Only when single instance exists |
 
 **Parameters:**
-- `--from, -f`: Sender agent ID (for reply identification) - **always include this**. Use `$SYNAPSE_AGENT_ID` (auto-set by Synapse on agent start). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
+- `--from, -f`: Sender agent ID (for reply identification) - **auto-detected** from `SYNAPSE_AGENT_ID` env var. Usually omittable; specify explicitly in sandboxed environments (e.g., Codex). When using, always provide the agent ID format (`synapse-<type>-<port>`). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
 - `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks
@@ -315,19 +315,19 @@ Analyze the message content and determine if a reply is expected:
 **Examples:**
 ```bash
 # Question - needs reply
-synapse send gemini "What is the best approach?" --response --from $SYNAPSE_AGENT_ID
+synapse send gemini "What is the best approach?" --response
 
 # Delegation - no reply needed
-synapse send codex "Fix this bug and commit" --from $SYNAPSE_AGENT_ID
+synapse send codex "Fix this bug and commit" --no-response
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response --from $SYNAPSE_AGENT_ID
+synapse send claude-8100 "What is your status?" --response
 
 # Emergency interrupt
-synapse send codex "STOP" --priority 5 --from $SYNAPSE_AGENT_ID
+synapse send codex "STOP" --priority 5
 
 # Send to agent in a different working directory (bypasses working_dir check)
-synapse send my-claude "Cross-project info" --force --from $SYNAPSE_AGENT_ID
+synapse send my-claude "Cross-project info" --force
 ```
 
 **Sending long messages or files:**
@@ -346,7 +346,7 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-resp
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
-**Important:** Always use `--from $SYNAPSE_AGENT_ID` (auto-set at startup, expands to `synapse-<type>-<port>`). Never hardcode agent IDs.
+**Important:** `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at startup, expands to `synapse-<type>-<port>`). You can usually omit it. If you specify it explicitly, never hardcode agent IDs -- always use `$SYNAPSE_AGENT_ID`.
 
 ### Interrupt Command
 
@@ -361,7 +361,7 @@ Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sen
 **Parameters:**
 - `target`: Target agent (name, ID, type-port, or agent type)
 - `message`: Interrupt message to send
-- `--from, -f`: Sender agent ID (for reply identification)
+- `--from, -f`: Sender agent ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
 - `--force`: Bypass the working directory mismatch check
 
 **Examples:**
@@ -369,7 +369,7 @@ Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sen
 # Interrupt an agent with an urgent message
 synapse interrupt claude "Stop and review"
 
-# With explicit sender
+# With explicit sender (usually not needed)
 synapse interrupt gemini "Check status" --from $SYNAPSE_AGENT_ID
 
 # Interrupt agent in a different working directory
@@ -406,7 +406,7 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 
 **Parameters:**
 - `message`: Message to broadcast to all cwd agents
-- `--from, -f`: Sender agent ID (for reply identification)
+- `--from, -f`: Sender agent ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
 - `--priority, -p`: Priority level 1-5 (default: 1)
 - `--response`: Wait for responses from all agents
 - `--no-response`: Fire-and-forget broadcast
@@ -416,16 +416,16 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response |
 **Examples:**
 ```bash
 # Broadcast status check
-synapse broadcast "Status check" --from $SYNAPSE_AGENT_ID
+synapse broadcast "Status check"
 
 # Urgent broadcast with priority
-synapse broadcast "Stop current work" --priority 4 --from $SYNAPSE_AGENT_ID
+synapse broadcast "Stop current work" --priority 4
 
 # Fire-and-forget notification
-synapse broadcast "FYI: Build completed" --no-response --from $SYNAPSE_AGENT_ID
+synapse broadcast "FYI: Build completed" --no-response
 
 # Wait for responses from all agents
-synapse broadcast "What are you working on?" --response --from $SYNAPSE_AGENT_ID
+synapse broadcast "What are you working on?" --response
 ```
 
 ### A2A Tool (Advanced)
@@ -874,6 +874,7 @@ synapse memory show <uuid>
 
 ```bash
 # Search across key, content, and tags (LIKE matching)
+# Results are bounded (default limit: 100, ordered by most recently updated)
 synapse memory search "OAuth2"
 synapse memory search "database"
 ```
@@ -966,7 +967,7 @@ T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3 | awk '{print $
 
 # Step 2: Coordinator assigns available tasks and notifies worker
 synapse tasks assign $T1 claude
-synapse send claude "Write tests for auth module" --no-response --from $SYNAPSE_AGENT_ID
+synapse send claude "Write tests for auth module" --no-response
 
 # Step 3: Worker reports completion
 synapse tasks complete $T1

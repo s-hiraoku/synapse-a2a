@@ -277,7 +277,7 @@ synapse spawn <profile> [--port PORT] [--name NAME] [--role ROLE] [--skill-set S
 | `profile` | Yes | エージェントプロファイル名 |
 | `--port` | No | サーバーポート |
 | `--name` | No | カスタム名 |
-| `--role` | No | ロール説明 |
+| `--role` | No | ロール説明（`@path` でファイルから読み込み可） |
 | `--skill-set` | No | スキルセット名 |
 | `--terminal` | No | 使用するターミナル (`tmux`, `iterm2`, `terminal_app`, `ghostty`, `vscode`, `zellij`) |
 | `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される（例: `-- --worktree` で git worktree 分離を適用、Claude のみ） |
@@ -312,7 +312,7 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `message` | No | メッセージ内容（positional / `--message-file` / `--stdin` のいずれか） |
 | `--message-file`, `-F` | No | ファイルからメッセージ読み込み（`-` で stdin） |
 | `--stdin` | No | 標準入力からメッセージ読み込み |
-| `--from`, `-f` | No | 送信元エージェントID（常に指定推奨） |
+| `--from`, `-f` | No | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 3） |
 | `--attach`, `-a` | No | ファイル添付（複数指定可） |
 | `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
@@ -326,15 +326,16 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 **例**:
 
 ```bash
-synapse send claude "Hello!" --from synapse-codex-8121
-synapse send codex "設計して" -p 1 --from synapse-claude-8100
-synapse send claude-8100 "Hello" --from synapse-claude-8101  # 同タイプが複数の場合
-synapse send gemini "止まれ" -p 5 --from synapse-claude-8100
-synapse send codex "結果を教えて" --response --from synapse-claude-8100
-synapse send codex --message-file ./message.txt --from synapse-claude-8100
-echo "from stdin" | synapse send codex --stdin --from synapse-claude-8100
-synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --from synapse-claude-8100
-synapse send codex "設計して" --force --from synapse-claude-8100  # 作業ディレクトリ不一致でも送信
+synapse send claude "Hello!"                                  # --from 自動検出
+synapse send codex "設計して" -p 1                             # --from 自動検出
+synapse send claude-8100 "Hello"                               # 同タイプが複数の場合
+synapse send gemini "止まれ" -p 5
+synapse send codex "結果を教えて" --response
+synapse send codex --message-file ./message.txt --no-response
+echo "from stdin" | synapse send codex --stdin --no-response
+synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --no-response
+synapse send codex "設計して" --force                           # 作業ディレクトリ不一致でも送信
+synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
 ```
 
 ---
@@ -350,7 +351,7 @@ synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `message` | Yes | 一括送信するメッセージ |
-| `--from`, `-f` | No | 送信元エージェントID（指定時は送信元自身を除外） |
+| `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出。指定時は送信元自身を除外） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
 | `--response` | No | Roundtrip - 各送信先で応答待ち |
 | `--no-response` | No | Oneway - 各送信先へ送りっぱなし |
@@ -363,8 +364,8 @@ synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-
 **例**:
 
 ```bash
-synapse broadcast "進捗を報告してください" --from synapse-claude-8100
-synapse broadcast "緊急確認" -p 4 --response --from synapse-codex-8120
+synapse broadcast "進捗を報告してください"                       # --from 自動検出（自身を除外）
+synapse broadcast "緊急確認" -p 4 --response
 synapse broadcast "FYI: CI通過" --no-response
 ```
 
@@ -382,7 +383,7 @@ synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 |------|------|------|
 | `target` | Yes | 送信先エージェント（名前、ID、タイプ等） |
 | `message` | Yes | 割り込みメッセージ |
-| `--from`, `-f` | No | 送信元エージェントID |
+| `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出） |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
@@ -391,7 +392,7 @@ synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 
 ```bash
 synapse interrupt claude "Stop and review"
-synapse interrupt gemini "Check status" --from "$SYNAPSE_AGENT_ID"
+synapse interrupt gemini "Check status"                           # --from 自動検出
 synapse interrupt claude "Stop" --force   # 作業ディレクトリ不一致でも送信
 ```
 
@@ -408,7 +409,7 @@ synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets]
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `message` | No | 返信メッセージ内容（`--list-targets` 使用時は省略可） |
-| `--from`, `-f` | No | 送信元エージェントID（サンドボックス環境で必須） |
+| `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出。サンドボックス環境で必要な場合あり） |
 | `--to` | No | 返信先の sender_id を指定（複数の送信者がいる場合に使用） |
 | `--list-targets` | No | 返信可能なターゲット一覧を表示して終了 |
 
@@ -998,7 +999,7 @@ synapse rename <TARGET> [--name NAME] [--role ROLE] [--clear]
 |------|------|------|
 | `TARGET` | Yes | エージェント名、ID、type-port、またはタイプ |
 | `--name`, `-n` | No | カスタム名 |
-| `--role`, `-r` | No | ロール（役割の説明） |
+| `--role`, `-r` | No | ロール（役割の説明。`@path` でファイルから読み込み可） |
 | `--clear`, `-c` | No | 名前とロールをクリア |
 
 **例**:
@@ -1293,7 +1294,7 @@ synapse memory search <query>
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `query` | Yes | 検索クエリ（LIKE マッチング） |
+| `query` | Yes | 検索クエリ（LIKE マッチング、結果は最大100件） |
 
 #### 1.21.5 synapse memory delete
 
@@ -1372,7 +1373,7 @@ flowchart LR
 |---------|------|------|
 | GET | `/memory/list` | メモリ一覧取得（`?author=`, `?tags=`, `?limit=` で絞り込み） |
 | POST | `/memory/save` | メモリ保存（UPSERT on key） |
-| GET | `/memory/search` | メモリ検索（`?q=` で key/content/tags を横断検索） |
+| GET | `/memory/search` | メモリ検索（`?q=` で key/content/tags を横断検索、`?limit=` で件数制限、デフォルト100） |
 | GET | `/memory/{id_or_key}` | メモリ詳細取得（ID またはキーで指定） |
 | DELETE | `/memory/{id_or_key}` | メモリ削除 |
 
@@ -1750,7 +1751,7 @@ curl -X POST http://localhost:8100/external/discover \
 
 > **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください:
 > ```bash
-> synapse send codex "バックグラウンドで処理して" --from synapse-claude-8100 --no-response
+> synapse send codex "バックグラウンドで処理して" --no-response
 > ```
 
 ### 3.4 フィードバック表示

@@ -19,7 +19,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | Flag | Description |
 |------|-------------|
 | `--name NAME` | Custom agent name |
-| `--role ROLE` | Agent role description |
+| `--role ROLE` | Agent role description (use `@path` to read from file, e.g., `@./roles/reviewer.md`) |
 | `--skill-set SET` | Activate skill set |
 | `--no-setup` | Skip interactive setup |
 | `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
@@ -84,7 +84,7 @@ synapse send <target> "<message>" [OPTIONS]
 
 | Flag | Description |
 |------|-------------|
-| `--from ID` / `-f ID` | Sender identification (`$SYNAPSE_AGENT_ID`) |
+| `--from ID` / `-f ID` | Sender identification (optional — auto-detected from `$SYNAPSE_AGENT_ID`) |
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
 | `--response` | Wait for reply (roundtrip) |
 | `--no-response` | Fire-and-forget |
@@ -146,7 +146,7 @@ synapse spawn <profile> [OPTIONS] [-- TOOL_ARGS]
 |------|-------------|
 | `--port PORT` | Explicit port |
 | `--name NAME` | Agent name |
-| `--role ROLE` | Agent role |
+| `--role ROLE` | Agent role (supports `@path` file reference) |
 | `--terminal TERM` | Terminal app override |
 
 ## Task Board

@@ -30,6 +30,18 @@ Or provide values directly via CLI flags:
 synapse claude --name my-claude --role "code reviewer"
 ```
 
+### Role from File
+
+Use the `@` prefix to load role content from a file:
+
+```bash
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+synapse gemini --role "@~/my-roles/analyst.md"
+```
+
+!!! tip
+    File-based roles are useful for detailed role definitions that are too long for command-line arguments. The file content is copied to the registry, so the original file can be modified later without affecting running agents.
+
 ## Agent Names and Roles
 
 ### Setting Names
@@ -49,8 +61,7 @@ synapse rename claude --name reviewer --role "security code review"
 Once named, use the name instead of the agent type:
 
 ```bash
-synapse send reviewer "Check this file for SQL injection" \
-  --from $SYNAPSE_AGENT_ID --response
+synapse send reviewer "Check this file for SQL injection" --response
 ```
 
 ### Clearing Names

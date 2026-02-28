@@ -157,6 +157,57 @@ class TestBuildSenderInfo:
         assert result["sender_endpoint"] == "http://localhost:8100"
 
     @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a._find_sender_by_pid")
+    def test_auto_detect_from_synapse_agent_id_env(
+        self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
+    ):
+        """Should use SYNAPSE_AGENT_ID env var before PID matching."""
+        monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-gemini-8110")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-gemini-8110": {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "endpoint": "http://localhost:8110",
+                "uds_path": "/tmp/synapse-gemini-8110.sock",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+        mock_find_sender_by_pid.return_value = {"sender_id": "should-not-be-used"}
+
+        result = build_sender_info()
+
+        assert result["sender_id"] == "synapse-gemini-8110"
+        assert result["sender_type"] == "gemini"
+        assert result["sender_endpoint"] == "http://localhost:8110"
+        assert result["sender_uds_path"] == "/tmp/synapse-gemini-8110.sock"
+        mock_find_sender_by_pid.assert_not_called()
+
+    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a._find_sender_by_pid")
+    def test_auto_detect_env_falls_back_to_pid_when_not_found(
+        self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
+    ):
+        """Should fall back to PID matching when SYNAPSE_AGENT_ID is not in registry."""
+        monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-missing-9999")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 1234,
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+        mock_find_sender_by_pid.return_value = {"sender_id": "synapse-claude-8100"}
+
+        result = build_sender_info()
+
+        assert result == {"sender_id": "synapse-claude-8100"}
+        mock_find_sender_by_pid.assert_called_once()
+
+    @patch("synapse.tools.a2a.AgentRegistry")
     @patch("synapse.tools.a2a.is_descendant_of")
     def test_no_match_returns_empty(self, mock_is_descendant, mock_registry_cls):
         """Should return empty dict when no matching agent."""

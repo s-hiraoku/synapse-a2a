@@ -86,7 +86,7 @@ flowchart LR
 | **A2A Compliant** | All communication uses Message/Part + Task format, Agent Card discovery |
 | **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
 | **synapse send** | Send messages between agents via `synapse send <agent> "message"` |
-| **Sender Identification** | Auto-identify sender via `metadata.sender` + PID matching |
+| **Sender Identification** | Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (process ancestry, fallback) |
 | **Readiness Gate** | `/tasks/send` returns 503 until agent initialization completes; priority 5 and replies bypass |
 | **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
 | **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
@@ -226,18 +226,18 @@ Ports are auto-assigned:
 
 ### 4. Inter-Agent Communication
 
-Use `synapse send` to send messages between agents:
+Use `synapse send` to send messages between agents. The `--from` flag is optional -- Synapse auto-detects the sender from `SYNAPSE_AGENT_ID` (set at startup):
 
 ```bash
-synapse send codex "Please review this design" --from synapse-claude-8100
-synapse send gemini "Suggest API improvements" --from synapse-claude-8100
+synapse send codex "Please review this design"
+synapse send gemini "Suggest API improvements"
 ```
 
 For multiple instances of the same type, use type-port format:
 
 ```bash
-synapse send codex-8120 "Handle this task" --from synapse-claude-8100
-synapse send codex-8121 "Handle that task" --from synapse-claude-8100
+synapse send codex-8120 "Handle this task"
+synapse send codex-8121 "Handle that task"
 ```
 
 ### 5. HTTP API
@@ -263,7 +263,7 @@ While coding with **Claude**, quickly query **Gemini** (better at web search) fo
 
 ```bash
 # In Claude's terminal:
-synapse send gemini "Summarize the new f-string features in Python 3.12" --from synapse-claude-8100
+synapse send gemini "Summarize the new f-string features in Python 3.12"
 ```
 
 ### 2. Cross-Review Designs (Intermediate)
@@ -271,7 +271,7 @@ Get feedback on your design from agents with different perspectives.
 
 ```bash
 # After Claude drafts a design:
-synapse send gemini "Critically review this design from scalability and maintainability perspectives" --from synapse-claude-8100
+synapse send gemini "Critically review this design from scalability and maintainability perspectives"
 ```
 
 ### 3. TDD Pair Programming (Intermediate)
@@ -282,7 +282,7 @@ Separate "test writer" and "implementer" for robust code.
 Create unit tests for auth.py - normal case and token expiration case.
 
 # Terminal 2 (Claude):
-synapse send codex-8120 "Implement auth.py to pass the tests you created" --from synapse-claude-8100
+synapse send codex-8120 "Implement auth.py to pass the tests you created"
 ```
 
 ### 4. Security Audit (Specialized)
@@ -293,7 +293,7 @@ Have an agent with a security expert role audit your code before committing.
 You are a security engineer. Review only for vulnerabilities (SQLi, XSS, etc.)
 
 # After writing code:
-synapse send gemini "Audit the current changes (git diff)" --from synapse-claude-8100
+synapse send gemini "Audit the current changes (git diff)"
 ```
 
 ### 5. Auto-Fix from Error Logs (Advanced)
@@ -304,7 +304,7 @@ Pass error logs to an agent for automatic fix suggestions.
 pytest > error.log
 
 # Ask agent to fix
-synapse send claude "Read error.log and fix the issue in synapse/server.py" --from synapse-gemini-8110
+synapse send claude "Read error.log and fix the issue in synapse/server.py"
 ```
 
 ### 6. Language/Framework Migration (Advanced)
@@ -315,7 +315,7 @@ Distribute large refactoring work across agents.
 Read legacy_api.js and create TypeScript type definitions
 
 # Terminal 2 (Codex):
-synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts" --from synapse-codex-8121
+synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts"
 ```
 
 ### Comparison with SSH Remote
@@ -340,7 +340,7 @@ synapse send claude "Use the type definitions you created to rewrite legacy_api.
 
 With skills installed, Claude automatically understands and executes:
 
-- **synapse send**: Inter-agent communication via `synapse send codex "Fix this" --from synapse-claude-8100`
+- **synapse send**: Inter-agent communication via `synapse send codex "Fix this"` (sender auto-detected)
 - **Priority control**: Message sending with Priority 1-5 (5 = emergency stop)
 - **File Safety**: Prevent multi-agent conflicts with file locking and change tracking
 - **History management**: Search, export, and statistics for task history
@@ -553,7 +553,7 @@ synapse rename my-claude --clear                 # Clear name and role
 Once named, use the custom name for all operations:
 
 ```bash
-synapse send my-claude "Review this code" --from synapse-codex-8121
+synapse send my-claude "Review this code"
 synapse jump my-claude
 synapse kill my-claude
 ```
@@ -809,7 +809,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--from` | `-f` | Sender agent ID (for reply identification) |
+| `--from` | `-f` | Sender agent ID (optional; auto-detected from `SYNAPSE_AGENT_ID`) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
 | `--response` | - | Roundtrip - sender waits, receiver replies with `synapse reply` |
 | `--no-response` | - | Oneway - fire and forget, no reply needed |
@@ -820,8 +820,8 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 **Examples:**
 
 ```bash
-# Send message (single instance)
-synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+# Send message (single instance; --from auto-detected)
+synapse send claude "Hello" --priority 1
 
 # Long message support (automatic temp-file fallback)
 synapse send claude --message-file /path/to/message.txt --no-response
@@ -831,21 +831,24 @@ echo "very long content..." | synapse send claude --stdin --no-response
 synapse send claude "Review this" --attach src/main.py --no-response
 
 # Send to specific instance (multiple of same type)
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "Hello"
 
 # Emergency stop
-synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
+synapse send claude "Stop!" --priority 5
 
 # Wait for response (roundtrip)
-synapse send gemini "Analyze this" --response --from synapse-claude-8100
+synapse send gemini "Analyze this" --response
 
 # Bypass working directory mismatch check
-synapse send claude "Review this" --force --from synapse-codex-8121
+synapse send claude "Review this" --force
+
+# Explicit --from (only needed in sandboxed environments like Codex)
+synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 ```
 
 **Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.
 
-**Important:** Always use `--from` with your agent ID (format: `synapse-<type>-<port>`).
+**Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
 
 ### synapse reply Command
 
@@ -855,7 +858,7 @@ Reply to the last received message:
 synapse reply "<message>"
 ```
 
-The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender via process ancestry.
+The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender.
 
 ### Low-Level A2A Tool
 
@@ -1056,7 +1059,7 @@ Response:
 
 ### How It Works
 
-1. **On send**: Reference Registry, identify own agent_id via PID matching
+1. **On send**: Reference Registry, identify own agent_id via PID matching (process ancestry)
 2. **On Task creation**: Attach sender info to `metadata.sender`
 3. **On receive**: Check via PTY prefix or Task API
 
