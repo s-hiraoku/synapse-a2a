@@ -1780,7 +1780,7 @@ curl -X POST http://localhost:8100/external/discover \
 | `@agent message` | メッセージ送信（デフォルトで応答待ち） |
 | `@agent-port message` | 特定ポートのエージェントに送信 |
 
-> **Note**: レスポンスを待たずに送信したい場合は、`synapse send` コマンドの `--no-response` オプションを使用してください。
+> **Note**: レスポンスを待たずに送信したい場合は、`synapse send --no-response` を使用してください。`--no-response` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（通知不達時は `sent` のまま）。
 
 ### 3.3 例
 
@@ -1798,7 +1798,7 @@ curl -X POST http://localhost:8100/external/discover \
 @claude '複雑な メッセージ'
 ```
 
-> **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください:
+> **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください（完了時の history 更新は best-effort）:
 > ```bash
 > synapse send codex "バックグラウンドで処理して" --no-response
 > ```

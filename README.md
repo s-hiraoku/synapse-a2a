@@ -856,7 +856,7 @@ synapse send claude "Review this" --force
 synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 ```
 
-**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.
+**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified. In `--no-response` mode, sender-side history is updated on receiver completion via best-effort callback (`sent` -> `completed`/`failed`/`canceled`).
 
 **Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
 
