@@ -507,20 +507,26 @@ def _send_skill_set_message(
     import subprocess
     import sys
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "synapse.cli",
-            "send",
-            target,
-            message,
-            "--no-response",
-            "--force",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "synapse.cli",
+                "send",
+                target,
+                message,
+                "--no-response",
+                "--force",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    except Exception:
+        return False
     return result.returncode == 0
 
 
@@ -619,11 +625,16 @@ def cmd_skills_apply(
         description=skill_set.description,
         skills=skill_set.skills,
     )
-    sent = _send_skill_set_message(target=target, message=message)
+    sent = _send_skill_set_message(target=agent_id, message=message)
     if sent:
         print(f"  Skill set info sent to {agent_name}")
     else:
         print(f"  Warning: Failed to send skill set info to {agent_name}")
+
+    if not updated or not sent:
+        print()
+        print(f"Skill set '{set_name}' partially applied to {agent_name}")
+        return False
 
     print()
     print(f"Applied skill set '{set_name}' to {agent_name}")

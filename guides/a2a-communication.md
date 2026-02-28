@@ -50,7 +50,7 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--callback "<COMMAND>"]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response] [--force]
 ```
 
 ### パラメータ
@@ -62,7 +62,6 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
 | `--no-response` | Onewayモード - 送りっぱなし、返信不要 |
-| `--callback` | タスク完了時（completed/failed）に送信側で実行するシェルコマンド（--no-response 時のみ有効） |
 | `--force` | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **作業ディレクトリチェック**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。

@@ -132,7 +132,6 @@ synapse send <target> "<message>" [OPTIONS]
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
 | `--response` | Wait for reply (roundtrip) |
 | `--no-response` | Fire-and-forget |
-| `--callback CMD` | Shell command to run on sender after task completion (requires `--no-response`) |
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |

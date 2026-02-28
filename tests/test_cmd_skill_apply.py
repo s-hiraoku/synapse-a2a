@@ -156,8 +156,64 @@ class TestSkillsApplyHappyPath:
 
         mock_send.assert_called_once()
         call_args = mock_send.call_args
-        assert call_args[1]["target"] == "chouun"
+        assert call_args[1]["target"] == "synapse-claude-8100"
         assert "developer" in call_args[1]["message"]
+
+
+class TestSkillsApplyPartialFailure:
+    """Partial failure: registry or send fails → returns False."""
+
+    def test_returns_false_when_registry_update_fails(self, setup_env, capsys) -> None:
+        """cmd_skills_apply should return False when registry update fails."""
+        home, project, synapse, registry, sets_file = setup_env
+
+        from synapse.commands.skill_manager import cmd_skills_apply
+
+        with (
+            patch(
+                "synapse.commands.skill_manager._send_skill_set_message"
+            ) as mock_send,
+            patch(
+                "synapse.registry.AgentRegistry.update_skill_set",
+                return_value=False,
+            ),
+        ):
+            mock_send.return_value = True
+            result = cmd_skills_apply(
+                target="chouun",
+                set_name="developer",
+                project_dir=project,
+                user_dir=home,
+                skill_sets_path=sets_file,
+                synapse_dir=synapse,
+            )
+
+        assert result is False
+        captured = capsys.readouterr()
+        assert "partially applied" in captured.out.lower()
+
+    def test_returns_false_when_send_fails(self, setup_env, capsys) -> None:
+        """cmd_skills_apply should return False when A2A send fails."""
+        home, project, synapse, registry, sets_file = setup_env
+
+        from synapse.commands.skill_manager import cmd_skills_apply
+
+        with patch(
+            "synapse.commands.skill_manager._send_skill_set_message"
+        ) as mock_send:
+            mock_send.return_value = False
+            result = cmd_skills_apply(
+                target="chouun",
+                set_name="developer",
+                project_dir=project,
+                user_dir=home,
+                skill_sets_path=sets_file,
+                synapse_dir=synapse,
+            )
+
+        assert result is False
+        captured = capsys.readouterr()
+        assert "partially applied" in captured.out.lower()
 
 
 class TestSkillsApplyErrors:

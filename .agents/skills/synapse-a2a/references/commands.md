@@ -1191,7 +1191,6 @@ synapse skills apply <target> <set_name> [--dry-run]
 synapse skills apply my-claude manager
 synapse skills apply gemini-8110 developer --dry-run
 ```
-```
 
 **Default Skill Sets (6):**
 

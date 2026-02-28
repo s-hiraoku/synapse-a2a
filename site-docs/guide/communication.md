@@ -17,20 +17,9 @@ Synapse A2A provides three ways to send messages between agents:
 ```bash
 synapse send <target> "<message>" \
   --response          # Wait for reply
-  --callback "ruff check"  # Run command after task completion
 ```
 
 `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at agent startup). You can omit it in most cases.
-
-### Completion Callbacks
-
-For fire-and-forget tasks (`--no-response`), you can specify a shell command to run after the recipient agent completes the task:
-
-```bash
-synapse send codex "Fix lint errors" --no-response --callback "pytest"
-```
-
-The callback runs on the **sender's** machine once the task status changes to `completed` or `failed` on the target agent.
 
 ### Fire-and-Forget
 
@@ -268,17 +257,6 @@ Type directly in the agent's terminal:
 The InputRouter detects the `@agent` pattern and routes it via A2A.
 
 ## Advanced Patterns
-
-### Automation with Callbacks
-
-Run a command automatically after a fire-and-forget task completes:
-
-```bash
-# Delegate implementation and auto-run tests on completion
-synapse send codex "Implement feature X" --no-response --callback "pytest tests/test_x.py"
-```
-
-The callback executes on the **sender's machine** as soon as the target agent transitions to `completed` or `failed`.
 
 ### Priority Interruption
 
