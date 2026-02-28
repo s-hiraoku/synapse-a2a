@@ -32,10 +32,10 @@ synapse team start claude gemini --all-new
 
 ### Extended Spec Format
 
-Specify name, role, and skill set per agent:
+Specify name, role, skill set, and port per agent:
 
 ```
-profile[:name[:role[:skill_set]]]
+profile[:name[:role[:skill_set[:port]]]]
 ```
 
 ```bash
@@ -44,6 +44,9 @@ synapse team start \
   gemini:Searcher \
   codex:Implementer:implementation
 ```
+
+!!! tip "Automatic Port Pre-Allocation"
+    When launching multiple agents of the same type, `team start` pre-allocates a unique port for each agent before spawning. This prevents race conditions where simultaneous agents could bind to the same port.
 
 ### Tool Arguments
 
@@ -139,12 +142,15 @@ synapse send worker-1 "Progress?" --from $SYNAPSE_AGENT_ID --response
 | **tmux** | :material-check: | :material-check: | :material-check: |
 | **iTerm2** | :material-check: | :material-check: | :material-check: |
 | **Terminal.app** | :material-check: | :material-check: | :material-check: |
-| **Ghostty** | :material-check: | :material-check: | :material-check: |
+| **Ghostty** | :material-check: | :material-check: | — |
 | **VS Code** | :material-check: | :material-check: | :material-check: |
 | **Zellij** | :material-check: | :material-check: | :material-check: |
 
 !!! note
     Terminal detection is automatic. Use `--terminal <name>` to override.
+
+!!! info "Ghostty Pane Creation"
+    Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
 
 ## Team Start via API
 

@@ -4,6 +4,18 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.7.x (Post v0.7.0)
+
+- **Fixed**: Ghostty `team start` now uses split panes (`Cmd+D`) instead of spawning new windows, preserving existing panes
+- **Fixed**: Ghostty commands injected via clipboard paste (`Cmd+V`) to avoid character mangling with long arguments
+- **Fixed**: `team start` pre-allocates unique ports to prevent race conditions when multiple agents of the same type start simultaneously
+- **Changed**: Agent spec format simplified to `profile[:name[:role[:skill_set[:port]]]]` (removed 6th `headless` field)
+- **Changed**: `_build_agent_command` always adds `--no-setup --headless` for all spawned agents
+
+### v0.7.0
+
+- **Added**: Shared Memory for cross-agent knowledge sharing (`synapse memory` commands)
+
 ### v0.6.12
 
 - **Fixed**: Store identity instructions in files via LongMessageStore (prevents Ink TUI paste collapse)

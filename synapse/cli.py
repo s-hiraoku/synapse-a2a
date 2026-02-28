@@ -24,7 +24,13 @@ from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
-from synapse.port_manager import PORT_RANGES, PortManager, is_process_alive
+from synapse.port_manager import (
+    PORT_RANGES,
+    PortManager,
+    get_port_range,
+    is_port_available,
+    is_process_alive,
+)
 from synapse.registry import AgentRegistry, is_port_open
 from synapse.utils import resolve_command_path
 
@@ -2583,8 +2589,6 @@ def _inject_ports(agents: list[str]) -> list[str]:
 
     Spec format: ``profile[:name[:role[:skill_set[:port]]]]``
     """
-    from synapse.port_manager import get_port_range, is_port_available
-
     registry = AgentRegistry()
     allocated: set[int] = set()
     result: list[str] = []
@@ -2612,7 +2616,7 @@ def _inject_ports(agents: list[str]) -> list[str]:
             if agent_id in agents_map:
                 info = agents_map[agent_id]
                 pid = info.get("pid")
-                if pid and _is_pid_alive(pid):
+                if pid and is_process_alive(pid):
                     continue
             if is_port_available(port):
                 chosen_port = port
@@ -2632,15 +2636,6 @@ def _inject_ports(agents: list[str]) -> list[str]:
         result.append(":".join(parts))
 
     return result
-
-
-def _is_pid_alive(pid: int) -> bool:
-    """Check if a process is still running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
 
 
 def cmd_team_start(args: argparse.Namespace) -> None:

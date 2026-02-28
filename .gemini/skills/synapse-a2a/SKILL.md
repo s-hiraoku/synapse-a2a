@@ -434,8 +434,8 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
 - **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set` spec (tmux/iTerm2/Terminal.app/zellij)
-- **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Automatically uses `--headless` mode.
+- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
+- **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. `--no-setup --headless` are always added.
 - **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
 - **CI Monitoring**: Automated PostToolUse hooks (`poll-ci.sh`, `poll-pr-status.sh`) detect `git push` and `gh pr create`, then poll GitHub Actions CI status, merge conflict state, and CodeRabbit reviews. Reports results via `systemMessage` and suggests `/fix-ci`, `/fix-conflict`, or `/fix-review` as appropriate.
 
@@ -620,7 +620,7 @@ synapse team start claude -- --worktree
 
 ### Technical Notes
 
-- **Headless mode:** `synapse spawn` automatically adds `--headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
+- **Headless mode:** `synapse spawn` (and `synapse team start`) always add `--no-setup --headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
 - **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 - **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message" --from $SYNAPSE_AGENT_ID` for bidirectional communication.
