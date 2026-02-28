@@ -76,6 +76,11 @@ pytest tests/test_soft_interrupt.py -v         # synapse interrupt CLI command
 pytest tests/test_token_parser.py -v           # Token parser registry + TokenUsage
 pytest tests/test_token_stats.py -v            # Token statistics aggregation
 
+# Shared Memory tests
+pytest tests/test_shared_memory.py -v          # SharedMemory core class (28 tests)
+pytest tests/test_cli_memory.py -v             # CLI memory commands (11 tests)
+pytest tests/test_memory_api.py -v             # Memory API endpoints (12 tests)
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -107,6 +112,14 @@ synapse history list                      # Show recent task history
 synapse history list --agent claude       # Filter by agent
 synapse history show <task_id>            # Show task details
 # To disable: SYNAPSE_HISTORY_ENABLED=false synapse claude
+
+# Shared Memory (cross-agent knowledge sharing)
+synapse memory save <key> <content> [--tags tag1,tag2] [--notify]
+synapse memory list [--author <id>] [--tags <tags>] [--limit <n>]
+synapse memory show <id_or_key>
+synapse memory search <query>
+synapse memory delete <id_or_key> [--force]
+synapse memory stats
 
 # Instructions management (for --resume mode or recovery)
 synapse instructions show                 # Show default instruction
@@ -305,6 +318,7 @@ synapse/
 ├── registry.py      # File-based agent discovery (~/.a2a/registry/)
 ├── agent_context.py # Initial instructions generation for agents
 ├── history.py       # Session history persistence using SQLite
+├── shared_memory.py # Cross-agent shared memory persistence and retrieval
 ├── task_board.py    # Shared Task Board: SQLite-based task coordination (B1)
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
@@ -541,6 +555,10 @@ idle_detection:
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store (SYNAPSE scope)
 ~/.synapse/logs/     # Log files
+
+.synapse/memory.db   # Shared memory database (project-local, SQLite WAL)
+.synapse/file_safety.db  # File safety database (project-local)
+.synapse/task_board.db   # Shared task board database (project-local)
 ```
 
 ## Testing Registry & Status Updates

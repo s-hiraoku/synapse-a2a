@@ -66,6 +66,7 @@ $ synapse init
 | `gemini.md` | Gemini 用の初期インストラクション |
 | `file-safety.md` | File Safety の指示 |
 | `learning.md` | Learning Mode の指示（構造化されたプロンプト改善・学習フィードバック） |
+| `shared-memory.md` | Shared Memory の指示（エージェント間の知識共有コマンド） |
 
 既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます：
 
@@ -207,7 +208,9 @@ Codex もプラグインには対応していませんが、展開された skil
     "SYNAPSE_USE_HTTPS": "false",
     "SYNAPSE_WEBHOOK_SECRET": "",
     "SYNAPSE_WEBHOOK_TIMEOUT": "10",
-    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3"
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
+    "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db"
   },
   "instructions": {
     "default": "[SYNAPSE INSTRUCTIONS...]",
@@ -265,6 +268,8 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | `synapse send` の自動 temp file 化の閾値（バイト） | `102400` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Prompt Improvement セクションを有効化（Goal/Problem/Fix、推奨リライト、詳細レベル別オプション）。TRANSLATION と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | JP→EN Learning セクションを有効化（再利用可能な英語パターンとスロットマッピング）。LEARNING_MODE_ENABLED と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
+| `SYNAPSE_SHARED_MEMORY_ENABLED` | エージェント間の共有メモリ機能を有効化 | `true` |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | 共有メモリ SQLite データベースのパス | `.synapse/memory.db` |
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス | `~/.a2a/registry` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | 外部エージェント Registry ディレクトリのパス | `~/.a2a/external` |
 | `SYNAPSE_HISTORY_DB_PATH` | 履歴データベースのパス | `~/.synapse/history/history.db` |

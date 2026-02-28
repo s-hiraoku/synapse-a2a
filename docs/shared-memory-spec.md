@@ -69,7 +69,7 @@ class SharedMemory:
     # CRUD
     def save(key, content, author, tags=None) -> dict    # UPSERT on key
     def get(id_or_key) -> dict | None                     # ID or key lookup
-    def list(author=None, tags=None, limit=50) -> list
+    def list_memories(author=None, tags=None, limit=50) -> list
     def search(query) -> list                             # LIKE on key+content+tags
     def delete(id_or_key) -> bool
     def stats() -> dict                                   # 件数、著者別、タグ別

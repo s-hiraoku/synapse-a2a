@@ -800,6 +800,8 @@ synapse-a2a/
 │   ├── a2a_compat.py       # Google A2A 互換レイヤー (~570行)
 │   ├── a2a_client.py       # 外部エージェントクライアント (~330行)
 │   ├── file_safety.py      # ファイル競合防止 (~450行)
+│   ├── shared_memory.py    # エージェント間共有メモリ (SQLite WAL)
+│   ├── paths.py            # パス管理（環境変数オーバーライド対応）
 │   ├── profiles/           # エージェントプロファイル
 │   │   ├── claude.yaml
 │   │   ├── codex.yaml
@@ -825,7 +827,12 @@ synapse-a2a/
 ├── logs/
 │   ├── <profile>.log
 │   └── input_router.log
-└── file_safety.db          # ファイル競合防止用DB（SYNAPSE_FILE_SAFETY_DB_PATH で変更可）
+└── skills/                 # 中央スキルストア
+
+.synapse/                   # プロジェクトローカル
+├── file_safety.db          # ファイル競合防止用DB（SYNAPSE_FILE_SAFETY_DB_PATH で変更可）
+├── task_board.db           # 共有タスクボードDB
+└── memory.db               # 共有メモリDB（SYNAPSE_SHARED_MEMORY_DB_PATH で変更可）
 ```
 
 ---
