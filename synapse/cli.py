@@ -11,8 +11,9 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 import yaml
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from synapse.history import HistoryManager
 
 from synapse.a2a_client import A2AClient, get_client
+from synapse.agent_profiles import AgentProfileError, AgentProfileStore
 from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
@@ -31,7 +33,7 @@ from synapse.port_manager import (
     is_port_available,
     is_process_alive,
 )
-from synapse.registry import AgentRegistry, is_port_open
+from synapse.registry import AgentRegistry, NameConflictError, is_port_open
 from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
@@ -436,6 +438,180 @@ def cmd_logs(args: argparse.Namespace) -> None:
     else:
         # Show last N lines
         subprocess.run(["tail", "-n", str(args.lines), log_file])
+
+
+def cmd_agents_list(args: argparse.Namespace) -> None:
+    """List saved agent definitions."""
+    _ = args
+    store = AgentProfileStore()
+    items = store.list_all()
+
+    if not items:
+        print("No saved agents. Use 'synapse agents add ...' to create one.")
+        return
+
+    # TUI table for interactive terminals, fallback to plain text otherwise.
+    if sys.stdout.isatty():
+        try:
+            from rich import box
+            from rich.console import Console
+            from rich.table import Table
+
+            table = Table(
+                title="Saved Agents",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+            )
+            table.add_column("ID", style="green")
+            table.add_column("NAME")
+            table.add_column("PROFILE")
+            table.add_column("ROLE")
+            table.add_column("SKILL_SET")
+            table.add_column("SCOPE", style="yellow")
+            for item in items:
+                table.add_row(
+                    item.profile_id,
+                    item.name,
+                    item.profile,
+                    item.role or "-",
+                    item.skill_set or "-",
+                    item.scope,
+                )
+            Console().print(table)
+            return
+        except Exception:
+            pass
+
+    print(f"{'ID':<20} {'NAME':<20} {'PROFILE':<10} {'SCOPE':<8}")
+    print("-" * 62)
+    for item in items:
+        print(
+            f"{item.profile_id:<20} {item.name:<20} {item.profile:<10} {item.scope:<8}"
+        )
+
+
+def cmd_agents_show(args: argparse.Namespace) -> None:
+    """Show one saved agent definition."""
+    store = AgentProfileStore()
+    try:
+        item = store.resolve(args.id_or_name)
+    except AgentProfileError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    if item is None:
+        print(f"Saved agent not found: {args.id_or_name}")
+        sys.exit(1)
+
+    print(f"ID:        {item.profile_id}")
+    print(f"Name:      {item.name}")
+    print(f"Profile:   {item.profile}")
+    print(f"Role:      {item.role or '-'}")
+    print(f"Skill Set: {item.skill_set or '-'}")
+    print(f"Scope:     {item.scope}")
+    if item.path:
+        print(f"Path:      {item.path}")
+
+
+def cmd_agents_add(args: argparse.Namespace) -> None:
+    """Add or update a saved agent definition."""
+    if args.profile not in KNOWN_PROFILES:
+        print(
+            f"Unknown profile '{args.profile}'. "
+            f"Choose from: {', '.join(sorted(KNOWN_PROFILES))}"
+        )
+        sys.exit(1)
+
+    store = AgentProfileStore()
+    try:
+        item = store.add(
+            profile_id=args.id,
+            name=args.name,
+            profile=args.profile,
+            role=args.role,
+            skill_set=args.skill_set,
+            scope=args.scope,
+        )
+    except AgentProfileError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    print(
+        f"Saved agent '{item.profile_id}' ({item.name}) "
+        f"for profile '{item.profile}' in {item.scope} scope."
+    )
+
+
+def cmd_agents_delete(args: argparse.Namespace) -> None:
+    """Delete a saved agent definition."""
+    store = AgentProfileStore()
+    try:
+        deleted = store.delete(args.id_or_name)
+    except AgentProfileError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    if not deleted:
+        print(f"Saved agent not found: {args.id_or_name}")
+        sys.exit(1)
+    print(f"Deleted saved agent: {args.id_or_name}")
+
+
+def _maybe_prompt_save_agent_profile(
+    *,
+    profile: str,
+    name: str | None,
+    role: str | None,
+    skill_set: str | None,
+    headless: bool,
+    is_tty: bool,
+    input_func: Callable[[str], str] = input,
+    print_func: Callable[[str], None] = print,
+    store: AgentProfileStore | None = None,
+) -> None:
+    """Prompt to save current interactive agent definition on exit."""
+    if os.environ.get("SYNAPSE_AGENT_SAVE_PROMPT_ENABLED", "true").lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return
+
+    if headless or not is_tty or not name:
+        return
+
+    save = input_func("Save this agent definition for reuse? [y/N]: ").strip().lower()
+    if save not in {"y", "yes"}:
+        return
+
+    profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
+    if not profile_id:
+        print_func("Skipped: no saved agent ID provided.")
+        return
+
+    raw_scope = input_func("Scope [project/user] (default: project): ").strip().lower()
+    if not raw_scope:
+        scope: Literal["project", "user"] = "project"
+    elif raw_scope in {"project", "user"}:
+        scope = cast(Literal["project", "user"], raw_scope)
+    else:
+        print_func("Invalid scope. Use 'project' or 'user'.")
+        return
+
+    resolved_store = store or AgentProfileStore()
+    try:
+        resolved_store.add(
+            profile_id=profile_id,
+            name=name,
+            profile=profile,
+            role=role,
+            skill_set=skill_set,
+            scope=scope,
+        )
+    except AgentProfileError as e:
+        print_func(f"Failed to save agent definition: {e}")
+        return
+    print_func(f"Saved agent definition: {profile_id} ({name})")
 
 
 # ============================================================
@@ -2600,6 +2776,54 @@ def _run_pane_commands(commands: list[str]) -> None:
         subprocess.run(shlex.split(cmd))
 
 
+def _extract_team_agent_name(spec: str) -> str | None:
+    """Extract custom name from team agent spec if present.
+
+    Spec format: profile[:name[:role[:skill_set[:port]]]]
+    """
+    parts = spec.split(":")
+    if len(parts) > 1 and parts[1]:
+        return parts[1]
+    return None
+
+
+def _resolve_team_agent_spec(spec: str, store: AgentProfileStore) -> str:
+    """Resolve team spec target as profile or saved agent ID/name.
+
+    Input spec format: target[:name[:role[:skill_set[:port]]]]
+    Output spec format: profile[:name[:role[:skill_set[:port]]]]
+    """
+    parts = spec.split(":")
+    target = parts[0]
+
+    if target in KNOWN_PROFILES:
+        return spec
+
+    try:
+        saved = store.resolve(target)
+    except AgentProfileError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    if saved is None:
+        print(
+            f"Error: Unknown profile or saved agent: {target}\n"
+            "Run 'synapse agents list' to see saved agent IDs/names.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    while len(parts) < 5:
+        parts.append("")
+    parts[0] = saved.profile
+    if not parts[1]:
+        parts[1] = saved.name
+    if not parts[2] and saved.role:
+        parts[2] = saved.role
+    if not parts[3] and saved.skill_set:
+        parts[3] = saved.skill_set
+    return ":".join(parts)
+
+
 def _inject_ports(agents: list[str]) -> list[str]:
     """Pre-allocate a unique port for each agent and inject into its spec.
 
@@ -2683,6 +2907,31 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     layout = getattr(args, "layout", "split")
     all_new = getattr(args, "all_new", False)
 
+    # Resolve each team spec target as profile or saved agent ID/name.
+    store = AgentProfileStore()
+    agents = [_resolve_team_agent_spec(spec, store) for spec in agents]
+
+    # Validate custom names in team specs before launching any process.
+    registry = AgentRegistry()
+    seen_names: set[str] = set()
+    for spec in agents:
+        custom_name = _extract_team_agent_name(spec)
+        if not custom_name:
+            continue
+        if custom_name in seen_names:
+            print(
+                f"Error: Duplicate custom name '{custom_name}' in team specs.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        seen_names.add(custom_name)
+        if not registry.is_name_unique(custom_name):
+            print(
+                f"Error: Name '{custom_name}' is already taken by another agent.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     # Pre-allocate unique ports to avoid race conditions when multiple
     # agents of the same type start simultaneously.
     agents = _inject_ports(agents)
@@ -2761,13 +3010,47 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     from synapse.spawn import spawn_agent, wait_for_agent
 
     tool_args = getattr(args, "tool_args", [])
+    target = args.profile
+    resolved_profile = target
+    resolved_name = args.name
+    resolved_role = args.role
+    resolved_skill_set = args.skill_set
+
+    if target not in KNOWN_PROFILES:
+        store = AgentProfileStore()
+        try:
+            saved = store.resolve(target)
+        except AgentProfileError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        if saved is None:
+            print(
+                f"Error: Unknown profile or saved agent: {target}\n"
+                "Run 'synapse agents list' to see saved agent IDs/names.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        resolved_profile = saved.profile
+        resolved_name = resolved_name or saved.name
+        resolved_role = resolved_role or saved.role
+        resolved_skill_set = resolved_skill_set or saved.skill_set
+
+    if resolved_name:
+        registry = AgentRegistry()
+        if not registry.is_name_unique(resolved_name):
+            print(
+                f"Error: Name '{resolved_name}' is already taken by another agent.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     try:
         result = spawn_agent(
-            profile=args.profile,
+            profile=resolved_profile,
             port=args.port,
-            name=args.name,
-            role=args.role,
-            skill_set=args.skill_set,
+            name=resolved_name,
+            role=resolved_role,
+            skill_set=resolved_skill_set,
             terminal=args.terminal,
             tool_args=tool_args or None,
         )
@@ -3095,6 +3378,12 @@ def cmd_run_interactive(
             current_skill_set=skill_set,
         )
 
+    if agent_name and not registry.is_name_unique(
+        agent_name, exclude_agent_id=agent_id
+    ):
+        print(f"Name '{agent_name}' is already taken by another agent.")
+        sys.exit(1)
+
     # Ensure core skills (synapse-a2a) are always available (best-effort).
     # This should never prevent an agent from starting (or tests from running).
     core_msgs: list[str] = []
@@ -3221,15 +3510,19 @@ def cmd_run_interactive(
         time.sleep(1)
 
         # Register agent after listeners are up (UDS first, then TCP)
-        registry.register(
-            agent_id,
-            profile,
-            port,
-            status="PROCESSING",
-            name=agent_name,
-            role=agent_role,
-            skill_set=selected_skill_set,
-        )
+        try:
+            registry.register(
+                agent_id,
+                profile,
+                port,
+                status="PROCESSING",
+                name=agent_name,
+                role=agent_role,
+                skill_set=selected_skill_set,
+            )
+        except NameConflictError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
 
         # Initial instructions are sent via on_first_idle callback
         # when the agent reaches IDLE state (detected by idle_regex)
@@ -3240,6 +3533,16 @@ def cmd_run_interactive(
     except KeyboardInterrupt:
         pass
     finally:
+        # Never block shutdown on optional save prompt failures.
+        with contextlib.suppress(Exception):
+            _maybe_prompt_save_agent_profile(
+                profile=profile,
+                name=agent_name,
+                role=agent_role,
+                skill_set=selected_skill_set,
+                headless=headless,
+                is_tty=sys.stdin.isatty() and sys.stdout.isatty(),
+            )
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
         registry.unregister(agent_id)
         controller.stop()
@@ -4460,13 +4763,15 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse spawn claude                          Spawn Claude in a new pane
+  synapse spawn silent-snake                    Spawn by saved agent ID
+  synapse spawn 狗巻棘                           Spawn by saved agent name
   synapse spawn gemini --port 8115              Spawn Gemini on specific port
   synapse spawn claude --name Tester --role "test writer"
   synapse spawn claude --terminal tmux          Use specific terminal""",
     )
     p_spawn.add_argument(
         "profile",
-        help="Agent profile to spawn (claude, codex, gemini, opencode, copilot)",
+        help="Agent profile, saved agent ID, or saved agent name",
     )
     p_spawn.add_argument(
         "--port",
@@ -4496,6 +4801,54 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
     # tool_args are extracted from sys.argv before parse_args() —
     # see the _extract_tool_args_from_argv() call in main().
     p_spawn.set_defaults(func=cmd_spawn)
+
+    # agents - Saved agent definition management
+    p_agents = subparsers.add_parser(
+        "agents",
+        help="Manage saved agent definitions",
+        description="""Manage reusable agent definitions used by `synapse spawn`.
+
+IDs must use petname format, e.g. `silent-snake`.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    agents_subparsers = p_agents.add_subparsers(
+        dest="agents_command", metavar="SUBCOMMAND"
+    )
+
+    p_agents_list = agents_subparsers.add_parser("list", help="List saved agents")
+    p_agents_list.set_defaults(func=cmd_agents_list)
+
+    p_agents_show = agents_subparsers.add_parser(
+        "show", help="Show details for a saved agent"
+    )
+    p_agents_show.add_argument("id_or_name", help="Saved agent ID or display name")
+    p_agents_show.set_defaults(func=cmd_agents_show)
+
+    p_agents_add = agents_subparsers.add_parser(
+        "add", help="Add or update a saved agent"
+    )
+    p_agents_add.add_argument("id", help="Saved agent ID (petname format)")
+    p_agents_add.add_argument("--name", required=True, help="Display name")
+    p_agents_add.add_argument(
+        "--profile",
+        required=True,
+        help="Agent profile (claude, codex, gemini, opencode, copilot)",
+    )
+    p_agents_add.add_argument("--role", help="Role description or @role-file")
+    p_agents_add.add_argument("--skill-set", "-S", dest="skill_set", help="Skill set")
+    p_agents_add.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_add.set_defaults(func=cmd_agents_add)
+
+    p_agents_delete = agents_subparsers.add_parser(
+        "delete", help="Delete a saved agent by ID or name"
+    )
+    p_agents_delete.add_argument("id_or_name", help="Saved agent ID or display name")
+    p_agents_delete.set_defaults(func=cmd_agents_delete)
 
     # approve - Plan approval (B3)
     p_approve = subparsers.add_parser(
@@ -4690,6 +5043,7 @@ Scopes:
         "instructions": ("instructions_command", p_instructions),
         "tasks": ("tasks_command", p_tasks),
         "team": ("team_command", p_team),
+        "agents": ("agents_command", p_agents),
     }
 
     # Handle subcommands without action (print help)

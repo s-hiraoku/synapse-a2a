@@ -147,6 +147,8 @@
 | User Settings | `~/.synapse/settings.json` | JSON | User preferences |
 | Project Settings | `.synapse/settings.json` | JSON | Project config |
 | Local Settings | `.synapse/settings.local.json` | JSON | Local overrides |
+| Saved Agents (User) | `~/.synapse/agents/` | `.agent` files | User-scope saved agent definitions |
+| Saved Agents (Project) | `.synapse/agents/` | `.agent` files | Project-scope saved agent definitions |
 | Task History | `~/.synapse/history/history.db` | SQLite | Task records |
 | Task Board | `.synapse/task_board.db` | SQLite (WAL) | Task coordination |
 | File Safety | `.synapse/file_safety.db` | SQLite (WAL) | File locks/tracking |

@@ -25,6 +25,10 @@ Inter-agent communication framework via Google A2A Protocol.
 | Kill agent (force) | `synapse kill <target> -f` (immediate SIGKILL) |
 | Jump to terminal | `synapse jump <target>` |
 | Rename agent | `synapse rename <target> --name <name> --role <role>` |
+| List saved agents | `synapse agents list` |
+| Show saved agent | `synapse agents show <id-or-name>` |
+| Add saved agent | `synapse agents add <id> --name <name> --profile <profile> [--role <role>] [--skill-set <set>] [--scope project\|user]` |
+| Delete saved agent | `synapse agents delete <id-or-name>` |
 | Check file locks | `synapse file-safety locks` |
 | View history | `synapse history list` |
 | History stats (with token usage) | `synapse history stats [--agent <name>]` |
@@ -404,6 +408,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 ## Key Features
 
 - **Agent Naming**: Custom names and roles for easy identification
+- **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope.
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (fallback)
 - **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --no-response` (urgent, fire-and-forget)

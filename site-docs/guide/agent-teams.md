@@ -78,6 +78,19 @@ synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --terminal tmux
 ```
 
+### Spawn from Saved Agent Definition
+
+You can also spawn using a saved agent ID or display name instead of a profile:
+
+```bash
+synapse spawn silent-snake              # Spawn by saved agent ID
+synapse spawn 狗巻棘                     # Spawn by saved agent display name
+```
+
+The saved agent's profile, name, role, and skill set are automatically resolved. CLI flags override saved values when specified.
+
+See [Saved Agent Definitions](#saved-agent-definitions) below for how to create saved agents.
+
 ### With Tool Arguments
 
 ```bash
@@ -208,6 +221,65 @@ git merge worktree-worker-2
 git worktree remove .claude/worktrees/worker-1
 git worktree remove .claude/worktrees/worker-2
 ```
+
+## Saved Agent Definitions
+
+Save reusable agent definitions for repeated use with `synapse spawn`. Definitions are stored as `.agent` files in petname-keyed format.
+
+### Creating a Saved Agent
+
+```bash
+synapse agents add silent-snake \
+  --name 狗巻棘 \
+  --profile codex \
+  --role @./roles/reviewer.md \
+  --skill-set architect \
+  --scope project
+```
+
+| Field | Description |
+|-------|-------------|
+| `<id>` | Petname-format identifier (e.g. `silent-snake`) |
+| `--name` | Display name (required) |
+| `--profile` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
+| `--role` | Role description or `@path` file reference |
+| `--skill-set` | Skill set to activate |
+| `--scope` | `project` (`.synapse/agents/`) or `user` (`~/.synapse/agents/`) |
+
+### Listing and Inspecting
+
+```bash
+synapse agents list          # Table of all saved agents
+synapse agents show 狗巻棘    # Show details for one agent
+```
+
+### Deleting
+
+```bash
+synapse agents delete silent-snake
+```
+
+### Using with Spawn
+
+Once defined, spawn by saved agent ID or display name:
+
+```bash
+synapse spawn silent-snake
+synapse spawn 狗巻棘
+```
+
+CLI flags override saved values:
+
+```bash
+synapse spawn silent-snake --role "temporary override role"
+```
+
+### Save on Exit
+
+When an interactive agent exits (with a name set), Synapse prompts whether to save the current agent definition for reuse. This provides a convenient way to capture agent configurations without using `synapse agents add` directly.
+
+!!! info "Scope Precedence"
+    Project-scope definitions (`.synapse/agents/`) take precedence over user-scope (`~/.synapse/agents/`) when IDs collide.
 
 ## Patterns
 

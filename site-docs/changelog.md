@@ -6,6 +6,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.7.x (Post v0.7.0)
 
+- **Added**: Saved agent definitions (`synapse agents add/list/show/delete`) for reusable agent configurations
+- **Added**: `synapse spawn` now accepts saved agent IDs and display names in addition to profile names
+- **Added**: Save-on-exit prompt offers to persist agent definitions when an interactive named agent exits
+- **Added**: Name uniqueness validation for `synapse spawn`, `team start`, and interactive startup
 - **Changed**: Reply target persistence moved from `~/.a2a/registry/` to dedicated `~/.a2a/reply/` directory (configurable via `SYNAPSE_REPLY_TARGET_DIR`)
 - **Fixed**: `registry.py` `list_agents()` now handles `KeyError` gracefully when registry JSON files have missing keys
 - **Added**: `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)

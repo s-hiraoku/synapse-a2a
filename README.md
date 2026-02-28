@@ -103,7 +103,8 @@ flowchart LR
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --no-response` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
-| **Spawn Single Agent** | `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
+| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with petname IDs. `synapse spawn` accepts saved agent IDs/names in addition to profile names |
+| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
@@ -472,6 +473,7 @@ Each agent is:
 | AgentRegistry | `synapse/registry.py` | Agent registration and lookup |
 | SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
+| AgentProfileStore | `synapse/agent_profiles.py` | Saved agent definitions (reusable templates for spawn) |
 
 ### Startup Sequence
 
@@ -625,7 +627,11 @@ synapse kill my-claude
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
-| `synapse spawn <profile>` | Spawn a single agent in a new terminal pane. `-- --worktree` for git worktree isolation (Claude only) |
+| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `-- --worktree` for git worktree isolation (Claude only) |
+| `synapse agents list` | List saved agent definitions |
+| `synapse agents show <id_or_name>` | Show details for a saved agent |
+| `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |
+| `synapse agents delete <id_or_name>` | Delete a saved agent by ID or name |
 
 ### Resume Mode
 

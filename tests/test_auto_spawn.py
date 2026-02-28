@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 # ============================================================
 # TestTeamStartCommand - CLI command parsing
 # ============================================================
@@ -361,6 +363,123 @@ class TestTeamStartExecution:
 
         # Ports must be different
         assert ports[0] != ports[1], f"Same port allocated: {ports}"
+
+    def test_team_start_rejects_duplicate_names_in_specs(self) -> None:
+        """Should fail fast when team specs include duplicate custom names."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude:狗巻棘", "gemini:狗巻棘"],
+            layout="split",
+            all_new=True,
+        )
+
+        with (
+            patch("synapse.cli.AgentRegistry"),
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            cmd_team_start(args)
+
+        assert exc_info.value.code == 1
+
+    def test_team_start_rejects_name_already_in_use(self) -> None:
+        """Should fail when custom name is already used by a running agent."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["claude:狗巻棘", "gemini:伏黒恵"],
+            layout="split",
+            all_new=True,
+        )
+
+        with (
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            mock_registry = mock_registry_cls.return_value
+            mock_registry.is_name_unique.side_effect = [False, True]
+            cmd_team_start(args)
+
+        assert exc_info.value.code == 1
+
+    def test_team_start_rejects_duplicate_resolved_saved_agent_name(self) -> None:
+        """Should reject when saved-agent resolution yields duplicate names."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["silent-snake", "gemini:狗巻棘"],
+            layout="split",
+            all_new=True,
+        )
+
+        with (
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            mock_registry_cls.return_value.is_name_unique.return_value = True
+            mock_store = mock_store_cls.return_value
+            mock_store.resolve.return_value = argparse.Namespace(
+                profile_id="silent-snake",
+                name="狗巻棘",
+                profile="codex",
+                role="reviewer",
+                skill_set="architect",
+            )
+            cmd_team_start(args)
+
+        assert exc_info.value.code == 1
+
+    def test_team_start_resolves_saved_agent_before_create_panes(self) -> None:
+        """Saved agent target should be expanded to concrete profile:name:role:skill_set."""
+        import argparse
+
+        from synapse.cli import cmd_team_start
+
+        args = argparse.Namespace(
+            agents=["silent-snake"],
+            layout="split",
+            all_new=True,
+        )
+
+        captured_agents: list[list[str]] = []
+
+        def capture_create_panes(agents, **kwargs):  # noqa: ANN001, ANN003
+            captured_agents.append(list(agents))
+            return ["echo noop"]
+
+        with (
+            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
+            patch(
+                "synapse.terminal_jump.create_panes", side_effect=capture_create_panes
+            ),
+            patch("subprocess.run"),
+        ):
+            mock_registry_cls.return_value.is_name_unique.return_value = True
+            mock_store = mock_store_cls.return_value
+            mock_store.resolve.return_value = argparse.Namespace(
+                profile_id="silent-snake",
+                name="狗巻棘",
+                profile="codex",
+                role="reviewer",
+                skill_set="architect",
+            )
+            cmd_team_start(args)
+
+        assert len(captured_agents) == 1
+        first_spec = captured_agents[0][0]
+        assert first_spec.startswith("codex:狗巻棘:reviewer:architect:")
 
 
 # ============================================================

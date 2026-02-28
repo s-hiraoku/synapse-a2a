@@ -217,6 +217,58 @@ synapse rename my-claude --clear
 - Agent ID (`synapse-claude-8100`) is used **internally** for registry and processing
 - Target resolution: name has highest priority when matching
 
+### Saved Agent Definitions
+
+Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.
+
+IDs must use petname format (e.g., `silent-snake`).
+
+```bash
+# List all saved agent definitions
+synapse agents list
+
+# Show details for a saved agent (by ID or display name)
+synapse agents show <id-or-name>
+
+# Add or update a saved agent definition
+synapse agents add <id> --name <name> --profile <profile> [--role <role>] [--skill-set <set>] [--scope project|user]
+
+# Delete a saved agent definition
+synapse agents delete <id-or-name>
+```
+
+**Examples:**
+
+```bash
+# Save a codex agent with role from file
+synapse agents add silent-snake --name Reviewer --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
+
+# List saved agents (Rich TUI table when interactive)
+synapse agents list
+
+# Show saved agent details
+synapse agents show silent-snake
+synapse agents show Reviewer          # Also resolves by display name
+
+# Delete a saved agent
+synapse agents delete silent-snake
+```
+
+**Output columns** (in `synapse agents list`):
+- **ID**: Petname identifier (e.g., `silent-snake`)
+- **NAME**: Display name
+- **PROFILE**: Agent type (claude, codex, gemini, opencode, copilot)
+- **ROLE**: Role description (or `-` if not set)
+- **SKILL_SET**: Skill set name (or `-` if not set)
+- **SCOPE**: Storage scope (`project` or `user`)
+
+**Resolution order:** When resolving `<id-or-name>`, exact ID match is checked first, then display name match. An error is raised if the query matches multiple entries.
+
+**Storage:**
+- Project scope: `.synapse/agents/<id>.agent`
+- User scope: `~/.synapse/agents/<id>.agent`
+- Project-scoped definitions take precedence over user-scoped when IDs collide.
+
 ### Port Ranges
 
 | Agent    | Ports     |
