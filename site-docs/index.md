@@ -44,7 +44,7 @@ graph LR
 <div class="feature-grid" markdown>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-shield-outline:</div>
+<div class="feature-icon" markdown>:material-shield-outline:</div>
 
 ### Non-Invasive
 
@@ -52,7 +52,7 @@ Wraps agents transparently via PTY without modifying their behavior. Your existi
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-connection:</div>
+<div class="feature-icon" markdown>:material-connection:</div>
 
 ### A2A Protocol First
 
@@ -60,7 +60,7 @@ All communication uses the Google A2A standard — `Message/Part + Task` format,
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-account-group:</div>
+<div class="feature-icon" markdown>:material-account-group:</div>
 
 ### Peer-to-Peer
 
@@ -68,7 +68,7 @@ No central server. Every agent is an equal peer that can send, receive, and coor
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-eye-off-outline:</div>
+<div class="feature-icon" markdown>:material-eye-off-outline:</div>
 
 ### Agent Ignorance
 
@@ -82,7 +82,7 @@ Agents don't need to know about collaboration details. Synapse handles routing, 
 <div class="feature-grid" markdown>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-message-arrow-right:</div>
+<div class="feature-icon" markdown>:material-message-arrow-right:</div>
 
 ### Inter-Agent Communication
 Send messages between agents with priority levels, roundtrip replies, broadcast, and soft interrupts.
@@ -94,7 +94,7 @@ synapse send gemini "Review this code" \
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-monitor-multiple:</div>
+<div class="feature-icon" markdown>:material-monitor-multiple:</div>
 
 ### Agent Teams
 Spawn multi-agent teams with auto-pane creation, delegate mode for coordinators, and worktree isolation.
@@ -106,7 +106,7 @@ synapse team start claude gemini codex \
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-clipboard-check-outline:</div>
+<div class="feature-icon" markdown>:material-clipboard-check-outline:</div>
 
 ### Shared Task Board
 Coordinate work with SQLite-based task tracking, dependencies, priority levels, and plan approval.
@@ -118,7 +118,7 @@ synapse tasks create "Implement auth" \
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-lock-outline:</div>
+<div class="feature-icon" markdown>:material-lock-outline:</div>
 
 ### File Safety
 Prevent multi-agent file conflicts with exclusive locking, change tracking, and modification history.
@@ -130,7 +130,7 @@ synapse file-safety lock src/auth.py \
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-puzzle-outline:</div>
+<div class="feature-icon" markdown>:material-puzzle-outline:</div>
 
 ### Skills System
 Discover, deploy, and manage skills across scopes. Skill sets group capabilities for specialized agents.
@@ -142,7 +142,7 @@ synapse skills deploy code-review \
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon">:material-history:</div>
+<div class="feature-icon" markdown>:material-history:</div>
 
 ### History & Tracing
 Automatic task history with search, statistics, export, and cross-referencing with file modifications.
