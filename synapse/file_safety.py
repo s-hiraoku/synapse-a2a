@@ -410,7 +410,7 @@ class FileSafetyManager:
             agent_id: Full agent identifier (e.g., "synapse-claude-8100")
             agent_type: Short agent type (e.g., "claude") for filtering
             pid: Process ID for session tracking (default: current process)
-            delegate_mode: If True, deny lock (coordinator should not edit files)
+            delegate_mode: If True, deny lock (manager should not edit files)
 
         Returns:
             Dict with keys:
@@ -422,7 +422,7 @@ class FileSafetyManager:
         if delegate_mode:
             return {
                 "status": LockStatus.FAILED,
-                "reason": "Delegate/coordinator mode: file locks are denied",
+                "reason": "Delegate/manager mode: file locks are denied",
             }
 
         if not self.enabled:

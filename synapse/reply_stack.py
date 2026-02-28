@@ -2,8 +2,9 @@
 Reply Stack for A2A Message Routing
 
 This module provides a map-based mechanism for tracking reply targets.
-When an agent receives a message with response_expected=True, the sender info
-is stored by sender_id. When the agent wants to reply, it retrieves by sender_id.
+When an agent receives a message with response_mode="wait" or "notify", the
+sender info is stored by sender_id. When the agent wants to reply, it retrieves
+by sender_id.
 
 Key features:
 - Map-based storage (sender_id -> SenderInfo)
@@ -28,8 +29,8 @@ class ReplyStack:
     """
     Thread-safe map for tracking reply targets by sender_id.
 
-    When a message is received from another agent with response_expected=True,
-    the sender info is stored using sender_id as the key. When replying,
+    When a message is received from another agent with response_mode="wait"
+    or "notify", the sender info is stored using sender_id as the key. When replying,
     pop by sender_id to get the target endpoint and task ID.
     """
 

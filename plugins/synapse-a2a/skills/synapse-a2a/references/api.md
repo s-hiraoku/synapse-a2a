@@ -43,7 +43,7 @@ The framework automatically handles routing - you don't need to know where the m
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt; subject to Readiness Gate) |
-| `/tasks/create` | POST | Create task without PTY send (for `--response`) |
+| `/tasks/create` | POST | Create task without PTY send (for `--wait`) |
 | `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
@@ -98,9 +98,9 @@ The framework automatically handles routing - you don't need to know where the m
 | `/external/agents/{alias}` | DELETE | Remove external agent |
 | `/external/agents/{alias}/send` | POST | Send message to external agent |
 
-## Roundtrip Communication (`--response` Flow)
+## Roundtrip Communication (`--wait` Flow)
 
-When `--response` is used, the sender waits for a reply:
+When `--wait` is used, the sender waits for a reply:
 
 1. **Sender** calls `/tasks/create` to create a task without PTY send (stores task context)
 2. **Sender** calls `/tasks/send` on the target agent with `[REPLY EXPECTED]` marker

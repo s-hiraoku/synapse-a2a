@@ -4,6 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### Unreleased
+
+- **Changed**: Response mode refactoring — replaced `--response`/`--no-response` flags with `--wait`/`--notify`/`--silent`
+  - `--wait`: Synchronous blocking (replaces `--response`)
+  - `--notify`: Async notification on completion (new default)
+  - `--silent`: Fire-and-forget (replaces `--no-response`)
+- **Changed**: Documentation and skills updated to reflect new response modes
+- **Fixed**: IDLE status bug in task completion detection
+- **Added**: Controller status-change callback for proactive completion detection
+
 ### v0.8.1
 
 - **Fixed**: Add missing `manager` and `documentation` skill set definitions to bundled defaults

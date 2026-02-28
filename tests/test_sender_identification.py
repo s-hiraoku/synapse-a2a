@@ -10,9 +10,13 @@ from unittest.mock import MagicMock, patch
 class TestBuildSenderInfo:
     """Test build_sender_info function in a2a.py CLI tool."""
 
-    def test_auto_detect_from_pid_matching(self):
+    def test_auto_detect_from_pid_matching(self, monkeypatch):
         """Should auto-detect sender info via Registry PID matching."""
         from synapse.tools.a2a import build_sender_info
+
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
+        monkeypatch.delenv("SYNAPSE_AGENT_TYPE", raising=False)
+        monkeypatch.delenv("SYNAPSE_PORT", raising=False)
 
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {
@@ -179,8 +183,8 @@ class TestA2AClientSenderInfo:
             assert "sender" in payload["metadata"]
             assert payload["metadata"]["sender"]["sender_id"] == "synapse-claude-8100"
 
-    def test_send_to_local_no_sender_includes_response_expected(self):
-        """send_to_local should include response_expected even without sender_info."""
+    def test_send_to_local_no_sender_includes_response_mode(self):
+        """send_to_local should include response_mode even without sender_info."""
         import requests
 
         from synapse.a2a_client import A2AClient
@@ -201,10 +205,10 @@ class TestA2AClientSenderInfo:
                 # No sender_info
             )
 
-            # Verify metadata includes response_expected but no sender
+            # Verify metadata includes response_mode but no sender
             call_args = mock_post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
 
             assert "metadata" in payload
-            assert payload["metadata"]["response_expected"] is True
+            assert payload["metadata"]["response_mode"] == "notify"
             assert "sender" not in payload["metadata"]

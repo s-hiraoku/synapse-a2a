@@ -467,7 +467,7 @@ class TestCmdSend:
         mock_args.target = "gemini"
         mock_args.message = "Hello Gemini"
         mock_args.priority = 3
-        mock_args.want_response = None
+        mock_args.response_mode = "notify"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
@@ -487,32 +487,32 @@ class TestCmdSend:
         assert "Task created" in captured.out
 
     def test_send_with_response_flag(self, mock_args, capsys):
-        """Should pass --response flag to a2a.py."""
+        """Should pass --wait flag to a2a.py."""
         mock_args.target = "codex"
         mock_args.message = "Test"
         mock_args.priority = 1
-        mock_args.want_response = True
+        mock_args.response_mode = "wait"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--response" in cmd
+            assert "--wait" in cmd
 
     def test_send_with_no_response_flag(self, mock_args, capsys):
-        """Should pass --no-response flag to a2a.py."""
+        """Should pass --silent flag to a2a.py."""
         mock_args.target = "codex"
         mock_args.message = "Test"
         mock_args.priority = 1
-        mock_args.want_response = False
+        mock_args.response_mode = "silent"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--no-response" in cmd
+            assert "--silent" in cmd
 
 
 # ==============================================================================
@@ -527,7 +527,7 @@ class TestCmdBroadcast:
         """Should broadcast message to agents in current working directory."""
         mock_args.message = "Hello team"
         mock_args.priority = 3
-        mock_args.want_response = None
+        mock_args.response_mode = "notify"
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
@@ -550,7 +550,7 @@ class TestCmdBroadcast:
         """Should pass --from flag to a2a.py broadcast."""
         mock_args.message = "Hello team"
         mock_args.priority = 1
-        mock_args.want_response = None
+        mock_args.response_mode = "notify"
         mock_args.sender = "synapse-claude-8100"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
@@ -564,10 +564,10 @@ class TestCmdBroadcast:
             assert "synapse-claude-8100" in cmd
 
     def test_broadcast_with_response_flag(self, mock_args):
-        """Should pass --response flag to a2a.py broadcast."""
+        """Should pass --wait flag to a2a.py broadcast."""
         mock_args.message = "Need responses"
         mock_args.priority = 1
-        mock_args.want_response = True
+        mock_args.response_mode = "wait"
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
@@ -577,13 +577,13 @@ class TestCmdBroadcast:
             cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--response" in cmd
+            assert "--wait" in cmd
 
     def test_broadcast_with_no_response_flag(self, mock_args):
-        """Should pass --no-response flag to a2a.py broadcast."""
+        """Should pass --silent flag to a2a.py broadcast."""
         mock_args.message = "FYI only"
         mock_args.priority = 1
-        mock_args.want_response = False
+        mock_args.response_mode = "silent"
         mock_args.sender = None
 
         with patch("synapse.cli.subprocess.run") as mock_run:
@@ -593,7 +593,7 @@ class TestCmdBroadcast:
             cmd_broadcast(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--no-response" in cmd
+            assert "--silent" in cmd
 
 
 # Tests for cmd_reply

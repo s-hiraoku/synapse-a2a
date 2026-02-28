@@ -26,6 +26,7 @@ Shows the full task record including input, output, metadata, and timestamps.
 
 ```bash
 synapse history search "authentication"
+synapse history search "Auth" --case-sensitive    # Match exact case
 synapse history search "auth" --agent gemini
 synapse history search "OAuth JWT" --logic AND    # Both terms
 synapse history search "OAuth JWT" --logic OR     # Either term
@@ -65,6 +66,8 @@ This cross-references:
 
 ```bash
 synapse history cleanup --days 30            # Remove records older than 30 days
+synapse history cleanup --max-size 100       # Keep database under 100MB
+synapse history cleanup --days 90 --dry-run  # Preview what would be deleted
 ```
 
 ## Advanced Usage
@@ -166,7 +169,7 @@ synapse list
 
 # 2. Delegate task
 synapse send gemini "Write tests for X" \
-  --priority 3 --no-response
+  --priority 3 --silent
 
 # 3. Monitor progress
 synapse list
@@ -174,7 +177,7 @@ git status && git log --oneline -5
 
 # 4. Send follow-up
 synapse send gemini "Status update?" \
-  --priority 4 --response
+  --priority 4 --wait
 
 # 5. Review completion
 synapse history list --agent gemini --limit 5

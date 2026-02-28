@@ -226,6 +226,7 @@ flowchart TB
         trace["trace"]
         logs["logs"]
         instructions["instructions"]
+        history["history"]
         external["external"]
         skills["skills"]
         config["config"]
@@ -262,11 +263,53 @@ flowchart TB
         ext_info["info"]
     end
 
+    subgraph History["history サブコマンド"]
+        hist_list["list"]
+        hist_show["show"]
+        hist_search["search"]
+        hist_cleanup["cleanup"]
+        hist_stats["stats"]
+        hist_export["export"]
+    end
+
+    subgraph Skills["skills サブコマンド"]
+        sk_list["list"]
+        sk_show["show"]
+        sk_delete["delete"]
+        sk_move["move"]
+        sk_deploy["deploy"]
+        sk_import["import"]
+        sk_add["add"]
+        sk_create["create"]
+        sk_set["set"]
+        sk_apply["apply"]
+    end
+
+    subgraph Agents["agents サブコマンド"]
+        ag_list["list"]
+        ag_show["show"]
+        ag_add["add"]
+        ag_delete["delete"]
+    end
+
+    subgraph Tasks["tasks サブコマンド"]
+        ts_list["list"]
+        ts_create["create"]
+        ts_assign["assign"]
+        ts_complete["complete"]
+        ts_fail["fail"]
+        ts_reopen["reopen"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
     instructions --> Instructions
     external --> External
+    history --> History
+    skills --> Skills
+    agents --> Agents
+    tasks --> Tasks
 ```
 
 | コマンド | 説明 |
@@ -497,10 +540,10 @@ synapse spawn gemini --name Tester --role "テスト担当"
 synapse list   # Tester が STATUS=READY になるまで待機
 
 # 3. タスクを送信（結果を待つ）
-synapse send Tester "src/auth.py のユニットテストを書いて" --response
+synapse send Tester "src/auth.py のユニットテストを書いて" --wait
 
 # 4. 結果を評価 — 不十分なら再送信（kill して再 spawn しない）
-synapse send Tester "期限切れトークンのエッジケースも追加して" --response
+synapse send Tester "期限切れトークンのエッジケースも追加して" --wait
 
 # 5. 完了 — 必ず kill する（親がライフサイクルを管理）
 synapse kill Tester -f
@@ -624,6 +667,7 @@ synapse list                      # 自動更新 Rich TUI
 | TRANSPORT | 通信トランスポート表示 |
 | CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
+| SKILL_SET | 適用されているスキルセット名（任意） |
 | EDITING_FILE | 編集中のファイル（File Safety有効時のみ表示） |
 
 **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
@@ -638,7 +682,7 @@ synapse list                      # 自動更新 Rich TUI
 ### 2.4 メッセージ送信
 
 ```bash
-synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--response | --no-response]
+synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wait | --notify | --silent]
 ```
 
 **オプション**:
@@ -652,44 +696,48 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--res
 | `--from` | `-f` | - | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority` | `-p` | 3 | 優先度 (1-5) |
 | `--attach` | `-a` | - | ファイル添付（複数指定可） |
-| `--response` | - | - | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
-| `--no-response` | - | - | Oneway - 送りっぱなし、返信不要 |
+| `--wait` | - | - | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
+| `--notify` | - | - | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
+| `--silent` | - | - | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
-**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。待たない場合は `--no-response` を指定してください。
+**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。待たない場合は `--silent` を指定してください。
 
-**`--response` vs `--no-response` の使い分け**:
+**レスポンスモードの使い分け**:
 
-| メッセージ種類 | フラグ | 例 |
+| メッセージ種類 | モード | 例 |
 |---------------|--------|-----|
-| 質問 | `--response` | "現在のステータスは？" |
-| 分析依頼 | `--response` | "このコードをレビューして" |
-| 結果を期待するタスク | `--response` | "テストを実行して結果を報告して" |
-| 委任タスク（fire-and-forget） | `--no-response` | "このバグを修正してコミットして" |
-| 通知 | `--no-response` | "FYI: ビルドが完了しました" |
+| 質問 | `--wait` | "現在のステータスは？" |
+| 分析依頼 | `--wait` | "このコードをレビューして" |
+| 結果を期待するタスク | `--notify` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--silent` | "このバグを修正してコミットして" |
+| 通知 | `--silent` | "FYI: ビルドが完了しました" |
 
-迷った場合は `--response` を使用（安全なデフォルト）。
+デフォルトは `--notify`（非同期通知）です。
 
 **作業ディレクトリの不一致チェック**: `synapse send` は送信元の CWD とターゲットエージェントの `working_dir` が一致するか自動的に確認します。異なる場合は警告を表示し、終了コード 1 で終了します。同一ディレクトリのエージェント一覧、または `synapse spawn` の提案が表示されます。`--force` でチェックをバイパスできます。
 
 **例**:
 
 ```bash
-# 結果を期待するタスク（ラウンドトリップ）
-synapse send codex "結果を教えて" --response
+# 結果を期待するタスク（非同期通知 - デフォルト）
+synapse send codex "結果を教えて" --notify
+
+# 同期待機（レスポンスを待つ）
+synapse send codex "現在の進捗を報告して" --wait
 
 # 委任タスク、fire-and-forget
-synapse send codex "設計を書いて" --no-response
+synapse send codex "設計を書いて" --silent
 
 # 緊急停止
 synapse send claude "処理を止めて" --priority 5
 
 # ファイルから送信（'-' は stdin）
-synapse send codex --message-file ./message.txt --no-response
-cat ./message.txt | synapse send codex --message-file - --no-response
+synapse send codex --message-file ./message.txt --silent
+cat ./message.txt | synapse send codex --message-file - --silent
 
-# 添付ファイル付き（結果を待つ）
-synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --response
+# 添付ファイル付き（同期待機）
+synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --wait
 
 # 作業ディレクトリが異なるエージェントに強制送信
 synapse send codex "設計して" --force
@@ -1276,7 +1324,7 @@ Ink ベースの TUI（Claude Code など）では、以下の問題が発生す
 
 ### 7.3 レスポンス待ちのタイムアウト
 
-`@Agent` パターンはデフォルトでレスポンスを待ちます（最大 60 秒）。レスポンスを待たずに送信のみ行いたい場合は、`synapse send --no-response` を使用してください。`--no-response` でも受信側の完了時に sender 側 history の該当タスク（`sent`）を `completed` / `failed` / `canceled` へ best-effort で更新します（通知不達時は `sent` のまま）。
+`@Agent` パターンはデフォルトでレスポンスを待ちます（最大 60 秒）。レスポンスを待たずに送信のみ行いたい場合は、`synapse send --silent` を使用してください。`--silent` では完了通知を待ちませんが、受信側の完了時に sender 側 history の該当タスク（`sent`）を `completed` / `failed` / `canceled` へ best-effort で更新します。
 
 ---
 

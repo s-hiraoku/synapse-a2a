@@ -13,9 +13,9 @@ synapse_preexec() {
         local agent=$(echo "$cmd" | sed 's/^@\\([^ ]*\\).*/\\1/')
         local message=$(echo "$cmd" | sed 's/^@[^ ]* *//')
 
-        # Check for --response flag
-        if [[ "$message" == --response* ]]; then
-            message=$(echo "$message" | sed 's/^--response *//')
+        # Check for --wait flag
+        if [[ "$message" == --wait* ]]; then
+            message=$(echo "$message" | sed 's/^--wait *//')
             PYTHONPATH=. python3 -c "
 from synapse.shell import SynapseShell
 shell = SynapseShell()

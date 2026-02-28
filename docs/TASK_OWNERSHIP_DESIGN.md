@@ -6,7 +6,7 @@
 
 ### 症状
 
-`synapse send` コマンドで `--response` フラグを使用してメッセージを送信し、受信側が `synapse reply` で返信しようとすると、常に「Task not found」エラーが発生します。
+`synapse send` コマンドで `--wait` フラグを使用してメッセージを送信し、受信側が `synapse reply` で返信しようとすると、常に「Task not found」エラーが発生します。
 
 > **Note**: `--reply-to` は CLI には存在せず、`synapse reply` が `in_reply_to` を内部で付与します。
 
@@ -18,7 +18,7 @@ synapse claude --port 8100
 synapse codex --port 8120
 
 # Terminal 3: Claude から Codex にメッセージ送信
-synapse send codex "分析して" --response --from synapse-claude-8100
+synapse send codex "分析して" --wait --from synapse-claude-8100
 # → sender_task_id: abc12345 が生成される
 
 # Codex の PTY に表示:
@@ -31,12 +31,12 @@ synapse reply "結果です"
 
 ### 根本原因
 
-以前の実装では、`sender_task_id` は `synapse send --response` を実行する **CLIプロセス** のインメモリ `task_store` に作成されていました：
+以前の実装では、`sender_task_id` は `synapse send --wait` を実行する **CLIプロセス** のインメモリ `task_store` に作成されていました：
 
 ```
 問題のあるフロー:
 
-[synapse send --response]
+[synapse send --wait]
     ↓
 プロセス起動
     ↓
@@ -55,12 +55,12 @@ POST /tasks/send-priority to target
 
 ### アプローチ: 送信元エージェントのサーバーにタスクを登録
 
-**新しい設計では、`--response` フラグ使用時に送信元エージェントの長時間稼働サーバーにタスクを作成します。**
+**新しい設計では、`--wait` フラグ使用時に送信元エージェントの長時間稼働サーバーにタスクを作成します。**
 
 ```
 新しいフロー:
 
-[synapse send codex "msg" --response --from synapse-claude-8100]
+[synapse send codex "msg" --wait --from synapse-claude-8100]
     ↓
 1. POST /tasks/create to Claude's server (localhost:8100)
    → Claude の task_store に sender_task_id が作成される（永続的）
@@ -104,7 +104,7 @@ async def create_task(request: CreateTaskRequest) -> CreateTaskResponse:
     """
     Create a task without sending to PTY.
 
-    Used by --response flag to create a task on the sender's server
+    Used by --wait flag to create a task on the sender's server
     before sending to the target agent.
     """
     task = task_store.create(request.message, metadata=request.metadata)
@@ -117,7 +117,7 @@ async def create_task(request: CreateTaskRequest) -> CreateTaskResponse:
 `synapse/a2a_client.py` の `send_to_local()` メソッドを更新:
 
 ```python
-if response_expected:
+if response_mode in ("wait", "notify"):
     sender_endpoint = sender_info.get("sender_endpoint")
     sender_uds_path = sender_info.get("sender_uds_path")
 
@@ -125,7 +125,7 @@ if response_expected:
         create_payload = {
             "message": asdict(a2a_message),
             "metadata": {
-                "response_expected": True,
+                "response_mode": response_mode,
                 "direction": "outgoing",
                 "target_endpoint": endpoint,
             },
@@ -173,7 +173,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
 
 ## メタデータ構造
 
-### 送信時 (--response)
+### 送信時 (--wait)
 
 ```json
 {
@@ -189,7 +189,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
       "sender_uds_path": "/tmp/synapse-claude-8100.sock"
     },
     "sender_task_id": "abc12345-...",
-    "response_expected": true
+    "response_mode": "wait"
   }
 }
 ```
@@ -215,7 +215,7 @@ def build_sender_info(explicit_sender: str | None = None) -> dict:
 
 ```
 synapse send            Claude Server           Codex Server           synapse reply
-(--response)            (port 8100)             (port 8120)            (in_reply_to)
+(--wait)            (port 8100)             (port 8120)            (in_reply_to)
      |                       |                       |                      |
      |  POST /tasks/create   |                       |                      |
      | --------------------> |                       |                      |

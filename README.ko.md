@@ -719,7 +719,7 @@ synapse history cleanup --days 30 --dry-run
 에이전트 간 통신에 `synapse send`를 사용합니다. 샌드박스 환경에서도 동작합니다.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **대상 형식:**
@@ -739,28 +739,42 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 |------|--------|------|
 | `--from` | `-f` | 발신자 에이전트 ID (응답 식별용) |
 | `--priority` | `-p` | 우선순위 1-4: 일반, 5: 긴급 중지 (SIGINT 전송) |
-| `--response` | - | 라운드트립 - 발신자가 대기, 수신자가 `synapse reply`로 응답 |
-| `--no-response` | - | 원웨이 - 전송 후 잊기, 응답 불필요 |
+| `--wait` | - | 동기 차단 - 수신자가 `synapse reply`로 응답할 때까지 대기 |
+| `--notify` | - | 비동기 알림 - 작업 완료 시 알림 수신 (기본값) |
+| `--silent` | - | 전송 후 잊기 - 응답이나 알림이 필요 없음 |
+| `--force` | - | 작업 디렉터리 불일치 체크를 우회하여 전송 |
 
 **예시:**
 
 ```bash
-# 메시지 전송 (단일 인스턴스)
-synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+# 작업 결과 기대(비동기 알림 - 기본값)
+synapse send gemini "이것을 분석하고 결과를 보고해줘" --notify
+
+# 즉각적인 응답 필요(차단)
+synapse send gemini "현재 진행 상황은?" --wait
+
+# 위임 작업, 전송 후 잊기
+synapse send codex "이 버그를 수정하고 커밋해줘" --silent
+
+# 메시지 전송 (단일 인스턴스; --from 자동 감지)
+synapse send claude "안녕하세요" --priority 1
 
 # 특정 인스턴스에 전송 (동일 유형이 여러 개인 경우)
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "안녕하세요"
 
 # 긴급 중지
-synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
+synapse send claude "중지!" --priority 5
 
-# 응답 대기 (라운드트립)
-synapse send gemini "이것을 분석해줘" --response --from synapse-claude-8100
+# 작업 디렉터리 불일치 우회
+synapse send claude "이것을 검토해줘" --force
+
+# 응답 대기(동기 차단)
+synapse send gemini "이것을 분석해줘" --wait
 ```
 
-**기본 동작:** `a2a.flow=auto`(기본값)에서 `synapse send`는 `--no-response`가 지정되지 않는 한 응답을 기다립니다.
+**기본 동작:** 기본적으로 `--notify`(완료 시 비동기 알림)가 사용됩니다.
 
-**중요:** 항상 `--from`과 함께 에이전트 ID(형식: `synapse-<type>-<port>`)를 사용하세요.
+**중요:** `--from`은 선택 사항입니다.
 
 ### synapse reply 명령어
 
@@ -798,7 +812,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | 메시지 전송 |
 | `/tasks/send-priority` | POST | 우선순위 포함 전송 |
-| `/tasks/create` | POST | 작업 생성 (PTY 전송 없음, `--response`용) |
+| `/tasks/create` | POST | 작업 생성 (PTY 전송 없음, `--wait`용) |
 | `/tasks/{id}` | GET | 작업 상태 조회 |
 | `/tasks` | GET | 작업 목록 |
 | `/tasks/{id}/cancel` | POST | 작업 취소 |

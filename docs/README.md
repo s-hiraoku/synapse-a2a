@@ -53,7 +53,7 @@ For user guides, see the [`/guides`](../guides/) directory.
   - [mizchi/tornado](https://github.com/mizchi/tornado) の設計分析と採用判断
   - TaskBoard 拡張: `fail_task()`, `reopen_task()`, `priority` カラム
   - Coordinator + TaskBoard による Kanban ワークフローパターン
-  - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --no-response` の簡易版）
+  - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --silent` の簡易版）
   - Token/Cost Tracking: `synapse/token_parser.py` スケルトン（`TokenUsage` + `parse_tokens()` レジストリ）
 
 ### リリース

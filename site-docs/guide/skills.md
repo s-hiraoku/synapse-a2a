@@ -20,7 +20,9 @@ synapse skills list --scope synapse    # Central store only
 synapse skills list --scope plugin     # Plugin skills only
 ```
 
-Deploy indicators show which agent directories have the skill:
+### Deploy Indicators (TUI only)
+
+When using the interactive manager (`synapse skills`), deploy indicators show which agent directories have the skill:
 
 ```
 [C✓ A✓ G·] code-review    # Deployed to Claude and Agents, not Gemini
@@ -53,7 +55,8 @@ synapse skills deploy code-review --agent claude,codex --scope user
 This copies the skill to:
 
 - `~/.claude/skills/code-review/` (for Claude)
-- `~/.agents/skills/code-review/` (for Codex)
+- `~/.gemini/skills/code-review/` (for Gemini)
+- `~/.agents/skills/code-review/` (for Codex, OpenCode, and Copilot)
 
 ## Importing Skills
 
@@ -72,10 +75,12 @@ synapse skills add <repo-url>
 ## Creating Skills
 
 ```bash
-synapse skills create
+synapse skills create [name]
 ```
 
-Guides you through creating a new skill with the proper structure:
+Creates a new skill template in the central store (`~/.synapse/skills/`). If no name is provided, you will be prompted for one.
+
+The command creates a standard skill structure:
 
 ```
 my-skill/

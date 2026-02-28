@@ -20,7 +20,7 @@ class TestFormatA2AMessageWithSender:
 
     def test_no_sender_with_reply_expected(self):
         """Without sender, reply expected format unchanged."""
-        result = format_a2a_message("Hello", response_expected=True)
+        result = format_a2a_message("Hello", response_mode="wait")
         assert result == "A2A: [REPLY EXPECTED] Hello"
 
     def test_sender_id_only(self):
@@ -41,7 +41,7 @@ class TestFormatA2AMessageWithSender:
         """Sender info should appear before REPLY EXPECTED marker."""
         result = format_a2a_message(
             "What do you think?",
-            response_expected=True,
+            response_mode="wait",
             sender_id="synapse-gemini-8110",
             sender_name="伏黒恵",
         )
@@ -53,7 +53,7 @@ class TestFormatA2AMessageWithSender:
         """Sender ID without name + reply expected."""
         result = format_a2a_message(
             "Status?",
-            response_expected=True,
+            response_mode="wait",
             sender_id="synapse-codex-8120",
         )
         assert result == ("A2A: [From: synapse-codex-8120] [REPLY EXPECTED] Status?")
@@ -67,7 +67,7 @@ class TestFormatA2AMessageWithSender:
         """Existing [REPLY EXPECTED] in content should be deduped."""
         result = format_a2a_message(
             "[REPLY EXPECTED] Hello",
-            response_expected=True,
+            response_mode="wait",
             sender_id="synapse-claude-8100",
         )
         assert result == ("A2A: [From: synapse-claude-8100] [REPLY EXPECTED] Hello")
@@ -174,7 +174,7 @@ class TestLongMessageFileReference:
 
         result = format_file_reference(
             Path("/tmp/test.txt"),
-            response_expected=True,
+            response_mode="wait",
             sender_id="synapse-gemini-8110",
         )
         assert "[From: synapse-gemini-8110]" in result
@@ -200,7 +200,7 @@ class TestPTYInjectionIncludesSender:
                 "sender_name": "虎杖悠仁",
                 "sender_endpoint": "http://localhost:8100",
             },
-            "response_expected": True,
+            "response_mode": "wait",
         }
         info = _extract_sender_info(metadata)
         assert info.sender_id == "synapse-claude-8100"
@@ -209,7 +209,7 @@ class TestPTYInjectionIncludesSender:
         # Verify format_a2a_message produces correct output with this info
         result = format_a2a_message(
             "テストメッセージ",
-            response_expected=True,
+            response_mode="wait",
             sender_id=info.sender_id,
             sender_name=info.sender_name,
         )

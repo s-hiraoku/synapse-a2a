@@ -66,9 +66,10 @@ Displays a live table with:
 | `CURRENT` | Current task preview |
 | `TRANSPORT` | Active communication (`UDS→` / `→UDS` / `-`) |
 | `WORKING_DIR` | Agent's working directory |
+| `SKILL_SET` | Applied skill set name (optional) |
 | `EDITING_FILE` | Locked file name (shown when File Safety is enabled) |
 
-Optional columns (`list.columns`): `TYPE`, `ROLE`.
+Optional columns (`list.columns`): `TYPE`, `ROLE`, `SKILL_SET`.
 
 **Interactive controls:**
 
@@ -194,7 +195,7 @@ See [Saved Agent Definitions](agent-teams.md#saved-agent-definitions) for full d
 
 ### Target Resolution Priority
 
-When using `synapse send`, `synapse kill`, `synapse jump`, or other commands:
+When using `synapse send`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`:
 
 1. **Custom name** (highest): `my-claude`
 2. **Full agent ID**: `synapse-claude-8100`

@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING, Any
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
-from synapse.utils import RoleFileNotFoundError, format_role_section, get_role_content
+from synapse.skills import load_skill_sets
+from synapse.utils import (
+    RoleFileNotFoundError,
+    format_role_section,
+    format_skill_set_section,
+    get_role_content,
+)
 
 if TYPE_CHECKING:
     from synapse.a2a_client import A2AClient
@@ -201,6 +207,7 @@ class InstructionsCommand:
         port = agent_info.get("port", 0)
         name = agent_info.get("name")
         role = agent_info.get("role")
+        skill_set = agent_info.get("skill_set")
         # profile and agent_id are guaranteed to be non-None here (checked above)
         assert profile is not None
         assert agent_id is not None
@@ -235,6 +242,23 @@ class InstructionsCommand:
                 except RoleFileNotFoundError as e:
                     self._print(f"Warning: Role file not found: {e}")
                     self._print(f"Continuing without role content for: {role}")
+
+            # Include skill set section if skill_set is applied
+            if skill_set:
+                try:
+                    skill_sets = load_skill_sets()
+                    ss_def = skill_sets.get(skill_set)
+                    if ss_def:
+                        message += format_skill_set_section(
+                            ss_def.name, ss_def.description, ss_def.skills
+                        )
+                    else:
+                        self._print(
+                            f"Warning: Skill set '{skill_set}' not found in definitions"
+                        )
+                except Exception as e:
+                    self._print(f"Warning: Failed to load skill set info: {e}")
+
             message += "\nIMPORTANT: Read your full instructions from these files:\n"
             # Paths already include directory prefix (.synapse/ or ~/.synapse/)
             for f in file_paths:

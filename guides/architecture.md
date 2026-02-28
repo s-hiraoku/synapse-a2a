@@ -138,8 +138,8 @@ classDiagram
         -last_response: str
         +process_char(char): Tuple
         +process_input(data): List
-        +send_to_agent(name, message, want_response): bool
-        +_send_to_external_agent(agent, message, want_response): bool
+        +send_to_agent(name, message, response_mode): bool
+        +_send_to_external_agent(agent, message, response_mode): bool
         +_extract_text_from_artifacts(artifacts): str
         +get_feedback_message(agent, success): str
         +reset()
@@ -174,7 +174,7 @@ classDiagram
 @codex-8120 このファイルを修正して
 ```
 
-> **Note**: `@Agent` パターンはデフォルトでレスポンスを待ちます。レスポンスを待たずに送信したい場合は `synapse send --no-response` を使用してください。
+> **Note**: `@Agent` パターンはデフォルトでレスポンスを待ちます。レスポンスを待たずに送信したい場合は `synapse send --silent` を使用してください。
 
 **入力処理フロー**:
 

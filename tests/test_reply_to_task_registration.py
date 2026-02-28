@@ -101,7 +101,7 @@ class TestCreateTaskEndpoint:
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]},
             "metadata": {
-                "response_expected": True,
+                "response_mode": "wait",
                 "direction": "outgoing",
                 "target_endpoint": "http://localhost:8120",
             },
@@ -111,7 +111,7 @@ class TestCreateTaskEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["task"]["metadata"]["response_expected"] is True
+        assert data["task"]["metadata"]["response_mode"] == "wait"
         assert data["task"]["metadata"]["direction"] == "outgoing"
 
     def test_created_task_can_receive_reply_to(self, client, mock_controller):
@@ -122,7 +122,7 @@ class TestCreateTaskEndpoint:
                 "role": "user",
                 "parts": [{"type": "text", "text": "Question?"}],
             },
-            "metadata": {"response_expected": True},
+            "metadata": {"response_mode": "wait"},
         }
         create_response = client.post("/tasks/create", json=create_payload)
         task_id = create_response.json()["task"]["id"]
@@ -248,8 +248,10 @@ class TestBuildSenderInfoWithEndpointInfo:
 class TestSendToLocalTaskCreation:
     """Tests for send_to_local creating task on sender's server."""
 
-    def test_response_expected_creates_task_on_sender_server_via_uds(self, monkeypatch):
-        """When response_expected, should create task on sender's server via UDS."""
+    def test_response_mode_wait_creates_task_on_sender_server_via_uds(
+        self, monkeypatch
+    ):
+        """When response_mode='wait', should create task on sender's server via UDS."""
         from synapse.a2a_client import A2AClient
 
         # Track calls
@@ -308,16 +310,16 @@ class TestSendToLocalTaskCreation:
                 "sender_endpoint": "http://localhost:8100",
                 "sender_uds_path": "/tmp/synapse-claude-8100.sock",
             },
-            response_expected=True,
+            response_mode="wait",
             uds_path="/tmp/synapse-codex-8120.sock",
         )
 
         # Verify task was created on sender's server via UDS
         assert len(uds_calls) == 1
         assert uds_calls[0]["url"] == "http://localhost/tasks/create"
-        assert uds_calls[0]["json"]["metadata"]["response_expected"] is True
+        assert uds_calls[0]["json"]["metadata"]["response_mode"] == "wait"
 
-    def test_response_expected_falls_back_to_http_when_uds_fails(self, monkeypatch):
+    def test_response_mode_wait_falls_back_to_http_when_uds_fails(self, monkeypatch):
         """When UDS fails, should fallback to HTTP for /tasks/create."""
         import httpx
 
@@ -391,7 +393,7 @@ class TestSendToLocalTaskCreation:
                 "sender_endpoint": "http://localhost:8100",
                 "sender_uds_path": "/tmp/synapse-claude-8100.sock",
             },
-            response_expected=True,
+            response_mode="wait",
             uds_path="/tmp/synapse-codex-8120.sock",
         )
 
@@ -426,7 +428,7 @@ class TestSendToLocalTaskCreation:
                 "sender_id": "synapse-claude-8100",
                 # No sender_endpoint or sender_uds_path
             },
-            response_expected=True,
+            response_mode="wait",
         )
 
         # Verify only send-priority was called, no /tasks/create
@@ -486,14 +488,14 @@ class TestReplyToFlowIntegration:
         claude_client = TestClient(claude_fastapi)
         codex_client = TestClient(codex_fastapi)
 
-        # Step 1: Create task on Claude's server (simulating --response flag)
+        # Step 1: Create task on Claude's server (simulating --wait flag)
         create_payload = {
             "message": {
                 "role": "user",
                 "parts": [{"type": "text", "text": "Please help me"}],
             },
             "metadata": {
-                "response_expected": True,
+                "response_mode": "wait",
                 "direction": "outgoing",
                 "target_endpoint": "http://localhost:8120",
             },
@@ -513,7 +515,7 @@ class TestReplyToFlowIntegration:
                     "sender_id": "synapse-claude-8100",
                     "sender_endpoint": "http://localhost:8100",
                 },
-                "response_expected": True,
+                "response_mode": "wait",
                 "sender_task_id": sender_task_id,
             },
         }
@@ -524,7 +526,7 @@ class TestReplyToFlowIntegration:
         codex_controller.write.assert_called_once()
 
         # Verify A2A prefixed message is displayed with sender and [REPLY EXPECTED] marker
-        # when response_expected is True
+        # when response_mode == "wait"
         write_call = codex_controller.write.call_args[0][0]
         assert (
             write_call

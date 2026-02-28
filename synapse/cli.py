@@ -1059,7 +1059,7 @@ def _build_a2a_cmd(
     target: str | None = None,
     priority: int | None = None,
     sender: str | None = None,
-    want_response: bool | None = None,
+    response_mode: str | None = None,
     attachments: list[str] | None = None,
     force: bool = False,
 ) -> list[str]:
@@ -1097,10 +1097,8 @@ def _build_a2a_cmd(
 
     if sender:
         cmd.extend(["--from", sender])
-    if want_response is True:
-        cmd.append("--response")
-    elif want_response is False:
-        cmd.append("--no-response")
+    if response_mode:
+        cmd.append(f"--{response_mode}")
     if force:
         cmd.append("--force")
 
@@ -1161,7 +1159,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         target=args.target,
         priority=args.priority,
         sender=getattr(args, "sender", None),
-        want_response=getattr(args, "want_response", None),
+        response_mode=getattr(args, "response_mode", None),
         attachments=getattr(args, "attach", None),
         force=getattr(args, "force", False),
     )
@@ -1176,7 +1174,7 @@ def cmd_interrupt(args: argparse.Namespace) -> None:
         target=args.target,
         priority=4,
         sender=getattr(args, "sender", None),
-        want_response=False,
+        response_mode="silent",
         force=getattr(args, "force", False),
     )
     _run_a2a_command(cmd, exit_on_error=True)
@@ -1190,7 +1188,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
         message,
         priority=args.priority,
         sender=getattr(args, "sender", None),
-        want_response=getattr(args, "want_response", None),
+        response_mode=getattr(args, "response_mode", None),
         attachments=getattr(args, "attach", None),
     )
     _run_a2a_command(cmd, exit_on_error=True)
@@ -2599,7 +2597,7 @@ def _memory_broadcast_notify(key: str) -> None:
                     task = client.send_to_local(
                         endpoint=endpoint,
                         message=f"Shared memory updated: {key}",
-                        response_expected=False,
+                        response_mode="silent",
                     )
                     if task is None:
                         print(f"  Failed: {name}: no response")
@@ -3091,7 +3089,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 f"Warning: {result.agent_id} not yet registered after spawn.\n"
                 f"  The agent may still be starting up.\n"
                 f"  Use the full agent ID for reliable targeting:\n"
-                f'    synapse send {result.agent_id} "<message>" --response',
+                f'    synapse send {result.agent_id} "<message>" --wait',
                 file=sys.stderr,
             )
     except (FileNotFoundError, RuntimeError) as e:
@@ -3298,7 +3296,7 @@ def cmd_run_interactive(
         name: Optional custom name for the agent.
         role: Optional role description for the agent.
         no_setup: If True, skip interactive setup prompt.
-        delegate_mode: If True, run agent in coordinator/delegate mode.
+        delegate_mode: If True, run agent in manager/delegate mode.
         skill_set: Optional skill set name to apply at startup.
         headless: If True, skip all interactive prompts (startup animation,
             setup, approval). Used by spawn to start agents non-interactively.
@@ -3577,7 +3575,8 @@ def cmd_run_interactive(
 
 
 def main() -> None:
-    setup_logging()
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        setup_logging()
 
     # Install A2A skills if not present
     install_skills()
@@ -3991,20 +3990,29 @@ Priority levels:
         dest="attach",
         help="Attach a file to the message (repeatable)",
     )
-    # Response control: mutually exclusive group (unified with a2a.py send)
+    # Response mode: mutually exclusive group (unified with a2a.py send)
     response_group = p_send.add_mutually_exclusive_group()
     response_group.add_argument(
-        "--response",
-        dest="want_response",
-        action="store_true",
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
         default=None,
-        help="Wait for and receive response from target agent",
+        help="Wait synchronously for response (blocks until done)",
     )
     response_group.add_argument(
-        "--no-response",
-        dest="want_response",
-        action="store_false",
-        help="Do not wait for response (fire and forget)",
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    response_group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
     )
     p_send.add_argument(
         "--force",
@@ -4014,11 +4022,11 @@ Priority levels:
     )
     p_send.set_defaults(func=cmd_send)
 
-    # interrupt (ergonomic shorthand for priority-4 send --no-response)
+    # interrupt (ergonomic shorthand for priority-4 send --silent)
     p_interrupt = subparsers.add_parser(
         "interrupt",
         help="Send an urgent interrupt message to an agent (priority 4, fire-and-forget)",
-        description="Shorthand for 'synapse send <target> <message> -p 4 --no-response'.",
+        description="Shorthand for 'synapse send <target> <message> -p 4 --silent'.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse interrupt claude "Stop and review"
@@ -4046,7 +4054,7 @@ Priority levels:
         epilog="""Examples:
   synapse broadcast "Status check"                Send to all agents in current directory
   synapse broadcast "Urgent update" -p 4          Send urgent message
-  synapse broadcast "FYI only" --no-response      Fire-and-forget broadcast""",
+  synapse broadcast "FYI only" --silent           Fire-and-forget broadcast""",
     )
     p_broadcast.add_argument(
         "message", nargs="?", default=None, help="Message to broadcast"
@@ -4078,17 +4086,26 @@ Priority levels:
     )
     broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
     broadcast_response_group.add_argument(
-        "--response",
-        dest="want_response",
-        action="store_true",
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
         default=None,
-        help="Wait for and receive responses from agents",
+        help="Wait synchronously for responses (blocks until done)",
     )
     broadcast_response_group.add_argument(
-        "--no-response",
-        dest="want_response",
-        action="store_false",
-        help="Do not wait for responses (fire and forget)",
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    broadcast_response_group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
     )
     p_broadcast.set_defaults(func=cmd_broadcast)
 
@@ -4160,7 +4177,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
     p_inst_show.add_argument(
         "agent_type",
         nargs="?",
-        help="Agent type (claude, gemini, codex). If omitted, shows default.",
+        help="Agent type (claude, gemini, codex, opencode, copilot). If omitted, shows default.",
     )
     p_inst_show.set_defaults(func=cmd_instructions_show)
 
@@ -4171,7 +4188,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
     p_inst_files.add_argument(
         "agent_type",
         nargs="?",
-        help="Agent type (claude, gemini, codex). If omitted, shows default.",
+        help="Agent type (claude, gemini, codex, opencode, copilot). If omitted, shows default.",
     )
     p_inst_files.set_defaults(func=cmd_instructions_files)
 
@@ -4181,7 +4198,7 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
     )
     p_inst_send.add_argument(
         "target",
-        help="Target agent: profile name (claude, codex, gemini) or agent ID",
+        help="Target agent: profile (claude, gemini, codex, opencode, copilot) or agent ID",
     )
     p_inst_send.add_argument(
         "--preview",
@@ -5018,7 +5035,7 @@ Scopes:
     p_sk_deploy.add_argument(
         "--agent",
         default="claude",
-        help="Target agents (comma-separated, e.g. claude,codex). Default: claude",
+        help="Target agents (comma-separated, e.g. claude,gemini,codex,opencode,copilot). Default: claude",
     )
     p_sk_deploy.add_argument(
         "--scope",

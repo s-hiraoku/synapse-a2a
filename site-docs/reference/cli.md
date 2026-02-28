@@ -29,13 +29,15 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 ### Background Start
 
 ```bash
-synapse start <profile> [--port PORT] [-f]
+synapse start <profile> [--port PORT] [-f] [--ssl-cert CERT] [--ssl-key KEY]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--port PORT` | Explicit port number |
-| `-f` | Foreground mode (don't detach) |
+| `-f`, `--foreground` | Foreground mode (don't detach) |
+| `--ssl-cert CERT` | SSL certificate file for HTTPS |
+| `--ssl-key KEY` | SSL private key file for HTTPS |
 
 ### Stop
 
@@ -143,15 +145,18 @@ synapse send <target> "<message>" [OPTIONS]
 |------|-------------|
 | `--from ID` / `-f ID` | Sender identification (optional — auto-detected from `$SYNAPSE_AGENT_ID`) |
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
-| `--response` | Wait for reply (roundtrip) |
-| `--no-response` | Fire-and-forget |
+| `--wait` | Wait for reply (synchronous blocking) |
+| `--notify` | Return immediately, receive PTY notification on completion (**default**) |
+| `--silent` | Fire-and-forget (no completion notification) |
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
 | `--force` | Bypass working_dir mismatch check |
 
-!!! tip "Choosing --response vs --no-response"
-    Use `--response` when the message expects a reply (questions, result requests). Use `--no-response` for fire-and-forget tasks (notifications, delegated work). **If unsure, use `--response`** — it is the safer default.
+!!! tip "Choosing response mode"
+    - `--notify` (default): Returns immediately; you get a PTY notification when the receiver completes. Best for most use cases.
+    - `--wait`: Blocks until the receiver replies. Use for questions or when you need the result before proceeding.
+    - `--silent`: Fire-and-forget with no completion notification. Use for pure notifications or delegated tasks.
 
 ### Reply
 
@@ -176,7 +181,7 @@ Same options as `send`, but default priority is **1** (not 3). Targets all agent
 synapse interrupt <target> "<message>" [--from ID] [--force]
 ```
 
-Shorthand for `synapse send -p 4 --no-response`.
+Shorthand for `synapse send -p 4 --silent`.
 
 ## Team Operations
 
@@ -252,10 +257,10 @@ synapse reject <task_id> --reason "reason"
 ```bash
 synapse history list [--agent AGENT] [--limit N]
 synapse history show <task_id>
-synapse history search "<query>" [--agent AGENT] [--logic AND|OR]
+synapse history search "<query>" [--agent AGENT] [--logic AND|OR] [--case-sensitive]
 synapse history stats [--agent AGENT]
-synapse history export --format json|csv
-synapse history cleanup --days N
+synapse history export [--format json|csv] [--agent AGENT] [--limit N] [--output PATH]
+synapse history cleanup [--days N] [--max-size MB] [--no-vacuum] [--dry-run] [--force]
 ```
 
 ## Shared Memory
@@ -303,13 +308,13 @@ synapse instructions send <agent> [--preview]  # Send to running agent
 ```bash
 synapse skills                                 # Interactive TUI
 synapse skills list [--scope SCOPE]
-synapse skills show <name>
-synapse skills delete <name> [--force]
+synapse skills show <name> [--scope SCOPE]
+synapse skills delete <name> [--force] [--scope SCOPE]
 synapse skills move <name> --to <scope>
 synapse skills deploy <name> --agent <types> [--scope SCOPE]
-synapse skills import <name>
+synapse skills import <name> [--from SCOPE]
 synapse skills add <repo>
-synapse skills create
+synapse skills create [name]                   # Create new skill template
 synapse skills set list
 synapse skills set show <name>
 synapse skills apply <target> <set_name> [--dry-run]
@@ -364,7 +369,7 @@ synapse logs <agent> [-f] [-n LINES]
 ## Low-Level A2A Tool
 
 ```bash
-python -m synapse.tools.a2a list
+python -m synapse.tools.a2a list [--live]
 python -m synapse.tools.a2a send --target <agent> --priority N "<message>"
 python -m synapse.tools.a2a broadcast "<message>"
 python -m synapse.tools.a2a cleanup

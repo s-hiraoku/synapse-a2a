@@ -202,10 +202,10 @@ class TestLongMessageFileStorage:
 class TestLongMessageWithMetadata:
     """Tests for long message handling with request metadata."""
 
-    def test_long_message_with_response_expected(
+    def test_long_message_with_response_mode_wait(
         self, test_client: TestClient, mock_controller: MagicMock, tmp_path: Path
     ) -> None:
-        """Long message with response_expected should still work correctly."""
+        """Long message with response_mode should still work correctly."""
         long_message = "z" * 150
 
         response = test_client.post(
@@ -216,7 +216,7 @@ class TestLongMessageWithMetadata:
                     "parts": [{"type": "text", "text": long_message}],
                 },
                 "metadata": {
-                    "response_expected": True,
+                    "response_mode": "wait",
                     "sender": {
                         "sender_id": "other-agent",
                         "sender_endpoint": "http://localhost:8100",

@@ -114,7 +114,7 @@ synapse start claude --port 8100
 synapse start gemini --port 8110
 
 # Run coordinated tasks
-synapse send claude "Run integration tests" --response
+synapse send claude "Run integration tests" --wait
 
 # Collect results
 synapse history export --format json > results.json

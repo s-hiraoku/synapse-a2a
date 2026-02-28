@@ -30,7 +30,7 @@ class TestInterruptCommand:
             target="gemini",
             priority=4,
             sender=None,
-            want_response=False,
+            response_mode="silent",
             force=False,
         )
         mock_run.assert_called_once_with(["dummy"], exit_on_error=True)
@@ -56,7 +56,7 @@ class TestInterruptCommand:
             target="codex",
             priority=4,
             sender="synapse-claude-8100",
-            want_response=False,
+            response_mode="silent",
             force=False,
         )
 

@@ -86,7 +86,7 @@ flowchart LR
 | **CLI 統合** | 既存の CLI ツールをそのまま A2A エージェント化 |
 | **synapse send** | `synapse send <agent> "message"` でエージェント間通信 |
 | **送信者識別** | `metadata.sender` + PID マッチングで送信者を自動識別 |
-| **完了コールバック** | `--no-response` タスク完了時に送信側へ自動通知（A2A プロトコル経由） |
+| **完了コールバック** | `--silent` タスク完了時に送信側へ自動通知（A2A プロトコル経由） |
 | **優先度割り込み** | Priority 5 でメッセージ前に SIGINT（緊急停止） |
 | **マルチインスタンス** | 同じタイプのエージェントを複数起動（自動ポート割り当て） |
 | **保存済みエージェント** | よく使う設定（名前・ロール・スキルセット）を保存して再利用 (`synapse agents`) |
@@ -599,7 +599,7 @@ synapse kill my-claude
 | `synapse skills deploy <name>` | 中央ストアからエージェントディレクトリにスキルをデプロイ |
 | `synapse skills import <name>` | 中央ストアにスキルをインポート (~/.synapse/skills/) |
 | `synapse skills add <repo>` | リポジトリからスキルをインストール (npx skills 経由) |
-| `synapse skills create` | 新しいスキルを作成 |
+| `synapse skills create [name]` | 新しいスキルを作成 |
 | `synapse skills set list` | スキルセットの一覧 |
 | `synapse skills set show <name>` | スキルセットの詳細を表示 |
 | `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用 |
@@ -783,17 +783,17 @@ synapse history cleanup --days 30 --dry-run
 エージェント間通信には `synapse send` を使用。サンドボックス環境でも動作。
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **ターゲット形式：**
 
 | 形式 | 例 | 説明 |
 |------|-----|------|
-| カスタム名 | `my-claude` | 最優先、エージェントに名前がある場合に使用 |
-| エージェントタイプ | `claude` | 単一インスタンス時のみ動作 |
-| タイプ-ポート | `claude-8100` | 同タイプが複数ある場合 |
-| フル ID | `synapse-claude-8100` | 完全なエージェント ID |
+| カスタム名 | `my-claude` | 最優先、レジストリ内の名前と一致 |
+| フル ID | `synapse-claude-8100` | 完全なエージェント ID と一致 |
+| タイプ-ポート | `claude-8100` | タイプとポートの短縮形と一致 |
+| エージェントタイプ | `claude` | 単一インスタンスの場合のみ動作 |
 
 同じタイプのエージェントが複数実行中の場合、タイプのみ（例：`claude`）はエラー。`claude-8100` または `synapse-claude-8100` を使用。
 
@@ -803,39 +803,44 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 |------------|--------|------|
 | `--from` | `-f` | 送信者エージェント ID（返信識別用） |
 | `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT 送信） |
-| `--response` | - | ラウンドトリップ - 送信者が待機、受信者は `synapse reply` で返信 |
-| `--no-response` | - | ワンウェイ - ファイア&フォーゲット、返信不要 |
+| `--wait` | - | 同期待機 - 送信側がブロックして `synapse reply` を待つ |
+| `--notify` | - | 非同期通知 - タスク完了時に通知を受け取る（デフォルト） |
+| `--silent` | - | ワンウェイ - 送りっぱなし、返信・通知不要 |
+| `--force` | - | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
-**`--response` vs `--no-response` の使い分け：**
+**レスポンスモードの使い分け：**
 
 | メッセージ種類 | フラグ | 例 |
 |---------------|--------|-----|
-| 質問 | `--response` | "現在のステータスは？" |
-| 分析依頼 | `--response` | "このコードをレビューして" |
-| 結果を期待するタスク | `--response` | "テストを実行して結果を報告して" |
-| 委任タスク（fire-and-forget） | `--no-response` | "このバグを修正してコミットして" |
-| 通知 | `--no-response` | "FYI: ビルドが完了しました" |
+| 質問 | `--wait` | "現在のステータスは？" |
+| 分析依頼 | `--wait` | "このコードをレビューして" |
+| 結果を期待するタスク | `--notify` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--silent` | "このバグを修正してコミットして" |
+| 通知 | `--silent` | "FYI: ビルドが完了しました" |
 
-迷った場合は `--response` を使用（安全なデフォルト）。
+デフォルトは `--notify`（非同期通知）です。
 
 **例：**
 
 ```bash
-# 結果を期待するタスク（ラウンドトリップ）
-synapse send gemini "これを分析して結果を報告して" --response
+# 結果を期待するタスク（非同期通知 - デフォルト）
+synapse send gemini "これを分析して結果を報告して" --notify
+
+# 即時の返答が必要な場合（ブロック）
+synapse send gemini "現在の進捗を教えて" --wait
 
 # 委任タスク、fire-and-forget
-synapse send codex "このバグを修正してコミットして" --no-response
+synapse send codex "このバグを修正してコミットして" --silent
 
 # メッセージ送信（単一インスタンス; --from 自動検出）
 synapse send claude "Hello" --priority 1
 
 # 長いメッセージのサポート (自動的な一時ファイルフォールバック)
-synapse send claude --message-file /path/to/message.txt --no-response
-echo "very long content..." | synapse send claude --stdin --no-response
+synapse send claude --message-file /path/to/message.txt --silent
+echo "very long content..." | synapse send claude --stdin --silent
 
 # ファイル添付
-synapse send claude "これをレビューして" --attach src/main.py --response
+synapse send claude "これをレビューして" --attach src/main.py --wait
 
 # 特定のインスタンスに送信（同タイプが複数の場合）
 synapse send claude-8100 "Hello"
@@ -843,11 +848,11 @@ synapse send claude-8100 "Hello"
 # 緊急停止
 synapse send claude "Stop!" --priority 5
 
-# 応答を待つ（ラウンドトリップ）
-synapse send gemini "これを分析して" --response
+# 応答を待つ（同期待機）
+synapse send gemini "これを分析して" --wait
 ```
 
-**デフォルトの挙動:** `a2a.flow=auto` (デフォルト) では、`--no-response` が指定されない限り、`synapse send` は応答を待ちます。
+**デフォルトの挙動:** `a2a.flow=auto` (デフォルト) では、`synapse send` は `--notify` モードで動作します — コマンドは即座に返り、受信側の処理完了時にPTY通知を受け取ります。同期待ちには `--wait`、通知不要には `--silent` を使用してください。
 
 **送信元の自動検出:** `--from` は省略可能です。Synapse は `SYNAPSE_AGENT_ID` 環境変数（起動時に自動設定）から送信元を検出します。サンドボックス環境（Codex 等）では明示的に `--from` を指定してください。
 
@@ -887,7 +892,7 @@ python -m synapse.tools.a2a reply "これが私の返信です"
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | メッセージ送信 |
 | `/tasks/send-priority` | POST | 優先度付き送信 |
-| `/tasks/create` | POST | タスク作成（PTY 送信なし、`--response` 用） |
+| `/tasks/create` | POST | タスク作成（PTY 送信なし、`--wait` 用） |
 | `/tasks/{id}` | GET | タスクステータス取得 |
 | `/tasks` | GET | タスク一覧 |
 | `/tasks/{id}/cancel` | POST | タスクキャンセル |
@@ -1312,6 +1317,7 @@ synapse list
 | CURRENT | 現在のタスクプレビュー |
 | TRANSPORT | 通信状態インジケータ |
 | WORKING_DIR | 作業ディレクトリ |
+| SKILL_SET | 適用されているスキルセット名（任意） |
 | EDITING_FILE | 編集中のファイル（File Safety有効時のみ） |
 
 **カラムのカスタマイズ**（`settings.json`）:

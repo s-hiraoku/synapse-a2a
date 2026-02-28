@@ -195,7 +195,7 @@ def get_long_message_store() -> LongMessageStore:
 
 def format_file_reference(
     file_path: Path,
-    response_expected: bool = False,
+    response_mode: str = "silent",
     sender_id: str | None = None,
     sender_name: str | None = None,
 ) -> str:
@@ -207,7 +207,7 @@ def format_file_reference(
 
     Args:
         file_path: Path to the message file.
-        response_expected: Whether the sender expects a response.
+        response_mode: Response mode ("wait", "notify", or "silent").
         sender_id: Sender agent ID (e.g., synapse-claude-8100).
         sender_name: Sender display name (e.g., 虎杖悠仁).
 
@@ -215,7 +215,7 @@ def format_file_reference(
         Formatted reference message string with optional sender and reply marker.
     """
     sender_prefix = build_sender_prefix(sender_id, sender_name)
-    reply_marker = "[REPLY EXPECTED] " if response_expected else ""
+    reply_marker = "[REPLY EXPECTED] " if response_mode in ("wait", "notify") else ""
     return (
         f"{sender_prefix}{reply_marker}[LONG MESSAGE - FILE ATTACHED]\n"
         f"The full message content is stored at: {file_path}\n"

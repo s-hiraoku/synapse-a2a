@@ -95,6 +95,10 @@ synapse copilot
 synapse claude --name my-claude --role "code reviewer"
 synapse gemini --name test-writer --role "test specialist"
 
+# Run agent with saved agent definition (--agent / -A)
+synapse claude --agent wise-strategist
+synapse claude --agent wise-strategist --role "override role"
+
 # Run agent with role from file (@prefix reads file content as role)
 synapse claude --name reviewer --role "@./roles/reviewer.md"
 synapse gemini --role "@~/my-roles/analyst.md"
@@ -145,7 +149,7 @@ synapse skills move <name> --to <scope>   # Move skill between scopes
 synapse skills deploy <name> --agent claude,codex --scope user  # Deploy from central store
 synapse skills import <name>              # Import to central store (~/.synapse/skills/)
 synapse skills add <repo>                 # Install from repo (npx skills wrapper)
-synapse skills create                     # Show guided skill creation steps
+synapse skills create [name]              # Create new skill template
 synapse skills set list                   # List skill sets
 synapse skills set show <name>            # Show skill set details
 synapse skills apply <target> <set_name>        # Apply skill set to running agent
@@ -172,31 +176,33 @@ synapse reset                             # Interactive scope selection
 synapse reset --scope user                # Reset user settings to defaults
 synapse reset --scope both -f             # Reset both without confirmation
 
-# Soft interrupt (shorthand for send -p 4 --no-response)
-synapse interrupt claude "Stop and review"                  # Interrupt an agent
+# Soft interrupt (shorthand for send -p 4 --silent)
+synapse interrupt claude "Stop and review"
+                  # Interrupt an agent
 synapse interrupt gemini "Check status"                            # --from auto-detected
 synapse interrupt claude "Stop" --force                     # Bypass working_dir mismatch check
 
 # Broadcast message to all agents in current directory
 synapse broadcast "Status check"                           # Send to all agents
 synapse broadcast "Urgent update" -p 4                     # Urgent broadcast
-synapse broadcast "FYI only" --no-response                 # Fire-and-forget
+synapse broadcast "FYI only" --silent                      # Fire-and-forget
 
 # API key authentication
 synapse auth setup                        # Generate keys and show setup instructions
 synapse auth generate-key                 # Generate a single API key
 synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
-# Send messages (--response waits for reply, --no-response sends only)
+# Send messages (default is --notify: async notification on completion)
 # Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
 # Note: --from is optional — auto-detected from SYNAPSE_AGENT_ID env var (set by Synapse at startup)
-# Choosing --response vs --no-response:
-#   Task with result expected (question, review, analysis) → --response
-#   Delegated task (fire-and-forget, no result needed)     → --no-response
-#   If unsure, use --response (safer default)
-synapse send my-claude "Review this code" --response
-synapse send gemini "Analyze this" --response
-synapse send codex "Fix this bug and commit" --no-response
+# Choosing response_mode:
+#   --wait:   Task with result expected (question, review, analysis) - synchronous blocking
+#   --notify: Async notification on completion (default)
+#   --silent: Delegated task (fire-and-forget, no result needed)
+#   If unsure, use --wait (safer default for blocking)
+synapse send my-claude "Review this code" --wait
+synapse send gemini "Analyze this" --wait
+synapse send codex "Fix this bug and commit" --silent
 
 # Working directory mismatch warning:
 # synapse send checks if sender CWD matches target's working_dir.
@@ -207,13 +213,13 @@ synapse send claude "Review this" --force  # Bypass working_dir check
 synapse send claude-8100 "Hello"
 
 # Send long messages via file or stdin (avoids ARG_MAX shell limits)
-synapse send claude --message-file /tmp/review.txt --no-response
-echo "long message" | synapse send claude --stdin --no-response
-synapse send claude --message-file - --no-response   # '-' reads from stdin
+synapse send claude --message-file /tmp/review.txt --silent
+echo "long message" | synapse send claude --stdin --silent
+synapse send claude --message-file - --silent   # '-' reads from stdin
 
 # Attach files to messages
-synapse send claude "Review this" --attach src/main.py --response
-synapse send claude "Review these" --attach src/a.py --attach src/b.py --response
+synapse send claude "Review this" --attach src/main.py --wait
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --wait
 
 # Messages >100KB are automatically written to temp files (configurable via SYNAPSE_SEND_MESSAGE_THRESHOLD)
 
@@ -248,8 +254,8 @@ synapse approve <task_id>                 # Approve a plan
 synapse reject <task_id> --reason "Use different approach"  # Reject with reason
 
 # Agent Teams: Delegate Mode (B5)
-synapse claude --delegate-mode            # Start as coordinator (no file editing)
-synapse claude --delegate-mode --name coordinator --role "task manager"
+synapse claude --delegate-mode            # Start as manager (no file editing)
+synapse claude --delegate-mode --name manager --role "task manager"
 
 # Agent Teams: Auto-Spawn Panes (B6, requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 # Ghostty limitation: targets the focused window/tab — do not switch tabs during spawn
@@ -304,7 +310,7 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Target Resolution
 
-When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, or `synapse rename`, targets are resolved in priority order:
+When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`, targets are resolved in priority order:
 
 1. **Custom name** (highest priority): `my-claude`
 2. **Full agent ID**: `synapse-claude-8100`
@@ -728,9 +734,9 @@ synapse history stats --agent gemini
    synapse list
    ```
 
-2. **Delegate task** (use `--response` if result is needed, `--no-response` for fire-and-forget):
+2. **Delegate task** (use `--wait` if result is needed, `--silent` for fire-and-forget, or default `--notify` for async):
    ```bash
-synapse send gemini "Write tests for X and report results" --response
+synapse send gemini "Write tests for X and report results" --wait
    ```
 
 3. **Monitor progress**:
@@ -741,7 +747,7 @@ synapse send gemini "Write tests for X and report results" --response
 
 4. **Send follow-up** (if needed):
    ```bash
-synapse send gemini "Status update?" --priority 4 --response
+synapse send gemini "Status update?" --priority 4 --wait
    ```
 
 5. **Review completion**:

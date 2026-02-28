@@ -773,7 +773,7 @@ synapse history cleanup --days 30 --dry-run
 使用 `synapse send` 进行智能体间通信。在沙盒环境中也可使用。
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **目标格式：**
@@ -781,9 +781,9 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 | 格式 | 示例 | 说明 |
 |------|------|------|
 | 自定义名称 | `my-claude` | 最高优先级，智能体有名称时使用 |
+| 完整 ID | `synapse-claude-8100` | 匹配确切的智能体 ID |
+| 类型-端口 | `claude-8100` | 匹配类型和端口缩写 |
 | 智能体类型 | `claude` | 仅当只有单个实例时有效 |
-| 类型-端口 | `claude-8100` | 同一类型有多个实例时使用 |
-| 完整 ID | `synapse-claude-8100` | 完整智能体 ID |
 
 当同一类型有多个智能体运行时，仅使用类型（如 `claude`）会报错。请使用 `claude-8100` 或 `synapse-claude-8100`。
 
@@ -793,33 +793,47 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 |------|------|------|
 | `--from` | `-f` | 发送者智能体 ID（用于回复识别） |
 | `--priority` | `-p` | 优先级 1-4：正常，5：紧急停止（发送 SIGINT） |
-| `--response` | - | 往返模式 - 发送者等待，接收者通过 `synapse reply` 回复 |
-| `--no-response` | - | 单向模式 - 发送即忘，无需回复 |
+| `--wait` | - | 同步阻塞 - 等待接收者通过 `synapse reply` 回复 |
+| `--notify` | - | 异步通知 - 任务完成后接收通知（默认） |
+| `--silent` | - | 发送即忘 - 无需回复或通知 |
+| `--force` | - | 绕过工作目录不匹配检查进行发送 |
 
 **示例：**
 
 ```bash
-# 发送消息（单实例）
-synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+# 任务期望结果（异步通知 - 默认）
+synapse send gemini "分析此内容并报告结果" --notify
+
+# 任务需要立即响应（阻塞）
+synapse send gemini "当前进度如何？" --wait
+
+# 委派任务，发送即忘
+synapse send codex "修复此 bug 并提交" --silent
+
+# 发送消息（单实例；--from 自动检测）
+synapse send claude "你好" --priority 1
 
 # 长消息支持 (自动切换到临时文件模式)
-synapse send claude --message-file /path/to/message.txt --no-response
-echo "very long content..." | synapse send claude --stdin --no-response
+synapse send claude --message-file /path/to/message.txt --silent
+echo "非常长的内容..." | synapse send claude --stdin --silent
 
 # 文件附件
-synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "查看此内容" --attach src/main.py --wait
 
 # 发送到指定实例（同类型多个）
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "你好"
 
 # 紧急停止
-synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
+synapse send claude "停止！" --priority 5
 
-# 等待响应（往返模式）
-synapse send gemini "Analyze this" --response --from synapse-claude-8100
+# 绕过工作目录不匹配检查
+synapse send claude "查看此内容" --force
+
+# 显式 --from（仅在 Codex 等沙盒环境中需要）
+synapse send claude "你好" --from $SYNAPSE_AGENT_ID
 ```
 
-**默认行为：** 当 `a2a.flow=auto`（默认）时，`synapse send` 会等待响应，除非指定了 `--no-response`。
+**默认行为：** 默认使用 `--notify`（完成后进行异步通知）。
 
 **重要：** 始终使用 `--from` 加上你的智能体 ID（格式：`synapse-<type>-<port>`）。
 
@@ -859,7 +873,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | 发送消息 |
 | `/tasks/send-priority` | POST | 带优先级发送 |
-| `/tasks/create` | POST | 创建任务（不发送到 PTY，用于 `--response`） |
+| `/tasks/create` | POST | 创建任务（不发送到 PTY，用于 `--wait`） |
 | `/tasks/{id}` | GET | 获取任务状态 |
 | `/tasks` | GET | 列出任务 |
 | `/tasks/{id}/cancel` | POST | 取消任务 |

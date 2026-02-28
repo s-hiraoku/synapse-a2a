@@ -22,7 +22,7 @@ synapse tasks create "Fix critical security bug" \
 ```bash
 synapse tasks list                       # All tasks
 synapse tasks list --status pending      # Filter by status
-synapse tasks list --status working      # In-progress tasks
+synapse tasks list --status in_progress  # In-progress tasks
 ```
 
 ## Assigning Tasks
@@ -139,9 +139,9 @@ curl -X POST http://localhost:8100/tasks/board/<task_id>/complete \
 ```mermaid
 stateDiagram-v2
     [*] --> pending: Created
-    pending --> working: Claimed/Assigned
-    working --> completed: Success
-    working --> failed: Error
+    pending --> in_progress: Claimed/Assigned
+    in_progress --> completed: Success
+    in_progress --> failed: Error
     completed --> pending: Reopened
     failed --> pending: Reopened
 ```

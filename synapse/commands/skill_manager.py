@@ -459,7 +459,7 @@ def cmd_skills_set_list(sets_path: Path | None = None) -> None:
     sets = load_skill_sets(sets_path)
     if not sets:
         print("No skill sets defined.")
-        print("  Create one with: synapse skills set create")
+        print("  Create one via the interactive manager: synapse skills")
         return
 
     print("Skill Sets:")
@@ -499,7 +499,7 @@ def _send_skill_set_message(
 ) -> bool:
     """Send skill set info to a running agent via A2A.
 
-    Delegates to ``synapse send <target> <message> --no-response --force``.
+    Delegates to ``synapse send <target> <message> --silent --force``.
 
     Returns:
         True if the message was sent successfully.
@@ -516,7 +516,7 @@ def _send_skill_set_message(
                 "send",
                 target,
                 message,
-                "--no-response",
+                "--silent",
                 "--force",
             ],
             capture_output=True,

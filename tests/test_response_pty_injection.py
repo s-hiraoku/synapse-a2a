@@ -1,6 +1,6 @@
-"""Tests for --response reply PTY injection (v0.3.13).
+"""Tests for --wait reply PTY injection (v0.3.13).
 
-When an agent sends a message with --response flag, the recipient processes
+When an agent sends a message with --wait flag, the recipient processes
 the message and sends a reply. This reply should be written to the sender's
 PTY so the conversation can continue naturally.
 """
@@ -16,25 +16,25 @@ class TestReplyPtyInjection:
         # This is the metadata format _send_response_to_sender uses
         metadata = {
             "sender": {"sender_id": "synapse-codex-8120"},
-            "response_expected": False,
+            "response_mode": "silent",
             "in_reply_to": "abc12345-1234-5678-abcd-123456789012",
         }
 
         # Verify structure
         assert "in_reply_to" in metadata
         assert metadata["in_reply_to"] == "abc12345-1234-5678-abcd-123456789012"
-        assert metadata["response_expected"] is False
+        assert metadata["response_mode"] == "silent"
 
-    def test_format_a2a_message_reply_no_response_expected(self) -> None:
+    def test_format_a2a_message_reply_response_mode_silent(self) -> None:
         """Reply messages should not have REPLY EXPECTED prefix."""
-        msg = format_a2a_message("This is my reply", response_expected=False)
+        msg = format_a2a_message("This is my reply", response_mode="silent")
         assert "REPLY EXPECTED" not in msg
         assert "A2A:" in msg
         assert "This is my reply" in msg
 
-    def test_format_a2a_message_with_response_expected(self) -> None:
-        """Original request with response_expected=True should have prefix."""
-        msg = format_a2a_message("Please help me", response_expected=True)
+    def test_format_a2a_message_with_response_mode_wait(self) -> None:
+        """Original request with response_mode='wait' should have prefix."""
+        msg = format_a2a_message("Please help me", response_mode="wait")
         assert "REPLY EXPECTED" in msg
         assert "Please help me" in msg
 
@@ -89,13 +89,13 @@ class TestReplyMessageFormat:
             },
             "metadata": {
                 "sender": {"sender_id": "synapse-codex-8120"},
-                "response_expected": False,
+                "response_mode": "silent",
                 "in_reply_to": "task-uuid",
             },
         }
 
         assert payload["message"]["role"] == "agent"
-        assert payload["metadata"]["response_expected"] is False
+        assert payload["metadata"]["response_mode"] == "silent"
 
     def test_reply_includes_sender_id(self) -> None:
         """Reply should include sender_id for context."""

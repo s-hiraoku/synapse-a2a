@@ -297,7 +297,7 @@ If sender information is not available, it falls back to:
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
-**IMPORTANT:** Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically when `--response` is used. Manually adding it causes duplication.
+**IMPORTANT:** Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically when `--wait` is used. Manually adding it causes duplication.
 
 **Reply Tracking:** Synapse automatically tracks senders who expect a reply (`[REPLY EXPECTED]` messages). Use `synapse reply` for responses - it automatically knows who to reply to.
 
@@ -330,7 +330,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response] [--callback "<command>"] [--force]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent] [--callback "<command>"] [--force]
 ```
 
 **Target Formats (in priority order):**
@@ -349,9 +349,10 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
   - 3: Normal tasks
   - 4: Urgent follow-ups
   - 5: Critical/emergency (sends SIGINT first)
-- `--response`: Roundtrip mode - sender waits, receiver MUST reply
-- `--no-response`: Oneway mode - fire and forget, no reply expected
-- `--callback`: Shell command to run on sender after task completion (requires `--no-response`)
+- `--wait`: Synchronous blocking - wait for receiver to reply with `synapse reply`
+- `--notify`: Async notification - get notified when task completes (default)
+- `--silent`: Fire and forget - no reply or notification needed
+- `--callback`: Shell command to run on sender after task completion (requires `--silent`)
 - `--message-file`: Read message from file (use `-` for stdin)
 - `--stdin`: Read message from stdin
 - `--attach`: Attach file(s) to message (repeatable)
@@ -359,36 +360,35 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--respon
 
 **Working Directory Check:** Before sending, `synapse send` verifies that your current working directory matches the target agent's working directory. If they differ, the command prints a warning (listing agents in your current directory or suggesting `synapse spawn`) and exits with code 1. Use `--force` to skip this check.
 
-**Choosing --response vs --no-response:**
+**Choosing response mode:**
 
-Analyze the message content and determine if a reply is expected:
-- If the message expects or benefits from a reply → use `--response`
-- If the message is purely informational with no reply needed → use `--no-response`
-- **If unsure, use `--response`** (safer default)
-- **Key rule:** If you say "report", "let me know", "what is", or expect ANY result back → `--response`
+Analyze the message content and determine if you need immediate results:
+- If you need immediate results and want to block until reply → use `--wait`
+- If you want to be notified when the task is done (async) → use `--notify` (default)
+- If the message is purely informational with no notification needed → use `--silent`
 
-| Message Type | Flag | Example |
+| Message Type | Mode | Example |
 |--------------|------|---------|
-| Question | `--response` | "What is the status?" |
-| Request for analysis | `--response` | "Please review this code" |
-| Status check | `--response` | "Are you ready?" |
-| Task with result expected | `--response` | "Run tests and report the results" |
-| Delegated task (fire-and-forget) | `--no-response` | "Fix this bug and commit" |
-| Notification | `--no-response` | "FYI: Build completed" |
+| Question | `--wait` | "What is the status?" |
+| Request for analysis | `--wait` | "Please review this code" |
+| Status check | `--wait` | "Are you ready?" |
+| Task with result expected | `--notify` | "Run tests and report the results" |
+| Delegated task (fire-and-forget) | `--silent` | "Fix this bug and commit" |
+| Notification | `--silent` | "FYI: Build completed" |
 
 **Examples:**
 ```bash
-# Question - needs reply
-synapse send gemini "What is the best approach?" --response
+# Question - immediate reply needed (blocking)
+synapse send gemini "What is the best approach?" --wait
 
-# Task with result expected - needs reply
-synapse send codex "Run pytest and report the results" --response
+# Task with result expected (async notification - default)
+synapse send codex "Run pytest and report the results" --notify
 
 # Delegation with no result needed - fire and forget
-synapse send codex "Fix this bug and commit" --no-response
+synapse send codex "Fix this bug and commit" --silent
 
 # Send to specific instance with status check
-synapse send claude-8100 "What is your status?" --response
+synapse send claude-8100 "What is your status?" --wait
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5
@@ -400,15 +400,15 @@ synapse send my-claude "Cross-project info" --force
 **Sending long messages or files:**
 ```bash
 # Send message from file (avoids ARG_MAX shell limits)
-synapse send claude --message-file /tmp/review.txt --no-response
+synapse send claude --message-file /tmp/review.txt --silent
 
 # Read message from stdin
-echo "long message" | synapse send claude --stdin --no-response
-synapse send claude --message-file - --no-response   # '-' reads from stdin
+echo "long message" | synapse send claude --stdin --silent
+synapse send claude --message-file - --silent   # '-' reads from stdin
 
 # Attach files to message
-synapse send claude "Review this" --attach src/main.py --no-response
-synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+synapse send claude "Review this" --attach src/main.py --silent
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --silent
 ```
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
@@ -423,7 +423,7 @@ Shorthand for sending a priority-4, fire-and-forget message:
 synapse interrupt <target> "<message>" [--from <sender>] [--force]
 ```
 
-Equivalent to `synapse send <target> "<message>" -p 4 --no-response [--from <sender>]`.
+Equivalent to `synapse send <target> "<message>" -p 4 --silent [--from <sender>]`.
 
 **Parameters:**
 - `target`: Target agent (name, ID, type-port, or agent type)
@@ -468,15 +468,16 @@ synapse reply "<message>" --to <sender_id>
 Send a message to all agents in the current working directory:
 
 ```bash
-synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **Parameters:**
 - `message`: Message to broadcast to all cwd agents
 - `--from, -f`: Sender agent ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
 - `--priority, -p`: Priority level 1-5 (default: 1)
-- `--response`: Wait for responses from all agents
-- `--no-response`: Fire-and-forget broadcast
+- `--wait`: Synchronous wait for all agents
+- `--notify`: Async notification from each agent (default)
+- `--silent`: Fire-and-forget broadcast
 
 **Scope:** Only targets agents sharing the same working directory as the sender.
 
@@ -489,10 +490,10 @@ synapse broadcast "Status check"
 synapse broadcast "Stop current work" --priority 4
 
 # Fire-and-forget notification
-synapse broadcast "FYI: Build completed" --no-response
+synapse broadcast "FYI: Build completed" --silent
 
 # Wait for responses from all agents
-synapse broadcast "What are you working on?" --response
+synapse broadcast "What are you working on?" --wait
 ```
 
 ### A2A Tool (Advanced)
@@ -501,7 +502,7 @@ For advanced use cases or external scripts:
 
 ```bash
 python -m synapse.tools.a2a send --target <AGENT> [--priority <1-5>] "<MESSAGE>"
-python -m synapse.tools.a2a broadcast [--priority <1-5>] [--from <AGENT>] [--response | --no-response] "<MESSAGE>"  # Broadcast to cwd agents
+python -m synapse.tools.a2a broadcast [--priority <1-5>] [--from <AGENT>] [--wait | --silent] "<MESSAGE>"  # Broadcast to cwd agents
 python -m synapse.tools.a2a reply "<MESSAGE>"  # Reply to last received message
 python -m synapse.tools.a2a reply --list-targets
 python -m synapse.tools.a2a reply "<MESSAGE>" --to <SENDER_ID>
@@ -1023,19 +1024,19 @@ synapse tasks list --status pending
 
 ### Task Board Workflow (Kanban Pattern)
 
-The coordinator agent (delegate-mode) monitors TaskBoard and orchestrates worker agents:
+The manager agent (delegate-mode) monitors TaskBoard and orchestrates worker agents:
 
 ```bash
-# Step 1: Coordinator creates task chain
+# Step 1: Manager creates task chain
 # synapse tasks create prints "Created task: <id> - <subject> (priority=N)"
 # Use awk to extract the task ID (short UUID)
 T1=$(synapse tasks create "Write tests" --priority 5 | awk '{print $3}')
 T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4 | awk '{print $3}')
 T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3 | awk '{print $3}')
 
-# Step 2: Coordinator assigns available tasks and notifies worker
+# Step 2: Manager assigns available tasks and notifies worker
 synapse tasks assign $T1 claude
-synapse send claude "Write tests for auth module" --no-response
+synapse send claude "Write tests for auth module" --silent
 
 # Step 3: Worker reports completion
 synapse tasks complete $T1

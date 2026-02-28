@@ -88,7 +88,7 @@ Agents don't need to know about collaboration details. Synapse handles routing, 
 Send messages between agents with priority levels, roundtrip replies, broadcast, and soft interrupts.
 
 ```bash
-synapse send gemini "Review this code" --response
+synapse send gemini "Review this code" --wait
 ```
 </div>
 
@@ -224,7 +224,7 @@ synapse memory save auth-pattern \
 
     ```bash
     # Send a message from Claude to Gemini
-    synapse send gemini "Analyze this codebase" --response
+    synapse send gemini "Analyze this codebase" --wait
 
     # Monitor all agents
     synapse list

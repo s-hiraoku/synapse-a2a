@@ -32,11 +32,13 @@ synapse team start claude gemini --all-new
 
 ### Extended Spec Format
 
-Specify name, role, skill set, and port per agent:
+Specify target, name, role, skill set, and port per agent using colon-separated format:
 
 ```
-profile[:name[:role[:skill_set[:port]]]]
+target[:name[:role[:skill_set[:port]]]]
 ```
+
+The `target` can be a built-in profile name (`claude`, `gemini`, etc.) or a saved agent ID/name.
 
 ```bash
 synapse team start \
@@ -146,11 +148,11 @@ synapse gemini --name worker-1
 synapse codex --name worker-2
 
 # Manager delegates (fire-and-forget — no reply needed)
-synapse send worker-1 "Implement OAuth2 authentication" --no-response
-synapse send worker-2 "Write tests for auth module" --no-response
+synapse send worker-1 "Implement OAuth2 authentication" --silent
+synapse send worker-2 "Write tests for auth module" --silent
 
-# Check progress (expects a reply — use --response)
-synapse send worker-1 "Progress?" --response
+# Check progress (expects a reply — use --wait)
+synapse send worker-1 "Progress?" --wait
 ```
 
 ## Supported Terminals
@@ -295,7 +297,7 @@ When an interactive agent exits (with a name set), Synapse prompts whether to sa
 ```bash
 synapse spawn gemini --name Tester --role "test writer"
 # Wait for READY...
-synapse send Tester "Write unit tests for auth.py" --response
+synapse send Tester "Write unit tests for auth.py" --wait
 # Evaluate result
 synapse kill Tester -f
 ```
@@ -307,12 +309,12 @@ synapse spawn gemini --name Tester --role "test writer"
 synapse spawn codex --name Fixer --role "bug fixer"
 
 # Parallel tasks (fire-and-forget — no reply needed)
-synapse send Tester "Write tests for auth.py" --no-response
-synapse send Fixer "Fix timeout bug in server.py" --no-response
+synapse send Tester "Write tests for auth.py" --silent
+synapse send Fixer "Fix timeout bug in server.py" --silent
 
-# Collect results (expects a reply — use --response)
-synapse send Tester "Progress?" --response
-synapse send Fixer "Progress?" --response
+# Collect results (expects a reply — use --wait)
+synapse send Tester "Progress?" --wait
+synapse send Fixer "Progress?" --wait
 
 # Cleanup
 synapse kill Tester -f
@@ -350,7 +352,7 @@ After an agent completes a task, always verify its work from the manager's persp
 
 ```bash
 # 1. Wait for completion
-synapse send Worker "Status?" --response
+synapse send Worker "Status?" --wait
 
 # 2. Inspect artifacts
 git diff worktree-worker-1

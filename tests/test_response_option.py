@@ -3,9 +3,9 @@
 Issue #96: synapse send と a2a.py send でレスポンス待機のデフォルト動作とフラグ名が不整合
 
 Requirements:
-1. Flag name unification: Use --response/--no-response (not --return)
+1. Flag name unification: Use --wait/--silent (not --return)
 2. Default behavior unification: Both default to NOT waiting for response (safer)
-3. synapse send should pass --response/--no-response to a2a.py send
+3. synapse send should pass --wait/--silent to a2a.py send
 """
 
 import argparse
@@ -19,36 +19,34 @@ class TestSynapseSendResponseFlags:
     """Tests for synapse send command response flags."""
 
     def test_synapse_send_has_response_flag(self, capsys):
-        """synapse send should have --response flag (not --return)."""
+        """synapse send should have --wait flag (not --return)."""
         from synapse.cli import main
 
         with (
             patch("synapse.cli.install_skills"),
             patch("synapse.cli.cmd_send") as mock_cmd_send,
-            patch.object(
-                sys, "argv", ["synapse", "send", "claude", "hello", "--response"]
-            ),
+            patch.object(sys, "argv", ["synapse", "send", "claude", "hello", "--wait"]),
         ):
             main()
             args = mock_cmd_send.call_args[0][0]
-            assert hasattr(args, "want_response")
-            assert args.want_response is True
+            assert hasattr(args, "response_mode")
+            assert args.response_mode == "wait"
 
     def test_synapse_send_has_no_response_flag(self):
-        """synapse send should have --no-response flag."""
+        """synapse send should have --silent flag."""
         from synapse.cli import main
 
         with (
             patch("synapse.cli.install_skills"),
             patch("synapse.cli.cmd_send") as mock_cmd_send,
             patch.object(
-                sys, "argv", ["synapse", "send", "claude", "hello", "--no-response"]
+                sys, "argv", ["synapse", "send", "claude", "hello", "--silent"]
             ),
         ):
             main()
             args = mock_cmd_send.call_args[0][0]
-            assert hasattr(args, "want_response")
-            assert args.want_response is False
+            assert hasattr(args, "response_mode")
+            assert args.response_mode == "silent"
 
     def test_synapse_send_default_no_wait(self):
         """synapse send should default to NOT waiting for response."""
@@ -62,10 +60,10 @@ class TestSynapseSendResponseFlags:
             main()
             args = mock_cmd_send.call_args[0][0]
             # Default should be None (auto mode in a2a.py will default to False)
-            assert args.want_response is None
+            assert args.response_mode is None
 
     def test_synapse_send_passes_response_flag_to_a2a(self):
-        """synapse send should pass --response to a2a.py send."""
+        """synapse send should pass --wait to a2a.py send."""
         from synapse.cli import cmd_send
 
         mock_args = MagicMock()
@@ -76,17 +74,17 @@ class TestSynapseSendResponseFlags:
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None
-        mock_args.want_response = True
+        mock_args.response_mode = "wait"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--response" in cmd
+            assert "--wait" in cmd
 
     def test_synapse_send_passes_no_response_flag_to_a2a(self):
-        """synapse send should pass --no-response to a2a.py send."""
+        """synapse send should pass --silent to a2a.py send."""
         from synapse.cli import cmd_send
 
         mock_args = MagicMock()
@@ -97,17 +95,17 @@ class TestSynapseSendResponseFlags:
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None
-        mock_args.want_response = False
+        mock_args.response_mode = "silent"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            assert "--no-response" in cmd
+            assert "--silent" in cmd
 
     def test_synapse_send_no_flag_when_default(self):
-        """synapse send should not pass any response flag when want_response is None."""
+        """synapse send should not pass any response flag when response_mode is None."""
         from synapse.cli import cmd_send
 
         mock_args = MagicMock()
@@ -118,23 +116,23 @@ class TestSynapseSendResponseFlags:
         mock_args.priority = 1
         mock_args.sender = None
         mock_args.reply_to = None
-        mock_args.want_response = None
+        mock_args.response_mode = "notify"
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
             cmd_send(mock_args)
 
             cmd = mock_run.call_args[0][0]
-            # Neither --response nor --no-response should be present
-            assert "--response" not in cmd
-            assert "--no-response" not in cmd
+            # Neither --wait nor --silent should be present
+            assert "--wait" not in cmd
+            assert "--silent" not in cmd
 
 
 class TestA2aSendResponseFlags:
     """Tests for a2a.py send command response flags."""
 
-    def test_a2a_send_default_waits(self):
-        """a2a.py send should default to waiting for response in auto mode."""
+    def test_a2a_send_default_is_notify(self):
+        """a2a.py send should default to notify mode in auto flow."""
         from synapse.tools.a2a import cmd_send
 
         mock_args = argparse.Namespace(
@@ -143,7 +141,7 @@ class TestA2aSendResponseFlags:
             priority=1,
             sender=None,
             reply_to=None,
-            want_response=None,  # Default value
+            response_mode="notify",  # Default value
         )
 
         with (
@@ -176,12 +174,12 @@ class TestA2aSendResponseFlags:
 
             cmd_send(mock_args)
 
-            # Default should be True (waiting for response)
+            # Default should be notify mode
             call_kwargs = mock_client.send_to_local.call_args.kwargs
-            assert call_kwargs["response_expected"] is True
+            assert call_kwargs["response_mode"] == "notify"
 
     def test_a2a_send_response_flag_waits(self):
-        """a2a.py send with --response should wait for response."""
+        """a2a.py send with --wait should wait for response."""
         from synapse.tools.a2a import cmd_send
 
         mock_args = argparse.Namespace(
@@ -190,7 +188,7 @@ class TestA2aSendResponseFlags:
             priority=1,
             sender=None,
             reply_to=None,
-            want_response=True,
+            response_mode="wait",
         )
 
         with (
@@ -224,39 +222,37 @@ class TestA2aSendResponseFlags:
             cmd_send(mock_args)
 
             call_kwargs = mock_client.send_to_local.call_args.kwargs
-            assert call_kwargs["response_expected"] is True
+            assert call_kwargs["response_mode"] == "wait"
 
 
 class TestResponseFlagConsistency:
     """Tests for consistency between synapse send and a2a.py send."""
 
     def test_both_commands_have_same_flag_names(self):
-        """Both commands should use --response/--no-response flags."""
+        """Both commands should use --wait/--silent flags."""
         from synapse.cli import main
 
-        # Test --response flag
+        # Test --wait flag
         with (
             patch("synapse.cli.install_skills"),
             patch("synapse.cli.cmd_send") as mock_cmd_send,
-            patch.object(
-                sys, "argv", ["synapse", "send", "claude", "hello", "--response"]
-            ),
+            patch.object(sys, "argv", ["synapse", "send", "claude", "hello", "--wait"]),
         ):
             main()
             args = mock_cmd_send.call_args[0][0]
-            assert args.want_response is True
+            assert args.response_mode == "wait"
 
-        # Test --no-response flag
+        # Test --silent flag
         with (
             patch("synapse.cli.install_skills"),
             patch("synapse.cli.cmd_send") as mock_cmd_send,
             patch.object(
-                sys, "argv", ["synapse", "send", "claude", "hello", "--no-response"]
+                sys, "argv", ["synapse", "send", "claude", "hello", "--silent"]
             ),
         ):
             main()
             args = mock_cmd_send.call_args[0][0]
-            assert args.want_response is False
+            assert args.response_mode == "silent"
 
     def test_deprecated_return_flag_not_present(self):
         """The deprecated --return flag should not be present."""

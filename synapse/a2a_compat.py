@@ -153,11 +153,25 @@ def _convert_agent_to_info(agent: "ExternalAgent") -> "ExternalAgentInfo":
     )
 
 
+def _resolve_response_mode(metadata: dict) -> str:
+    """Resolve response mode from metadata, handling backward compatibility.
+
+    Accepts both new ``response_mode`` key and legacy ``response_expected``
+    boolean.  Falls back to ``"notify"`` when neither key is present.
+    """
+    if "response_mode" in metadata:
+        return str(metadata["response_mode"])
+    # Backward compat: map old boolean to new mode
+    if "response_expected" in metadata:
+        return "wait" if metadata["response_expected"] else "silent"
+    return "notify"
+
+
 def _prepare_pty_message(
     store: LongMessageStore,
     task_id: str,
     content: str,
-    response_expected: bool = False,
+    response_mode: str = "silent",
     sender_id: str | None = None,
     sender_name: str | None = None,
 ) -> tuple[str, bool]:
@@ -170,7 +184,7 @@ def _prepare_pty_message(
         store: LongMessageStore instance
         task_id: Task ID for file naming
         content: Original message content
-        response_expected: Whether sender expects a response
+        response_mode: Response mode ("wait", "notify", or "silent")
         sender_id: Sender agent ID for file reference
         sender_name: Sender display name for file reference
 
@@ -183,7 +197,7 @@ def _prepare_pty_message(
 
     file_path = store.store_message(task_id, content)
     reference = format_file_reference(
-        file_path, response_expected, sender_id=sender_id, sender_name=sender_name
+        file_path, response_mode, sender_id=sender_id, sender_name=sender_name
     )
     logger.info(f"Long message stored to {file_path} for task {task_id[:8]}")
     return reference, True
@@ -194,7 +208,8 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     mapping: dict[str, TaskState] = {
         "STARTING": "submitted",
         "BUSY": "working",
-        "IDLE": "completed",
+        "READY": "completed",
+        "DONE": "completed",
         "NOT_STARTED": "submitted",
     }
     return mapping.get(synapse_status, "working")
@@ -578,7 +593,7 @@ async def _send_response_to_sender(
             "sender": {
                 "sender_id": self_agent_id,
             },
-            "response_expected": False,  # Response to response not needed
+            "response_mode": "silent",  # Response to response not needed
             "in_reply_to": reply_to_id,  # Reference to sender's task
         },
     }
@@ -796,7 +811,7 @@ def _memory_broadcast_notify_api(key: str) -> None:
                     endpoint=endpoint,
                     message=f"[Memory updated] Key '{key}' was saved. Use `synapse memory show {key}` to view.",
                     priority=1,
-                    response_expected=False,
+                    response_mode="silent",
                     sender_agent_id=my_id,
                     target_agent_id=agent_id,
                 )
@@ -841,6 +856,100 @@ def create_a2a_router(
     if agent_id is None:
         agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
+
+    # Register controller callback for notify/wait completion detection.
+    # When status transitions to READY or DONE, check working tasks.
+    if controller:
+
+        def _on_status_change(old: str, new: str) -> None:
+            if new not in ("READY", "DONE"):
+                return
+            # Find working tasks and trigger completion detection
+            for task in task_store.list_tasks():
+                if task.status != "working":
+                    continue
+                tid = task.id
+                metadata = task.metadata or {}
+                resp_mode = _resolve_response_mode(metadata)
+                if resp_mode == "silent":
+                    continue
+                # Guard: only complete if still working
+                current = task_store.get(tid)
+                if not current or current.status != "working":
+                    continue
+                context = controller.get_context()
+                recent_context = context[-CONTEXT_RECENT_SIZE:]
+                # Analyze output for errors
+                status, error = detect_task_status(recent_context)
+                if status == "failed" and error:
+                    task_store.set_error(
+                        tid,
+                        TaskErrorModel(
+                            code=error.code,
+                            message=error.message,
+                            data=error.data,
+                        ),
+                    )
+                    _dispatch_task_event(
+                        "task.failed",
+                        {
+                            "task_id": tid,
+                            "error": {
+                                "code": error.code,
+                                "message": error.message,
+                            },
+                        },
+                    )
+                else:
+                    task_store.update_status(tid, "completed")
+                    _dispatch_task_event("task.completed", {"task_id": tid})
+                # Add artifacts
+                if recent_context:
+                    segments = parse_output(recent_context)
+                    if segments:
+                        for seg in segments:
+                            artifact_data: dict[str, Any] = {"content": seg.content}
+                            if seg.metadata:
+                                artifact_data["metadata"] = seg.metadata
+                            task_store.add_artifact(
+                                tid,
+                                Artifact(type=seg.type, data=artifact_data),
+                            )
+                    else:
+                        task_store.add_artifact(
+                            tid, Artifact(type="text", data=recent_context)
+                        )
+                # Clear task preview
+                if registry and agent_id:
+                    registry.update_current_task(agent_id, None)
+                # Save to history
+                updated = task_store.get(tid)
+                if updated:
+                    _save_task_to_history(
+                        updated,
+                        agent_id=agent_id or "unknown",
+                        agent_name=agent_type or "unknown",
+                        task_status=updated.status,
+                    )
+                    # Send response/notification (reuse resp_mode from above)
+                    si = _extract_sender_info(metadata)
+                    if si.sender_endpoint and resp_mode in ("wait", "notify"):
+                        try:
+                            loop = asyncio.get_event_loop()
+                        except RuntimeError:
+                            loop = None
+                        coro = _send_response_to_sender(
+                            updated,
+                            si.sender_endpoint,
+                            agent_id or "unknown",
+                            sender_task_id=si.sender_task_id,
+                        )
+                        if loop and loop.is_running():
+                            asyncio.run_coroutine_threadsafe(coro, loop)
+                        else:
+                            asyncio.run(coro)
+
+        controller.on_status_change(_on_status_change)
 
     async def _send_task_message(
         request: SendMessageRequest, priority: int = 3
@@ -940,12 +1049,12 @@ def create_a2a_router(
             controller.interrupt()
 
         # Push sender info to reply stack for simplified reply routing
-        # Only store if response_expected=True (sender is waiting for reply)
+        # Store when response_mode is "wait" or "notify" (sender expects a reply)
         metadata = request.metadata or {}
-        response_expected = metadata.get("response_expected", False)
+        response_mode = _resolve_response_mode(metadata)
         sender_info = _extract_sender_info(request.metadata)
         if (
-            response_expected
+            response_mode in ("wait", "notify")
             and sender_info.has_reply_target()
             and sender_info.sender_id
         ):
@@ -965,7 +1074,7 @@ def create_a2a_router(
             get_long_message_store(),
             task.id,
             pty_payload_text,
-            response_expected,
+            response_mode,
             sender_id=sender_info.sender_id,
             sender_name=sender_info.sender_name,
         )
@@ -975,7 +1084,7 @@ def create_a2a_router(
         try:
             prefixed_content = format_a2a_message(
                 pty_text,
-                response_expected=response_expected if not used_file else False,
+                response_mode=response_mode if not used_file else "silent",
                 sender_id=sender_info.sender_id if not used_file else None,
                 sender_name=sender_info.sender_name if not used_file else None,
             )
@@ -1079,7 +1188,7 @@ def create_a2a_router(
         """
         Create a task without sending to PTY.
 
-        This endpoint is used by --response flag to create a task on the
+        This endpoint is used by --wait/--notify modes to create a task on the
         sender's server before sending to the target agent. The task is
         created in "working" status, waiting for the reply via --reply-to.
 
@@ -1402,9 +1511,10 @@ def create_a2a_router(
             # Check for input_required state first
             if is_input_required(context):
                 task_store.update_status(task_id, "input_required")
-            elif synapse_status == "IDLE":
+            elif synapse_status in ("READY", "DONE"):
+                recent_context = context[-CONTEXT_RECENT_SIZE:]
                 # Agent is idle, analyze output for errors
-                status, error = detect_task_status(context[-CONTEXT_RECENT_SIZE:])
+                status, error = detect_task_status(recent_context)
 
                 if status == "failed" and error:
                     # Set error and failed status
@@ -1428,7 +1538,6 @@ def create_a2a_router(
                     _dispatch_task_event("task.completed", {"task_id": task_id})
 
                 # Parse and add output as structured artifacts (before history saving)
-                recent_context = context[-CONTEXT_RECENT_SIZE:]
                 if recent_context:
                     segments = parse_output(recent_context)
                     if segments:
@@ -1460,14 +1569,14 @@ def create_a2a_router(
                         task_status=updated_task.status,
                     )
 
-                    # Send response back to sender if response_expected
+                    # Send response or notification based on response_mode
                     metadata = updated_task.metadata or {}
-                    response_expected = metadata.get("response_expected", False)
+                    resp_mode = _resolve_response_mode(metadata)
                     sender_info = _extract_sender_info(metadata)
 
                     if sender_info.sender_endpoint:
-                        if response_expected:
-                            # Send response asynchronously
+                        if resp_mode in ("wait", "notify"):
+                            # Send full response for wait/notify modes
                             asyncio.create_task(
                                 _send_response_to_sender(
                                     updated_task,
@@ -1477,7 +1586,7 @@ def create_a2a_router(
                                 )
                             )
                         else:
-                            # Best-effort callback for no-response flow
+                            # Best-effort callback for silent flow
                             asyncio.create_task(
                                 _notify_sender_completion(
                                     task=updated_task,

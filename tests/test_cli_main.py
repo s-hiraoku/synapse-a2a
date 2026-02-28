@@ -1,3 +1,4 @@
+import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -18,7 +19,10 @@ class TestCliMain:
         self, mock_install, mock_cmd_list, mock_setup_logging
     ):
         """main() should initialize logging before command dispatch."""
-        with patch.object(sys, "argv", ["synapse", "list"]):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(sys, "argv", ["synapse", "list"]),
+        ):
             main()
 
         mock_setup_logging.assert_called_once_with()

@@ -74,7 +74,7 @@ def test_save_overwrites(tmp_path, monkeypatch) -> None:
 
 @patch("synapse.a2a_compat.save_reply_target")
 def test_send_task_message_persists_reply_target(mock_save_reply_target) -> None:
-    """A2A message with response_expected should persist reply target to file."""
+    """A2A message with response_mode should persist reply target to file."""
     app = FastAPI()
     controller = MagicMock()
     controller.agent_ready = True
@@ -92,7 +92,7 @@ def test_send_task_message_persists_reply_target(mock_save_reply_target) -> None
     payload = {
         "message": {"role": "user", "parts": [{"type": "text", "text": "hello"}]},
         "metadata": {
-            "response_expected": True,
+            "response_mode": "wait",
             "sender_task_id": "task-123",
             "sender": {
                 "sender_id": "synapse-claude-8100",

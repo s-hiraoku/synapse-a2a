@@ -151,8 +151,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "delegate_mode": {
         "deny_file_locks": True,
         "instruction_template": (
-            "\n\n[COORDINATOR MODE]\n"
-            "You are a coordinator. Do NOT edit files directly.\n"
+            "\n\n[MANAGER MODE]\n"
+            "You are a manager. Do NOT edit files directly.\n"
             "Instead, use `synapse send` to delegate tasks to other agents.\n"
             "Focus on: task analysis, splitting, assignment, and review.\n"
             "Use `synapse list` to check agent availability.\n"

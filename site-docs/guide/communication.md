@@ -16,7 +16,7 @@ Synapse A2A provides three ways to send messages between agents:
 
 ```bash
 synapse send <target> "<message>" \
-  --response          # Wait for reply
+  --wait          # Wait for reply
 ```
 
 `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at agent startup). You can omit it in most cases.
@@ -24,14 +24,14 @@ synapse send <target> "<message>" \
 ### Fire-and-Forget
 
 ```bash
-synapse send codex "Refactor the auth module" --no-response
+synapse send codex "Refactor the auth module" --silent
 ```
 
 ### With Priority
 
 ```bash
 synapse send gemini "Urgent: check this security issue" \
-  --priority 4 --response
+  --priority 4 --wait
 ```
 
 ### All Options
@@ -40,7 +40,7 @@ synapse send gemini "Urgent: check this security issue" \
 synapse send <target> "<message>" \
   --from <sender_id> \
   --priority 1-5 \
-  --response | --no-response \
+  --wait | --notify | --silent \
   --message-file <path> \
   --stdin \
   --attach <file> \
@@ -51,7 +51,7 @@ synapse send <target> "<message>" \
 |--------|-------------|
 | `--from <sender_id>` | Sender identification (optional — auto-detected from `$SYNAPSE_AGENT_ID`) |
 | `--priority 1-5` | Priority level (default: 3) |
-| `--response` / `--no-response` | Wait for reply (roundtrip) or fire-and-forget |
+| `--wait` / `--notify` / `--silent` | Wait for reply, async notify (default), or fire-and-forget |
 | `--message-file <path>` | Read message from file |
 | `--stdin` | Read message from stdin |
 | `--attach <file>` | Attach file(s) — repeatable |
@@ -60,20 +60,25 @@ synapse send <target> "<message>" \
 !!! info "Sender Auto-Detection"
     The `--from` flag is resolved in the following order: (1) explicit `--from` value, (2) `SYNAPSE_AGENT_ID` environment variable (auto-set at startup), (3) PID ancestry matching against the registry. In most environments, you can omit `--from` entirely.
 
-### Choosing --response vs --no-response
+### Choosing Response Mode
 
-Analyze the message content and determine whether a reply is expected:
+Three response modes are available:
 
-- If the message **expects or benefits from a reply** (questions, requests for results) → use `--response`
-- If the message is **purely informational** with no reply needed (notifications, delegated tasks) → use `--no-response`
-- **If unsure, use `--response`** — it is the safer default
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `--notify` | Return immediately, PTY notification on completion (**default**) | Most use cases |
+| `--wait` | Block until receiver replies | Questions, results needed before proceeding |
+| `--silent` | Fire-and-forget, no notification | Pure notifications, delegated tasks |
 
 ```bash
-# Task with result expected — use --response
-synapse send gemini "What is the best approach for auth?" --response
+# Default (--notify) — returns immediately, notifies on completion
+synapse send gemini "Analyze this codebase"
 
-# Delegated task (fire-and-forget) — use --no-response
-synapse send codex "FYI: Build completed" --no-response
+# Synchronous wait — blocks until reply
+synapse send gemini "What is the best approach for auth?" --wait
+
+# Fire-and-forget — no completion notification
+synapse send codex "FYI: Build completed" --silent
 ```
 
 ### Name vs ID
@@ -81,8 +86,8 @@ synapse send codex "FYI: Build completed" --no-response
 **Targets (who you're talking to)** — use custom names. Names are resolved first, making them the easiest way to address agents:
 
 ```bash
-synapse send my-claude "Review this code" --response
-synapse send 釘崎野薔薇 "テストを書いて" --no-response
+synapse send my-claude "Review this code" --wait
+synapse send 釘崎野薔薇 "テストを書いて" --silent
 ```
 
 **Sender (`--from`)** — always uses agent ID format (`synapse-<type>-<port>`). This is auto-detected, so you rarely need to specify it.
@@ -161,7 +166,7 @@ A convenience shorthand for priority-4 fire-and-forget messages:
 synapse interrupt claude "Stop and review the current approach"
 
 # Equivalent to:
-synapse send claude "Stop and review" -p 4 --no-response
+synapse send claude "Stop and review" -p 4 --silent
 ```
 
 ## Broadcast
@@ -169,15 +174,15 @@ synapse send claude "Stop and review" -p 4 --no-response
 Send a message to all agents in the current working directory:
 
 ```bash
-synapse broadcast "Status check — what's everyone working on?" --response
+synapse broadcast "Status check — what's everyone working on?" --wait
 
 # Fire-and-forget broadcast
-synapse broadcast "FYI: deploying to staging" --no-response
+synapse broadcast "FYI: deploying to staging" --silent
 ```
 
 ## Roundtrip Communication
 
-When using `--response`, the full roundtrip flow is:
+When using `--wait`, the full roundtrip flow is:
 
 ```mermaid
 sequenceDiagram
@@ -185,7 +190,7 @@ sequenceDiagram
     participant S as Synapse
     participant B as Target (Gemini)
 
-    A->>S: synapse send gemini "question" --response
+    A->>S: synapse send gemini "question" --wait
     S->>S: Create task context (no PTY send yet)
     S->>B: POST /tasks/send with [REPLY EXPECTED]
     B->>B: PTY shows "A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] question"
@@ -200,13 +205,13 @@ Messages longer than ~100KB are automatically stored in temp files:
 
 ```bash
 # Explicitly use file for large messages
-synapse send claude --message-file /tmp/review.txt --no-response
+synapse send claude --message-file /tmp/review.txt --silent
 
 # Read from stdin
-echo "long message content" | synapse send claude --stdin --no-response
+echo "long message content" | synapse send claude --stdin --silent
 
 # '-' reads from stdin
-synapse send claude --message-file - --no-response
+synapse send claude --message-file - --silent
 ```
 
 The recipient sees a file reference:
@@ -225,8 +230,8 @@ Please read this file to get the complete message.
 Attach files to messages:
 
 ```bash
-synapse send claude "Review this" --attach src/main.py --no-response
-synapse send claude "Review these" --attach src/a.py --attach src/b.py --no-response
+synapse send claude "Review this" --attach src/main.py --silent
+synapse send claude "Review these" --attach src/a.py --attach src/b.py --silent
 ```
 
 ## Working Directory Check
@@ -264,7 +269,7 @@ Interrupt a busy agent without killing it:
 
 ```bash
 # High priority message (does not interrupt execution)
-synapse send gemini "Status?" --priority 4 --response
+synapse send gemini "Status?" --priority 4 --wait
 
 # Emergency interrupt (sends SIGINT first)
 synapse send gemini "STOP - critical vulnerability in current path" --priority 5
@@ -288,10 +293,10 @@ When an agent needs to check if a delegated task is done without blocking:
 
 ```bash
 # Initial delegation
-synapse send Worker "Fix bug" --no-response
+synapse send Worker "Fix bug" --silent
 
 # Later, check status
-synapse send Worker "Are you finished?" --response
+synapse send Worker "Are you finished?" --wait
 ```
 
 ## A2A Flow Configuration
@@ -300,8 +305,8 @@ Configure default communication behavior in settings:
 
 | Mode | Behavior |
 |------|----------|
-| `roundtrip` | Always wait for reply (like `--response`) |
-| `oneway` | Never wait (like `--no-response`) |
+| `roundtrip` | Always wait for reply (like `--wait`) |
+| `oneway` | Never wait (like `--silent`) |
 | `auto` | Decide based on context (default) |
 
 Configure in `.synapse/settings.json`:

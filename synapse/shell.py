@@ -24,9 +24,7 @@ class SynapseShell(cmd.Cmd):
     def __init__(self) -> None:
         super().__init__()
         self.registry = AgentRegistry()
-        self.agent_pattern = re.compile(
-            r"^@(\w+)\s*(--response\s+)?(.+)$", re.IGNORECASE
-        )
+        self.agent_pattern = re.compile(r"^@(\w+)\s*(--wait\s+)?(.+)$", re.IGNORECASE)
 
     def _find_agent_by_type(self, agent_type: str) -> dict | None:
         """Find an agent by type name (case-insensitive).

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- replace `--response`/`--no-response` flags with `--wait`/`--notify`/`--silent` response modes
+  - `--wait`: synchronous blocking (replaces `--response`)
+  - `--notify`: async notification on completion (new default)
+  - `--silent`: fire-and-forget (replaces `--no-response`)
+- add controller status-change callback for proactive task completion detection
+
+### Fixed
+
+- fix IDLE status bug in `map_synapse_status_to_a2a` — use actual status names (`READY`, `DONE`) instead of nonexistent `IDLE`
+
 ## [0.8.1] - 2026-02-28
 
 ### Fixed

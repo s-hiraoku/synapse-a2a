@@ -61,18 +61,18 @@ class TestPatternDetection:
         match = shell.agent_pattern.match("@claude hello")
         assert match is not None
         assert match.group(1) == "claude"
-        assert match.group(2) is None  # No --response flag
+        assert match.group(2) is None  # No --wait flag
         assert match.group(3) == "hello"
 
     @patch("synapse.shell.AgentRegistry")
     def test_agent_pattern_with_response_flag(self, mock_registry_cls):
-        """Should detect --response flag in @agent pattern."""
+        """Should detect --wait flag in @agent pattern."""
         shell = SynapseShell()
 
-        match = shell.agent_pattern.match("@gemini --response do this task")
+        match = shell.agent_pattern.match("@gemini --wait do this task")
         assert match is not None
         assert match.group(1) == "gemini"
-        assert match.group(2) is not None  # Has --response flag
+        assert match.group(2) is not None  # Has --wait flag
         assert match.group(3) == "do this task"
 
     @patch("synapse.shell.AgentRegistry")
@@ -123,11 +123,11 @@ class TestDefaultHandler:
 
     @patch("synapse.shell.AgentRegistry")
     def test_default_calls_send_to_agent_with_response(self, mock_registry_cls):
-        """Should call send_to_agent with wait_response=True for --response."""
+        """Should call send_to_agent with wait_response=True for --wait."""
         shell = SynapseShell()
         shell.send_to_agent = MagicMock()
 
-        shell.default("@gemini --response analyze this")
+        shell.default("@gemini --wait analyze this")
 
         shell.send_to_agent.assert_called_once_with("gemini", "analyze this", True)
 

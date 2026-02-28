@@ -61,7 +61,7 @@ synapse rename claude --name reviewer --role "security code review"
 Once named, use the name instead of the agent type:
 
 ```bash
-synapse send reviewer "Check this file for SQL injection" --response
+synapse send reviewer "Check this file for SQL injection" --wait
 ```
 
 ### Clearing Names

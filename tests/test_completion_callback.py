@@ -66,7 +66,7 @@ class TestHistoryUpdateEndpoint:
     @pytest.fixture
     def app(self):
         controller = MagicMock()
-        controller.status = "IDLE"
+        controller.status = "READY"
         controller.get_context.return_value = "done"
 
         app = FastAPI()
@@ -112,12 +112,12 @@ class TestHistoryUpdateEndpoint:
 
 
 class TestCompletionNotification:
-    """Tests for --no-response completion callback behavior."""
+    """Tests for --silent completion callback behavior."""
 
     @pytest.fixture
     def app(self):
         controller = MagicMock()
-        controller.status = "IDLE"
+        controller.status = "READY"
         controller.get_context.return_value = "task done successfully"
 
         app = FastAPI()
@@ -129,13 +129,14 @@ class TestCompletionNotification:
     def client(self, app):
         return TestClient(app)
 
-    def test_no_response_task_triggers_completion_notification(self, client):
+    def test_silent_task_triggers_completion_notification(self, client):
+        """When response_mode='silent', send best-effort notification on completion."""
         send_response = client.post(
             "/tasks/send",
             json={
                 "message": {"role": "user", "parts": [{"type": "text", "text": "run"}]},
                 "metadata": {
-                    "response_expected": False,
+                    "response_mode": "silent",
                     "sender": {
                         "sender_id": "synapse-claude-8100",
                         "sender_endpoint": "http://localhost:8100",
@@ -163,13 +164,47 @@ class TestCompletionNotification:
         mock_notify.assert_called_once()
         mock_send.assert_not_called()
 
-    def test_response_expected_flow_still_sends_response(self, client):
+    def test_notify_task_sends_full_response(self, client):
+        """When response_mode='notify', send full response on completion (non-blocking)."""
         send_response = client.post(
             "/tasks/send",
             json={
                 "message": {"role": "user", "parts": [{"type": "text", "text": "run"}]},
                 "metadata": {
-                    "response_expected": True,
+                    "response_mode": "notify",
+                    "sender": {
+                        "sender_id": "synapse-claude-8100",
+                        "sender_endpoint": "http://localhost:8100",
+                    },
+                },
+            },
+        )
+        assert send_response.status_code == 200
+        task_id = send_response.json()["task"]["id"]
+
+        with (
+            patch(
+                "synapse.a2a_compat._send_response_to_sender", new_callable=AsyncMock
+            ) as mock_send,
+            patch(
+                "synapse.a2a_compat._notify_sender_completion",
+                new_callable=AsyncMock,
+                create=True,
+            ) as mock_notify,
+        ):
+            get_response = client.get(f"/tasks/{task_id}")
+
+        assert get_response.status_code == 200
+        mock_send.assert_called_once()
+        mock_notify.assert_not_called()
+
+    def test_response_mode_wait_flow_still_sends_response(self, client):
+        send_response = client.post(
+            "/tasks/send",
+            json={
+                "message": {"role": "user", "parts": [{"type": "text", "text": "run"}]},
+                "metadata": {
+                    "response_mode": "wait",
                     "sender": {
                         "sender_id": "synapse-claude-8100",
                         "sender_endpoint": "http://localhost:8100",
