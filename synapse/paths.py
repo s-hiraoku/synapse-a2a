@@ -63,6 +63,17 @@ def get_external_registry_dir() -> str:
     )
 
 
+def get_shared_memory_db_path() -> str:
+    """Get the path to the shared memory database.
+
+    Override with SYNAPSE_SHARED_MEMORY_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_SHARED_MEMORY_DB_PATH",
+        Path(".synapse") / "memory.db",
+    )
+
+
 def get_synapse_skills_dir() -> str:
     """Get the path to the central synapse skills directory.
 

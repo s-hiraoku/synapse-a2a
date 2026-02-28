@@ -2343,6 +2343,147 @@ def cmd_tasks_reopen(args: argparse.Namespace) -> None:
 
 
 # ============================================================
+# Shared Memory Commands
+# ============================================================
+
+
+def cmd_memory_save(args: argparse.Namespace) -> None:
+    """Save a memory entry."""
+    from synapse.shared_memory import SharedMemory
+
+    mem = SharedMemory.from_env()
+    tags = args.tags.split(",") if getattr(args, "tags", None) else None
+    author = os.environ.get("SYNAPSE_AGENT_ID", "user")
+
+    result = mem.save(key=args.key, content=args.content, author=author, tags=tags)
+    if result:
+        tag_str = f" [{', '.join(result['tags'])}]" if result["tags"] else ""
+        print(f"Saved: {result['key']}{tag_str} (id: {result['id'][:8]})")
+    else:
+        print("Shared memory is disabled.", file=sys.stderr)
+        sys.exit(1)
+
+    if getattr(args, "notify", False):
+        _memory_broadcast_notify(args.key)
+
+
+def _memory_broadcast_notify(key: str) -> None:
+    """Broadcast a notification about a saved memory."""
+    try:
+        from synapse.registry import AgentRegistry
+
+        registry = AgentRegistry()
+        agents = registry.list_agents()
+        my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
+        for agent_id, agent_info in agents.items():
+            if agent_id != my_id:
+                name = agent_info.get("name") or agent_id
+                print(f"  Notified: {name}")
+    except Exception:
+        pass
+
+
+def cmd_memory_list(args: argparse.Namespace) -> None:
+    """List memory entries."""
+    from synapse.shared_memory import SharedMemory
+
+    mem = SharedMemory.from_env()
+    tags = args.tags.split(",") if getattr(args, "tags", None) else None
+    limit = getattr(args, "limit", 50) or 50
+
+    items = mem.list_memories(
+        author=getattr(args, "author", None),
+        tags=tags,
+        limit=limit,
+    )
+
+    if not items:
+        print("No memories found.")
+        return
+
+    for item in items:
+        tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
+        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+
+
+def cmd_memory_show(args: argparse.Namespace) -> None:
+    """Show memory details."""
+    from synapse.shared_memory import SharedMemory
+
+    mem = SharedMemory.from_env()
+    item = mem.get(args.id_or_key)
+
+    if not item:
+        print(f"Memory not found: {args.id_or_key}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Key:        {item['key']}")
+    print(f"ID:         {item['id']}")
+    print(f"Author:     {item['author']}")
+    print(f"Tags:       {', '.join(item['tags']) if item['tags'] else '(none)'}")
+    print(f"Created:    {item['created_at']}")
+    print(f"Updated:    {item['updated_at']}")
+    print(f"\n{item['content']}")
+
+
+def cmd_memory_search(args: argparse.Namespace) -> None:
+    """Search memories."""
+    from synapse.shared_memory import SharedMemory
+
+    mem = SharedMemory.from_env()
+    results = mem.search(args.query)
+
+    if not results:
+        print("No matching memories found.")
+        return
+
+    for item in results:
+        tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
+        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+
+
+def cmd_memory_delete(args: argparse.Namespace) -> None:
+    """Delete a memory entry."""
+    from synapse.shared_memory import SharedMemory
+
+    if not getattr(args, "force", False):
+        answer = input(f"Delete memory '{args.id_or_key}'? [y/N] ")
+        if answer.lower() != "y":
+            print("Cancelled.")
+            return
+
+    mem = SharedMemory.from_env()
+    deleted = mem.delete(args.id_or_key)
+
+    if deleted:
+        print(f"Deleted: {args.id_or_key}")
+    else:
+        print(f"Memory not found: {args.id_or_key}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_memory_stats(args: argparse.Namespace) -> None:
+    """Show memory statistics."""
+    from synapse.shared_memory import SharedMemory
+
+    del args  # unused
+    mem = SharedMemory.from_env()
+    stats = mem.stats()
+
+    print(f"Total memories: {stats['total']}")
+
+    if stats["by_author"]:
+        print("\nBy author:")
+        for author, count in sorted(stats["by_author"].items()):
+            print(f"  {author}: {count}")
+
+    if stats["by_tag"]:
+        print("\nBy tag:")
+        for tag, count in sorted(stats["by_tag"].items()):
+            print(f"  {tag}: {count}")
+
+
+# ============================================================
 # Team Commands (B6)
 # ============================================================
 
@@ -4111,6 +4252,59 @@ Integration with synapse list:
     )
     p_tasks_reopen.add_argument("task_id", help="Task ID to reopen")
     p_tasks_reopen.set_defaults(func=cmd_tasks_reopen)
+
+    # memory - Shared Memory
+    p_memory = subparsers.add_parser(
+        "memory",
+        help="Shared memory for cross-agent knowledge sharing",
+        description="Manage the shared memory knowledge base for cross-agent collaboration.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse memory save auth-pattern "Use OAuth2 with PKCE" --tags auth,security
+  synapse memory list
+  synapse memory search "auth"
+  synapse memory show auth-pattern
+  synapse memory stats
+  synapse memory delete auth-pattern --force""",
+    )
+    memory_subparsers = p_memory.add_subparsers(
+        dest="memory_command", metavar="SUBCOMMAND"
+    )
+
+    p_mem_save = memory_subparsers.add_parser("save", help="Save a memory entry")
+    p_mem_save.add_argument("key", help="Memory key (e.g., auth-pattern)")
+    p_mem_save.add_argument("content", help="Memory content")
+    p_mem_save.add_argument("--tags", help="Comma-separated tags (e.g., arch,security)")
+    p_mem_save.add_argument(
+        "--notify", action="store_true", help="Broadcast notification to other agents"
+    )
+    p_mem_save.set_defaults(func=cmd_memory_save)
+
+    p_mem_list = memory_subparsers.add_parser("list", help="List memories")
+    p_mem_list.add_argument("--author", help="Filter by author agent ID")
+    p_mem_list.add_argument("--tags", help="Filter by tags (comma-separated)")
+    p_mem_list.add_argument(
+        "--limit", "-n", type=int, default=50, help="Max entries (default: 50)"
+    )
+    p_mem_list.set_defaults(func=cmd_memory_list)
+
+    p_mem_show = memory_subparsers.add_parser("show", help="Show memory details")
+    p_mem_show.add_argument("id_or_key", help="Memory ID or key")
+    p_mem_show.set_defaults(func=cmd_memory_show)
+
+    p_mem_search = memory_subparsers.add_parser("search", help="Search memories")
+    p_mem_search.add_argument("query", help="Search query")
+    p_mem_search.set_defaults(func=cmd_memory_search)
+
+    p_mem_delete = memory_subparsers.add_parser("delete", help="Delete a memory")
+    p_mem_delete.add_argument("id_or_key", help="Memory ID or key")
+    p_mem_delete.add_argument(
+        "--force", "-f", action="store_true", help="Skip confirmation"
+    )
+    p_mem_delete.set_defaults(func=cmd_memory_delete)
+
+    p_mem_stats = memory_subparsers.add_parser("stats", help="Show memory statistics")
+    p_mem_stats.set_defaults(func=cmd_memory_stats)
 
     # team - Team management (B6)
     p_team = subparsers.add_parser(

@@ -40,9 +40,19 @@ flowchart TB
         external["external"]
         skills["skills"]
         config["config"]
+        memory["memory"]
         init["init"]
         reset["reset"]
         auth["auth"]
+    end
+
+    subgraph Memory["memory サブコマンド"]
+        mem_save["save"]
+        mem_list["list"]
+        mem_show["show"]
+        mem_search["search"]
+        mem_delete["delete"]
+        mem_stats["stats"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -61,6 +71,7 @@ flowchart TB
 
     synapse --> Shortcuts
     synapse --> Commands
+    memory --> Memory
     instructions --> Instructions
     external --> External
 ```
@@ -1221,6 +1232,90 @@ synapse tasks reopen task-1
 
 ---
 
+### 1.21 synapse memory
+
+エージェント間の共有メモリ（知識ベース）を管理します。
+
+```bash
+synapse memory <subcommand>
+```
+
+#### 1.21.1 synapse memory save
+
+メモリを保存します（key が既存の場合は UPSERT）。
+
+```bash
+synapse memory save <key> <content> [--tags TAG1,TAG2] [--notify]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `key` | Yes | メモリの一意キー（例: `auth-pattern`） |
+| `content` | Yes | メモリ本文 |
+| `--tags` | No | タグ（カンマ区切り、例: `architecture,auth`） |
+| `--notify` | No | 保存後に `synapse broadcast` で他エージェントに通知 |
+
+#### 1.21.2 synapse memory list
+
+メモリ一覧を表示します。
+
+```bash
+synapse memory list [--author AUTHOR] [--tags TAGS] [--limit N]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--author` | No | 著者（agent_id）で絞り込み |
+| `--tags` | No | タグで絞り込み（カンマ区切り） |
+| `--limit` | No | 表示件数上限（デフォルト: 50） |
+
+#### 1.21.3 synapse memory show
+
+メモリの詳細を表示します。
+
+```bash
+synapse memory show <id_or_key>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `id_or_key` | Yes | メモリの UUID またはキー |
+
+#### 1.21.4 synapse memory search
+
+メモリを検索します（key, content, tags を横断検索）。
+
+```bash
+synapse memory search <query>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `query` | Yes | 検索クエリ（LIKE マッチング） |
+
+#### 1.21.5 synapse memory delete
+
+メモリを削除します。
+
+```bash
+synapse memory delete <id_or_key> [--force]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `id_or_key` | Yes | メモリの UUID またはキー |
+| `--force` | No | 確認なしで削除 |
+
+#### 1.21.6 synapse memory stats
+
+メモリの統計情報を表示します（件数、著者別、タグ別）。
+
+```bash
+synapse memory stats
+```
+
+---
+
 ## 2. HTTP API リファレンス
 
 ### 2.1 エンドポイント一覧
@@ -1268,6 +1363,16 @@ flowchart LR
 | POST | `/tasks/{id}/approve` | プラン承認 |
 | POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
 | POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |
+
+#### Shared Memory API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| GET | `/memory/list` | メモリ一覧取得（`?author=`, `?tags=`, `?limit=` で絞り込み） |
+| POST | `/memory/save` | メモリ保存（UPSERT on key） |
+| GET | `/memory/search` | メモリ検索（`?q=` で key/content/tags を横断検索） |
+| GET | `/memory/{id_or_key}` | メモリ詳細取得（ID またはキーで指定） |
+| DELETE | `/memory/{id_or_key}` | メモリ削除 |
 
 #### 外部エージェント管理 API
 

@@ -187,6 +187,17 @@ synapse history export --format json|csv
 synapse history cleanup --days N
 ```
 
+## Shared Memory
+
+```bash
+synapse memory save <key> "<content>" [--tags tag1,tag2] [--notify]
+synapse memory list [--author <id>] [--tags <tags>] [--limit N]
+synapse memory show <id_or_key>
+synapse memory search "<query>"
+synapse memory delete <id_or_key> [--force]
+synapse memory stats
+```
+
 ## Tracing
 
 ```bash

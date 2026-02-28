@@ -54,7 +54,9 @@ synapse reset --scope both -f          # Reset both without confirmation
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
-    "SYNAPSE_TASK_BOARD_ENABLED": "true"
+    "SYNAPSE_TASK_BOARD_ENABLED": "true",
+    "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db"
   },
   "a2a_flow": "auto",
   "approvalMode": "required",
@@ -93,6 +95,7 @@ synapse reset --scope both -f          # Reset both without confirmation
 | `SYNAPSE_HISTORY_ENABLED` | `true` | Enable task history |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | `false` | Enable file safety |
 | `SYNAPSE_TASK_BOARD_ENABLED` | `true` | Enable task board |
+| `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Enable learning mode |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | Enable translation mode |
 
@@ -111,6 +114,7 @@ synapse reset --scope both -f          # Reset both without confirmation
 |----------|---------|-------------|
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Shared memory database |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -179,6 +183,7 @@ Exit codes:
 .synapse/settings.local.json
 .synapse/file_safety.db
 .synapse/task_board.db
+.synapse/memory.db
 
 # Keep project settings (commit)
 # .synapse/settings.json

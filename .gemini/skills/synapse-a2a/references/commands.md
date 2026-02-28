@@ -614,6 +614,8 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 | `SYNAPSE_TASK_BOARD_ENABLED` | Enable shared task board | `true` |
 | `SYNAPSE_TASK_BOARD_DB_PATH` | Task board DB path | `.synapse/task_board.db` |
+| `SYNAPSE_SHARED_MEMORY_ENABLED` | Enable shared memory | `true` |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Shared memory DB path | `.synapse/memory.db` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
@@ -816,6 +818,91 @@ synapse reset --scope both -f
 - `-f, --force`: Skip confirmation prompt
 
 Resets `settings.json` to defaults and re-copies skills from `.claude` to `.agents`.
+
+## Shared Memory
+
+Cross-agent knowledge sharing via a project-local SQLite database (`.synapse/memory.db`).
+
+Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`). To disable: `SYNAPSE_SHARED_MEMORY_ENABLED=false`.
+
+### Save Memory
+
+```bash
+# Save a knowledge entry (UPSERT on key — updates if key already exists)
+synapse memory save auth-pattern "Use OAuth2 with PKCE flow"
+
+# Save with tags for categorization
+synapse memory save auth-pattern "Use OAuth2 with PKCE flow" --tags auth,security
+
+# Save and broadcast notification to all cwd agents
+synapse memory save auth-pattern "Use OAuth2 with PKCE flow" --notify
+```
+
+**Parameters:**
+- `key`: Unique key for this memory (e.g., `auth-pattern`). Used as the UPSERT key.
+- `content`: Memory content text.
+- `--tags`: Comma-separated tags for categorization.
+- `--notify`: After saving, broadcast a notification to all agents in the current working directory.
+
+**Author:** Automatically set to `$SYNAPSE_AGENT_ID` (the agent's own ID).
+
+### List Memories
+
+```bash
+# List all memories (most recently updated first)
+synapse memory list
+
+# Filter by author
+synapse memory list --author synapse-claude-8100
+
+# Filter by tags
+synapse memory list --tags arch,security
+
+# Limit results
+synapse memory list --limit 10
+```
+
+### Show Memory Details
+
+```bash
+# Show full details of a memory by key or ID
+synapse memory show auth-pattern
+synapse memory show <uuid>
+```
+
+### Search Memories
+
+```bash
+# Search across key, content, and tags (LIKE matching)
+synapse memory search "OAuth2"
+synapse memory search "database"
+```
+
+### Delete Memory
+
+```bash
+# Delete with confirmation prompt
+synapse memory delete auth-pattern
+
+# Delete without confirmation
+synapse memory delete auth-pattern --force
+```
+
+### Memory Statistics
+
+```bash
+# Show total count, per-author, and per-tag breakdown
+synapse memory stats
+```
+
+### Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SYNAPSE_SHARED_MEMORY_ENABLED` | Enable shared memory | `true` |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Database file path | `.synapse/memory.db` |
+
+**Storage:** `.synapse/memory.db` (SQLite with WAL mode, project-local)
 
 ## Shared Task Board
 
@@ -1103,6 +1190,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 ~/.synapse/skills/   # Central skill store
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
+.synapse/memory.db   # Shared memory knowledge base (project-local)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
 ```

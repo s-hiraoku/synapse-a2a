@@ -228,9 +228,19 @@ flowchart TB
         external["external"]
         skills["skills"]
         config["config"]
+        memory["memory"]
         init["init"]
         reset["reset"]
         auth["auth"]
+    end
+
+    subgraph Memory["memory サブコマンド"]
+        mem_save["save"]
+        mem_list["list"]
+        mem_show["show"]
+        mem_search["search"]
+        mem_delete["delete"]
+        mem_stats["stats"]
     end
 
     subgraph Instructions["instructions サブコマンド"]
@@ -249,6 +259,7 @@ flowchart TB
 
     synapse --> Shortcuts
     synapse --> Commands
+    memory --> Memory
     instructions --> Instructions
     external --> External
 ```
@@ -271,6 +282,7 @@ flowchart TB
 | `synapse logs <profile>` | ログ表示 |
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
+| `synapse memory` | 共有メモリ管理（エージェント間の知識共有） |
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
 | `synapse auth` | API キー認証の管理（`setup` / `generate-key`） |

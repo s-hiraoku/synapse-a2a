@@ -142,6 +142,66 @@ git log --oneline -5
 git diff
 ```
 
+## Shared Memory Workflow
+
+### Saving and Sharing Knowledge
+
+```bash
+# Agent discovers a pattern and saves it for others
+synapse memory save auth-pattern "Use OAuth2 with PKCE flow for all auth" --tags auth,security
+
+# Save with broadcast notification so other agents learn immediately
+synapse memory save db-schema "Use UUID primary keys, not auto-increment" --tags database,architecture --notify
+
+# Update existing knowledge (UPSERT on key)
+synapse memory save auth-pattern "Use OAuth2 with PKCE flow; add refresh token rotation" --tags auth,security
+```
+
+### Searching and Retrieving Knowledge
+
+```bash
+# Search before starting a task
+synapse memory search "auth"
+synapse memory search "database"
+
+# View full details of a specific memory
+synapse memory show auth-pattern
+
+# List all memories by a specific agent
+synapse memory list --author synapse-gemini-8110
+
+# List memories with specific tags
+synapse memory list --tags architecture
+```
+
+### Multi-Agent Knowledge Sharing
+
+```bash
+# Agent 1 (Claude): Discovers architecture decision
+synapse memory save api-style "REST with OpenAPI 3.1, JSON responses" --tags api,architecture --notify
+
+# Agent 2 (Gemini): Receives broadcast, checks memory before implementation
+synapse memory search "api"
+synapse memory show api-style
+
+# Agent 2 (Gemini): Adds implementation detail
+synapse memory save api-auth "Bearer token in Authorization header" --tags api,auth --notify
+
+# Any agent: Check overall knowledge base statistics
+synapse memory stats
+```
+
+### Cleanup
+
+```bash
+# Delete outdated knowledge
+synapse memory delete old-pattern --force
+
+# Review what is stored
+synapse memory list --limit 20
+synapse memory stats
+```
+
 ## Agent Teams Workflow
 
 ### Task Board Coordination

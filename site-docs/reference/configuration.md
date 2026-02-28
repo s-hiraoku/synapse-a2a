@@ -30,6 +30,8 @@
     "SYNAPSE_LONG_MESSAGE_DIR": "",
     "SYNAPSE_TASK_BOARD_ENABLED": "true",
     "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
+    "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false"
   },
@@ -84,6 +86,7 @@
 | `SYNAPSE_FILE_SAFETY_ENABLED` | `true` | File locking and tracking |
 | `SYNAPSE_FILE_SAFETY_RETENTION_DAYS` | `30` | Retention period for file safety records |
 | `SYNAPSE_TASK_BOARD_ENABLED` | `true` | Shared task board |
+| `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Cross-agent shared memory |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Prompt improvement feedback |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | JP→EN translation assistance |
 
@@ -104,6 +107,7 @@
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
 | `SYNAPSE_TASK_BOARD_DB_PATH` | `.synapse/task_board.db` | Task board database |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Shared memory database |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -144,6 +148,7 @@
 | Task History | `~/.synapse/history/history.db` | SQLite | Task records |
 | Task Board | `.synapse/task_board.db` | SQLite (WAL) | Task coordination |
 | File Safety | `.synapse/file_safety.db` | SQLite (WAL) | File locks/tracking |
+| Shared Memory | `.synapse/memory.db` | SQLite (WAL) | Cross-agent knowledge base |
 | Logs | `~/.synapse/logs/` | Text | Agent logs |
 | Skills | `~/.synapse/skills/` | Markdown | Central skill store |
 

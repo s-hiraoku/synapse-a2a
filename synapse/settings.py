@@ -106,6 +106,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         # Task board settings
         "SYNAPSE_TASK_BOARD_ENABLED": "true",
         "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
+        # Shared memory settings
+        "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
+        "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
         # Learning mode settings
         "SYNAPSE_LEARNING_MODE_ENABLED": "false",
         "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
@@ -510,6 +513,12 @@ class SynapseSettings:
         ):
             files.append("learning.md")
 
+        # Shared memory
+        if self._is_shared_memory_enabled() and self._instruction_file_exists(
+            "shared-memory.md"
+        ):
+            files.append("shared-memory.md")
+
         return files
 
     def get_instruction_file_paths(
@@ -564,6 +573,10 @@ class SynapseSettings:
         # Learning mode (either flag enables learning.md injection)
         if self._is_any_learning_enabled():
             add_if_exists("learning.md")
+
+        # Shared memory
+        if self._is_shared_memory_enabled():
+            add_if_exists("shared-memory.md")
 
         return paths
 
@@ -629,6 +642,10 @@ class SynapseSettings:
         """Check if learning translation is enabled via env var or settings."""
         return self._is_env_flag_enabled("SYNAPSE_LEARNING_MODE_TRANSLATION")
 
+    def _is_shared_memory_enabled(self) -> bool:
+        """Check if shared memory is enabled via env var or settings."""
+        return self._is_env_flag_enabled("SYNAPSE_SHARED_MEMORY_ENABLED")
+
     def _is_any_learning_enabled(self) -> bool:
         """Check if any learning feature (mode or translation) is enabled."""
         return (
@@ -667,6 +684,11 @@ class SynapseSettings:
             learning_content = self._load_instruction_file("learning.md")
             if learning_content:
                 instruction = instruction + "\n\n" + learning_content
+
+        if self._is_shared_memory_enabled():
+            memory_content = self._load_instruction_file("shared-memory.md")
+            if memory_content:
+                instruction = instruction + "\n\n" + memory_content
 
         return instruction
 
