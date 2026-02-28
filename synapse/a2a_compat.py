@@ -679,6 +679,50 @@ class SpawnResponse(BaseModel):
 
 
 # ============================================================
+# Shared Memory Helpers
+# ============================================================
+
+
+def _memory_broadcast_notify_api(key: str) -> None:
+    """Broadcast a notification about a saved memory to other agents (API-side)."""
+    import os
+
+    from synapse.a2a_client import A2AClient
+    from synapse.registry import AgentRegistry
+
+    try:
+        registry = AgentRegistry()
+        client = A2AClient()
+        agents = registry.list_agents()
+        my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
+        for agent_id, agent_info in agents.items():
+            if agent_id == my_id:
+                continue
+            name = agent_info.get("name") or agent_id
+            endpoint = agent_info.get("endpoint", "")
+            if not endpoint:
+                logger.warning("Memory notify skipped for %s: no endpoint", name)
+                continue
+            try:
+                task = client.send_to_local(
+                    endpoint=endpoint,
+                    message=f"[Memory updated] Key '{key}' was saved. Use `synapse memory show {key}` to view.",
+                    priority=1,
+                    response_expected=False,
+                    sender_agent_id=my_id,
+                    target_agent_id=agent_id,
+                )
+                if task is None:
+                    logger.warning("Memory notify failed for %s: no response", name)
+                else:
+                    logger.info("Memory notify sent to %s for key '%s'", name, key)
+            except Exception as e:
+                logger.warning("Memory notify failed for %s: %s", name, e)
+    except Exception as e:
+        logger.warning("Memory broadcast failed: %s", e)
+
+
+# ============================================================
 # A2A Router Factory
 # ============================================================
 
@@ -1070,6 +1114,15 @@ def create_a2a_router(
         tags: list[str] | None = None
         notify: bool = False
 
+    def _require_shared_memory() -> Any:
+        """Return SharedMemory instance or raise 503 if disabled."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory.from_env()
+        if not mem.enabled:
+            raise HTTPException(status_code=503, detail="Shared memory is disabled")
+        return mem
+
     @router.get("/memory/list")
     async def list_memories(
         author: str | None = None,
@@ -1078,10 +1131,9 @@ def create_a2a_router(
         _: Any = Depends(require_auth),
     ) -> dict[str, Any]:
         """List memories with optional filters."""
-        from synapse.shared_memory import SharedMemory
-
-        mem = SharedMemory.from_env()
-        tag_list = tags.split(",") if tags else None
+        mem = _require_shared_memory()
+        limit = max(1, min(limit, 100))
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
         memories = mem.list_memories(author=author, tags=tag_list, limit=limit)
         return {"memories": memories}
 
@@ -1090,9 +1142,7 @@ def create_a2a_router(
         request: MemorySaveRequest, _: Any = Depends(require_auth)
     ) -> dict[str, Any]:
         """Save or update a memory entry."""
-        from synapse.shared_memory import SharedMemory
-
-        mem = SharedMemory.from_env()
+        mem = _require_shared_memory()
         result = mem.save(
             key=request.key,
             content=request.content,
@@ -1101,14 +1151,18 @@ def create_a2a_router(
         )
         if not result:
             raise HTTPException(status_code=503, detail="Shared memory is disabled")
-        return result
+        if request.notify:
+            threading.Thread(
+                target=_memory_broadcast_notify_api,
+                args=(request.key,),
+                daemon=True,
+            ).start()
+        return dict(result)
 
     @router.get("/memory/search")
     async def search_memories(q: str, _: Any = Depends(require_auth)) -> dict[str, Any]:
         """Search memories by key, content, or tags."""
-        from synapse.shared_memory import SharedMemory
-
-        mem = SharedMemory.from_env()
+        mem = _require_shared_memory()
         results = mem.search(q)
         return {"memories": results}
 
@@ -1117,24 +1171,20 @@ def create_a2a_router(
         id_or_key: str, _: Any = Depends(require_auth)
     ) -> dict[str, Any]:
         """Get a memory by ID or key."""
-        from synapse.shared_memory import SharedMemory
-
-        mem = SharedMemory.from_env()
+        mem = _require_shared_memory()
         result = mem.get(id_or_key)
         if not result:
             raise HTTPException(
                 status_code=404, detail=f"Memory not found: {id_or_key}"
             )
-        return result
+        return dict(result)
 
     @router.delete("/memory/{id_or_key}")
     async def delete_memory(
         id_or_key: str, _: Any = Depends(require_auth)
     ) -> dict[str, Any]:
         """Delete a memory by ID or key."""
-        from synapse.shared_memory import SharedMemory
-
-        mem = SharedMemory.from_env()
+        mem = _require_shared_memory()
         deleted = mem.delete(id_or_key)
         if not deleted:
             raise HTTPException(

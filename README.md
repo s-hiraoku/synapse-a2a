@@ -86,7 +86,7 @@ flowchart LR
 | **A2A Compliant** | All communication uses Message/Part + Task format, Agent Card discovery |
 | **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
 | **synapse send** | Send messages between agents via `synapse send <agent> "message"` |
-| **Sender Identification** | Auto-identify sender via `metadata.sender` + PID matching |
+| **Sender Identification** | Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (process ancestry, fallback) |
 | **Readiness Gate** | `/tasks/send` returns 503 until agent initialization completes; priority 5 and replies bypass |
 | **Priority Interrupt** | Priority 5 sends SIGINT before message (emergency stop) |
 | **Multi-Instance** | Run multiple agents of the same type (automatic port assignment) |
@@ -848,7 +848,7 @@ synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 
 **Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified.
 
-**Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to process ancestry matching. Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
+**Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
 
 ### synapse reply Command
 
@@ -1059,7 +1059,7 @@ Response:
 
 ### How It Works
 
-1. **On send**: Reference Registry, identify own agent_id via PID matching
+1. **On send**: Reference Registry, identify own agent_id via PID matching (process ancestry)
 2. **On Task creation**: Attach sender info to `metadata.sender`
 3. **On receive**: Check via PTY prefix or Task API
 

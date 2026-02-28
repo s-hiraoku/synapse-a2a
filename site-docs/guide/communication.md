@@ -60,6 +60,26 @@ synapse send <target> "<message>" \
 !!! info "Sender Auto-Detection"
     The `--from` flag is resolved in the following order: (1) explicit `--from` value, (2) `SYNAPSE_AGENT_ID` environment variable (auto-set at startup), (3) PID ancestry matching against the registry. In most environments, you can omit `--from` entirely.
 
+### Name vs ID
+
+**Targets (who you're talking to)** — use custom names. Names are resolved first, making them the easiest way to address agents:
+
+```bash
+synapse send my-claude "Review this code" --response
+synapse send 釘崎野薔薇 "テストを書いて" --no-response
+```
+
+**Sender (`--from`)** — always uses agent ID format (`synapse-<type>-<port>`). This is auto-detected, so you rarely need to specify it.
+
+| Context | Use | Example |
+|---------|-----|---------|
+| Human → Agent | Custom name | `synapse send my-claude "..."` |
+| Agent → Agent | Custom name or ID | `synapse send gemini "..."` |
+| `--from` (sender) | Agent ID (auto-detected) | `synapse-claude-8100` |
+
+Target resolution priority: (1) Custom name → (2) Agent ID → (3) Type-port → (4) Type only.
+See [Agent Management](agent-management.md#target-resolution-priority) for details.
+
 ## Receiving Messages
 
 When a message arrives at an agent, it appears in the PTY as:
@@ -110,13 +130,13 @@ synapse reply "Result" --from $SYNAPSE_AGENT_ID
 
 ## Soft Interrupt
 
-A convenience shorthand for priority-5 fire-and-forget messages:
+A convenience shorthand for priority-4 fire-and-forget messages:
 
 ```bash
 synapse interrupt claude "Stop and review the current approach"
 
 # Equivalent to:
-synapse send claude "Stop and review" -p 5 --no-response
+synapse send claude "Stop and review" -p 4 --no-response
 ```
 
 ## Broadcast

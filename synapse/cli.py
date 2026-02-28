@@ -19,7 +19,7 @@ import yaml
 if TYPE_CHECKING:
     from synapse.history import HistoryManager
 
-from synapse.a2a_client import get_client
+from synapse.a2a_client import A2AClient, get_client
 from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.start import StartCommand
@@ -2358,7 +2358,11 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
     from synapse.shared_memory import SharedMemory
 
     mem = SharedMemory.from_env()
-    tags = args.tags.split(",") if getattr(args, "tags", None) else None
+    tags = (
+        [t.strip() for t in args.tags.split(",") if t.strip()]
+        if getattr(args, "tags", None)
+        else None
+    )
     author = os.environ.get("SYNAPSE_AGENT_ID", "user")
 
     result = mem.save(key=args.key, content=args.content, author=author, tags=tags)
@@ -2376,17 +2380,31 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
 def _memory_broadcast_notify(key: str) -> None:
     """Broadcast a notification about a saved memory."""
     try:
-        from synapse.registry import AgentRegistry
-
         registry = AgentRegistry()
+        client = A2AClient()
         agents = registry.list_agents()
         my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
         for agent_id, agent_info in agents.items():
             if agent_id != my_id:
                 name = agent_info.get("name") or agent_id
-                print(f"  Notified: {name}")
-    except Exception:
-        pass
+                endpoint = agent_info.get("endpoint", "")
+                if not endpoint:
+                    print(f"  Skipped: {name} (no endpoint)")
+                    continue
+                try:
+                    task = client.send_to_local(
+                        endpoint=endpoint,
+                        message=f"Shared memory updated: {key}",
+                        response_expected=False,
+                    )
+                    if task is None:
+                        print(f"  Failed: {name}: no response")
+                    else:
+                        print(f"  Notified: {name}")
+                except Exception as e:
+                    print(f"  Failed: {name}: {e}")
+    except Exception as e:
+        print(f"  Broadcast failed: {e}", file=sys.stderr)
 
 
 def cmd_memory_list(args: argparse.Namespace) -> None:
@@ -2394,7 +2412,11 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
     from synapse.shared_memory import SharedMemory
 
     mem = SharedMemory.from_env()
-    tags = args.tags.split(",") if getattr(args, "tags", None) else None
+    tags = (
+        [t.strip() for t in args.tags.split(",") if t.strip()]
+        if getattr(args, "tags", None)
+        else None
+    )
     limit = getattr(args, "limit", 50) or 50
 
     items = mem.list_memories(
@@ -4662,6 +4684,7 @@ Scopes:
     # Map of subcommands that require a subcommand action
     subcommand_parsers = {
         "history": ("history_command", p_history),
+        "memory": ("memory_command", p_memory),
         "external": ("external_command", p_external),
         "auth": ("auth_command", p_auth),
         "instructions": ("instructions_command", p_instructions),
