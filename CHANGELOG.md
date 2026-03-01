@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-03-01
+
 ### Changed
 
 - **Breaking**: unify `.gemini/skills/` into `.agents/skills/` — Gemini now uses the same skill directory as Codex, OpenCode, and Copilot
   - **Migration**: if you have skills in `.gemini/skills/`, copy or move them to `.agents/skills/`
   - TUI deploy indicators simplified from `[C✓ A✓ G·]` to `[C✓ A✓]`
+- add `synapse-docs` skill to `plugins/` source of truth
+
+### Fixed
+
+- fix `AgentProfileStore` scope inconsistency — shutdown save now uses startup store's `project_root` instead of `Path.cwd()`
 
 ## [0.8.2] - 2026-03-01
 

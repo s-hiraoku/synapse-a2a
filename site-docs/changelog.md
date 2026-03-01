@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.3
+
+- **Breaking**: Unify `.gemini/skills/` into `.agents/skills/` — Gemini now uses the same skill directory as Codex, OpenCode, and Copilot
+  - **Migration**: copy or move skills from `.gemini/skills/` to `.agents/skills/`
+  - TUI deploy indicators simplified from `[C✓ A✓ G·]` to `[C✓ A✓]`
+- **Changed**: Add `synapse-docs` skill to `plugins/` source of truth
+- **Fixed**: `AgentProfileStore` scope inconsistency — shutdown save now uses startup store
+
 ### v0.8.2
 
 - **Changed**: Unify agent identifier terminology — **Runtime ID** (`synapse-claude-8100`) vs **Agent ID** (`wise-strategist`)
