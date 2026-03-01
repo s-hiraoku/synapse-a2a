@@ -193,7 +193,7 @@ synapse auth generate-key                 # Generate a single API key
 synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
 # Send messages (default is --notify: async notification on completion)
-# Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
+# Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), Runtime ID (synapse-claude-8100)
 # Note: --from is optional — auto-detected from SYNAPSE_AGENT_ID env var (set by Synapse at startup)
 # Choosing response_mode:
 #   --wait:   Task with result expected (question, review, analysis) - synchronous blocking

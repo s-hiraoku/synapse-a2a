@@ -974,6 +974,56 @@ def cmd_reply(args: argparse.Namespace) -> None:
         print(f"  In reply to task: {task_id[:8]}...")
 
 
+def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:
+    """Add --wait / --notify / --silent mutually exclusive response mode flags."""
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
+        default=None,
+        help="Wait synchronously for response (blocks until done)",
+    )
+    group.add_argument(
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
+    )
+
+
+def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
+    """Add --message-file, --stdin, and --attach flags to a parser."""
+    parser.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read message from file (use '-' for stdin)",
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read message from stdin",
+    )
+    parser.add_argument(
+        "--attach",
+        "-a",
+        action="append",
+        dest="attach",
+        help="Attach a file to the message (repeatable)",
+    )
+
+
 def main() -> None:
     """Parse command-line arguments and execute A2A client operations."""
     parser = argparse.ArgumentParser(description="Synapse A2A Client Tool")
@@ -1001,52 +1051,11 @@ def main() -> None:
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
     )
-    # Response mode: mutually exclusive group
-    response_group = p_send.add_mutually_exclusive_group()
-    response_group.add_argument(
-        "--wait",
-        dest="response_mode",
-        action="store_const",
-        const="wait",
-        default=None,
-        help="Wait synchronously for response (blocks until done)",
-    )
-    response_group.add_argument(
-        "--notify",
-        dest="response_mode",
-        action="store_const",
-        const="notify",
-        help="Return immediately, receive async notification on completion (default)",
-    )
-    response_group.add_argument(
-        "--silent",
-        dest="response_mode",
-        action="store_const",
-        const="silent",
-        help="Fire and forget — no response or notification",
-    )
+    _add_response_mode_flags(p_send)
     p_send.add_argument(
         "message", nargs="?", default=None, help="Content of the message"
     )
-    p_send.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read message from file (use '-' for stdin)",
-    )
-    p_send.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read message from stdin",
-    )
-    p_send.add_argument(
-        "--attach",
-        "-a",
-        action="append",
-        dest="attach",
-        help="Attach a file to the message (repeatable)",
-    )
+    _add_message_source_flags(p_send)
     p_send.add_argument(
         "--force",
         action="store_true",
@@ -1067,51 +1076,11 @@ def main() -> None:
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
     )
-    broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
-    broadcast_response_group.add_argument(
-        "--wait",
-        dest="response_mode",
-        action="store_const",
-        const="wait",
-        default=None,
-        help="Wait synchronously for response (blocks until done)",
-    )
-    broadcast_response_group.add_argument(
-        "--notify",
-        dest="response_mode",
-        action="store_const",
-        const="notify",
-        help="Return immediately, receive async notification on completion (default)",
-    )
-    broadcast_response_group.add_argument(
-        "--silent",
-        dest="response_mode",
-        action="store_const",
-        const="silent",
-        help="Fire and forget — no response or notification",
-    )
+    _add_response_mode_flags(p_broadcast)
     p_broadcast.add_argument(
         "message", nargs="?", default=None, help="Content of the message"
     )
-    p_broadcast.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read message from file (use '-' for stdin)",
-    )
-    p_broadcast.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read message from stdin",
-    )
-    p_broadcast.add_argument(
-        "--attach",
-        "-a",
-        action="append",
-        dest="attach",
-        help="Attach a file to the message (repeatable)",
-    )
+    _add_message_source_flags(p_broadcast)
 
     # reply command - simplified reply to last message
     p_reply = subparsers.add_parser("reply", help="Reply to the last received message")

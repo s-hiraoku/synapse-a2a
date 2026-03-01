@@ -99,7 +99,7 @@ synapse send codex-8120 "Fix this bug" --silent --priority 3
 **Important:**
 - `--from` is **auto-detected** from the `SYNAPSE_AGENT_ID` environment variable (set by Synapse at startup). You can omit it in most environments.
 - If auto-detection fails (e.g., sandboxed environments like Codex), specify explicitly: `--from $SYNAPSE_AGENT_ID`.
-- When using `--from`, always use the **agent ID** format (`synapse-<type>-<port>`). Do NOT use custom names or agent types.
+- When using `--from`, always use the **Runtime ID** format (`synapse-<type>-<port>`). Do NOT use custom names or agent types.
 - By default, use `--notify` to get async notification on completion.
 - Use `--wait` for synchronous blocking if you need an immediate reply.
 - Use `--silent` for purely informational notifications or fire-and-forget tasks.
@@ -203,7 +203,7 @@ When you receive an A2A message, it appears with the `A2A:` prefix that includes
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
 
-- **From**: Identifies the sender's display name and unique agent ID.
+- **From**: Identifies the sender's display name and Runtime ID.
 - **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
 
 If sender information is not available, it falls back to:
@@ -226,7 +226,7 @@ synapse reply "Here is my analysis..."
 synapse reply --list-targets
 synapse reply "Here is my analysis..." --to <sender_id>
 
-# In sandboxed environments (like Codex), specify your agent ID
+# In sandboxed environments (like Codex), specify your Runtime ID
 synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 ```
 
@@ -281,7 +281,7 @@ synapse send codex "STOP" --priority 5
 
 ```bash
 synapse list
-# Output (NAME column shows custom name if set, otherwise agent ID):
+# Output (NAME column shows custom name if set, otherwise agent type):
 # NAME        TYPE    STATUS      PORT   WORKING_DIR
 # my-claude   claude  READY       8100   my-project      # <- has custom name
 # gemini      gemini  WAITING     8110   my-project      # <- no custom name, shows type

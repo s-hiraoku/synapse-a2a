@@ -857,6 +857,63 @@ def create_a2a_router(
         agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
 
+    def _finalize_working_task(task_id: str, recent_context: str) -> Task | None:
+        """Detect completion status, add artifacts, save history, and clear preview.
+
+        Shared by ``_on_status_change`` (sync callback) and ``get_task`` (async
+        endpoint) to avoid duplicating the finalization pipeline.
+
+        Returns:
+            The updated Task after finalization, or None if the task vanished.
+        """
+        status, error = detect_task_status(recent_context)
+        if status == "failed" and error:
+            task_store.set_error(
+                task_id,
+                TaskErrorModel(code=error.code, message=error.message, data=error.data),
+            )
+            _dispatch_task_event(
+                "task.failed",
+                {
+                    "task_id": task_id,
+                    "error": {"code": error.code, "message": error.message},
+                },
+            )
+        else:
+            task_store.update_status(task_id, "completed")
+            _dispatch_task_event("task.completed", {"task_id": task_id})
+
+        # Add artifacts from parsed output
+        if recent_context:
+            segments = parse_output(recent_context)
+            if segments:
+                for seg in segments:
+                    artifact_data: dict[str, Any] = {"content": seg.content}
+                    if seg.metadata:
+                        artifact_data["metadata"] = seg.metadata
+                    task_store.add_artifact(
+                        task_id, Artifact(type=seg.type, data=artifact_data)
+                    )
+            else:
+                task_store.add_artifact(
+                    task_id, Artifact(type="text", data=recent_context)
+                )
+
+        # Clear task preview in registry
+        if registry and agent_id:
+            registry.update_current_task(agent_id, None)
+
+        # Save to history
+        updated = task_store.get(task_id)
+        if updated:
+            _save_task_to_history(
+                updated,
+                agent_id=agent_id or "unknown",
+                agent_name=agent_type or "unknown",
+                task_status=updated.status,
+            )
+        return updated
+
     # Register controller callback for notify/wait completion detection.
     # When status transitions to READY or DONE, check working tasks.
     if controller:
@@ -864,7 +921,6 @@ def create_a2a_router(
         def _on_status_change(old: str, new: str) -> None:
             if new not in ("READY", "DONE"):
                 return
-            # Find working tasks and trigger completion detection
             for task in task_store.list_tasks():
                 if task.status != "working":
                     continue
@@ -879,61 +935,13 @@ def create_a2a_router(
                     continue
                 context = controller.get_context()
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
-                # Analyze output for errors
-                status, error = detect_task_status(recent_context)
-                if status == "failed" and error:
-                    task_store.set_error(
-                        tid,
-                        TaskErrorModel(
-                            code=error.code,
-                            message=error.message,
-                            data=error.data,
-                        ),
-                    )
-                    _dispatch_task_event(
-                        "task.failed",
-                        {
-                            "task_id": tid,
-                            "error": {
-                                "code": error.code,
-                                "message": error.message,
-                            },
-                        },
-                    )
-                else:
-                    task_store.update_status(tid, "completed")
-                    _dispatch_task_event("task.completed", {"task_id": tid})
-                # Add artifacts
-                if recent_context:
-                    segments = parse_output(recent_context)
-                    if segments:
-                        for seg in segments:
-                            artifact_data: dict[str, Any] = {"content": seg.content}
-                            if seg.metadata:
-                                artifact_data["metadata"] = seg.metadata
-                            task_store.add_artifact(
-                                tid,
-                                Artifact(type=seg.type, data=artifact_data),
-                            )
-                    else:
-                        task_store.add_artifact(
-                            tid, Artifact(type="text", data=recent_context)
-                        )
-                # Clear task preview
-                if registry and agent_id:
-                    registry.update_current_task(agent_id, None)
-                # Save to history
-                updated = task_store.get(tid)
+
+                updated = _finalize_working_task(tid, recent_context)
+
+                # Send response back to sender (sync context — needs event loop dispatch)
                 if updated:
-                    _save_task_to_history(
-                        updated,
-                        agent_id=agent_id or "unknown",
-                        agent_name=agent_type or "unknown",
-                        task_status=updated.status,
-                    )
-                    # Send response/notification (reuse resp_mode from above)
                     si = _extract_sender_info(metadata)
-                    if si.sender_endpoint and resp_mode in ("wait", "notify"):
+                    if si.sender_endpoint:
                         try:
                             loop = asyncio.get_event_loop()
                         except RuntimeError:
@@ -1513,70 +1521,16 @@ def create_a2a_router(
                 task_store.update_status(task_id, "input_required")
             elif synapse_status in ("READY", "DONE"):
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
-                # Agent is idle, analyze output for errors
-                status, error = detect_task_status(recent_context)
+                updated_task = _finalize_working_task(task_id, recent_context)
 
-                if status == "failed" and error:
-                    # Set error and failed status
-                    task_store.set_error(
-                        task_id,
-                        TaskErrorModel(
-                            code=error.code, message=error.message, data=error.data
-                        ),
-                    )
-                    # Dispatch webhook for failed task
-                    _dispatch_task_event(
-                        "task.failed",
-                        {
-                            "task_id": task_id,
-                            "error": {"code": error.code, "message": error.message},
-                        },
-                    )
-                else:
-                    task_store.update_status(task_id, "completed")
-                    # Dispatch webhook for completed task
-                    _dispatch_task_event("task.completed", {"task_id": task_id})
-
-                # Parse and add output as structured artifacts (before history saving)
-                if recent_context:
-                    segments = parse_output(recent_context)
-                    if segments:
-                        # Add each parsed segment as an artifact
-                        for seg in segments:
-                            artifact_data: dict[str, Any] = {"content": seg.content}
-                            if seg.metadata:
-                                artifact_data["metadata"] = seg.metadata
-                            task_store.add_artifact(
-                                task_id, Artifact(type=seg.type, data=artifact_data)
-                            )
-                    else:
-                        # Fallback to raw text if parsing fails
-                        task_store.add_artifact(
-                            task_id, Artifact(type="text", data=recent_context)
-                        )
-
-                # Clear task preview in registry (task is done)
-                if registry and agent_id:
-                    registry.update_current_task(agent_id, None)
-
-                # Save to history after all task updates are complete
-                updated_task = task_store.get(task_id)
+                # Dispatch response or notification based on response_mode
                 if updated_task:
-                    _save_task_to_history(
-                        updated_task,
-                        agent_id=agent_id or "unknown",
-                        agent_name=agent_type or "unknown",
-                        task_status=updated_task.status,
-                    )
-
-                    # Send response or notification based on response_mode
                     metadata = updated_task.metadata or {}
                     resp_mode = _resolve_response_mode(metadata)
                     sender_info = _extract_sender_info(metadata)
 
                     if sender_info.sender_endpoint:
                         if resp_mode in ("wait", "notify"):
-                            # Send full response for wait/notify modes
                             asyncio.create_task(
                                 _send_response_to_sender(
                                     updated_task,
@@ -1586,7 +1540,6 @@ def create_a2a_router(
                                 )
                             )
                         else:
-                            # Best-effort callback for silent flow
                             asyncio.create_task(
                                 _notify_sender_completion(
                                     task=updated_task,

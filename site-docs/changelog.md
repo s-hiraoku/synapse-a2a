@@ -23,7 +23,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.8.0
 
 - **Added**: Saved Agent Manager — reusable agent configurations via `synapse agents` commands
-- **Added**: Completion callback for `--no-response` task tracking (`POST /history/update`)
+- **Added**: Completion callback for `--silent` task tracking (`POST /history/update`)
 - **Added**: Sender identification in PTY-injected A2A messages
 - **Added**: Ghostty split pane support for `team start` and `spawn`
 - **Added**: Agent name uniqueness enforcement across interactive start, spawn, and team start

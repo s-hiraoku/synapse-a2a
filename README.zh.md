@@ -547,7 +547,7 @@ synapse kill my-claude
 
 **名称与 ID：**
 - **显示/提示**：如果已设置则显示名称，否则显示 ID（例如 `Kill my-claude (PID: 1234)?`）
-- **内部处理**：始终使用智能体 ID（`synapse-claude-8100`）
+- **内部处理**：始终使用运行时 ID（Runtime ID）（`synapse-claude-8100`）
 - **目标解析**：匹配目标时名称具有最高优先级
 
 ### 命令列表
@@ -646,7 +646,7 @@ synapse instructions send claude
 # 发送前预览
 synapse instructions send claude --preview
 
-# 发送到指定智能体 ID
+# 发送到指定运行时 ID
 synapse instructions send synapse-claude-8100
 ```
 
@@ -781,7 +781,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | 格式 | 示例 | 说明 |
 |------|------|------|
 | 自定义名称 | `my-claude` | 最高优先级，智能体有名称时使用 |
-| 完整 ID | `synapse-claude-8100` | 匹配确切的智能体 ID |
+| 完整运行时 ID | `synapse-claude-8100` | 匹配确切的运行时 ID |
 | 类型-端口 | `claude-8100` | 匹配类型和端口缩写 |
 | 智能体类型 | `claude` | 仅当只有单个实例时有效 |
 
@@ -791,7 +791,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 
 | 选项 | 缩写 | 说明 |
 |------|------|------|
-| `--from` | `-f` | 发送者智能体 ID（用于回复识别） |
+| `--from` | `-f` | 发送者运行时 ID（Runtime ID）（用于回复识别） |
 | `--priority` | `-p` | 优先级 1-4：正常，5：紧急停止（发送 SIGINT） |
 | `--wait` | - | 同步阻塞 - 等待接收者通过 `synapse reply` 回复 |
 | `--notify` | - | 异步通知 - 任务完成后接收通知（默认） |
@@ -835,7 +835,7 @@ synapse send claude "你好" --from $SYNAPSE_AGENT_ID
 
 **默认行为：** 默认使用 `--notify`（完成后进行异步通知）。
 
-**重要：** 始终使用 `--from` 加上你的智能体 ID（格式：`synapse-<type>-<port>`）。
+**重要：** 始终使用 `--from` 加上你的运行时 ID（Runtime ID）（格式：`synapse-<type>-<port>`）。
 
 ### synapse reply 命令
 
@@ -1014,7 +1014,7 @@ A2A 消息的发送者可通过 `metadata.sender` 识别。
 A2A: [From: 姓名 (发送者_ID)] [REPLY EXPECTED] <消息内容>
 ```
 
-- **From**: 标识发送者的显示名称和唯一的智能体 ID。
+- **From**: 标识发送者的显示名称和唯一的运行时 ID（Runtime ID）。
 - **REPLY EXPECTED**: 表示发送者正在等待回复（阻塞式）。
 
 如果发送者信息不可用，则回退到：

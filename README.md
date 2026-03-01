@@ -702,7 +702,7 @@ synapse instructions send claude
 # Preview before sending
 synapse instructions send claude --preview
 
-# Send to specific agent ID
+# Send to specific Runtime ID
 synapse instructions send synapse-claude-8100
 ```
 
@@ -839,7 +839,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | Format | Example | Description |
 |--------|---------|-------------|
 | Custom name | `my-claude` | Highest priority, match name in registry |
-| Full ID | `synapse-claude-8100` | Match exact Runtime ID |
+| Full Runtime ID | `synapse-claude-8100` | Match exact Runtime ID |
 | Type-port | `claude-8100` | Match type and port shorthand |
 | Agent type | `claude` | Only works when single instance of type exists |
 
@@ -849,7 +849,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--from` | `-f` | Sender agent ID (optional; auto-detected from `SYNAPSE_AGENT_ID`) |
+| `--from` | `-f` | Sender Runtime ID (optional; auto-detected from `SYNAPSE_AGENT_ID`) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
 | `--wait` | - | Synchronous blocking - wait for receiver to reply with `synapse reply` |
 | `--notify` | - | Async notification - get notified when task completes (default) |
@@ -1090,7 +1090,7 @@ Messages are sent to the agent's PTY with a prefix that includes optional sender
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
 
-- **From**: Identifies the sender's display name and unique agent ID.
+- **From**: Identifies the sender's display name and unique Runtime ID.
 - **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
 
 If sender information is not available, it falls back to:

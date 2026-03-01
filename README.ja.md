@@ -553,7 +553,7 @@ synapse kill my-claude
 
 **名前 vs ID:**
 - **表示/プロンプト**: 名前が設定されている場合は名前、それ以外は ID を表示 (例: `Kill my-claude (PID: 1234)?`)
-- **内部処理**: 常にエージェント ID を使用 (`synapse-claude-8100`)
+- **内部処理**: 常にランタイム ID を使用 (`synapse-claude-8100`)
 - **ターゲット解決**: ターゲットの照合時、名前が最も高い優先度を持ちます
 
 ### コマンド一覧
@@ -656,7 +656,7 @@ synapse instructions send claude
 # 送信前にプレビュー
 synapse instructions send claude --preview
 
-# 特定のエージェント ID に送信
+# 特定のランタイム ID に送信
 synapse instructions send synapse-claude-8100
 ```
 
@@ -791,7 +791,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | 形式 | 例 | 説明 |
 |------|-----|------|
 | カスタム名 | `my-claude` | 最優先、レジストリ内の名前と一致 |
-| フル ID | `synapse-claude-8100` | 完全なエージェント ID と一致 |
+| フルランタイム ID | `synapse-claude-8100` | 完全なランタイム ID と一致 |
 | タイプ-ポート | `claude-8100` | タイプとポートの短縮形と一致 |
 | エージェントタイプ | `claude` | 単一インスタンスの場合のみ動作 |
 
@@ -801,7 +801,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 
 | オプション | 短縮形 | 説明 |
 |------------|--------|------|
-| `--from` | `-f` | 送信者エージェント ID（返信識別用） |
+| `--from` | `-f` | 送信者ランタイム ID（返信識別用） |
 | `--priority` | `-p` | 優先度 1-4: 通常、5: 緊急停止（SIGINT 送信） |
 | `--wait` | - | 同期待機 - 送信側がブロックして `synapse reply` を待つ |
 | `--notify` | - | 非同期通知 - タスク完了時に通知を受け取る（デフォルト） |
@@ -1033,7 +1033,7 @@ A2A メッセージの送信者は `metadata.sender` で識別できます。
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
 
-- **From**: 送信者の表示名と一意のエージェント ID を識別します。
+- **From**: 送信者の表示名と一意のランタイム ID を識別します。
 - **REPLY EXPECTED**: 送信者が返信を待っている（ブロッキング状態）ことを示します。
 
 送信者情報が利用できない場合は、以下のいずれかにフォールバックします：
@@ -1524,7 +1524,7 @@ Proceed? [Y/n/s(skip)]:
 3. 両方が空の場合、初期指示は送信されない
 
 **プレースホルダー**:
-- `{{agent_id}}` - エージェント ID（例：`synapse-claude-8100`）
+- `{{agent_id}}` - ランタイム ID（例：`synapse-claude-8100`）
 - `{{port}}` - ポート番号（例：`8100`）
 
 詳しくは [guides/settings.md](guides/settings.md) を参照。
