@@ -911,7 +911,7 @@ class TestCheckDeployStatus:
         assert result["project"]["claude"] is False
 
     def test_shared_agents_dir(self, tmp_home: Path, tmp_project: Path) -> None:
-        """codex/opencode/copilot share .agents/skills — deploying once marks all three."""
+        """codex/opencode/copilot/gemini share .agents/skills — deploying once marks all four."""
         from synapse.skills import check_deploy_status
 
         _create_skill(tmp_home, ".agents", "my-skill", "shared deploy")
@@ -922,6 +922,7 @@ class TestCheckDeployStatus:
         assert result["user"]["codex"] is True
         assert result["user"]["opencode"] is True
         assert result["user"]["copilot"] is True
+        assert result["user"]["gemini"] is True
         assert result["user"]["claude"] is False
 
     def test_none_dirs(self) -> None:

@@ -28,6 +28,7 @@ graph TB
         FSM[FileSafetyManager<br/>.synapse/file_safety.db]
         HIST[History<br/>~/.synapse/history.db]
         TB[TaskBoard<br/>.synapse/task_board.db]
+        SM[SharedMemory<br/>.synapse/memory.db]
     end
 
     IR --> FS
@@ -36,6 +37,7 @@ graph TB
     A2A --> FSM
     A2A --> HIST
     A2A --> TB
+    A2A --> SM
 ```
 
 ## Core Components
@@ -177,9 +179,9 @@ Synapse supports three strategies for detecting when an agent is idle:
 
 | Strategy | How It Works | Best For |
 |----------|-------------|----------|
-| **Pattern** | Regex match on recurring PTY output | Agents with consistent prompts |
-| **Timeout** | No output for N seconds | Codex, OpenCode, Copilot |
-| **Hybrid** | Pattern for first idle, timeout after | Claude Code, Gemini |
+| **Pattern** | Regex match on recurring PTY output | Codex (consistent prompt character) |
+| **Timeout** | No output for N seconds | Claude Code, OpenCode, Copilot |
+| **Hybrid** | Pattern for first idle, timeout after | Gemini |
 
 See [Agent Profiles](profiles.md) for per-agent configuration details.
 
@@ -232,7 +234,9 @@ sequenceDiagram
 | Settings (User) | `~/.synapse/settings.json` | User preferences | JSON |
 | Settings (Project) | `.synapse/settings.json` | Project config | JSON |
 | History | `~/.synapse/history.db` | Task history | SQLite |
+| Shared Memory | `.synapse/memory.db` | Cross-agent knowledge sharing | SQLite (WAL) |
 | Task Board | `.synapse/task_board.db` | Task coordination | SQLite (WAL) |
 | File Safety | `.synapse/file_safety.db` | File locks/tracking | SQLite (WAL) |
+| Saved Agents | `~/.synapse/agents/`, `.synapse/agents/` | Reusable agent definitions | JSON files |
 | Logs | `~/.synapse/logs/` | Agent logs | Text files |
 | Skills | `~/.synapse/skills/` | Central skill store | Markdown |
