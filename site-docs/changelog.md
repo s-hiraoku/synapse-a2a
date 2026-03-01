@@ -4,13 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### Unreleased
+### v0.8.2
 
+- **Changed**: Unify agent identifier terminology — **Runtime ID** (`synapse-claude-8100`) vs **Agent ID** (`wise-strategist`)
 - **Changed**: Response mode refactoring — replaced `--response`/`--no-response` flags with `--wait`/`--notify`/`--silent`
   - `--wait`: Synchronous blocking (replaces `--response`)
   - `--notify`: Async notification on completion (new default)
   - `--silent`: Fire-and-forget (replaces `--no-response`)
-- **Changed**: Documentation and skills updated to reflect new response modes
 - **Fixed**: IDLE status bug in task completion detection
 - **Added**: Controller status-change callback for proactive completion detection
 
