@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- unify agent identifier terminology across documentation
+  - **Runtime ID** (`synapse-claude-8100`): temporary identifier generated at startup
+  - **Agent ID** (`wise-strategist`): persistent identifier for saved agent definitions (formerly "petname")
 - replace `--response`/`--no-response` flags with `--wait`/`--notify`/`--silent` response modes
   - `--wait`: synchronous blocking (replaces `--response`)
   - `--notify`: async notification on completion (new default)

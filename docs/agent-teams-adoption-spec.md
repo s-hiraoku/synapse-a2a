@@ -289,7 +289,7 @@ hooks:
 
 | 変数 | 説明 |
 |------|------|
-| `SYNAPSE_AGENT_ID` | エージェント ID（例: `synapse-claude-8100`） |
+| `SYNAPSE_AGENT_ID` | ランタイムID（例: `synapse-claude-8100`） |
 | `SYNAPSE_AGENT_NAME` | カスタム名（設定されている場合） |
 | `SYNAPSE_LAST_TASK_ID` | 直前のタスク ID |
 | `SYNAPSE_STATUS_FROM` | 遷移前のステータス |

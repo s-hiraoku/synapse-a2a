@@ -73,7 +73,7 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SYNAPSE_AGENT_ID` | Auto | Agent identifier (e.g., `synapse-claude-8100`) |
+| `SYNAPSE_AGENT_ID` | Auto | Runtime ID (e.g., `synapse-claude-8100`) |
 | `SYNAPSE_AGENT_TYPE` | Auto | Agent type (`claude`, `gemini`, etc.) |
 | `SYNAPSE_PORT` | Auto | A2A server port |
 | `SYNAPSE_TOOL_ARGS` | — | Tool arguments as JSON string |
@@ -162,7 +162,7 @@ Available in instruction templates:
 
 | Placeholder | Replaced With |
 |-------------|---------------|
-| `{{agent_id}}` | Agent ID (`synapse-claude-8100`) |
+| `{{agent_id}}` | Runtime ID (`synapse-claude-8100`) |
 | `{{port}}` | Server port (`8100`) |
 | `{{agent_type}}` | Agent type (`claude`) |
 | `{{agent_name}}` | Custom name (fallback: agent ID) |

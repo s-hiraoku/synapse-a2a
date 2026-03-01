@@ -1219,7 +1219,7 @@ synapse list
 
 | 컬럼 | 설명 |
 |------|------|
-| ID | 에이전트 ID (예: `synapse-claude-8100`) |
+| ID | 런타임 ID (예: `synapse-claude-8100`) |
 | NAME | 커스텀 이름 (설정된 경우) |
 | TYPE | 에이전트 유형 (claude, gemini, codex 등) |
 | ROLE | 에이전트 역할 설명 (설정된 경우) |
@@ -1431,7 +1431,7 @@ Proceed? [Y/n/s(skip)]:
 3. 둘 다 비어 있으면 초기 지시 전송하지 않음
 
 **플레이스홀더**:
-- `{{agent_id}}` - 에이전트 ID (예: `synapse-claude-8100`)
+- `{{agent_id}}` - 런타임 ID (예: `synapse-claude-8100`)
 - `{{port}}` - 포트 번호 (예: `8100`)
 
 자세한 내용은 [guides/settings.md](guides/settings.md)를 참조하세요.

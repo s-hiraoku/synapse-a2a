@@ -1309,7 +1309,7 @@ synapse list
 
 | カラム | 説明 |
 |--------|------|
-| ID | エージェントID（例: `synapse-claude-8100`） |
+| ID | ランタイムID（例: `synapse-claude-8100`） |
 | NAME | カスタム名（設定時） |
 | TYPE | エージェント種別（claude, gemini, codex 等） |
 | ROLE | 役割説明（設定時） |

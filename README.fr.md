@@ -1303,7 +1303,7 @@ L'affichage se met à jour automatiquement lorsque le statut des agents change (
 
 | Colonne | Description |
 |---------|-------------|
-| ID | ID de l'agent (ex. `synapse-claude-8100`) |
+| ID | ID d'exécution (ex. `synapse-claude-8100`) |
 | NAME | Nom personnalisé (s'il est assigné) |
 | TYPE | Type d'agent (claude, gemini, codex, etc.) |
 | ROLE | Description du rôle de l'agent (s'il est assigné) |
@@ -1517,7 +1517,7 @@ Personnalisez les instructions envoyées au démarrage de l'agent :
 3. Si les deux sont vides, aucune instruction initiale n'est envoyée
 
 **Espaces réservés** :
-- `{{agent_id}}` - ID de l'agent (ex. `synapse-claude-8100`)
+- `{{agent_id}}` - ID d'exécution (ex. `synapse-claude-8100`)
 - `{{port}}` - Numéro de port (ex. `8100`)
 
 Voir [guides/settings.md](guides/settings.md) pour plus de détails.

@@ -720,7 +720,7 @@ finally:
 | `id` | INTEGER | 主キー（自動採番） |
 | `file_path` | TEXT UNIQUE | ファイルパス（正規化済み） |
 | `agent_name` | TEXT | ロックを保持するエージェント名 |
-| `agent_id` | TEXT | 完全なエージェントID（例: synapse-claude-8100） |
+| `agent_id` | TEXT | 完全なランタイムID（例: synapse-claude-8100） |
 | `agent_type` | TEXT | エージェントタイプ（claude, gemini, codex） |
 | `pid` | INTEGER | ロックを取得したプロセスのPID |
 | `task_id` | TEXT | 関連するタスク ID |

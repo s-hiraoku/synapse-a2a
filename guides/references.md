@@ -241,7 +241,7 @@ synapse list
 
 | 列 | 説明 |
 |----|------|
-| ID | エージェントID（例: `synapse-claude-8100`） |
+| ID | ランタイムID（例: `synapse-claude-8100`） |
 | NAME | カスタム名 |
 | TYPE | エージェントタイプ（プロファイル名） |
 | ROLE | エージェントの役割説明 |
@@ -367,7 +367,7 @@ synapse agents delete <id-or-name>
 |---------|------|
 | `list` | 保存済みエージェント一覧を表示（TTY では Rich TUI テーブル） |
 | `show` | 1件の詳細を表示 |
-| `add` | 定義を作成/更新（`id` は petname 形式: `silent-snake`） |
+| `add` | 定義を作成/更新（`id` は エージェントID形式: `silent-snake`） |
 | `delete` | ID または名前で削除 |
 
 **例（狗巻棘）**:
@@ -403,7 +403,7 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 |-----|---|------|
 | エージェントタイプ | `claude` | 単一インスタンスの場合のみ |
 | タイプ-ポート | `claude-8100` | 同タイプが複数ある場合 |
-| フルID | `synapse-claude-8100` | 完全なエージェントID |
+| フルID | `synapse-claude-8100` | 完全なランタイムID |
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
@@ -1084,7 +1084,7 @@ synapse kill <TARGET> [--force]
 
 **ターゲット解決の優先順位**:
 1. カスタム名（`my-claude`）— 最優先
-2. フルエージェントID（`synapse-claude-8100`）
+2. フルランタイムID（`synapse-claude-8100`）
 3. type-port 省略形（`claude-8100`）
 4. エージェントタイプ（`claude`）— 単一インスタンスの場合のみ
 

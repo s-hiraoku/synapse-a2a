@@ -352,7 +352,7 @@ synapse kill my-claude
 
 **Name vs ID:**
 - **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
-- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **Internal processing**: Always uses Runtime ID (`synapse-claude-8100`)
 - **Target resolution**: Name has highest priority when matching targets
 
 ## External Agent Management

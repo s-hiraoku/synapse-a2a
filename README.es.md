@@ -1303,7 +1303,7 @@ La visualización se actualiza automáticamente cuando cambia el estado de los a
 
 | Columna | Descripción |
 |---------|-------------|
-| ID | ID del agente (ej., `synapse-claude-8100`) |
+| ID | ID de ejecución (ej., `synapse-claude-8100`) |
 | NAME | Nombre personalizado (si esta asignado) |
 | TYPE | Tipo de agente (claude, gemini, codex, etc.) |
 | ROLE | Descripción del rol del agente (si esta asignado) |
@@ -1517,7 +1517,7 @@ Personaliza las instrucciones enviadas al inicio del agente:
 3. Si ambos estan vacios, no se envian instrucciones iniciales
 
 **Marcadores de posición**:
-- `{{agent_id}}` - ID del agente (ej., `synapse-claude-8100`)
+- `{{agent_id}}` - ID de ejecución (ej., `synapse-claude-8100`)
 - `{{port}}` - Número de puerto (ej., `8100`)
 
 Consulta [guides/settings.md](guides/settings.md) para más detalles.

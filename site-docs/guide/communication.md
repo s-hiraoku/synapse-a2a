@@ -96,9 +96,9 @@ synapse send 釘崎野薔薇 "テストを書いて" --silent
 |---------|-----|---------|
 | Human → Agent | Custom name | `synapse send my-claude "..."` |
 | Agent → Agent | Custom name or ID | `synapse send gemini "..."` |
-| `--from` (sender) | Agent ID (auto-detected) | `synapse-claude-8100` |
+| `--from` (sender) | Runtime ID (auto-detected) | `synapse-claude-8100` |
 
-Target resolution priority: (1) Custom name → (2) Agent ID → (3) Type-port → (4) Type only.
+Target resolution priority: (1) Custom name → (2) Runtime ID → (3) Type-port → (4) Type only.
 See [Agent Management](agent-management.md#target-resolution-priority) for details.
 
 ## Receiving Messages

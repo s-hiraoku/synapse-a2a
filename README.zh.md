@@ -1291,7 +1291,7 @@ synapse list
 
 | 列 | 说明 |
 |----|------|
-| ID | 智能体 ID（例如 `synapse-claude-8100`） |
+| ID | 运行时 ID（例如 `synapse-claude-8100`） |
 | NAME | 自定义名称（如已分配） |
 | TYPE | 智能体类型（claude、gemini、codex 等） |
 | ROLE | 智能体角色描述（如已分配） |
@@ -1505,7 +1505,7 @@ Proceed? [Y/n/s(skip)]:
 3. 如果两者都为空，则不发送初始指令
 
 **占位符**：
-- `{{agent_id}}` - 智能体 ID（例如 `synapse-claude-8100`）
+- `{{agent_id}}` - 运行时 ID（例如 `synapse-claude-8100`）
 - `{{port}}` - 端口号（例如 `8100`）
 
 详见 [guides/settings.md](guides/settings.md)。

@@ -233,7 +233,7 @@ git worktree remove .claude/worktrees/worker-2
 
 ## Saved Agent Definitions
 
-Save reusable agent definitions for repeated use with `synapse spawn`. Definitions are stored as `.agent` files in petname-keyed format.
+Save reusable agent definitions for repeated use with `synapse spawn`. Definitions are stored as `.agent` files in Agent ID-keyed format.
 
 ### Creating a Saved Agent
 
@@ -248,7 +248,7 @@ synapse agents add silent-snake \
 
 | Field | Description |
 |-------|-------------|
-| `<id>` | Petname-format identifier (e.g. `silent-snake`) |
+| `<id>` | Agent ID identifier (e.g. `silent-snake`) |
 | `--name` | Display name (required) |
 | `--profile` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
 | `--role` | Role description or `@path` file reference |

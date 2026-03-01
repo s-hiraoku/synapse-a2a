@@ -103,7 +103,7 @@ flowchart LR
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
-| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with petname IDs. `synapse spawn` accepts saved agent IDs/names in addition to profile names |
+| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
@@ -581,7 +581,7 @@ synapse kill my-claude
 
 **Name vs ID:**
 - **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
-- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **Internal processing**: Always uses Runtime ID (`synapse-claude-8100`)
 - **Target resolution**: Name has highest priority when matching targets
 
 ### Save Prompt on Exit
@@ -839,7 +839,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | Format | Example | Description |
 |--------|---------|-------------|
 | Custom name | `my-claude` | Highest priority, match name in registry |
-| Full ID | `synapse-claude-8100` | Match exact agent ID |
+| Full ID | `synapse-claude-8100` | Match exact Runtime ID |
 | Type-port | `claude-8100` | Match type and port shorthand |
 | Agent type | `claude` | Only works when single instance of type exists |
 
@@ -1370,7 +1370,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 | Column | Description |
 |--------|-------------|
-| ID | Agent ID (e.g., `synapse-claude-8100`) |
+| ID | Runtime ID (e.g., `synapse-claude-8100`) |
 | NAME | Custom name (if assigned) |
 | TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
@@ -1630,7 +1630,7 @@ Customize instructions sent at agent startup:
 3. If both empty, no initial instructions sent
 
 **Placeholders**:
-- `{{agent_id}}` - Agent ID (e.g., `synapse-claude-8100`)
+- `{{agent_id}}` - Runtime ID (e.g., `synapse-claude-8100`)
 - `{{port}}` - Port number (e.g., `8100`)
 
 See [guides/settings.md](guides/settings.md) for details.
