@@ -3279,6 +3279,7 @@ def cmd_run_interactive(
     delegate_mode: bool = False,
     skill_set: str | None = None,
     headless: bool = False,
+    profile_store: AgentProfileStore | None = None,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -3568,6 +3569,7 @@ def cmd_run_interactive(
                 skill_set=selected_skill_set,
                 headless=headless,
                 is_tty=sys.stdin.isatty() and sys.stdout.isatty(),
+                store=profile_store,
             )
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
         registry.unregister(agent_id)
@@ -3654,11 +3656,13 @@ def main() -> None:
         # Resolve --agent / -A flag from saved agent definitions
         has_agent_flag = "--agent" in synapse_args or "-A" in synapse_args
         agent_arg = parse_arg("--agent") or parse_arg("-A")
+        startup_store: AgentProfileStore | None = None
         if has_agent_flag and not agent_arg:
             print("Error: --agent/-A requires a value.", file=sys.stderr)
             sys.exit(1)
         if agent_arg:
             store = AgentProfileStore()
+            startup_store = store
             try:
                 saved = store.resolve(agent_arg)
             except AgentProfileError as e:
@@ -3704,6 +3708,7 @@ def main() -> None:
             delegate_mode=delegate_mode,
             skill_set=skill_set_arg,
             headless=headless,
+            profile_store=startup_store,
         )
         return
 

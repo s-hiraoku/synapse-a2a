@@ -1,0 +1,5 @@
+id=golden-phoenix
+name=張飛
+profile=gemini
+role=@./roles/golden-phoenix.md
+skill_set=documentation
