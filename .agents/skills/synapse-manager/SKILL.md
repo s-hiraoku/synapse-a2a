@@ -315,10 +315,14 @@ Each CLI agent has a **different flag** to skip permission prompts. Pass these a
 | Agent | Flag | Example |
 |-------|------|---------|
 | **Claude Code** | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
-| **Gemini CLI** | `-y` | `synapse spawn gemini -- -y` |
-| **Codex CLI** | `--yolo` | `synapse spawn codex -- --yolo` |
+| **Gemini CLI** | `-y` (or `--yolo`) | `synapse spawn gemini -- -y` |
+| **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
 | **GitHub Copilot CLI** | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
 | **OpenCode** | *(no flag available)* | N/A |
+
+!!! note "Codex CLI details"
+    `--full-auto` = `-a on-request --sandbox workspace-write` (sandboxed auto-approve).
+    For fully unrestricted: `--dangerously-bypass-approvals-and-sandbox`.
 
 **Team start with mixed agents:**
 ```bash

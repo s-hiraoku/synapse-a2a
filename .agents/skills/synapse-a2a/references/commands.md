@@ -122,7 +122,7 @@ synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 # Pass tool-specific arguments after '--' (permission skip flags per CLI)
 synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
 synapse spawn gemini -- -y                               # Gemini: yolo mode
-synapse spawn codex -- --yolo                            # Codex: full access
+synapse spawn codex -- --full-auto                       # Codex: sandboxed auto-approve
 synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
 
 # Worktree isolation (--worktree is a Claude Code flag, passed after '--'; other CLIs silently ignore it)
@@ -1097,7 +1097,7 @@ synapse team start claude gemini --layout horizontal
 
 # Pass tool-specific arguments after '--' (permission skip flags per CLI)
 synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
-synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --yolo for Codex)
+synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --full-auto for Codex)
 
 # Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
 synapse team start claude gemini -- --worktree
@@ -1121,7 +1121,7 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "tool_args": ["-y"]}'
 # Note: tool_args are passed to ALL agents. Use CLI-specific flags:
-# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--yolo"], Copilot: ["--allow-all-tools"]
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1138,7 +1138,7 @@ curl -X POST http://localhost:8100/spawn \
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
-# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--yolo"], Copilot ["--allow-all-tools"]
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
 # On failure: {"status": "failed", "reason": "No available port"}
 ```
 
