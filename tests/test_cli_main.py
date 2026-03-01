@@ -53,6 +53,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set=None,
             headless=False,
+            profile_store=None,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -76,6 +77,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set=None,
             headless=False,
+            profile_store=None,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -102,6 +104,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set=None,
             headless=False,
+            profile_store=None,
         )
 
     @patch("synapse.cli.cmd_start")
@@ -330,6 +333,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set=None,
             headless=False,
+            profile_store=None,
         )
 
     @patch("synapse.cli.cmd_run_interactive")
@@ -356,6 +360,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set=None,
             headless=False,
+            profile_store=None,
         )
 
     @patch("synapse.cli.cmd_kill")
@@ -428,6 +433,7 @@ class TestCliMain:
             delegate_mode=False,
             skill_set="saved-set",
             headless=False,
+            profile_store=mock_store,
         )
 
     @patch("synapse.cli.PortManager")
