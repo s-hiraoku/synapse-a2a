@@ -392,17 +392,14 @@ plugins/synapse-a2a/skills/doc-organizer/    # Documentation organization skill
 .claude/skills/synapse-a2a/      # Claude Code
 .claude/skills/synapse-manager/  # Claude Code
 .claude/skills/doc-organizer/    # Claude Code
-.agents/skills/synapse-a2a/      # Codex / OpenCode / Copilot
-.agents/skills/synapse-manager/  # Codex / OpenCode / Copilot
-.agents/skills/doc-organizer/    # Codex / OpenCode / Copilot
-.gemini/skills/synapse-a2a/      # Gemini
-.gemini/skills/synapse-manager/  # Gemini
-.gemini/skills/doc-organizer/    # Gemini
+.agents/skills/synapse-a2a/      # Codex / OpenCode / Copilot / Gemini
+.agents/skills/synapse-manager/  # Codex / OpenCode / Copilot / Gemini
+.agents/skills/doc-organizer/    # Codex / OpenCode / Copilot / Gemini
 ```
 
 ### Skill Update Rules
 
-**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager`, `doc-organizer` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager`, `doc-organizer` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ### CI Automation: Hooks and Skills
 

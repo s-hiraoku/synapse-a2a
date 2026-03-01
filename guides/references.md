@@ -815,8 +815,7 @@ synapse skills [subcommand]
 | 記号 | ディレクトリ | 対象エージェント |
 |------|-------------|-----------------|
 | **C** | `.claude/skills/` | Claude |
-| **A** | `.agents/skills/` | Codex, OpenCode, Copilot |
-| **G** | `.gemini/skills/` | Gemini |
+| **A** | `.agents/skills/` | Codex, OpenCode, Copilot, Gemini |
 
 `✓` = 存在する、`·` = 存在しない
 

@@ -55,8 +55,7 @@ synapse skills deploy code-review --agent claude,codex --scope user
 This copies the skill to:
 
 - `~/.claude/skills/code-review/` (for Claude)
-- `~/.gemini/skills/code-review/` (for Gemini)
-- `~/.agents/skills/code-review/` (for Codex, OpenCode, and Copilot)
+- `~/.agents/skills/code-review/` (for Gemini, Codex, OpenCode, and Copilot)
 
 ## Importing Skills
 

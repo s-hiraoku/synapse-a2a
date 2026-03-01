@@ -403,7 +403,7 @@ plugins/
 
 详见 [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md)。
 
-> **注意**：Codex 和 Gemini 不支持插件，但你可以将展开的 Skills 放在 `.agents/skills/`（Codex/OpenCode）或 `.gemini/skills/` 目录中以启用这些功能。
+> **注意**：Codex 和 Gemini 不支持插件，但你可以将展开的 Skills 放在 `.agents/skills/` 目录中以启用这些功能。
 
 ---
 

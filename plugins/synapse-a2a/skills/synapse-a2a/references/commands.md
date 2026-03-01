@@ -1221,7 +1221,7 @@ synapse skills apply gemini-8110 developer --dry-run
 |-------|-----------|
 | Claude | `.claude/skills/` |
 | Codex | `.agents/skills/` |
-| Gemini | `.gemini/skills/` |
+| Gemini | `.agents/skills/` |
 | OpenCode | `.agents/skills/` |
 | Copilot | `.agents/skills/` |
 

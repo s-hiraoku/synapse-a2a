@@ -27,12 +27,12 @@ AGENT_SKILL_DIRS: dict[str, str] = {
     "claude": ".claude/skills",
     "codex": ".agents/skills",
     "opencode": ".agents/skills",
-    "gemini": ".gemini/skills",
+    "gemini": ".agents/skills",
     "copilot": ".agents/skills",
 }
 
 # Directories to scan for skills (relative to base)
-_SCAN_DIRS = [".claude", ".agents", ".gemini"]
+_SCAN_DIRS = [".claude", ".agents"]
 
 
 class SkillScope(Enum):

@@ -4,7 +4,7 @@ This file provides Gemini-specific guidance. For repository-wide policies, see [
 
 ## Skills
 
-Gemini has access to skills in `.gemini/skills/`. Use these skills for specialized tasks:
+Gemini has access to skills in `.agents/skills/`. Use these skills for specialized tasks:
 
 - **synapse-a2a**: Inter-agent communication using Synapse A2A framework
 

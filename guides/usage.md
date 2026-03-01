@@ -889,13 +889,12 @@ synapse skills
 - **Create Skill** - Anthropic 方法論によるスキル作成ガイド
 
 **Manage Skills** ではまずスコープを選択し、そのスコープのスキルだけを表示します。
-各スキル行には `[C✓ A✓ G·]` インジケーターが付き、どのエージェントディレクトリに存在するかが一目で分かります：
+各スキル行には `[C✓ A✓]` インジケーターが付き、どのエージェントディレクトリに存在するかが一目で分かります：
 
 | 記号 | ディレクトリ | 対象エージェント |
 |------|-------------|-----------------|
 | **C** | `.claude/skills/` | Claude |
-| **A** | `.agents/skills/` | Codex, OpenCode, Copilot |
-| **G** | `.gemini/skills/` | Gemini |
+| **A** | `.agents/skills/` | Codex, OpenCode, Copilot, Gemini |
 
 スキルの詳細画面では **Deploy Status** セクションが表示され、User / Project 両スコープでの各エージェントへのデプロイ状態を確認できます。
 
