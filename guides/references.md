@@ -401,9 +401,10 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 
 | 形式 | 例 | 説明 |
 |-----|---|------|
-| エージェントタイプ | `claude` | 単一インスタンスの場合のみ |
+| カスタム名 | `my-claude` | 最優先、レジストリの名前でマッチ |
+| フルランタイムID | `synapse-claude-8100` | 完全なランタイムID |
 | タイプ-ポート | `claude-8100` | 同タイプが複数ある場合 |
-| フルID | `synapse-claude-8100` | 完全なランタイムID |
+| エージェントタイプ | `claude` | 単一インスタンスの場合のみ |
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
