@@ -20,18 +20,28 @@ Orchestrate multi-agent work with structured delegation, monitoring, and quality
 - Sending targeted feedback with error details and fix guidance
 - Orchestrating cross-review between agents
 
-## Workflow (5 Steps)
+## Workflow (7 Steps)
 
-### Step 1: Delegate
+### Step 1: Plan & Setup
 
-Analyze the task, decompose into subtasks, and assign to agents.
+Prepare the task board, define agent roles, and optionally start in delegate mode.
 
-**Actions:**
-1. Break the task into independent, parallelizable subtasks
-2. Spawn or identify agents for each subtask
-3. Send each agent a specific, actionable task message
+**Start as a manager (delegate mode — no file editing):**
+```bash
+synapse claude --delegate-mode --name Manager --role "task manager"
+```
 
-**Spawn agents:**
+**Use saved agent definitions for consistent team composition:**
+```bash
+# List available agent definitions
+synapse agents list
+
+# Spawn agents from saved definitions
+synapse spawn wise-strategist
+synapse spawn test-specialist
+```
+
+**Or spawn agents with ad-hoc roles:**
 ```bash
 synapse spawn claude --name Impl --role "feature implementation"
 synapse spawn gemini --name Tester --role "test writer"
@@ -46,136 +56,208 @@ while ! synapse list | grep -q "Impl.*READY"; do
 done
 ```
 
-**Send tasks with specifics:**
-```bash
-synapse send Impl "Implement X in synapse/foo.py:
-- Add function bar() that does Y
-- Update __init__.py exports
-- Follow existing patterns in synapse/baz.py" --silent
+### Step 2: Delegate via Task Board
 
-synapse send Tester "Write tests for X in tests/test_foo.py:
-- Test bar() with valid input
-- Test bar() with edge cases (empty, None, overflow)
-- Follow pytest patterns in tests/test_baz.py" --silent
+Use the shared task board for structured task tracking instead of ad-hoc messages.
+
+**Create tasks with priority and dependencies:**
+```bash
+# Create implementation task (priority 4 = urgent)
+synapse tasks create "Implement auth module" \
+  -d "Add OAuth2 with JWT in synapse/auth.py. Follow patterns in synapse/server.py." \
+  --priority 4
+
+# Create test task, blocked by implementation
+synapse tasks create "Write auth tests" \
+  -d "Cover: valid login, invalid credentials, token expiry, refresh flow" \
+  --blocked-by 1
+```
+
+**Assign tasks to agents:**
+```bash
+synapse tasks assign 1 Impl
+synapse tasks assign 2 Tester
+```
+
+**Send detailed instructions with file attachments:**
+```bash
+synapse send Impl "Implement auth module — see task #1 on the board.
+- Add OAuth2 flow in synapse/auth.py
+- Update server.py with /auth/* endpoints
+- Follow existing patterns" --attach synapse/server.py --silent
+
+synapse send Tester "Write auth tests — see task #2 (blocked by #1).
+- Prepare test structure now, fill in after impl lands
+- Follow pytest patterns in existing tests" --attach tests/test_a2a_compat.py --silent
 ```
 
 **Key rules:**
 - Include specific file names, function names, and acceptance criteria
 - Reference existing code patterns the agent should follow
-- Use `--notify` (default) for standard task delegation
+- Use `--attach` to send reference files the agent should study
+- Use `--silent` for delegated tasks where you don't need a response
 - Use `--wait` if you need immediate results and want to block
-- Use `--silent` for purely informational feedback or background tasks
+- Use `--notify` (default) for async notification on completion
 
-### Step 2: Monitor
+### Step 3: Monitor
 
-Periodically check agent status and work artifacts.
+Check agent status, task board progress, and work artifacts.
 
-**Status check:**
+**Live status (auto-updates on registry changes):**
 ```bash
 synapse list
 ```
 
+**Task board status:**
+```bash
+synapse tasks list
+synapse tasks list --status in_progress
+```
+
+**Check task history for completed work:**
+```bash
+synapse history list --agent Impl
+synapse history list --agent Tester
+```
+
 **Verify expected output:**
 ```bash
-# Check for new/modified files
 git diff --name-only
-
-# Check specific files exist
-ls tests/test_foo.py synapse/foo.py
-
-# Read implementation to verify correctness
-# (use Read tool or cat to inspect key files)
+ls tests/test_auth.py synapse/auth.py
 ```
 
 **Monitoring cadence:**
 - Check `synapse list` every 1-2 minutes during active work
 - Once an agent shows READY after being PROCESSING, inspect its output
-- If an agent stays PROCESSING for >5 minutes, send a status check:
+- If an agent stays PROCESSING for >5 minutes, send an interrupt:
   ```bash
-  synapse interrupt <name> "Status update — what is your current progress?"
+  synapse interrupt Impl "Status update — what is your current progress?"
   ```
 
-### Step 3: Verify
+**Broadcast status check to all agents:**
+```bash
+synapse broadcast "Status check — report your progress" -p 4
+```
+
+### Step 4: Approve Plans
+
+When agents submit plans for review, use plan approval to gate execution.
+
+**Review and approve:**
+```bash
+synapse approve <task_id>
+```
+
+**Reject with actionable feedback:**
+```bash
+synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs. See RFC 6749 section 1.5."
+```
+
+### Step 5: Verify
 
 Run tests to validate quality. This is the critical quality gate.
 
 **Run new tests first (fast feedback):**
 ```bash
-pytest tests/test_foo.py -v
+pytest tests/test_auth.py -v
 ```
 
 **Then run full regression tests (every time new tests pass):**
 ```bash
-# Full suite with short output — catches side-effects early
 pytest --tb=short -q
 ```
 
 **Regression triage — distinguish new breakage from pre-existing:**
 ```bash
-# Stash agent changes and re-run failing tests against clean state
 git stash
 pytest tests/test_failing_module.py -v
 git stash pop
 ```
 - If the test **also fails on clean state** → pre-existing issue, not caused by the agent. Note it and continue.
-- If the test **passes on clean state** → the agent's changes introduced the regression. Proceed to Step 4 with the diff that caused it.
+- If the test **passes on clean state** → the agent's changes introduced the regression. Proceed to Step 6 with the diff that caused it.
 
-**Why every time, not just at the end:** Regressions caught early are cheaper to fix. The agent still has context about what it just changed. Deferring regression checks to the final step risks compounding failures that are harder to untangle.
+**Update task board on completion or failure:**
+```bash
+synapse tasks complete <task_id>
+synapse tasks fail <task_id> --reason "test_refresh_token fails — TypeError on line 42"
+```
 
-**On test failure:**
-1. Identify failing test name and error message
-2. Determine if it is a new-test failure or regression
-3. Proceed to Step 4 (Feedback) with specifics
+**On test failure:** Identify failing test name and error message, determine if new-test or regression, proceed to Step 6 (Feedback).
 
-### Step 4: Feedback
+### Step 6: Feedback
 
 When issues are found, send concrete, actionable feedback.
 
 **Feedback message structure:**
 ```bash
-synapse send <name> "Issues found — please fix:
+synapse send Impl "Issues found — please fix:
 
-1. FAILING TEST: test_bar_with_none (tests/test_foo.py)
+1. FAILING TEST: test_token_expiry (tests/test_auth.py)
    ERROR: TypeError: cannot unpack non-iterable NoneType object
-   FIX: Add None guard at the top of bar()
+   FIX: Add None guard at the top of validate_token()
 
-2. MISSING INTEGRATION: foo.py is not imported in __init__.py
-   FIX: Add 'from .foo import bar' to synapse/__init__.py
+2. REGRESSION: test_existing_endpoint broke
+   ERROR: AssertionError: expected 200, got 401
+   CAUSE: auth middleware intercepts all routes
+   FIX: Exclude health-check endpoints from auth" --silent
+```
 
-3. REGRESSION: test_existing_feature broke
-   ERROR: AssertionError: expected 3, got 4
-   CAUSE: bar() side-effect on shared state
-   FIX: Use a local copy instead of mutating the input" --silent
+**Save lessons learned to shared memory:**
+```bash
+synapse memory save auth-middleware-pattern \
+  "Auth middleware must exclude /status and /.well-known/* endpoints from authentication" \
+  --tags auth,middleware --notify
 ```
 
 **Key rules:**
 - Always include the failing test name and exact error
 - Always suggest a fix direction (not just "it's broken")
 - Distinguish between new-test failures and regressions
-- After sending feedback, return to Step 2 (Monitor) and wait
+- Save recurring patterns to shared memory so other agents learn
+- After sending feedback, return to Step 3 (Monitor)
 
-### Step 5: Review
+### Step 7: Review & Wrap-up
 
-After all tests pass, orchestrate cross-review and final confirmation.
+After all tests pass, orchestrate cross-review and finalize.
 
-**Cross-review:**
+**Cross-review with file attachments:**
 ```bash
-synapse send Tester "Review implementation changes:
-$(git diff --name-only | grep -v test)
-Focus on: correctness, edge cases, naming consistency" --wait
+synapse send Tester "Review implementation changes. Focus on: correctness, edge cases, naming consistency" \
+  --attach synapse/auth.py --wait
 
-synapse send Impl "Review test coverage:
-$(git diff --name-only | grep test)
-Focus on: missing edge cases, test isolation, assertion quality" --wait
+synapse send Impl "Review test coverage. Focus on: missing edge cases, test isolation, assertion quality" \
+  --attach tests/test_auth.py --wait
 ```
 
 **Final verification:**
 ```bash
-# Full test suite one last time
 pytest --tb=short -q
-
-# Verify no unintended changes
 git diff --stat
+```
+
+**Trace task history for full audit trail:**
+```bash
+synapse trace <task_id>
+```
+
+**Check token/cost usage:**
+```bash
+synapse history stats
+synapse history stats --agent Impl
+synapse history stats --agent Tester
+```
+
+**Save key decisions to shared memory:**
+```bash
+synapse memory save auth-architecture \
+  "OAuth2 with JWT + refresh tokens. Auth middleware excludes /status and /.well-known/*." \
+  --tags auth,architecture --notify
+```
+
+**Mark tasks complete on the board:**
+```bash
+synapse tasks complete 1
+synapse tasks complete 2
 ```
 
 **Cleanup:**
@@ -186,32 +268,92 @@ synapse kill Tester -f
 
 **Report completion:**
 - Summarize what was done
-- List files changed
+- List files changed (`git diff --stat`)
 - Confirm all tests pass
 - Note any remaining concerns from cross-review
+- Reference task board IDs and shared memory keys
 
 ## Decision Table
 
 | Situation | Action |
 |-----------|--------|
-| Agent stuck PROCESSING >5min | `synapse interrupt` with status request |
+| Agent stuck PROCESSING >5min | `synapse interrupt <name> "Status?"` |
+| Need to check all agents at once | `synapse broadcast "Status check" -p 4` |
 | New test fails | Feedback with error + suggested fix |
 | Regression test fails | Feedback with cause analysis + fix direction |
 | Agent READY but no output | Check `git diff`, re-send task if needed |
-| Cross-review finds issue | Send fix request, re-verify |
-| All tests pass, reviews clean | Kill agents, report done |
+| Agent submits a plan | `synapse approve` or `synapse reject --reason "..."` |
+| Discovered a reusable pattern | `synapse memory save <key> "<pattern>" --tags ... --notify` |
+| Need to check past work | `synapse history list --agent <name>` |
+| Need full audit trail | `synapse trace <task_id>` |
+| Cross-review finds issue | Send fix request with `--attach`, re-verify |
+| All tests pass, reviews clean | `synapse tasks complete`, kill agents, report done |
+| Need cost breakdown | `synapse history stats --agent <name>` |
 
-## Commands Reference
+## A2A Features Reference
+
+| Feature | Command | Purpose |
+|---------|---------|---------|
+| **Task Board** | `synapse tasks create/assign/complete/fail/reopen/list` | Structured task tracking with priorities and dependencies |
+| **Plan Approval** | `synapse approve/reject` | Gate execution with review feedback |
+| **Shared Memory** | `synapse memory save/search/list/show` | Cross-agent knowledge sharing and pattern retention |
+| **History & Tracing** | `synapse history list/show/stats` + `synapse trace` | Audit trail and token/cost tracking |
+| **Delegate Mode** | `--delegate-mode` | Manager agent that coordinates without editing files |
+| **Broadcast** | `synapse broadcast` | Send to all agents at once |
+| **File Attachments** | `--attach file.py` | Send reference files with messages |
+| **Saved Agents** | `synapse agents list` + `synapse spawn <id>` | Reusable agent definitions for consistent teams |
+| **Priority Levels** | `-p 1-5` | Control urgency (5 = emergency, bypasses readiness gate) |
+| **Soft Interrupt** | `synapse interrupt` | Urgent status check (shorthand for `-p 4 --silent`) |
+| **Response Modes** | `--wait / --notify / --silent` | Blocking, async notification, or fire-and-forget |
+| **Reply Routing** | `synapse reply` | Auto-routed responses to original sender |
+| **Message Files** | `--message-file / --stdin` | Send large messages without shell limits |
+
+## Auto-Approve (Yolo) Mode
+
+Each CLI agent has a **different flag** to skip permission prompts. Pass these after `--` when spawning:
+
+| Agent | Flag | Example |
+|-------|------|---------|
+| **Claude Code** | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
+| **Gemini CLI** | `-y` | `synapse spawn gemini -- -y` |
+| **Codex CLI** | `--yolo` | `synapse spawn codex -- --yolo` |
+| **GitHub Copilot CLI** | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
+| **OpenCode** | *(no flag available)* | N/A |
+
+**Team start with mixed agents:**
+```bash
+# Each agent ignores flags it doesn't recognize,
+# so you can pass agent-specific flags safely
+synapse team start claude gemini -- --dangerously-skip-permissions -y
+```
+
+**Via API:**
+```bash
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "tool_args": ["-y"]}'
+```
+
+## Commands Quick Reference
 
 | Command | Purpose |
 |---------|---------|
-| `synapse list` | Check agent status |
-| `synapse spawn <type> --name <n> --role "<r>"` | Start agent |
-| `synapse send <name> "<msg>" --notify` | Delegate task (async notification - default) |
-| `synapse send <name> "<msg>" --wait` | Request reply (immediate/blocking) |
-| `synapse send <name> "<msg>" --silent` | Send feedback / FYI (no notification) |
+| `synapse list` | Check agent status (auto-updates) |
+| `synapse spawn <type\|id> --name <n> --role "<r>"` | Start agent (ad-hoc or from saved definition) |
+| `synapse send <name> "<msg>" --silent` | Delegate task (fire-and-forget) |
+| `synapse send <name> "<msg>" --wait` | Request reply (blocking) |
+| `synapse send <name> "<msg>" --attach <file>` | Send with reference files |
+| `synapse broadcast "<msg>" -p <n>` | Message all agents |
 | `synapse interrupt <name> "<msg>"` | Urgent status check (priority 4) |
+| `synapse tasks create "<subject>" -d "<desc>" -p <n>` | Create task on board |
+| `synapse tasks assign <id> <agent>` | Assign task |
+| `synapse tasks complete <id>` | Mark task done |
+| `synapse tasks fail <id> --reason "<why>"` | Mark task failed |
+| `synapse approve <id>` | Approve agent plan |
+| `synapse reject <id> --reason "<feedback>"` | Reject with guidance |
+| `synapse memory save <key> "<content>" --tags <t> --notify` | Share knowledge |
+| `synapse memory search "<query>"` | Find shared knowledge |
+| `synapse history list --agent <name>` | Check task history |
+| `synapse history stats --agent <name>` | Token/cost breakdown |
+| `synapse trace <task_id>` | Full audit trail |
 | `synapse kill <name> -f` | Terminate agent |
-| `pytest <file> -v` | Run specific tests |
-| `pytest --tb=short -q` | Run full regression |
-| `git diff --name-only` | Check changed files |

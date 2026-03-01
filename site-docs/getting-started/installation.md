@@ -11,6 +11,14 @@
     - [OpenCode](https://github.com/opencode-ai/opencode) (`opencode`)
     - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) (`copilot`)
 
+!!! info "System Requirements & Constraints"
+    - **OS**: macOS, Linux (WSL2 included). Native Windows is not supported.
+    - **Python**: 3.10+ required. `pipx` recommended for isolated install.
+    - **Storage**: `~/.synapse/`, `~/.a2a/` (user-level), `.synapse/` (project-local)
+    - **Network**: Local only (UDS preferred, TCP fallback). See [External Agents](../advanced/external-agents.md) for remote connections.
+    - **PTY Note**: Synapse wraps CLI tools via PTY. UI updates to underlying tools (e.g., Claude Code) may require profile adjustments.
+    - **Terminal**: tmux, iTerm2, Terminal.app, Ghostty, or Zellij required for `team start` / `spawn`.
+
 ## Install Synapse A2A
 
 === "pipx (Recommended)"
