@@ -87,7 +87,7 @@ stateDiagram-v2
 
 ### Synapse Extensions
 
-Synapse extends A2A with additional endpoints prefixed conceptually as extensions:
+Synapse extends A2A with additional **endpoint extensions** (extra HTTP endpoints beyond the A2A core) and **schema extensions** (fields prefixed with `x-`, e.g., `x-synapse-context`):
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -140,6 +140,8 @@ Synapse A2A is approximately **70% compliant** with the Google A2A specification
     SSE and Push Notifications are intentionally omitted, not planned for future implementation. Synapse's PTY-based architecture means agent output is inherently complete (not streamed token-by-token). The `--notify` response mode and file-watcher-based `synapse list` provide equivalent async capabilities within the local P2P model.
 
 #### Synapse Extensions (beyond A2A spec)
+
+A2A core uses Message/Part + Task format and the standard endpoints (`/.well-known/agent.json`, `/tasks/send`, `/tasks/{id}`). Synapse adds **endpoint extensions** (additional HTTP routes like `/tasks/send-priority`, `/spawn`, `/team/start`) and **schema extensions** using the `x-` prefix (e.g., `x-synapse-context` in the Agent Card).
 
 | Extension | Description |
 |-----------|-------------|

@@ -48,7 +48,7 @@ graph LR
 
 ### Parallel Code Review
 
-Ask another agent to review your code while you keep working. Results arrive asynchronously.
+Ask another agent to review your code while you keep working. Results arrive asynchronously. See [Cross-Agent Scenarios](guide/cross-agent-scenarios.md) for real-world workflows.
 
 ```bash
 synapse send gemini "Review this PR for security issues" --wait

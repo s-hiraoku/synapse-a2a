@@ -52,7 +52,7 @@ synapse spawn gemini --name Tester --role "test writer"
 elapsed=0
 while ! synapse list | grep -q "Impl.*READY"; do
   sleep 1; elapsed=$((elapsed + 1))
-  [ "$elapsed" -ge 30 ] && echo "ERROR: Impl not READY after ${elapsed}s" >&2 && break
+  [ "$elapsed" -ge 30 ] && echo "ERROR: Impl not READY after ${elapsed}s" >&2 && exit 1
 done
 ```
 
@@ -136,7 +136,7 @@ ls tests/test_auth.py synapse/auth.py
 
 **Broadcast status check to all agents:**
 ```bash
-synapse broadcast "Status check — report your progress" -p 4
+synapse broadcast "Status check — report your progress" --priority 4
 ```
 
 ### Step 4: Approve Plans
@@ -278,7 +278,7 @@ synapse kill Tester -f
 | Situation | Action |
 |-----------|--------|
 | Agent stuck PROCESSING >5min | `synapse interrupt <name> "Status?"` |
-| Need to check all agents at once | `synapse broadcast "Status check" -p 4` |
+| Need to check all agents at once | `synapse broadcast "Status check" --priority 4` |
 | New test fails | Feedback with error + suggested fix |
 | Regression test fails | Feedback with cause analysis + fix direction |
 | Agent READY but no output | Check `git diff`, re-send task if needed |
@@ -302,7 +302,7 @@ synapse kill Tester -f
 | **Broadcast** | `synapse broadcast` | Send to all agents at once |
 | **File Attachments** | `--attach file.py` | Send reference files with messages |
 | **Saved Agents** | `synapse agents list` + `synapse spawn <id>` | Reusable agent definitions for consistent teams |
-| **Priority Levels** | `-p 1-5` | Control urgency (5 = emergency, bypasses readiness gate) |
+| **Priority Levels** | `--priority 1-5` | Control urgency (5 = emergency, bypasses readiness gate) |
 | **Soft Interrupt** | `synapse interrupt` | Urgent status check (shorthand for `-p 4 --silent`) |
 | **Response Modes** | `--wait / --notify / --silent` | Blocking, async notification, or fire-and-forget |
 | **Reply Routing** | `synapse reply` | Auto-routed responses to original sender |
@@ -326,10 +326,17 @@ Each CLI agent has a **different flag** to skip permission prompts. Pass these a
 
 **Team start with mixed agents:**
 ```bash
-# Each agent ignores flags it doesn't recognize,
-# so you can pass agent-specific flags safely
+# Some CLIs silently ignore unknown flags, but others may error.
+# When passing shared flags, test that all target agents accept them.
 synapse team start claude gemini -- --dangerously-skip-permissions -y
 ```
+
+!!! warning "Agent-specific flags may cause errors"
+    Not all CLIs ignore unknown flags — some will exit with an error. If combining flags fails, start agents individually with their specific flags:
+    ```bash
+    synapse spawn claude -- --dangerously-skip-permissions
+    synapse spawn gemini -- -y
+    ```
 
 **Via API:**
 ```bash
@@ -347,9 +354,9 @@ curl -X POST http://localhost:8100/spawn \
 | `synapse send <name> "<msg>" --silent` | Delegate task (fire-and-forget) |
 | `synapse send <name> "<msg>" --wait` | Request reply (blocking) |
 | `synapse send <name> "<msg>" --attach <file>` | Send with reference files |
-| `synapse broadcast "<msg>" -p <n>` | Message all agents |
+| `synapse broadcast "<msg>" --priority <n>` | Message all agents |
 | `synapse interrupt <name> "<msg>"` | Urgent status check (priority 4) |
-| `synapse tasks create "<subject>" -d "<desc>" -p <n>` | Create task on board |
+| `synapse tasks create "<subject>" -d "<desc>" --priority <n>` | Create task on board |
 | `synapse tasks assign <id> <agent>` | Assign task |
 | `synapse tasks complete <id>` | Mark task done |
 | `synapse tasks fail <id> --reason "<why>"` | Mark task failed |
