@@ -35,7 +35,7 @@ When code is modified, identify affected documentation by consulting `references
 | API endpoint | `README.md`, `guides/references.md` | `guides/enterprise.md` |
 | Environment variable | `README.md`, `guides/settings.md` | `templates/.synapse/settings.json` |
 | Profile setting | `guides/profiles.md` | `CLAUDE.md` |
-| Skill content | `plugins/*/SKILL.md` | `.claude/skills/`, `.agents/skills/` |
+| Skill content | `plugins/*/SKILL.md` | `.claude/skills/`, `.agents/skills/`, `.gemini/skills/`（`plugins/synapse-a2a/skills/` を編集し sync で配布） |
 
 ### Phase 2: Propose Updates
 
@@ -61,6 +61,7 @@ After updating primary documents, check for required synchronization:
 ```
 plugins/synapse-a2a/skills/ → .claude/skills/
 plugins/synapse-a2a/skills/ → .agents/skills/
+plugins/synapse-a2a/skills/ → .gemini/skills/
 ```
 
 **Template Consistency:**
