@@ -35,7 +35,7 @@ synapse list
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
-- **ID**: Full agent ID (e.g., `synapse-claude-8100`)
+- **ID**: Full Runtime ID (e.g., `synapse-claude-8100`)
 - **ROLE**: Role description if set
 - **STATUS**: READY / WAITING / PROCESSING / DONE / SHUTTING_DOWN
 - **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
@@ -46,7 +46,7 @@ synapse list
 - **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in non-TTY text output for scripting (e.g., `synapse list | grep my-project`).
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
 
-**Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).
+**Name vs ID:** Display shows name if set, internal operations use Runtime ID (`synapse-claude-8100`).
 
 ### Start Agents
 
@@ -214,14 +214,14 @@ synapse rename my-claude --clear
 
 **Name vs ID:**
 - Custom names are for **display and user-facing operations** (prompts, `synapse list` output)
-- Agent ID (`synapse-claude-8100`) is used **internally** for registry and processing
+- Runtime ID (`synapse-claude-8100`) is used **internally** for registry and processing
 - Target resolution: name has highest priority when matching
 
 ### Saved Agent Definitions
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.
 
-IDs must use petname format (e.g., `silent-snake`).
+IDs must use Agent ID format (e.g., `silent-snake`).
 
 ```bash
 # List all saved agent definitions
@@ -255,7 +255,7 @@ synapse agents delete silent-snake
 ```
 
 **Output columns** (in `synapse agents list`):
-- **ID**: Petname identifier (e.g., `silent-snake`)
+- **ID**: Agent ID identifier (e.g., `silent-snake`)
 - **NAME**: Display name
 - **PROFILE**: Agent type (claude, codex, gemini, opencode, copilot)
 - **ROLE**: Role description (or `-` if not set)
@@ -701,7 +701,7 @@ Configure which columns to display in `synapse list`:
 
 | Column | Description |
 |--------|-------------|
-| `ID` | Agent ID (e.g., `synapse-claude-8100`) |
+| `ID` | Runtime ID (e.g., `synapse-claude-8100`) |
 | `NAME` | Custom name if set |
 | `TYPE` | Agent type (claude, gemini, etc.) |
 | `ROLE` | Role description |
