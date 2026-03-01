@@ -198,7 +198,7 @@ See [Saved Agent Definitions](agent-teams.md#saved-agent-definitions) for full d
 When using `synapse send`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`:
 
 1. **Custom name** (highest): `my-claude`
-2. **Full agent ID**: `synapse-claude-8100`
+2. **Full Runtime ID**: `synapse-claude-8100`
 3. **Type-port shorthand**: `claude-8100`
 4. **Agent type** (only if single instance): `claude`
 

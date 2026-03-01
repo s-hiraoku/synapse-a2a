@@ -547,7 +547,7 @@ synapse kill my-claude
 
 **Nom vs ID :**
 - **Affichage/Invites** : Affiche le nom s'il est défini, sinon l'ID (ex. `Kill my-claude (PID: 1234)?`)
-- **Traitement interne** : Utilise toujours l'ID de l'agent (`synapse-claude-8100`)
+- **Traitement interne** : Utilise toujours le Runtime ID (`synapse-claude-8100`)
 - **Résolution de cible** : Le nom a la priorité la plus élevée lors de la correspondance des cibles
 
 ### Liste des Commandes
@@ -646,7 +646,7 @@ synapse instructions send claude
 # Prévisualiser avant l'envoi
 synapse instructions send claude --preview
 
-# Envoyer à un ID d'agent spécifique
+# Envoyer à un Runtime ID spécifique
 synapse instructions send synapse-claude-8100
 ```
 
@@ -781,7 +781,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | Format | Exemple | Description |
 |--------|---------|-------------|
 | Nom personnalisé | `my-claude` | Priorité la plus élevée, correspond au nom dans le registre |
-| ID complet | `synapse-claude-8100` | Correspond à l'ID exact de l'agent |
+| Runtime ID complet | `synapse-claude-8100` | Correspond au Runtime ID exact |
 | Type-port | `claude-8100` | Correspond au type et port abrégés |
 | Type d'agent | `claude` | Fonctionne uniquement quand une seule instance existe |
 
@@ -791,7 +791,7 @@ Lorsque plusieurs agents du même type sont en cours d'exécution, le type seul 
 
 | Option | Court | Description |
 |--------|-------|-------------|
-| `--from` | `-f` | ID de l'agent expéditeur (optionnel ; auto-détecté) |
+| `--from` | `-f` | Runtime ID de l'expéditeur (optionnel ; auto-détecté) |
 | `--priority` | `-p` | Priorité 1-4 : normal, 5 : arrêt d'urgence (envoie SIGINT) |
 | `--wait` | - | Blocage synchrone - attendre que le récepteur réponde avec `synapse reply` |
 | `--notify` | - | Notification asynchrone - être notifié quand la tâche est terminée (par défaut) |
@@ -847,7 +847,7 @@ synapse send claude "Bonjour" --from $SYNAPSE_AGENT_ID
 
 **Comportement par défaut :** Par défaut, `--notify` (notification asynchrone à la fin) est utilisé.
 
-**Important :** Utilisez toujours `--from` avec votre ID d'agent (format : `synapse-<type>-<port>`).
+**Important :** Utilisez toujours `--from` avec votre Runtime ID (format : `synapse-<type>-<port>`).
 
 ### Commande synapse reply
 
@@ -1026,7 +1026,7 @@ Les messages sont envoyés au PTY de l'agent avec un préfixe qui inclut l'ident
 A2A: [From: NOM (ID_EXPÉDITEUR)] [REPLY EXPECTED] <contenu du message>
 ```
 
-- **From** : Identifie le nom d'affichage de l'expéditeur et son ID d'agent unique.
+- **From** : Identifie le nom d'affichage de l'expéditeur et son Runtime ID unique.
 - **REPLY EXPECTED** : Indique que l'expéditeur attend une réponse (bloquante).
 
 Si les informations sur l'expéditeur ne sont pas disponibles, le système revient à :
@@ -1303,7 +1303,7 @@ L'affichage se met à jour automatiquement lorsque le statut des agents change (
 
 | Colonne | Description |
 |---------|-------------|
-| ID | ID de l'agent (ex. `synapse-claude-8100`) |
+| ID | ID d'exécution (ex. `synapse-claude-8100`) |
 | NAME | Nom personnalisé (s'il est assigné) |
 | TYPE | Type d'agent (claude, gemini, codex, etc.) |
 | ROLE | Description du rôle de l'agent (s'il est assigné) |
@@ -1517,7 +1517,7 @@ Personnalisez les instructions envoyées au démarrage de l'agent :
 3. Si les deux sont vides, aucune instruction initiale n'est envoyée
 
 **Espaces réservés** :
-- `{{agent_id}}` - ID de l'agent (ex. `synapse-claude-8100`)
+- `{{agent_id}}` - ID d'exécution (ex. `synapse-claude-8100`)
 - `{{port}}` - Numéro de port (ex. `8100`)
 
 Voir [guides/settings.md](guides/settings.md) pour plus de détails.

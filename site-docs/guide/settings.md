@@ -149,7 +149,7 @@ Instructions support placeholders:
 
 | Placeholder | Replaced With |
 |-------------|---------------|
-| `{agent_id}` | Agent ID (e.g., `synapse-claude-8100`) |
+| `{agent_id}` | Runtime ID (e.g., `synapse-claude-8100`) |
 | `{port}` | Server port |
 | `{agent_type}` | Agent type |
 | `{name}` | Custom name |

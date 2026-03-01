@@ -414,7 +414,7 @@ synapse jump my-claude
 **ターゲット解決の優先順位:**
 
 1. カスタム名（最優先）: `my-claude`
-2. エージェントID: `synapse-claude-8100`
+2. ランタイムID: `synapse-claude-8100`
 3. タイプ-ポート短縮形: `claude-8100`
 4. タイプ（インスタンスが1つの場合のみ）: `claude`
 
@@ -423,7 +423,7 @@ synapse jump my-claude
 | 用途 | 使用される値 |
 |-----|-------------|
 | 表示・プロンプト | 名前があれば名前、なければID（例: `Kill my-claude?`） |
-| 内部処理 | 常にエージェントID（`synapse-claude-8100`） |
+| 内部処理 | 常にランタイムID（`synapse-claude-8100`） |
 | `synapse list` NAME列 | カスタム名、なければタイプ |
 
 **終了時の保存プロンプト（再利用用定義）**:
@@ -577,7 +577,7 @@ synapse spawn claude --name Worker --role "機能実装担当" -- --worktree
 #### 保存済みエージェント定義（`synapse agents`）
 
 ```bash
-# 追加（id は petname 形式）
+# 追加（id は エージェントID形式）
 synapse agents add silent-snake --name 狗巻棘 --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
 
 # 一覧（TTYでは見やすいRich TUI表示）
@@ -659,7 +659,7 @@ synapse list                      # 自動更新 Rich TUI
 
 | カラム | 説明 |
 |--------|------|
-| ID | エージェントID（例: `synapse-claude-8100`） |
+| ID | ランタイムID（例: `synapse-claude-8100`） |
 | NAME | カスタム名（設定されている場合） |
 | TYPE | エージェントタイプ (claude, gemini, codex など) |
 | ROLE | ロール説明（設定されている場合） |

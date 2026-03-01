@@ -100,7 +100,7 @@ synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
 
 | Flag | Description |
 |------|-------------|
-| `<id>` | Petname-format identifier (e.g. `silent-snake`) |
+| `<id>` | Agent ID identifier (e.g. `silent-snake`) |
 | `--name NAME` | Display name (required) |
 | `--profile PROFILE` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
 | `--role ROLE` | Role description or `@path` file reference |
@@ -210,7 +210,7 @@ synapse spawn <profile_or_saved_agent> [OPTIONS] [-- TOOL_ARGS]
 The `<profile_or_saved_agent>` argument accepts:
 
 - A built-in profile name (`claude`, `gemini`, `codex`, `opencode`, `copilot`)
-- A saved agent ID (petname format, e.g. `silent-snake`)
+- A saved agent ID (Agent ID format, e.g. `silent-snake`)
 - A saved agent display name (e.g. a custom name set via `synapse agents add`)
 
 When a saved agent is used, its profile, name, role, and skill set are resolved from the definition. CLI flags (`--name`, `--role`, etc.) override saved values.

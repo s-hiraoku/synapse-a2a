@@ -193,7 +193,7 @@ synapse auth generate-key                 # Generate a single API key
 synapse auth generate-key -n 3 -e         # Generate 3 keys in export format
 
 # Send messages (default is --notify: async notification on completion)
-# Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), full-id (synapse-claude-8100)
+# Target formats: name (my-claude), agent-type (claude), type-port (claude-8100), Runtime ID (synapse-claude-8100)
 # Note: --from is optional — auto-detected from SYNAPSE_AGENT_ID env var (set by Synapse at startup)
 # Choosing response_mode:
 #   --wait:   Task with result expected (question, review, analysis) - synchronous blocking
@@ -285,7 +285,7 @@ curl -X POST http://localhost:8100/team/start \
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 synapse spawn claude                          # Spawn Claude in a new pane
-synapse spawn silent-snake                    # Spawn by saved agent ID (petname)
+synapse spawn silent-snake                    # Spawn by saved Agent ID
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
@@ -313,7 +313,7 @@ curl -X POST http://localhost:8100/spawn \
 When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`, targets are resolved in priority order:
 
 1. **Custom name** (highest priority): `my-claude`
-2. **Full agent ID**: `synapse-claude-8100`
+2. **Full Runtime ID**: `synapse-claude-8100`
 3. **Type-port shorthand**: `claude-8100`
 4. **Agent type** (only if single instance): `claude`
 
@@ -321,7 +321,7 @@ Custom names are case-sensitive. Agent type resolution is fuzzy (partial match).
 
 **Name vs ID:**
 - **Display/Prompts**: Shows name if set, otherwise ID (e.g., `Kill my-claude (PID: 1234)?`)
-- **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
+- **Internal processing**: Always uses Runtime ID (`synapse-claude-8100`)
 - **`synapse list` NAME column**: Shows custom name if set, otherwise agent type
 
 ## Core Design Principle

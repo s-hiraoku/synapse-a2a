@@ -506,7 +506,7 @@ synapse kill my-claude
 
 **이름 vs ID:**
 - **표시/프롬프트**: 이름이 설정된 경우 이름을 표시, 그렇지 않으면 ID (예: `Kill my-claude (PID: 1234)?`)
-- **내부 처리**: 항상 에이전트 ID를 사용 (`synapse-claude-8100`)
+- **내부 처리**: 항상 런타임 ID를 사용 (`synapse-claude-8100`)
 - **대상 해석**: 대상 매칭 시 이름이 최우선
 
 ### 명령어 목록
@@ -592,7 +592,7 @@ synapse instructions send claude
 # 전송 전 미리보기
 synapse instructions send claude --preview
 
-# 특정 에이전트 ID에 전송
+# 특정 런타임 ID에 전송
 synapse instructions send synapse-claude-8100
 ```
 
@@ -729,7 +729,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | 커스텀 이름 | `my-claude` | 최우선, 에이전트에 이름이 있을 때 사용 |
 | 에이전트 유형 | `claude` | 단일 인스턴스일 때만 동작 |
 | 유형-포트 | `claude-8100` | 동일 유형이 여러 개일 때 사용 |
-| 전체 ID | `synapse-claude-8100` | 완전한 에이전트 ID |
+| 전체 런타임 ID | `synapse-claude-8100` | 완전한 런타임 ID |
 
 동일 유형의 에이전트가 여러 개 실행 중인 경우, 유형만(예: `claude`) 사용하면 오류가 발생합니다. `claude-8100` 또는 `synapse-claude-8100`을 사용하세요.
 
@@ -737,7 +737,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 
 | 옵션 | 단축형 | 설명 |
 |------|--------|------|
-| `--from` | `-f` | 발신자 에이전트 ID (응답 식별용) |
+| `--from` | `-f` | 발신자 런타임 ID (응답 식별용) |
 | `--priority` | `-p` | 우선순위 1-4: 일반, 5: 긴급 중지 (SIGINT 전송) |
 | `--wait` | - | 동기 차단 - 수신자가 `synapse reply`로 응답할 때까지 대기 |
 | `--notify` | - | 비동기 알림 - 작업 완료 시 알림 수신 (기본값) |
@@ -943,7 +943,7 @@ A2A 메시지의 발신자는 `metadata.sender`로 식별할 수 있습니다.
 A2A: [From: 이름 (발신자_ID)] [REPLY EXPECTED] <메시지 내용>
 ```
 
-- **From**: 발신자의 표시 이름과 고유한 에이전트 ID를 식별합니다.
+- **From**: 발신자의 표시 이름과 고유한 런타임 ID를 식별합니다.
 - **REPLY EXPECTED**: 발신자가 응답을 기다리고 있음(블로킹 상태)을 나타냅니다.
 
 발신자 정보를 사용할 수 없는 경우 다음과 같이 대체됩니다:
@@ -1219,7 +1219,7 @@ synapse list
 
 | 컬럼 | 설명 |
 |------|------|
-| ID | 에이전트 ID (예: `synapse-claude-8100`) |
+| ID | 런타임 ID (예: `synapse-claude-8100`) |
 | NAME | 커스텀 이름 (설정된 경우) |
 | TYPE | 에이전트 유형 (claude, gemini, codex 등) |
 | ROLE | 에이전트 역할 설명 (설정된 경우) |
@@ -1431,7 +1431,7 @@ Proceed? [Y/n/s(skip)]:
 3. 둘 다 비어 있으면 초기 지시 전송하지 않음
 
 **플레이스홀더**:
-- `{{agent_id}}` - 에이전트 ID (예: `synapse-claude-8100`)
+- `{{agent_id}}` - 런타임 ID (예: `synapse-claude-8100`)
 - `{{port}}` - 포트 번호 (예: `8100`)
 
 자세한 내용은 [guides/settings.md](guides/settings.md)를 참조하세요.

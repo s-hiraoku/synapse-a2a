@@ -35,7 +35,7 @@ synapse list
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
 - **TYPE**: Agent type (claude, gemini, codex, opencode, copilot)
-- **ID**: Full agent ID (e.g., `synapse-claude-8100`)
+- **ID**: Full Runtime ID (e.g., `synapse-claude-8100`)
 - **ROLE**: Role description if set
 - **STATUS**: READY / WAITING / PROCESSING / DONE / SHUTTING_DOWN
 - **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
@@ -46,7 +46,7 @@ synapse list
 - **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in non-TTY text output for scripting (e.g., `synapse list | grep my-project`).
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
 
-**Name vs ID:** Display shows name if set, internal operations use agent ID (`synapse-claude-8100`).
+**Name vs ID:** Display shows name if set, internal operations use Runtime ID (`synapse-claude-8100`).
 
 ### Start Agents
 
@@ -165,7 +165,7 @@ synapse stop claude --all
 # Graceful shutdown (default): multi-phase — SHUTTING_DOWN → HTTP request → grace → SIGTERM → SIGKILL
 synapse kill my-claude
 
-# Kill by agent ID
+# Kill by Runtime ID
 synapse kill synapse-claude-8100
 
 # Kill by agent type (only if single instance)
@@ -188,7 +188,7 @@ synapse kill my-claude -f
 # Jump by custom name
 synapse jump my-claude
 
-# Jump by agent ID
+# Jump by Runtime ID
 synapse jump synapse-claude-8100
 
 # Jump by agent type (only if single instance)
@@ -214,14 +214,14 @@ synapse rename my-claude --clear
 
 **Name vs ID:**
 - Custom names are for **display and user-facing operations** (prompts, `synapse list` output)
-- Agent ID (`synapse-claude-8100`) is used **internally** for registry and processing
+- Runtime ID (`synapse-claude-8100`) is used **internally** for registry and processing
 - Target resolution: name has highest priority when matching
 
 ### Saved Agent Definitions
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.
 
-IDs must use petname format (e.g., `silent-snake`).
+IDs must use Agent ID format (e.g., `silent-snake`).
 
 ```bash
 # List all saved agent definitions
@@ -255,7 +255,7 @@ synapse agents delete silent-snake
 ```
 
 **Output columns** (in `synapse agents list`):
-- **ID**: Petname identifier (e.g., `silent-snake`)
+- **ID**: Agent ID identifier (e.g., `silent-snake`)
 - **NAME**: Display name
 - **PROFILE**: Agent type (claude, codex, gemini, opencode, copilot)
 - **ROLE**: Role description (or `-` if not set)
@@ -288,7 +288,7 @@ When you receive an A2A message, it appears with the `A2A:` prefix that includes
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
 
-- **From**: Identifies the sender's display name and unique agent ID.
+- **From**: Identifies the sender's display name and Runtime ID.
 - **REPLY EXPECTED**: Indicates that the sender is waiting for a response (blocking).
 
 If sender information is not available, it falls back to:
@@ -307,7 +307,7 @@ If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply
 # Use the reply command (auto-routes to last sender)
 synapse reply "<your reply>"
 
-# In sandboxed environments (like Codex), specify your agent ID
+# In sandboxed environments (like Codex), specify your Runtime ID
 synapse reply "<your reply>" --from $SYNAPSE_AGENT_ID
 ```
 
@@ -343,7 +343,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | Agent type | `claude` | Only when single instance exists |
 
 **Parameters:**
-- `--from, -f`: Sender agent ID (for reply identification) - **auto-detected** from `SYNAPSE_AGENT_ID` env var. Usually omittable; specify explicitly in sandboxed environments (e.g., Codex). When using, always provide the agent ID format (`synapse-<type>-<port>`). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
+- `--from, -f`: Sender Runtime ID (for reply identification) - **auto-detected** from `SYNAPSE_AGENT_ID` env var. Usually omittable; specify explicitly in sandboxed environments (e.g., Codex). When using, always provide the Runtime ID format (`synapse-<type>-<port>`). Note: `-f` means `--force` in other subcommands (e.g., `synapse kill -f`); prefer the long form `--from` to avoid confusion.
 - `--priority, -p`: Priority level 1-5 (default: 3)
   - 1-2: Low priority, background tasks
   - 3: Normal tasks
@@ -413,7 +413,7 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --silent
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
-**Important:** `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at startup, expands to `synapse-<type>-<port>`). You can usually omit it. If you specify it explicitly, never hardcode agent IDs -- always use `$SYNAPSE_AGENT_ID`.
+**Important:** `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at startup, expands to `synapse-<type>-<port>`). You can usually omit it. If you specify it explicitly, never hardcode Runtime IDs -- always use `$SYNAPSE_AGENT_ID`.
 
 ### Interrupt Command
 
@@ -428,7 +428,7 @@ Equivalent to `synapse send <target> "<message>" -p 4 --silent [--from <sender>]
 **Parameters:**
 - `target`: Target agent (name, ID, type-port, or agent type)
 - `message`: Interrupt message to send
-- `--from, -f`: Sender agent ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
+- `--from, -f`: Sender Runtime ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
 - `--force`: Bypass the working directory mismatch check
 
 **Examples:**
@@ -473,7 +473,7 @@ synapse broadcast "<message>" [--from <sender>] [--priority <1-5>] [--wait | --n
 
 **Parameters:**
 - `message`: Message to broadcast to all cwd agents
-- `--from, -f`: Sender agent ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
+- `--from, -f`: Sender Runtime ID (auto-detected from `SYNAPSE_AGENT_ID` env var)
 - `--priority, -p`: Priority level 1-5 (default: 1)
 - `--wait`: Synchronous wait for all agents
 - `--notify`: Async notification from each agent (default)
@@ -701,7 +701,7 @@ Configure which columns to display in `synapse list`:
 
 | Column | Description |
 |--------|-------------|
-| `ID` | Agent ID (e.g., `synapse-claude-8100`) |
+| `ID` | Runtime ID (e.g., `synapse-claude-8100`) |
 | `NAME` | Custom name if set |
 | `TYPE` | Agent type (claude, gemini, etc.) |
 | `ROLE` | Role description |
@@ -739,7 +739,7 @@ synapse instructions send claude
 # Preview what would be sent without actually sending
 synapse instructions send claude --preview
 
-# Send to specific agent ID
+# Send to specific Runtime ID
 synapse instructions send synapse-claude-8100
 ```
 

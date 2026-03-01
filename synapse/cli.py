@@ -3574,6 +3574,33 @@ def cmd_run_interactive(
         controller.stop()
 
 
+def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:
+    """Add --wait / --notify / --silent mutually exclusive response mode flags."""
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
+        default=None,
+        help="Wait synchronously for response (blocks until done)",
+    )
+    group.add_argument(
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
+    )
+
+
 def main() -> None:
     if "PYTEST_CURRENT_TEST" not in os.environ:
         setup_logging()
@@ -3990,30 +4017,7 @@ Priority levels:
         dest="attach",
         help="Attach a file to the message (repeatable)",
     )
-    # Response mode: mutually exclusive group (unified with a2a.py send)
-    response_group = p_send.add_mutually_exclusive_group()
-    response_group.add_argument(
-        "--wait",
-        dest="response_mode",
-        action="store_const",
-        const="wait",
-        default=None,
-        help="Wait synchronously for response (blocks until done)",
-    )
-    response_group.add_argument(
-        "--notify",
-        dest="response_mode",
-        action="store_const",
-        const="notify",
-        help="Return immediately, receive async notification on completion (default)",
-    )
-    response_group.add_argument(
-        "--silent",
-        dest="response_mode",
-        action="store_const",
-        const="silent",
-        help="Fire and forget — no response or notification",
-    )
+    _add_response_mode_flags(p_send)
     p_send.add_argument(
         "--force",
         action="store_true",
@@ -4084,29 +4088,7 @@ Priority levels:
         dest="attach",
         help="Attach a file to the message (repeatable)",
     )
-    broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
-    broadcast_response_group.add_argument(
-        "--wait",
-        dest="response_mode",
-        action="store_const",
-        const="wait",
-        default=None,
-        help="Wait synchronously for responses (blocks until done)",
-    )
-    broadcast_response_group.add_argument(
-        "--notify",
-        dest="response_mode",
-        action="store_const",
-        const="notify",
-        help="Return immediately, receive async notification on completion (default)",
-    )
-    broadcast_response_group.add_argument(
-        "--silent",
-        dest="response_mode",
-        action="store_const",
-        const="silent",
-        help="Fire and forget — no response or notification",
-    )
+    _add_response_mode_flags(p_broadcast)
     p_broadcast.set_defaults(func=cmd_broadcast)
 
     # reply - Reply to last received A2A message
