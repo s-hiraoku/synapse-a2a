@@ -364,7 +364,7 @@ plugins/
 
 자세한 내용은 [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md)를 참조하세요.
 
-> **참고**: Codex와 Gemini는 플러그인을 지원하지 않지만, 확장된 스킬을 `.agents/skills/`(Codex/OpenCode) 또는 `.gemini/skills/` 디렉토리에 배치하면 이러한 기능을 활성화할 수 있습니다.
+> **참고**: Codex와 Gemini는 플러그인을 지원하지 않지만, 확장된 스킬을 `.agents/skills/` 디렉토리에 배치하면 이러한 기능을 활성화할 수 있습니다.
 
 ---
 

@@ -337,7 +337,7 @@ class TestManageSkillsDisplay:
     """Tests for _build_skill_label and _build_detail_header with agent dir indicators."""
 
     def test_skill_label_with_agent_dirs(self, tmp_path: Path) -> None:
-        """Skill label shows [C✓ A✓ G·] based on which agent dirs exist."""
+        """Skill label shows [C✓ A✓] based on which agent dirs exist."""
         home = tmp_path / "home"
         project = tmp_path / "project"
         synapse = tmp_path / "synapse"
@@ -358,17 +358,15 @@ class TestManageSkillsDisplay:
         label = mgr._build_skill_label(proj_skills[0])
         assert "C✓" in label
         assert "A✓" in label
-        assert "G·" in label
 
     def test_skill_label_all_dirs(self, tmp_path: Path) -> None:
-        """Skill in all three agent dirs shows [C✓ A✓ G✓]."""
+        """Skill in both agent dirs shows [C✓ A✓]."""
         home = tmp_path / "home"
         project = tmp_path / "project"
         synapse = tmp_path / "synapse"
 
         _create_skill(project, ".claude", "full-tool")
         _create_skill(project, ".agents", "full-tool")
-        _create_skill(project, ".gemini", "full-tool")
 
         from synapse.commands.skill_manager import SkillManagerCommand
         from synapse.skills import SkillScope, discover_skills
@@ -383,10 +381,9 @@ class TestManageSkillsDisplay:
         label = mgr._build_skill_label(proj_skills[0])
         assert "C✓" in label
         assert "A✓" in label
-        assert "G✓" in label
 
     def test_synapse_skill_label_no_dirs(self, tmp_path: Path) -> None:
-        """SYNAPSE skill not deployed anywhere shows [C· A· G·]."""
+        """SYNAPSE skill not deployed anywhere shows [C· A·]."""
         home = tmp_path / "home"
         project = tmp_path / "project"
         synapse = tmp_path / "synapse"
@@ -406,7 +403,6 @@ class TestManageSkillsDisplay:
         label = mgr._build_skill_label(synapse_skills[0])
         assert "C·" in label
         assert "A·" in label
-        assert "G·" in label
 
     def test_scope_menu_excludes_plugin(self, tmp_path: Path) -> None:
         """PLUGIN scope is excluded from scope selection menu."""

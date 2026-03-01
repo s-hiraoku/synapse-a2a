@@ -69,7 +69,7 @@ copilot --resume          # Select session to resume
 |-------|------------|------------|-----------|-------------|
 | **Read-only** | -- | `--sandbox` | `/permissions` -> Read-only | Default (confirm each) |
 | **Confirm** | Default | Default | `/permissions` -> Auto (default) | `--allow-tool=<tool>` |
-| **Full auto** | `--dangerously-skip-permissions` | `-y` (yolo) / `Shift+Y` | `/permissions` -> Full Access / `--yolo` | `--allow-all-tools` / `/yolo` |
+| **Full auto** | `--dangerously-skip-permissions` | `-y` (yolo) / `Shift+Y` | `--full-auto` (sandboxed) / `--dangerously-bypass-approvals-and-sandbox` (unrestricted) | `--allow-all-tools` / `/yolo` |
 
 **Notes:**
 - Codex CLI: `/permissions` command to switch modes mid-session. Auto is default (read/write/execute in working directory).
@@ -389,7 +389,7 @@ For use with `synapse spawn` and `synapse team start`:
 |-----|------|-----------------------|
 | **Claude Code** | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
 | **Gemini CLI** | `-y` | `synapse spawn gemini -- -y` |
-| **Codex CLI** | `--yolo` | `synapse spawn codex -- --yolo` |
+| **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
 | **Copilot CLI** | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
 
 ## Official Documentation

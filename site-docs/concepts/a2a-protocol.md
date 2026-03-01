@@ -17,7 +17,7 @@ Every A2A agent publishes a discovery document at `/.well-known/agent.json`:
   "name": "synapse-claude-8100",
   "description": "Claude Code agent managed by Synapse A2A",
   "url": "http://localhost:8100",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 ### Synapse Extensions
 
-Synapse extends A2A with additional endpoints prefixed conceptually as extensions:
+Synapse extends A2A with additional **endpoint extensions** (extra HTTP endpoints beyond the A2A core) and **schema extensions** (fields prefixed with `x-`, e.g., `x-synapse-context`):
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -112,6 +112,46 @@ Synapse A2A is approximately **70% compliant** with the Google A2A specification
 | SSE Streaming | :material-close-circle:{ .status-shutdown } | Not yet implemented |
 | Push Notifications | :material-close-circle:{ .status-shutdown } | Not yet implemented |
 | JSON-RPC 2.0 | :material-close-circle:{ .status-shutdown } | Uses REST instead |
+
+### Detailed Compliance Checklist
+
+#### Fully Implemented
+
+| Feature | Description |
+|---------|-------------|
+| **Agent Card** (`/.well-known/agent.json`) | Published on startup; includes name, skills, capabilities, and `x-synapse-context` extension |
+| **Task Send** (`POST /tasks/send`) | Creates a task with message, routes to the agent via PTY, returns task ID |
+| **Task Get** (`GET /tasks/{id}`) | Retrieves task status and result by ID |
+| **Task List** (`GET /tasks`) | Lists all tasks for the agent |
+| **Task Cancel** (`POST /tasks/{id}/cancel`) | Cancels a running task |
+| **Message/Part format** | Text parts with `role` and `parts[].text` structure |
+| **Task Lifecycle** | Full state machine: `submitted → working → completed / failed / canceled` |
+| **HTTP/REST transport** | FastAPI server with JSON request/response |
+
+#### Not Implemented
+
+| Feature | Reason | Alternative |
+|---------|--------|-------------|
+| **SSE Streaming** | PTY architecture writes complete responses; streaming partial output adds complexity without benefit for CLI agents | Use `--wait` for synchronous blocking or `--notify` for async completion notification |
+| **Push Notifications** | No persistent webhook registration needed in local P2P setup | Polling via `synapse list` (auto-refreshes on registry changes) and `--notify` mode |
+| **JSON-RPC 2.0** | REST is simpler for the HTTP-based transport layer and aligns with FastAPI conventions | Standard REST endpoints with JSON payloads |
+
+!!! note "Architectural Decision"
+    SSE and Push Notifications are intentionally omitted, not planned for future implementation. Synapse's PTY-based architecture means agent output is inherently complete (not streamed token-by-token). The `--notify` response mode and file-watcher-based `synapse list` provide equivalent async capabilities within the local P2P model.
+
+#### Synapse Extensions (beyond A2A spec)
+
+A2A core uses Message/Part + Task format and the standard endpoints (`/.well-known/agent.json`, `/tasks/send`, `/tasks/{id}`). Synapse adds **endpoint extensions** (additional HTTP routes like `/tasks/send-priority`, `/spawn`, `/team/start`) and **schema extensions** using the `x-` prefix (e.g., `x-synapse-context` in the Agent Card).
+
+| Extension | Description |
+|-----------|-------------|
+| **Priority Levels** (1-5) | `POST /tasks/send-priority` — urgent messages can preempt normal queue; priority 5 bypasses the readiness gate |
+| **File Safety** | Exclusive file locking and modification tracking to prevent multi-agent conflicts |
+| **Shared Task Board** | SQLite-based task coordination with dependencies, assignment, and plan approval |
+| **Agent Teams** | Multi-agent spawning with layout control, delegate mode, and worktree isolation |
+| **Shared Memory** | Cross-agent knowledge persistence via project-local SQLite with tag-based search |
+| **Reply Routing** | Automatic `in_reply_to` tracking for request-response patterns across agents |
+| **Soft Interrupt** | `synapse interrupt` sends priority-4 messages to interrupt agent processing |
 
 ## Design Rationale
 

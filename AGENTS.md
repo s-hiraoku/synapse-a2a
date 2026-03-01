@@ -50,15 +50,13 @@
 - Link related issues or docs when changes affect protocol behavior.
 
 ## Skill Update Rules
-
-**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/`, `.gemini/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+**`plugins/synapse-a2a/skills/synapse-a2a/` がスキルのソースオブトゥルース。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ```
 plugins/synapse-a2a/skills/synapse-a2a/   # Source of truth (edit here)
   ↓ sync-plugin-skills
 .claude/skills/synapse-a2a/               # Claude Code
-.agents/skills/synapse-a2a/               # Codex / OpenCode / Copilot
-.gemini/skills/synapse-a2a/               # Gemini
+.agents/skills/synapse-a2a/               # Codex / OpenCode / Copilot / Gemini
 ```
 
 ## Configuration & Docs

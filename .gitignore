@@ -40,3 +40,6 @@ venv/
 # OS
 .DS_Store
 ci_log.txt
+
+# Gemini skills (unified into .agents/skills/)
+.gemini/skills/

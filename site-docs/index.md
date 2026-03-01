@@ -39,6 +39,48 @@ graph LR
     SA <-->|A2A Protocol| SC
 ```
 
+## Why Synapse?
+
+<div class="feature-grid" markdown>
+
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-magnify-scan:</div>
+
+### Parallel Code Review
+
+Ask another agent to review your code while you keep working. Results arrive asynchronously. See [Cross-Agent Scenarios](guide/cross-agent-scenarios.md) for real-world workflows.
+
+```bash
+synapse send gemini "Review this PR for security issues" --wait
+```
+</div>
+
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-account-supervisor:</div>
+
+### Specialized Teams
+
+Spin up a team where each agent has a role — a manager delegates, specialists implement.
+
+```bash
+synapse team start claude gemini codex --layout split
+```
+</div>
+
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-file-sync-outline:</div>
+
+### Documentation Sync
+
+Code changes trigger doc agents to update documentation automatically — docs never go stale.
+
+```bash
+synapse send codex "Update API docs for the new endpoint" --silent
+```
+</div>
+
+</div>
+
 ## Core Principles
 
 <div class="feature-grid" markdown>
@@ -231,6 +273,39 @@ synapse memory save auth-pattern \
     ```
 
 <!-- markdownlint-enable MD046 -->
+
+## Hello A2A — Your First Inter-Agent Message
+
+Two terminals, two agents, one protocol. Here's the simplest possible collaboration:
+
+```bash
+# Terminal 1: Start Claude
+synapse claude
+
+# Terminal 2: Start Gemini
+synapse gemini
+```
+
+Now send a message from Claude's terminal:
+
+```bash
+# From any terminal — ask Gemini a question and wait for the answer
+synapse send gemini "What are the top 3 risks in this codebase?" --wait
+```
+
+Expected output:
+
+```
+Task synapse-gemini-8110-1234 → completed
+
+Response:
+Based on my analysis, the top 3 risks are:
+1. No input validation on the /api/upload endpoint
+2. SQL queries constructed via string concatenation in db.py
+3. Hardcoded secrets in config.py — move to environment variables
+```
+
+That's it — Gemini analyzed the codebase and responded via A2A protocol. No configuration, no API keys between agents, no behavior changes.
 
 ---
 

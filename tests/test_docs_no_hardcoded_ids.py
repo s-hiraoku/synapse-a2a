@@ -23,7 +23,6 @@ HARDCODED_FROM_PATTERN = re.compile(r"--from\s+synapse-\w+-\d+")
 AGENT_FACING_PATHS = [
     ROOT / ".claude" / "skills",
     ROOT / ".agents" / "skills",
-    ROOT / ".gemini" / "skills",
     ROOT / ".synapse",
     ROOT / "synapse" / "templates" / ".synapse",
     ROOT / "CLAUDE.md",

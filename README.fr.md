@@ -403,7 +403,7 @@ plugins/
 
 Voir [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) pour plus de détails.
 
-> **Remarque** : Codex et Gemini ne supportent pas les plugins, mais vous pouvez placer les skills étendus dans le répertoire `.agents/skills/` (Codex/OpenCode) ou `.gemini/skills/` respectivement pour activer ces fonctionnalités.
+> **Remarque** : Codex et Gemini ne supportent pas les plugins, mais vous pouvez placer les skills étendus dans le répertoire `.agents/skills/` pour activer ces fonctionnalités.
 
 ---
 

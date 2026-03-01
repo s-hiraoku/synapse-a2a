@@ -409,7 +409,7 @@ plugins/
 
 詳しくは [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) を参照。
 
-> **注意**: Codex/Gemini はプラグインをサポートしていませんが、展開されたスキルを `.agents/skills/` (Codex/OpenCode) または `.gemini/skills/` ディレクトリに配置することでこれらの機能を有効にできます。
+> **注意**: Codex/Gemini はプラグインをサポートしていませんが、展開されたスキルを `.agents/skills/` ディレクトリに配置することでこれらの機能を有効にできます。
 
 ---
 

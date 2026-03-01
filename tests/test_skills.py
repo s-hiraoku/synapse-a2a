@@ -176,12 +176,12 @@ class TestDiscoverSkills:
         assert skills[2].scope == SkillScope.PROJECT
 
     def test_discover_gemini_dir(self, tmp_home: Path) -> None:
-        """Skills in .gemini/skills/ are discovered."""
-        _create_skill(tmp_home, ".gemini", "gem-skill", "Gemini skill")
+        """Gemini skills in .agents/skills/ are discovered."""
+        _create_skill(tmp_home, ".agents", "gem-skill", "Gemini skill")
         skills = discover_skills(project_dir=None, user_dir=tmp_home)
         assert len(skills) == 1
         assert skills[0].name == "gem-skill"
-        assert ".gemini" in skills[0].agent_dirs
+        assert ".agents" in skills[0].agent_dirs
 
 
 # ──────────────────────────────────────────────────────────
@@ -901,7 +901,7 @@ class TestCheckDeployStatus:
         from synapse.skills import check_deploy_status
 
         _create_skill(tmp_home, ".claude", "my-skill", "user deployed")
-        _create_skill(tmp_project, ".gemini", "my-skill", "project deployed")
+        _create_skill(tmp_project, ".agents", "my-skill", "project deployed")
         result = check_deploy_status(
             "my-skill", user_dir=tmp_home, project_dir=tmp_project
         )
@@ -911,7 +911,7 @@ class TestCheckDeployStatus:
         assert result["project"]["claude"] is False
 
     def test_shared_agents_dir(self, tmp_home: Path, tmp_project: Path) -> None:
-        """codex/opencode/copilot share .agents/skills — deploying once marks all three."""
+        """codex/opencode/copilot/gemini share .agents/skills — deploying once marks all four."""
         from synapse.skills import check_deploy_status
 
         _create_skill(tmp_home, ".agents", "my-skill", "shared deploy")
@@ -922,6 +922,7 @@ class TestCheckDeployStatus:
         assert result["user"]["codex"] is True
         assert result["user"]["opencode"] is True
         assert result["user"]["copilot"] is True
+        assert result["user"]["gemini"] is True
         assert result["user"]["claude"] is False
 
     def test_none_dirs(self) -> None:

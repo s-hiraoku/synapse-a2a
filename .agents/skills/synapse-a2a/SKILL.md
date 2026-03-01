@@ -591,19 +591,21 @@ Each CLI has its own flag to skip interactive permission prompts. Pass these aft
 |-----|------|-------|
 | **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
 | **Gemini CLI** | `-y` | Yolo mode — auto-approve all actions |
-| **Codex CLI** | `--yolo` | Full Access mode — no confirmations |
+| **Codex CLI** | `--full-auto` | Sandboxed auto-approve (`-a on-request --sandbox workspace-write`) |
+| **OpenCode** | *(no flag)* | No auto-approve flag available |
 | **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
 
 ```bash
 # Spawn with permission skip (per CLI)
 synapse spawn claude -- --dangerously-skip-permissions
 synapse spawn gemini -- -y
-synapse spawn codex -- --yolo
+synapse spawn codex -- --full-auto
 synapse spawn copilot -- --allow-all-tools
 
 # Team start with permission skip (flag applies to ALL agents)
 # Only use when all agents support the same flag, or target specific CLIs:
 synapse team start claude gemini -- --dangerously-skip-permissions  # Only Claude uses it; Gemini ignores unknown flags
+# For Codex full unrestricted mode: --dangerously-bypass-approvals-and-sandbox
 ```
 
 ### CLI & API
@@ -616,7 +618,7 @@ synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 synapse spawn gemini -- -y                               # Gemini yolo mode
-synapse spawn codex -- --yolo                            # Codex full access
+synapse spawn codex -- --full-auto                       # Codex sandboxed auto-approve
 synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```
 
@@ -626,7 +628,7 @@ synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 // Claude example:
 {"profile": "claude", "name": "Worker", "tool_args": ["--dangerously-skip-permissions"]}
 // Codex example:
-{"profile": "codex", "name": "Coder", "tool_args": ["--yolo"]}
+{"profile": "codex", "name": "Coder", "tool_args": ["--full-auto"]}
 // Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
 ```
 

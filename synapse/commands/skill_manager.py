@@ -695,13 +695,13 @@ class SkillManagerCommand:
 
     # ── Label / header builders ────────────────────────────────
 
-    # Short labels for the three distinct agent directories
-    _AGENT_DIR_LABELS = {".claude": "C", ".agents": "A", ".gemini": "G"}
+    # Short labels for agent directories
+    _AGENT_DIR_LABELS = {".claude": "C", ".agents": "A"}
 
     def _build_skill_label(self, skill: SkillInfo) -> str:
         """Build a display label for a skill in the menu list.
 
-        Non-PLUGIN skills get ``[C✓ A✓ G·]`` indicators showing which
+        Non-PLUGIN skills get ``[C✓ A✓]`` indicators showing which
         agent directories contain the skill.  PLUGIN skills are plain.
         """
         desc = skill.description[:50] if skill.description else ""

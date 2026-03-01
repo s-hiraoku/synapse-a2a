@@ -54,7 +54,7 @@
 | ソースファイル | 関連ドキュメント | 更新内容 |
 |---------------|-----------------|---------|
 | `plugins/synapse-a2a/.claude-plugin/plugin.json` | `plugins/synapse-a2a/README.md`, `README.md` | プラグインバージョン、メタデータ |
-| `plugins/synapse-a2a/skills/*/SKILL.md` | 同期: `.claude/skills/`, `.agents/skills/`, `.gemini/skills/`（`plugins/synapse-a2a/skills/` がソースオブトゥルース。個別エージェントディレクトリは直接編集しない） | スキル内容 |
+| `plugins/synapse-a2a/skills/*/SKILL.md` | 同期: `.claude/skills/`, `.agents/skills/`（`plugins/synapse-a2a/skills/` がソースオブトゥルース。個別エージェントディレクトリは直接編集しない） | スキル内容 |
 
 ## tests/ ディレクトリ
 
@@ -130,7 +130,7 @@
 ### スキルを変更した場合
 
 1. `plugins/synapse-a2a/skills/*/SKILL.md` - ソースオブトゥルースを更新（ここだけ編集する）
-2. `sync-plugin-skills` を実行して `.claude/skills/`, `.agents/skills/`, `.gemini/skills/` に同期
+2. `sync-plugin-skills` を実行して `.claude/skills/`, `.agents/skills/` に同期
 3. `plugins/synapse-a2a/README.md` - 必要に応じて更新
 
 > **Note**: 上記の `site-docs/` への更新は `github-pages-sync` スキルが担当する。

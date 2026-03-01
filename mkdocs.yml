@@ -3,7 +3,7 @@ site_url: https://s-hiraoku.github.io/synapse-a2a/
 site_description: Multi-agent collaboration framework using Google A2A Protocol
 site_author: s-hiraoku
 repo_url: https://github.com/s-hiraoku/synapse-a2a
-repo_name: s-hiraoku/synapse-a2a v0.8.2
+repo_name: s-hiraoku/synapse-a2a v0.8.3
 docs_dir: site-docs
 
 theme:
@@ -12,15 +12,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: cyan
+      primary: indigo
+      accent: blue
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: cyan
+      primary: indigo
+      accent: blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -117,6 +117,7 @@ nav:
   - User Guide:
     - Agent Management: guide/agent-management.md
     - Communication: guide/communication.md
+    - Cross-Agent Scenarios: guide/cross-agent-scenarios.md
     - Agent Teams: guide/agent-teams.md
     - Task Board: guide/task-board.md
     - File Safety: guide/file-safety.md

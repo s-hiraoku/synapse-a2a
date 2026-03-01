@@ -10,10 +10,11 @@
   font-size: 2.8rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #b388ff 0%, #00bcd4 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #2d3748;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .hero h1 {
+  color: #e2e8f0;
 }
 
 .md-typeset .hero .hero-subtitle {
@@ -43,26 +44,29 @@
 .md-typeset .hero .hero-buttons a:hover,
 .md-typeset .hero .hero-buttons a:focus-visible {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .md-typeset .hero .hero-buttons a:focus-visible {
-  outline: 2px solid #b388ff;
+  outline: 2px solid #3182ce;
   outline-offset: 2px;
 }
 
 .md-typeset .hero .hero-buttons .primary {
-  background: linear-gradient(135deg, #7c4dff, #00bcd4);
+  background: #3182ce;
+  border-radius: 8px;
   color: #fff;
 }
 
 .md-typeset .hero .hero-buttons .secondary {
-  border: 2px solid #7c4dff;
-  color: #b388ff;
+  border: 2px solid #3182ce;
+  border-radius: 8px;
+  color: #3182ce;
 }
 
-[data-md-color-scheme="default"] .md-typeset .hero .hero-buttons .secondary {
-  color: #7c4dff;
+[data-md-color-scheme="slate"] .md-typeset .hero .hero-buttons .secondary {
+  color: #63b3ed;
+  border-color: #63b3ed;
 }
 
 /* Feature grid */
@@ -83,11 +87,11 @@
 .md-typeset .feature-card:hover,
 .md-typeset .feature-card:focus-visible {
   transform: translateY(-4px);
-  border-color: #7c4dff;
+  border-color: #3182ce;
 }
 
 .md-typeset .feature-card:focus-visible {
-  outline: 2px solid #7c4dff;
+  outline: 2px solid #3182ce;
   outline-offset: 2px;
 }
 
@@ -136,14 +140,14 @@
 
 /* Terminal-style code blocks */
 .md-typeset .terminal {
-  background: #1a1a2e;
+  background: #1a202c;
   border-radius: 8px;
   overflow: hidden;
   margin: 1rem 0;
 }
 
 .md-typeset .terminal-header {
-  background: #16213e;
+  background: #2d3748;
   padding: 0.5rem 1rem;
   display: flex;
   gap: 0.5rem;
