@@ -99,9 +99,9 @@ flowchart LR
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
-| **Delegate Mode** | `--delegate-mode` makes an agent a coordinator that delegates instead of editing files |
+| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
-| **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --no-response` to quickly interrupt an agent |
+| **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with petname IDs. `synapse spawn` accepts saved agent IDs/names in addition to profile names |
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
@@ -404,7 +404,22 @@ synapse skills create                        # Show guided skill creation steps
 # Skill sets (named groups)
 synapse skills set list
 synapse skills set show <name>
+synapse skills apply <target> <set_name>     # Apply skill set to running agent
+synapse skills apply <target> <set_name> --dry-run  # Preview changes without applying
 ```
+
+#### Default Skill Sets
+
+Synapse ships with 6 built-in skill sets (defined in `.synapse/skill_sets.json`):
+
+| Skill Set | Description | Skills |
+|-----------|-------------|--------|
+| **architect** | System architecture and design — design docs, API contracts, code review | synapse-a2a, system-design, api-design, code-review, project-docs |
+| **developer** | Implementation and quality — test-first development, refactoring, code simplification | synapse-a2a, test-first, refactoring, code-simplifier, agent-memory |
+| **reviewer** | Code review and security — structured reviews, security audits, code simplification | synapse-a2a, code-review, security-audit, code-simplifier |
+| **frontend** | Frontend development — React/Next.js performance, component composition, design systems, accessibility | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
+| **manager** | Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
+| **documentation** | Documentation expert — audit, restructure, synchronize, and maintain project documentation | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
 
 ### Directory Structure
 
@@ -569,6 +584,20 @@ synapse kill my-claude
 - **Internal processing**: Always uses agent ID (`synapse-claude-8100`)
 - **Target resolution**: Name has highest priority when matching targets
 
+### Save Prompt on Exit
+
+When an interactive agent session exits, Synapse can prompt to save the current
+agent definition for reuse:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- Triggered only for interactive `synapse <profile>` sessions with a configured name.
+- Not shown in `--headless` mode or non-TTY environments.
+- Not shown for `synapse stop ...` or `synapse kill ...` (those commands only stop running processes).
+- Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
+
 ### Command List
 
 | Command | Description |
@@ -584,7 +613,7 @@ synapse kill my-claude
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
-| `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --no-response`). Supports `--force` to bypass working_dir check |
+| `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
 | `synapse reply <message>` | Reply to the last received A2A message |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
@@ -613,9 +642,10 @@ synapse kill my-claude
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
 | `synapse skills add <repo>` | Install skill from repository (via npx skills) |
-| `synapse skills create` | Show guided skill creation steps (uses anthropic-skill-creator) |
+| `synapse skills create [name]` | Create new skill template |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
+| `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
 | `synapse tasks list` | List shared task board |
@@ -801,17 +831,17 @@ synapse history cleanup --days 30 --dry-run
 Use `synapse send` for inter-agent communication. Works in sandboxed environments.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **Target Formats:**
 
 | Format | Example | Description |
 |--------|---------|-------------|
-| Custom name | `my-claude` | Highest priority, use when agent has a name |
-| Agent type | `claude` | Only works when single instance exists |
-| Type-port | `claude-8100` | Use when multiple instances of same type |
-| Full ID | `synapse-claude-8100` | Complete agent ID |
+| Custom name | `my-claude` | Highest priority, match name in registry |
+| Full ID | `synapse-claude-8100` | Match exact agent ID |
+| Type-port | `claude-8100` | Match type and port shorthand |
+| Agent type | `claude` | Only works when single instance of type exists |
 
 When multiple agents of the same type are running, type-only (e.g., `claude`) will error. Use `claude-8100` or `synapse-claude-8100`.
 
@@ -821,33 +851,52 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 |--------|-------|-------------|
 | `--from` | `-f` | Sender agent ID (optional; auto-detected from `SYNAPSE_AGENT_ID`) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
-| `--response` | - | Roundtrip - sender waits, receiver replies with `synapse reply` |
-| `--no-response` | - | Oneway - fire and forget, no reply needed |
+| `--wait` | - | Synchronous blocking - wait for receiver to reply with `synapse reply` |
+| `--notify` | - | Async notification - get notified when task completes (default) |
+| `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
+
+**Choosing response mode:**
+
+| Message Type | Flag | Example |
+|--------------|------|---------|
+| Question | `--wait` | "What is the status?" |
+| Request for analysis | `--wait` | "Please review this code" |
+| Task with result expected | `--notify` | "Run tests and report the results" |
+| Delegated task (fire-and-forget) | `--silent` | "Fix this bug and commit" |
+| Notification | `--silent` | "FYI: Build completed" |
+
+Default is `--notify` (async notification on completion).
 
 **Working directory check:** `synapse send` verifies that the sender's current working directory matches the target agent's `working_dir`. If they differ, a warning is shown with available agents in the current directory (or a `synapse spawn` suggestion) and the command exits with code 1. Use `--force` to bypass this check.
 
 **Examples:**
 
 ```bash
+# Task with result expected (async notification - default)
+synapse send gemini "Analyze this and report findings" --notify
+
+# Task with immediate response (blocking)
+synapse send gemini "What is the best approach?" --wait
+
+# Delegated task, fire-and-forget
+synapse send codex "Fix this bug and commit" --silent
+
 # Send message (single instance; --from auto-detected)
 synapse send claude "Hello" --priority 1
 
 # Long message support (automatic temp-file fallback)
-synapse send claude --message-file /path/to/message.txt --no-response
-echo "very long content..." | synapse send claude --stdin --no-response
+synapse send claude --message-file /path/to/message.txt --silent
+echo "very long content..." | synapse send claude --stdin --silent
 
 # File attachments
-synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review this" --attach src/main.py --wait
 
 # Send to specific instance (multiple of same type)
 synapse send claude-8100 "Hello"
 
 # Emergency stop
 synapse send claude "Stop!" --priority 5
-
-# Wait for response (roundtrip)
-synapse send gemini "Analyze this" --response
 
 # Bypass working directory mismatch check
 synapse send claude "Review this" --force
@@ -856,7 +905,7 @@ synapse send claude "Review this" --force
 synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 ```
 
-**Default behavior:** With `a2a.flow=auto` (default), `synapse send` waits for a response unless `--no-response` is specified. In `--no-response` mode, sender-side history is updated on receiver completion via best-effort callback (`sent` -> `completed`/`failed`/`canceled`).
+**Default behavior:** With `a2a.flow=auto` (default), `synapse send` uses `--notify` mode — the command returns immediately and you receive a PTY notification when the receiver completes. Use `--wait` for synchronous blocking, or `--silent` for fire-and-forget (no completion notification).
 
 **Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
 
@@ -896,7 +945,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | Send message |
 | `/tasks/send-priority` | POST | Send with priority |
-| `/tasks/create` | POST | Create task (no PTY send, for `--response`) |
+| `/tasks/create` | POST | Create task (no PTY send, for `--wait`) |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks |
 | `/tasks/{id}/cancel` | POST | Cancel task |
@@ -1329,6 +1378,7 @@ The display automatically updates when agent status changes (via file watcher) w
 | CURRENT | Current task preview |
 | TRANSPORT | Communication transport indicator |
 | WORKING_DIR | Current working directory |
+| SKILL_SET | Applied skill set name (if any) |
 | EDITING_FILE | File being edited (File Safety enabled only) |
 
 **Customize columns** in `settings.json`:

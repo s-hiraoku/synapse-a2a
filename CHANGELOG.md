@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- replace `--response`/`--no-response` flags with `--wait`/`--notify`/`--silent` response modes
+  - `--wait`: synchronous blocking (replaces `--response`)
+  - `--notify`: async notification on completion (new default)
+  - `--silent`: fire-and-forget (replaces `--no-response`)
+- add controller status-change callback for proactive task completion detection
+
+### Fixed
+
+- fix IDLE status bug in `map_synapse_status_to_a2a` — use actual status names (`READY`, `DONE`) instead of nonexistent `IDLE`
+
+## [0.8.1] - 2026-02-28
+
+### Fixed
+
+- add missing `manager` and `documentation` skill set definitions to bundled defaults
+- merge `coordinator` skill set into `manager` (adds `synapse-reinst` to manager)
+
+### Documentation
+
+- update skill set tables across all documentation to reflect 6 default sets
+- clarify CHANGELOG wording to avoid coordinator skill set vs role confusion
+
 ## [0.8.0] - 2026-02-28
 
 ### Added
@@ -12,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add saved-agent manager (`synapse agents list/show/add/delete`) for reusable agent configurations (#307)
 - add completion callback for `--no-response` task tracking (`POST /history/update`) (#308)
 - add `synapse-manager` skill — structured 5-step multi-agent management workflow
-- add `manager` and `documentation` skill sets for coordinator and docs-focused agents
+- add `manager` and `documentation` skill sets for multi-agent management and docs-focused agents
 - add `doc-organizer` skill — documentation audit, restructure, and deduplication
 - include sender identification in PTY-injected A2A messages
 - implement Ghostty split pane support for `team start` and `spawn`
@@ -57,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add github-pages-sync skill for site-docs maintenance
 - add shared memory for cross-agent knowledge sharing
 - add `synapse-manager` skill — structured 5-step multi-agent management workflow (Delegate, Monitor, Verify, Feedback, Review)
-- add `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for coordinator agents
+- add `manager` skill set — combines synapse-a2a, synapse-manager, task-planner, agent-memory, and code-review for multi-agent management
 - add `doc-organizer` skill — documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection
 - add `documentation` skill set — combines synapse-a2a, project-docs, doc-organizer, api-design, and agent-memory for documentation-focused agents
 
@@ -1690,6 +1716,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.8.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.12...v0.7.0
 [0.6.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.11...v0.6.12
 [0.6.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.10...v0.6.11
 [0.6.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.6.9...v0.6.10

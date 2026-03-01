@@ -115,13 +115,13 @@ synapse kill <agent> -f
 
 ### Response Timeout
 
-**Symptom**: `--response` flag waits indefinitely.
+**Symptom**: `--wait` flag waits indefinitely.
 
 **Solutions**:
 
 - Check if the target received the `[REPLY EXPECTED]` marker
 - Verify the target knows to use `synapse reply`
-- Send a follow-up with higher priority: `synapse send <agent> "Reply?" -p 4 --response`
+- Send a follow-up with higher priority: `synapse send <agent> "Reply?" -p 4 --wait`
 
 ## Input Issues
 
@@ -138,7 +138,7 @@ synapse kill <agent> -f
 **Solution**: Use file-based messaging:
 
 ```bash
-synapse send claude --message-file /tmp/message.txt --no-response
+synapse send claude --message-file /tmp/message.txt --silent
 ```
 
 ## Spawn Issues

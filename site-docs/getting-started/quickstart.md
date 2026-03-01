@@ -64,11 +64,11 @@ From Claude's terminal, send a message to Gemini:
 
 ```bash
 synapse send gemini "What are the best practices for error handling in Python?" \
-  --response
+  --wait
 ```
 
 - `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at agent startup), so you can omit it
-- `--response` waits for Gemini's reply (roundtrip mode)
+- `--wait` waits for Gemini's reply (roundtrip mode)
 
 Gemini will receive the message as:
 
@@ -98,7 +98,7 @@ sequenceDiagram
     participant S as Synapse Layer
     participant G as Gemini (8110)
 
-    C->>S: synapse send gemini "message" --response
+    C->>S: synapse send gemini "message" --wait
     S->>S: Create task context
     S->>G: POST /tasks/send (A2A Protocol)
     G->>G: Display in PTY: "A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] message"
@@ -112,20 +112,20 @@ sequenceDiagram
 ### Fire-and-Forget (No Reply Needed)
 
 ```bash
-synapse send codex "Refactor the auth module" --no-response
+synapse send codex "Refactor the auth module" --silent
 ```
 
 ### Urgent Message (Priority 4)
 
 ```bash
 synapse send gemini "Stop current task and check this" \
-  --priority 4 --response
+  --priority 4 --wait
 ```
 
 ### Broadcast to All Agents
 
 ```bash
-synapse broadcast "Status check — what are you working on?" --response
+synapse broadcast "Status check — what are you working on?" --wait
 ```
 
 ### Emergency Interrupt (Priority 5)

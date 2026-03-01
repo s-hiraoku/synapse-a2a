@@ -62,7 +62,7 @@ HOW TO SEND MESSAGES TO OTHER AGENTS:
 Use this command to communicate with other agents (works in sandboxed environments):
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 Target formats (in priority order):
@@ -74,35 +74,36 @@ Target formats (in priority order):
 Parameters:
 - `--from, -f`: Your agent ID (format: `synapse-<type>-<port>`) - auto-detected in most environments
 - `--priority, -p`: 1-4 normal, 5 = emergency interrupt (sends SIGINT first)
-- `--response`: Roundtrip mode - sender waits, receiver MUST reply
-- `--no-response`: Oneway mode - fire and forget, no reply expected
+- `--wait`: Synchronous mode - sender blocks until receiver completes and returns result
+- `--notify`: Async notification mode - sender returns immediately, receives result via PTY injection when done (default)
+- `--silent`: Fire and forget - no response or notification
 
-CHOOSING --response vs --no-response:
-Analyze the message content and determine if a reply is expected.
-- If the message expects or benefits from a reply → use `--response`
-- If the message is purely informational with no reply needed → use `--no-response`
-- **If unsure, use `--response`** (safer default)
+CHOOSING --wait vs --notify vs --silent:
+Analyze the message content and determine how you need the response.
+- If you need the result immediately to continue your work → use `--wait`
+- If you want to be notified when done but can continue working → use `--notify` (default)
+- If the message is purely informational with no reply needed → use `--silent`
+- **If unsure, omit the flag** (defaults to `--notify`, the safest option)
 
 IMPORTANT: `--from` requires agent ID format (`synapse-<type>-<port>`). Do NOT use agent types or custom names. In most environments, `--from` is auto-detected and can be omitted.
 When specifying --from explicitly, always use $SYNAPSE_AGENT_ID (auto-set at startup). Never hardcode agent IDs.
 
 Examples:
 ```bash
-# Question - needs reply (default behavior)
-synapse send gemini "What is the best practice for error handling?" --response
+# Question - needs reply, wait synchronously
+synapse send gemini "What is the best practice for error handling?" --wait
 
-# Status check - needs reply
-synapse send codex "What is your current status?" --response
+# Status check - needs reply, wait synchronously
+synapse send codex "What is your current status?" --wait
+
+# Task delegation - default notify (returns immediately, notified on completion)
+synapse send gemini "Research React best practices"
 
 # Notification - explicitly no reply needed
-synapse send gemini "FYI: Build completed" --no-response
+synapse send gemini "FYI: Build completed" --silent
 
 # Fire-and-forget task - no reply needed
-synapse send codex "Run the test suite and commit if all tests pass" --no-response
-
-# Parallel tasks - no reply needed
-synapse send gemini "Research React best practices" --no-response
-synapse send codex "Refactor the auth module" --no-response
+synapse send codex "Run the test suite and commit if all tests pass" --silent
 
 # Emergency interrupt
 synapse send codex "STOP" --priority 5

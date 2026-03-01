@@ -16,7 +16,8 @@ Complete reference for all Synapse A2A HTTP endpoints.
 |:------:|----------|-------------|
 | POST | `/tasks/send-priority` | Priority message delivery (1-5); 5 = interrupt |
 | POST | `/tasks/create` | Create task context without PTY delivery |
-| GET | `/tasks` | List all tasks |
+| POST | `/history/update` | Update history observation status (callback) |
+| GET | `/tasks` | List all tasks (query: `context_id`) |
 | POST | `/tasks/{id}/cancel` | Cancel a task |
 | GET | `/status` | Agent status (READY/PROCESSING/WAITING/DONE) |
 
@@ -33,6 +34,24 @@ curl -X POST http://localhost:8100/tasks/send-priority \
     "metadata": {
       "priority": 4,
       "from": "synapse-claude-8100"
+    }
+  }'
+```
+
+### Create Task
+
+Create a task context without sending to PTY (used by `--wait`).
+
+```bash
+curl -X POST http://localhost:8100/tasks/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": {
+      "role": "user",
+      "parts": [{"type": "text", "text": "Analyzing codebase"}]
+    },
+    "metadata": {
+      "response_mode": "wait"
     }
   }'
 ```
@@ -95,6 +114,24 @@ curl -X POST http://localhost:8100/team/start \
   }'
 ```
 
+**Response:**
+
+```json
+{
+  "started": [
+    {
+      "agent_type": "gemini",
+      "status": "submitted"
+    },
+    {
+      "agent_type": "codex",
+      "status": "submitted"
+    }
+  ],
+  "terminal_used": "tmux"
+}
+```
+
 ### Spawn
 
 ```bash
@@ -102,9 +139,11 @@ curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{
     "profile": "gemini",
+    "port": 8115,
     "name": "Helper",
     "role": "test writer",
     "skill_set": "dev-set",
+    "terminal": "tmux",
     "tool_args": ["--dangerously-skip-permissions"]
   }'
 ```
@@ -116,7 +155,7 @@ curl -X POST http://localhost:8100/spawn \
   "agent_id": "synapse-gemini-8110",
   "port": 8110,
   "terminal_used": "tmux",
-  "status": "spawned"
+  "status": "submitted"
 }
 ```
 

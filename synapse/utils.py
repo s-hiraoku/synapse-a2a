@@ -136,7 +136,7 @@ def build_sender_prefix(
 
 def format_a2a_message(
     content: str,
-    response_expected: bool = False,
+    response_mode: str = "silent",
     sender_id: str | None = None,
     sender_name: str | None = None,
 ) -> str:
@@ -154,7 +154,7 @@ def format_a2a_message(
 
     Args:
         content: Message content
-        response_expected: Whether the sender expects a response
+        response_mode: Response mode ("wait", "notify", or "silent")
         sender_id: Sender agent ID (e.g., synapse-claude-8100)
         sender_name: Sender display name (e.g., 虎杖悠仁)
 
@@ -163,7 +163,7 @@ def format_a2a_message(
     """
     sender_prefix = build_sender_prefix(sender_id, sender_name)
 
-    if response_expected:
+    if response_mode == "wait":
         # Strip any existing leading [REPLY EXPECTED] to prevent duplication
         # (LLMs sometimes echo the marker back in their content)
         content = _REPLY_EXPECTED_PREFIX.sub("", content)

@@ -90,7 +90,7 @@ synapse send <target> <message> [options]
 Key options to verify:
 - `--from` / `-f`: Sender identification
 - `--priority` / `-p`: Priority levels (1-5)
-- `--response` / `--no-response`: Roundtrip control
+- `--wait` / `--notify` / `--silent`: Response mode control
 - `--reply-to`: Reply to specific task
 
 ### API Endpoints

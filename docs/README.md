@@ -6,6 +6,14 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ## Contents
 
+## Operational Notes
+
+- Save-on-exit prompt for interactive agents:
+  `Save this agent definition for reuse? [y/N]:`
+- Displayed only for interactive `synapse <profile>` exits with a configured name.
+- Not displayed in `--headless`, non-TTY sessions, or when stopping via
+  `synapse stop ...` / `synapse kill ...`.
+
 ### プロジェクト哲学
 
 - `project-philosophy.md` - **Synapse A2A プロジェクトの哲学と設計原則**
@@ -45,7 +53,7 @@ For user guides, see the [`/guides`](../guides/) directory.
   - [mizchi/tornado](https://github.com/mizchi/tornado) の設計分析と採用判断
   - TaskBoard 拡張: `fail_task()`, `reopen_task()`, `priority` カラム
   - Coordinator + TaskBoard による Kanban ワークフローパターン
-  - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --no-response` の簡易版）
+  - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --silent` の簡易版）
   - Token/Cost Tracking: `synapse/token_parser.py` スケルトン（`TokenUsage` + `parse_tokens()` レジストリ）
 
 ### リリース

@@ -2,12 +2,12 @@
 
 The new design:
 - Task is owned by the SENDER, not the receiver
-- When sending with --response, sender creates and holds a task
+- When sending with --wait, sender creates and holds a task
 - When sending with --reply-to, the reply is attached to sender's task
 - Receiver does NOT create a task, just processes the message
 
 Flow:
-1. Claude sends to Codex with --response
+1. Claude sends to Codex with --wait
    - Claude creates task (abc123, status=waiting)
    - Codex receives [A2A:abc123:claude] message (no task created on Codex)
 
@@ -72,7 +72,7 @@ class TestSenderTaskIdInMetadata:
                 endpoint="http://localhost:8120",
                 message="Test message",
                 priority=1,
-                response_expected=True,
+                response_mode="wait",
                 wait_for_completion=False,
                 sender_info={
                     "sender_id": "synapse-claude-8100",
@@ -116,7 +116,7 @@ class TestSenderTaskIdInMetadata:
                 endpoint="http://localhost:8100",
                 message="Test message",
                 priority=1,
-                response_expected=True,
+                response_mode="wait",
                 wait_for_completion=False,
                 sender_info={"sender_id": "external-agent"},  # No sender_endpoint
             )
@@ -133,8 +133,8 @@ class TestSenderTaskIdInMetadata:
                 "sender_task_id should NOT be included when sender_endpoint is unavailable"
             )
 
-    def test_sender_task_not_created_when_no_response_expected(self):
-        """When response_expected=False, no sender task should be created."""
+    def test_sender_task_not_created_when_silent(self):
+        """When response_mode='silent', no sender task should be created."""
         from unittest.mock import MagicMock, patch
 
         from synapse.a2a_client import A2AClient
@@ -157,7 +157,7 @@ class TestSenderTaskIdInMetadata:
                 endpoint="http://localhost:8100",
                 message="Test message",
                 priority=1,
-                response_expected=False,  # No response expected
+                response_mode="silent",  # No response expected
                 wait_for_completion=False,
             )
 
@@ -165,12 +165,12 @@ class TestSenderTaskIdInMetadata:
             call_args = mock_requests.post.call_args
             payload = call_args.kwargs.get("json") or call_args[1].get("json")
             assert "sender_task_id" not in payload["metadata"], (
-                "sender_task_id should NOT be included when response_expected=False"
+                "sender_task_id should NOT be included when response_mode='silent'"
             )
 
             # Count tasks after - should be same as before
             assert len(task_store._tasks) == initial_count, (
-                "No new task should be created when response_expected=False"
+                "No new task should be created when response_mode='silent'"
             )
 
 
@@ -233,7 +233,7 @@ class TestReceiverDisplaysSenderTaskId:
                 "metadata": {
                     "sender_task_id": sender_task_id,
                     "sender": {"sender_id": sender_id},
-                    "response_expected": True,
+                    "response_mode": "wait",
                 },
             },
         )
@@ -246,7 +246,7 @@ class TestReceiverDisplaysSenderTaskId:
         written_content = call_args[0][0]
 
         # PTY output includes A2A prefix with sender and [REPLY EXPECTED] marker
-        # when response_expected is True
+        # when response_mode == "wait"
         assert (
             written_content
             == "A2A: [From: synapse-claude-8100] [REPLY EXPECTED] Test message"
@@ -270,7 +270,7 @@ class TestTaskStoreForSenderTasks:
         task = task_store.create(
             message,
             metadata={
-                "response_expected": True,
+                "response_mode": "wait",
                 "direction": "outgoing",  # NEW: mark as outgoing
                 "target_agent": "synapse-codex-8120",
             },
@@ -278,7 +278,7 @@ class TestTaskStoreForSenderTasks:
 
         assert task.id is not None
         assert task.status == "submitted"
-        assert task.metadata.get("response_expected") is True
+        assert task.metadata.get("response_mode") == "wait"
         assert task.metadata.get("direction") == "outgoing"
 
     def test_update_task_status_to_waiting(self):
@@ -286,7 +286,7 @@ class TestTaskStoreForSenderTasks:
         task_store = TaskStore()
 
         message = Message(role="user", parts=[TextPart(text="Test")])
-        task = task_store.create(message, metadata={"response_expected": True})
+        task = task_store.create(message, metadata={"response_mode": "wait"})
 
         # Update to waiting (after message sent, waiting for reply)
         task_store.update_status(task.id, "working")
@@ -299,7 +299,7 @@ class TestTaskStoreForSenderTasks:
         task_store = TaskStore()
 
         message = Message(role="user", parts=[TextPart(text="Analyze this")])
-        task = task_store.create(message, metadata={"response_expected": True})
+        task = task_store.create(message, metadata={"response_mode": "wait"})
         task_id = task.id
 
         # Simulate reply arriving
@@ -329,7 +329,7 @@ class TestReplyToHandling:
 
         # 1. Sender creates task
         message = Message(role="user", parts=[TextPart(text="Original request")])
-        sender_task = task_store.create(message, metadata={"response_expected": True})
+        sender_task = task_store.create(message, metadata={"response_mode": "wait"})
         sender_task_id = sender_task.id
         task_store.update_status(sender_task_id, "working")
 
@@ -362,18 +362,18 @@ class TestRoundtripFlow:
     """Test the complete roundtrip communication flow."""
 
     def test_complete_roundtrip_lifecycle(self):
-        """Test complete lifecycle: send with --response, reply with --reply-to."""
+        """Test complete lifecycle: send with --wait, reply with --reply-to."""
         # Simulate sender's task store (e.g., Claude)
         sender_task_store = TaskStore()
 
-        # 1. Sender creates task when sending with --response
+        # 1. Sender creates task when sending with --wait
         request_message = Message(
             role="user", parts=[TextPart(text="Please analyze this")]
         )
         sender_task = sender_task_store.create(
             request_message,
             metadata={
-                "response_expected": True,
+                "response_mode": "wait",
                 "target_agent": "synapse-codex-8120",
             },
         )
@@ -385,7 +385,7 @@ class TestRoundtripFlow:
 
         # 2. Message is sent to receiver with sender_task_id in metadata
         # (In real implementation, this would be in the HTTP request)
-        # Metadata would contain: sender_task_id, sender info, response_expected
+        # Metadata would contain: sender_task_id, sender info, response_mode
 
         # 3. Receiver processes message (NO task created on receiver side)
         # Receiver just sees the message in PTY
@@ -405,10 +405,10 @@ class TestRoundtripFlow:
         assert "Analysis complete" in completed_task.artifacts[0].data["content"]
 
     def test_oneway_flow_no_task_retained(self):
-        """Test oneway flow: send without --response, no task waiting."""
+        """Test oneway flow: send without --wait, no task waiting."""
         sender_task_store = TaskStore()
 
-        # Send without response_expected - task may be created but not retained
+        # Send without response_mode - task may be created but not retained
         # Or implementation may skip task creation entirely for oneway
 
         request_message = Message(
@@ -420,7 +420,7 @@ class TestRoundtripFlow:
         task = sender_task_store.create(
             request_message,
             metadata={
-                "response_expected": False,
+                "response_mode": "silent",
                 "direction": "outgoing",
             },
         )
@@ -459,8 +459,8 @@ class TestRoundtripFlow:
         sender_app.include_router(sender_router)
         sender_client = TestClient(sender_app)
 
-        # Step 1: Create a sender task (simulating --response flag)
-        # This is what A2AClient.send_to_local does when response_expected=True
+        # Step 1: Create a sender task (simulating --wait flag)
+        # This is what A2AClient.send_to_local does when response_mode='wait'
         from synapse.a2a_compat import Message as A2AMessage
         from synapse.a2a_compat import TextPart as A2ATextPart
 
@@ -469,7 +469,7 @@ class TestRoundtripFlow:
         )
         sender_task = task_store.create(
             sender_message,
-            metadata={"response_expected": True, "direction": "outgoing"},
+            metadata={"response_mode": "wait", "direction": "outgoing"},
         )
         sender_task_id = sender_task.id
         task_store.update_status(sender_task_id, "working")
@@ -531,7 +531,7 @@ class TestErrorScenarios:
         task_store = TaskStore()
 
         message = Message(role="user", parts=[TextPart(text="Request")])
-        task = task_store.create(message, metadata={"response_expected": True})
+        task = task_store.create(message, metadata={"response_mode": "wait"})
         task_id = task.id
 
         # First reply
@@ -562,7 +562,7 @@ class TestIntegration:
         """Test real roundtrip between two running agents."""
         # This would test:
         # 1. Start Claude and Codex agents
-        # 2. Claude sends to Codex with --response
+        # 2. Claude sends to Codex with --wait
         # 3. Codex receives message with sender_task_id
         # 4. Codex replies with --reply-to sender_task_id
         # 5. Claude's wait is released with the reply

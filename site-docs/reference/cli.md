@@ -23,19 +23,21 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--skill-set SET` | Activate skill set |
 | `--no-setup` | Skip interactive setup |
 | `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
-| `--delegate-mode` | Start as coordinator (no file editing) |
+| `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 
 ### Background Start
 
 ```bash
-synapse start <profile> [--port PORT] [-f]
+synapse start <profile> [--port PORT] [-f] [--ssl-cert CERT] [--ssl-key KEY]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--port PORT` | Explicit port number |
-| `-f` | Foreground mode (don't detach) |
+| `-f`, `--foreground` | Foreground mode (don't detach) |
+| `--ssl-cert CERT` | SSL certificate file for HTTPS |
+| `--ssl-key KEY` | SSL private key file for HTTPS |
 
 ### Stop
 
@@ -111,6 +113,19 @@ synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
 synapse agents delete <id_or_name>
 ```
 
+### Save Prompt on Interactive Exit
+
+When an interactive `synapse <profile>` session exits (with a configured name),
+Synapse can prompt to save the current agent definition:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- Not shown in `--headless` mode or non-TTY sessions.
+- Not shown when stopping agents via `synapse stop ...` or `synapse kill ...`.
+- Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
+
 !!! tip "Using Saved Agents with Spawn"
     Once defined, saved agents can be spawned by ID or name:
     ```bash
@@ -130,12 +145,18 @@ synapse send <target> "<message>" [OPTIONS]
 |------|-------------|
 | `--from ID` / `-f ID` | Sender identification (optional — auto-detected from `$SYNAPSE_AGENT_ID`) |
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
-| `--response` | Wait for reply (roundtrip) |
-| `--no-response` | Fire-and-forget |
+| `--wait` | Wait for reply (synchronous blocking) |
+| `--notify` | Return immediately, receive PTY notification on completion (**default**) |
+| `--silent` | Fire-and-forget (no completion notification) |
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
 | `--force` | Bypass working_dir mismatch check |
+
+!!! tip "Choosing response mode"
+    - `--notify` (default): Returns immediately; you get a PTY notification when the receiver completes. Best for most use cases.
+    - `--wait`: Blocks until the receiver replies. Use for questions or when you need the result before proceeding.
+    - `--silent`: Fire-and-forget with no completion notification. Use for pure notifications or delegated tasks.
 
 ### Reply
 
@@ -160,7 +181,7 @@ Same options as `send`, but default priority is **1** (not 3). Targets all agent
 synapse interrupt <target> "<message>" [--from ID] [--force]
 ```
 
-Shorthand for `synapse send -p 4 --no-response`.
+Shorthand for `synapse send -p 4 --silent`.
 
 ## Team Operations
 
@@ -236,10 +257,10 @@ synapse reject <task_id> --reason "reason"
 ```bash
 synapse history list [--agent AGENT] [--limit N]
 synapse history show <task_id>
-synapse history search "<query>" [--agent AGENT] [--logic AND|OR]
+synapse history search "<query>" [--agent AGENT] [--logic AND|OR] [--case-sensitive]
 synapse history stats [--agent AGENT]
-synapse history export --format json|csv
-synapse history cleanup --days N
+synapse history export [--format json|csv] [--agent AGENT] [--limit N] [--output PATH]
+synapse history cleanup [--days N] [--max-size MB] [--no-vacuum] [--dry-run] [--force]
 ```
 
 ## Shared Memory
@@ -287,16 +308,31 @@ synapse instructions send <agent> [--preview]  # Send to running agent
 ```bash
 synapse skills                                 # Interactive TUI
 synapse skills list [--scope SCOPE]
-synapse skills show <name>
-synapse skills delete <name> [--force]
+synapse skills show <name> [--scope SCOPE]
+synapse skills delete <name> [--force] [--scope SCOPE]
 synapse skills move <name> --to <scope>
 synapse skills deploy <name> --agent <types> [--scope SCOPE]
-synapse skills import <name>
+synapse skills import <name> [--from SCOPE]
 synapse skills add <repo>
-synapse skills create
+synapse skills create [name]                   # Create new skill template
 synapse skills set list
 synapse skills set show <name>
+synapse skills apply <target> <set_name> [--dry-run]
 ```
+
+### Apply Skill Set
+
+Apply a skill set to a running agent. Copies skill files to the agent's skill directory, updates the registry, and sends skill set info via A2A.
+
+```bash
+synapse skills apply <target> <set_name> [--dry-run]
+```
+
+| Flag | Description |
+|------|-------------|
+| `<target>` | Agent name, ID, type-port, or type |
+| `<set_name>` | Skill set name (e.g., `manager`, `developer`, `reviewer`) |
+| `--dry-run` | Preview changes without applying |
 
 ## Settings
 
@@ -333,7 +369,7 @@ synapse logs <agent> [-f] [-n LINES]
 ## Low-Level A2A Tool
 
 ```bash
-python -m synapse.tools.a2a list
+python -m synapse.tools.a2a list [--live]
 python -m synapse.tools.a2a send --target <agent> --priority N "<message>"
 python -m synapse.tools.a2a broadcast "<message>"
 python -m synapse.tools.a2a cleanup

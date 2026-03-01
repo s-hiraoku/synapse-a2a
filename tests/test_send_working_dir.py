@@ -222,7 +222,7 @@ class TestCmdSendWithForce:
         args.attach = None
         args.priority = 3
         args.sender = None
-        args.want_response = False
+        args.response_mode = "silent"
         args.force = False
 
         mock_task = MagicMock()
@@ -256,7 +256,7 @@ class TestCmdSendWithForce:
         args.attach = None
         args.priority = 3
         args.sender = None
-        args.want_response = False
+        args.response_mode = "silent"
         args.force = False
 
         with (
@@ -283,7 +283,7 @@ class TestCmdSendWithForce:
         args.attach = None
         args.priority = 3
         args.sender = None
-        args.want_response = False
+        args.response_mode = "silent"
         args.force = True
 
         mock_task = MagicMock()

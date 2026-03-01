@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from unittest.mock import patch
 
@@ -19,6 +20,22 @@ class TestFileSafetyExtended:
         """Create a FileSafetyManager instance."""
         db_path = tmp_path / "safety.db"
         return FileSafetyManager(db_path=str(db_path))
+
+    @pytest.fixture(autouse=True)
+    def _enable_caplog_for_synapse_logger(self):
+        """Ensure caplog can capture synapse logger output even after setup_logging()."""
+        loggers = [
+            logging.getLogger("synapse"),
+            logging.getLogger("synapse.file_safety"),
+        ]
+        original = [(logger, logger.propagate) for logger in loggers]
+        for logger in loggers:
+            logger.propagate = True
+        try:
+            yield
+        finally:
+            for logger, propagate in original:
+                logger.propagate = propagate
 
     def test_get_modifications_by_task(self, manager):
         """Should retrieve modifications filtered by task_id."""
@@ -144,6 +161,7 @@ class TestFileSafetyExtended:
         # Some are logged, some are printed
         assert (
             "Failed to acquire lock" in captured.err
+            or "event=file_lock_acquire_failed" in log_output
             or "Failed to acquire lock" in log_output
         )
         assert (
@@ -155,6 +173,17 @@ class TestFileSafetyExtended:
             "Database error checking lock" in captured.err
             or "Database error checking lock" in log_output
         )
+
+    @patch("sqlite3.connect")
+    def test_acquire_lock_logs_structured_event_on_db_error(
+        self, mock_connect, manager, caplog
+    ):
+        """acquire_lock should emit event marker when DB error occurs."""
+        mock_connect.side_effect = sqlite3.Error("Simulated DB Error")
+
+        manager.acquire_lock("f", "a")
+
+        assert "event=file_lock_acquire_failed" in caplog.text
 
     def test_cleanup_old_modifications_invalid_input(self, manager, capsys):
         """Should validate input for cleanup_old_modifications."""

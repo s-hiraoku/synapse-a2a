@@ -20,7 +20,9 @@ synapse skills list --scope synapse    # Central store only
 synapse skills list --scope plugin     # Plugin skills only
 ```
 
-Deploy indicators show which agent directories have the skill:
+### Deploy Indicators (TUI only)
+
+When using the interactive manager (`synapse skills`), deploy indicators show which agent directories have the skill:
 
 ```
 [C✓ A✓ G·] code-review    # Deployed to Claude and Agents, not Gemini
@@ -53,7 +55,8 @@ synapse skills deploy code-review --agent claude,codex --scope user
 This copies the skill to:
 
 - `~/.claude/skills/code-review/` (for Claude)
-- `~/.agents/skills/code-review/` (for Codex)
+- `~/.gemini/skills/code-review/` (for Gemini)
+- `~/.agents/skills/code-review/` (for Codex, OpenCode, and Copilot)
 
 ## Importing Skills
 
@@ -72,10 +75,12 @@ synapse skills add <repo-url>
 ## Creating Skills
 
 ```bash
-synapse skills create
+synapse skills create [name]
 ```
 
-Guides you through creating a new skill with the proper structure:
+Creates a new skill template in the central store (`~/.synapse/skills/`). If no name is provided, you will be prompted for one.
+
+The command creates a standard skill structure:
 
 ```
 my-skill/
@@ -122,13 +127,12 @@ Skill sets are predefined groups of skills activated together.
 
 | Set | Description | Included Skills |
 |-----|-------------|-----------------|
-| **architect** | System architecture and design | synapse-a2a, system-design, api-design, code-review, project-docs |
-| **developer** | Implementation and quality | synapse-a2a, test-first, refactoring, code-simplifier, agent-memory |
-| **reviewer** | Code review and security | synapse-a2a, code-review, security-audit, code-simplifier |
-| **coordinator** | Task coordination and orchestration | synapse-a2a, task-planner, agent-memory, synapse-reinst |
-| **frontend** | Frontend development (React/Next.js) | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
-| **manager** | Multi-agent management | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review |
-| **documentation** | Documentation expert | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
+| **architect** | System architecture and design — design docs, API contracts, code review | synapse-a2a, system-design, api-design, code-review, project-docs |
+| **developer** | Implementation and quality — test-first development, refactoring, code simplification | synapse-a2a, test-first, refactoring, code-simplifier, agent-memory |
+| **reviewer** | Code review and security — structured reviews, security audits, code simplification | synapse-a2a, code-review, security-audit, code-simplifier |
+| **frontend** | Frontend development — React/Next.js performance, component composition, design systems, accessibility | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
+| **manager** | Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
+| **documentation** | Documentation expert — audit, restructure, synchronize, and maintain project documentation | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
 
 ### List Skill Sets
 
@@ -150,15 +154,42 @@ synapse claude --skill-set manager
 
 The skill set details are included in the agent's initial instructions.
 
-### Example: Manager Skill Set
+### Apply to a Running Agent
 
-Start a coordinator agent with the `manager` skill set to orchestrate other agents:
+You can apply a skill set to an agent that is already running. This copies the skill files to the agent's skill directory, updates the registry, and sends the skill set information via A2A:
 
 ```bash
-synapse claude --delegate-mode --name coordinator --skill-set manager
+synapse skills apply my-claude manager
 ```
 
-This equips the coordinator with multi-agent management capabilities (from `synapse-manager`), task planning, shared memory access, and code review skills.
+Use `--dry-run` to preview what would happen without making any changes:
+
+```bash
+synapse skills apply gemini-8110 developer --dry-run
+```
+
+**What `apply` does:**
+
+1. Resolves the target agent (by name, ID, type-port, or type)
+2. Copies all skills in the set to the agent's skill directory
+3. Updates the agent's registry entry with the new skill set
+4. Sends the skill set details to the agent via A2A message
+
+!!! tip "Dynamic Reconfiguration"
+    Use `synapse skills apply` to change an agent's skill set without restarting it. For example, switch a general-purpose agent to a `reviewer` role mid-session:
+    ```bash
+    synapse skills apply my-claude reviewer
+    ```
+
+### Example: Manager Skill Set
+
+Start a manager agent with the `manager` skill set to orchestrate other agents:
+
+```bash
+synapse claude --delegate-mode --name manager --skill-set manager
+```
+
+This equips the agent with multi-agent management capabilities (from `synapse-manager`), task planning, shared memory access, code review, and re-instruction skills.
 
 ## Source of Truth
 

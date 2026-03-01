@@ -113,7 +113,7 @@ Example: `synapse tasks create "Title" --priority 3`
 - Short form for common flags: `-o`, `-v`
 - Boolean flags: `--force`, `--no-color`
 - Repeatable: `--attach file1 --attach file2`
-- Mutually exclusive groups: `--response | --no-response`
+- Mutually exclusive groups: `--wait | --silent`
 
 ### Output
 

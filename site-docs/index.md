@@ -88,7 +88,7 @@ Agents don't need to know about collaboration details. Synapse handles routing, 
 Send messages between agents with priority levels, roundtrip replies, broadcast, and soft interrupts.
 
 ```bash
-synapse send gemini "Review this code" --response
+synapse send gemini "Review this code" --wait
 ```
 </div>
 
@@ -96,11 +96,33 @@ synapse send gemini "Review this code" --response
 <div class="feature-icon" markdown>:material-monitor-multiple:</div>
 
 ### Agent Teams
-Spawn multi-agent teams with auto-pane creation, delegate mode for coordinators, and worktree isolation.
+Spawn multi-agent teams with auto-pane creation, delegate mode for managers, and worktree isolation.
 
 ```bash
 synapse team start claude gemini codex \
   --layout split
+```
+</div>
+
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-account-cog-outline:</div>
+
+### Agent Management
+Orchestrate work with the `synapse-manager` skill. 5-step workflow: Delegate, Monitor, Verify, Feedback, Review.
+
+```bash
+synapse spawn claude --name Impl --role "implementation"
+```
+</div>
+
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-file-document-edit-outline:</div>
+
+### Documentation Expert
+Maintain project docs with `doc-organizer`. Audit, restructure, and synchronize documentation with code.
+
+```bash
+synapse skills deploy doc-organizer --scope project
 ```
 </div>
 
@@ -202,7 +224,7 @@ synapse memory save auth-pattern \
 
     ```bash
     # Send a message from Claude to Gemini
-    synapse send gemini "Analyze this codebase" --response
+    synapse send gemini "Analyze this codebase" --wait
 
     # Monitor all agents
     synapse list

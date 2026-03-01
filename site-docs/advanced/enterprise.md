@@ -96,7 +96,7 @@ synapse codex
 ### Multi-Machine (Production)
 
 ```bash
-# Machine A: Claude coordinator
+# Machine A: Claude manager
 SYNAPSE_AUTH_ENABLED=true synapse claude --delegate-mode
 
 # Machine B: Gemini worker
@@ -114,7 +114,7 @@ synapse start claude --port 8100
 synapse start gemini --port 8110
 
 # Run coordinated tasks
-synapse send claude "Run integration tests" --response
+synapse send claude "Run integration tests" --wait
 
 # Collect results
 synapse history export --format json > results.json

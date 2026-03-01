@@ -1,4 +1,4 @@
-"""Tests for B5: Coordinator / Delegate Mode feature.
+"""Tests for B5: Manager / Delegate Mode feature.
 
 Test-first development: these tests define the expected behavior
 for delegate mode before implementation.
@@ -25,7 +25,7 @@ class TestDelegateModeSettings:
         assert isinstance(dm, dict)
 
     def test_default_deny_file_locks_is_true(self):
-        """deny_file_locks should default to True for coordinators."""
+        """deny_file_locks should default to True for managers."""
         from synapse.settings import DEFAULT_SETTINGS
 
         assert DEFAULT_SETTINGS["delegate_mode"]["deny_file_locks"] is True
@@ -75,7 +75,7 @@ class TestDelegateModeFlag:
         synapse_args = [
             "--delegate-mode",
             "--role",
-            "coordinator",
+            "manager",
             "--name",
             "lead-gemini",
         ]
@@ -87,7 +87,7 @@ class TestDelegateModeFlag:
         role = synapse_args[role_idx + 1] if role_idx >= 0 else None
 
         assert delegate_mode is True
-        assert role == "coordinator"
+        assert role == "manager"
         assert name == "lead-gemini"
 
 
@@ -97,25 +97,25 @@ class TestDelegateModeFlag:
 
 
 class TestDelegateModeInstructions:
-    """Tests for coordinator instruction generation in delegate mode."""
+    """Tests for manager instruction generation in delegate mode."""
 
-    def test_coordinator_instruction_mentions_no_editing(self):
-        """Coordinator instruction should tell agent not to edit files."""
+    def test_manager_instruction_mentions_no_editing(self):
+        """Manager instruction should tell agent not to edit files."""
         from synapse.settings import DEFAULT_SETTINGS
 
         template = DEFAULT_SETTINGS["delegate_mode"]["instruction_template"]
         # Should mention not editing files directly
         assert "edit" in template.lower() or "ファイル" in template
 
-    def test_coordinator_instruction_mentions_synapse_send(self):
-        """Coordinator instruction should mention synapse send for delegation."""
+    def test_manager_instruction_mentions_synapse_send(self):
+        """Manager instruction should mention synapse send for delegation."""
         from synapse.settings import DEFAULT_SETTINGS
 
         template = DEFAULT_SETTINGS["delegate_mode"]["instruction_template"]
         assert "synapse send" in template or "synapse" in template.lower()
 
     def test_controller_appends_delegate_instructions(self):
-        """TerminalController with delegate_mode should append coordinator instructions."""
+        """TerminalController with delegate_mode should append manager instructions."""
         from synapse.controller import TerminalController
 
         controller = TerminalController(
@@ -159,7 +159,7 @@ class TestDelegateModeFileSafety:
         return FileSafetyManager(db_path=str(db_path))
 
     def test_delegate_mode_deny_file_locks(self, manager):
-        """With deny_file_locks=True, coordinator should be denied file locks."""
+        """With deny_file_locks=True, manager should be denied file locks."""
         from synapse.file_safety import LockStatus
 
         result = manager.acquire_lock(
@@ -171,7 +171,7 @@ class TestDelegateModeFileSafety:
         assert result["status"] == LockStatus.FAILED
         assert (
             "delegate" in result.get("reason", "").lower()
-            or "coordinator" in result.get("reason", "").lower()
+            or "manager" in result.get("reason", "").lower()
         )
 
     def test_delegate_mode_allows_read(self, manager):

@@ -235,7 +235,7 @@ class A2AClient:
         wait_for_completion: bool = False,
         timeout: int = 60,
         sender_info: dict[str, str] | None = None,
-        response_expected: bool = True,
+        response_mode: str = "notify",
         in_reply_to: str | None = None,
         uds_path: str | None = None,
         local_only: bool = False,
@@ -257,7 +257,8 @@ class A2AClient:
             wait_for_completion: Whether to wait for task completion
             timeout: Timeout in seconds for waiting
             sender_info: Optional dict with sender_id, sender_type, sender_endpoint
-            response_expected: Whether the sender expects a response from the target
+            response_mode: Response mode — "wait" (sync polling), "notify"
+                (async callback, default), or "silent" (fire-and-forget)
             in_reply_to: Optional task ID to attach a reply to
             uds_path: Optional UDS socket path for local communication
             local_only: If True, only use UDS (no HTTP fallback)
@@ -292,20 +293,20 @@ class A2AClient:
             # Build request payload
             payload: dict[str, Any] = {"message": asdict(a2a_message)}
 
-            # Add metadata with sender info and response_expected flag
-            metadata: dict[str, Any] = {"response_expected": response_expected}
+            # Add metadata with sender info and response_mode
+            metadata: dict[str, Any] = {"response_mode": response_mode}
             if sender_info:
                 metadata["sender"] = sender_info
             if in_reply_to:
                 metadata["in_reply_to"] = in_reply_to
 
-            # Generate sender_task_id when response is expected
+            # Generate sender_task_id when response is expected (wait or notify)
             # The sender owns this task and will use it to receive the reply
             # IMPORTANT: Create task on SENDER's server (not in this process) so
             # the task persists after this CLI process exits. This enables --reply-to
             # to find the task when the receiver sends a response.
             sender_task_id: str | None = None
-            if response_expected:
+            if response_mode in ("wait", "notify"):
                 sender_endpoint = (
                     sender_info.get("sender_endpoint") if sender_info else None
                 )
@@ -317,7 +318,7 @@ class A2AClient:
                     create_payload = {
                         "message": asdict(a2a_message),
                         "metadata": {
-                            "response_expected": True,
+                            "response_mode": response_mode,
                             "direction": "outgoing",
                             "target_endpoint": endpoint,
                         },
@@ -436,7 +437,7 @@ class A2AClient:
                     wait_for_completion=wait_for_completion,
                     timeout=timeout,
                     sender_info=sender_info,
-                    response_expected=response_expected,
+                    response_mode=response_mode,
                     in_reply_to=None,
                     uds_path=uds_path,
                     local_only=local_only,
@@ -451,7 +452,7 @@ class A2AClient:
             assert task_data is not None
             task = A2ATask.from_dict(task_data)
 
-            if wait_for_completion and sender_task_id:
+            if wait_for_completion and response_mode == "wait" and sender_task_id:
                 # Poll SENDER's server for the sender_task_id (where reply will arrive)
                 # not the target's server
                 sender_endpoint = (

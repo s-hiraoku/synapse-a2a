@@ -773,17 +773,17 @@ synapse history cleanup --days 30 --dry-run
 Utilisez `synapse send` pour la communication inter-agents. Fonctionne dans les environnements sandboxés.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--response | --no-response]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 **Formats de Cible :**
 
 | Format | Exemple | Description |
 |--------|---------|-------------|
-| Nom personnalisé | `my-claude` | Priorité la plus élevée, à utiliser quand l'agent a un nom |
+| Nom personnalisé | `my-claude` | Priorité la plus élevée, correspond au nom dans le registre |
+| ID complet | `synapse-claude-8100` | Correspond à l'ID exact de l'agent |
+| Type-port | `claude-8100` | Correspond au type et port abrégés |
 | Type d'agent | `claude` | Fonctionne uniquement quand une seule instance existe |
-| Type-port | `claude-8100` | À utiliser quand plusieurs instances du même type existent |
-| ID complet | `synapse-claude-8100` | ID complet de l'agent |
 
 Lorsque plusieurs agents du même type sont en cours d'exécution, le type seul (ex. `claude`) produira une erreur. Utilisez `claude-8100` ou `synapse-claude-8100`.
 
@@ -791,35 +791,61 @@ Lorsque plusieurs agents du même type sont en cours d'exécution, le type seul 
 
 | Option | Court | Description |
 |--------|-------|-------------|
-| `--from` | `-f` | ID de l'agent expéditeur (pour identification de la réponse) |
+| `--from` | `-f` | ID de l'agent expéditeur (optionnel ; auto-détecté) |
 | `--priority` | `-p` | Priorité 1-4 : normal, 5 : arrêt d'urgence (envoie SIGINT) |
-| `--response` | - | Aller-retour - l'expéditeur attend, le destinataire répond avec `synapse reply` |
-| `--no-response` | - | Unidirectionnel - envoyer et oublier, pas de réponse nécessaire |
+| `--wait` | - | Blocage synchrone - attendre que le récepteur réponde avec `synapse reply` |
+| `--notify` | - | Notification asynchrone - être notifié quand la tâche est terminée (par défaut) |
+| `--silent` | - | Envoyer et oublier - aucune réponse ou notification nécessaire |
+| `--force` | - | Ignorer la vérification de l'écart du répertoire de travail |
+
+**Choisir le mode de réponse :**
+
+| Type de message | Drapeau | Exemple |
+|-----------------|---------|---------|
+| Question | `--wait` | "Quel est le statut ?" |
+| Demande d'analyse | `--wait` | "Veuillez réviser ce code" |
+| Tâche avec résultat attendu | `--notify` | "Exécuter les tests et rapporter les résultats" |
+| Tâche déléguée (envoyer et oublier) | `--silent` | "Corriger ce bug et faire un commit" |
+| Notification | `--silent` | "FYI : Build terminé" |
+
+La valeur par défaut est `--notify` (notification asynchrone à la fin).
 
 **Exemples :**
 
 ```bash
-# Envoyer un message (instance unique)
-synapse send claude "Hello" --priority 1 --from synapse-codex-8121
+# Tâche avec résultat attendu (notification asynchrone - par défaut)
+synapse send gemini "Analysez ceci et rapportez les conclusions" --notify
+
+# Tâche nécessitant une réponse immédiate (blocage)
+synapse send gemini "Quelle est la meilleure approche ?" --wait
+
+# Tâche déléguée, envoyer et oublier
+synapse send codex "Corriger ce bug et faire un commit" --silent
+
+# Envoyer un message (instance unique ; --from auto-détecté)
+synapse send claude "Bonjour" --priority 1
 
 # Support pour les messages longs (passage automatique en fichier temporaire)
-synapse send claude --message-file /path/to/message.txt --no-response
-echo "contenu très long..." | synapse send claude --stdin --no-response
+synapse send claude --message-file /path/to/message.txt --silent
+echo "contenu très long..." | synapse send claude --stdin --silent
 
 # Pièces jointes
-synapse send claude "Review this" --attach src/main.py --no-response
+synapse send claude "Review this" --attach src/main.py --wait
 
 # Envoyer à une instance spécifique (plusieurs du même type)
-synapse send claude-8100 "Hello" --from synapse-claude-8101
+synapse send claude-8100 "Bonjour"
 
 # Arrêt d'urgence
-synapse send claude "Stop!" --priority 5 --from synapse-codex-8121
+synapse send claude "Stop!" --priority 5
 
-# Attendre une réponse (aller-retour)
-synapse send gemini "Analyze this" --response --from synapse-claude-8100
+# Ignorer la vérification du répertoire de travail
+synapse send claude "Review this" --force
+
+# --from explicite (nécessaire uniquement dans Codex)
+synapse send claude "Bonjour" --from $SYNAPSE_AGENT_ID
 ```
 
-**Comportement par défaut :** Avec `a2a.flow=auto` (par défaut), `synapse send` attend une réponse sauf si `--no-response` est spécifié.
+**Comportement par défaut :** Par défaut, `--notify` (notification asynchrone à la fin) est utilisé.
 
 **Important :** Utilisez toujours `--from` avec votre ID d'agent (format : `synapse-<type>-<port>`).
 
@@ -859,7 +885,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/.well-known/agent.json` | GET | Agent Card |
 | `/tasks/send` | POST | Envoyer un message |
 | `/tasks/send-priority` | POST | Envoyer avec priorité |
-| `/tasks/create` | POST | Créer une tâche (pas d'envoi PTY, pour `--response`) |
+| `/tasks/create` | POST | Créer une tâche (pas d'envoi PTY, pour `--wait`) |
 | `/tasks/{id}` | GET | Obtenir le statut de la tâche |
 | `/tasks` | GET | Lister les tâches |
 | `/tasks/{id}/cancel` | POST | Annuler une tâche |

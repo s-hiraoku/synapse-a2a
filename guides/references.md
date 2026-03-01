@@ -37,10 +37,15 @@ flowchart TB
         trace["trace"]
         logs["logs"]
         instructions["instructions"]
+        history["history"]
         external["external"]
         skills["skills"]
         config["config"]
         memory["memory"]
+        agents["agents"]
+        tasks["tasks"]
+        approve["approve"]
+        reject["reject"]
         init["init"]
         reset["reset"]
         auth["auth"]
@@ -69,11 +74,53 @@ flowchart TB
         ext_info["info"]
     end
 
+    subgraph History["history サブコマンド"]
+        hist_list["list"]
+        hist_show["show"]
+        hist_search["search"]
+        hist_cleanup["cleanup"]
+        hist_stats["stats"]
+        hist_export["export"]
+    end
+
+    subgraph Skills["skills サブコマンド"]
+        sk_list["list"]
+        sk_show["show"]
+        sk_delete["delete"]
+        sk_move["move"]
+        sk_deploy["deploy"]
+        sk_import["import"]
+        sk_add["add"]
+        sk_create["create"]
+        sk_set["set"]
+        sk_apply["apply"]
+    end
+
+    subgraph Agents["agents サブコマンド"]
+        ag_list["list"]
+        ag_show["show"]
+        ag_add["add"]
+        ag_delete["delete"]
+    end
+
+    subgraph Tasks["tasks サブコマンド"]
+        ts_list["list"]
+        ts_create["create"]
+        ts_assign["assign"]
+        ts_complete["complete"]
+        ts_fail["fail"]
+        ts_reopen["reopen"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
     instructions --> Instructions
     external --> External
+    history --> History
+    skills --> Skills
+    agents --> Agents
+    tasks --> Tasks
 ```
 
 ---
@@ -202,6 +249,7 @@ synapse list
 | TRANSPORT | 通信中の方式 |
 | CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
+| SKILL_SET | 適用されているスキルセット名 |
 | EDITING_FILE | 編集中のファイル（File Safety 有効時のみ表示） |
 
 **Note**: 行を選択すると詳細パネルが表示され、Port/PID/Endpoint/フルパスなどが確認できます。
@@ -334,6 +382,10 @@ synapse spawn 狗巻棘
 **終了時保存プロンプト**:
 - 対話起動の終了時に「このエージェント定義を保存するか」を確認します
 - 無効化する場合: `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`
+- 実際のプロンプト:
+  `Save this agent definition for reuse? [y/N]:`
+- `--headless` / 非TTY環境では表示されません
+- `synapse stop ...` / `synapse kill ...` で停止した場合は表示されません
 
 ---
 
@@ -342,7 +394,7 @@ synapse spawn 狗巻棘
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--response | --no-response]
+synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent]
 ```
 
 **ターゲット指定方法**:
@@ -362,25 +414,46 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--from`, `-f` | No | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 3） |
 | `--attach`, `-a` | No | ファイル添付（複数指定可） |
-| `--response` | No | Roundtrip - 送信側が待機、受信側は `synapse reply` で返信 |
-| `--no-response` | No | Oneway - 送りっぱなし、返信不要 |
+| `--wait` | No | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
+| `--notify` | No | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
+| `--silent` | No | ワンウェイモード - 送りっぱなし、返信・通知不要 |
+| `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--silent時のみ） |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
-**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは応答待ちになります。
+**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
+
+**レスポンスモードの使い分け**:
+
+| メッセージ種類 | モード | 例 |
+|---------------|--------|-----|
+| 質問 | `--wait` | "現在のステータスは？" |
+| 分析依頼 | `--wait` | "このコードをレビューして" |
+| 結果を期待するタスク | `--notify` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--silent` | "このバグを修正してコミットして" |
+| 通知 | `--silent` | "FYI: ビルドが完了しました" |
+
+デフォルトは `--notify`（非同期通知）です。
 
 **例**:
 
 ```bash
+# 結果を期待するタスク（非同期通知 - デフォルト）
+synapse send codex "結果を教えて" --notify
+
+# 同期待機（レスポンスを待つ）
+synapse send codex "進捗を報告して" --wait
+
+# 委任タスク、fire-and-forget
+synapse send codex "設計して" --silent
+
 synapse send claude "Hello!"                                  # --from 自動検出
-synapse send codex "設計して" -p 1                             # --from 自動検出
 synapse send claude-8100 "Hello"                               # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5
-synapse send codex "結果を教えて" --response
-synapse send codex --message-file ./message.txt --no-response
-echo "from stdin" | synapse send codex --stdin --no-response
-synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --no-response
+synapse send codex --message-file ./message.txt --silent
+echo "from stdin" | synapse send codex --stdin --silent
+synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --silent
 synapse send codex "設計して" --force                           # 作業ディレクトリ不一致でも送信
 synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
 ```
@@ -392,7 +465,7 @@ synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（
 現在の作業ディレクトリ（`working_dir`）と一致する全エージェントにメッセージを送信します。
 
 ```bash
-synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-response]
+synapse broadcast <message> [--from AGENT_ID] [--priority N] [--wait | --notify | --silent]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -400,8 +473,9 @@ synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-
 | `message` | Yes | 一括送信するメッセージ |
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出。指定時は送信元自身を除外） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 1） |
-| `--response` | No | Roundtrip - 各送信先で応答待ち |
-| `--no-response` | No | Oneway - 各送信先へ送りっぱなし |
+| `--wait` | No | 同期待機モード - 各送信先で応答待ち |
+| `--notify` | No | 非同期通知モード - 各送信先の完了通知を受け取る（デフォルト） |
+| `--silent` | No | ワンウェイモード - 各送信先へ送りっぱなし |
 
 **一致ルール**:
 - `Path.cwd().resolve()` と各エージェントの `working_dir` 実パスが完全一致した場合のみ対象
@@ -412,15 +486,15 @@ synapse broadcast <message> [--from AGENT_ID] [--priority N] [--response | --no-
 
 ```bash
 synapse broadcast "進捗を報告してください"                       # --from 自動検出（自身を除外）
-synapse broadcast "緊急確認" -p 4 --response
-synapse broadcast "FYI: CI通過" --no-response
+synapse broadcast "緊急確認" -p 4 --wait
+synapse broadcast "FYI: CI通過" --silent
 ```
 
 ---
 
 ### 1.6.2 synapse interrupt
 
-エージェントにソフト割り込みメッセージを送信します。`synapse send <target> <message> -p 4 --no-response` の簡易コマンドです。
+エージェントにソフト割り込みメッセージを送信します。`synapse send <target> <message> -p 4 --silent` の簡易コマンドです。
 
 ```bash
 synapse interrupt <target> <message> [--from AGENT_ID] [--force]
@@ -846,13 +920,17 @@ synapse skills add <repo>
 
 #### 1.11.8 synapse skills create
 
-`anthropic-skill-creator` スキルを使ったスキル作成手順を表示します。
+新しいスキルのテンプレートを中央ストア（`~/.synapse/skills/`）に作成します。引数なしで実行すると、スキル名の入力を求められます。
 
 ```bash
-synapse skills create
+synapse skills create [name]
 ```
 
-エージェント内で `/anthropic-skill-creator` を呼び出して対話的にスキルを作成するためのガイダンス（デプロイ → エージェント起動 → スキル呼び出し → 完成後のデプロイ）を表示します。
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | No | 作成するスキル名 |
+
+> **Note:** `synapse skills` (TUI) の "Create Skill" オプションを選択すると、`anthropic-skill-creator` を使用した対話的なスキル作成のガイダンスが表示されます。
 
 #### 1.11.9 synapse skills set list
 
@@ -875,6 +953,27 @@ synapse skills set show <name>
 | `name` | Yes | スキルセット名 |
 
 > **Note:** スキルセットを選択してエージェントを起動すると、スキルセットの詳細（名前・説明・含まれるスキル一覧）が初期インストラクションに自動的に含まれます。これによりエージェントは自分に割り当てられたスキルセットの目的と利用可能なスキルを認識できます。
+
+#### 1.11.11 synapse skills apply
+
+稼働中のエージェントにスキルセットを適用します。スキルファイルをエージェントのスキルディレクトリにコピーし、レジストリの `skill_set` フィールドを更新し、スキルセット情報を A2A 経由でエージェントに送信します。
+
+```bash
+synapse skills apply <target> <set_name> [--dry-run]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `target` | Yes | 対象エージェント（名前、ID、タイプ等） |
+| `set_name` | Yes | 適用するスキルセット名 |
+| `--dry-run` | No | 変更をプレビューするのみ（実際には適用しない） |
+
+**例**:
+
+```bash
+synapse skills apply my-claude manager
+synapse skills apply gemini-8110 developer --dry-run
+```
 
 ---
 
@@ -1390,7 +1489,7 @@ flowchart LR
 |---------|------|------|
 | GET | `/.well-known/agent.json` | Agent Card（エージェント情報） |
 | POST | `/tasks/send` | Task ベースでメッセージ送信 |
-| POST | `/tasks/create` | Task 作成のみ（PTY送信なし、--response用） |
+| POST | `/tasks/create` | Task 作成のみ（PTY送信なし、--wait用） |
 | POST | `/spawn` | エージェントを新しいペインで起動（Synapse 拡張） |
 | GET | `/tasks/{id}` | Task 状態取得 |
 | GET | `/tasks` | Task 一覧 |
@@ -1780,7 +1879,7 @@ curl -X POST http://localhost:8100/external/discover \
 | `@agent message` | メッセージ送信（デフォルトで応答待ち） |
 | `@agent-port message` | 特定ポートのエージェントに送信 |
 
-> **Note**: レスポンスを待たずに送信したい場合は、`synapse send --no-response` を使用してください。`--no-response` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（通知不達時は `sent` のまま）。
+> **Note**: レスポンスを待たずに送信したい場合は、`synapse send --silent` を使用してください。`--silent` では完了通知を待ちませんが、受信側完了時に sender 側 history のステータスは best-effort で更新されます。
 
 ### 3.3 例
 
@@ -1798,9 +1897,9 @@ curl -X POST http://localhost:8100/external/discover \
 @claude '複雑な メッセージ'
 ```
 
-> **Note**: レスポンスを待たない送信には `synapse send --no-response` を使用してください（完了時の history 更新は best-effort）:
+> **Note**: レスポンスを待たない送信には `synapse send --silent` を使用してください:
 > ```bash
-> synapse send codex "バックグラウンドで処理して" --no-response
+> synapse send codex "バックグラウンドで処理して" --silent
 > ```
 
 ### 3.4 フィードバック表示

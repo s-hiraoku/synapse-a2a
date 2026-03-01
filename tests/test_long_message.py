@@ -402,25 +402,25 @@ class TestFormatFileReference:
         # Should contain instructions for the agent
         assert "read" in result.lower() or "file" in result.lower()
 
-    def test_format_without_response_expected(self, tmp_path: Path) -> None:
-        """format_file_reference should not include REPLY EXPECTED when False."""
+    def test_format_response_mode_silent(self, tmp_path: Path) -> None:
+        """format_file_reference should not include REPLY EXPECTED for 'silent'."""
         from synapse.long_message import format_file_reference
 
         file_path = tmp_path / "messages" / "test-task.txt"
 
-        result = format_file_reference(file_path, response_expected=False)
+        result = format_file_reference(file_path, response_mode="silent")
 
         assert "[REPLY EXPECTED]" not in result
         assert "[LONG MESSAGE - FILE ATTACHED]" in result
         assert str(file_path) in result
 
-    def test_format_with_response_expected(self, tmp_path: Path) -> None:
-        """format_file_reference should include REPLY EXPECTED when True."""
+    def test_format_response_mode_wait(self, tmp_path: Path) -> None:
+        """format_file_reference should include REPLY EXPECTED for 'wait'."""
         from synapse.long_message import format_file_reference
 
         file_path = tmp_path / "messages" / "test-task.txt"
 
-        result = format_file_reference(file_path, response_expected=True)
+        result = format_file_reference(file_path, response_mode="wait")
 
         assert "[REPLY EXPECTED]" in result
         assert "[LONG MESSAGE - FILE ATTACHED]" in result

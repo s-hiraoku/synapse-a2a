@@ -50,18 +50,19 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | --notify | --silent] [--force]
 ```
 
 ### パラメータ
 
 | パラメータ | 説明 |
 |-----------|------|
-| `target` | エージェントID（例: `synapse-claude-8100`）またはタイプ（例: `claude`） |
+| `target` | ターゲットの指定（解決優先順位順）: カスタム名（例: `my-claude`）、フルID（例: `synapse-claude-8100`）、タイプ-ポート（例: `claude-8100`）、またはタイプ（例: `claude`、単一インスタンスのみ） |
 | `--from, -f` | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
-| `--response` | Roundtripモード - 送信側が待機、**受信側は `synapse reply` で返信** |
-| `--no-response` | Onewayモード - 送りっぱなし、返信不要 |
+| `--wait` | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
+| `--notify` | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
+| `--silent` | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--force` | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **作業ディレクトリチェック**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
@@ -69,17 +70,17 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--respons
 ### 例
 
 ```bash
-# 通常のメッセージ送信（--from は自動検出）
-synapse send gemini "分析結果を教えて"
+# 通常のメッセージ送信（非同期通知 - デフォルト）
+synapse send gemini "分析結果を教えて" --notify
+
+# 同期待機（レスポンスを待つ）
+synapse send gemini "現在の進捗を報告して" --wait
 
 # 転送のみ（fire-and-forget）
-synapse send codex "テストを実行して" --no-response
+synapse send codex "テストを実行して" --silent
 
 # 緊急割り込み（Priority 5）
 synapse send codex "STOP" --priority 5
-
-# 応答を待つ（roundtrip）
-synapse send gemini "分析して" --response
 
 # 作業ディレクトリが異なるエージェントに強制送信
 synapse send codex "テストして" --force
@@ -99,7 +100,7 @@ synapse send gemini "分析して" --from synapse-claude-8100
 ### 基本構文
 
 ```bash
-synapse broadcast "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response | --no-response]
+synapse broadcast "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | --notify | --silent]
 ```
 
 ### 動作
@@ -112,8 +113,8 @@ synapse broadcast "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--response |
 
 ```bash
 synapse broadcast "全員、現状を報告して"                        # --from 自動検出（自身を除外）
-synapse broadcast "緊急レビュー依頼" -p 4 --response
-synapse broadcast "FYI: 先に進めてください" --no-response
+synapse broadcast "緊急レビュー依頼" -p 4 --wait
+synapse broadcast "FYI: 先に進めてください" --silent
 ```
 
 ---
@@ -124,11 +125,18 @@ AIエージェントとしてA2Aメッセージを受信した場合の返信方
 
 ### 受信メッセージの形式
 
-メッセージは `A2A:` プレフィックス付きのプレーンテキストで届きます：
+メッセージは `A2A:` プレフィックス付きで届きます。送信元の識別情報が含まれる場合があります：
 
 ```text
-A2A: <message>
+A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 ```
+
+- **From**: 送信元の名前（カスタム名）とエージェントIDが表示されます。
+- **REPLY EXPECTED**: 送信側が応答を待機している（ブロッキング）ことを示します。
+
+識別情報が不完全な場合のフォールバック：
+- `A2A: [From: SENDER_ID] <message content>`
+- `A2A: <message content>` (旧形式)
 
 ### 返信方法
 
@@ -138,7 +146,7 @@ A2A: <message>
 synapse reply "<your reply>"
 ```
 
-**返信追跡:** Synapseは`[REPLY EXPECTED]`マーカー付きメッセージの送信者情報を自動的に追跡します。`synapse reply`を使うと、返信を期待しているエージェントに自動的に返信されます。`--from` オプションはサンドボックス環境でのみ必要です。
+**返信追跡の永続化**: Synapseは返信先（`in_reply_to`）の情報を `~/.a2a/reply/` ディレクトリに永続化します。エージェントが再起動しても、最後に受信したメッセージへの返信が可能です。
 
 ### 受信・返信の例
 
@@ -163,25 +171,40 @@ A2A: テストを実行してコミットして
 
 アクション：タスクを実行。返信は不要（質問がある場合のみ返信）。
 
-### --response フラグと返信の関係
+### レスポンスモードと返信の関係
 
-| 送信側 | 受信側のアクション |
-|--------|-------------------|
-| `--response` 使用 | **必ず** `synapse reply` で返信 |
-| `--no-response` | タスク実行のみ、返信不要 |
+| 送信側 | 受信側のアクション | 動作 |
+|--------|-------------------|------|
+| `--wait` 使用 | **必ず** `synapse reply` で返信 | 同期待機（ブロッキング） |
+| `--notify`（デフォルト） | タスク完了時に自動通知 | 非同期通知 |
+| `--silent` | タスク実行のみ、返信不要 | ワンウェイ（fire-and-forget） |
 
-### いつ --response を使うか
+### レスポンスモードの使い分け
 
-**--response を使う場合：**
-- 結果が必要で続きの作業に使う
-- 質問をして答えが必要
-- タスク完了を確認したい
-- ユーザーへの報告に結果を統合する
+メッセージの内容を分析し、最適なモードを選択してください：
 
-**--no-response を使う場合：**
-- バックグラウンドで実行するタスク
-- 別の手段で結果を受け取る
-- 並列で複数タスクを委譲する
+| メッセージ種類 | モード | 例 |
+|---------------|--------|-----|
+| 質問 | `--wait` | "現在のステータスは？" |
+| 分析依頼 | `--wait` | "このコードをレビューして" |
+| 結果を期待するタスク | `--notify` | "テストを実行して結果を報告して" |
+| 委任タスク（fire-and-forget） | `--silent` | "このバグを修正してコミットして" |
+| 通知 | `--silent` | "FYI: ビルドが完了しました" |
+
+**--wait を使う場合：**
+- **即座に結果が必要** で、その答えを待ってから次のステップに進みたい場合
+- 質問をして、その場で答えが欲しい場合
+- **迷った場合かつブロックしても問題ない場合** の安全な選択肢
+
+**--notify を使う場合（推奨・デフォルト）：**
+- 結果は必要だが、**待ち時間の間に自分も作業を進めたい** 場合
+- タスク完了の報告を後で受け取りたい場合
+- 標準的なタスク依頼
+
+**--silent を使う場合：**
+- バックグラウンドで実行し、完了通知も不要な場合
+- 結果を `git log` やファイル出力などで直接確認する場合
+- 大量の通知を避けたい場合
 
 ---
 
@@ -193,9 +216,9 @@ A2A: テストを実行してコミットして
 
 | 設定値 | 動作 |
 |--------|------|
-| `roundtrip` | 常に結果を待つ（フラグは無視） |
-| `oneway` | 常に転送のみ（フラグは無視） |
-| `auto` | フラグで制御（フラグなしは待つ、デフォルト） |
+| `roundtrip` | 常に `--wait` 動作（フラグは無視） |
+| `oneway` | 常に `--silent` 動作（フラグは無視） |
+| `auto` | フラグで制御（デフォルト） |
 
 ### 設定例
 
@@ -209,13 +232,13 @@ A2A: テストを実行してコミットして
 
 ### Flow 設定とフラグの組み合わせ
 
-| `a2a.flow` | フラグなし | `--response` |
+| `a2a.flow` | フラグなし | `--wait` |
 |------------|-----------|------------|
 | `roundtrip` | 待つ | 待つ |
-| `oneway` | 待たない | 待たない（上書き） |
-| `auto` | 待つ（デフォルト） | 待つ |
+| `oneway` | 待たない | 待たない |
+| `auto` | 通知を待つ（`--notify`） | 待つ |
 
-> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではフラグで制御され、フラグなしは待機になります。
+> **Note**: `roundtrip` と `oneway` は設定値が優先され、フラグは無視されます。`auto` ではフラグで制御され、フラグなしは `--notify` になります。
 
 ---
 
@@ -241,7 +264,7 @@ A2A: テストを実行してコミットして
 ### 結果を統合して報告
 
 ```bash
-synapse send codex "ファイルを修正して" --response
+synapse send codex "ファイルを修正して" --wait
 ```
 
 結果を待ち、完了後に統合して報告できます。
@@ -274,7 +297,7 @@ synapse send codex "テストを書いて"
 ### 応答が返ってこない
 
 1. `a2a.flow` 設定を確認（`oneway` だと結果を待たない）
-2. `--response` フラグを明示的に使用
+2. `--wait` フラグを明示的に使用
 3. 対象エージェントの状態を確認:
    ```bash
    synapse list

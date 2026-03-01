@@ -63,7 +63,7 @@ curl http://localhost:8100/webhooks/deliveries
 When a `secret` is configured, each delivery includes an HMAC-SHA256 signature:
 
 ```
-X-Webhook-Signature: sha256=<hex-digest>
+X-Synapse-Signature: sha256=<hex-digest>
 ```
 
 Verify in your handler:

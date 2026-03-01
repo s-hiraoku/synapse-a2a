@@ -54,7 +54,7 @@ def get_parent_pid(pid: int) -> int:
         )
         if result.returncode == 0:
             return int(result.stdout.strip())
-    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError):
+    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError, PermissionError):
         pass
 
     return 0
@@ -377,13 +377,17 @@ def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
     return error + "\n" + "\n".join(lines)
 
 
-def _get_response_expected(want_response: bool | None) -> bool:
-    """Resolve response behavior from settings and CLI flags."""
+def _get_response_mode(response_mode_arg: str | None) -> str:
+    """Resolve response mode from settings and CLI flags.
+
+    Returns "wait", "notify", or "silent".
+    """
+    if response_mode_arg:
+        return response_mode_arg
     settings = get_settings()
     flow = settings.get_a2a_flow()
-    flow_defaults = {"oneway": False, "roundtrip": True}
-    default_response = want_response if want_response is not None else True
-    return flow_defaults.get(flow, default_response)
+    flow_defaults = {"oneway": "silent", "roundtrip": "wait"}
+    return flow_defaults.get(flow, "notify")
 
 
 def _normalize_working_dir(path_str: str | None) -> str | None:
@@ -667,20 +671,20 @@ def cmd_send(args: argparse.Namespace) -> None:
         print(sender_info, file=sys.stderr)
         sys.exit(1)
 
-    # Determine response_expected based on a2a.flow setting and flags
-    response_expected = _get_response_expected(getattr(args, "want_response", None))
+    # Determine response_mode based on a2a.flow setting and flags
+    response_mode = _get_response_mode(getattr(args, "response_mode", None))
 
-    # Add metadata (sender info and response_expected)
+    # Add metadata (sender info and response_mode)
     client = A2AClient()
     task = client.send_to_local(
         endpoint=str(target_agent["endpoint"]),
         message=message,
         file_parts=file_parts,
         priority=args.priority,
-        wait_for_completion=response_expected,
+        wait_for_completion=(response_mode == "wait"),
         timeout=60,
         sender_info=sender_info or None,
-        response_expected=response_expected,
+        response_mode=response_mode,
         uds_path=uds_path,
         registry=reg,
         sender_agent_id=sender_info.get("sender_id") if sender_info else None,
@@ -746,7 +750,7 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    response_expected = _get_response_expected(getattr(args, "want_response", None))
+    response_mode = _get_response_mode(getattr(args, "response_mode", None))
     client = A2AClient()
     sent_count = 0
     failed: list[tuple[str, str]] = []
@@ -776,10 +780,10 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
             message=message,
             file_parts=file_parts,
             priority=args.priority,
-            wait_for_completion=response_expected,
+            wait_for_completion=(response_mode == "wait"),
             timeout=60,
             sender_info=sender_info or None,
-            response_expected=response_expected,
+            response_mode=response_mode,
             uds_path=uds_path,
             local_only=False,
             registry=reg,
@@ -942,7 +946,7 @@ def cmd_reply(args: argparse.Namespace) -> None:
         message=args.message,
         priority=3,  # Normal priority for replies
         sender_info=sender_info,
-        response_expected=False,  # Reply doesn't expect a reply back
+        response_mode="silent",  # Reply doesn't expect a reply back
         in_reply_to=task_id,
         uds_path=target_uds_path or None,
     )
@@ -997,20 +1001,29 @@ def main() -> None:
         dest="sender",
         help="Sender Agent ID (auto-detected from env if not specified)",
     )
-    # Response control: mutually exclusive group
+    # Response mode: mutually exclusive group
     response_group = p_send.add_mutually_exclusive_group()
     response_group.add_argument(
-        "--response",
-        dest="want_response",
-        action="store_true",
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
         default=None,
-        help="Wait for and receive response from target agent",
+        help="Wait synchronously for response (blocks until done)",
     )
     response_group.add_argument(
-        "--no-response",
-        dest="want_response",
-        action="store_false",
-        help="Do not wait for response (fire and forget)",
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    response_group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
     )
     p_send.add_argument(
         "message", nargs="?", default=None, help="Content of the message"
@@ -1056,17 +1069,26 @@ def main() -> None:
     )
     broadcast_response_group = p_broadcast.add_mutually_exclusive_group()
     broadcast_response_group.add_argument(
-        "--response",
-        dest="want_response",
-        action="store_true",
+        "--wait",
+        dest="response_mode",
+        action="store_const",
+        const="wait",
         default=None,
-        help="Wait for and receive response from recipients",
+        help="Wait synchronously for response (blocks until done)",
     )
     broadcast_response_group.add_argument(
-        "--no-response",
-        dest="want_response",
-        action="store_false",
-        help="Do not wait for response (fire and forget)",
+        "--notify",
+        dest="response_mode",
+        action="store_const",
+        const="notify",
+        help="Return immediately, receive async notification on completion (default)",
+    )
+    broadcast_response_group.add_argument(
+        "--silent",
+        dest="response_mode",
+        action="store_const",
+        const="silent",
+        help="Fire and forget — no response or notification",
     )
     p_broadcast.add_argument(
         "message", nargs="?", default=None, help="Content of the message"

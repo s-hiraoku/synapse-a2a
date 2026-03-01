@@ -24,21 +24,21 @@ synapse list
 
 ```bash
 # Delegate a task (no reply needed)
-synapse send codex "Please refactor the authentication module" --no-response
+synapse send codex "Please refactor the authentication module" --silent
 ```
 
 ### Request with Reply
 
 ```bash
 # Ask a question and wait for response
-synapse send gemini "What is the best approach for caching?" --response
+synapse send gemini "What is the best approach for caching?" --wait
 ```
 
 ### With Priority
 
 ```bash
 # Urgent follow-up
-synapse send gemini "Status update?" --priority 4 --response
+synapse send gemini "Status update?" --priority 4 --wait
 # Emergency interrupt
 synapse send codex "STOP" --priority 5
 ```
@@ -47,9 +47,9 @@ synapse send codex "STOP" --priority 5
 
 ```bash
 # Ask all agents in the same directory for a status check
-synapse broadcast "Status check - what are you working on?" --response
+synapse broadcast "Status check - what are you working on?" --wait
 # Notify all agents of a completed build
-synapse broadcast "FYI: Build passed, main branch updated" --no-response
+synapse broadcast "FYI: Build passed, main branch updated" --silent
 # Urgent broadcast to stop all work
 synapse broadcast "STOP: Critical bug found in shared module" --priority 4
 ```
@@ -66,7 +66,7 @@ synapse list
 synapse file-safety locks
 
 # 3. Send task
-synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --no-response
+synapse send codex "Please refactor src/auth.py. Acquire file lock before editing." --silent
 # 4. Monitor progress
 synapse file-safety locks
 synapse history list --agent codex --limit 5
@@ -83,7 +83,7 @@ Options:
 1. Wait for lock to expire
 2. Work on different files first
 3. Check with lock holder:
-   synapse send gemini "What's your progress on src/auth.py?" --response
+   synapse send gemini "What's your progress on src/auth.py?" --wait
 ```
 
 ## Collaborative Development
@@ -95,7 +95,7 @@ Options:
 # Make changes to src/feature.py
 
 # Send for review (wait for feedback)
-synapse send codex "Please review the changes in src/feature.py" --response
+synapse send codex "Please review the changes in src/feature.py" --wait
 # Terminal 2 (Codex): Reply after reviewing
 synapse reply "LGTM. Two suggestions: ..."
 ```
@@ -104,8 +104,8 @@ synapse reply "LGTM. Two suggestions: ..."
 
 ```bash
 # Ask multiple agents simultaneously (no reply needed - they'll work independently)
-synapse send gemini "Research best practices for authentication" --no-response
-synapse send codex "Check how other projects implement this pattern" --no-response
+synapse send gemini "Research best practices for authentication" --silent
+synapse send codex "Check how other projects implement this pattern" --silent
 ```
 
 ## Monitoring Tasks
@@ -202,7 +202,7 @@ synapse memory stats
 ### Task Board Coordination
 
 ```bash
-# Coordinator creates tasks
+# Manager creates tasks
 synapse tasks create "Implement auth module" -d "OAuth2 with JWT"
 synapse tasks create "Write auth tests" --blocked-by <auth_task_id>
 
@@ -220,25 +220,25 @@ synapse tasks complete <auth_task_id>
 ### Delegate Mode Setup
 
 ```bash
-# Terminal 1: Start coordinator (cannot edit files)
-synapse claude --delegate-mode --name coordinator
+# Terminal 1: Start manager (cannot edit files)
+synapse claude --delegate-mode --name manager
 
 # Terminal 2-3: Start worker agents
 synapse gemini --name worker-1
 synapse codex --name worker-2
 
-# Coordinator delegates tasks
+# Manager delegates tasks
 synapse send worker-1 "Implement auth in src/auth.py"
 synapse send worker-2 "Write tests in tests/test_auth.py"
 ```
 
-### Coordinator + Worker with Worktree Isolation
+### Manager + Worker with Worktree Isolation
 
-Use `--worktree` to give each Worker its own copy of the repository, preventing file conflicts when multiple agents edit code simultaneously. The Coordinator stays in the main working tree (it delegates, not edits).
+Use `--worktree` to give each Worker its own copy of the repository, preventing file conflicts when multiple agents edit code simultaneously. The Manager stays in the main working tree (it delegates, not edits).
 
 ```bash
-# Terminal 1: Coordinator (delegate-mode — no file editing)
-synapse claude --delegate-mode --name coordinator
+# Terminal 1: Manager (delegate-mode — no file editing)
+synapse claude --delegate-mode --name manager
 
 # Spawn Workers in isolated worktrees (each gets its own branch)
 synapse spawn claude --name worker-1 --role "auth implementer" -- --worktree
@@ -248,11 +248,11 @@ synapse spawn claude --name worker-2 --role "test writer" -- --worktree
 synapse list   # Verify worker-1 and worker-2 show STATUS=READY
 
 # Delegate parallel tasks — no file conflicts thanks to worktrees
-synapse send worker-1 "Implement OAuth2 in src/auth.py" --no-response
-synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --no-response
+synapse send worker-1 "Implement OAuth2 in src/auth.py" --silent
+synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --silent
 # Collect results
-synapse send worker-1 "Report your progress" --response
-synapse send worker-2 "Report your progress" --response
+synapse send worker-1 "Report your progress" --wait
+synapse send worker-2 "Report your progress" --wait
 # Cleanup — MUST kill Workers when done
 synapse kill worker-1 -f
 synapse kill worker-2 -f
@@ -326,7 +326,7 @@ synapse spawn gemini --name Tester --role "test writer"
 synapse list   # Verify Tester shows STATUS=READY
 
 # Delegate and wait for result
-synapse send Tester "Write unit tests for src/auth.py" --response
+synapse send Tester "Write unit tests for src/auth.py" --wait
 # Evaluate: read reply, then verify artifacts
 # (e.g., check git diff or run pytest to confirm tests exist and pass)
 
@@ -347,9 +347,9 @@ synapse spawn codex --name Reviewer --role "code reviewer"
 synapse list   # Verify Reviewer shows STATUS=READY
 
 # First attempt
-synapse send Reviewer "Review src/server.py for security issues" --response
+synapse send Reviewer "Review src/server.py for security issues" --wait
 # Evaluate: reply is too vague → re-send with specifics
-synapse send Reviewer "Also check for SQL injection in the query builder on lines 45-80" --response
+synapse send Reviewer "Also check for SQL injection in the query builder on lines 45-80" --wait
 # Evaluate: now the review is thorough — MUST kill
 synapse kill Reviewer -f
 ```
@@ -367,11 +367,11 @@ synapse spawn codex --name Fixer --role "bug fixer"
 synapse list   # Verify both Tester and Fixer show STATUS=READY
 
 # Delegate parallel subtasks
-synapse send Tester "Write tests for src/auth.py" --no-response
-synapse send Fixer "Fix the timeout bug in src/server.py" --no-response
+synapse send Tester "Write tests for src/auth.py" --silent
+synapse send Fixer "Fix the timeout bug in src/server.py" --silent
 # Monitor progress, then collect results
-synapse send Tester "Report your progress" --response
-synapse send Fixer "Report your progress" --response
+synapse send Tester "Report your progress" --wait
+synapse send Fixer "Report your progress" --wait
 # Evaluate: verify artifacts (e.g., git diff, pytest)
 
 # All done — MUST kill all
@@ -461,7 +461,7 @@ git push
 
 2. If PROCESSING for too long:
    ```bash
-   synapse send <agent> "Status?" --priority 4 --response
+   synapse send <agent> "Status?" --priority 4 --wait
    ```
 
 3. Emergency stop:

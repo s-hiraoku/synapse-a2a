@@ -157,6 +157,7 @@ class TestRegistryExtended:
 
             # Verify error was logged
             mock_logger.error.assert_called_once()
+            assert "event=registry_update_failed" in mock_logger.error.call_args[0][0]
 
             # Verify cleanup: temp file should be gone (difficult to check directly due to mocking,
             # but we trust the logic flow if exception propagates)

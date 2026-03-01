@@ -12,6 +12,7 @@ import subprocess
 import termios
 import threading
 import time
+from collections.abc import Callable
 
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
@@ -154,6 +155,7 @@ class TerminalController:
             None  # Track last output for idle detection
         )
         self._done_time: float | None = None  # Track when DONE status was set
+        self._status_callbacks: list[Callable[[str, str], None]] = []
         self._skip_initial_instructions = skip_initial_instructions
         self._input_ready_pattern = input_ready_pattern
         self.name = name
@@ -171,6 +173,14 @@ class TerminalController:
             self._write_delay = write_delay
         else:
             self._write_delay = WRITE_PROCESSING_DELAY
+
+    def on_status_change(self, callback: Callable[[str, str], None]) -> None:
+        """Register a callback invoked on status transitions.
+
+        Args:
+            callback: Called with (old_status, new_status) on a daemon thread.
+        """
+        self._status_callbacks.append(callback)
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -405,6 +415,21 @@ class TerminalController:
                             f"Failed to sync status to registry: {self.agent_id}"
                             f" -> {self.status}"
                         )
+
+                # Dispatch status-change callbacks on a daemon thread
+                # to avoid deadlocks (we're inside self.lock)
+                if self._status_callbacks:
+                    cbs = list(self._status_callbacks)
+                    _old, _new = old_status, new_status
+
+                    def _fire_callbacks() -> None:
+                        for cb in cbs:
+                            try:
+                                cb(_old, _new)
+                            except Exception:
+                                logging.exception("Status callback error")
+
+                    threading.Thread(target=_fire_callbacks, daemon=True).start()
 
             # Send initial instructions on first READY (agent is idle)
             if (

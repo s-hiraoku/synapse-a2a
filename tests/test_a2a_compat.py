@@ -218,9 +218,13 @@ class TestStatusMapping:
         """BUSY should map to working."""
         assert map_synapse_status_to_a2a("BUSY") == "working"
 
-    def test_map_idle_to_completed(self):
-        """IDLE should map to completed."""
-        assert map_synapse_status_to_a2a("IDLE") == "completed"
+    def test_map_idle_to_working(self):
+        """IDLE should map to working (fallback)."""
+        assert map_synapse_status_to_a2a("IDLE") == "working"
+
+    def test_map_ready_to_completed(self):
+        """READY should map to completed."""
+        assert map_synapse_status_to_a2a("READY") == "completed"
 
     def test_map_not_started_to_submitted(self):
         """NOT_STARTED should map to submitted."""
@@ -290,7 +294,10 @@ class TestA2ARouterEndpoints:
         """/tasks/send should output message with A2A prefix and sender for agent identification."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
-            "metadata": {"sender": {"sender_id": "synapse-claude-8100"}},
+            "metadata": {
+                "sender": {"sender_id": "synapse-claude-8100"},
+                "response_mode": "silent",
+            },
         }
 
         response = client.post("/tasks/send", json=payload)
@@ -301,10 +308,10 @@ class TestA2ARouterEndpoints:
         # PTY output includes A2A prefix with sender identification
         assert write_args[0][0] == "A2A: [From: synapse-claude-8100] Hello"
 
-    def test_tasks_send_with_response_expected_includes_marker(
+    def test_tasks_send_with_response_mode_wait_includes_marker(
         self, client, mock_controller
     ):
-        """/tasks/send with response_expected=true should include [REPLY EXPECTED] marker."""
+        """/tasks/send with response_mode='wait' should include [REPLY EXPECTED] marker."""
         payload = {
             "message": {
                 "role": "user",
@@ -312,7 +319,7 @@ class TestA2ARouterEndpoints:
             },
             "metadata": {
                 "sender": {"sender_id": "synapse-claude-8100"},
-                "response_expected": True,
+                "response_mode": "wait",
             },
         }
 
@@ -327,10 +334,10 @@ class TestA2ARouterEndpoints:
             == "A2A: [From: synapse-claude-8100] [REPLY EXPECTED] What is the status?"
         )
 
-    def test_tasks_send_without_response_expected_no_marker(
+    def test_tasks_send_with_response_mode_silent_no_marker(
         self, client, mock_controller
     ):
-        """/tasks/send with response_expected=false should not include marker."""
+        """/tasks/send with response_mode='silent' should not include marker."""
         payload = {
             "message": {
                 "role": "user",
@@ -338,7 +345,7 @@ class TestA2ARouterEndpoints:
             },
             "metadata": {
                 "sender": {"sender_id": "synapse-claude-8100"},
-                "response_expected": False,
+                "response_mode": "silent",
             },
         }
 
@@ -379,7 +386,10 @@ class TestA2ARouterEndpoints:
         """/tasks/send-priority should output message with A2A prefix and sender."""
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Urgent!"}]},
-            "metadata": {"sender": {"sender_id": "synapse-gemini-8110"}},
+            "metadata": {
+                "sender": {"sender_id": "synapse-gemini-8110"},
+                "response_mode": "silent",
+            },
         }
 
         response = client.post("/tasks/send-priority?priority=5", json=payload)
@@ -478,7 +488,7 @@ class TestA2ARouterEndpoints:
 
     def test_task_completion_adds_artifact(self, client, mock_controller):
         """Task should get artifact when completed."""
-        mock_controller.status = "IDLE"
+        mock_controller.status = "READY"
         mock_controller.get_context.return_value = "Command output here"
 
         # Create and retrieve task
@@ -642,7 +652,7 @@ class TestA2ACompliance:
         assert response.json()["status"] == "working"
 
         # 3. Simulate completion
-        mock_controller.status = "IDLE"
+        mock_controller.status = "READY"
         mock_controller.get_context.return_value = "Task completed successfully"
         response = client.get(f"/tasks/{task_id}")
         assert response.json()["status"] == "completed"
@@ -793,9 +803,9 @@ class TestReplyStackEndpoints:
         assert response.status_code == 404
         assert "No reply target" in response.json()["detail"]
 
-    def test_reply_stack_stores_on_response_expected(self, client, mock_controller):  # noqa: ARG002
-        """Receiving a message with response_expected=True should store sender info."""
-        # Send a message with response_expected=True
+    def test_reply_stack_stores_on_response_mode_wait(self, client, mock_controller):  # noqa: ARG002
+        """Receiving a message with response_mode='wait' should store sender info."""
+        # Send a message with response_mode='wait'
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
@@ -804,7 +814,7 @@ class TestReplyStackEndpoints:
                     "sender_endpoint": "http://localhost:8100",
                 },
                 "sender_task_id": "abc12345-uuid",
-                "response_expected": True,
+                "response_mode": "wait",
             },
         }
         client.post("/tasks/send", json=payload)
@@ -816,11 +826,11 @@ class TestReplyStackEndpoints:
         assert data["sender_endpoint"] == "http://localhost:8100"
         assert data["sender_task_id"] == "abc12345-uuid"
 
-    def test_reply_stack_not_stored_without_response_expected(
+    def test_reply_stack_not_stored_with_response_mode_silent(
         self, client, mock_controller
     ):  # noqa: ARG002
-        """Messages without response_expected=True should NOT be stored."""
-        # Send a message without response_expected
+        """Messages with response_mode='silent' should NOT be stored."""
+        # Send a message with response_mode='silent'
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
@@ -828,6 +838,7 @@ class TestReplyStackEndpoints:
                     "sender_id": "synapse-claude-8100",
                     "sender_endpoint": "http://localhost:8100",
                 },
+                "response_mode": "silent",
             },
         }
         client.post("/tasks/send", json=payload)
@@ -838,7 +849,7 @@ class TestReplyStackEndpoints:
 
     def test_reply_stack_get_does_not_remove_entry(self, client, mock_controller):  # noqa: ARG002
         """GET /reply-stack/get should NOT remove the entry."""
-        # Send a message with response_expected=True
+        # Send a message with response_mode='wait'
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
@@ -846,7 +857,7 @@ class TestReplyStackEndpoints:
                     "sender_id": "synapse-claude-8100",
                     "sender_endpoint": "http://localhost:8100",
                 },
-                "response_expected": True,
+                "response_mode": "wait",
             },
         }
         client.post("/tasks/send", json=payload)
@@ -863,7 +874,7 @@ class TestReplyStackEndpoints:
 
     def test_reply_stack_pop_removes_entry(self, client, mock_controller):  # noqa: ARG002
         """Pop should remove the entry from the map."""
-        # Send a message with response_expected=True
+        # Send a message with response_mode='wait'
         payload = {
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
@@ -871,7 +882,7 @@ class TestReplyStackEndpoints:
                     "sender_id": "synapse-claude-8100",
                     "sender_endpoint": "http://localhost:8100",
                 },
-                "response_expected": True,
+                "response_mode": "wait",
             },
         }
         client.post("/tasks/send", json=payload)
@@ -898,7 +909,7 @@ class TestReplyStackEndpoints:
                         "sender_id": sender_id,
                         "sender_endpoint": f"http://localhost:{port}",
                     },
-                    "response_expected": True,
+                    "response_mode": "wait",
                 },
             }
             client.post("/tasks/send", json=payload)
@@ -921,7 +932,7 @@ class TestReplyStackEndpoints:
             "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
             "metadata": {
                 "sender": {"sender_endpoint": "http://localhost:8100"},  # No sender_id
-                "response_expected": True,
+                "response_mode": "wait",
             },
         }
         client.post("/tasks/send", json=payload)
@@ -977,6 +988,7 @@ class TestA2APrefixedPTYOutput:
                     "sender_endpoint": "http://localhost:8100",
                 },
                 "sender_task_id": "abc12345",
+                "response_mode": "silent",
             },
         }
         client.post("/tasks/send", json=payload)

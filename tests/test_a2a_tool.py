@@ -38,7 +38,7 @@ class TestA2AToolSend:
             target="claude",
             priority=1,
             sender=None,
-            want_response=None,
+            response_mode="notify",
             message="Hello",
         )
 

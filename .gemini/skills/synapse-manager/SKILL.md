@@ -51,18 +51,20 @@ done
 synapse send Impl "Implement X in synapse/foo.py:
 - Add function bar() that does Y
 - Update __init__.py exports
-- Follow existing patterns in synapse/baz.py" --no-response
+- Follow existing patterns in synapse/baz.py" --silent
 
 synapse send Tester "Write tests for X in tests/test_foo.py:
 - Test bar() with valid input
 - Test bar() with edge cases (empty, None, overflow)
-- Follow pytest patterns in tests/test_baz.py" --no-response
+- Follow pytest patterns in tests/test_baz.py" --silent
 ```
 
 **Key rules:**
 - Include specific file names, function names, and acceptance criteria
 - Reference existing code patterns the agent should follow
-- Use `--no-response` for task delegation (fire-and-forget)
+- Use `--notify` (default) for standard task delegation
+- Use `--wait` if you need immediate results and want to block
+- Use `--silent` for purely informational feedback or background tasks
 
 ### Step 2: Monitor
 
@@ -143,7 +145,7 @@ synapse send <name> "Issues found — please fix:
 3. REGRESSION: test_existing_feature broke
    ERROR: AssertionError: expected 3, got 4
    CAUSE: bar() side-effect on shared state
-   FIX: Use a local copy instead of mutating the input" --no-response
+   FIX: Use a local copy instead of mutating the input" --silent
 ```
 
 **Key rules:**
@@ -160,11 +162,11 @@ After all tests pass, orchestrate cross-review and final confirmation.
 ```bash
 synapse send Tester "Review implementation changes:
 $(git diff --name-only | grep -v test)
-Focus on: correctness, edge cases, naming consistency" --response
+Focus on: correctness, edge cases, naming consistency" --wait
 
 synapse send Impl "Review test coverage:
 $(git diff --name-only | grep test)
-Focus on: missing edge cases, test isolation, assertion quality" --response
+Focus on: missing edge cases, test isolation, assertion quality" --wait
 ```
 
 **Final verification:**
@@ -205,8 +207,9 @@ synapse kill Tester -f
 |---------|---------|
 | `synapse list` | Check agent status |
 | `synapse spawn <type> --name <n> --role "<r>"` | Start agent |
-| `synapse send <name> "<msg>" --no-response` | Delegate task / send feedback |
-| `synapse send <name> "<msg>" --response` | Request reply (review, status) |
+| `synapse send <name> "<msg>" --notify` | Delegate task (async notification - default) |
+| `synapse send <name> "<msg>" --wait` | Request reply (immediate/blocking) |
+| `synapse send <name> "<msg>" --silent` | Send feedback / FYI (no notification) |
 | `synapse interrupt <name> "<msg>"` | Urgent status check (priority 4) |
 | `synapse kill <name> -f` | Terminate agent |
 | `pytest <file> -v` | Run specific tests |

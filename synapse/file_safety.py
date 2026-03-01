@@ -410,7 +410,7 @@ class FileSafetyManager:
             agent_id: Full agent identifier (e.g., "synapse-claude-8100")
             agent_type: Short agent type (e.g., "claude") for filtering
             pid: Process ID for session tracking (default: current process)
-            delegate_mode: If True, deny lock (coordinator should not edit files)
+            delegate_mode: If True, deny lock (manager should not edit files)
 
         Returns:
             Dict with keys:
@@ -422,7 +422,7 @@ class FileSafetyManager:
         if delegate_mode:
             return {
                 "status": LockStatus.FAILED,
-                "reason": "Delegate/coordinator mode: file locks are denied",
+                "reason": "Delegate/manager mode: file locks are denied",
             }
 
         if not self.enabled:
@@ -563,7 +563,12 @@ class FileSafetyManager:
                         "expires_at": None,
                     }
             except sqlite3.Error as e:
-                logger.error(f"Failed to acquire lock on {normalized_path}: {e}")
+                logger.error(
+                    "event=file_lock_acquire_failed file_path=%s agent=%s error=%s",
+                    normalized_path,
+                    effective_agent_id,
+                    e,
+                )
                 return {"status": LockStatus.FAILED, "reason": str(e)}
             finally:
                 if conn:

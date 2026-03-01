@@ -26,6 +26,7 @@ Shows the full task record including input, output, metadata, and timestamps.
 
 ```bash
 synapse history search "authentication"
+synapse history search "Auth" --case-sensitive    # Match exact case
 synapse history search "auth" --agent gemini
 synapse history search "OAuth JWT" --logic AND    # Both terms
 synapse history search "OAuth JWT" --logic OR     # Either term
@@ -65,6 +66,69 @@ This cross-references:
 
 ```bash
 synapse history cleanup --days 30            # Remove records older than 30 days
+synapse history cleanup --max-size 100       # Keep database under 100MB
+synapse history cleanup --days 90 --dry-run  # Preview what would be deleted
+```
+
+## Advanced Usage
+
+### Keyword Search
+
+Search for specific implementation details across all past tasks:
+
+```bash
+# Search input and output for "OAuth"
+synapse history search "OAuth"
+
+# Multiple terms with logical AND
+synapse history search "OAuth" "JWT" --logic AND
+```
+
+### Statistics and Token Usage
+
+Monitor agent productivity and estimated costs:
+
+```bash
+synapse history stats
+synapse history stats --agent gemini
+```
+
+If token usage data is available (detected in agent output), the stats command will show a **TOKEN USAGE** section with estimated costs per agent.
+
+### Data Export for Analysis
+
+Export history to standard formats for external review or training:
+
+```bash
+# JSON for programmatic analysis
+synapse history export --format json --output audit_log.json
+
+# CSV for spreadsheet review
+synapse history export --format csv --agent reviewer > review_stats.csv
+```
+
+## Data Lifecycle
+
+### Automatic Maintenance
+
+Synapse maintains the history database automatically to prevent disk bloat:
+
+- **Indexing**: Task ID, timestamps, and agent names are indexed for fast searching.
+- **WAL Mode**: SQLite Write-Ahead Logging allows background agents to write history without blocking CLI reads.
+
+### Manual Cleanup
+
+If the database grows too large, use the cleanup command:
+
+```bash
+# Remove everything older than 30 days
+synapse history cleanup --days 30
+
+# Force cleanup without confirmation
+synapse history cleanup --days 14 --force
+
+# Preview what will be deleted
+synapse history cleanup --days 90 --dry-run
 ```
 
 ## Configuration
@@ -105,7 +169,7 @@ synapse list
 
 # 2. Delegate task
 synapse send gemini "Write tests for X" \
-  --priority 3 --no-response
+  --priority 3 --silent
 
 # 3. Monitor progress
 synapse list
@@ -113,7 +177,7 @@ git status && git log --oneline -5
 
 # 4. Send follow-up
 synapse send gemini "Status update?" \
-  --priority 4 --response
+  --priority 4 --wait
 
 # 5. Review completion
 synapse history list --agent gemini --limit 5

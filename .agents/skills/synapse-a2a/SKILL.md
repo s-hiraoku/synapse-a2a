@@ -12,9 +12,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter by TYPE/NAME/WORKING_DIR) |
-| Send message | `synapse send <target> "<message>"` (`--from` auto-detected; warns if target is in a different working directory; use `--force` to bypass) |
-| Broadcast to cwd agents | `synapse broadcast "<message>"` |
-| Wait for reply | `synapse send <target> "<message>" --response` |
+| Send message | `synapse send <target> "<message>"` (default: `--notify`; `--from` auto-detected; warns if target is in a different working directory; use `--force` to bypass) |
+| Broadcast to cwd agents | `synapse broadcast "<message>"` (default: `--notify`) |
+| Synchronous wait | `synapse send <target> "<message>" --wait` |
+| Async notification | `synapse send <target> "<message>" --notify` |
+| Fire-and-forget | `synapse send <target> "<message>" --silent` |
 | Reply to last message | `synapse reply "<response>"` |
 | Reply to specific sender | `synapse reply "<response>" --to <sender_id>` |
 | List reply targets | `synapse reply --list-targets` |
@@ -75,7 +77,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
 | Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
-| Delegate mode | `synapse claude --delegate-mode [--name coordinator]` |
+| Delegate mode | `synapse claude --delegate-mode [--name manager]` |
 | Version info | `synapse --version` |
 | Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
 | Fix CI failures | `/fix-ci` (auto-diagnose and fix GitHub Actions failures) |
@@ -89,16 +91,18 @@ Inter-agent communication framework via Google A2A Protocol.
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.
 
 ```bash
-synapse send gemini "Please review this code" --response
-synapse send claude "What is the status?" --response
-synapse send codex-8120 "Fix this bug" --response --priority 3
+synapse send gemini "Please review this code" --notify
+synapse send claude "What is the status?" --wait
+synapse send codex-8120 "Fix this bug" --silent --priority 3
 ```
 
 **Important:**
 - `--from` is **auto-detected** from the `SYNAPSE_AGENT_ID` environment variable (set by Synapse at startup). You can omit it in most environments.
 - If auto-detection fails (e.g., sandboxed environments like Codex), specify explicitly: `--from $SYNAPSE_AGENT_ID`.
 - When using `--from`, always use the **agent ID** format (`synapse-<type>-<port>`). Do NOT use custom names or agent types.
-- By default, use `--response` to wait for a reply. Only use `--no-response` for notifications or fire-and-forget tasks.
+- By default, use `--notify` to get async notification on completion.
+- Use `--wait` for synchronous blocking if you need an immediate reply.
+- Use `--silent` for purely informational notifications or fire-and-forget tasks.
 
 **Target Resolution (Matching Priority):**
 1. Custom name: `my-claude` (highest priority, exact match, case-sensitive)
@@ -139,34 +143,37 @@ synapse send my-claude "Cross-project message" --force
 synapse interrupt my-claude "Urgent" --force
 ```
 
-### Choosing --response vs --no-response
+### Choosing response mode
 
-Analyze the message content and determine if a reply is expected:
-- If the message expects or benefits from a reply → use `--response`
-- If the message is purely informational with no reply needed → use `--no-response`
-- **If unsure, use `--response`** (safer default)
+Analyze the message content and determine if you need immediate results:
+- If you need immediate results and want to block until reply → use `--wait`
+- If you want to be notified when the task is done (async) → use `--notify` (default)
+- If the message is purely informational with no notification needed → use `--silent`
 
 ```bash
-# Message that expects a reply
-synapse send gemini "What is the best approach?" --response
+# Wait for immediate reply (blocking)
+synapse send gemini "What is the best approach?" --wait
 
-# Purely informational, no reply needed
-synapse send codex "FYI: Build completed" --no-response
+# Task with async notification (default)
+synapse send gemini "Run tests and report" --notify
+
+# Purely informational, no notification needed
+synapse send codex "FYI: Build completed" --silent
 ```
 
-### Roundtrip Communication (--response)
+### Roundtrip Communication (--wait)
 
 For request-response patterns:
 
 ```bash
 # Sender: Wait for response (blocks until reply received)
-synapse send gemini "Analyze this data" --response
+synapse send gemini "Analyze this data" --wait
 
 # Receiver: Reply to sender (auto-routes via reply tracking)
 synapse reply "Analysis result: ..."
 ```
 
-The `--response` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
+The `--wait` flag makes the sender wait. The receiver should reply using the `synapse reply` command.
 
 **Reply Tracking:** Synapse automatically tracks senders who expect a reply (`[REPLY EXPECTED]` messages). Use `synapse reply` for responses - it automatically knows who to reply to.
 
@@ -182,7 +189,7 @@ synapse broadcast "Status check"
 synapse broadcast "Urgent: stop all work" --priority 4
 
 # Fire-and-forget broadcast
-synapse broadcast "FYI: Build completed" --no-response
+synapse broadcast "FYI: Build completed" --silent
 ```
 
 **Note:** Broadcast only targets agents in the **same working directory** as the sender. This prevents unintended messages to agents working on different projects.
@@ -205,7 +212,7 @@ If sender information is not available, it falls back to:
 
 If `[REPLY EXPECTED]` marker is present, you **MUST** reply using `synapse reply`.
 
-**IMPORTANT:** Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically when `--response` is used. Manually adding it causes duplication.
+**IMPORTANT:** Do NOT manually include `[REPLY EXPECTED]` in your messages. Synapse adds this marker automatically when `--wait` is used. Manually adding it causes duplication.
 
 **Reply Tracking:** Synapse stores sender info only for messages with `[REPLY EXPECTED]` marker. Multiple senders can be tracked simultaneously (each sender has one entry).
 
@@ -248,12 +255,12 @@ Default priority: `send` = 3 (normal), `broadcast` = 1 (low).
 
 ```bash
 # Normal priority (default: 3) - with response
-synapse send gemini "Analyze this" --response
+synapse send gemini "Analyze this" --wait
 
 # Higher priority - urgent request
-synapse send claude "Urgent review needed" --response --priority 4
+synapse send claude "Urgent review needed" --wait --priority 4
 
-# Soft interrupt (shorthand for send -p 4 --no-response)
+# Soft interrupt (shorthand for send -p 4 --silent)
 synapse interrupt gemini "Stop and review"
 
 # Emergency interrupt
@@ -411,7 +418,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope.
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (fallback)
-- **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --no-response` (urgent, fire-and-forget)
+- **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --silent` (urgent, fire-and-forget)
 - **Priority Interrupt**: Priority 5 sends SIGINT before message delivery (emergency stop, bypasses Readiness Gate)
 - **Readiness Gate**: `/tasks/send` and `/tasks/send-priority` return HTTP 503 with `Retry-After: 5` while agent is initializing; priority 5 and replies bypass
 - **Multi-Instance**: Run multiple agents of the same type with automatic port assignment
@@ -444,7 +451,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Quality Gates**: Configurable hooks (`on_idle`, `on_task_completed`) that gate status transitions
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
-- **Delegate Mode**: `--delegate-mode` creates a coordinator that delegates instead of editing files
+- **Delegate Mode**: `--delegate-mode` creates a manager that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. `--no-setup --headless` are always added.
 - **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
@@ -452,20 +459,20 @@ To inject instructions later: `synapse instructions send <agent>`.
 
 ### Task Board Workflow Pattern (Kanban)
 
-Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker agents:
+Manager (delegate-mode) monitors the TaskBoard and assigns tasks to worker agents:
 
-1. **Coordinator** creates tasks with dependencies and priorities
+1. **Manager** creates tasks with dependencies and priorities
    ```bash
    synapse tasks create "Write tests" --priority 5
    synapse tasks create "Implement feature" --blocked-by <test-task-id> --priority 4
    synapse tasks create "Code review" --blocked-by <impl-task-id> --priority 3
    ```
 
-2. **Coordinator** checks available tasks, assigns, and notifies agents
+2. **Manager** checks available tasks, assigns, and notifies agents
    ```bash
    synapse tasks list --status pending
    synapse tasks assign <task_id> <agent>
-   synapse send <agent> "Execute task: <description>" --no-response
+   synapse send <agent> "Execute task: <description>" --silent
    ```
 
 3. **Worker agents** report completion or failure
@@ -474,7 +481,7 @@ Coordinator (delegate-mode) monitors the TaskBoard and assigns tasks to worker a
    synapse tasks fail <task_id> --reason "Tests failed"
    ```
 
-4. **Coordinator** handles failures
+4. **Manager** handles failures
    ```bash
    synapse tasks list --status failed
    synapse tasks reopen <task_id>    # Return to pending for retry
@@ -555,10 +562,10 @@ while ! synapse list | grep -q "Tester.*READY"; do
 done
 
 # 3. Send task (wait for result)
-synapse send Tester "Write unit tests for src/auth.py" --response
+synapse send Tester "Write unit tests for src/auth.py" --wait
 
 # 4. Evaluate result — if insufficient, re-send
-synapse send Tester "Add edge-case tests for expired tokens" --response
+synapse send Tester "Add edge-case tests for expired tokens" --wait
 
 # 5. MUST kill when done (parent owns lifecycle)
 synapse kill Tester -f
@@ -568,7 +575,7 @@ synapse kill Tester -f
 
 ### How to Evaluate Results
 
-After receiving a `--response` reply from a spawned agent:
+After receiving a `--wait` reply from a spawned agent:
 
 1. **Read the reply content** — does it address what you asked?
 2. **Verify artifacts if needed** — run `git diff`, `pytest`, or read modified files to confirm the work
@@ -692,6 +699,7 @@ For detailed documentation, read:
 | Skill | Purpose |
 |-------|---------|
 | `/synapse-manager` | Multi-agent management — task delegation, monitoring, quality verification, feedback, and cross-review orchestration |
+| `/synapse-reinst` | Re-inject Synapse A2A initial instructions after `/clear` or context reset |
 | `/doc-organizer` | Audit, restructure, and consolidate project documentation for clarity and maintainability |
 | `/check-ci` | Check CI status, merge conflicts, and CodeRabbit review state for the current PR |
 | `/fix-ci` | Auto-diagnose and fix GitHub Actions CI failures (lint, format, type, test) |

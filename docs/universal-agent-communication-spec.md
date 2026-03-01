@@ -79,7 +79,7 @@ synapse> echo "Hello"
 Hello
 synapse> @Gemini 明日の天気は？
 [Sending to Gemini...]
-synapse> @Claude --response このコードをレビューして
+synapse> @Claude --wait このコードをレビューして
 [Waiting for response...]
 Claude: コードは問題ありません。
 synapse>
@@ -88,7 +88,7 @@ synapse>
 **実装詳細:**
 - Python の `cmd` または `prompt_toolkit` ベース
 - 入力が `@` で始まる場合、A2A送信にルーティング
-- `--response` フラグで回答を待機
+- `--wait` フラグで回答を待機
 
 ### 3. Shell Hook (Optional)
 
@@ -109,7 +109,7 @@ eval "$(synapse shell-hook)"
 | Mode | 動作 | 使用例 |
 |------|------|--------|
 | `display` | エージェントの画面に表示（デフォルト） | `@Gemini 調べて` |
-| `response` | 指示元のターミナルに返す | `@Gemini --response 調べて` |
+| `response` | 指示元のターミナルに返す | `@Gemini --wait 調べて` |
 | `broadcast` | 全エージェントに通知 | `@all 作業終了` |
 
 ### 5. Response Collection
@@ -133,7 +133,7 @@ eval "$(synapse shell-hook)"
 {
   "content": "明日の天気は？",
   "priority": 1,
-  "response_mode": "return",
+  "response_mode": "wait",
   "callback_url": "http://localhost:9000/response"
 }
 ```
@@ -168,7 +168,7 @@ synapse logs <profile>        # ログ表示
 
 # メッセージ送信
 synapse send <target> <message>             # メッセージ送信
-synapse send <target> <message> --response  # 回答を待つ
+synapse send <target> <message> --wait  # 回答を待つ
 
 # シェル
 synapse-shell                 # インタラクティブシェル起動
@@ -206,7 +206,7 @@ agents:
 ### Phase 2: Interactive Shell
 - [x] `synapse-shell` with @Agent detection
 - [x] Basic response collection (READY-state-based)
-- [x] `--response` flag support
+- [x] `--wait` flag support
 
 ### Phase 3: Shell Integration
 - [x] bash/zsh hook (`synapse shell-hook`)

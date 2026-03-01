@@ -155,7 +155,7 @@ class TestReplyToWithPrefixMatch:
     ) -> None:
         """Simulate --reply-to flow with 8-char ID from PTY display."""
         # 1. Sender creates task (via /tasks/create)
-        sender_task = store.create(message, metadata={"response_expected": True})
+        sender_task = store.create(message, metadata={"response_mode": "wait"})
         store.update_status(sender_task.id, "working")
 
         # 2. PTY displays short ID to receiver
@@ -172,7 +172,7 @@ class TestReplyToWithPrefixMatch:
     def test_reply_to_completes_task(self, store: TaskStore, message: Message) -> None:
         """Reply should complete the original task."""
         # Setup: sender's task
-        sender_task = store.create(message, metadata={"response_expected": True})
+        sender_task = store.create(message, metadata={"response_mode": "wait"})
         store.update_status(sender_task.id, "working")
         short_id = sender_task.id[:8]
 
@@ -223,12 +223,12 @@ class TestReplyToEndpoint:
 
     def test_reply_to_with_short_id_via_endpoint(self, client) -> None:
         """POST /tasks/send-priority with short ID should work."""
-        # 1. Create a task (simulating --response sender)
+        # 1. Create a task (simulating --wait sender)
         create_response = client.post(
             "/tasks/create",
             json={
                 "message": {"parts": [{"type": "text", "text": "Original message"}]},
-                "metadata": {"response_expected": True},
+                "metadata": {"response_mode": "wait"},
             },
         )
         assert create_response.status_code == 200
@@ -258,7 +258,7 @@ class TestReplyToEndpoint:
             "/tasks/create",
             json={
                 "message": {"parts": [{"type": "text", "text": "Original message"}]},
-                "metadata": {"response_expected": True},
+                "metadata": {"response_mode": "wait"},
             },
         )
         assert create_response.status_code == 200

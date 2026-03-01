@@ -153,8 +153,8 @@ class TestIntegration(TestServerApp):
         poll_response = client.get(f"/tasks/{task_id}")
         assert poll_response.json()["status"] == "working"
 
-        # 3. Complete (controller becomes IDLE)
-        mock_controller.status = "IDLE"
+        # 3. Complete (controller becomes READY)
+        mock_controller.status = "READY"
         mock_controller.get_context.return_value = "Command completed successfully"
         complete_response = client.get(f"/tasks/{task_id}")
         assert complete_response.json()["status"] == "completed"

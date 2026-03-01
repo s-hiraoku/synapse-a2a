@@ -446,7 +446,7 @@ synapse kill my-claude --force
 
 ```mermaid
 flowchart TB
-    subgraph Coordinator["コーディネーター (Gemini)"]
+    subgraph Manager["コーディネーター (Gemini)"]
         direction TB
         Plan["タスク分析・分割"]
         Assign["タスク割り当て"]
@@ -464,7 +464,7 @@ flowchart TB
     Claude -->|"synapse reply '完了'"| Review
     Codex -->|"synapse reply '完了'"| Review
 
-    style Coordinator fill:#e1f5fe
+    style Manager fill:#e1f5fe
     style Workers fill:#fff3e0
 ```
 
@@ -474,7 +474,7 @@ flowchart TB
 
 ```bash
 # コーディネーターとして起動
-synapse gemini --role "coordinator" --delegate-mode
+synapse gemini --role "manager" --delegate-mode
 
 # 通常のロール指定（デリゲートモードなし）
 synapse gemini --role "project manager"
