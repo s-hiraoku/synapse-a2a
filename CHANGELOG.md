@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: unify `.gemini/skills/` into `.agents/skills/` — Gemini now uses the same skill directory as Codex, OpenCode, and Copilot
+  - **Migration**: if you have skills in `.gemini/skills/`, copy or move them to `.agents/skills/`
+  - TUI deploy indicators simplified from `[C✓ A✓ G·]` to `[C✓ A✓]`
+
 ## [0.8.2] - 2026-03-01
 
 ### Changed

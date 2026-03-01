@@ -807,7 +807,7 @@ synapse skills [subcommand]
 
 1. トップメニュー → **Manage Skills** を選択
 2. **スコープ選択**（Synapse / User / Project）— PLUGIN スコープは除外
-3. 選択したスコープのスキル一覧 — 各行に `[C✓ A✓ G·]` インジケーター付き
+3. 選択したスコープのスキル一覧 — 各行に `[C✓ A✓]` インジケーター付き
 4. スキル詳細 — Deploy Status セクションで User/Project 両スコープの全エージェントへのデプロイ状態を表示
 
 **エージェントディレクトリインジケーター**:
