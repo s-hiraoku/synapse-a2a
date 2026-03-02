@@ -371,7 +371,7 @@ class TestTeamStartExecution:
         from synapse.cli import cmd_team_start
 
         args = argparse.Namespace(
-            agents=["claude:狗巻棘", "gemini:狗巻棘"],
+            agents=["claude:Alice", "gemini:Alice"],
             layout="split",
             all_new=True,
         )
@@ -392,7 +392,7 @@ class TestTeamStartExecution:
         from synapse.cli import cmd_team_start
 
         args = argparse.Namespace(
-            agents=["claude:狗巻棘", "gemini:伏黒恵"],
+            agents=["claude:Alice", "gemini:Bob"],
             layout="split",
             all_new=True,
         )
@@ -415,7 +415,7 @@ class TestTeamStartExecution:
         from synapse.cli import cmd_team_start
 
         args = argparse.Namespace(
-            agents=["silent-snake", "gemini:狗巻棘"],
+            agents=["silent-snake", "gemini:Alice"],
             layout="split",
             all_new=True,
         )
@@ -430,7 +430,7 @@ class TestTeamStartExecution:
             mock_store = mock_store_cls.return_value
             mock_store.resolve.return_value = argparse.Namespace(
                 profile_id="silent-snake",
-                name="狗巻棘",
+                name="Alice",
                 profile="codex",
                 role="reviewer",
                 skill_set="architect",
@@ -470,7 +470,7 @@ class TestTeamStartExecution:
             mock_store = mock_store_cls.return_value
             mock_store.resolve.return_value = argparse.Namespace(
                 profile_id="silent-snake",
-                name="狗巻棘",
+                name="Alice",
                 profile="codex",
                 role="reviewer",
                 skill_set="architect",
@@ -479,7 +479,7 @@ class TestTeamStartExecution:
 
         assert len(captured_agents) == 1
         first_spec = captured_agents[0][0]
-        assert first_spec.startswith("codex:狗巻棘:reviewer:architect:")
+        assert first_spec.startswith("codex:Alice:reviewer:architect:")
 
 
 # ============================================================

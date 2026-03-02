@@ -33,9 +33,9 @@ class TestFormatA2AMessageWithSender:
         result = format_a2a_message(
             "Hello",
             sender_id="synapse-claude-8100",
-            sender_name="虎杖悠仁",
+            sender_name="Alice",
         )
-        assert result == "A2A: [From: 虎杖悠仁 (synapse-claude-8100)] Hello"
+        assert result == "A2A: [From: Alice (synapse-claude-8100)] Hello"
 
     def test_sender_with_reply_expected(self):
         """Sender info should appear before REPLY EXPECTED marker."""
@@ -43,10 +43,10 @@ class TestFormatA2AMessageWithSender:
             "What do you think?",
             response_mode="wait",
             sender_id="synapse-gemini-8110",
-            sender_name="伏黒恵",
+            sender_name="Bob",
         )
         assert result == (
-            "A2A: [From: 伏黒恵 (synapse-gemini-8110)] [REPLY EXPECTED] What do you think?"
+            "A2A: [From: Bob (synapse-gemini-8110)] [REPLY EXPECTED] What do you think?"
         )
 
     def test_sender_id_with_reply_expected_no_name(self):
@@ -83,12 +83,12 @@ class TestSenderInfoInMetadata:
         info = {
             "agent_type": "claude",
             "endpoint": "http://localhost:8100",
-            "name": "虎杖悠仁",
+            "name": "Alice",
         }
         result = _extract_sender_info_from_agent("synapse-claude-8100", info)
 
         assert result["sender_id"] == "synapse-claude-8100"
-        assert result["sender_name"] == "虎杖悠仁"
+        assert result["sender_name"] == "Alice"
 
     def test_sender_name_absent_when_no_name(self):
         """_extract_sender_info_from_agent should omit name when not set."""
@@ -114,14 +114,14 @@ class TestSenderInfoExtraction:
         metadata = {
             "sender": {
                 "sender_id": "synapse-claude-8100",
-                "sender_name": "虎杖悠仁",
+                "sender_name": "Alice",
                 "sender_endpoint": "http://localhost:8100",
             }
         }
         info = _extract_sender_info(metadata)
 
         assert info.sender_id == "synapse-claude-8100"
-        assert info.sender_name == "虎杖悠仁"
+        assert info.sender_name == "Alice"
 
     def test_extract_sender_name_absent(self):
         """_extract_sender_info should default sender_name to None."""
@@ -151,9 +151,9 @@ class TestLongMessageFileReference:
         result = format_file_reference(
             Path("/tmp/test.txt"),
             sender_id="synapse-claude-8100",
-            sender_name="虎杖悠仁",
+            sender_name="Alice",
         )
-        assert "[From: 虎杖悠仁 (synapse-claude-8100)]" in result
+        assert "[From: Alice (synapse-claude-8100)]" in result
         assert "[LONG MESSAGE - FILE ATTACHED]" in result
 
     def test_file_reference_without_sender(self):
@@ -197,22 +197,22 @@ class TestPTYInjectionIncludesSender:
         metadata = {
             "sender": {
                 "sender_id": "synapse-claude-8100",
-                "sender_name": "虎杖悠仁",
+                "sender_name": "Alice",
                 "sender_endpoint": "http://localhost:8100",
             },
             "response_mode": "wait",
         }
         info = _extract_sender_info(metadata)
         assert info.sender_id == "synapse-claude-8100"
-        assert info.sender_name == "虎杖悠仁"
+        assert info.sender_name == "Alice"
 
         # Verify format_a2a_message produces correct output with this info
         result = format_a2a_message(
-            "テストメッセージ",
+            "test message",
             response_mode="wait",
             sender_id=info.sender_id,
             sender_name=info.sender_name,
         )
-        assert "[From: 虎杖悠仁 (synapse-claude-8100)]" in result
+        assert "[From: Alice (synapse-claude-8100)]" in result
         assert "[REPLY EXPECTED]" in result
-        assert "テストメッセージ" in result
+        assert "test message" in result

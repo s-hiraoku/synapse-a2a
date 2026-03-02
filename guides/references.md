@@ -310,7 +310,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 ```bash
 synapse team start claude gemini codex              # claude=ここ、他=新ペイン
 synapse team start silent-snake gemini              # saved_agent_id で起動
-synapse team start 狗巻棘 gemini:伏黒恵              # saved_agent_name で起動
+synapse team start Alice gemini:Bob              # saved_agent_name で起動
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
@@ -376,13 +376,13 @@ synapse agents delete <id-or-name>
 | `add` | 定義を作成/更新（`id` は エージェントID形式: `silent-snake`） |
 | `delete` | ID または名前で削除 |
 
-**例（狗巻棘）**:
+**例（Alice）**:
 
 ```bash
-synapse agents add silent-snake --name 狗巻棘 --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
+synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
 synapse agents list
-synapse agents show 狗巻棘
-synapse spawn 狗巻棘
+synapse agents show Alice
+synapse spawn Alice
 ```
 
 **終了時保存プロンプト**:

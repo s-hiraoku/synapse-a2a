@@ -4,6 +4,37 @@
 
 The Skills system lets you discover, deploy, and manage specialized capabilities across agents. Skills are Markdown-based definitions that configure agent behavior for specific tasks.
 
+## Install Core Skills
+
+The `synapse-a2a` skill package is the foundation for all agent communication. Install it before using multi-agent features.
+
+### Quick Install
+
+```bash
+# 1. Initialize Synapse (creates .synapse/ directory)
+synapse init
+
+# 2. Install skills via skills.sh
+npx skills add s-hiraoku/synapse-a2a
+```
+
+!!! info "What is skills.sh?"
+    [skills.sh](https://skills.sh/) is a platform for discovering and installing agent skills. `npx skills add` downloads skill definitions into your project's `.claude/skills/` and `.agents/skills/` directories.
+
+### What Gets Installed
+
+| Skill | Purpose | Included In |
+|-------|---------|-------------|
+| **synapse-a2a** | Core A2A communication — message sending, file safety, task board, settings management | All skill sets |
+| **synapse-manager** | 7-step multi-agent orchestration: Plan, Delegate, Monitor, Approve, Verify, Feedback, Review | `manager` set |
+| **synapse-reinst** | Re-inject initial instructions after `/clear` or context reset — restores agent identity and A2A config | `manager` set |
+
+### Verification
+
+```bash
+synapse skills list --scope project
+```
+
 ## Skills TUI
 
 Launch the interactive skills manager:
@@ -104,16 +135,23 @@ synapse skills delete old-skill --force    # Skip confirmation
 
 ## Built-in Skills
 
-Synapse ships with three plugin-bundled skills that provide core multi-agent capabilities:
+Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four core skills provide multi-agent capabilities:
 
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Core A2A communication — commands, API endpoints, file safety, task board usage |
 | **synapse-manager** | Multi-agent management workflow — task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **synapse-reinst** | Re-inject initial instructions after `/clear` — restores agent identity using preserved `SYNAPSE_*` env vars |
 | **doc-organizer** | Documentation audit, restructure, and consolidation — inventory docs, detect staleness, deduplicate content, normalize terminology, and improve navigation |
 
 !!! tip "synapse-manager"
     The `synapse-manager` skill teaches an agent a structured 5-step workflow: **Delegate** (spawn agents and assign subtasks), **Monitor** (check status and artifacts), **Verify** (run tests with regression triage), **Feedback** (send actionable fix instructions), and **Review** (cross-review and cleanup). Activate it via the `manager` skill set or deploy it directly.
+
+!!! tip "synapse-reinst"
+    When an agent runs `/clear` or loses context, it forgets its Synapse instructions.
+    The `synapse-reinst` skill rebuilds and re-injects the complete instruction set using
+    persistent environment variables (`SYNAPSE_AGENT_ID`, `SYNAPSE_PORT`, etc.).
+    Included in the `manager` skill set.
 
 !!! tip "doc-organizer"
     The `doc-organizer` skill guides an agent through a 4-step workflow: **Audit** (inventory all docs and classify topics), **Plan** (propose restructuring with moves, merges, deletions), **Execute** (apply changes), and **Verify** (cross-check links, terminology, completeness). Activate it via the `documentation` skill set or deploy it directly.

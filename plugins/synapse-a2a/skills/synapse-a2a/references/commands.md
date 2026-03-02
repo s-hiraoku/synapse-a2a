@@ -67,6 +67,10 @@ synapse claude --skill-set dev-set
 # Delegate/manager mode (no file editing, delegates via synapse send)
 synapse claude --delegate-mode --name manager --role "task manager"
 
+# Worktree isolation in current terminal (Synapse-native, all agent types)
+synapse claude --worktree my-feature              # Start in worktree in current terminal
+synapse gemini --worktree review --name Reviewer --role "code reviewer"
+
 # Skip interactive name/role setup
 synapse claude --no-setup
 

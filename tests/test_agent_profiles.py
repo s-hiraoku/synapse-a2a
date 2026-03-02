@@ -21,14 +21,14 @@ def test_add_and_resolve_by_name(
     store = AgentProfileStore()
     store.add(
         profile_id="silent-snake",
-        name="狗巻棘",
+        name="Alice",
         profile="claude",
         role="@./roles/reviewer.md",
         skill_set="reviewer",
         scope="project",
     )
 
-    resolved = store.resolve("狗巻棘")
+    resolved = store.resolve("Alice")
     assert resolved is not None
     assert resolved.profile_id == "silent-snake"
     assert resolved.profile == "claude"
@@ -49,7 +49,7 @@ def test_add_rejects_non_petname_id(
     with pytest.raises(AgentProfileError, match="petname"):
         store.add(
             profile_id="dog",
-            name="狗巻棘",
+            name="Alice",
             profile="claude",
             role=None,
             skill_set=None,
@@ -69,15 +69,15 @@ def test_delete_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     store = AgentProfileStore()
     store.add(
         profile_id="silent-snake",
-        name="狗巻棘",
+        name="Alice",
         profile="claude",
         role=None,
         skill_set=None,
         scope="project",
     )
-    deleted = store.delete("狗巻棘")
+    deleted = store.delete("Alice")
     assert deleted
-    assert store.resolve("狗巻棘") is None
+    assert store.resolve("Alice") is None
 
 
 def test_list_all_skips_corrupted_agent_file(

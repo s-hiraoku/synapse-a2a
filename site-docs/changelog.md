@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.5
+
+- **Changed**: Replace copyrighted character names with generic English names (Alice, Bob, Charlie, Dave, Eve, Frank)
+- **Docs**: Add skill installation guide (`npx skills add`) to Getting Started and Skills pages
+- **Docs**: Add `synapse-reinst` to Built-in Skills; remove `doc-organizer` from core install tables
+
 ### v0.8.4
 
 - **Added**: Synapse-native worktree isolation (`--worktree` / `-w`) for all agent types

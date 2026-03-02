@@ -209,7 +209,7 @@ def format_file_reference(
         file_path: Path to the message file.
         response_mode: Response mode ("wait", "notify", or "silent").
         sender_id: Sender agent ID (e.g., synapse-claude-8100).
-        sender_name: Sender display name (e.g., 虎杖悠仁).
+        sender_name: Sender display name (e.g., Alice).
 
     Returns:
         Formatted reference message string with optional sender and reply marker.
