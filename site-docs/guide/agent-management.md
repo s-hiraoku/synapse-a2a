@@ -216,8 +216,8 @@ Save frequently used name/role/skill-set combinations as reusable definitions:
 ```bash
 synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --scope project
 synapse agents list
-synapse claude --agent silent-snake   # Start using saved definition
-synapse spawn silent-snake            # Spawn using saved definition
+synapse codex --agent silent-snake    # Start using saved definition (profile must match)
+synapse spawn silent-snake            # Spawn using saved definition (any profile OK)
 ```
 
 On interactive exit, Synapse also offers a save prompt for the current
