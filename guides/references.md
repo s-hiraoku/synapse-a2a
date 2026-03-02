@@ -130,7 +130,7 @@ flowchart TB
 インタラクティブモードでエージェントを起動します。
 
 ```bash
-synapse <profile> [--name NAME] [--role ROLE] [--agent ID_OR_NAME] [--skill-set SET] [--port PORT] [--no-setup] [--delegate-mode] [--worktree [NAME]]
+synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-set SET] [--port PORT] [--no-setup] [--delegate-mode] [--worktree|-w [NAME]]
 ```
 
 | 引数 | 必須 | 説明 |
