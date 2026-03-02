@@ -99,7 +99,7 @@ You can also spawn using a saved agent ID or display name instead of a profile:
 
 ```bash
 synapse spawn silent-snake              # Spawn by saved agent ID
-synapse spawn 狗巻棘                     # Spawn by saved agent display name
+synapse spawn Alice                     # Spawn by saved agent display name
 ```
 
 The saved agent's profile, name, role, and skill set are automatically resolved. CLI flags override saved values when specified.
@@ -251,7 +251,7 @@ Save reusable agent definitions for repeated use with `synapse spawn`. Definitio
 
 ```bash
 synapse agents add silent-snake \
-  --name 狗巻棘 \
+  --name Alice \
   --profile codex \
   --role @./roles/reviewer.md \
   --skill-set architect \
@@ -271,7 +271,7 @@ synapse agents add silent-snake \
 
 ```bash
 synapse agents list          # Table of all saved agents
-synapse agents show 狗巻棘    # Show details for one agent
+synapse agents show Alice    # Show details for one agent
 ```
 
 ### Deleting
@@ -286,7 +286,7 @@ Once defined, spawn by saved agent ID or display name:
 
 ```bash
 synapse spawn silent-snake
-synapse spawn 狗巻棘
+synapse spawn Alice
 ```
 
 CLI flags override saved values:

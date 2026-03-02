@@ -158,15 +158,15 @@ def test_register_overwrites_existing(registry):
 
 def test_register_rejects_duplicate_custom_name(registry):
     """Register should reject duplicate custom names across different agent IDs."""
-    registry.register("agent_a", "claude", 8100, name="狗巻棘")
+    registry.register("agent_a", "claude", 8100, name="Alice")
     with pytest.raises(NameConflictError):
-        registry.register("agent_b", "gemini", 8110, name="狗巻棘")
+        registry.register("agent_b", "gemini", 8110, name="Alice")
 
 
 def test_register_allows_same_agent_id_same_name_overwrite(registry):
     """Re-registering the same agent ID with same name should be allowed."""
-    registry.register("agent_same", "claude", 8100, name="狗巻棘")
-    registry.register("agent_same", "claude", 8100, name="狗巻棘", status="READY")
+    registry.register("agent_same", "claude", 8100, name="Alice")
+    registry.register("agent_same", "claude", 8100, name="Alice", status="READY")
     assert registry.get_agent("agent_same")["status"] == "READY"
 
 
@@ -178,7 +178,7 @@ def test_register_duplicate_name_concurrent_only_one_succeeds(registry):
     def register_one(agent_id: str, port: int) -> None:
         try:
             barrier.wait(timeout=2.0)
-            registry.register(agent_id, "codex", port, name="狗巻棘")
+            registry.register(agent_id, "codex", port, name="Alice")
         except Exception as e:  # noqa: BLE001 - collect for assertion
             errors.append(e)
 
@@ -194,7 +194,7 @@ def test_register_duplicate_name_concurrent_only_one_succeeds(registry):
     assert len(conflicts) == 1
 
     named = [
-        info for info in registry.list_agents().values() if info.get("name") == "狗巻棘"
+        info for info in registry.list_agents().values() if info.get("name") == "Alice"
     ]
     assert len(named) == 1
 

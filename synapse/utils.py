@@ -156,7 +156,7 @@ def format_a2a_message(
         content: Message content
         response_mode: Response mode ("wait", "notify", or "silent")
         sender_id: Sender agent ID (e.g., synapse-claude-8100)
-        sender_name: Sender display name (e.g., 虎杖悠仁)
+        sender_name: Sender display name (e.g., Alice)
 
     Returns:
         Formatted message string with A2A prefix, optional sender, and reply marker

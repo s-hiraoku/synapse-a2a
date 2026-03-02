@@ -359,7 +359,6 @@ npx skills add s-hiraoku/synapse-a2a
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
 | **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
-| **doc-organizer** | Documentation audit, restructure, deduplication, terminology normalization, navigation improvement, and staleness detection |
 | **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
 | **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
 | **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |
@@ -419,7 +418,7 @@ Synapse ships with 6 built-in skill sets (defined in `.synapse/skill_sets.json`)
 | **reviewer** | Code review and security — structured reviews, security audits, code simplification | synapse-a2a, code-review, security-audit, code-simplifier |
 | **frontend** | Frontend development — React/Next.js performance, component composition, design systems, accessibility | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
 | **manager** | Multi-agent management — task delegation, progress monitoring, quality verification, cross-review orchestration, re-instruction | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
-| **documentation** | Documentation expert — audit, restructure, synchronize, and maintain project documentation | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
+| **documentation** | Documentation expert — audit, restructure, synchronize, and maintain project documentation | synapse-a2a, project-docs, api-design, agent-memory |
 
 ### Directory Structure
 
@@ -430,8 +429,7 @@ plugins/
     ├── README.md
     └── skills/
         ├── synapse-a2a/SKILL.md
-        ├── synapse-manager/SKILL.md
-        └── doc-organizer/SKILL.md
+        └── synapse-manager/SKILL.md
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.

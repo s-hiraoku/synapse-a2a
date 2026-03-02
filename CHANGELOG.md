@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-03-02
+
+### Changed
+
+- Replace copyrighted character names with generic English names (Alice, Bob, Charlie, Dave, Eve, Frank) across docs, tests, and agent definitions
+- Replace Japanese role descriptions with English equivalents in `.agent` files and role templates
+
+### Documentation
+
+- Add skill installation guide (`npx skills add s-hiraoku/synapse-a2a`) to Getting Started, Quick Start, and Skills pages
+- Add `synapse-reinst` to Built-in Skills section with admonition
+- Remove `doc-organizer` from core skill install tables (not essential for A2A communication)
+- Add prerequisites box to Quick Start page
+- Add worktree profile shortcut examples to plugin skill commands reference
+
 ## [0.8.4] - 2026-03-02
 
 ### Added

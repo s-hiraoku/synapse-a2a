@@ -14,7 +14,7 @@ def test_save_prompt_skips_when_not_tty() -> None:
     store = MagicMock()
     _maybe_prompt_save_agent_profile(
         profile="claude",
-        name="狗巻棘",
+        name="Alice",
         role="@./roles/reviewer.md",
         skill_set="reviewer",
         headless=False,
@@ -33,7 +33,7 @@ def test_save_prompt_persists_when_confirmed() -> None:
 
     _maybe_prompt_save_agent_profile(
         profile="claude",
-        name="狗巻棘",
+        name="Alice",
         role="@./roles/reviewer.md",
         skill_set="reviewer",
         headless=False,
@@ -45,7 +45,7 @@ def test_save_prompt_persists_when_confirmed() -> None:
 
     store.add.assert_called_once_with(
         profile_id="silent-snake",
-        name="狗巻棘",
+        name="Alice",
         profile="claude",
         role="@./roles/reviewer.md",
         skill_set="reviewer",
@@ -61,7 +61,7 @@ def test_save_prompt_skips_when_env_disabled(monkeypatch: pytest.MonkeyPatch) ->
 
     _maybe_prompt_save_agent_profile(
         profile="claude",
-        name="狗巻棘",
+        name="Alice",
         role="@./roles/reviewer.md",
         skill_set="reviewer",
         headless=False,

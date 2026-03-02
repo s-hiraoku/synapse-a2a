@@ -110,7 +110,7 @@ class TestCmdRunInteractive:
             patch("synapse.cli.interactive_agent_setup") as mock_setup,
             pytest.raises(SystemExit) as exc_info,
         ):
-            mock_setup.return_value = ("狗巻棘", "review role", "architect")
+            mock_setup.return_value = ("Alice", "review role", "architect")
             cmd_run_interactive("test_profile", 8100)
 
         assert exc_info.value.code == 1

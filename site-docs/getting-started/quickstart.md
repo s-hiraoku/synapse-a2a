@@ -2,6 +2,13 @@
 
 Get two agents communicating in under 5 minutes.
 
+!!! warning "Prerequisites"
+    1. Install Synapse A2A (`pipx install synapse-a2a`)
+    2. Initialize configuration: `synapse init`
+    3. Install skills: `npx skills add s-hiraoku/synapse-a2a`
+
+    See [Installation](installation.md) for details.
+
 ## Step 1: Start Your First Agent
 
 Open a terminal and start Claude Code with Synapse:
