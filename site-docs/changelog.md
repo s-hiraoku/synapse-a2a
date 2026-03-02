@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.6
+
+- **Changed**: Unify agent example names with model-hinting English names (Claud, Cody, Rex, Gem)
+- **Docs**: Expand delegate-mode guide with architecture, config, and use cases
+- **Docs**: Update all site-docs, guides, CLAUDE.md, and plugin skills with consistent agent names
+
 ### v0.8.5
 
 - **Changed**: Replace copyrighted character names with generic English names (Alice, Bob, Charlie, Dave, Eve, Frank)

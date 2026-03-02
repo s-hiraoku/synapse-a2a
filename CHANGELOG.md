@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-03-03
+
+### Changed
+
+- Unify agent example names across all documentation with model-hinting English names (Claud, Cody, Rex, Gem)
+- Replace saved agent definition names from Japanese (クラウド, コデクス, クォア, ジェミナ) to English
+
+### Documentation
+
+- Expand delegate-mode guide with architecture, config, and use cases
+- Update 7 site-docs files (agent-teams, cross-agent-scenarios, communication, agent-management, cli, api, worktree) with consistent agent names
+- Update guides/ (references.md, usage.md) and CLAUDE.md with new agent IDs and names
+- Sync plugin skills (synapse-a2a, synapse-manager) with updated agent names
+
 ## [0.8.5] - 2026-03-02
 
 ### Changed

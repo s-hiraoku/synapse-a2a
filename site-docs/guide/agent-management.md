@@ -184,9 +184,9 @@ synapse rename my-claude --clear
 Save frequently used name/role/skill-set combinations as reusable definitions:
 
 ```bash
-synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --scope project
+synapse agents add sharp-checker --name Rex --profile codex --role @./roles/tester.md --skill-set developer --scope project
 synapse agents list
-synapse spawn silent-snake     # Spawn using saved definition
+synapse spawn sharp-checker    # Spawn using saved definition
 ```
 
 On interactive exit, Synapse also offers a save prompt for the current

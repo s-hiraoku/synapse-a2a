@@ -42,9 +42,9 @@ The `target` can be a built-in profile name (`claude`, `gemini`, etc.) or a save
 
 ```bash
 synapse team start \
-  claude:Reviewer:code-review:reviewer \
-  gemini:Searcher \
-  codex:Implementer:implementation
+  gemini:Gem:code-review:reviewer \
+  codex:Rex \
+  codex:Cody:implementation
 ```
 
 !!! tip "Automatic Port Pre-Allocation"
@@ -53,7 +53,7 @@ synapse team start \
 !!! tip "Dynamic Skill Set Changes"
     Skill sets specified in the extended spec are applied at startup. To change an agent's skill set after it has started, use `synapse skills apply`:
     ```bash
-    synapse skills apply Reviewer developer
+    synapse skills apply Gem developer
     ```
     See [Applying Skill Sets](skills.md#apply-to-a-running-agent) for details.
 
@@ -89,7 +89,7 @@ Spawn a single agent in a new pane:
 ```bash
 synapse spawn claude
 synapse spawn gemini --port 8115
-synapse spawn claude --name Tester --role "test writer"
+synapse spawn claude --name Rex --role "test writer"
 synapse spawn claude --terminal tmux
 ```
 
@@ -98,8 +98,8 @@ synapse spawn claude --terminal tmux
 You can also spawn using a saved agent ID or display name instead of a profile:
 
 ```bash
-synapse spawn silent-snake              # Spawn by saved agent ID
-synapse spawn Alice                     # Spawn by saved agent display name
+synapse spawn sharp-checker             # Spawn by saved agent ID
+synapse spawn Rex                     # Spawn by saved agent display name
 ```
 
 The saved agent's profile, name, role, and skill set are automatically resolved. CLI flags override saved values when specified.
@@ -130,7 +130,7 @@ Agents can spawn other agents programmatically:
 ```bash
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "name": "Helper", "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"profile": "gemini", "name": "Gem", "tool_args": ["--dangerously-skip-permissions"]}'
 ```
 
 ## Delegate Mode
@@ -183,15 +183,15 @@ When `--delegate-mode` is enabled, Synapse applies two constraints:
 synapse claude --delegate-mode --name manager
 
 # Terminal 2-3: Workers (edit files normally)
-synapse gemini --name implementer
-synapse codex --name tester
+synapse codex --name Cody
+synapse codex --name Rex
 
 # Manager delegates (fire-and-forget — no reply needed)
-synapse send implementer "Implement OAuth2 authentication" --silent
-synapse send tester "Write tests for auth module" --silent
+synapse send Cody "Implement OAuth2 authentication" --silent
+synapse send Rex "Write tests for auth module" --silent
 
 # Check progress (expects a reply — use --wait)
-synapse send implementer "Progress?" --wait
+synapse send Cody "Progress?" --wait
 ```
 
 ### Full Team Setup Example
@@ -201,9 +201,9 @@ Use `team start` to launch a manager and workers together:
 ```bash
 # Manager + 2 workers with worktree isolation
 synapse team start \
-  claude:manager:task-coordinator:manager \
-  gemini:implementer:implementation \
-  codex:tester:test-writer \
+  claude:Claud:task-coordinator:manager \
+  codex:Cody:implementation \
+  codex:Rex:test-writer \
   --worktree
 
 # Then enable delegate mode on the manager
@@ -217,8 +217,8 @@ Or start the manager separately:
 synapse claude --delegate-mode --name manager --skill-set manager
 
 # Spawn workers in new panes
-synapse spawn gemini --name implementer --role "implementation" --worktree
-synapse spawn codex --name tester --role "test writer" --worktree
+synapse spawn codex --name Cody --role "implementation" --worktree
+synapse spawn codex --name Rex --role "test writer" --worktree
 ```
 
 ### When to Use Delegate Mode
@@ -301,11 +301,11 @@ Main Worktree (Manager)
 ├── Coordinates and integrates
 └── Reviews merged results
 
-.synapse/worktrees/worker-1/ (Agent B)
-└── Implements feature on worktree-worker-1 branch
+.synapse/worktrees/steady-builder/ (Agent B)
+└── Implements feature on worktree-steady-builder branch
 
-.synapse/worktrees/worker-2/ (Agent C)
-└── Writes tests on worktree-worker-2 branch
+.synapse/worktrees/sharp-checker/ (Agent C)
+└── Writes tests on worktree-sharp-checker branch
 ```
 
 **Benefits:**
@@ -320,16 +320,16 @@ Main Worktree (Manager)
 
 ```bash
 # After work is done
-synapse kill worker-1 -f
-synapse kill worker-2 -f
+synapse kill steady-builder -f
+synapse kill sharp-checker -f
 
 # Merge changes from worktree branches
-git merge worktree-worker-1
-git merge worktree-worker-2
+git merge worktree-steady-builder
+git merge worktree-sharp-checker
 
 # Clean up branches (worktrees auto-removed on agent exit if no changes and no new commits)
-git branch -d worktree-worker-1
-git branch -d worktree-worker-2
+git branch -d worktree-steady-builder
+git branch -d worktree-sharp-checker
 ```
 
 ## Saved Agent Definitions
@@ -339,17 +339,17 @@ Save reusable agent definitions for repeated use with `synapse spawn`. Definitio
 ### Creating a Saved Agent
 
 ```bash
-synapse agents add silent-snake \
-  --name Alice \
+synapse agents add sharp-checker \
+  --name Rex \
   --profile codex \
-  --role @./roles/reviewer.md \
-  --skill-set architect \
+  --role @./roles/tester.md \
+  --skill-set developer \
   --scope project
 ```
 
 | Field | Description |
 |-------|-------------|
-| `<id>` | Agent ID identifier (e.g. `silent-snake`) |
+| `<id>` | Agent ID identifier (e.g. `sharp-checker`) |
 | `--name` | Display name (required) |
 | `--profile` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
 | `--role` | Role description or `@path` file reference |
@@ -360,13 +360,13 @@ synapse agents add silent-snake \
 
 ```bash
 synapse agents list          # Table of all saved agents
-synapse agents show Alice    # Show details for one agent
+synapse agents show Rex    # Show details for one agent
 ```
 
 ### Deleting
 
 ```bash
-synapse agents delete silent-snake
+synapse agents delete sharp-checker
 ```
 
 ### Using with Spawn
@@ -374,14 +374,14 @@ synapse agents delete silent-snake
 Once defined, spawn by saved agent ID or display name:
 
 ```bash
-synapse spawn silent-snake
-synapse spawn Alice
+synapse spawn sharp-checker
+synapse spawn Rex
 ```
 
 CLI flags override saved values:
 
 ```bash
-synapse spawn silent-snake --role "temporary override role"
+synapse spawn sharp-checker --role "temporary override role"
 ```
 
 ### Save on Exit
@@ -396,30 +396,30 @@ When an interactive agent exits (with a name set), Synapse prompts whether to sa
 ### Single-Task Delegation
 
 ```bash
-synapse spawn gemini --name Tester --role "test writer"
+synapse spawn codex --name Rex --role "test writer"
 # Wait for READY...
-synapse send Tester "Write unit tests for auth.py" --wait
+synapse send Rex "Write unit tests for auth.py" --wait
 # Evaluate result
-synapse kill Tester -f
+synapse kill Rex -f
 ```
 
 ### Parallel Specialists
 
 ```bash
-synapse spawn gemini --name Tester --role "test writer"
-synapse spawn codex --name Fixer --role "bug fixer"
+synapse spawn codex --name Rex --role "test writer"
+synapse spawn codex --name Cody --role "bug fixer"
 
 # Parallel tasks (fire-and-forget — no reply needed)
-synapse send Tester "Write tests for auth.py" --silent
-synapse send Fixer "Fix timeout bug in server.py" --silent
+synapse send Rex "Write tests for auth.py" --silent
+synapse send Cody "Fix timeout bug in server.py" --silent
 
 # Collect results (expects a reply — use --wait)
-synapse send Tester "Progress?" --wait
-synapse send Fixer "Progress?" --wait
+synapse send Rex "Progress?" --wait
+synapse send Cody "Progress?" --wait
 
 # Cleanup
-synapse kill Tester -f
-synapse kill Fixer -f
+synapse kill Rex -f
+synapse kill Cody -f
 ```
 
 ## Best Practices

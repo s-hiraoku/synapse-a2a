@@ -282,7 +282,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 **エージェント指定（agent_spec）の形式**:
 
 - `profile`: エージェントプロファイル名（例: `claude`）
-- `saved_agent_id`: 保存済みエージェントID（例: `silent-snake`）
+- `saved_agent_id`: 保存済みエージェントID（例: `steady-builder`）
 - `saved_agent_name`: 保存済みエージェント名（例: `expert`）
 - `profile:name`: 名前を指定
 - `profile:name:role`: 名前とロールを指定
@@ -309,8 +309,8 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 
 ```bash
 synapse team start claude gemini codex              # claude=ここ、他=新ペイン
-synapse team start silent-snake gemini              # saved_agent_id で起動
-synapse team start Alice gemini:Bob              # saved_agent_name で起動
+synapse team start steady-builder gemini              # saved_agent_id で起動
+synapse team start Cody gemini:Bob              # saved_agent_name で起動
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
@@ -373,16 +373,16 @@ synapse agents delete <id-or-name>
 |---------|------|
 | `list` | 保存済みエージェント一覧を表示（TTY では Rich TUI テーブル） |
 | `show` | 1件の詳細を表示 |
-| `add` | 定義を作成/更新（`id` は エージェントID形式: `silent-snake`） |
+| `add` | 定義を作成/更新（`id` は エージェントID形式: `sharp-checker`） |
 | `delete` | ID または名前で削除 |
 
-**例（Alice）**:
+**例（Rex）**:
 
 ```bash
-synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
+synapse agents add sharp-checker --name Rex --profile codex --role @./roles/tester.md --skill-set developer --scope project
 synapse agents list
-synapse agents show Alice
-synapse spawn Alice
+synapse agents show Rex
+synapse spawn Rex
 ```
 
 **終了時保存プロンプト**:

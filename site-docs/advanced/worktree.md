@@ -153,25 +153,25 @@ git branch -d worktree-bold-hawk
 ### Implementation + Testing in Parallel
 
 ```bash
-synapse team start claude:Implementer gemini:Tester --worktree
-# Implementer works in .synapse/worktrees/<name-1>/ on feature code
-# Tester works in .synapse/worktrees/<name-2>/ on test code
+synapse team start claude:Cody gemini:Gem --worktree
+# Cody works in .synapse/worktrees/<name-1>/ on feature code
+# Gem works in .synapse/worktrees/<name-2>/ on test code
 # No file conflicts — merge both branches when done
 ```
 
 ### Isolated Code Review
 
 ```bash
-synapse spawn claude --worktree review --name Reviewer --role "code reviewer"
-# Reviewer operates on worktree-review branch
+synapse spawn claude --worktree review --name Rex --role "code reviewer"
+# Rex operates on worktree-review branch
 # Review annotations don't touch the main working directory
 ```
 
 ### Multiple Features Simultaneously
 
 ```bash
-synapse spawn claude --worktree auth --name AuthDev --role "implement auth"
-synapse spawn gemini --worktree api --name APIDev --role "implement API endpoints"
+synapse spawn claude --worktree auth --name Cody --role "implement auth"
+synapse spawn gemini --worktree api --name Gem --role "implement API endpoints"
 # Each agent on its own branch, merge independently
 ```
 

@@ -140,7 +140,7 @@ curl -X POST http://localhost:8100/spawn \
   -d '{
     "profile": "gemini",
     "port": 8115,
-    "name": "Helper",
+    "name": "Gem",
     "role": "test writer",
     "skill_set": "dev-set",
     "terminal": "tmux",

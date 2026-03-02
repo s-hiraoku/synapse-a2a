@@ -1,0 +1,5 @@
+id=sharp-checker
+name=Rex
+profile=codex
+role=@roles/tester.md
+skill_set=developer

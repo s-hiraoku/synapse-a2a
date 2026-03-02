@@ -229,7 +229,7 @@ synapse rename my-claude --clear
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.
 
-IDs must use Agent ID format (e.g., `silent-snake`).
+IDs must use Agent ID format (e.g., `sharp-checker`).
 
 ```bash
 # List all saved agent definitions
@@ -249,21 +249,21 @@ synapse agents delete <id-or-name>
 
 ```bash
 # Save a codex agent with role from file
-synapse agents add silent-snake --name Reviewer --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
+synapse agents add sharp-checker --name Reviewer --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
 
 # List saved agents (Rich TUI table when interactive)
 synapse agents list
 
 # Show saved agent details
-synapse agents show silent-snake
+synapse agents show sharp-checker
 synapse agents show Reviewer          # Also resolves by display name
 
 # Delete a saved agent
-synapse agents delete silent-snake
+synapse agents delete sharp-checker
 ```
 
 **Output columns** (in `synapse agents list`):
-- **ID**: Agent ID identifier (e.g., `silent-snake`)
+- **ID**: Agent ID identifier (e.g., `sharp-checker`)
 - **NAME**: Display name
 - **PROFILE**: Agent type (claude, codex, gemini, opencode, copilot)
 - **ROLE**: Role description (or `-` if not set)

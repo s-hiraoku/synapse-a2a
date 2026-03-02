@@ -37,7 +37,7 @@ synapse claude --delegate-mode --name Manager --role "task manager"
 synapse agents list
 
 # Spawn agents from saved definitions
-synapse spawn wise-strategist
+synapse spawn calm-lead
 synapse spawn test-specialist
 ```
 

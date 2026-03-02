@@ -1,0 +1,5 @@
+id=clear-writer
+name=Gem
+profile=gemini
+role=@roles/documenter.md
+skill_set=documentation

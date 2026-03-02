@@ -20,16 +20,16 @@ Each LLM has distinct blind spots. Claude may optimize for readability while Gem
 ```mermaid
 sequenceDiagram
     participant User
-    participant Claude as Claude (Implementer)
-    participant Gemini as Gemini (Reviewer)
+    participant Claude as Claude (Cody)
+    participant Gemini as Gemini (Gem)
 
     User->>Claude: "Add input validation to /api/upload"
     Claude->>Claude: Implements validation logic
-    Claude->>Gemini: synapse send Reviewer "Review this" --attach upload.py --wait
+    Claude->>Gemini: synapse send Gem "Review this" --attach upload.py --wait
     Gemini->>Gemini: Analyzes code from a different LLM perspective
     Gemini-->>Claude: Returns review findings
     Claude->>Claude: Addresses feedback
-    Claude->>Gemini: synapse send Reviewer "Review the fix" --attach upload.py --wait
+    Claude->>Gemini: synapse send Gem "Review the fix" --attach upload.py --wait
     Gemini-->>Claude: "LGTM — all issues resolved"
 ```
 
@@ -39,23 +39,23 @@ sequenceDiagram
 
 ```bash
 # Terminal 1
-synapse claude --name Implementer --role "feature implementation"
+synapse claude --name Cody --role "feature implementation"
 
 # Terminal 2
-synapse gemini --name Reviewer --role "code reviewer"
+synapse gemini --name Gem --role "code reviewer"
 ```
 
 **2. After Claude finishes implementation, request review:**
 
 ```bash
-synapse send Reviewer "Review this file for security issues, edge cases, and error handling" \
+synapse send Gem "Review this file for security issues, edge cases, and error handling" \
   --attach src/api/upload.py --wait
 ```
 
 **3. Gemini responds with findings. Claude fixes and re-requests:**
 
 ```bash
-synapse send Reviewer "I've addressed your feedback. Please re-review" \
+synapse send Gem "I've addressed your feedback. Please re-review" \
   --attach src/api/upload.py --wait
 ```
 
@@ -91,19 +91,19 @@ A manager agent (Claude in delegate-mode) coordinates without editing files dire
 
 ```mermaid
 sequenceDiagram
-    participant Manager as Claude (Manager)
+    participant Manager as Claude (Claud)
     participant TB as Task Board
-    participant Codex as Codex (Implementer)
-    participant Gemini as Gemini (Tester)
+    participant Codex as Codex (Cody)
+    participant Gemini as Gemini (Gem)
     participant SM as Shared Memory
 
     Manager->>TB: synapse tasks create "Implement OAuth2"
     Manager->>TB: synapse tasks create "Write OAuth2 tests"
-    Manager->>Codex: synapse send Impl "Implement OAuth2" --silent
+    Manager->>Codex: synapse send Cody "Implement OAuth2" --silent
     Codex->>Codex: Implements feature
     Codex->>SM: synapse memory save oauth-pattern "Use PKCE flow" --notify
     Codex->>TB: synapse tasks complete 1
-    Manager->>Gemini: synapse send Tester "Write tests" --silent
+    Manager->>Gemini: synapse send Gem "Write tests" --silent
     Gemini->>SM: synapse memory show oauth-pattern
     Gemini->>Gemini: Writes tests using shared knowledge
     Gemini->>TB: synapse tasks complete 2
@@ -116,9 +116,9 @@ sequenceDiagram
 
 ```bash
 synapse team start \
-  claude:Manager:synapse-manager:task-coordinator \
-  codex:Impl::implementation \
-  gemini:Tester::test-writer \
+  claude:Claud:synapse-manager:task-coordinator \
+  codex:Cody::implementation \
+  gemini:Gem::test-writer \
   --layout split
 ```
 
@@ -135,8 +135,8 @@ synapse tasks create "Write OAuth2 integration tests" \
 **3. Delegate to specialists:**
 
 ```bash
-synapse send Impl "Implement the OAuth2 task. See task board for details." --silent
-synapse send Tester "Write tests for the OAuth2 feature once implementation is done." --silent
+synapse send Cody "Implement the OAuth2 task. See task board for details." --silent
+synapse send Gem "Write tests for the OAuth2 feature once implementation is done." --silent
 ```
 
 **4. Codex shares learned patterns via Shared Memory:**
@@ -182,15 +182,15 @@ Time-critical bugs benefit from parallel investigation. Claude's reasoning stren
 ```mermaid
 sequenceDiagram
     participant User
-    participant Claude as Claude (Investigator)
-    participant Codex as Codex (Fixer)
-    participant Gemini as Gemini (Tester)
+    participant Claude as Claude (Claud)
+    participant Codex as Codex (Cody)
+    participant Gemini as Gemini (Gem)
 
     User->>Claude: "Users report 500 on /api/orders"
     Claude->>Claude: Investigates logs + code
     Claude->>Claude: Root cause: race condition in order locking
-    Claude->>Codex: synapse send Codex "Fix race condition" --silent
-    Claude->>Gemini: synapse interrupt Gemini "Regression test needed"
+    Claude->>Codex: synapse send Cody "Fix race condition" --silent
+    Claude->>Gemini: synapse interrupt Gem "Regression test needed"
     Codex->>Codex: Applies fix
     Codex-->>Claude: synapse reply "Fixed — added SELECT FOR UPDATE"
     Gemini->>Gemini: Writes regression test
@@ -209,14 +209,14 @@ synapse list
 **2. Interrupt Gemini's current work (urgent):**
 
 ```bash
-synapse interrupt Gemini "Drop current work. Production bug: 500 errors on /api/orders. \
+synapse interrupt Gem "Drop current work. Production bug: 500 errors on /api/orders. \
   Write regression tests for order creation and concurrent access."
 ```
 
 **3. Claude identifies the root cause and delegates the fix:**
 
 ```bash
-synapse send Codex "Fix race condition in src/orders/service.py:create_order(). \
+synapse send Cody "Fix race condition in src/orders/service.py:create_order(). \
   The issue: concurrent requests create duplicate orders because there's no row-level lock. \
   Solution: add SELECT FOR UPDATE in the transaction." --silent
 ```
@@ -224,7 +224,7 @@ synapse send Codex "Fix race condition in src/orders/service.py:create_order(). 
 **4. Attach relevant files for context:**
 
 ```bash
-synapse send Codex "Here's the current implementation and the error log" \
+synapse send Cody "Here's the current implementation and the error log" \
   --attach src/orders/service.py \
   --attach /tmp/error-log-snippet.txt \
   --silent
@@ -272,20 +272,20 @@ A single agent refactoring a large codebase is slow and error-prone. Splitting b
 
 ```mermaid
 sequenceDiagram
-    participant Manager as Claude (Coordinator)
-    participant C1 as Claude (Backend)
-    participant Codex as Codex (Models)
-    participant Gemini as Gemini (API)
+    participant Manager as Claude (Claud)
+    participant C1 as Codex (Cody)
+    participant C2 as Codex 2 (Rex)
+    participant Gemini as Gemini (Gem)
 
     Manager->>Manager: Plans refactoring scope
     Manager->>C1: "Refactor backend services" (worktree)
-    Manager->>Codex: "Refactor data models" (worktree)
+    Manager->>C2: "Refactor data models" (worktree)
     Manager->>Gemini: "Refactor API layer" (worktree)
     C1->>C1: Works in isolated worktree
-    Codex->>Codex: Works in isolated worktree
+    C2->>C2: Works in isolated worktree
     Gemini->>Gemini: Works in isolated worktree
     C1-->>Manager: "Backend done"
-    Codex-->>Manager: "Models done"
+    C2-->>Manager: "Models done"
     Gemini-->>Manager: "API done"
     Manager->>Manager: Merges all worktrees
 ```
@@ -295,21 +295,21 @@ sequenceDiagram
 **1. Spawn agents with worktree isolation:**
 
 ```bash
-synapse spawn claude --worktree --name Backend --role "backend refactoring"
-synapse spawn codex --worktree --name Models --role "data model refactoring"
-synapse spawn gemini --worktree --name API --role "API layer refactoring"
+synapse spawn codex --worktree --name Cody --role "backend refactoring"
+synapse spawn codex --worktree --name Rex --role "data model refactoring"
+synapse spawn gemini --worktree --name Gem --role "API layer refactoring"
 ```
 
 **2. Delegate each module:**
 
 ```bash
-synapse send Backend "Refactor all service classes in src/services/ to use dependency injection. \
+synapse send Cody "Refactor all service classes in src/services/ to use dependency injection. \
   Replace direct imports with constructor injection." --silent
 
-synapse send Models "Rename all SQLAlchemy models from CamelCase to snake_case table names. \
+synapse send Rex "Rename all SQLAlchemy models from CamelCase to snake_case table names. \
   Update foreign key references." --silent
 
-synapse send API "Migrate all Flask routes in src/api/ to use APIRouter pattern. \
+synapse send Gem "Migrate all Flask routes in src/api/ to use APIRouter pattern. \
   Group by domain (users, orders, products)." --silent
 ```
 
@@ -323,9 +323,9 @@ synapse broadcast "Status update — how far along are you?" --wait
 **4. After all agents finish, merge worktree branches:**
 
 ```bash
-git merge worktree-Backend
-git merge worktree-Models
-git merge worktree-API
+git merge worktree-Cody
+git merge worktree-Rex
+git merge worktree-Gem
 ```
 
 ### Expected Result
@@ -346,17 +346,17 @@ Documentation drift is one of the most common tech debt sources. By assigning a 
 
 ```mermaid
 sequenceDiagram
-    participant Codex as Codex (Implementer)
-    participant Gemini as Gemini (Doc Writer)
-    participant Claude as Claude (Verifier)
+    participant Codex as Codex (Cody)
+    participant Gemini as Gemini (Gem)
+    participant Claude as Codex 2 (Rex)
     participant SM as Shared Memory
 
     Codex->>Codex: Adds new /api/webhooks endpoint
     Codex->>SM: synapse memory save webhook-api "POST /api/webhooks - payload schema" --notify
-    Codex->>Gemini: synapse send DocWriter "Update API docs for new webhook endpoint" --silent
+    Codex->>Gemini: synapse send Gem "Update API docs for new webhook endpoint" --silent
     Gemini->>SM: synapse memory show webhook-api
     Gemini->>Gemini: Updates docs/api.md and README
-    Gemini->>Claude: synapse send Verifier "Verify docs match implementation" --wait
+    Gemini->>Claude: synapse send Rex "Verify docs match implementation" --wait
     Claude->>Claude: Cross-checks code vs docs
     Claude-->>Gemini: "Docs missing error response codes — add 400/422 examples"
     Gemini->>Gemini: Fixes docs
@@ -368,10 +368,10 @@ sequenceDiagram
 **1. Start the team:**
 
 ```bash
-synapse team start codex gemini claude --layout split
-synapse rename codex --name Impl --role "implementation"
-synapse rename gemini --name DocWriter --role "documentation"
-synapse rename claude --name Verifier --role "doc verification"
+synapse team start codex gemini codex --layout split
+synapse rename codex --name Cody --role "implementation"
+synapse rename gemini --name Gem --role "documentation"
+synapse rename codex --name Rex --role "doc verification"
 ```
 
 **2. After Codex implements the feature, share context:**
@@ -386,14 +386,14 @@ synapse memory save webhook-api \
 **3. Delegate doc writing:**
 
 ```bash
-synapse send DocWriter "New webhook endpoint added. Check shared memory for 'webhook-api'. \
+synapse send Gem "New webhook endpoint added. Check shared memory for 'webhook-api'. \
   Update docs/api.md with endpoint reference and README.md with a usage example." --silent
 ```
 
 **4. Request verification:**
 
 ```bash
-synapse send Verifier "Cross-check docs/api.md and src/api/webhooks.py. \
+synapse send Rex "Cross-check docs/api.md and src/api/webhooks.py. \
   Verify all endpoints, parameters, and error codes are documented." \
   --attach docs/api.md --attach src/api/webhooks.py --wait
 ```
@@ -416,11 +416,11 @@ Security audits benefit from diverse perspectives. One agent focuses on authenti
 
 ```mermaid
 sequenceDiagram
-    participant Lead as Claude (Security Lead)
+    participant Lead as Claude (Claud)
     participant TB as Task Board
-    participant A1 as Gemini (Auth Auditor)
-    participant A2 as Codex (Injection Auditor)
-    participant A3 as Claude 2 (Deps Auditor)
+    participant A1 as Gemini (Gem)
+    participant A2 as Codex (Cody)
+    participant A3 as Codex 2 (Rex)
 
     Lead->>TB: Create 3 audit tasks
     Lead->>A1: "Audit authentication & authorization"
@@ -453,16 +453,16 @@ synapse tasks create "Audit dependency vulnerabilities" \
 **2. Assign agents to audit tasks:**
 
 ```bash
-synapse send Gemini "Audit all authentication and authorization code. \
+synapse send Gem "Audit all authentication and authorization code. \
   Check: session fixation, CSRF protection, password hashing, token expiry. \
   Report findings as HIGH/MEDIUM/LOW." --wait
 
-synapse send Codex "Scan the codebase for injection vulnerabilities. \
+synapse send Cody "Scan the codebase for injection vulnerabilities. \
   Check: raw SQL queries, unsanitized user input in templates, shell commands with user input. \
   Report findings as HIGH/MEDIUM/LOW." --wait
 
-synapse spawn claude --name DepsAuditor --role "dependency security"
-synapse send DepsAuditor "Review requirements.txt and uv.lock for known CVEs. \
+synapse spawn codex --name Rex --role "dependency security"
+synapse send Rex "Review requirements.txt and uv.lock for known CVEs. \
   Flag any dependencies older than 6 months. Report findings." --wait
 ```
 
@@ -560,21 +560,21 @@ CI failures block the entire team. A dedicated CI agent can monitor GitHub Actio
 
 ```mermaid
 sequenceDiagram
-    participant Dev as Claude (Developer)
-    participant CI as Gemini (CI Monitor)
-    participant Fixer as Codex (Fixer)
+    participant Dev as Claude (Claud)
+    participant CI as Gemini (Gem)
+    participant Fixer as Codex (Cody)
 
     Dev->>Dev: Pushes code
     CI->>CI: Detects CI failure via hook
     CI->>CI: Categorizes: lint / test / type-check
     alt Lint or format issue
         CI->>CI: Auto-fixes with /fix-ci
-        CI->>Dev: synapse send Dev "Fixed lint errors, pushed"
+        CI->>Dev: synapse send Claud "Fixed lint errors, pushed"
     else Test failure
-        CI->>Fixer: synapse send Fixer "Fix failing test" --attach test_output.txt --silent
+        CI->>Fixer: synapse send Cody "Fix failing test" --attach test_output.txt --silent
         Fixer->>Fixer: Diagnoses and fixes
         Fixer-->>CI: synapse reply "Fixed — test_auth was using stale fixture"
-        CI->>Dev: synapse send Dev "Test failure fixed by Codex"
+        CI->>Dev: synapse send Claud "Test failure fixed by Codex"
     end
 ```
 
@@ -583,28 +583,28 @@ sequenceDiagram
 **1. Start the CI monitor agent:**
 
 ```bash
-synapse gemini --name CIMonitor --role "CI monitoring and triage"
+synapse gemini --name Gem --role "CI monitoring and triage"
 ```
 
 **2. When CI fails, the monitor triages:**
 
 ```bash
-# CIMonitor detects failure and categorizes it
-synapse send CIMonitor "CI failed on branch feature/auth. \
+# Gem detects failure and categorizes it
+synapse send Gem "CI failed on branch feature/auth. \
   Check GitHub Actions logs and determine the failure category." --wait
 ```
 
 **3. For simple fixes (lint/format), auto-fix:**
 
 ```bash
-# CIMonitor runs the fix-ci skill
-synapse send CIMonitor "Run /fix-ci to auto-fix the lint failure" --silent
+# Gem runs the fix-ci skill
+synapse send Gem "Run /fix-ci to auto-fix the lint failure" --silent
 ```
 
 **4. For complex failures, delegate:**
 
 ```bash
-synapse send Codex "Fix the failing test in tests/test_auth.py. \
+synapse send Cody "Fix the failing test in tests/test_auth.py. \
   Error: 'fixture user_session not found'. The fixture was renamed in the last commit." \
   --attach tests/test_auth.py --silent
 ```
@@ -612,7 +612,7 @@ synapse send Codex "Fix the failing test in tests/test_auth.py. \
 **5. Notify the developer:**
 
 ```bash
-synapse send Dev "CI is green again. Codex fixed a stale fixture reference in test_auth.py." --silent
+synapse send Claud "CI is green again. Codex fixed a stale fixture reference in test_auth.py." --silent
 ```
 
 ### Expected Result
@@ -625,7 +625,7 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 
 | Tip | Details |
 |-----|---------|
-| **Name your agents** | `--name Reviewer` is clearer than `gemini-8110` in team communication |
+| **Name your agents** | `--name Rex` is clearer than `codex-8120` in team communication |
 | **Use priority levels** | Normal work at 3, urgent follow-ups at 4, production emergencies at 5 |
 | **Share knowledge** | `synapse memory save` lets one agent's discoveries help the whole team |
 | **Track with Task Board** | `synapse tasks` provides a shared view of what's done and what's pending |
