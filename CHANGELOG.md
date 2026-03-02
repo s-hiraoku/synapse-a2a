@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-03-02
+
+### Added
+
+- **Synapse-native worktree isolation** (`--worktree` / `-w`): all agent types (Claude, Gemini, Codex, OpenCode, Copilot) can now run in isolated git worktrees under `.synapse/worktrees/`
+  - Auto-generated adjective-noun names or explicit `--worktree <name>`
+  - Automatic cleanup on agent exit (prompts if unsaved changes or new commits exist)
+  - Per-agent worktrees in `synapse team start --worktree`
+  - API support via `POST /spawn` with `worktree` field
+  - `[WT]` indicator in `synapse list`
+
+### Fixed
+
+- worktree name validation with regex whitelist to prevent path traversal
+- `_try_cleanup_worktree` wrapped in try/except to prevent shutdown failures
+- `has_uncommitted_changes`/`has_new_commits` return True on subprocess failure (defensive)
+- initialize worktree locals before try block to prevent `UnboundLocalError` in finally
+- handle empty `create_panes` return in team start worktree flow with rollback
+
 ## [0.8.3] - 2026-03-01
 
 ### Changed
