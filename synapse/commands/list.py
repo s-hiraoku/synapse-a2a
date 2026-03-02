@@ -118,9 +118,12 @@ class ListCommand:
 
             pid = info.get("pid")
             working_dir_full = info.get("working_dir", "-")
+            worktree_branch = info.get("worktree_branch")
             working_dir_short = (
                 os.path.basename(working_dir_full) if working_dir_full != "-" else "-"
             )
+            if worktree_branch:
+                working_dir_short = f"[WT] {working_dir_short}"
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),

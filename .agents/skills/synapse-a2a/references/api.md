@@ -61,7 +61,7 @@ The framework automatically handles routing - you don't need to know where the m
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (agent-initiated) |
-| `/spawn` | POST | Spawn a single agent in a new terminal pane |
+| `/spawn` | POST | Spawn a single agent in a new terminal pane (supports `worktree` field for isolation) |
 
 ### Shared Memory Endpoints
 

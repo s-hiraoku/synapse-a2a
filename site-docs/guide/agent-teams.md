@@ -70,11 +70,17 @@ synapse team start claude gemini -- --dangerously-skip-permissions
 Give each agent an isolated git worktree:
 
 ```bash
-synapse team start claude gemini -- --worktree
+# Synapse-native worktree (all agents supported)
+synapse team start claude gemini --worktree
+
+# With name prefix (generates task-claude-0, task-gemini-1)
+synapse team start claude gemini --worktree task
 ```
 
-!!! info "Claude Code Only"
-    `--worktree` is a Claude Code flag. Other CLIs silently ignore unknown flags, so it's safe to pass to all agents.
+Each agent gets its own worktree under `.synapse/worktrees/` with a dedicated branch. No file conflicts between agents.
+
+!!! tip "Synapse vs Claude Code worktree"
+    `--worktree` (before `--`) is a Synapse flag that works with **all** agent types. The older `-- --worktree` (after `--`) is a Claude Code-only flag. See [Worktree Isolation](../advanced/worktree.md) for details.
 
 ## Spawn Single Agent
 
@@ -109,8 +115,13 @@ synapse spawn claude -- --dangerously-skip-permissions
 ### With Worktree
 
 ```bash
-synapse spawn claude --name Worker --role "feature implementation" -- --worktree
+# Synapse-native worktree (all agents)
+synapse spawn claude --worktree
+synapse spawn gemini --worktree feature-auth --name Auth --role "auth implementation"
+synapse spawn codex -w  # short flag
 ```
+
+See [Worktree Isolation](../advanced/worktree.md) for full details.
 
 ### Spawn via API
 
@@ -194,17 +205,17 @@ curl -X POST http://localhost:8100/team/start \
 
 ## Worktree Isolation Details
 
-Git worktrees give each agent an isolated copy of the repository:
+Git worktrees give each agent an isolated copy of the repository under `.synapse/worktrees/`:
 
 ```
 Main Worktree (Manager)
 ├── Coordinates and integrates
 └── Reviews merged results
 
-.claude/worktrees/worker-1/ (Agent B)
+.synapse/worktrees/worker-1/ (Agent B)
 └── Implements feature on worktree-worker-1 branch
 
-.claude/worktrees/worker-2/ (Agent C)
+.synapse/worktrees/worker-2/ (Agent C)
 └── Writes tests on worktree-worker-2 branch
 ```
 
@@ -214,6 +225,7 @@ Main Worktree (Manager)
 - Each agent has an independent staging area
 - Changes merge via Git at the end
 - Efficient disk usage (shared `.git/objects/`)
+- Works with all agent types, not just Claude Code
 
 **Cleanup:**
 
@@ -222,13 +234,13 @@ Main Worktree (Manager)
 synapse kill worker-1 -f
 synapse kill worker-2 -f
 
-# Merge changes
+# Merge changes from worktree branches
 git merge worktree-worker-1
 git merge worktree-worker-2
 
-# Clean up worktrees
-git worktree remove .claude/worktrees/worker-1
-git worktree remove .claude/worktrees/worker-2
+# Clean up branches (worktrees auto-removed on agent exit if no changes and no new commits)
+git branch -d worktree-worker-1
+git branch -d worktree-worker-2
 ```
 
 ## Saved Agent Definitions
@@ -334,7 +346,7 @@ synapse kill Fixer -f
 
 ### Use Worktrees for Workers
 
-Always use `-- --worktree` for agents that modify code. This prevents:
+Always use `--worktree` for agents that modify code. This prevents:
 - **Git lock conflicts**: Multiple agents trying to `git add` simultaneously.
 - **PTY mangling**: One agent seeing the other's unfinished changes in `git status`.
 - **Merge noise**: Uncontrolled file system changes affecting both agents.
@@ -355,12 +367,12 @@ After an agent completes a task, always verify its work from the manager's persp
 synapse send Worker "Status?" --wait
 
 # 2. Inspect artifacts
-git diff worktree-worker-1
+git diff worktree-Worker
 
 # 3. Run validation tests
 pytest tests/affected_module.py
 
 # 4. Finalize
 synapse kill Worker -f
-git merge worktree-worker-1
+git merge worktree-Worker
 ```

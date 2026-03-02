@@ -104,7 +104,7 @@ flowchart LR
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
-| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Pass `-- --worktree` to give Claude agents a git worktree for isolation |
+| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
@@ -657,7 +657,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
-| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `-- --worktree` for git worktree isolation (Claude only) |
+| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `--worktree` / `-w` for Synapse-native worktree isolation (all agents) |
 | `synapse agents list` | List saved agent definitions |
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |

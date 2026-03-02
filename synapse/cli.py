@@ -224,6 +224,21 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
         return False
 
 
+def _try_cleanup_worktree(agent_info: dict) -> None:
+    """Clean up a worktree if the agent was running in one."""
+    wt_path = agent_info.get("worktree_path")
+    wt_branch = agent_info.get("worktree_branch")
+    if not wt_path or not wt_branch:
+        return
+
+    from synapse.worktree import cleanup_worktree, worktree_info_from_registry
+
+    wt_base = agent_info.get("worktree_base_branch", "")
+    wt_info = worktree_info_from_registry(wt_path, wt_branch, wt_base)
+    is_tty = sys.stdin.isatty() and sys.stdout.isatty()
+    cleanup_worktree(wt_info, interactive=is_tty)
+
+
 def cmd_kill(args: argparse.Namespace) -> None:
     """Kill a running agent by name, ID, or type."""
     target = args.target
@@ -341,6 +356,8 @@ def cmd_kill(args: argparse.Namespace) -> None:
             print(f"Process {pid} not found. Cleaning up registry...")
 
     registry.unregister(agent_id)
+
+    _try_cleanup_worktree(agent_info)
 
 
 def cmd_jump(args: argparse.Namespace) -> None:
@@ -2759,6 +2776,8 @@ _SYNAPSE_FLAGS = {
     "--ssl-key",
     "--layout",
     "--all-new",
+    "--worktree",
+    "-w",
 }
 
 
@@ -2980,6 +2999,47 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         return
 
     cwd = os.getcwd()
+    worktree_opt = getattr(args, "worktree", None)
+
+    # When --worktree is specified, create per-agent worktrees and spawn
+    # each agent individually with its own cwd and env.
+    if worktree_opt:
+        from synapse.worktree import create_worktree
+
+        worktree_infos = []
+        for i, agent_spec in enumerate(agents):
+            profile = agent_spec.split(":")[0]
+            if isinstance(worktree_opt, str):
+                wt_name = f"{worktree_opt}-{profile}-{i}"
+            else:
+                wt_name = None
+            try:
+                wt_info = create_worktree(name=wt_name)
+            except RuntimeError as e:
+                print(f"Error creating worktree for {profile}: {e}", file=sys.stderr)
+                sys.exit(1)
+            worktree_infos.append(wt_info)
+
+            extra_env = {
+                "SYNAPSE_WORKTREE_PATH": str(wt_info.path),
+                "SYNAPSE_WORKTREE_BRANCH": wt_info.branch,
+                "SYNAPSE_WORKTREE_BASE_BRANCH": wt_info.base_branch,
+            }
+            commands = create_panes(
+                [agent_spec],
+                layout=layout,
+                terminal_app=terminal,
+                all_new=True,
+                tool_args=tool_args or None,
+                cwd=str(wt_info.path),
+                extra_env=extra_env,
+            )
+            _run_pane_commands(commands)
+            print(f"  {profile}: {wt_info.path} ({wt_info.branch})")
+
+        display_names = [a.split(":")[0] for a in agents]
+        print(f"Started {len(agents)} agents in worktrees: {', '.join(display_names)}")
+        return
 
     if all_new:
         commands = create_panes(
@@ -3079,8 +3139,11 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             skill_set=resolved_skill_set,
             terminal=args.terminal,
             tool_args=tool_args or None,
+            worktree=getattr(args, "worktree", None),
         )
         print(f"{result.agent_id} {result.port}")
+        if result.worktree_path:
+            print(f"  worktree: {result.worktree_path} ({result.worktree_branch})")
 
         # Check if agent registers within a short window
         info = wait_for_agent(result.agent_id, timeout=3.0, poll_interval=0.5)
@@ -3537,6 +3600,9 @@ def cmd_run_interactive(
         time.sleep(1)
 
         # Register agent after listeners are up (UDS first, then TCP)
+        worktree_path = os.environ.get("SYNAPSE_WORKTREE_PATH")
+        worktree_branch = os.environ.get("SYNAPSE_WORKTREE_BRANCH")
+        worktree_base_branch = os.environ.get("SYNAPSE_WORKTREE_BASE_BRANCH")
         try:
             registry.register(
                 agent_id,
@@ -3546,6 +3612,9 @@ def cmd_run_interactive(
                 name=agent_name,
                 role=agent_role,
                 skill_set=selected_skill_set,
+                worktree_path=worktree_path,
+                worktree_branch=worktree_branch,
+                worktree_base_branch=worktree_base_branch,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
@@ -3574,6 +3643,15 @@ def cmd_run_interactive(
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
         registry.unregister(agent_id)
         controller.stop()
+
+        with contextlib.suppress(Exception):
+            _try_cleanup_worktree(
+                {
+                    "worktree_path": worktree_path,
+                    "worktree_branch": worktree_branch,
+                    "worktree_base_branch": worktree_base_branch,
+                }
+            )
 
 
 def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:
@@ -3653,6 +3731,12 @@ def main() -> None:
         headless = "--headless" in synapse_args
         delegate_mode = "--delegate-mode" in synapse_args
 
+        # Parse --worktree / -w (optional name value)
+        worktree_arg: str | bool | None = None
+        if "--worktree" in synapse_args or "-w" in synapse_args:
+            wt_val = parse_arg("--worktree") or parse_arg("-w")
+            worktree_arg = wt_val if wt_val else True
+
         # Resolve --agent / -A flag from saved agent definitions
         has_agent_flag = "--agent" in synapse_args or "-A" in synapse_args
         agent_arg = parse_arg("--agent") or parse_arg("-A")
@@ -3698,6 +3782,25 @@ def main() -> None:
                 sys.exit(1)
 
         assert port is not None  # Type narrowing for mypy/ty
+
+        # Create worktree if requested and set env vars
+        if worktree_arg:
+            from synapse.worktree import create_worktree as _create_wt
+
+            wt_name = worktree_arg if isinstance(worktree_arg, str) else None
+            try:
+                wt_info = _create_wt(name=wt_name)
+            except RuntimeError as e:
+                print(f"Error creating worktree: {e}", file=sys.stderr)
+                sys.exit(1)
+            os.chdir(wt_info.path)
+            os.environ["SYNAPSE_WORKTREE_PATH"] = str(wt_info.path)
+            os.environ["SYNAPSE_WORKTREE_BRANCH"] = wt_info.branch
+            os.environ["SYNAPSE_WORKTREE_BASE_BRANCH"] = wt_info.base_branch
+            print(
+                f"\x1b[32m[Synapse]\x1b[0m Worktree: {wt_info.path} ({wt_info.branch})"
+            )
+
         cmd_run_interactive(
             profile,
             port,
@@ -4817,6 +4920,15 @@ Extended Specification:
         action="store_true",
         help="Start all agents in new panes/tabs instead of using current terminal",
     )
+    p_team_start.add_argument(
+        "--worktree",
+        "-w",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="NAME",
+        help="Create git worktree per agent for isolated work (optional NAME prefix)",
+    )
     p_team_start.set_defaults(func=cmd_team_start)
 
     # spawn - Spawn single agent in new pane
@@ -4866,6 +4978,15 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
     p_spawn.add_argument(
         "--terminal",
         help="Terminal app to use (default: auto-detect)",
+    )
+    p_spawn.add_argument(
+        "--worktree",
+        "-w",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="NAME",
+        help="Create git worktree for isolated work (optional NAME)",
     )
     # tool_args are extracted from sys.argv before parse_args() —
     # see the _extract_tool_args_from_argv() call in main().

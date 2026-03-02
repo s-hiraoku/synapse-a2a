@@ -2,93 +2,192 @@
 
 ## Overview
 
-Git worktrees provide isolated working copies for each agent, enabling parallel work without file conflicts. Each agent operates on its own branch with an independent staging area.
+Git worktrees provide isolated working copies for each agent, enabling parallel work without file conflicts. Synapse manages worktrees natively under `.synapse/worktrees/`, so **all agent types** (Claude, Gemini, Codex, OpenCode, Copilot) benefit from isolation — not just Claude Code.
 
 ## How It Works
 
 ```
-Main Worktree (Agent A — Coordinator)
-├── Coordinates and reviews
-└── Merges results
-
-.claude/worktrees/worker-1/ (Agent B)
-├── Independent branch: worktree-worker-1
-├── Independent staging area
-└── Shared .git/objects/ (disk efficient)
-
-.claude/worktrees/worker-2/ (Agent C)
-├── Independent branch: worktree-worker-2
-├── Independent staging area
-└── Shared .git/objects/
+Main Worktree (your terminal)
+├── Normal repo checkout
+└── .synapse/worktrees/
+    ├── bold-hawk/           (Agent A — auto-generated name)
+    │   ├── .git (file)      ← Points to main .git
+    │   ├── src/
+    │   └── ...              Branch: worktree-bold-hawk
+    └── feature-auth/        (Agent B — explicit name)
+        ├── .git (file)
+        ├── src/
+        └── ...              Branch: worktree-feature-auth
 ```
 
 **Benefits:**
 
-- No file conflicts between agents (different branches)
-- Efficient disk usage (shared object database)
-- Each agent has a fully independent working copy
-- Changes merge via standard Git at the end
+- No file conflicts between agents (each on its own branch)
+- Efficient disk usage (shared object database under `.git/`)
+- Works with every CLI agent, not just Claude Code
+- Automatic cleanup on agent exit or `synapse kill` (checks both uncommitted changes and new commits)
 
 ## Usage
 
+### Spawn with Worktree
+
+```bash
+# Auto-generated name (e.g., bold-hawk)
+synapse spawn claude --worktree
+
+# Explicit name
+synapse spawn claude --worktree feature-auth --name Auth --role "auth implementation"
+
+# Short flag
+synapse spawn gemini -w
+```
+
 ### Team Start with Worktree
 
-```bash
-synapse team start claude gemini -- --worktree
-```
-
-Each agent gets a worktree in `.claude/worktrees/<name>/` with a dedicated branch.
-
-### Single Agent with Worktree
+Each agent gets its own worktree automatically:
 
 ```bash
-synapse spawn claude --name Worker --role "feature implementation" -- --worktree
+# Auto names
+synapse team start claude gemini --worktree
+
+# Name prefix (generates task-claude-0, task-gemini-1)
+synapse team start claude gemini --worktree task
 ```
 
-### Named Worktree
+### Profile Shortcut
 
 ```bash
-synapse spawn claude --name auth-worker -- --worktree auth-feature
+synapse claude --worktree my-feature
+synapse gemini -w
 ```
 
-!!! info "Claude Code Only"
-    `--worktree` is a Claude Code flag passed after `--`. Other CLI tools silently ignore unknown flags.
+### Spawn via API
+
+```bash
+# Auto name
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "worktree": true}'
+
+# Explicit name
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "codex", "worktree": "helper-task"}'
+```
+
+Response includes worktree metadata:
+
+```json
+{
+  "agent_id": "synapse-gemini-8110",
+  "port": 8110,
+  "status": "submitted",
+  "worktree_path": "/repo/.synapse/worktrees/bold-hawk",
+  "worktree_branch": "worktree-bold-hawk"
+}
+```
 
 ## Lifecycle
 
-1. **Create**: Agent starts → worktree created at `.claude/worktrees/<name>/`
-2. **Work**: Agent makes changes on isolated branch
-3. **Cleanup**:
-    - No changes → auto-delete worktree and branch
-    - Has changes → keep for manual merge
+1. **Create**: `git worktree add .synapse/worktrees/<name> -b worktree-<name> <base-branch>`
+2. **Run**: Agent process starts with `cwd` set to the worktree directory
+3. **Register**: Registry records `worktree_path`, `worktree_branch`, and `worktree_base_branch`
+4. **Display**: `synapse list` shows `[WT]` prefix in the WORKING_DIR column
+5. **Cleanup** (checks for uncommitted changes **and** new commits beyond the base branch):
+    - No changes AND no new commits → auto-delete worktree and branch
+    - Changes or new commits exist (interactive) → prompt to keep or force-remove
+    - Changes or new commits exist (non-interactive) → keep worktree, print path and branch
+
+The base branch is determined by `get_default_remote_branch()`, which uses a 3-step fallback:
+
+1. `git symbolic-ref refs/remotes/origin/HEAD` (e.g., `origin/main`)
+2. `origin/main` (if the ref exists locally)
+3. `HEAD` (last resort)
+
+Override with the `SYNAPSE_WORKTREE_BASE_BRANCH` environment variable when you need a specific base branch.
+
+## Monitoring
+
+`synapse list` shows worktree agents with a `[WT]` indicator:
+
+```
+TYPE    NAME    PORT  STATUS  WORKING_DIR
+claude  Auth    8100  READY   [WT] feature-auth
+gemini  -       8110  READY   synapse-a2a
+```
 
 ## Post-Work Merge
 
 After agents complete their work:
 
 ```bash
-# Kill workers
-synapse kill worker-1 -f
-synapse kill worker-2 -f
+# Kill workers (worktree auto-cleaned if no changes and no new commits)
+synapse kill Auth -f
+synapse kill gemini -f
 
-# Merge changes
-git merge worktree-worker-1
-git merge worktree-worker-2
+# If worktrees were kept (had uncommitted changes or new commits):
+# Merge changes from worktree branches
+git merge worktree-feature-auth
+git merge worktree-bold-hawk
 
-# Clean up worktrees
-git worktree remove .claude/worktrees/worker-1
-git worktree remove .claude/worktrees/worker-2
-
-# Delete branches
-git branch -d worktree-worker-1
-git branch -d worktree-worker-2
+# Clean up branches
+git branch -d worktree-feature-auth
+git branch -d worktree-bold-hawk
 ```
+
+## Synapse vs Claude Code Worktree
+
+| Feature | Synapse `--worktree` | Claude Code `-- --worktree` |
+|---------|---------------------|---------------------------|
+| Directory | `.synapse/worktrees/` | `.claude/worktrees/` |
+| Managed by | Synapse | Claude Code |
+| Supported agents | All (Claude, Gemini, Codex, OpenCode, Copilot) | Claude Code only |
+| Cleanup | On agent exit or `synapse kill` | On Claude Code session end |
+| Flag position | Before `--` (Synapse flag) | After `--` (tool flag) |
+
+!!! tip "Which to use?"
+    Use Synapse's `--worktree` for multi-agent workflows. Use Claude Code's `-- --worktree` only when you need Claude Code-specific worktree behavior. Do not combine both — it would create nested worktrees.
+
+## Use Cases
+
+### Implementation + Testing in Parallel
+
+```bash
+synapse team start claude:Implementer gemini:Tester --worktree
+# Implementer works in .synapse/worktrees/<name-1>/ on feature code
+# Tester works in .synapse/worktrees/<name-2>/ on test code
+# No file conflicts — merge both branches when done
+```
+
+### Isolated Code Review
+
+```bash
+synapse spawn claude --worktree review --name Reviewer --role "code reviewer"
+# Reviewer operates on worktree-review branch
+# Review annotations don't touch the main working directory
+```
+
+### Multiple Features Simultaneously
+
+```bash
+synapse spawn claude --worktree auth --name AuthDev --role "implement auth"
+synapse spawn gemini --worktree api --name APIDev --role "implement API endpoints"
+# Each agent on its own branch, merge independently
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SYNAPSE_WORKTREE_PATH` | Auto | Worktree directory path (set at spawn) |
+| `SYNAPSE_WORKTREE_BRANCH` | Auto | Worktree branch name (set at spawn) |
+| `SYNAPSE_WORKTREE_BASE_BRANCH` | Auto | Base branch used for new-commit detection during cleanup (set at spawn via `get_default_remote_branch()`) |
 
 ## Important Notes
 
 - Files in `.gitignore` are **not copied** to worktrees (e.g., `.env`, `node_modules/`)
 - Each worktree may need dependency installation (`uv sync`, `npm install`)
-- Add `.claude/worktrees/` to your `.gitignore`
+- Add `.synapse/worktrees/` to your `.gitignore`
 - Crashed agents may leave worktrees behind — clean up with `git worktree remove -f`
 - The same branch cannot be checked out in multiple worktrees simultaneously
 
@@ -100,17 +199,17 @@ project/
 │   ├── objects/              ← Shared (all worktrees use this)
 │   ├── refs/heads/
 │   │   ├── main
-│   │   ├── worktree-alpha
-│   │   └── worktree-beta
+│   │   ├── worktree-bold-hawk
+│   │   └── worktree-feature-auth
 │   └── worktrees/
-│       ├── alpha/            ← Worktree metadata
-│       └── beta/
-├── .claude/worktrees/
-│   ├── alpha/                ← Full working copy
-│   │   ├── .git (file)      ← Points to main .git
+│       ├── bold-hawk/        ← Worktree metadata
+│       └── feature-auth/
+├── .synapse/worktrees/
+│   ├── bold-hawk/            ← Full working copy
+│   │   ├── .git (file)       ← Points to main .git
 │   │   ├── src/
 │   │   └── ...
-│   └── beta/
+│   └── feature-auth/
 │       ├── .git (file)
 │       ├── src/
 │       └── ...

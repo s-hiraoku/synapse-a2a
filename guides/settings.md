@@ -549,7 +549,10 @@ Proceed? [Y/n/s(skip)]:
 # Synapse local settings (contains secrets)
 .synapse/settings.local.json
 
-# Claude Code worktrees (created by --worktree flag)
+# Synapse worktrees (created by synapse --worktree / synapse spawn --worktree)
+.synapse/worktrees/
+
+# Claude Code worktrees (created by -- --worktree flag, Claude only)
 .claude/worktrees/
 ```
 
