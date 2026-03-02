@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -195,6 +196,31 @@ def get_default_remote_branch() -> str:
 # ============================================================
 
 
+_WORKTREE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
+_WORKTREE_NAME_MAX_LEN = 100
+
+
+def _validate_worktree_name(name: str) -> str:
+    """Validate and return a safe worktree name.
+
+    Raises:
+        ValueError: If the name contains unsafe characters.
+    """
+    name = name.strip()
+    if not name:
+        raise ValueError("Worktree name must not be empty")
+    if len(name) > _WORKTREE_NAME_MAX_LEN:
+        raise ValueError(
+            f"Worktree name too long ({len(name)} chars, max {_WORKTREE_NAME_MAX_LEN})"
+        )
+    if not _WORKTREE_NAME_RE.match(name):
+        raise ValueError(
+            f"Invalid worktree name '{name}': "
+            "only alphanumerics, hyphens, dots, and underscores are allowed"
+        )
+    return name
+
+
 def create_worktree(name: str | None = None) -> WorktreeInfo:
     """Create a new git worktree under ``.synapse/worktrees/``.
 
@@ -206,12 +232,12 @@ def create_worktree(name: str | None = None) -> WorktreeInfo:
 
     Raises:
         RuntimeError: If not in a git repo, directory exists, or git fails.
+        ValueError: If the provided name contains unsafe characters.
     """
     git_root = get_git_root()
     base_branch = get_default_remote_branch()
 
-    if name is None:
-        name = generate_worktree_name()
+    name = generate_worktree_name() if name is None else _validate_worktree_name(name)
 
     worktree_dir = git_root / ".synapse" / "worktrees" / name
     branch_name = f"worktree-{name}"
@@ -297,39 +323,54 @@ def remove_worktree(path: Path, branch: str, force: bool = False) -> bool:
 def has_uncommitted_changes(path: Path) -> bool:
     """Check if a worktree directory has uncommitted changes.
 
-    Args:
-        path: Worktree directory path.
-
-    Returns:
-        True if there are uncommitted changes.
+    Returns True on subprocess failure to avoid accidental cleanup.
     """
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            cwd=str(path),
+        )
+    except OSError:
+        logger.warning("git status failed for %s", path, exc_info=True)
+        return True
+    if result.returncode != 0:
+        logger.warning(
+            "git status returned %d for %s: %s",
+            result.returncode,
+            path,
+            result.stderr.strip(),
+        )
+        return True
     return bool(result.stdout.strip())
 
 
 def has_new_commits(path: Path, base_branch: str) -> bool:
     """Check if a worktree branch has commits beyond the base branch.
 
-    Args:
-        path: Worktree directory path.
-        base_branch: The branch the worktree was created from (e.g., ``origin/main``).
-
-    Returns:
-        True if the worktree branch has commits not in the base branch.
+    Returns True on subprocess failure to avoid accidental cleanup.
     """
     if not base_branch:
         return False
-    result = subprocess.run(
-        ["git", "log", f"{base_branch}..HEAD", "--oneline"],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
+    try:
+        result = subprocess.run(
+            ["git", "log", f"{base_branch}..HEAD", "--oneline"],
+            capture_output=True,
+            text=True,
+            cwd=str(path),
+        )
+    except OSError:
+        logger.warning("git log failed for %s", path, exc_info=True)
+        return True
+    if result.returncode != 0:
+        logger.warning(
+            "git log returned %d for %s: %s",
+            result.returncode,
+            path,
+            result.stderr.strip(),
+        )
+        return True
     return bool(result.stdout.strip())
 
 

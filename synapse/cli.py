@@ -225,18 +225,27 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
 
 
 def _try_cleanup_worktree(agent_info: dict) -> None:
-    """Clean up a worktree if the agent was running in one."""
+    """Clean up a worktree if the agent was running in one.
+
+    Any exception is caught and logged so that callers (cmd_kill,
+    cmd_run_interactive) are never interrupted by cleanup failures.
+    """
     wt_path = agent_info.get("worktree_path")
     wt_branch = agent_info.get("worktree_branch")
     if not wt_path or not wt_branch:
         return
 
-    from synapse.worktree import cleanup_worktree, worktree_info_from_registry
+    try:
+        from synapse.worktree import cleanup_worktree, worktree_info_from_registry
 
-    wt_base = agent_info.get("worktree_base_branch", "")
-    wt_info = worktree_info_from_registry(wt_path, wt_branch, wt_base)
-    is_tty = sys.stdin.isatty() and sys.stdout.isatty()
-    cleanup_worktree(wt_info, interactive=is_tty)
+        wt_base = agent_info.get("worktree_base_branch", "")
+        wt_info = worktree_info_from_registry(wt_path, wt_branch, wt_base)
+        is_tty = sys.stdin.isatty() and sys.stdout.isatty()
+        cleanup_worktree(wt_info, interactive=is_tty)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Worktree cleanup failed for %s", wt_path, exc_info=True
+        )
 
 
 def cmd_kill(args: argparse.Namespace) -> None:
@@ -2777,7 +2786,7 @@ _SYNAPSE_FLAGS = {
     "--layout",
     "--all-new",
     "--worktree",
-    "-w",
+    # Note: -w omitted to avoid false positives with CLI tools that use -w
 }
 
 
@@ -3007,6 +3016,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         from synapse.worktree import create_worktree
 
         worktree_infos = []
+        launched_names = []
         for i, agent_spec in enumerate(agents):
             profile = agent_spec.split(":")[0]
             if isinstance(worktree_opt, str):
@@ -3018,7 +3028,6 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             except RuntimeError as e:
                 print(f"Error creating worktree for {profile}: {e}", file=sys.stderr)
                 sys.exit(1)
-            worktree_infos.append(wt_info)
 
             extra_env = {
                 "SYNAPSE_WORKTREE_PATH": str(wt_info.path),
@@ -3034,11 +3043,26 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 cwd=str(wt_info.path),
                 extra_env=extra_env,
             )
+            if not commands:
+                print(
+                    f"  {profile}: failed to create pane, rolling back worktree",
+                    file=sys.stderr,
+                )
+                from synapse.worktree import remove_worktree
+
+                remove_worktree(wt_info.path, wt_info.branch, force=True)
+                continue
             _run_pane_commands(commands)
+            worktree_infos.append(wt_info)
+            launched_names.append(profile)
             print(f"  {profile}: {wt_info.path} ({wt_info.branch})")
 
-        display_names = [a.split(":")[0] for a in agents]
-        print(f"Started {len(agents)} agents in worktrees: {', '.join(display_names)}")
+        if launched_names:
+            print(
+                f"Started {len(launched_names)} agents in worktrees: {', '.join(launched_names)}"
+            )
+        else:
+            print("No agents were launched.", file=sys.stderr)
         return
 
     if all_new:
@@ -3557,6 +3581,11 @@ def cmd_run_interactive(
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
+    # Initialize worktree locals before try so finally always has them
+    worktree_path: str | None = None
+    worktree_branch: str | None = None
+    worktree_base_branch: str | None = None
+
     try:
         # Start the API server in background (TCP + UDS)
         import threading
@@ -3644,14 +3673,13 @@ def cmd_run_interactive(
         registry.unregister(agent_id)
         controller.stop()
 
-        with contextlib.suppress(Exception):
-            _try_cleanup_worktree(
-                {
-                    "worktree_path": worktree_path,
-                    "worktree_branch": worktree_branch,
-                    "worktree_base_branch": worktree_base_branch,
-                }
-            )
+        _try_cleanup_worktree(
+            {
+                "worktree_path": worktree_path,
+                "worktree_branch": worktree_branch,
+                "worktree_base_branch": worktree_base_branch,
+            }
+        )
 
 
 def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:

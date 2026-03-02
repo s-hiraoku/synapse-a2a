@@ -81,7 +81,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.6.x Series
 
 - Copilot CLI profile and spawn support
-- Tool args passthrough (`synapse spawn claude -- --worktree`) — now superseded by Synapse-native `--worktree` flag
+- Tool args passthrough (`synapse spawn claude -- --worktree`) — Synapse-native `--worktree` flag is now recommended; passthrough remains supported for Claude Code
 - Send UX improvements (message-file, stdin, auto-temp)
 - File attachment support (`--attach`)
 

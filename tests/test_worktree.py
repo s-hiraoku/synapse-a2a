@@ -10,6 +10,7 @@ import pytest
 from synapse.worktree import (
     WorktreeInfo,
     _ref_exists,
+    _validate_worktree_name,
     cleanup_worktree,
     create_worktree,
     generate_worktree_name,
@@ -233,6 +234,50 @@ class TestCreateWorktree:
 
 
 # ============================================================
+# _validate_worktree_name
+# ============================================================
+
+
+class TestValidateWorktreeName:
+    def test_valid_names(self) -> None:
+        assert _validate_worktree_name("bold-fox") == "bold-fox"
+        assert _validate_worktree_name("feature.1") == "feature.1"
+        assert _validate_worktree_name("my_task") == "my_task"
+        assert _validate_worktree_name("a") == "a"
+
+    def test_strips_whitespace(self) -> None:
+        assert _validate_worktree_name("  bold-fox  ") == "bold-fox"
+
+    def test_empty_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_worktree_name("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_worktree_name("   ")
+
+    def test_too_long_raises(self) -> None:
+        with pytest.raises(ValueError, match="too long"):
+            _validate_worktree_name("a" * 101)
+
+    def test_path_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("../escape")
+
+    def test_slash_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("foo/bar")
+
+    def test_starts_with_hyphen_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("-bad")
+
+    def test_spaces_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("has space")
+
+
+# ============================================================
 # remove_worktree
 # ============================================================
 
@@ -443,6 +488,6 @@ class TestCleanupWorktree:
         mock_remove: MagicMock,
     ) -> None:
         info = self._make_info()
-        result = cleanup_worktree(info, interactive=False)
+        result = cleanup_worktree(info, interactive=True)
         assert result is False
         mock_remove.assert_not_called()

@@ -86,12 +86,8 @@ class TestCmdSpawnWithWorktree:
 
     @patch("synapse.spawn.create_panes", return_value=["echo test"])
     @patch("subprocess.run")
-    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
-    @patch("synapse.worktree.get_git_root")
     def test_cmd_spawn_with_worktree_calls_create_worktree(
         self,
-        mock_git_root: MagicMock,
-        mock_remote: MagicMock,
         mock_subprocess_run: MagicMock,
         mock_create_panes: MagicMock,
         tmp_path: Path,
@@ -99,7 +95,6 @@ class TestCmdSpawnWithWorktree:
         from synapse.spawn import spawn_agent
         from synapse.worktree import WorktreeInfo
 
-        mock_git_root.return_value = tmp_path
         mock_subprocess_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         wt_dir = tmp_path / ".synapse" / "worktrees" / "test-wt"
