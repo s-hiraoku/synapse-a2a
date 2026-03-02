@@ -295,9 +295,9 @@ sequenceDiagram
 **1. Spawn agents with worktree isolation:**
 
 ```bash
-synapse spawn claude --name Backend --role "backend refactoring" -- --worktree
-synapse spawn codex --name Models --role "data model refactoring" -- --worktree
-synapse spawn gemini --name API --role "API layer refactoring" -- --worktree
+synapse spawn claude --worktree --name Backend --role "backend refactoring"
+synapse spawn codex --worktree --name Models --role "data model refactoring"
+synapse spawn gemini --worktree --name API --role "API layer refactoring"
 ```
 
 **2. Delegate each module:**
@@ -320,17 +320,17 @@ synapse list
 synapse broadcast "Status update — how far along are you?" --wait
 ```
 
-**4. After all agents finish, merge worktrees:**
+**4. After all agents finish, merge worktree branches:**
 
 ```bash
-git merge backend-worktree-branch
-git merge models-worktree-branch
-git merge api-worktree-branch
+git merge worktree-Backend
+git merge worktree-Models
+git merge worktree-API
 ```
 
 ### Expected Result
 
-Three agents work simultaneously in isolated worktrees. No file conflicts during development. Manager merges the branches once all agents report completion.
+Three agents work simultaneously in isolated worktrees under `.synapse/worktrees/`. No file conflicts during development. Manager merges the branches once all agents report completion.
 
 ---
 
@@ -540,7 +540,7 @@ git diff
 ```
 
 !!! warning "File conflicts"
-    When agents write to the same file, use worktree isolation (`-- --worktree`) to prevent conflicts. Without worktrees, the last agent to write wins.
+    When agents write to the same file, use worktree isolation (`--worktree`) to prevent conflicts. Without worktrees, the last agent to write wins.
 
 ### Expected Result
 
@@ -631,7 +631,7 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 | **Track with Task Board** | `synapse tasks` provides a shared view of what's done and what's pending |
 | **Trace for auditing** | `synapse trace <task_id>` shows the full history of a task across agents |
 | **Choose response mode wisely** | `--wait` when you need the result, `--silent` for fire-and-forget delegation |
-| **Use worktrees for parallel edits** | `-- --worktree` prevents file conflicts when agents modify the same files |
+| **Use worktrees for parallel edits** | `--worktree` prevents file conflicts when agents modify the same files |
 | **Broadcast for team coordination** | `synapse broadcast` reaches all agents at once for status checks or announcements |
 
 ## Related Pages

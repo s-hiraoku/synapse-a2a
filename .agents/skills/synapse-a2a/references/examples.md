@@ -234,17 +234,18 @@ synapse send worker-2 "Write tests in tests/test_auth.py"
 
 ### Manager + Worker with Worktree Isolation
 
-Use `--worktree` to give each Worker its own copy of the repository, preventing file conflicts when multiple agents edit code simultaneously. The Manager stays in the main working tree (it delegates, not edits).
+Use `--worktree` to give each Worker its own copy of the repository, preventing file conflicts when multiple agents edit code simultaneously. The Manager stays in the main working tree (it delegates, not edits). `--worktree` is a Synapse-level flag that works for **all** agent types.
 
 ```bash
 # Terminal 1: Manager (delegate-mode — no file editing)
 synapse claude --delegate-mode --name manager
 
 # Spawn Workers in isolated worktrees (each gets its own branch)
-synapse spawn claude --name worker-1 --role "auth implementer" -- --worktree
-synapse spawn claude --name worker-2 --role "test writer" -- --worktree
+# --worktree is a Synapse flag — place it before '--', not after
+synapse spawn claude --name worker-1 --role "auth implementer" --worktree
+synapse spawn gemini --name worker-2 --role "test writer" --worktree
 
-# Confirm readiness
+# Confirm readiness — worktree agents show [WT] prefix in WORKING_DIR
 synapse list   # Verify worker-1 and worker-2 show STATUS=READY
 
 # Delegate parallel tasks — no file conflicts thanks to worktrees
@@ -253,19 +254,18 @@ synapse send worker-2 "Write tests for src/auth.py in tests/test_auth.py" --sile
 # Collect results
 synapse send worker-1 "Report your progress" --wait
 synapse send worker-2 "Report your progress" --wait
-# Cleanup — MUST kill Workers when done
+# Cleanup — MUST kill Workers when done (synapse kill also cleans up worktrees)
 synapse kill worker-1 -f
 synapse kill worker-2 -f
 
-# After killing, handle worktree branches:
-# - Check for uncommitted changes in .claude/worktrees/<name>/
+# After killing, handle worktree branches if changes were kept:
 # - Merge worktree branch into current branch or create a PR:
-#     git merge worktree-worker-1
+#     git merge worktree-<name>
 # - Or delete if no changes remain:
-#     git branch -d worktree-worker-1
+#     git branch -d worktree-<name>
 ```
 
-**Note:** `--worktree` is a Claude Code flag (not Synapse). It creates a git worktree at `.claude/worktrees/<name>/` with a dedicated branch. Files listed in `.gitignore` (`.env`, `.venv/`, `node_modules/`) are not copied — Workers may need `uv sync` or `npm install` before building/testing. On exit: worktrees with no changes are auto-deleted along with their branch; worktrees with changes or commits prompt to keep or remove. Since `synapse spawn` adds `--no-setup --headless` automatically, agents run non-interactively — verify that headless mode does not suppress the cleanup prompt in your environment. Other agent types (Gemini, Codex) do not support this flag but silently ignore it when passed via `-- --worktree`.
+**Note:** `--worktree` is a Synapse-native flag (not a Claude Code flag). It creates a git worktree at `.synapse/worktrees/<name>/` with a branch named `worktree-<name>`. Works for all agent types (Claude, Gemini, Codex, OpenCode, Copilot). Files listed in `.gitignore` (`.env`, `.venv/`, `node_modules/`) are not copied -- Workers may need `uv sync` or `npm install` before building/testing. On exit: cleanup checks for both uncommitted changes **and** new commits (vs. the base branch tracked via `SYNAPSE_WORKTREE_BASE_BRANCH`); worktrees with neither are auto-deleted along with their branch, worktrees with either prompt to keep or remove. The registry stores `worktree_base_branch` for accurate commit detection. `synapse kill` also handles worktree cleanup.
 
 ### Quick Team Start (tmux)
 

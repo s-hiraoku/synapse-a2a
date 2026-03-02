@@ -74,9 +74,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reopen task | `synapse tasks reopen <id>` |
 | Approve plan | `synapse approve <task_id>` |
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
-| Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new]` (1st=handoff, rest=new panes; `--all-new` for all new) |
+| Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new] [--worktree]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
-| Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal]` |
+| Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal] [--worktree]` |
 | Delegate mode | `synapse claude --delegate-mode [--name manager]` |
 | Version info | `synapse --version` |
 | Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
@@ -452,9 +452,9 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Plan Approval**: Plan-mode workflow with `synapse approve/reject` for review
 - **Graceful Shutdown**: `synapse kill` — multi-phase: shutdown request → SIGTERM → SIGKILL (30s budget, `-f` for immediate SIGKILL)
 - **Delegate Mode**: `--delegate-mode` creates a manager that delegates instead of editing files
-- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
+- **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. `--worktree` for per-agent worktree isolation. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. `--no-setup --headless` are always added.
-- **Worktree Isolation**: Pass `-- --worktree` to give agents an isolated git worktree, preventing file conflicts in multi-agent setups (`--worktree` is a Claude Code flag passed via `tool_args`; other CLIs silently ignore it)
+- **Worktree Isolation**: `--worktree` / `-w` is a Synapse-level flag that gives each agent an isolated git worktree under `.synapse/worktrees/<name>/`, preventing file conflicts in multi-agent setups. Works for ALL agent types (Claude, Gemini, Codex, OpenCode, Copilot). Usage: `synapse spawn claude --worktree`, `synapse team start claude gemini --worktree`. `synapse list` shows `[WT]` prefix for worktree agents. Env vars: `SYNAPSE_WORKTREE_PATH`, `SYNAPSE_WORKTREE_BRANCH`, `SYNAPSE_WORKTREE_BASE_BRANCH`. Cleanup detects both uncommitted changes and new commits (vs. the base branch) before deciding whether to auto-delete.
 - **CI Monitoring**: Automated PostToolUse hooks (`poll-ci.sh`, `poll-pr-status.sh`) detect `git push` and `gh pr create`, then poll GitHub Actions CI status, merge conflict state, and CodeRabbit reviews. Reports results via `systemMessage` and suggests `/fix-ci`, `/fix-conflict`, or `/fix-review` as appropriate.
 
 ### Task Board Workflow Pattern (Kanban)
@@ -616,6 +616,8 @@ synapse spawn claude                          # Spawn in new pane
 synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
+synapse spawn claude --worktree              # Spawn in isolated worktree
+synapse spawn claude -w my-feature           # Named worktree
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 synapse spawn gemini -- -y                               # Gemini yolo mode
 synapse spawn codex -- --full-auto                       # Codex sandboxed auto-approve
@@ -625,16 +627,20 @@ synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```jsonc
 // POST /spawn (API — agents can spawn programmatically)
 {"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["-y"]}
+// With worktree isolation:
+{"profile": "gemini", "name": "Worker", "worktree": true}
+{"profile": "claude", "name": "Worker", "worktree": "my-feature"}
+// Returns: {agent_id, port, terminal_used, status, worktree_path, worktree_branch, worktree_base_branch}
 // Claude example:
 {"profile": "claude", "name": "Worker", "tool_args": ["--dangerously-skip-permissions"]}
 // Codex example:
 {"profile": "codex", "name": "Coder", "tool_args": ["--full-auto"]}
-// Returns: {agent_id, port, terminal_used, status} (on failure: includes reason)
+// On failure: {"status": "failed", "reason": "..."}
 ```
 
-### Worktree Isolation (Claude Code flag, passed via `--`)
+### Worktree Isolation (Synapse-native flag)
 
-`--worktree` is a Claude Code flag. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it. Consider using it to give each agent an isolated copy of the repository, preventing file conflicts when multiple agents edit the same codebase.
+`--worktree` / `-w` is a **Synapse-level flag** that creates an isolated git worktree for each agent. It works for **all** agent types (Claude, Gemini, Codex, OpenCode, Copilot) and is placed **before** `--` (not as a tool arg). Each worktree is created under `.synapse/worktrees/<name>/` with a branch named `worktree-<name>`.
 
 **Decision Table:**
 
@@ -648,25 +654,46 @@ synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 **Usage:**
 
 ```bash
-# Spawn Claude in an isolated worktree
-synapse spawn claude --name Impl --role "implementer" -- --worktree
+# Spawn any agent in an isolated worktree (auto-generated name)
+synapse spawn claude --name Impl --role "implementer" --worktree
+synapse spawn gemini --name Analyst --role "analyzer" -w
 
-# Named worktree (creates .claude/worktrees/feat-auth/ with branch worktree-feat-auth)
-synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth
+# Named worktree (creates .synapse/worktrees/feat-auth/ with branch worktree-feat-auth)
+synapse spawn claude --name Impl --role "implementer" --worktree feat-auth
 
-# Team start (--worktree is passed to ALL agents; currently only Claude acts on it)
-synapse team start claude gemini -- --worktree
-# If non-Claude agents may error on unknown flags, target Claude only:
-synapse team start claude -- --worktree
+# Team start with worktree per agent
+synapse team start claude gemini --worktree
+synapse team start claude gemini codex -w my-feature  # Named prefix: my-feature-claude-0, my-feature-gemini-1, etc.
+```
+
+**`synapse list` indicator:**
+
+Agents running in worktrees show a `[WT]` prefix in the WORKING_DIR column.
+
+**Environment variables** (set automatically by Synapse for worktree agents):
+
+| Variable | Description |
+|----------|-------------|
+| `SYNAPSE_WORKTREE_PATH` | Absolute path to the worktree directory |
+| `SYNAPSE_WORKTREE_BRANCH` | Branch name of the worktree |
+| `SYNAPSE_WORKTREE_BASE_BRANCH` | Base branch the worktree was created from (e.g., `origin/main`). Used for change detection during cleanup. Determined via 3-step fallback: `git symbolic-ref` -> `origin/main` -> `HEAD`. |
+
+**API (`POST /spawn`):**
+
+```jsonc
+{"profile": "gemini", "name": "Worker", "worktree": true}          // auto-named
+{"profile": "claude", "name": "Worker", "worktree": "feat-auth"}   // named
+// Response includes: worktree_path, worktree_branch, worktree_base_branch
 ```
 
 **Caveats:**
 
-- `--worktree` is a **Claude Code flag**, not a Synapse flag. Pass it after `--` as a tool arg.
-- Synapse forwards `tool_args` (including `--worktree`) to **all** spawned agents without filtering by agent type. Whether a flag is honored depends on each agent's CLI: Claude Code supports `--worktree`; other CLIs (Gemini, Codex, OpenCode, Copilot) currently silently ignore unknown flags, but this is not guaranteed — restrict flags after `--` if a target CLI may error on unrecognized options.
+- `--worktree` is a **Synapse flag**. Place it **before** `--`. Placing it after `--` triggers a warning because it would be passed to the underlying CLI as a tool arg instead.
 - `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are **not copied** to the worktree. Run `uv sync`, `npm install`, or copy `.env` manually if needed.
-- On exit: worktrees with no changes are auto-deleted; worktrees with changes prompt to keep or remove.
-- Consider adding `.claude/worktrees/` to your `.gitignore` to prevent untracked worktree files from cluttering `git status`.
+- On exit: worktrees with no uncommitted changes **and** no new commits (vs. the base branch) are auto-deleted; worktrees with either uncommitted changes or new commits prompt to keep or remove.
+- `synapse kill` also handles worktree cleanup for killed agents.
+- The registry stores `worktree_base_branch` so cleanup can compare the worktree HEAD against the branch it was created from.
+- Consider adding `.synapse/worktrees/` to your `.gitignore` to prevent untracked worktree files from cluttering `git status`.
 
 ### Technical Notes
 

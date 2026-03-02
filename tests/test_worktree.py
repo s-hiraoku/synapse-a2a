@@ -1,0 +1,494 @@
+"""Tests for synapse.worktree module."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from synapse.worktree import (
+    WorktreeInfo,
+    _ref_exists,
+    _validate_worktree_name,
+    cleanup_worktree,
+    create_worktree,
+    generate_worktree_name,
+    get_default_remote_branch,
+    get_git_root,
+    has_new_commits,
+    has_uncommitted_changes,
+    has_worktree_changes,
+    remove_worktree,
+    worktree_info_from_registry,
+)
+
+# ============================================================
+# get_git_root
+# ============================================================
+
+
+class TestGetGitRoot:
+    def test_returns_path(self) -> None:
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="/repo\n", stderr="")
+            result = get_git_root()
+            assert result == Path("/repo")
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            assert cmd == ["git", "rev-parse", "--show-toplevel"]
+
+    def test_raises_when_not_git_repo(self) -> None:
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=128, stdout="", stderr="fatal: not a git repository"
+            )
+            with pytest.raises(RuntimeError, match="Not a git repository"):
+                get_git_root()
+
+
+# ============================================================
+# get_default_remote_branch
+# ============================================================
+
+
+class TestRefExists:
+    def test_ref_exists_true(self) -> None:
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            assert _ref_exists("origin/main") is True
+
+    def test_ref_exists_false(self) -> None:
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=128)
+            assert _ref_exists("origin/nonexistent") is False
+
+
+class TestGetDefaultRemoteBranch:
+    def test_parses_origin_main(self) -> None:
+        """symbolic-ref returns origin/main and it exists locally."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout="refs/remotes/origin/main\n", stderr=""),
+                MagicMock(returncode=0),  # _ref_exists("origin/main") -> True
+            ]
+            result = get_default_remote_branch()
+            assert result == "origin/main"
+
+    def test_parses_origin_master(self) -> None:
+        """symbolic-ref returns origin/master and it exists locally."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(
+                    returncode=0, stdout="refs/remotes/origin/master\n", stderr=""
+                ),
+                MagicMock(returncode=0),  # _ref_exists("origin/master") -> True
+            ]
+            result = get_default_remote_branch()
+            assert result == "origin/master"
+
+    def test_fallback_to_origin_main_on_failure(self) -> None:
+        """symbolic-ref fails, falls back to origin/main which exists."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=128, stdout="", stderr="fatal: ref not found"),
+                MagicMock(returncode=0),  # _ref_exists("origin/main") -> True
+            ]
+            result = get_default_remote_branch()
+            assert result == "origin/main"
+
+    def test_symbolic_ref_points_to_nonexistent_branch(self) -> None:
+        """symbolic-ref succeeds but ref doesn't exist locally — fall back to origin/main."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(
+                    returncode=0, stdout="refs/remotes/origin/feature/gone\n", stderr=""
+                ),
+                MagicMock(
+                    returncode=128
+                ),  # _ref_exists("origin/feature/gone") -> False
+                MagicMock(returncode=0),  # _ref_exists("origin/main") -> True
+            ]
+            result = get_default_remote_branch()
+            assert result == "origin/main"
+
+    def test_fallback_to_head_when_no_remote(self) -> None:
+        """Both symbolic-ref and origin/main fail — fall back to HEAD."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(
+                    returncode=128, stdout="", stderr="fatal"
+                ),  # symbolic-ref fails
+                MagicMock(returncode=128),  # _ref_exists("origin/main") -> False
+            ]
+            result = get_default_remote_branch()
+            assert result == "HEAD"
+
+
+# ============================================================
+# generate_worktree_name
+# ============================================================
+
+
+class TestGenerateWorktreeName:
+    def test_format_adjective_noun(self) -> None:
+        name = generate_worktree_name()
+        parts = name.split("-")
+        assert len(parts) == 2, f"Expected adjective-noun format, got: {name}"
+
+    def test_unique_names(self) -> None:
+        names = {generate_worktree_name() for _ in range(50)}
+        # With ~1600 combinations, 50 samples should have very few collisions
+        assert len(names) >= 40
+
+
+# ============================================================
+# create_worktree
+# ============================================================
+
+
+class TestCreateWorktree:
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_create_worktree_auto_name(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch(
+            "synapse.worktree.generate_worktree_name", return_value="bright-falcon"
+        ):
+            with patch("pathlib.Path.exists", return_value=False):
+                info = create_worktree()
+
+        assert info.name == "bright-falcon"
+        assert info.branch == "worktree-bright-falcon"
+        assert info.path == Path("/repo/.synapse/worktrees/bright-falcon")
+        assert info.base_branch == "origin/main"
+
+        # Verify git worktree add was called
+        calls = mock_run.call_args_list
+        add_call = [c for c in calls if "worktree" in str(c)]
+        assert len(add_call) >= 1
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_create_worktree_with_name(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("pathlib.Path.exists", return_value=False):
+            info = create_worktree(name="feature-auth")
+
+        assert info.name == "feature-auth"
+        assert info.branch == "worktree-feature-auth"
+        assert info.path == Path("/repo/.synapse/worktrees/feature-auth")
+
+    @patch("synapse.worktree.get_git_root")
+    def test_create_worktree_not_in_git_repo(self, mock_git_root: MagicMock) -> None:
+        mock_git_root.side_effect = RuntimeError("Not a git repository")
+        with pytest.raises(RuntimeError, match="Not a git repository"):
+            create_worktree()
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_create_worktree_duplicate_name(
+        self,
+        mock_git_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        with patch("pathlib.Path.exists", return_value=True):
+            with pytest.raises(RuntimeError, match="already exists"):
+                create_worktree(name="existing-wt")
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_create_worktree_git_command_fails(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        mock_run.return_value = MagicMock(
+            returncode=128, stdout="", stderr="fatal: branch already exists"
+        )
+        with patch("pathlib.Path.exists", return_value=False):
+            with pytest.raises(RuntimeError, match="Failed to create worktree"):
+                create_worktree(name="bad-wt")
+
+
+# ============================================================
+# _validate_worktree_name
+# ============================================================
+
+
+class TestValidateWorktreeName:
+    def test_valid_names(self) -> None:
+        assert _validate_worktree_name("bold-fox") == "bold-fox"
+        assert _validate_worktree_name("feature.1") == "feature.1"
+        assert _validate_worktree_name("my_task") == "my_task"
+        assert _validate_worktree_name("a") == "a"
+
+    def test_strips_whitespace(self) -> None:
+        assert _validate_worktree_name("  bold-fox  ") == "bold-fox"
+
+    def test_empty_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_worktree_name("")
+
+    def test_whitespace_only_raises(self) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            _validate_worktree_name("   ")
+
+    def test_too_long_raises(self) -> None:
+        with pytest.raises(ValueError, match="too long"):
+            _validate_worktree_name("a" * 101)
+
+    def test_path_traversal_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("../escape")
+
+    def test_slash_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("foo/bar")
+
+    def test_starts_with_hyphen_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("-bad")
+
+    def test_spaces_rejected(self) -> None:
+        with pytest.raises(ValueError, match="Invalid worktree name"):
+            _validate_worktree_name("has space")
+
+
+# ============================================================
+# remove_worktree
+# ============================================================
+
+
+class TestRemoveWorktree:
+    @patch("subprocess.run")
+    def test_remove_worktree(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = remove_worktree(
+            Path("/repo/.synapse/worktrees/test-wt"), "worktree-test-wt"
+        )
+        assert result is True
+
+        calls = mock_run.call_args_list
+        # Should call: git worktree remove, git branch -d
+        assert len(calls) == 2
+        assert "worktree" in str(calls[0])
+        assert "branch" in str(calls[1])
+
+    @patch("subprocess.run")
+    def test_remove_worktree_force(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = remove_worktree(
+            Path("/repo/.synapse/worktrees/test-wt"), "worktree-test-wt", force=True
+        )
+        assert result is True
+
+        calls = mock_run.call_args_list
+        # worktree remove --force, branch -D
+        remove_cmd = calls[0][0][0]
+        assert "--force" in remove_cmd
+        branch_cmd = calls[1][0][0]
+        assert "-D" in branch_cmd
+
+    @patch("subprocess.run")
+    def test_remove_worktree_failure_returns_false(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+        result = remove_worktree(Path("/nonexistent"), "worktree-nope")
+        assert result is False
+
+
+# ============================================================
+# has_uncommitted_changes
+# ============================================================
+
+
+class TestHasUncommittedChanges:
+    @patch("subprocess.run")
+    def test_has_changes_true(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=" M src/main.py\n", stderr=""
+        )
+        assert has_uncommitted_changes(Path("/repo")) is True
+
+    @patch("subprocess.run")
+    def test_has_changes_false(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        assert has_uncommitted_changes(Path("/repo")) is False
+
+    @patch("subprocess.run")
+    def test_has_changes_whitespace_only(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="  \n", stderr="")
+        assert has_uncommitted_changes(Path("/repo")) is False
+
+
+# ============================================================
+# has_new_commits
+# ============================================================
+
+
+class TestHasNewCommits:
+    @patch("subprocess.run")
+    def test_has_commits_true(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="abc1234 Add feature\n", stderr=""
+        )
+        assert has_new_commits(Path("/repo"), "origin/main") is True
+
+    @patch("subprocess.run")
+    def test_has_commits_false(self, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        assert has_new_commits(Path("/repo"), "origin/main") is False
+
+    def test_empty_base_branch_returns_true(self) -> None:
+        """Missing base_branch is treated as modified (defensive)."""
+        assert has_new_commits(Path("/repo"), "") is True
+
+
+# ============================================================
+# has_worktree_changes
+# ============================================================
+
+
+class TestHasWorktreeChanges:
+    def _make_info(self, base_branch: str = "origin/main") -> WorktreeInfo:
+        return WorktreeInfo(
+            name="test-wt",
+            path=Path("/repo/.synapse/worktrees/test-wt"),
+            branch="worktree-test-wt",
+            base_branch=base_branch,
+            created_at=1000.0,
+        )
+
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_no_changes_no_commits(
+        self, mock_uc: MagicMock, mock_nc: MagicMock
+    ) -> None:
+        assert has_worktree_changes(self._make_info()) is False
+
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=True)
+    def test_uncommitted_changes_only(
+        self, mock_uc: MagicMock, mock_nc: MagicMock
+    ) -> None:
+        assert has_worktree_changes(self._make_info()) is True
+
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_new_commits_only(self, mock_uc: MagicMock, mock_nc: MagicMock) -> None:
+        assert has_worktree_changes(self._make_info()) is True
+
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=True)
+    def test_both_changes_and_commits(
+        self, mock_uc: MagicMock, mock_nc: MagicMock
+    ) -> None:
+        assert has_worktree_changes(self._make_info()) is True
+
+
+# ============================================================
+# worktree_info_from_registry
+# ============================================================
+
+
+class TestWorktreeInfoFromRegistry:
+    def test_basic_reconstruction(self) -> None:
+        info = worktree_info_from_registry(
+            "/repo/.synapse/worktrees/test-wt", "worktree-test-wt"
+        )
+        assert info.name == "test-wt"
+        assert info.path == Path("/repo/.synapse/worktrees/test-wt")
+        assert info.branch == "worktree-test-wt"
+        assert info.base_branch == ""
+
+    def test_with_base_branch(self) -> None:
+        info = worktree_info_from_registry(
+            "/repo/.synapse/worktrees/test-wt", "worktree-test-wt", "origin/main"
+        )
+        assert info.base_branch == "origin/main"
+
+
+# ============================================================
+# cleanup_worktree
+# ============================================================
+
+
+class TestCleanupWorktree:
+    def _make_info(self) -> WorktreeInfo:
+        return WorktreeInfo(
+            name="test-wt",
+            path=Path("/repo/.synapse/worktrees/test-wt"),
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_worktree_changes", return_value=False)
+    def test_cleanup_auto_remove_when_clean(
+        self, mock_changes: MagicMock, mock_remove: MagicMock
+    ) -> None:
+        info = self._make_info()
+        result = cleanup_worktree(info, interactive=False)
+        assert result is True
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
+    @patch("synapse.worktree.remove_worktree")
+    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    def test_cleanup_keeps_dirty_non_interactive(
+        self, mock_changes: MagicMock, mock_remove: MagicMock
+    ) -> None:
+        info = self._make_info()
+        result = cleanup_worktree(info, interactive=False)
+        assert result is False
+        mock_remove.assert_not_called()
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    @patch("builtins.input", return_value="y")
+    def test_cleanup_interactive_confirms_removal(
+        self,
+        mock_input: MagicMock,
+        mock_changes: MagicMock,
+        mock_remove: MagicMock,
+    ) -> None:
+        info = self._make_info()
+        result = cleanup_worktree(info, interactive=True)
+        assert result is True
+        mock_remove.assert_called_once_with(info.path, info.branch, force=True)
+
+    @patch("synapse.worktree.remove_worktree")
+    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    @patch("builtins.input", return_value="n")
+    def test_cleanup_interactive_declines_removal(
+        self,
+        mock_input: MagicMock,
+        mock_changes: MagicMock,
+        mock_remove: MagicMock,
+    ) -> None:
+        info = self._make_info()
+        result = cleanup_worktree(info, interactive=True)
+        assert result is False
+        mock_remove.assert_not_called()

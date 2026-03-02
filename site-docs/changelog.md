@@ -4,6 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.4
+
+- **Added**: Synapse-native worktree isolation (`--worktree` / `-w`) for all agent types
+  - Isolated git worktrees under `.synapse/worktrees/` with auto-generated or explicit names
+  - Automatic cleanup on exit; prompts if unsaved changes or new commits exist
+  - Per-agent worktrees in `synapse team start --worktree`
+  - API support via `POST /spawn` with `worktree` field
+  - `[WT]` indicator in `synapse list`
+- **Fixed**: Worktree name validation, defensive subprocess handling, cleanup error recovery
+
 ### v0.8.3
 
 - **Breaking**: Unify `.gemini/skills/` into `.agents/skills/` — Gemini now uses the same skill directory as Codex, OpenCode, and Copilot
@@ -81,7 +91,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.6.x Series
 
 - Copilot CLI profile and spawn support
-- Tool args passthrough (`synapse spawn claude -- --worktree`)
+- Tool args passthrough (`synapse spawn claude -- --worktree`) — Synapse-native `--worktree` flag is now recommended; passthrough remains supported for Claude Code
 - Send UX improvements (message-file, stdin, auto-temp)
 - File attachment support (`--attach`)
 

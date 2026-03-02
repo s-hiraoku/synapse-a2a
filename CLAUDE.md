@@ -69,6 +69,10 @@ pytest tests/test_spawn_api.py -v           # Spawn API endpoint
 pytest tests/test_tool_args_passthrough.py -v # tool_args passthrough (spawn/team)
 pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fixes
 
+# Worktree tests
+pytest tests/test_worktree.py -v              # Worktree core operations (cleanup, change detection, base branch fallback)
+pytest tests/test_worktree_cli.py -v          # Worktree CLI integration
+
 # Injection observability tests
 pytest tests/test_injection_observability.py -v # INJECT/* structured logs
 
@@ -268,9 +272,12 @@ synapse team start claude gemini --all-new  # All agents in new panes (current t
 # Pass tool-specific arguments after '--' (applied to all spawned agents)
 synapse team start claude gemini -- --dangerously-skip-permissions
 
-# Worktree isolation (--worktree is a Claude Code flag, passed to all agents after --)
-# Only Claude acts on it; other CLIs silently ignore unknown flags
-synapse team start claude gemini -- --worktree
+# Synapse-native worktree isolation (all agents get their own worktree)
+synapse team start claude gemini --worktree
+synapse team start claude gemini --worktree task  # name prefix (task-claude-0, task-gemini-1)
+
+# Claude Code-specific worktree (legacy, Claude only — passed after --)
+synapse team start claude -- --worktree
 
 # Agent Teams: Team Start via A2A API (B6)
 # POST /team/start - agents can spawn teams programmatically
@@ -293,14 +300,33 @@ synapse spawn claude --terminal tmux          # Use specific terminal
 # Pass tool-specific arguments after '--' (e.g., skip Claude Code permissions)
 synapse spawn claude -- --dangerously-skip-permissions
 
-# Spawn with git worktree isolation (Claude only — --worktree is a Claude Code flag, pass after --)
+# Synapse-native worktree isolation (all agents, .synapse/worktrees/)
+synapse spawn claude --worktree                   # Auto-generated name
+synapse spawn claude --worktree feature-auth --name Auth --role "auth implementation"
+synapse spawn gemini -w                           # Short flag
+
+# Profile shortcut with worktree
+synapse claude --worktree my-feature              # Start in worktree in current terminal
+synapse gemini --worktree review --name Reviewer --role "code reviewer"
+
+# Claude Code-specific worktree (legacy, Claude only — pass after --)
 synapse spawn claude --name Worker --role "feature implementation" -- --worktree
 
 # Spawn via A2A API (agents can spawn other agents programmatically)
-# POST /spawn - returns {agent_id, port, terminal_used, status}
+# POST /spawn - returns {agent_id, port, terminal_used, status, worktree_path, worktree_branch, worktree_base_branch}
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "name": "Helper"}'
+
+# With worktree (auto-generated name)
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "worktree": true}'
+
+# With worktree (explicit name)
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "codex", "worktree": "helper-task"}'
 
 # With tool_args
 curl -X POST http://localhost:8100/spawn \
@@ -351,6 +377,7 @@ synapse/
 ├── hooks.py         # Quality Gates: Hook mechanism for status transitions (B2)
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
+├── worktree.py      # Synapse-native git worktree isolation for all agent types
 ├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
@@ -598,6 +625,7 @@ idle_detection:
 ~/.synapse/logs/     # Log files
 
 .synapse/agents/     # Saved agent definitions (project scope)
+.synapse/worktrees/  # Synapse-native git worktrees (per-agent isolation)
 .synapse/memory.db   # Shared memory database (project-local, SQLite WAL)
 .synapse/file_safety.db  # File safety database (project-local)
 .synapse/task_board.db   # Shared task board database (project-local)

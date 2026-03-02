@@ -25,6 +25,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
 | `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
+| `--worktree [NAME]`, `-w` | Create git worktree for isolated work (optional name) |
 
 ### Background Start
 
@@ -195,6 +196,7 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 |------|-------------|
 | `--layout LAYOUT` | `split`, `horizontal`, or `vertical` |
 | `--all-new` | All agents in new panes |
+| `--worktree [NAME]`, `-w` | Create per-agent git worktrees for isolation |
 
 **Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
 
@@ -221,6 +223,7 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--name NAME` | Agent name |
 | `--role ROLE` | Agent role (supports `@path` file reference) |
 | `--terminal TERM` | Terminal app override |
+| `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
 
 ## Task Board
 

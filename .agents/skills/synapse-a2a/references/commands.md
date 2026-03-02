@@ -119,19 +119,23 @@ synapse spawn claude --skill-set dev-set      # With skill set
 synapse spawn claude --terminal tmux          # Use specific terminal
 synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 
+# Worktree isolation (Synapse-level flag, before '--'; works for ALL agent types)
+synapse spawn claude --name Impl --role "implementer" --worktree            # auto-named worktree
+synapse spawn gemini --name Analyst -w feat-auth                            # named worktree
+synapse spawn codex --name Coder --worktree                                 # Codex in worktree
+
 # Pass tool-specific arguments after '--' (permission skip flags per CLI)
 synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
 synapse spawn gemini -- -y                               # Gemini: yolo mode
 synapse spawn codex -- --full-auto                       # Codex: sandboxed auto-approve
 synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
 
-# Worktree isolation (--worktree is a Claude Code flag, passed after '--'; other CLIs silently ignore it)
-synapse spawn claude --name Impl --role "implementer" -- --worktree
-synapse spawn claude --name Impl --role "implementer" -- --worktree feat-auth  # named worktree
+# Combine worktree + tool args (worktree before '--', tool args after '--')
+synapse spawn claude --name Impl --worktree -- --dangerously-skip-permissions
 ```
 
-**Worktree Isolation (Claude Code flag, passed via `--`):**
-Pass `--worktree` after `--` to spawn Claude in an isolated git worktree. Synapse forwards `tool_args` (including `--worktree`) to all spawned agents; currently only Claude Code acts on it — other CLIs silently ignore unknown flags, but this is not guaranteed. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied — run dependency install or copy `.env` if needed. On exit, empty worktrees are auto-deleted; worktrees with changes prompt to keep or remove. Consider adding `.claude/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
+**Worktree Isolation (`--worktree` / `-w`, Synapse-native flag):**
+`--worktree` is a Synapse-level flag placed **before** `--`. It creates an isolated git worktree for any agent type under `.synapse/worktrees/<name>/` with a branch named `worktree-<name>`. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. `synapse list` shows a `[WT]` prefix in the WORKING_DIR column for worktree agents. Environment variables `SYNAPSE_WORKTREE_PATH`, `SYNAPSE_WORKTREE_BRANCH`, and `SYNAPSE_WORKTREE_BASE_BRANCH` are set automatically. The base branch is determined via a 3-step fallback: `git symbolic-ref` -> `origin/main` -> `HEAD`. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied -- run dependency install or copy `.env` if needed. On exit, cleanup checks for both uncommitted changes and new commits (vs. the base branch); worktrees with neither are auto-deleted, worktrees with either prompt to keep or remove. The registry stores `worktree_base_branch` so cleanup can detect new commits accurately. `synapse kill` also handles worktree cleanup. Consider adding `.synapse/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
 When an agent is started via `synapse spawn` or `synapse team start`, `--no-setup --headless` are always added. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
@@ -1099,10 +1103,9 @@ synapse team start claude gemini --layout horizontal
 synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
 synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --full-auto for Codex)
 
-# Worktree isolation (--worktree is passed to all agents; currently only Claude acts on it)
-synapse team start claude gemini -- --worktree
-# If non-Claude agents may error on unknown flags, target Claude only:
-synapse team start claude -- --worktree
+# Worktree isolation (Synapse-level flag, before '--'; creates per-agent worktrees for ALL agent types)
+synapse team start claude gemini --worktree
+synapse team start claude gemini codex -w my-feature  # Named prefix: my-feature-claude-0, my-feature-gemini-1, etc.
 ```
 
 **Supported terminals:** tmux, iTerm2, Terminal.app (tabs), Ghostty (split panes via Cmd+D), zellij. Falls back to sequential start if unsupported. **Ghostty Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs while the team is being spawned.
@@ -1139,6 +1142,17 @@ curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
 # Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
+
+# With worktree isolation (works for all agent types)
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "gemini", "name": "Worker", "worktree": true}'
+# Named worktree:
+curl -X POST http://localhost:8100/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "claude", "name": "Impl", "worktree": "feat-auth"}'
+# Response with worktree: {"agent_id": "...", "port": ..., "terminal_used": "...", "status": "submitted", "worktree_path": ".synapse/worktrees/feat-auth", "worktree_branch": "worktree-feat-auth", "worktree_base_branch": "origin/main"}
+
 # On failure: {"status": "failed", "reason": "No available port"}
 ```
 
@@ -1295,6 +1309,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 .synapse/memory.db   # Shared memory knowledge base (project-local)
+.synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
 ```

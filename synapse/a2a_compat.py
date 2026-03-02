@@ -769,6 +769,7 @@ class SpawnRequest(BaseModel):
     skill_set: str | None = None
     terminal: str | None = None
     tool_args: list[str] | None = None
+    worktree: str | bool | None = None
 
 
 class SpawnResponse(BaseModel):
@@ -779,6 +780,8 @@ class SpawnResponse(BaseModel):
     terminal_used: str | None = None
     status: str  # "submitted" | "failed"
     reason: str | None = None
+    worktree_path: str | None = None
+    worktree_branch: str | None = None
 
 
 # ============================================================
@@ -2036,6 +2039,7 @@ def create_a2a_router(
                     skill_set=request.skill_set,
                     terminal=request.terminal,
                     tool_args=request.tool_args,
+                    worktree=request.worktree,
                 )
             )
             return SpawnResponse(
@@ -2043,6 +2047,8 @@ def create_a2a_router(
                 port=result.port,
                 terminal_used=result.terminal_used,
                 status=result.status,
+                worktree_path=result.worktree_path,
+                worktree_branch=result.worktree_branch,
             )
         except Exception as e:
             raise HTTPException(

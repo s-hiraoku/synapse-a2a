@@ -77,6 +77,9 @@
 | `SYNAPSE_AGENT_TYPE` | Auto | Agent type (`claude`, `gemini`, etc.) |
 | `SYNAPSE_PORT` | Auto | A2A server port |
 | `SYNAPSE_TOOL_ARGS` | — | Tool arguments as JSON string |
+| `SYNAPSE_WORKTREE_PATH` | Auto | Worktree directory path (set when agent spawns with `--worktree`) |
+| `SYNAPSE_WORKTREE_BRANCH` | Auto | Worktree branch name (set when agent spawns with `--worktree`) |
+| `SYNAPSE_WORKTREE_BASE_BRANCH` | Auto | Base branch for worktree cleanup new-commit detection (3-step fallback: symbolic-ref, `origin/main`, `HEAD`) |
 
 ### Feature Toggles
 

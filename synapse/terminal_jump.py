@@ -47,6 +47,7 @@ def _build_agent_command(
     *,
     use_exec: bool = False,
     tool_args: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> str:
     """Parse 'profile[:name[:role[:skill_set[:port]]]]' and build command.
 
@@ -66,6 +67,8 @@ def _build_agent_command(
         tool_args: Extra arguments to pass through to the underlying CLI tool
             (e.g., ``["--dangerously-skip-permissions"]``).  Appended after
             a ``--`` separator.
+        extra_env: Additional environment variables to set for the spawned
+            agent (e.g., ``{"SYNAPSE_WORKTREE_PATH": "/path"}``).
     """
     parts = agent_spec.split(":")
     profile = parts[0]
@@ -74,7 +77,10 @@ def _build_agent_command(
     # Unset CLAUDECODE to prevent nested-session detection when spawning
     # from within a Claude Code session (PR #238).
     prefix = "exec " if use_exec else ""
-    cmd = f"{prefix}env -u CLAUDECODE {shlex.quote(sys.executable)} -m synapse.cli {profile}"
+    env_vars = ""
+    if extra_env:
+        env_vars = " ".join(f"{k}={shlex.quote(v)}" for k, v in extra_env.items()) + " "
+    cmd = f"{prefix}env -u CLAUDECODE {env_vars}{shlex.quote(sys.executable)} -m synapse.cli {profile}"
 
     name = _get_spec_field(parts, 1)
     role = _get_spec_field(parts, 2)
@@ -535,6 +541,7 @@ def create_tmux_panes(
     all_new: bool = False,
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Generate tmux commands to create split panes for each agent.
 
@@ -544,6 +551,7 @@ def create_tmux_panes(
         all_new: If True, even the first agent gets a new pane.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents.
 
     Returns:
         List of tmux command strings to execute.
@@ -560,18 +568,24 @@ def create_tmux_panes(
     if all_new:
         # Everyone gets a new pane
         for agent_spec in agents:
-            cmd = _build_agent_command(agent_spec, tool_args=tool_args)
+            cmd = _build_agent_command(
+                agent_spec, tool_args=tool_args, extra_env=extra_env
+            )
             safe_cmd = shlex.quote(cmd)
             commands.append(f"tmux split-window {split_flag} -c {safe_cwd} {safe_cmd}")
     else:
         # First agent runs in current pane (via terminal input buffer)
-        first_cmd = _build_agent_command(agents[0], tool_args=tool_args)
+        first_cmd = _build_agent_command(
+            agents[0], tool_args=tool_args, extra_env=extra_env
+        )
         safe_first = shlex.quote(f"cd {shlex.quote(cwd)} && {first_cmd}")
         commands.append(f"tmux send-keys {safe_first} Enter")
 
         # Remaining agents get new panes
         for agent_spec in agents[1:]:
-            cmd = _build_agent_command(agent_spec, tool_args=tool_args)
+            cmd = _build_agent_command(
+                agent_spec, tool_args=tool_args, extra_env=extra_env
+            )
             safe_cmd = shlex.quote(cmd)
             commands.append(f"tmux split-window {split_flag} -c {safe_cwd} {safe_cmd}")
 
@@ -591,6 +605,7 @@ def create_iterm2_panes(
     all_new: bool = False,
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> str:
     """Generate AppleScript to create iTerm2 panes for each agent.
 
@@ -599,6 +614,7 @@ def create_iterm2_panes(
         all_new: If True, even the first agent gets a new pane.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents.
 
     Returns:
         AppleScript string.
@@ -620,7 +636,7 @@ def create_iterm2_panes(
         ]
         for agent_spec in agents:
             full_cmd = _build_agent_command(
-                agent_spec, use_exec=True, tool_args=tool_args
+                agent_spec, use_exec=True, tool_args=tool_args, extra_env=extra_env
             )
             escaped = _escape_applescript_string(_cd_prefix(full_cmd))
             lines.extend(
@@ -635,7 +651,9 @@ def create_iterm2_panes(
         lines.append("  end tell")
         lines.append("end tell")
     else:
-        first_cmd = _build_agent_command(agents[0], use_exec=True, tool_args=tool_args)
+        first_cmd = _build_agent_command(
+            agents[0], use_exec=True, tool_args=tool_args, extra_env=extra_env
+        )
         lines = [
             'tell application "iTerm2"',
             "  tell current window",
@@ -645,7 +663,7 @@ def create_iterm2_panes(
 
         for agent_spec in agents[1:]:
             full_cmd = _build_agent_command(
-                agent_spec, use_exec=True, tool_args=tool_args
+                agent_spec, use_exec=True, tool_args=tool_args, extra_env=extra_env
             )
             escaped = _escape_applescript_string(_cd_prefix(full_cmd))
             lines.extend(
@@ -673,6 +691,7 @@ def create_terminal_app_tabs(
     all_new: bool = False,
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Generate commands to open Terminal.app tabs for each agent.
 
@@ -683,6 +702,7 @@ def create_terminal_app_tabs(
         all_new: If True, even the first agent gets a new tab.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new tabs. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents.
 
     Returns:
         List of osascript command strings.
@@ -691,7 +711,9 @@ def create_terminal_app_tabs(
     commands: list[str] = []
 
     for i, agent_spec in enumerate(agents):
-        full_cmd = _build_agent_command(agent_spec, use_exec=True, tool_args=tool_args)
+        full_cmd = _build_agent_command(
+            agent_spec, use_exec=True, tool_args=tool_args, extra_env=extra_env
+        )
         escaped = _escape_applescript_string(f"cd {shlex.quote(cwd)} && {full_cmd}")
         target = "" if (i == 0 and not all_new) else " in front window"
         commands.append(
@@ -708,6 +730,7 @@ def create_zellij_panes(
     all_new: bool = False,
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Generate zellij commands to create panes for each agent.
 
@@ -717,6 +740,7 @@ def create_zellij_panes(
         all_new: Ignored for zellij as it always opens new panes.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents.
 
     Returns:
         List of zellij command strings to execute.
@@ -739,7 +763,9 @@ def create_zellij_panes(
 
     for i, agent_spec in enumerate(agents):
         profile = agent_spec.split(":")[0]
-        full_cmd = _build_agent_command(agent_spec, tool_args=tool_args)
+        full_cmd = _build_agent_command(
+            agent_spec, tool_args=tool_args, extra_env=extra_env
+        )
 
         if i == 0:
             commands.append(
@@ -759,6 +785,7 @@ def create_ghostty_window(
     agents: list[str],
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Generate commands to create Ghostty split panes for each agent.
 
@@ -774,6 +801,7 @@ def create_ghostty_window(
         agents: List of agent specs.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents.
 
     Returns:
         List of osascript command strings to execute.
@@ -785,7 +813,9 @@ def create_ghostty_window(
     for agent_spec in agents:
         # Do NOT use exec here — Ghostty injects commands via clipboard
         # paste (Cmd+V), and exec is unreliable with this method.
-        full_cmd = _build_agent_command(agent_spec, use_exec=False, tool_args=tool_args)
+        full_cmd = _build_agent_command(
+            agent_spec, use_exec=False, tool_args=tool_args, extra_env=extra_env
+        )
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}; exit"
         escaped = _escape_applescript_string(cd_cmd)
         # Trigger Ghostty's Cmd+D (new_split:right) to create a split
@@ -817,6 +847,7 @@ def create_panes(
     all_new: bool = False,
     tool_args: list[str] | None = None,
     cwd: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     """Create panes for multiple agents using the detected terminal.
 
@@ -827,6 +858,8 @@ def create_panes(
         all_new: If True, all agents start in new panes/tabs.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
+        extra_env: Additional environment variables for spawned agents
+            (e.g., worktree metadata).
 
     Returns:
         List of commands to execute.
@@ -836,26 +869,46 @@ def create_panes(
 
     if terminal_app == "tmux":
         return create_tmux_panes(
-            agents, layout, all_new=all_new, tool_args=tool_args, cwd=cwd
+            agents,
+            layout,
+            all_new=all_new,
+            tool_args=tool_args,
+            cwd=cwd,
+            extra_env=extra_env,
         )
     elif terminal_app == "iTerm2":
         script = create_iterm2_panes(
-            agents, all_new=all_new, tool_args=tool_args, cwd=cwd
+            agents,
+            all_new=all_new,
+            tool_args=tool_args,
+            cwd=cwd,
+            extra_env=extra_env,
         )
         if not script:
             return []
         return [f"osascript -e {shlex.quote(script)}"]
     elif terminal_app == "Terminal":
         return create_terminal_app_tabs(
-            agents, all_new=all_new, tool_args=tool_args, cwd=cwd
+            agents,
+            all_new=all_new,
+            tool_args=tool_args,
+            cwd=cwd,
+            extra_env=extra_env,
         )
     elif terminal_app == "zellij":
         return create_zellij_panes(
-            agents, layout, all_new=all_new, tool_args=tool_args, cwd=cwd
+            agents,
+            layout,
+            all_new=all_new,
+            tool_args=tool_args,
+            cwd=cwd,
+            extra_env=extra_env,
         )
     elif terminal_app == "Ghostty":
         # Ghostty only supports window-level ops; layout/all_new not applicable
-        return create_ghostty_window(agents, tool_args=tool_args, cwd=cwd)
+        return create_ghostty_window(
+            agents, tool_args=tool_args, cwd=cwd, extra_env=extra_env
+        )
 
     # Unsupported terminal - return empty list
     logger.warning(

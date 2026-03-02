@@ -144,9 +144,12 @@ curl -X POST http://localhost:8100/spawn \
     "role": "test writer",
     "skill_set": "dev-set",
     "terminal": "tmux",
+    "worktree": true,
     "tool_args": ["--dangerously-skip-permissions"]
   }'
 ```
+
+The `worktree` field accepts `true` (auto-generated name) or a string (explicit name, e.g. `"helper-task"`).
 
 **Response:**
 
@@ -155,9 +158,13 @@ curl -X POST http://localhost:8100/spawn \
   "agent_id": "synapse-gemini-8110",
   "port": 8110,
   "terminal_used": "tmux",
-  "status": "submitted"
+  "status": "submitted",
+  "worktree_path": "/repo/.synapse/worktrees/bold-hawk",
+  "worktree_branch": "worktree-bold-hawk"
 }
 ```
+
+The `worktree_path` and `worktree_branch` fields are included only when worktree isolation is requested.
 
 ## Shared Memory
 

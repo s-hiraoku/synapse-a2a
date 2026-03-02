@@ -161,6 +161,9 @@ class AgentRegistry:
         name: str | None = None,
         role: str | None = None,
         skill_set: str | None = None,
+        worktree_path: str | None = None,
+        worktree_branch: str | None = None,
+        worktree_base_branch: str | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -173,6 +176,9 @@ class AgentRegistry:
             name: Custom name for the agent (optional).
             role: Role description for the agent (optional).
             skill_set: Name of the applied skill set (optional).
+            worktree_path: Path to the agent's worktree directory (optional).
+            worktree_branch: Branch name of the agent's worktree (optional).
+            worktree_base_branch: Base branch the worktree was created from (optional).
 
         Returns:
             Path to the created registry file.
@@ -210,6 +216,14 @@ class AgentRegistry:
         zellij_pane_id = os.environ.get("ZELLIJ_PANE_ID")
         if zellij_pane_id:
             data["zellij_pane_id"] = zellij_pane_id
+
+        # Add worktree metadata if agent is running in a worktree
+        if worktree_path:
+            data["worktree_path"] = worktree_path
+        if worktree_branch:
+            data["worktree_branch"] = worktree_branch
+        if worktree_base_branch:
+            data["worktree_base_branch"] = worktree_base_branch
 
         file_path = self.registry_dir / f"{agent_id}.json"
         with self._registry_write_lock():
