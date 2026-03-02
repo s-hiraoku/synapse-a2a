@@ -206,6 +206,20 @@ synapse claude --port 8100
 @synapse-claude-8100 ファイルを確認して
 ```
 
+### カスタム名を使った起動
+
+```bash
+# カスタム名とロールを指定して起動
+synapse claude --name my-claude --role "コードレビュー担当"
+
+# 保存済みエージェント定義を使用して起動 (--agent / -A)
+synapse claude --agent wise-strategist
+synapse claude -A Alice
+
+# カスタム名でメッセージ送信（最優先で解決される）
+synapse send my-claude "ファイルを確認して"
+```
+
 ### 複数エージェント環境
 
 ```bash
@@ -219,6 +233,15 @@ synapse gemini --port 8200  # synapse-gemini-8200
 @synapse-claude-8101 タスクBを実行
 @synapse-gemini-8200 タスクCを実行
 ```
+
+### ターゲット解決の優先順位
+
+ターゲット指定時、以下の優先順位で解決されます:
+
+1. **カスタム名**（最優先）: `my-claude`
+2. **ランタイムID**: `synapse-claude-8100`
+3. **タイプ-ポート短縮形**: `claude-8100`
+4. **エージェントタイプ**（インスタンスが1つの場合のみ）: `claude`
 
 ## インストラクション送信のタイミング
 
