@@ -39,8 +39,18 @@ synapse claude --name reviewer --role "@./roles/reviewer.md"
 synapse gemini --role "@~/my-roles/analyst.md"
 ```
 
-!!! tip
-    File-based roles are useful for detailed role definitions that are too long for command-line arguments. The file content is copied to the registry, so the original file can be modified later without affecting running agents.
+!!! tip "Recommended Role File Directories"
+    Store project-shared roles in `./roles/` (committed to Git) and personal roles in `~/my-roles/` or `~/.synapse/roles/`. File-based roles are useful for detailed role definitions that are too long for command-line arguments. The file content is copied to the registry, so the original file can be modified later without affecting running agents.
+
+### Using Saved Agent Definitions
+
+If you have [saved agent definitions](../guide/agent-teams.md#saved-agent-definitions), use `--agent` / `-A` to load name, role, and skill set from a reusable template:
+
+```bash
+synapse claude --agent wise-strategist        # By saved agent ID
+synapse claude -A Alice                       # By display name
+synapse claude --agent wise-strategist --role "temporary override"  # CLI overrides
+```
 
 ## Agent Names and Roles
 

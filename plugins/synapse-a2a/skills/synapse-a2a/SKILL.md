@@ -76,7 +76,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reject plan | `synapse reject <task_id> --reason "reason"` |
 | Start team (CLI) | `synapse team start <spec...> [--layout ...] [--all-new] [--worktree]` (1st=handoff, rest=new panes; `--all-new` for all new) |
 | Start team (API) | `POST /team/start` with `{"agents": [...], "layout": "split"}` |
-| Spawn agent | `synapse spawn <profile> [--port] [--name] [--role] [--skill-set] [--terminal] [--worktree]` |
+| Spawn agent | `synapse spawn <profile\|saved-agent> [--port] [--name] [--role] [--skill-set] [--terminal] [--worktree]` |
+| Start with saved agent | `synapse claude --agent <id> [--role "override"]` (short: `-A`; CLI args override saved values) |
+| Role from file | `synapse claude --role "@./path/to/role.md"` (`@` prefix reads file content as role) |
 | Delegate mode | `synapse claude --delegate-mode [--name manager]` |
 | Version info | `synapse --version` |
 | Check CI status | `/check-ci` (CI checks + merge conflicts + CodeRabbit review) |
@@ -333,6 +335,14 @@ synapse claude --name my-claude --role "code reviewer"
 # Start with skill set
 synapse claude --skill-set dev-set
 
+# Start with saved agent definition (--agent / -A)
+synapse claude --agent wise-strategist
+synapse claude --agent wise-strategist --role "override role"  # CLI args override saved values
+
+# Role from file (@prefix reads file content as role)
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+synapse gemini --role "@~/my-roles/analyst.md"
+
 # Skip interactive name/role setup
 synapse claude --no-setup
 
@@ -415,7 +425,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 ## Key Features
 
 - **Agent Naming**: Custom names and roles for easy identification
-- **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope.
+- **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope. Use `--agent`/`-A` flag to start from a saved definition (e.g., `synapse claude --agent wise-strategist`), or pass the saved ID/name directly to `synapse spawn`.
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (fallback)
 - **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --silent` (urgent, fire-and-forget)
@@ -616,6 +626,8 @@ synapse spawn claude                          # Spawn in new pane
 synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
+synapse spawn silent-snake                    # Spawn by saved Agent ID
+synapse spawn Alice                           # Spawn by saved agent display name
 synapse spawn claude --worktree              # Spawn in isolated worktree
 synapse spawn claude -w my-feature           # Named worktree
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'

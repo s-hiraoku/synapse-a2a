@@ -96,6 +96,23 @@ synapse opencode --port 8130
 synapse copilot --port 8140
 ```
 
+名前・ロール・保存済み定義を使って起動することもできます:
+
+```bash
+# カスタム名とロールを指定
+synapse claude --name my-claude --role "コードレビュー担当"
+
+# ファイルからロールを読み込み（@プレフィックス）
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+
+# 保存済みエージェント定義を使用 (--agent / -A)
+synapse claude --agent wise-strategist
+synapse claude -A Alice                           # 短縮フラグ
+```
+
+> 保存済みエージェント定義の管理については `synapse agents` コマンドを参照してください。
+> 詳しくは [usage.md](usage.md) の「エージェント命名」および「保存済みエージェント定義」セクションを参照してください。
+
 起動後の挙動:
 
 - 各 CLI は通常通り利用可能

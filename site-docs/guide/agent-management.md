@@ -21,6 +21,18 @@ synapse claude --name my-claude --role "code reviewer"
 synapse gemini --name test-writer --role "test specialist"
 ```
 
+### With Saved Agent Definition
+
+Use a [saved agent definition](agent-teams.md#saved-agent-definitions) to load name, role, and skill set from a reusable template:
+
+```bash
+synapse claude --agent wise-strategist        # By saved agent ID
+synapse claude -A Alice                       # By display name (short flag)
+synapse claude --agent wise-strategist --role "temporary override"  # CLI flags override saved values
+```
+
+The saved agent's profile must match the profile shortcut (e.g., a `gemini` saved agent cannot be used with `synapse claude`).
+
 ### Skip Interactive Setup
 
 ```bash
@@ -157,6 +169,34 @@ synapse claude --name reviewer --role "@./roles/reviewer.md"
 synapse rename my-claude --role "@./roles/architect.md"
 ```
 
+**Recommended directories:**
+
+| Scope | Path | Use case |
+|-------|------|----------|
+| Project | `./roles/` | Team-shared role definitions (commit to Git) |
+| Personal | `~/my-roles/` or `~/.synapse/roles/` | Personal role templates |
+
+```bash
+# Project-local role (shared with team)
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+
+# Personal role (user-specific)
+synapse gemini --role "@~/my-roles/analyst.md"
+```
+
+Role files are plain Markdown. A typical role file describes the agent's responsibilities and workflow:
+
+```markdown
+# Code Reviewer
+
+You are an expert at reviewing code for correctness, security, and maintainability.
+
+## Responsibilities
+- Review pull requests for bugs and security issues
+- Suggest improvements for readability and performance
+- Verify test coverage
+```
+
 ### Update Role Only
 
 ```bash
@@ -176,7 +216,8 @@ Save frequently used name/role/skill-set combinations as reusable definitions:
 ```bash
 synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --scope project
 synapse agents list
-synapse spawn silent-snake     # Spawn using saved definition
+synapse codex --agent silent-snake    # Start using saved definition (profile must match)
+synapse spawn silent-snake            # Spawn using saved definition (any profile OK)
 ```
 
 On interactive exit, Synapse also offers a save prompt for the current

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-03-02
+
+### Documentation
+
+- Document `--agent`/`-A` flag for starting agents with saved agent definitions
+- Document role file conventions: recommended directories (`./roles/`, `~/my-roles/`)
+- Document petname ID format, scope precedence (project > user), `.agent` file format
+- Sync READMEs, guides, and plugin skills with `--agent`/`-A` documentation
+
 ## [0.8.5] - 2026-03-02
 
 ### Changed
@@ -1768,6 +1777,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.8.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.5...v0.8.6
+[0.8.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.4...v0.8.5
+[0.8.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.0...v0.8.1

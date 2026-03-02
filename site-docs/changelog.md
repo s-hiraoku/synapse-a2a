@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.8.6
+
+- **Docs**: Document `--agent`/`-A` flag for starting agents with saved agent definitions
+- **Docs**: Document role file conventions — recommended directories (`./roles/`, `~/my-roles/`)
+- **Docs**: Document petname ID format, scope precedence (project > user), `.agent` file format
+- **Docs**: Sync READMEs, guides, and plugin skills with `--agent`/`-A` documentation
+
 ### v0.8.5
 
 - **Changed**: Replace copyrighted character names with generic English names (Alice, Bob, Charlie, Dave, Eve, Frank)

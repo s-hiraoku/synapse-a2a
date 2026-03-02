@@ -130,13 +130,19 @@ flowchart TB
 インタラクティブモードでエージェントを起動します。
 
 ```bash
-synapse <profile> [--port PORT] [--worktree [NAME]]
+synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-set SET] [--port PORT] [--no-setup] [--delegate-mode] [--worktree|-w [NAME]]
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `profile` | Yes | エージェントプロファイル名 |
 | `--port` | No | サーバーポート（デフォルト: プロファイル別） |
+| `--name NAME` | No | カスタムエージェント名 |
+| `--role ROLE` | No | ロール説明（`@path` でファイル指定可、例: `@./roles/reviewer.md`） |
+| `--agent ID_OR_NAME`, `-A` | No | 保存済みエージェント定義を使用（IDまたは表示名で指定）。名前・ロール・スキルセットを定義から解決。CLI引数で上書き可能 |
+| `--skill-set SET` | No | スキルセットを指定 |
+| `--no-setup` | No | 対話型セットアップをスキップ |
+| `--delegate-mode` | No | マネージャー/委任者として起動（ファイル編集なし） |
 | `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離で起動（`.synapse/worktrees/<name>/`）。NAME 省略時は自動生成。全エージェント対応 |
 
 **例**:
@@ -147,7 +153,21 @@ synapse codex --port 8120
 synapse gemini --port 8110
 synapse claude --worktree my-feature              # worktree 分離で起動
 synapse gemini -w                                 # 自動名で worktree 起動
+
+# 保存済みエージェント定義を使用
+synapse claude --agent wise-strategist            # 保存済みIDで起動
+synapse claude -A Alice                           # 表示名で起動（短縮フラグ）
+synapse claude --agent wise-strategist --role "一時的な上書き"  # CLI引数が優先
 ```
+
+> **Note**: `--agent` で指定する保存済み定義の `profile` は、起動コマンドのプロファイルと一致する必要があります（例: `profile=gemini` の定義を `synapse claude` では使用不可）。
+
+**ロールファイルの推奨ディレクトリ**:
+
+| スコープ | パス | 用途 |
+|---------|------|------|
+| プロジェクト | `./roles/` | チームで共有するロール定義（Gitにコミット） |
+| 個人 | `~/my-roles/` または `~/.synapse/roles/` | 個人用ロールテンプレート |
 
 **デフォルトポート**:
 
@@ -373,8 +393,26 @@ synapse agents delete <id-or-name>
 |---------|------|
 | `list` | 保存済みエージェント一覧を表示（TTY では Rich TUI テーブル） |
 | `show` | 1件の詳細を表示 |
-| `add` | 定義を作成/更新（`id` は エージェントID形式: `silent-snake`） |
+| `add` | 定義を作成/更新（`id` は petname 形式: 小文字+ハイフン区切り、例: `silent-snake`, `wise-strategist`） |
 | `delete` | ID または名前で削除 |
+
+**使用方法**:
+
+保存済み定義は以下の 3 つの方法で使用できます：
+
+```bash
+# 1. プロファイルショートカットで使用（--agent / -A）
+synapse codex --agent silent-snake              # IDで起動
+synapse codex -A Alice                          # 表示名で起動
+synapse codex --agent silent-snake --role "上書き"  # CLI引数が優先
+
+# 2. spawn で使用
+synapse spawn silent-snake
+synapse spawn Alice --role "一時的なロール"
+
+# 3. team start で使用
+synapse team start silent-snake happy-crab
+```
 
 **例（Alice）**:
 
@@ -382,7 +420,27 @@ synapse agents delete <id-or-name>
 synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
 synapse agents list
 synapse agents show Alice
-synapse spawn Alice
+synapse codex --agent silent-snake     # --agent で起動
+synapse spawn Alice                    # spawn で起動
+```
+
+**保存先とスコープ**:
+
+| スコープ | パス | 優先順位 |
+|---------|------|---------|
+| Project | `.synapse/agents/*.agent` | 高（優先） |
+| User | `~/.synapse/agents/*.agent` | 低（フォールバック） |
+
+IDが重複する場合、Project スコープが User スコープより優先されます。チーム共有の定義は Project、個人用テンプレートは User に保存してください。
+
+**.agent ファイルの内部フォーマット**（key=value形式）:
+
+```ini
+id=silent-snake
+name=Alice
+profile=codex
+role=code reviewer
+skill_set=architect
 ```
 
 **終了時保存プロンプト**:
