@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.8.4`).
+You should see the version number (e.g., `0.8.5`).
 
 ## Initialize Configuration
 
@@ -72,6 +72,31 @@ synapse init --scope project   # ./.synapse/settings.json
 ```
 
 This creates the configuration directory with default settings and instruction templates.
+
+## Install Skills
+
+Skills teach agents how to use Synapse features — messaging, file safety, task delegation, and more. The `synapse-a2a` skill package is **essential** for multi-agent communication.
+
+```bash
+npx skills add s-hiraoku/synapse-a2a
+```
+
+This installs all core skills into your project:
+
+| Skill | Description |
+|-------|-------------|
+| **synapse-a2a** | Core A2A communication — commands, API, file safety, task board |
+| **synapse-manager** | Multi-agent orchestration (7-step workflow) |
+| **synapse-reinst** | Re-inject instructions after `/clear` or context reset |
+
+!!! tip "Why This Matters"
+    Without `synapse-a2a`, agents won't automatically discover peers or use `synapse send`/`synapse reply`. Install it in every project where you use Synapse.
+
+Verify installation:
+
+```bash
+synapse skills list --scope project
+```
 
 ## Terminal Requirements
 
@@ -93,4 +118,5 @@ For multi-agent features like `synapse team start` and `synapse spawn`, you need
 
 - [Quick Start](quickstart.md) — Launch your first agent and send a message
 - [Interactive Setup](setup.md) — Configure agent names, roles, and skill sets
+- [Skills](../guide/skills.md) — Manage skills, skill sets, and deployment
 - [Architecture](../concepts/architecture.md) — Understand how Synapse A2A works

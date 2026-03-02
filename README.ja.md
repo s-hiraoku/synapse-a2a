@@ -353,7 +353,6 @@ npx skills add s-hiraoku/synapse-a2a
 |--------|------|
 | **synapse-a2a** | エージェント間通信の総合ガイド：`synapse send`、優先度、A2A プロトコル、履歴、File Safety、設定 |
 | **synapse-manager** | 5ステップのマルチエージェント管理（委譲、監視、検証、フィードバック、レビュー） |
-| **doc-organizer** | ドキュメントの監査、再構成、重複排除、同期管理 |
 
 ### スキル管理
 

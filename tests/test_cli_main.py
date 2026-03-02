@@ -155,7 +155,7 @@ class TestCliMain:
                 "add",
                 "silent-snake",
                 "--name",
-                "狗巻棘",
+                "Alice",
                 "--profile",
                 "claude",
                 "--scope",
@@ -169,7 +169,7 @@ class TestCliMain:
         assert args.command == "agents"
         assert args.agents_command == "add"
         assert args.id == "silent-snake"
-        assert args.name == "狗巻棘"
+        assert args.name == "Alice"
 
     @patch("synapse.cli.cmd_history_list")
     @patch("synapse.cli.install_skills")

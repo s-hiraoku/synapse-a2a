@@ -359,7 +359,7 @@ class TestSpawnCLIExecution:
         agent_info = {"agent_id": "synapse-claude-8100", "pid": 123, "port": 8100}
 
         args = argparse.Namespace(
-            profile="狗巻棘",
+            profile="Alice",
             port=None,
             name=None,
             role=None,
@@ -377,7 +377,7 @@ class TestSpawnCLIExecution:
             mock_registry_cls.return_value.is_name_unique.return_value = True
             mock_saved = argparse.Namespace(
                 profile_id="silent-snake",
-                name="狗巻棘",
+                name="Alice",
                 profile="claude",
                 role="@./roles/reviewer.md",
                 skill_set="reviewer",
@@ -387,7 +387,7 @@ class TestSpawnCLIExecution:
 
         kwargs = mock_spawn.call_args.kwargs
         assert kwargs["profile"] == "claude"
-        assert kwargs["name"] == "狗巻棘"
+        assert kwargs["name"] == "Alice"
         assert kwargs["role"] == "@./roles/reviewer.md"
         assert kwargs["skill_set"] == "reviewer"
 
@@ -398,7 +398,7 @@ class TestSpawnCLIExecution:
         args = argparse.Namespace(
             profile="claude",
             port=None,
-            name="狗巻棘",
+            name="Alice",
             role=None,
             skill_set=None,
             terminal=None,

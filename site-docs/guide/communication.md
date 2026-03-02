@@ -87,7 +87,7 @@ synapse send codex "Run the full test suite and fix any failures" --silent
 
 ```bash
 synapse send my-claude "Review this code" --wait
-synapse send 釘崎野薔薇 "テストを書いて" --silent
+synapse send Charlie "Write the tests" --silent
 ```
 
 **Sender (`--from`)** — always uses agent ID format (`synapse-<type>-<port>`). This is auto-detected, so you rarely need to specify it.
@@ -117,7 +117,7 @@ If sender information is not fully available, it falls back to:
 - `A2A: <message content>` (Backward-compatible format)
 
 !!! info "Sender Identification"
-    The name is retrieved from the agent registry based on the sender's PID or explicit `--from` ID. If an agent has a custom name (e.g., `釘崎野薔薇`), that name is shown for better context.
+    The name is retrieved from the agent registry based on the sender's PID or explicit `--from` ID. If an agent has a custom name (e.g., `Charlie`), that name is shown for better context.
 
 ## Replying
 

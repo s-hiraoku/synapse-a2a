@@ -566,7 +566,7 @@ synapse kill Tester -f
 
 ```bash
 synapse spawn claude                          # 新しいペインで Claude を起動
-synapse spawn 狗巻棘                           # 保存済みエージェント名で起動
+synapse spawn Alice                           # 保存済みエージェント名で起動
 synapse spawn silent-snake                    # 保存済みエージェントIDで起動
 synapse spawn gemini --port 8115              # ポートを指定して起動
 synapse spawn claude --name Tester --role "テスト担当"  # 名前とロールを指定
@@ -962,7 +962,7 @@ Synapse には 6 つの組み込みスキルセットが用意されています
 | **reviewer** | コードレビューとセキュリティ — 構造化レビュー、セキュリティ監査、コード簡素化 | synapse-a2a, code-review, security-audit, code-simplifier |
 | **frontend** | フロントエンド開発 — React/Next.js パフォーマンス、コンポーネント構成、デザインシステム、アクセシビリティ | synapse-a2a, react-performance, frontend-design, react-composition, web-accessibility |
 | **manager** | マルチエージェント管理 — タスク委任、進捗監視、品質検証、クロスレビュー、再インストラクション | synapse-a2a, synapse-manager, task-planner, agent-memory, code-review, synapse-reinst |
-| **documentation** | ドキュメンテーション専門 — 監査、再構成、同期、プロジェクトドキュメントの維持 | synapse-a2a, project-docs, doc-organizer, api-design, agent-memory |
+| **documentation** | ドキュメンテーション専門 — 監査、再構成、同期、プロジェクトドキュメントの維持 | synapse-a2a, project-docs, api-design, agent-memory |
 
 #### デプロイフロー
 

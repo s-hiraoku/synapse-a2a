@@ -34,8 +34,8 @@ def test_maybe_prompt_save_uses_provided_store(
     responses = iter(["y", "wise-strategist", "project"])
     _maybe_prompt_save_agent_profile(
         profile="claude",
-        name="孔明",
-        role="軍師",
+        name="Frank",
+        role="task manager",
         skill_set="manager",
         headless=False,
         is_tty=True,
@@ -63,8 +63,8 @@ def test_maybe_prompt_save_without_store_uses_cwd(
     responses = iter(["y", "wise-strategist", "project"])
     _maybe_prompt_save_agent_profile(
         profile="claude",
-        name="孔明",
-        role="軍師",
+        name="Frank",
+        role="task manager",
         skill_set=None,
         headless=False,
         is_tty=True,

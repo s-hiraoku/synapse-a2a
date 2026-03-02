@@ -401,9 +401,6 @@ plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope
 plugins/synapse-a2a/skills/synapse-manager/  # Multi-agent management skill
 └── SKILL.md                                 # Delegation, monitoring, verification, feedback, review
 
-plugins/synapse-a2a/skills/doc-organizer/    # Documentation organization skill
-└── SKILL.md                                 # Audit, restructure, deduplication, terminology, staleness
-
 .claude/hooks/                             # Claude Code PostToolUse hooks
 ├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create
 ├── poll-ci.sh                             # Background: polls GitHub Actions CI status
@@ -418,15 +415,13 @@ plugins/synapse-a2a/skills/doc-organizer/    # Documentation organization skill
 # Sync targets (auto-synced from plugins/ via sync-plugin-skills):
 .claude/skills/synapse-a2a/      # Claude Code
 .claude/skills/synapse-manager/  # Claude Code
-.claude/skills/doc-organizer/    # Claude Code
 .agents/skills/synapse-a2a/      # Codex / OpenCode / Copilot / Gemini
 .agents/skills/synapse-manager/  # Codex / OpenCode / Copilot / Gemini
-.agents/skills/doc-organizer/    # Codex / OpenCode / Copilot / Gemini
 ```
 
 ### Skill Update Rules
 
-**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager`, `doc-organizer` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
+**`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
 ### CI Automation: Hooks and Skills
 

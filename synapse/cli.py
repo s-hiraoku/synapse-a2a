@@ -4974,7 +4974,7 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         epilog="""Examples:
   synapse spawn claude                          Spawn Claude in a new pane
   synapse spawn silent-snake                    Spawn by saved agent ID
-  synapse spawn 狗巻棘                           Spawn by saved agent name
+  synapse spawn Alice                           Spawn by saved agent name
   synapse spawn gemini --port 8115              Spawn Gemini on specific port
   synapse spawn claude --name Tester --role "test writer"
   synapse spawn claude --terminal tmux          Use specific terminal""",
