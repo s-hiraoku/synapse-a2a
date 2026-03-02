@@ -21,11 +21,21 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--name NAME` | Custom agent name |
 | `--role ROLE` | Agent role description (use `@path` to read from file, e.g., `@./roles/reviewer.md`) |
 | `--skill-set SET` | Activate skill set |
+| `--agent ID_OR_NAME`, `-A` | Use a [saved agent definition](#saved-agent-definitions) (resolves name, role, skill set) |
 | `--no-setup` | Skip interactive setup |
 | `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
 | `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work (optional name) |
+
+!!! tip "Using Saved Agent Definitions at Startup"
+    The `--agent` / `-A` flag resolves a saved agent definition by ID or display name:
+    ```bash
+    synapse claude --agent wise-strategist        # By saved agent ID
+    synapse claude -A Alice                       # By saved agent display name
+    synapse claude --agent wise-strategist --role "override"  # CLI flags override saved values
+    ```
+    The saved agent's profile must match the shortcut profile (e.g., a `gemini` saved agent cannot be used with `synapse claude`). See [Saved Agent Definitions](../guide/agent-teams.md#saved-agent-definitions) for details.
 
 ### Background Start
 
