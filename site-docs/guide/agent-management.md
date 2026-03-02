@@ -34,6 +34,16 @@ synapse start claude --port 8100
 synapse start claude --port 8100 -f   # Foreground (don't detach)
 ```
 
+### Delegate Mode (Manager)
+
+Start an agent as a manager that delegates work instead of editing files directly:
+
+```bash
+synapse claude --delegate-mode --name manager --role "task coordinator"
+```
+
+The agent receives `[MANAGER MODE]` instructions and its file lock requests are denied at the system level. See [Delegate Mode](agent-teams.md#delegate-mode) for full details.
+
 ### Resume Mode
 
 Pass resume flags to the underlying CLI tool via `--` to skip initial instructions (useful after context reset):
