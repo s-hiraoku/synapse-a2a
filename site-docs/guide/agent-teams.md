@@ -135,36 +135,125 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Delegate Mode
 
-Start an agent as a manager that delegates instead of editing files directly:
+Start an agent as a **manager** that coordinates work without editing files directly:
 
 ```bash
+synapse claude --delegate-mode
 synapse claude --delegate-mode --name manager --role "task manager"
 ```
 
-The manager receives instructions to:
+### How It Works
 
-- Use `synapse send` to delegate tasks
-- Monitor progress via `synapse list` and `synapse history`
-- Coordinate results across team members
-- Never directly edit files
+When `--delegate-mode` is enabled, Synapse applies two constraints:
+
+1. **File lock denial** — The agent's file lock requests are always rejected by the [File Safety](file-safety.md) system. This prevents the manager from directly editing files, enforcing a clean separation of concerns.
+
+2. **Manager instructions** — Synapse automatically injects a `[MANAGER MODE]` instruction on startup, telling the agent to:
+    - Delegate tasks via `synapse send`
+    - Monitor agents via `synapse list`
+    - Coordinate work via `synapse tasks` (Shared Task Board)
+    - Focus on task analysis, splitting, assignment, and review
+
+```
+┌──────────────────────────────────────┐
+│   Manager (--delegate-mode)          │
+│   Analyzes, splits, assigns, reviews │
+└────────┬─────────────┬──────────────┘
+         │             │
+    synapse send   synapse send
+         │             │
+   ┌─────▼─────┐ ┌────▼──────┐
+   │  Worker A  │ │  Worker B  │
+   │  (gemini)  │ │  (codex)   │
+   │  Implements │ │  Tests     │
+   └───────────┘ └───────────┘
+```
+
+!!! tip "Combine with Skill Sets"
+    Equip the manager with the `manager` skill set for enhanced orchestration capabilities:
+    ```bash
+    synapse claude --delegate-mode --name manager --skill-set manager
+    ```
+    The `manager` skill set includes `synapse-manager` (structured 5-step management workflow) and `synapse-reinst` (instruction recovery).
 
 ### Delegate Workflow
 
 ```bash
-# Terminal 1: Manager
+# Terminal 1: Manager (cannot edit files)
 synapse claude --delegate-mode --name manager
 
-# Terminal 2-3: Workers
-synapse gemini --name worker-1
-synapse codex --name worker-2
+# Terminal 2-3: Workers (edit files normally)
+synapse gemini --name implementer
+synapse codex --name tester
 
 # Manager delegates (fire-and-forget — no reply needed)
-synapse send worker-1 "Implement OAuth2 authentication" --silent
-synapse send worker-2 "Write tests for auth module" --silent
+synapse send implementer "Implement OAuth2 authentication" --silent
+synapse send tester "Write tests for auth module" --silent
 
 # Check progress (expects a reply — use --wait)
-synapse send worker-1 "Progress?" --wait
+synapse send implementer "Progress?" --wait
 ```
+
+### Full Team Setup Example
+
+Use `team start` to launch a manager and workers together:
+
+```bash
+# Manager + 2 workers with worktree isolation
+synapse team start \
+  claude:manager:task-coordinator:manager \
+  gemini:implementer:implementation \
+  codex:tester:test-writer \
+  --worktree
+
+# Then enable delegate mode on the manager
+# (delegate-mode is set per-agent at startup, not via team start)
+```
+
+Or start the manager separately:
+
+```bash
+# Start manager in current terminal
+synapse claude --delegate-mode --name manager --skill-set manager
+
+# Spawn workers in new panes
+synapse spawn gemini --name implementer --role "implementation" --worktree
+synapse spawn codex --name tester --role "test writer" --worktree
+```
+
+### When to Use Delegate Mode
+
+| Scenario | Recommended |
+|----------|:-----------:|
+| Large feature with multiple files | :material-check: |
+| Code review + implementation split | :material-check: |
+| Coordinating 3+ specialist agents | :material-check: |
+| Simple single-agent task | :material-close: |
+| Solo development with one agent | :material-close: |
+
+!!! info "Why Not Just Tell the Agent Not to Edit?"
+    While you could manually instruct an agent not to edit files, `--delegate-mode` provides a **system-level guarantee** via File Safety. Even if the agent ignores the instruction, file lock requests are rejected at the framework level. This prevents accidental edits and ensures the manager stays in its coordination role.
+
+### Configuration
+
+The delegate mode instruction template can be customized in [settings](settings.md):
+
+```json
+{
+  "delegate_mode": {
+    "deny_file_locks": true,
+    "instruction_template": "\n\n[MANAGER MODE]\nYou are a manager. Do NOT edit files directly.\nInstead, use `synapse send` to delegate tasks to other agents.\nFocus on: task analysis, splitting, assignment, and review.\nUse `synapse list` to check agent availability.\nUse `synapse tasks` to manage the shared task board."
+  }
+}
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `deny_file_locks` | `true` | Reject all file lock requests from this agent |
+| `instruction_template` | `[MANAGER MODE] ...` | Instructions injected on startup |
+
+!!! warning
+    Setting `deny_file_locks: false` removes the system-level file editing guard. The agent will receive manager instructions but can still acquire file locks. This is not recommended.
 
 ## Supported Terminals
 
