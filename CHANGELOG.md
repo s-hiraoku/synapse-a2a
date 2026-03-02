@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-03-02
+
+### Documentation
+
+- Document `--agent`/`-A` flag for starting agents with saved agent definitions
+- Document role file conventions: recommended directories (`./roles/`, `~/my-roles/`)
+- Document petname ID format, scope precedence (project > user), `.agent` file format
+- Sync READMEs, guides, and plugin skills with `--agent`/`-A` documentation
+
 ## [0.8.5] - 2026-03-02
 
 ### Changed
