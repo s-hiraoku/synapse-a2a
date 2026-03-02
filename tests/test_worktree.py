@@ -361,8 +361,9 @@ class TestHasNewCommits:
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         assert has_new_commits(Path("/repo"), "origin/main") is False
 
-    def test_empty_base_branch_returns_false(self) -> None:
-        assert has_new_commits(Path("/repo"), "") is False
+    def test_empty_base_branch_returns_true(self) -> None:
+        """Missing base_branch is treated as modified (defensive)."""
+        assert has_new_commits(Path("/repo"), "") is True
 
 
 # ============================================================

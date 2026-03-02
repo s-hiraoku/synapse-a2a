@@ -125,6 +125,13 @@ class TestCmdSpawnWithWorktree:
             assert result.worktree_path == str(wt_dir)
             assert result.worktree_branch == "worktree-test-wt"
 
+            # Verify cwd and env propagation to create_panes
+            panes_call = mock_create_panes.call_args
+            assert panes_call.kwargs["cwd"] == str(wt_dir)
+            env = panes_call.kwargs["extra_env"]
+            assert env["SYNAPSE_WORKTREE_PATH"] == str(wt_dir)
+            assert env["SYNAPSE_WORKTREE_BRANCH"] == "worktree-test-wt"
+
     @patch("synapse.spawn.create_panes", return_value=["echo test"])
     @patch("subprocess.run")
     def test_cmd_spawn_with_worktree_name(
@@ -163,6 +170,13 @@ class TestCmdSpawnWithWorktree:
 
             mock_create_wt.assert_called_once_with(name="my-feature")
             assert result.worktree_path == str(wt_dir)
+
+            # Verify cwd and env propagation to create_panes
+            panes_call = mock_create_panes.call_args
+            assert panes_call.kwargs["cwd"] == str(wt_dir)
+            env = panes_call.kwargs["extra_env"]
+            assert env["SYNAPSE_WORKTREE_PATH"] == str(wt_dir)
+            assert env["SYNAPSE_WORKTREE_BRANCH"] == "worktree-my-feature"
 
     @patch("synapse.spawn.create_panes", return_value=["echo test"])
     @patch("subprocess.run")

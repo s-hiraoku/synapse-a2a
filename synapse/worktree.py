@@ -352,7 +352,8 @@ def has_new_commits(path: Path, base_branch: str) -> bool:
     Returns True on subprocess failure to avoid accidental cleanup.
     """
     if not base_branch:
-        return False
+        logger.warning("Missing base_branch for %s, treating as modified", path)
+        return True
     try:
         result = subprocess.run(
             ["git", "log", f"{base_branch}..HEAD", "--oneline"],

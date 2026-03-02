@@ -3025,7 +3025,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 wt_name = None
             try:
                 wt_info = create_worktree(name=wt_name)
-            except RuntimeError as e:
+            except (RuntimeError, ValueError) as e:
                 print(f"Error creating worktree for {profile}: {e}", file=sys.stderr)
                 sys.exit(1)
 
@@ -3063,6 +3063,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             )
         else:
             print("No agents were launched.", file=sys.stderr)
+            sys.exit(1)
         return
 
     if all_new:
@@ -3179,7 +3180,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 f'    synapse send {result.agent_id} "<message>" --wait',
                 file=sys.stderr,
             )
-    except (FileNotFoundError, RuntimeError) as e:
+    except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
@@ -3818,7 +3819,7 @@ def main() -> None:
             wt_name = worktree_arg if isinstance(worktree_arg, str) else None
             try:
                 wt_info = _create_wt(name=wt_name)
-            except RuntimeError as e:
+            except (RuntimeError, ValueError) as e:
                 print(f"Error creating worktree: {e}", file=sys.stderr)
                 sys.exit(1)
             os.chdir(wt_info.path)
