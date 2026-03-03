@@ -33,6 +33,13 @@ from synapse.commands.session import (
     cmd_session_show,
 )
 from synapse.commands.start import StartCommand
+from synapse.commands.workflow import (
+    cmd_workflow_create,
+    cmd_workflow_delete,
+    cmd_workflow_list,
+    cmd_workflow_run,
+    cmd_workflow_show,
+)
 from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
 from synapse.port_manager import (
@@ -5096,6 +5103,100 @@ Run 'synapse session <subcommand> --help' for detailed usage.""",
     )
     p_session_delete.set_defaults(func=cmd_session_delete)
 
+    # ── workflow ─────────────────────────────────────────────
+    p_workflow = subparsers.add_parser(
+        "workflow",
+        help="Create, manage, and run saved message workflows",
+        description="Save reusable YAML message sequences and replay them.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Quick Start:
+  synapse workflow create my-review
+  synapse workflow list
+  synapse workflow show my-review
+  synapse workflow run my-review --dry-run
+  synapse workflow run my-review
+
+Run 'synapse workflow <subcommand> --help' for detailed usage.""",
+    )
+    workflow_subparsers = p_workflow.add_subparsers(
+        dest="workflow_command", metavar="SUBCOMMAND"
+    )
+
+    def _add_workflow_scope_args(p: argparse.ArgumentParser) -> None:
+        scope_group = p.add_mutually_exclusive_group()
+        scope_group.add_argument(
+            "--project",
+            action="store_true",
+            default=False,
+            help="Project scope (default): .synapse/workflows/",
+        )
+        scope_group.add_argument(
+            "--user",
+            action="store_true",
+            default=False,
+            help="User scope: ~/.synapse/workflows/",
+        )
+
+    # workflow create
+    p_workflow_create = workflow_subparsers.add_parser(
+        "create",
+        help="Create a new workflow template",
+    )
+    p_workflow_create.add_argument("workflow_name", help="Workflow name")
+    _add_workflow_scope_args(p_workflow_create)
+    p_workflow_create.add_argument(
+        "--force", "-f", action="store_true", help="Overwrite if exists"
+    )
+    p_workflow_create.set_defaults(func=cmd_workflow_create)
+
+    # workflow list
+    p_workflow_list = workflow_subparsers.add_parser(
+        "list",
+        help="List saved workflows",
+    )
+    _add_workflow_scope_args(p_workflow_list)
+    p_workflow_list.set_defaults(func=cmd_workflow_list)
+
+    # workflow show
+    p_workflow_show = workflow_subparsers.add_parser(
+        "show",
+        help="Show workflow details",
+    )
+    p_workflow_show.add_argument("workflow_name", help="Workflow name")
+    _add_workflow_scope_args(p_workflow_show)
+    p_workflow_show.set_defaults(func=cmd_workflow_show)
+
+    # workflow run
+    p_workflow_run = workflow_subparsers.add_parser(
+        "run",
+        help="Execute a workflow",
+    )
+    p_workflow_run.add_argument("workflow_name", help="Workflow name to execute")
+    _add_workflow_scope_args(p_workflow_run)
+    p_workflow_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print steps without sending",
+    )
+    p_workflow_run.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Don't abort on first step failure",
+    )
+    p_workflow_run.set_defaults(func=cmd_workflow_run)
+
+    # workflow delete
+    p_workflow_delete = workflow_subparsers.add_parser(
+        "delete",
+        help="Delete a saved workflow",
+    )
+    p_workflow_delete.add_argument("workflow_name", help="Workflow name to delete")
+    _add_workflow_scope_args(p_workflow_delete)
+    p_workflow_delete.add_argument(
+        "--force", "-f", action="store_true", help="Delete without confirmation"
+    )
+    p_workflow_delete.set_defaults(func=cmd_workflow_delete)
+
     # spawn - Spawn single agent in new pane
     p_spawn = subparsers.add_parser(
         "spawn",
@@ -5413,6 +5514,7 @@ Scopes:
         "tasks": ("tasks_command", p_tasks),
         "team": ("team_command", p_team),
         "session": ("session_command", p_session),
+        "workflow": ("workflow_command", p_workflow),
         "agents": ("agents_command", p_agents),
     }
 
