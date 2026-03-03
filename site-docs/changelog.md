@@ -4,6 +4,19 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.1
+
+- **Added**: Saved Workflows (`synapse workflow`) — define and replay reusable message sequences to running agents
+- **Added**: Enhance help discoverability for root/team/session commands
+- **Fixed**: Corrupted YAML no longer bypasses workflow overwrite protection
+- **Fixed**: Validate WorkflowStep target/message are `str` type
+- **Docs**: Add workflow guide and CLI reference to GitHub Pages
+
+### v0.9.0
+
+- **Added**: Session Save/Restore (`synapse session`) — save and restore team configurations as named snapshots
+- **Docs**: Add Session Save/Restore guide, update CLI reference and plugin skills
+
 ### v0.8.6
 
 - **Changed**: Unify agent example names with model-hinting English names (Claud, Cody, Rex, Gem)
