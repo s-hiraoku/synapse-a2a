@@ -1173,6 +1173,89 @@ curl -X POST http://localhost:8100/spawn \
 # On failure: {"status": "failed", "reason": "No available port"}
 ```
 
+## Session Save/Restore
+
+Save running team configurations as named snapshots and restore them later. Each session captures agent profiles, names, roles, skill sets, and worktree settings as a JSON file.
+
+### Save Session
+
+```bash
+# Save all agents in current directory as a session (project scope by default)
+synapse session save my-team
+
+# Save to user scope (~/.synapse/sessions/)
+synapse session save my-team --user
+
+# Save agents matching a specific working directory
+synapse session save my-team --workdir /path/to/project
+```
+
+**Scope filter behavior:**
+- Default (project): captures agents whose `working_dir` matches `CWD`, saves to `.synapse/sessions/`
+- `--user`: captures all running agents regardless of directory, saves to `~/.synapse/sessions/`
+- `--workdir DIR`: captures agents matching the specified directory
+
+### List Sessions
+
+```bash
+# List all saved sessions (project + user)
+synapse session list
+
+# List user-scope sessions only
+synapse session list --user
+
+# List project-scope sessions only
+synapse session list --project
+```
+
+Output columns: NAME, AGENTS (count), SCOPE, WORKING_DIR, CREATED. Rich table in TTY, plain text otherwise.
+
+### Show Session Details
+
+```bash
+synapse session show my-team
+```
+
+Displays session name, scope, working directory, creation timestamp, agent count, and per-agent details (profile, name, role, skill_set, worktree).
+
+### Restore Session
+
+```bash
+# Restore a saved session (spawns all agents)
+synapse session restore my-team
+
+# Override worktree setting for all agents
+synapse session restore my-team --worktree
+synapse session restore my-team -w
+
+# Pass tool args to spawned agents (after '--')
+synapse session restore my-team -- --dangerously-skip-permissions
+```
+
+Each agent in the session is spawned via `spawn_agent()`. The `--worktree` / `-w` flag overrides the saved worktree setting for all agents. Tool args after `--` are passed through to the underlying CLI.
+
+### Delete Session
+
+```bash
+# Delete with confirmation prompt
+synapse session delete my-team
+
+# Delete without confirmation
+synapse session delete my-team --force
+synapse session delete my-team -f
+```
+
+### Session Name Rules
+
+Session names must start with an alphanumeric character and contain only alphanumeric characters, dots, hyphens, or underscores (same rules as worktree names).
+
+### Storage
+
+```text
+.synapse/sessions/<name>.json    # Project scope (default)
+~/.synapse/sessions/<name>.json  # User scope (--user)
+```
+
 ## Skill Management
 
 Manage skills across scopes with a central store (`~/.synapse/skills/`).
@@ -1323,8 +1406,11 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 ~/.a2a/reply/        # Reply target persistence (auto-cleaned per agent)
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store
+~/.synapse/sessions/ # Saved sessions (user scope)
+~/.synapse/agents/   # Saved agent definitions (user scope)
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
+.synapse/sessions/   # Saved sessions (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication

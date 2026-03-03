@@ -235,6 +235,57 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--terminal TERM` | Terminal app override |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
 
+## Session Save/Restore
+
+### Save Session
+
+```bash
+synapse session save <name> [--project | --user | --workdir DIR]
+```
+
+Saves running agents in the current working directory as a named snapshot.
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project scope (default): `.synapse/sessions/` |
+| `--user` | User scope: `~/.synapse/sessions/` |
+| `--workdir DIR` | Filter by working directory |
+
+### List Sessions
+
+```bash
+synapse session list [--project | --user | --workdir DIR]
+```
+
+### Show Session
+
+```bash
+synapse session show <name> [--project | --user | --workdir DIR]
+```
+
+### Restore Session
+
+```bash
+synapse session restore <name> [--project | --user | --workdir DIR] [--worktree [NAME]] [-- TOOL_ARGS]
+```
+
+Spawns all agents from the saved session.
+
+| Flag | Description |
+|------|-------------|
+| `--worktree [NAME]`, `-w` | Create per-agent git worktrees (overrides saved settings) |
+| `-- TOOL_ARGS` | Pass CLI-specific arguments to spawned agents |
+
+### Delete Session
+
+```bash
+synapse session delete <name> [--project | --user | --workdir DIR] [--force]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--force`, `-f` | Delete without confirmation prompt |
+
 ## Task Board
 
 ### List Tasks

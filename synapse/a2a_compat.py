@@ -128,7 +128,24 @@ def _dispatch_task_event(event_type: str, payload: dict[str, Any]) -> None:
         event_type: Event type (e.g., "task.completed", "task.failed")
         payload: Event payload dict
     """
-    asyncio.create_task(dispatch_event(get_webhook_registry(), event_type, payload))
+    registry = get_webhook_registry()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # Called from sync callback threads (no running event loop).
+        # Run dispatch in a dedicated daemon thread to avoid dropping events.
+        def _run_in_thread() -> None:
+            try:
+                asyncio.run(dispatch_event(registry, event_type, payload))
+            except Exception:
+                logger.exception(
+                    "Failed to dispatch webhook event in thread: %s", event_type
+                )
+
+        threading.Thread(target=_run_in_thread, daemon=True).start()
+        return
+
+    loop.create_task(dispatch_event(registry, event_type, payload))
 
 
 def _convert_agent_to_info(agent: "ExternalAgent") -> "ExternalAgentInfo":

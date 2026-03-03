@@ -159,6 +159,18 @@ synapse team start claude gemini codex \
 </div>
 
 <div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-content-save-outline:</div>
+
+### Session Save/Restore
+Save running team configurations as named snapshots and restore them instantly with worktree isolation.
+
+```bash
+synapse session save review-team
+synapse session restore review-team --worktree
+```
+</div>
+
+<div class="feature-card" markdown>
 <div class="feature-icon" markdown>:material-account-cog-outline:</div>
 
 ### Agent Management

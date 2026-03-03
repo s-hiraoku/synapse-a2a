@@ -25,6 +25,13 @@ from synapse.a2a_client import A2AClient, get_client
 from synapse.agent_profiles import AgentProfileError, AgentProfileStore
 from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
+from synapse.commands.session import (
+    cmd_session_delete,
+    cmd_session_list,
+    cmd_session_restore,
+    cmd_session_save,
+    cmd_session_show,
+)
 from synapse.commands.start import StartCommand
 from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
@@ -82,7 +89,7 @@ def _copy_skill_to_agents(
     force: bool = False,
     quiet: bool = False,
 ) -> str | None:
-    """Copy a skill to .agents/skills/ (Codex/OpenCode use .agents/skills/).
+    """Copy a skill to .agents/skills/ (Codex/OpenCode/Gemini/Copilot use .agents/skills/).
 
     Args:
         source_dir: Source skill directory to copy from.
@@ -2056,7 +2063,7 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
 def _copy_claude_skills_to_agents(base_dir: Path, force: bool = False) -> list[str]:
     """Copy synapse skills from .claude to .agents directory.
 
-    Codex and OpenCode use .agents/skills/ for skill discovery, so this
+    Codex, OpenCode, Gemini, and Copilot use .agents/skills/ for skill discovery, so this
     copies each skill from .claude/skills/<name> to .agents/skills/<name>.
 
     Args:
@@ -2117,7 +2124,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     else:
         sys.exit(1)
 
-    # Copy skills from .claude to .agents (Codex/OpenCode use .agents/skills/)
+    # Copy skills from .claude to .agents (Codex/OpenCode/Gemini/Copilot use .agents/skills/)
     installed = _copy_claude_skills_to_agents(skills_base, force=False)
     for path in installed:
         print(f"✔ Copied skill to {path}")
@@ -3854,22 +3861,30 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="""Synapse A2A - Multi-Agent Collaboration Framework
 
-Synapse wraps CLI agents (Claude Code, Codex, Gemini) with Google A2A Protocol,
-enabling seamless inter-agent communication.""",
+Synapse wraps CLI agents (Claude Code, Codex, Gemini, OpenCode, Copilot) with
+Google A2A Protocol, enabling seamless inter-agent communication.
+
+Features: Agent Teams, Session Save/Restore, Shared Task Board, Shared Memory,
+Skills System, File Safety, History & Tracing, Worktree Isolation.""",
         prog="synapse",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  synapse claude                    Start Claude agent (interactive mode)
-  synapse gemini --port 8111        Start Gemini on specific port
-  synapse claude -- --continue      Pass --continue flag to Claude Code
-  synapse list                      Watch running agents (Rich TUI)
-  synapse send codex "Review this"  Send message to Codex agent
-  synapse history list              View task history
+  synapse claude                          Start Claude agent (interactive mode)
+  synapse team start claude gemini codex  Start a multi-agent team
+  synapse session save review-team        Save team configuration
+  synapse session restore review-team     Restore saved team
+  synapse spawn gemini --worktree         Spawn agent in isolated worktree
+  synapse list                            Watch running agents (Rich TUI)
+  synapse send codex "Review this" --wait Send message and wait for reply
+  synapse tasks create "Fix auth" -d "..."  Create a shared task
+  synapse memory save key "value"         Save to shared memory
+  synapse skills list                     List available skills
+  synapse history list                    View task history
 
 Environment Variables:
-  SYNAPSE_HISTORY_ENABLED=false     Disable task history (enabled by default)
-  SYNAPSE_FILE_SAFETY_ENABLED=true  Enable file locking for multi-agent safety
-  SYNAPSE_AUTH_ENABLED=true         Enable API key authentication
+  SYNAPSE_HISTORY_ENABLED=false           Disable task history (enabled by default)
+  SYNAPSE_FILE_SAFETY_ENABLED=true        Enable file locking for multi-agent safety
+  SYNAPSE_AUTH_ENABLED=true               Enable API key authentication
 
 Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     )
@@ -4960,6 +4975,96 @@ Extended Specification:
     )
     p_team_start.set_defaults(func=cmd_team_start)
 
+    # session - Session save/restore
+    p_session = subparsers.add_parser(
+        "session",
+        help="Save and restore team configurations",
+        description="Save running agent configurations as named snapshots and restore them later.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    session_subparsers = p_session.add_subparsers(
+        dest="session_command", metavar="SUBCOMMAND"
+    )
+
+    def _add_scope_filter_args(p: argparse.ArgumentParser) -> None:
+        scope_group = p.add_mutually_exclusive_group()
+        scope_group.add_argument(
+            "--project",
+            action="store_true",
+            default=False,
+            help="Project scope (default): .synapse/sessions/",
+        )
+        scope_group.add_argument(
+            "--user",
+            action="store_true",
+            default=False,
+            help="User scope: ~/.synapse/sessions/",
+        )
+        scope_group.add_argument(
+            "--workdir",
+            metavar="DIR",
+            help="Filter by working directory",
+        )
+
+    # session save
+    p_session_save = session_subparsers.add_parser(
+        "save",
+        help="Save running agents as a named session",
+    )
+    p_session_save.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_save)
+    p_session_save.set_defaults(func=cmd_session_save)
+
+    # session list
+    p_session_list = session_subparsers.add_parser(
+        "list",
+        help="List saved sessions",
+    )
+    _add_scope_filter_args(p_session_list)
+    p_session_list.set_defaults(func=cmd_session_list)
+
+    # session show
+    p_session_show = session_subparsers.add_parser(
+        "show",
+        help="Show session details",
+    )
+    p_session_show.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_show)
+    p_session_show.set_defaults(func=cmd_session_show)
+
+    # session restore
+    p_session_restore = session_subparsers.add_parser(
+        "restore",
+        help="Restore a saved session by spawning agents",
+    )
+    p_session_restore.add_argument("session_name", help="Session name to restore")
+    _add_scope_filter_args(p_session_restore)
+    p_session_restore.add_argument(
+        "--worktree",
+        "-w",
+        nargs="?",
+        const=True,
+        default=None,
+        metavar="NAME",
+        help="Create git worktree per agent (overrides saved worktree settings)",
+    )
+    p_session_restore.set_defaults(func=cmd_session_restore)
+
+    # session delete
+    p_session_delete = session_subparsers.add_parser(
+        "delete",
+        help="Delete a saved session",
+    )
+    p_session_delete.add_argument("session_name", help="Session name to delete")
+    _add_scope_filter_args(p_session_delete)
+    p_session_delete.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Delete without confirmation",
+    )
+    p_session_delete.set_defaults(func=cmd_session_delete)
+
     # spawn - Spawn single agent in new pane
     p_spawn = subparsers.add_parser(
         "spawn",
@@ -5251,7 +5356,7 @@ Scopes:
     # Only extract for commands that actually accept tool_args (start, spawn,
     # team start) so that other commands' '--' remains intact for argparse.
     argv = sys.argv[1:]
-    _TOOL_ARGS_COMMANDS = {"start", "spawn", "team"}
+    _TOOL_ARGS_COMMANDS = {"start", "spawn", "team", "session"}
     first_positional = next((a for a in argv if not a.startswith("-")), None)
     if first_positional in _TOOL_ARGS_COMMANDS:
         cli_argv, tool_args_extra = _extract_tool_args(argv)
@@ -5276,6 +5381,7 @@ Scopes:
         "instructions": ("instructions_command", p_instructions),
         "tasks": ("tasks_command", p_tasks),
         "team": ("team_command", p_team),
+        "session": ("session_command", p_session),
         "agents": ("agents_command", p_agents),
     }
 

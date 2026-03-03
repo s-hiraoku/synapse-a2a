@@ -108,6 +108,7 @@ flowchart LR
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
+| **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete`). Supports project and user scopes (`.synapse/sessions/`, `~/.synapse/sessions/`). Restore spawns all saved agents with their original names, roles, skill sets, and worktree settings |
 
 ---
 
@@ -671,6 +672,11 @@ Save this agent definition for reuse? [y/N]:
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |
 | `synapse agents delete <id_or_name>` | Delete a saved agent by ID or name |
+| `synapse session save <name>` | Save running agents as a named session snapshot |
+| `synapse session list` | List saved sessions |
+| `synapse session show <name>` | Show session details |
+| `synapse session restore <name>` | Restore a saved session (spawns agents) |
+| `synapse session delete <name>` | Delete a saved session |
 
 ### Resume Mode
 

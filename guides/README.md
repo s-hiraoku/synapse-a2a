@@ -100,6 +100,7 @@ flowchart TD
 - インタラクティブモードとバックグラウンドモード
 - エージェント命名（`--name`, `--role`, `--agent`/`-A` フラグ）
 - 保存済みエージェント定義（`synapse agents`）
+- セッション保存/復元（`synapse session`）
 - CLI コマンド一覧
 - @Agent 記法の詳細
 - HTTP API の使い方

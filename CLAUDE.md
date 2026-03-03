@@ -88,6 +88,10 @@ pytest tests/test_shared_memory.py -v    # SharedMemory core tests
 pytest tests/test_cli_memory.py -v       # CLI command tests  
 pytest tests/test_memory_api.py -v       # API endpoint tests
 
+# Session Save/Restore tests
+pytest tests/test_session.py -v            # SessionStore core tests
+pytest tests/test_cli_session.py -v        # Session CLI command tests
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -135,6 +139,13 @@ synapse memory show <id_or_key>
 synapse memory search <query>
 synapse memory delete <id_or_key> [--force]
 synapse memory stats
+
+# Session Save/Restore
+synapse session save <name> [--project|--user|--workdir <dir>]
+synapse session list [--project|--user|--workdir <dir>]
+synapse session show <name> [--project|--user|--workdir <dir>]
+synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [-- tool_args...]
+synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
 
 # Instructions management (for --resume mode or recovery)
 synapse instructions show                 # Show default instruction
@@ -378,6 +389,7 @@ synapse/
 ├── approval.py      # Plan Approval: instruction approval + plan mode (B3)
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
 ├── worktree.py      # Synapse-native git worktree isolation for all agent types
+├── session.py       # Session save/restore: team configuration snapshots
 ├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
@@ -387,6 +399,7 @@ synapse/
 │   ├── instructions.py    # synapse instructions command
 │   ├── list.py            # synapse list command
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
+│   ├── session.py         # synapse session command
 │   └── start.py           # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 
@@ -618,12 +631,14 @@ idle_detection:
 ~/.synapse/skills/   # Central skill store (SYNAPSE scope)
 ~/.synapse/agents/   # Saved agent definitions (user scope)
 ~/.synapse/logs/     # Log files
+~/.synapse/sessions/ # Saved session configurations (user scope)
 
 .synapse/agents/     # Saved agent definitions (project scope)
 .synapse/worktrees/  # Synapse-native git worktrees (per-agent isolation)
 .synapse/memory.db   # Shared memory database (project-local, SQLite WAL)
 .synapse/file_safety.db  # File safety database (project-local)
 .synapse/task_board.db   # Shared task board database (project-local)
+.synapse/sessions/   # Saved session configurations (project scope)
 ```
 
 ## Testing Registry & Status Updates
