@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Documentation
-
-- Add "On-Demand Specialists" card to "Why Synapse?" section (saved templates, worktree isolation, API spawning)
-- Update "Agent Management" card in Key Features to focus on delegate-mode
-- Fix spawn API example: correct profile/flag mismatch (Gemini profile with Claude-specific `--dangerously-skip-permissions`)
-- Fix `synapse skills apply` example: use Codex agent name instead of Gemini-implying name
-- Fix team start example: use canonical agent names (`Checker`, `Gem`) instead of ad-hoc role names
-- Fix worktree branch naming in cross-agent scenarios: use explicit `-w <name>` to match `git merge` commands
-- Fix `guides/references.md` annotation: clarify mixed spec format (saved_agent_name + profile:name)
-
 ## [0.8.6] - 2026-03-03
 
 ### Changed
@@ -26,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Add "On-Demand Specialists" card to "Why Synapse?" section (saved templates, worktree isolation, API spawning)
+- Update "Agent Management" card in Key Features to focus on delegate-mode
 - Expand delegate-mode guide with architecture, config, and use cases
 - Document `--agent`/`-A` flag for starting agents with saved agent definitions
 - Document role file conventions: recommended directories (`./roles/`, `~/my-roles/`)
@@ -33,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update 7 site-docs files (agent-teams, cross-agent-scenarios, communication, agent-management, cli, api, worktree) with consistent agent names
 - Update guides/ (references.md, usage.md) and CLAUDE.md with new agent IDs and names
 - Sync plugin skills (synapse-a2a, synapse-manager) with updated agent names
+- Fix spawn API example: correct profile/flag mismatch (Gemini profile with Claude-specific `--dangerously-skip-permissions`)
+- Fix `synapse skills apply` example: use Codex agent name instead of Gemini-implying name
+- Fix team start example: use canonical agent names (`Checker`, `Gem`) instead of ad-hoc role names
+- Fix worktree branch naming in cross-agent scenarios: use explicit `-w <name>` to match `git merge` commands
+- Fix `guides/references.md` annotation: clarify mixed spec format (saved_agent_name + profile:name)
 
 ## [0.8.5] - 2026-03-02
 
