@@ -239,22 +239,27 @@ def build_resume_args(profile: str, session_id: str | None = None) -> list[str]:
         List of CLI arguments to append. Empty list if profile
         doesn't support resume.
     """
-    if profile == "claude":
-        if session_id:
-            return ["--resume", session_id]
+    p = profile.strip().lower()
+    sid = session_id.strip() if session_id else None
+    if sid == "":
+        sid = None
+
+    if p == "claude":
+        if sid:
+            return ["--resume", sid]
         return ["--continue"]
 
-    if profile == "gemini":
-        if session_id:
-            return ["--resume", session_id]
+    if p == "gemini":
+        if sid:
+            return ["--resume", sid]
         return ["--resume"]
 
-    if profile == "codex":
-        if session_id:
-            return ["resume", session_id]
+    if p == "codex":
+        if sid:
+            return ["resume", sid]
         return ["resume", "--last"]
 
-    if profile == "copilot":
+    if p == "copilot":
         return ["--resume"]
 
     # opencode and unknown profiles: no resume support

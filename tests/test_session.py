@@ -566,3 +566,29 @@ def test_build_resume_args_unknown() -> None:
     from synapse.session import build_resume_args
 
     assert build_resume_args("unknown-agent") == []
+
+
+def test_build_resume_args_trims_whitespace() -> None:
+    """Whitespace in profile and session_id should be trimmed."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("  claude  ", "  conv-123  ") == ["--resume", "conv-123"]
+    assert build_resume_args("  gemini  ") == ["--resume"]
+
+
+def test_build_resume_args_case_insensitive() -> None:
+    """Profile matching should be case-insensitive."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("Claude", "conv-123") == ["--resume", "conv-123"]
+    assert build_resume_args("GEMINI") == ["--resume"]
+    assert build_resume_args("Codex", "cdx-1") == ["resume", "cdx-1"]
+    assert build_resume_args("COPILOT") == ["--resume"]
+
+
+def test_build_resume_args_empty_session_id_treated_as_none() -> None:
+    """Whitespace-only session_id should be treated as None (use latest)."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("claude", "   ") == ["--continue"]
+    assert build_resume_args("gemini", "") == ["--resume"]

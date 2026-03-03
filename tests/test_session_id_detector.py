@@ -109,6 +109,24 @@ class TestDetectGemini:
         result = detect_session_id("gemini", working_dir, gemini_home=gemini_home)
         assert result == "session-named-123"
 
+    def test_detect_gemini_non_dict_projects_json(self, tmp_path: Path) -> None:
+        """projects.json with non-dict content should fall back to SHA256 hash."""
+        working_dir = "/Volumes/SSD/myproject"
+        gemini_home = tmp_path / ".gemini"
+        gemini_home.mkdir(parents=True)
+
+        # projects.json is a list, not a dict
+        (gemini_home / "projects.json").write_text(json.dumps(["not", "a", "dict"]))
+
+        # Create sessions under SHA256 hash path
+        proj_hash = _gemini_project_hash(working_dir)
+        chats_dir = gemini_home / "tmp" / proj_hash / "chats"
+        chats_dir.mkdir(parents=True)
+        _touch(chats_dir / "session-hash-fallback.json", "{}", mtime=5000.0)
+
+        result = detect_session_id("gemini", working_dir, gemini_home=gemini_home)
+        assert result == "session-hash-fallback"
+
     def test_detect_gemini_no_chats_dir(self, tmp_path: Path) -> None:
         """chats directory doesn't exist → None."""
         result = detect_session_id(
@@ -242,6 +260,43 @@ class TestListSessions:
         """No sessions → empty list."""
         results = list_sessions(
             "claude", "/nonexistent", claude_home=tmp_path / ".claude"
+        )
+        assert results == []
+
+    def test_list_unknown_profile_returns_empty(self, tmp_path: Path) -> None:
+        """Unknown profile should return empty list, not all profiles."""
+        working_dir = "/Volumes/SSD/unknown"
+
+        # Create Claude sessions that should NOT be returned
+        claude_hash = _claude_project_hash(working_dir)
+        claude_dir = tmp_path / ".claude" / "projects" / claude_hash
+        claude_dir.mkdir(parents=True)
+        _touch(claude_dir / "should-not-appear.jsonl", "data", mtime=1000.0)
+
+        results = list_sessions(
+            "unknown-profile",
+            working_dir,
+            claude_home=tmp_path / ".claude",
+        )
+        assert results == []
+
+    def test_list_zero_limit_returns_empty(self, tmp_path: Path) -> None:
+        """limit=0 should return empty list."""
+        working_dir = "/Volumes/SSD/zero"
+        claude_hash = _claude_project_hash(working_dir)
+        claude_dir = tmp_path / ".claude" / "projects" / claude_hash
+        claude_dir.mkdir(parents=True)
+        _touch(claude_dir / "session.jsonl", "data", mtime=1000.0)
+
+        results = list_sessions(
+            "claude", working_dir, limit=0, claude_home=tmp_path / ".claude"
+        )
+        assert results == []
+
+    def test_list_negative_limit_returns_empty(self, tmp_path: Path) -> None:
+        """Negative limit should return empty list."""
+        results = list_sessions(
+            "claude", "/any", limit=-5, claude_home=tmp_path / ".claude"
         )
         assert results == []
 

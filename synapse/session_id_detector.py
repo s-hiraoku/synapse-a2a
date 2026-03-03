@@ -85,6 +85,9 @@ def list_sessions(
         limit: Max number of results to return.
         **home_overrides: DI overrides.
     """
+    if limit <= 0:
+        return []
+
     listers: dict[str, _Lister] = {
         "claude": _list_claude_sessions,
         "gemini": _list_gemini_sessions,
@@ -92,7 +95,12 @@ def list_sessions(
         "copilot": _list_copilot_sessions,
     }
 
-    targets = {profile: listers[profile]} if profile and profile in listers else listers
+    if profile is not None:
+        if profile not in listers:
+            return []
+        targets: dict[str, _Lister] = {profile: listers[profile]}
+    else:
+        targets = listers
 
     results: list[SessionInfo] = []
     for pname, fn in targets.items():
@@ -182,11 +190,12 @@ def _gemini_chats_dir(working_dir: str, gemini_home: Path | None = None) -> Path
     if projects_json.is_file():
         try:
             mapping = json.loads(projects_json.read_text())
-            ref: str | None = mapping.get(working_dir)
-            if ref:
-                chats: Path = home / "tmp" / ref / "chats"
-                if chats.is_dir():
-                    return chats
+            if isinstance(mapping, dict):
+                ref: str | None = mapping.get(working_dir)
+                if ref:
+                    chats: Path = home / "tmp" / ref / "chats"
+                    if chats.is_dir():
+                        return chats
         except (json.JSONDecodeError, OSError):
             pass
 
