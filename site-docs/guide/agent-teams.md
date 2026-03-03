@@ -53,7 +53,7 @@ synapse team start \
 !!! tip "Dynamic Skill Set Changes"
     Skill sets specified in the extended spec are applied at startup. To change an agent's skill set after it has started, use `synapse skills apply`:
     ```bash
-    synapse skills apply Gem developer
+    synapse skills apply Cody developer
     ```
     See [Applying Skill Sets](skills.md#apply-to-a-running-agent) for details.
 
@@ -130,7 +130,7 @@ Agents can spawn other agents programmatically:
 ```bash
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "name": "Gem", "tool_args": ["--dangerously-skip-permissions"]}'
+  -d '{"profile": "claude", "name": "Claud", "tool_args": ["--dangerously-skip-permissions"]}'
 ```
 
 ## Delegate Mode
@@ -402,7 +402,7 @@ Saved agent IDs/names work as targets in team start specs:
 
 ```bash
 synapse team start sharp-checker steady-builder              # By saved agent IDs
-synapse team start sharp-checker:Reviewer gemini:Searcher  # Mix saved + profile
+synapse team start sharp-checker:Checker gemini:Gem  # Mix saved + profile
 ```
 
 ### Storage and Scope

@@ -295,9 +295,9 @@ sequenceDiagram
 **1. Spawn agents with worktree isolation:**
 
 ```bash
-synapse spawn codex --worktree --name Cody --role "backend refactoring"
-synapse spawn codex --worktree --name Rex --role "data model refactoring"
-synapse spawn gemini --worktree --name Gem --role "API layer refactoring"
+synapse spawn codex -w Cody --name Cody --role "backend refactoring"
+synapse spawn codex -w Rex --name Rex --role "data model refactoring"
+synapse spawn gemini -w Gem --name Gem --role "API layer refactoring"
 ```
 
 **2. Delegate each module:**
