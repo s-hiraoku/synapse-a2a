@@ -348,7 +348,7 @@ Documentation drift is one of the most common tech debt sources. By assigning a 
 sequenceDiagram
     participant Codex as Codex (Cody)
     participant Gemini as Gemini (Gem)
-    participant Claude as Codex 2 (Rex)
+    participant Rex as Codex 2 (Rex)
     participant SM as Shared Memory
 
     Codex->>Codex: Adds new /api/webhooks endpoint
@@ -356,11 +356,11 @@ sequenceDiagram
     Codex->>Gemini: synapse send Gem "Update API docs for new webhook endpoint" --silent
     Gemini->>SM: synapse memory show webhook-api
     Gemini->>Gemini: Updates docs/api.md and README
-    Gemini->>Claude: synapse send Rex "Verify docs match implementation" --wait
-    Claude->>Claude: Cross-checks code vs docs
-    Claude-->>Gemini: "Docs missing error response codes — add 400/422 examples"
+    Gemini->>Rex: synapse send Rex "Verify docs match implementation" --wait
+    Rex->>Rex: Cross-checks code vs docs
+    Rex-->>Gemini: "Docs missing error response codes — add 400/422 examples"
     Gemini->>Gemini: Fixes docs
-    Gemini-->>Claude: "Updated — all response codes documented"
+    Gemini-->>Rex: "Updated — all response codes documented"
 ```
 
 ### Commands
@@ -368,10 +368,7 @@ sequenceDiagram
 **1. Start the team:**
 
 ```bash
-synapse team start codex gemini codex --layout split
-synapse rename codex --name Cody --role "implementation"
-synapse rename gemini --name Gem --role "documentation"
-synapse rename codex --name Rex --role "doc verification"
+synapse team start codex:Cody::implementation gemini:Gem::documentation codex:Rex::doc-verification --layout split
 ```
 
 **2. After Codex implements the feature, share context:**

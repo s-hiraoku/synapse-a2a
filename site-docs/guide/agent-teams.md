@@ -89,7 +89,7 @@ Spawn a single agent in a new pane:
 ```bash
 synapse spawn claude
 synapse spawn gemini --port 8115
-synapse spawn claude --name Rex --role "test writer"
+synapse spawn codex --name Rex --role "test writer"
 synapse spawn claude --terminal tmux
 ```
 

@@ -330,7 +330,7 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 ```bash
 synapse team start claude gemini codex              # claude=ここ、他=新ペイン
 synapse team start steady-builder gemini              # saved_agent_id で起動
-synapse team start Cody gemini:Bob              # saved_agent_name で起動
+synapse team start Cody gemini:Gem              # saved_agent_name で起動
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す

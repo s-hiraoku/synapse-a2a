@@ -38,7 +38,7 @@ synapse agents list
 
 # Spawn agents from saved definitions
 synapse spawn calm-lead
-synapse spawn test-specialist
+synapse spawn sharp-checker
 ```
 
 **Or spawn agents with ad-hoc roles:**
