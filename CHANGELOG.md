@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-03-04
+
+### Added
+
+- **Saved Workflows** (`synapse workflow`): define and replay reusable message sequences to running agents
+  - `synapse workflow create <name>` — generate a template YAML workflow
+  - `synapse workflow list` — list saved workflows (Rich TUI table or plain-text fallback)
+  - `synapse workflow show <name>` — display workflow steps and details
+  - `synapse workflow run <name>` — execute steps sequentially via A2A send
+  - `synapse workflow delete <name>` — remove saved workflows
+  - `--dry-run` and `--continue-on-error` flags for run
+  - Project/user scope storage (`.synapse/workflows/`, `~/.synapse/workflows/`)
+- Enhance help discoverability for root/team/session commands
+
+### Fixed
+
+- `WorkflowStore.exists()` for file-existence checks (corrupted YAML no longer bypasses overwrite protection)
+- Validate `WorkflowStep` target/message are `str` type, not just non-empty
+- `_parse_file` warns and uses filename stem when YAML `name` field mismatches
+
+### Documentation
+
+- Add x-synapse-context Agent Card extension documentation
+- Add workflow guide and CLI reference to GitHub Pages
+- Update README, guides, CLAUDE.md, and plugin skills with workflow commands
+
 ## [0.9.0] - 2026-03-03
 
 ### Added
