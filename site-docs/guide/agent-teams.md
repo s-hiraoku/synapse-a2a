@@ -334,7 +334,7 @@ git branch -d worktree-sharp-checker
 
 ## Saved Agent Definitions
 
-Save reusable agent definitions for repeated use with `synapse spawn`. Definitions are stored as `.agent` files in Agent ID-keyed format.
+Save reusable agent definitions for repeated use with `synapse <profile> --agent`, `synapse spawn`, and `synapse team start`. Definitions are stored as `.agent` files in Agent ID-keyed format.
 
 ### Creating a Saved Agent
 
@@ -349,10 +349,10 @@ synapse agents add sharp-checker \
 
 | Field | Description |
 |-------|-------------|
-| `<id>` | Agent ID identifier (e.g. `sharp-checker`) |
+| `<id>` | Agent ID in petname format (lowercase words joined by hyphens, e.g. `sharp-checker`, `calm-lead`) |
 | `--name` | Display name (required) |
 | `--profile` | Agent profile: `claude`, `codex`, `gemini`, `opencode`, `copilot` (required) |
-| `--role` | Role description or `@path` file reference |
+| `--role` | Role description or `@path` file reference (e.g. `@./roles/reviewer.md`) |
 | `--skill-set` | Skill set to activate |
 | `--scope` | `project` (`.synapse/agents/`) or `user` (`~/.synapse/agents/`) |
 
@@ -369,9 +369,21 @@ synapse agents show Rex    # Show details for one agent
 synapse agents delete sharp-checker
 ```
 
+### Using at Startup
+
+Start an agent with a saved definition using `--agent` / `-A`:
+
+```bash
+synapse claude --agent calm-lead        # By saved agent ID
+synapse claude -A Claud                 # By display name
+synapse claude --agent calm-lead --role "temporary override"  # CLI overrides
+```
+
+The saved agent's profile must match the profile shortcut. For example, a saved agent with `profile=gemini` cannot be used with `synapse claude`.
+
 ### Using with Spawn
 
-Once defined, spawn by saved agent ID or display name:
+Spawn by saved agent ID or display name:
 
 ```bash
 synapse spawn sharp-checker
@@ -384,12 +396,40 @@ CLI flags override saved values:
 synapse spawn sharp-checker --role "temporary override role"
 ```
 
+### Using with Team Start
+
+Saved agent IDs/names work as targets in team start specs:
+
+```bash
+synapse team start sharp-checker steady-builder              # By saved agent IDs
+synapse team start sharp-checker:Reviewer gemini:Searcher  # Mix saved + profile
+```
+
+### Storage and Scope
+
+| Scope | Path | Precedence |
+|-------|------|------------|
+| Project | `.synapse/agents/*.agent` | Higher (takes priority) |
+| User | `~/.synapse/agents/*.agent` | Lower (fallback) |
+
+Project-scope definitions take precedence over user-scope when IDs collide. Use project scope for team-specific agents and user scope for personal templates.
+
+**File format** (key=value):
+
+```ini
+id=sharp-checker
+name=Rex
+profile=codex
+role=code reviewer
+skill_set=architect
+```
+
 ### Save on Exit
 
 When an interactive agent exits (with a name set), Synapse prompts whether to save the current agent definition for reuse. This provides a convenient way to capture agent configurations without using `synapse agents add` directly.
 
-!!! info "Scope Precedence"
-    Project-scope definitions (`.synapse/agents/`) take precedence over user-scope (`~/.synapse/agents/`) when IDs collide.
+!!! tip "Role Files"
+    Roles can reference Markdown files using the `@` prefix. Store project-shared roles in `./roles/` (committed to Git) and personal roles in `~/my-roles/` or `~/.synapse/roles/`.
 
 ## Patterns
 

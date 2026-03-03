@@ -511,6 +511,10 @@ synapse copilot
 # カスタム名とロールを指定して起動
 synapse claude --name my-claude --role "コードレビュー担当"
 
+# 保存済みエージェント定義を使用して起動 (--agent / -A)
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # 短縮フラグ、表示名で指定
+
 # 対話型セットアップをスキップ
 synapse claude --no-setup
 
@@ -536,6 +540,13 @@ synapse claude --no-setup
 # CLI オプションで名前とロールを設定
 synapse claude --name my-claude --role "コードレビュー担当"
 
+# ファイルからロールを読み込み（@プレフィックスでファイル内容を読み込み）
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+
+# 保存済みエージェント定義を使用 (--agent / -A)
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # 短縮フラグ
+
 # エージェントの実行中に名前/ロールを変更
 synapse rename synapse-claude-8100 --name my-claude --role "テスト作成担当"
 synapse rename my-claude --role "ドキュメント担当"  # ロールのみ変更
@@ -554,6 +565,19 @@ synapse kill my-claude
 - **表示/プロンプト**: 名前が設定されている場合は名前、それ以外は ID を表示 (例: `Kill my-claude (PID: 1234)?`)
 - **内部処理**: 常にランタイム ID を使用 (`synapse-claude-8100`)
 - **ターゲット解決**: ターゲットの照合時、名前が最も高い優先度を持ちます
+
+### 終了時の保存プロンプト
+
+対話型エージェントセッション終了時、Synapse は現在のエージェント定義を再利用のために保存するかどうか確認します:
+
+```text
+Save this agent definition for reuse? [y/N]:
+```
+
+- 名前が設定されている `synapse <profile>` の対話セッション終了時のみ表示されます。
+- `--headless` モードまたは非 TTY 環境では表示されません。
+- `synapse stop ...` / `synapse kill ...` で停止した場合は表示されません。
+- 無効化: `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`
 
 ### コマンド一覧
 
@@ -604,17 +628,20 @@ synapse kill my-claude
 | `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用 |
 | `synapse config` | 設定管理（インタラクティブ TUI） |
 | `synapse config show` | 現在の設定を表示 |
-| `synapse agents list` | 保存済みエージェントの一覧 |
-| `synapse agents add` | エージェント設定を保存 |
-| `synapse agents delete` | 保存済みエージェントを削除 |
 | `synapse tasks list` | 共有タスクボードを表示 |
-| `synapse tasks create` | タスクを作成 |
+| `synapse tasks create` | タスクを作成 (`--priority 1-5` 対応) |
 | `synapse tasks assign` | タスクをエージェントに割り当て |
 | `synapse tasks complete` | タスクを完了にする |
+| `synapse tasks fail` | タスクを失敗にする (`--reason` で理由付加) |
+| `synapse tasks reopen` | 完了/失敗タスクを pending に再オープン |
 | `synapse approve <task_id>` | プランを承認する |
 | `synapse reject <task_id>` | 理由を添えてプランを拒否する |
-| `synapse team start` | 複数エージェントを起動 (1番目は引き継ぎ、残りは新しいペイン)。`--all-new` はすべて新しいペイン。 |
-| `synapse spawn <profile>` | 1つのエージェントを新しいペインで起動 |
+| `synapse team start` | 複数エージェントを起動 (1番目は引き継ぎ、残りは新しいペイン)。`--all-new` はすべて新しいペイン |
+| `synapse spawn <profile\|saved-agent>` | 1つのエージェントを新しいペインで起動。保存済みエージェントID/名前も指定可能。`--worktree` / `-w` で Synapse ネイティブ worktree 分離 |
+| `synapse agents list` | 保存済みエージェント定義の一覧 |
+| `synapse agents show <id_or_name>` | 保存済みエージェントの詳細を表示 |
+| `synapse agents add <id>` | 保存済みエージェント定義を追加/更新 (`--name`, `--profile` 必須) |
+| `synapse agents delete <id_or_name>` | 保存済みエージェントをID/名前で削除 |
 
 ### Resume モード
 

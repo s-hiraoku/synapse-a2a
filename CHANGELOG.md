@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 - Expand delegate-mode guide with architecture, config, and use cases
+- Document `--agent`/`-A` flag for starting agents with saved agent definitions
+- Document role file conventions: recommended directories (`./roles/`, `~/my-roles/`)
+- Document petname ID format, scope precedence (project > user), `.agent` file format
 - Update 7 site-docs files (agent-teams, cross-agent-scenarios, communication, agent-management, cli, api, worktree) with consistent agent names
 - Update guides/ (references.md, usage.md) and CLAUDE.md with new agent IDs and names
 - Sync plugin skills (synapse-a2a, synapse-manager) with updated agent names
@@ -1782,6 +1785,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.8.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.5...v0.8.6
+[0.8.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.4...v0.8.5
+[0.8.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.0...v0.8.1

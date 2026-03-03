@@ -64,6 +64,14 @@ synapse claude --name my-claude --role "code reviewer"
 # With skill set
 synapse claude --skill-set dev-set
 
+# With saved agent definition (--agent / -A)
+synapse claude --agent calm-lead
+synapse claude --agent calm-lead --role "override role"  # CLI args override saved values
+
+# With role from file (@prefix reads file content as role)
+synapse claude --name reviewer --role "@./roles/reviewer.md"
+synapse gemini --role "@~/my-roles/analyst.md"
+
 # Delegate/manager mode (no file editing, delegates via synapse send)
 synapse claude --delegate-mode --name manager --role "task manager"
 
@@ -111,7 +119,7 @@ synapse start claude --port 8100 --ssl-cert cert.pem --ssl-key key.pem
 
 ### Spawn Single Agent
 
-Spawn a single agent in a new terminal pane or window.
+Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names.
 
 **Workflow:** Spawn is sub-agent delegation — the parent spawns children to offload subtasks while preserving its own context. The full lifecycle is: spawn → send task → evaluate result → (re-send if needed) → kill. If the user specifies the number of agents, follow that exactly; otherwise the parent decides based on task structure. See `references/examples.md` → "Sub-Agent Delegation Patterns" for concrete patterns.
 
@@ -122,6 +130,11 @@ synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --skill-set dev-set      # With skill set
 synapse spawn claude --terminal tmux          # Use specific terminal
 synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
+
+# Spawn from saved agent definition (by ID or display name)
+synapse spawn sharp-checker                    # Spawn by saved Agent ID
+synapse spawn Claud                           # Spawn by saved agent display name
+synapse spawn sharp-checker --role "temporary override"  # Override saved values
 
 # Worktree isolation (Synapse-level flag, before '--'; works for ALL agent types)
 synapse spawn claude --name Impl --role "implementer" --worktree            # auto-named worktree
