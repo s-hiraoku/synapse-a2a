@@ -194,6 +194,23 @@ synapse instructions send synapse-claude-8100
 
 ---
 
+### 1.5 エージェントの初期化 (Agent Card Context Extension)
+
+Synapse では、ターミナル（PTY）に長いインストラクションを表示せず、A2A プロトコル準拠の **Agent Card** を使用してエージェントに初期設定（コンテキスト）を渡します。
+
+**動作**:
+1. 起動時に、PTY に最小限の「ブートストラップメッセージ」が送信されます。
+2. メッセージには、`x-synapse-context` 拡張を含む Agent Card を取得するための `curl` コマンドが含まれています。
+3. AI エージェントはこのコマンドを実行して、自分の ID、転送ルール、他のエージェント情報などを取得します。
+
+**メリット**:
+- **ターミナルのクリーン化**: 画面が長い説明テキストで埋まりません。
+- **標準準拠**: A2A プロトコルのエージェント発見メカニズムを活用しています。
+
+詳細は [a2a-communication.md](a2a-communication.md) を参照してください。
+
+---
+
 ## 2. CLI コマンド
 
 ### 2.1 コマンド一覧
@@ -234,6 +251,7 @@ flowchart TB
         agents["agents"]
         tasks["tasks"]
         session["session"]
+        workflow["workflow"]
         approve["approve"]
         reject["reject"]
         init["init"]
@@ -310,6 +328,14 @@ flowchart TB
         sess_delete["delete"]
     end
 
+    subgraph WorkflowCmds["workflow サブコマンド"]
+        wf_create["create"]
+        wf_list["list"]
+        wf_show["show"]
+        wf_run["run"]
+        wf_delete["delete"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
@@ -320,6 +346,7 @@ flowchart TB
     agents --> Agents
     tasks --> Tasks
     session --> SessionCmds
+    workflow --> WorkflowCmds
 ```
 
 | コマンド | 説明 |
@@ -348,6 +375,7 @@ flowchart TB
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用（`--dry-run` でプレビュー） |
 | `synapse session` | セッション保存/復元（チーム構成のスナップショット管理） |
+| `synapse workflow` | ワークフロー管理（保存済みメッセージシーケンスの作成・実行） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
 | `synapse auth` | API キー認証の管理（`setup` / `generate-key`） |
 
@@ -1104,6 +1132,84 @@ synapse session restore my-team -- --dangerously-skip-permissions
 - **role**: ロール
 - **skill_set**: スキルセット
 - **worktree**: worktree 使用の有無
+
+---
+
+### 2.9 ワークフロー管理（Workflow）
+
+YAML ベースのメッセージシーケンスを定義し、複数のエージェントに順番にメッセージを送信するワークフローを作成・実行できます。繰り返し行うマルチエージェント操作の自動化に便利です。
+
+#### 基本操作
+
+```bash
+# ワークフローテンプレートを作成
+synapse workflow create my-pipeline
+
+# 保存済みワークフロー一覧
+synapse workflow list
+
+# ワークフロー詳細を確認
+synapse workflow show my-pipeline
+
+# ワークフローを実行（ステップを順番に実行）
+synapse workflow run my-pipeline
+
+# ドライランで実行内容をプレビュー（実際には送信しない）
+synapse workflow run my-pipeline --dry-run
+
+# エラー発生時も残りのステップを継続
+synapse workflow run my-pipeline --continue-on-error
+
+# ワークフローを削除
+synapse workflow delete my-pipeline
+synapse workflow delete my-pipeline --force  # 確認なし
+```
+
+#### スコープ
+
+| スコープ | パス | 説明 |
+|---------|------|------|
+| **Project**（デフォルト） | `.synapse/workflows/` | プロジェクトローカル |
+| **User** | `~/.synapse/workflows/` | ユーザー全体で共有 |
+
+```bash
+# ユーザースコープに作成
+synapse workflow create my-pipeline --user
+
+# ユーザースコープのワークフローのみ表示
+synapse workflow list --user
+```
+
+#### YAML 定義の形式
+
+`synapse workflow create` で生成されるテンプレートを編集します:
+
+```yaml
+name: my-pipeline
+description: コードレビューパイプライン
+steps:
+  - target: claude
+    message: "src/auth.py のコードレビューを実施して"
+    priority: 3
+    response_mode: notify
+  - target: gemini
+    message: "src/auth.py のセキュリティ監査を実施して"
+    priority: 3
+    response_mode: notify
+  - target: codex
+    message: "src/auth.py のテストを書いて"
+    priority: 3
+    response_mode: silent
+```
+
+#### ステップのフィールド
+
+| フィールド | 必須 | デフォルト | 説明 |
+|-----------|------|-----------|------|
+| `target` | Yes | - | 送信先エージェント（名前、ID、タイプ） |
+| `message` | Yes | - | 送信メッセージ |
+| `priority` | No | 3 | 優先度（1-5） |
+| `response_mode` | No | notify | `wait` / `notify` / `silent` |
 
 ---
 

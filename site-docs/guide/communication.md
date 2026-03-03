@@ -299,6 +299,16 @@ synapse send Worker "Fix bug" --silent
 synapse send Worker "Are you finished?" --wait
 ```
 
+## Saved Workflows
+
+For recurring multi-step sequences (e.g., review-then-test, security audit pipeline), save the steps as a YAML workflow and replay them with a single command:
+
+```bash
+synapse workflow run review-and-test
+```
+
+See [Workflows](workflow.md) for details on creating, managing, and running saved workflows.
+
 ## A2A Flow Configuration
 
 Configure default communication behavior in settings:

@@ -229,6 +229,17 @@ synapse skills deploy code-review \
 </div>
 
 <div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-play-box-outline:</div>
+
+### Workflows
+Save reusable multi-step message sequences as YAML and replay them with a single command. Automate recurring task pipelines.
+
+```bash
+synapse workflow run review-and-test
+```
+</div>
+
+<div class="feature-card" markdown>
 <div class="feature-icon" markdown>:material-history:</div>
 
 ### History & Tracing

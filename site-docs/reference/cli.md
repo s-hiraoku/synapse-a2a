@@ -398,6 +398,57 @@ synapse skills apply <target> <set_name> [--dry-run]
 | `<set_name>` | Skill set name (e.g., `manager`, `developer`, `reviewer`) |
 | `--dry-run` | Preview changes without applying |
 
+## Workflows
+
+### Create Workflow
+
+```bash
+synapse workflow create <name> [--project | --user] [--force]
+```
+
+Creates a template YAML file for a new workflow.
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project scope (default): `.synapse/workflows/` |
+| `--user` | User scope: `~/.synapse/workflows/` |
+| `--force` | Overwrite existing workflow |
+
+### List Workflows
+
+```bash
+synapse workflow list [--project | --user]
+```
+
+### Show Workflow
+
+```bash
+synapse workflow show <name> [--project | --user]
+```
+
+### Run Workflow
+
+```bash
+synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error]
+```
+
+Executes workflow steps sequentially via `synapse send`.
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview steps without sending messages |
+| `--continue-on-error` | Continue executing remaining steps after a failure |
+
+### Delete Workflow
+
+```bash
+synapse workflow delete <name> [--project | --user] [--force]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--force`, `-f` | Delete without confirmation prompt |
+
 ## Settings
 
 ```bash

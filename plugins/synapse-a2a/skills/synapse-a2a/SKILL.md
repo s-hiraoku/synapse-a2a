@@ -69,6 +69,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Show session | `synapse session show <name> [--project \| --user \| --workdir DIR]` |
 | Restore session | `synapse session restore <name> [--project \| --user \| --workdir DIR] [--worktree] [-- tool_args...]` |
 | Delete session | `synapse session delete <name> [--project \| --user \| --workdir DIR] [--force]` |
+| Create workflow | `synapse workflow create <name> [--project \| --user] [--force]` |
+| List workflows | `synapse workflow list [--project \| --user]` |
+| Show workflow | `synapse workflow show <name> [--project \| --user]` |
+| Run workflow | `synapse workflow run <name> [--project \| --user] [--dry-run] [--continue-on-error]` |
+| Delete workflow | `synapse workflow delete <name> [--project \| --user] [--force]` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |
@@ -469,6 +474,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 - **Delegate Mode**: `--delegate-mode` creates a manager that delegates instead of editing files
 - **Auto-Spawn Panes**: `synapse team start` — 1st agent takes over current terminal (handoff), others in new panes. `--all-new` for all new panes. `--worktree` for per-agent worktree isolation. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij). Ports are pre-allocated to avoid race conditions when multiple agents of the same type start simultaneously.
 - **Session Save/Restore**: `synapse session` — Save running team configurations as named JSON snapshots and restore them later. Captures each agent's profile, name, role, skill set, and worktree setting. Scopes: project (`.synapse/sessions/`), user (`~/.synapse/sessions/`), or `--workdir DIR` (`DIR/.synapse/sessions/`). Restore spawns all agents from the snapshot via `spawn_agent()`.
+- **Workflow Automation**: `synapse workflow` — Define multi-step agent workflows as YAML files (`synapse workflow create`), list/show saved workflows, and execute steps sequentially (`synapse workflow run`). Each step targets an agent with a message, priority, and response mode. Supports `--dry-run` and `--continue-on-error`. Storage: `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user).
 - **Spawn Single Agent**: `synapse spawn <profile>` — Spawn a single agent in a new terminal pane or window. `--no-setup --headless` are always added.
 - **Worktree Isolation**: `--worktree` / `-w` is a Synapse-level flag that gives each agent an isolated git worktree under `.synapse/worktrees/<name>/`, preventing file conflicts in multi-agent setups. Works for ALL agent types (Claude, Gemini, Codex, OpenCode, Copilot). Usage: `synapse spawn claude --worktree`, `synapse team start claude gemini --worktree`. `synapse list` shows `[WT]` prefix for worktree agents. Env vars: `SYNAPSE_WORKTREE_PATH`, `SYNAPSE_WORKTREE_BRANCH`, `SYNAPSE_WORKTREE_BASE_BRANCH`. Cleanup detects both uncommitted changes and new commits (vs. the base branch) before deciding whether to auto-delete.
 - **CI Monitoring**: Automated PostToolUse hooks (`poll-ci.sh`, `poll-pr-status.sh`) detect `git push` and `gh pr create`, then poll GitHub Actions CI status, merge conflict state, and CodeRabbit reviews. Reports results via `systemMessage` and suggests `/fix-ci`, `/fix-conflict`, or `/fix-review` as appropriate.

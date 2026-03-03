@@ -163,3 +163,4 @@ This opens each agent in a separate terminal pane (requires tmux, iTerm2, Termin
 - [Agent Management](../guide/agent-management.md) — Full lifecycle control
 - [Communication](../guide/communication.md) — All messaging patterns
 - [Agent Teams](../guide/agent-teams.md) — Team spawning and delegation
+- [Workflows](../guide/workflow.md) — Saved multi-step message sequences

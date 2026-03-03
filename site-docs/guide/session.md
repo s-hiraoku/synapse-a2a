@@ -115,3 +115,15 @@ Sessions are stored as JSON files:
 - User scope: `~/.synapse/sessions/<name>.json`
 
 Each file contains the session name, agent list (profile, name, role, skill set, worktree flag), working directory, creation timestamp, and scope.
+
+## Combining with Workflows
+
+Sessions restore agents; workflows send them tasks. A common pattern is to restore a session and then run a workflow:
+
+```bash
+synapse session restore review-team --worktree
+# Wait for agents to become READY...
+synapse workflow run review-and-test
+```
+
+See [Workflows](workflow.md) for details on defining and running saved message sequences.

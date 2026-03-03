@@ -462,10 +462,25 @@ curl http://localhost:8100/.well-known/agent.json
       "pty_wrapped": true,
       "priority_interrupt": true,
       "at_agent_syntax": true
+    },
+    "x-synapse-context": {
+      "identity": "synapse-claude-8100",
+      "routing_rules": { ... },
+      "available_agents": [ ... ]
     }
   }
 }
 ```
+
+#### x-synapse-context 拡張
+
+A2A プロトコルでは、エージェントの初期化情報を PTY に直接流し込むのではなく、Agent Card 経由で渡すことが推奨されます。Synapse では `x-synapse-context` フィールドを使用して、以下の情報を非表示で提供します。
+
+- エージェントの Runtime ID
+- メッセージ転送用のルーティングルール
+- 他のエージェントの発見情報
+
+AI エージェントは起動時に最小限のブートストラップ（curl コマンド）を受け取り、これを通じて完全なコンテキストを取得します。
 
 ### 6.2 Task ベース API
 

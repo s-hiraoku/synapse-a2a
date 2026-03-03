@@ -1257,6 +1257,97 @@ Session names must start with an alphanumeric character and contain only alphanu
 DIR/.synapse/sessions/<name>.json    # Custom project scope (--workdir DIR)
 ```
 
+## Workflow Automation
+
+Define multi-step agent workflows as YAML files and execute them sequentially.
+
+### Create Workflow Template
+
+```bash
+# Generate a template YAML file
+synapse workflow create review-and-test
+```
+
+Creates a starter YAML at the project scope (`.synapse/workflows/review-and-test.yaml`) with example steps that you can customize.
+
+### List Workflows
+
+```bash
+# List all saved workflows (project + user)
+synapse workflow list
+
+# List project-scope workflows only
+synapse workflow list --project
+
+# List user-scope workflows only
+synapse workflow list --user
+```
+
+### Show Workflow Details
+
+```bash
+# Show step-by-step details of a workflow
+synapse workflow show review-and-test
+```
+
+Displays workflow name, description, scope, and each step's target, message, priority, and response mode.
+
+### Run Workflow
+
+```bash
+# Execute all steps sequentially
+synapse workflow run review-and-test
+
+# Preview steps without executing
+synapse workflow run review-and-test --dry-run
+
+# Continue executing remaining steps even if one fails
+synapse workflow run review-and-test --continue-on-error
+```
+
+Steps are executed in order. Each step sends a message to the specified target agent using the configured priority and response mode. By default, execution stops on the first failure unless `--continue-on-error` is set.
+
+### Delete Workflow
+
+```bash
+# Delete with confirmation prompt
+synapse workflow delete review-and-test
+
+# Delete without confirmation
+synapse workflow delete review-and-test --force
+```
+
+### YAML Format
+
+```yaml
+name: review-and-test
+description: "Send review to Claude, then tests to Gemini"
+steps:
+  - target: claude
+    message: "Review the changes"
+    priority: 4
+    response_mode: wait
+  - target: gemini
+    message: "Write tests"
+    response_mode: silent
+```
+
+**Step fields:**
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `target` | Yes | — | Agent target (name, type, ID) |
+| `message` | Yes | — | Message to send |
+| `priority` | No | `3` | Priority level (1-5) |
+| `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
+
+### Storage
+
+```text
+.synapse/workflows/<name>.yaml        # Project scope (default)
+~/.synapse/workflows/<name>.yaml      # User scope
+```
+
 ## Skill Management
 
 Manage skills across scopes with a central store (`~/.synapse/skills/`).
@@ -1408,10 +1499,12 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 ~/.a2a/external/     # External A2A agents (persistent)
 ~/.synapse/skills/   # Central skill store
 ~/.synapse/sessions/ # Saved sessions (user scope)
+~/.synapse/workflows/ # Saved workflows (user scope)
 ~/.synapse/agents/   # Saved agent definitions (user scope)
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 .synapse/sessions/   # Saved sessions (project scope)
+.synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
