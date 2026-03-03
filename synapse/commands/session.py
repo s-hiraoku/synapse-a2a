@@ -7,6 +7,7 @@ import os
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 from synapse.registry import AgentRegistry
 from synapse.session import (
@@ -19,8 +20,10 @@ from synapse.session import (
 from synapse.spawn import spawn_agent
 
 
-def _get_session_store() -> SessionStore:
-    """Create a SessionStore with default paths."""
+def _get_session_store(workdir: str | None = None) -> SessionStore:
+    """Create a SessionStore, optionally rooted at --workdir project scope."""
+    if workdir:
+        return SessionStore(project_dir=Path(workdir) / ".synapse" / "sessions")
     return SessionStore()
 
 
@@ -82,7 +85,7 @@ def cmd_session_save(args: argparse.Namespace) -> None:
         scope=save_scope,
     )
 
-    store = _get_session_store()
+    store = _get_session_store(workdir_filter)
     try:
         path = store.save(session)
     except SessionError as e:
@@ -97,8 +100,8 @@ def cmd_session_save(args: argparse.Namespace) -> None:
 
 def cmd_session_list(args: argparse.Namespace) -> None:
     """List saved sessions."""
-    scope, _ = resolve_scope_filter(args)
-    store = _get_session_store()
+    scope, workdir = resolve_scope_filter(args)
+    store = _get_session_store(workdir)
     sessions = store.list_sessions(scope=scope)
 
     if not sessions:
@@ -151,8 +154,8 @@ def cmd_session_list(args: argparse.Namespace) -> None:
 def cmd_session_show(args: argparse.Namespace) -> None:
     """Show session details."""
     name: str = args.session_name
-    scope, _ = resolve_scope_filter(args)
-    store = _get_session_store()
+    scope, workdir = resolve_scope_filter(args)
+    store = _get_session_store(workdir)
     session = store.load(name, scope=scope)
 
     if session is None:
@@ -194,8 +197,8 @@ def _agent_label(agent: SessionAgent) -> str:
 def cmd_session_restore(args: argparse.Namespace) -> None:
     """Restore a saved session by spawning agents."""
     name: str = args.session_name
-    scope, _ = resolve_scope_filter(args)
-    store = _get_session_store()
+    scope, workdir = resolve_scope_filter(args)
+    store = _get_session_store(workdir)
     session = store.load(name, scope=scope)
 
     if session is None:
@@ -238,9 +241,9 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
 def cmd_session_delete(args: argparse.Namespace) -> None:
     """Delete a saved session."""
     name: str = args.session_name
-    scope, _ = resolve_scope_filter(args)
+    scope, workdir = resolve_scope_filter(args)
     force = getattr(args, "force", False)
-    store = _get_session_store()
+    store = _get_session_store(workdir)
 
     # Check existence first
     session = store.load(name, scope=scope)

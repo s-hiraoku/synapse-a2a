@@ -187,6 +187,28 @@ def test_save_workdir_filter(tmp_path: Path, session_dirs: tuple[Path, Path]) ->
     assert len(saved["agents"]) == 2
 
 
+def test_save_workdir_uses_workdir_project_store(tmp_path: Path) -> None:
+    """save --workdir should build SessionStore rooted at that workdir."""
+    from synapse.commands.session import cmd_session_save
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir(parents=True)
+    args = _make_args(session_name="team", workdir=str(target_dir))
+    agents = _fake_agents(str(target_dir))
+
+    with (
+        patch("synapse.commands.session.AgentRegistry") as MockReg,
+        patch("synapse.commands.session.SessionStore") as MockStore,
+    ):
+        MockReg.return_value.get_live_agents.return_value = agents
+        MockStore.return_value.save.return_value = (
+            target_dir / ".synapse" / "sessions" / "team.json"
+        )
+        cmd_session_save(args)
+
+    MockStore.assert_called_once_with(project_dir=target_dir / ".synapse" / "sessions")
+
+
 # ── cmd_session_list ─────────────────────────────────────────
 
 
@@ -219,6 +241,21 @@ def test_list_shows_sessions(
     captured = capsys.readouterr()
     assert "team-a" in captured.out
     assert "2" in captured.out  # agent count
+
+
+def test_list_workdir_uses_workdir_project_store(tmp_path: Path) -> None:
+    """list --workdir should read sessions from that workdir's project scope."""
+    from synapse.commands.session import cmd_session_list
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir(parents=True)
+    args = _make_args(workdir=str(target_dir))
+
+    with patch("synapse.commands.session.SessionStore") as MockStore:
+        MockStore.return_value.list_sessions.return_value = []
+        cmd_session_list(args)
+
+    MockStore.assert_called_once_with(project_dir=target_dir / ".synapse" / "sessions")
 
 
 # ── cmd_session_show ─────────────────────────────────────────

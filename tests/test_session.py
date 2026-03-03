@@ -314,6 +314,19 @@ def test_delete_rejects_traversal(store) -> None:
             store.delete(bad_name)
 
 
+def test_resolve_scope_filter_workdir_maps_to_project_scope() -> None:
+    """--workdir should resolve to project scope with a directory override."""
+    from argparse import Namespace
+
+    from synapse.session import resolve_scope_filter
+
+    scope, workdir = resolve_scope_filter(
+        Namespace(user=False, project=False, workdir="/tmp/work")
+    )
+    assert scope == "project"
+    assert workdir == "/tmp/work"
+
+
 # ── broken JSON handling ─────────────────────────────────────
 
 

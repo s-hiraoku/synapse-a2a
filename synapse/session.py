@@ -216,13 +216,13 @@ def resolve_scope_filter(args: Namespace) -> tuple[Scope | None, str | None]:
     """Extract (scope, working_dir_filter) from parsed CLI args.
 
     Returns:
-        (scope, working_dir_filter) where scope is 'project', 'user',
-        or None (both), and working_dir_filter is an optional directory
-        path to match against agent working_dir.
+        (scope, working_dir_filter) where scope is 'project' or 'user',
+        and working_dir_filter is an optional directory path.
     """
     if getattr(args, "user", False):
         return "user", None
     if getattr(args, "workdir", None):
-        return None, args.workdir
+        # --workdir means project scope rooted at the specified directory.
+        return "project", args.workdir
     # Default: project scope, filter by CWD
     return "project", None

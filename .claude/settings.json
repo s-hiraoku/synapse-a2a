@@ -86,8 +86,7 @@
       "Skill(fix-ci)",
       "Skill(check-ci)",
       "Skill(fix-conflict)",
-      "Skill(fix-review)",
-      "mcp__plugin_context7_context7__resolve-library-id"
+      "Skill(fix-review)"
     ]
   },
   "outputStyle": "Learning",
@@ -119,8 +118,6 @@
   "enabledPlugins": {
     "pyright-lsp@claude-plugins-official": true,
     "claude-mem@thedotmack": false,
-    "context7@claude-plugins-official": true,
-    "serena@claude-plugins-official": false,
-    "ralph-wiggum@claude-plugins-official": true
+    "serena@claude-plugins-official": false
   }
 }
