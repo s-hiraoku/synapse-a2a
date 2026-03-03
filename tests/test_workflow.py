@@ -444,3 +444,49 @@ def test_workflow_requires_at_least_one_step() -> None:
 
     with pytest.raises(WorkflowError, match="at least one step"):
         Workflow(name="empty", steps=[], scope="project")
+
+
+# ── bool priority rejection ──────────────────────────────────
+
+
+def test_step_rejects_bool_priority() -> None:
+    """Boolean values should be rejected as priority even though bool is subclass of int."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="priority"):
+        WorkflowStep(target="claude", message="hi", priority=True)
+    with pytest.raises(WorkflowError, match="priority"):
+        WorkflowStep(target="claude", message="hi", priority=False)
+
+
+# ── _parse_file validation ───────────────────────────────────
+
+
+def test_load_empty_yaml_returns_none(store, workflow_dirs: tuple[Path, Path]) -> None:
+    """Empty YAML file should return None (not crash)."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "empty.yaml").write_text("", encoding="utf-8")
+    assert store.load("empty", scope="project") is None
+
+
+def test_load_yaml_without_steps_returns_none(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """YAML without 'steps' key should return None."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "nosteps.yaml").write_text("name: test\n", encoding="utf-8")
+    assert store.load("nosteps", scope="project") is None
+
+
+def test_load_yaml_with_empty_steps_returns_none(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """YAML with empty steps list should return None."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "emptysteps.yaml").write_text(
+        "name: test\nsteps: []\n", encoding="utf-8"
+    )
+    assert store.load("emptysteps", scope="project") is None

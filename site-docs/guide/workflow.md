@@ -60,7 +60,7 @@ Each step supports the following fields:
 
 ```yaml
 name: security-audit
-description: "Parallel security audit across three agents"
+description: "Sequential security audit across three agents"
 steps:
   - target: Gem
     message: "Audit authentication and authorization code. Report HIGH/MEDIUM/LOW findings."

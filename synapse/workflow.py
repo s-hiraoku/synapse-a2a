@@ -44,7 +44,11 @@ class WorkflowStep:
             raise WorkflowError("Step target must not be empty.")
         if not self.message:
             raise WorkflowError("Step message must not be empty.")
-        if not isinstance(self.priority, int) or not (1 <= self.priority <= 5):
+        if (
+            isinstance(self.priority, bool)
+            or not isinstance(self.priority, int)
+            or not (1 <= self.priority <= 5)
+        ):
             raise WorkflowError(f"Step priority must be 1-5, got {self.priority}.")
         if self.response_mode not in _VALID_RESPONSE_MODES:
             raise WorkflowError(
@@ -151,7 +155,13 @@ class WorkflowStore:
                 try:
                     wf = self._parse_file(file_path, sc)
                     workflows.append(wf)
-                except (yaml.YAMLError, KeyError, TypeError, WorkflowError) as e:
+                except (
+                    yaml.YAMLError,
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                    WorkflowError,
+                ) as e:
                     logger.warning(
                         "Skipping invalid workflow file %s: %s", file_path, e
                     )
@@ -204,13 +214,21 @@ class WorkflowStore:
             return None
         try:
             return self._parse_file(file_path, scope)
-        except (yaml.YAMLError, KeyError, TypeError, WorkflowError) as e:
+        except (yaml.YAMLError, KeyError, TypeError, ValueError, WorkflowError) as e:
             logger.warning("Failed to load workflow %s: %s", file_path, e)
             return None
 
     @staticmethod
     def _parse_file(file_path: Path, scope: Scope) -> Workflow:
         raw = yaml.safe_load(file_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"Invalid workflow YAML at {file_path}: expected a mapping"
+            )
+        if "steps" not in raw or not isinstance(raw["steps"], list) or not raw["steps"]:
+            raise ValueError(
+                f"Invalid workflow YAML at {file_path}: missing or empty 'steps' list"
+            )
         steps = [
             WorkflowStep(
                 target=s["target"],

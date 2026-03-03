@@ -69,11 +69,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Show session | `synapse session show <name> [--project \| --user \| --workdir DIR]` |
 | Restore session | `synapse session restore <name> [--project \| --user \| --workdir DIR] [--worktree] [-- tool_args...]` |
 | Delete session | `synapse session delete <name> [--project \| --user \| --workdir DIR] [--force]` |
-| Create workflow | `synapse workflow create <name>` |
+| Create workflow | `synapse workflow create <name> [--project \| --user] [--force]` |
 | List workflows | `synapse workflow list [--project \| --user]` |
-| Show workflow | `synapse workflow show <name>` |
-| Run workflow | `synapse workflow run <name> [--dry-run] [--continue-on-error]` |
-| Delete workflow | `synapse workflow delete <name> [--force]` |
+| Show workflow | `synapse workflow show <name> [--project \| --user]` |
+| Run workflow | `synapse workflow run <name> [--project \| --user] [--dry-run] [--continue-on-error]` |
+| Delete workflow | `synapse workflow delete <name> [--project \| --user] [--force]` |
 | Auth setup | `synapse auth setup` (generate keys + instructions) |
 | Generate API key | `synapse auth generate-key [-n <count>] [-e]` |
 | List task board | `synapse tasks list [--status pending] [--agent claude]` |

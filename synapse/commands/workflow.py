@@ -135,7 +135,11 @@ def cmd_workflow_show(args: argparse.Namespace) -> None:
     name: str = args.workflow_name
     scope = _resolve_scope(args)
     store = _get_workflow_store()
-    wf = store.load(name, scope=scope)
+    try:
+        wf = store.load(name, scope=scope)
+    except WorkflowError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if wf is None:
         print(f"Error: Workflow '{name}' not found.", file=sys.stderr)
@@ -169,13 +173,21 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
     store = _get_workflow_store()
 
     # Check existence first
-    wf = store.load(name, scope=scope)
+    try:
+        wf = store.load(name, scope=scope)
+    except WorkflowError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
     if wf is None:
         print(f"Error: Workflow '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 
     if not force:
-        answer = input(f"Delete workflow '{name}' ({wf.step_count} steps)? [y/N] ")
+        try:
+            answer = input(f"Delete workflow '{name}' ({wf.step_count} steps)? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            return
         if answer.lower() not in ("y", "yes"):
             print("Cancelled.")
             return
@@ -199,7 +211,11 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
     continue_on_error = getattr(args, "continue_on_error", False)
 
     store = _get_workflow_store()
-    wf = store.load(name, scope=scope)
+    try:
+        wf = store.load(name, scope=scope)
+    except WorkflowError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if wf is None:
         print(f"Error: Workflow '{name}' not found.", file=sys.stderr)

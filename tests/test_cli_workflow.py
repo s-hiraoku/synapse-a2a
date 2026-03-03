@@ -398,3 +398,57 @@ def test_run_not_found(tmp_path: Path, workflow_dirs: tuple[Path, Path]) -> None
         pytest.raises(SystemExit, match="1"),
     ):
         cmd_workflow_run(args)
+
+
+# ── invalid name error handling ──────────────────────────────
+
+
+def test_show_invalid_name_exits(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """show should exit cleanly for invalid workflow names."""
+    from synapse.commands.workflow import cmd_workflow_show
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    args = _make_args(workflow_name="../evil")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_show(args)
+
+
+def test_delete_invalid_name_exits(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """delete should exit cleanly for invalid workflow names."""
+    from synapse.commands.workflow import cmd_workflow_delete
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    args = _make_args(workflow_name="../evil", force=True)
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_delete(args)
+
+
+def test_run_invalid_name_exits(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """run should exit cleanly for invalid workflow names."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    args = _make_args(workflow_name="../evil")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
