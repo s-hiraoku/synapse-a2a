@@ -6,11 +6,11 @@ import argparse
 import subprocess
 import sys
 
-import yaml
-
 from synapse.workflow import (
     Scope,
+    Workflow,
     WorkflowError,
+    WorkflowStep,
     WorkflowStore,
 )
 
@@ -42,18 +42,10 @@ def _resolve_write_scope(args: argparse.Namespace) -> Scope:
 # ── create ───────────────────────────────────────────────────
 
 
-_TEMPLATE = {
-    "name": "",
-    "description": "Describe what this workflow does",
-    "steps": [
-        {
-            "target": "claude",
-            "message": "Your message here",
-            "priority": 3,
-            "response_mode": "notify",
-        },
-    ],
-}
+_TEMPLATE_DESCRIPTION = "Describe what this workflow does"
+_TEMPLATE_STEPS = [
+    WorkflowStep(target="claude", message="Your message here"),
+]
 
 
 def cmd_workflow_create(args: argparse.Namespace) -> None:
@@ -64,30 +56,26 @@ def cmd_workflow_create(args: argparse.Namespace) -> None:
 
     store = _get_workflow_store()
     try:
-        WorkflowStore._validate_name(name)
+        # Check for existing workflow (load() validates the name)
+        if not force and store.load(name, scope=scope) is not None:
+            print(
+                f"Error: Workflow '{name}' already exists. Use --force to overwrite.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        template = Workflow(
+            name=name,
+            steps=list(_TEMPLATE_STEPS),
+            description=_TEMPLATE_DESCRIPTION,
+            scope=scope,
+        )
+        path = store.save(template)
     except WorkflowError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Check for existing workflow
-    if not force and store.load(name, scope=scope) is not None:
-        print(
-            f"Error: Workflow '{name}' already exists. Use --force to overwrite.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    target_dir = store._scope_dir(scope)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / f"{name}.yaml"
-
-    template = dict(_TEMPLATE)
-    template["name"] = name
-
-    with open(target_path, "w", encoding="utf-8") as f:
-        yaml.dump(template, f, default_flow_style=False, allow_unicode=True)
-
-    print(f"Workflow template created: {target_path}")
+    print(f"Workflow template created: {path}")
     print(f"Edit the file and run: synapse workflow run {name}")
 
 
