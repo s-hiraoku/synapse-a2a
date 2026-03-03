@@ -1193,7 +1193,7 @@ synapse session save my-team --workdir /path/to/project
 **Scope filter behavior:**
 - Default (project): captures agents whose `working_dir` matches `CWD`, saves to `.synapse/sessions/`
 - `--user`: captures all running agents regardless of directory, saves to `~/.synapse/sessions/`
-- `--workdir DIR`: captures agents matching the specified directory
+- `--workdir DIR`: captures agents matching the specified directory, saves to `DIR/.synapse/sessions/`
 
 ### List Sessions
 
@@ -1252,8 +1252,9 @@ Session names must start with an alphanumeric character and contain only alphanu
 ### Storage
 
 ```text
-.synapse/sessions/<name>.json    # Project scope (default)
-~/.synapse/sessions/<name>.json  # User scope (--user)
+.synapse/sessions/<name>.json        # Project scope (default)
+~/.synapse/sessions/<name>.json      # User scope (--user)
+DIR/.synapse/sessions/<name>.json    # Custom project scope (--workdir DIR)
 ```
 
 ## Skill Management
