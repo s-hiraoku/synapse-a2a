@@ -630,6 +630,7 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 | **Choose response mode wisely** | `--wait` when you need the result, `--silent` for fire-and-forget delegation |
 | **Use worktrees for parallel edits** | `--worktree` prevents file conflicts when agents modify the same files |
 | **Broadcast for team coordination** | `synapse broadcast` reaches all agents at once for status checks or announcements |
+| **Automate with workflows** | `synapse workflow run` replays saved multi-step sequences so you don't re-type recurring pipelines |
 
 ## Related Pages
 
@@ -637,4 +638,5 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 - [Agent Teams](agent-teams.md) — team start, delegate mode, auto-spawn
 - [Task Board](task-board.md) — task creation, dependencies, status tracking
 - [Shared Memory](shared-memory.md) — cross-agent knowledge sharing
+- [Workflows](workflow.md) — saved multi-step message sequences
 - [History & Tracing](history.md) — task history, trace, statistics
