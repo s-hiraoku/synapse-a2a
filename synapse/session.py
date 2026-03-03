@@ -38,6 +38,7 @@ class SessionAgent:
     role: str | None = None
     skill_set: str | None = None
     worktree: bool = False
+    session_id: str | None = None
 
 
 @dataclass
@@ -86,6 +87,7 @@ class SessionStore:
                     "role": a.role,
                     "skill_set": a.skill_set,
                     "worktree": a.worktree,
+                    "session_id": a.session_id,
                 }
                 for a in session.agents
             ],
@@ -204,6 +206,7 @@ class SessionStore:
                 role=a.get("role"),
                 skill_set=a.get("skill_set"),
                 worktree=a.get("worktree", False),
+                session_id=a.get("session_id"),
             )
             for a in raw["agents"]
         ]
@@ -216,6 +219,51 @@ class SessionStore:
         )
         session.path = file_path
         return session
+
+
+def build_resume_args(profile: str, session_id: str | None = None) -> list[str]:
+    """Build CLI resume arguments for an agent profile.
+
+    Each CLI agent has its own resume mechanism:
+    - claude: ``--resume <id>`` or ``--continue`` (latest)
+    - gemini: ``--resume <id>`` or ``--resume`` (latest)
+    - codex:  ``resume <id>`` or ``resume --last`` (latest)
+    - copilot: ``--resume`` (latest only, no id support)
+    - opencode: no resume support
+
+    Args:
+        profile: Agent profile name (e.g. "claude", "gemini").
+        session_id: Optional session/conversation ID to resume.
+
+    Returns:
+        List of CLI arguments to append. Empty list if profile
+        doesn't support resume.
+    """
+    p = profile.strip().lower()
+    sid = session_id.strip() if session_id else None
+    if sid == "":
+        sid = None
+
+    if p == "claude":
+        if sid:
+            return ["--resume", sid]
+        return ["--continue"]
+
+    if p == "gemini":
+        if sid:
+            return ["--resume", sid]
+        return ["--resume"]
+
+    if p == "codex":
+        if sid:
+            return ["resume", sid]
+        return ["resume", "--last"]
+
+    if p == "copilot":
+        return ["--resume"]
+
+    # opencode and unknown profiles: no resume support
+    return []
 
 
 def resolve_scope_filter(args: Namespace) -> tuple[Scope | None, str | None]:

@@ -253,3 +253,68 @@ class TestRunApplescript:
 
         result = _run_applescript('tell application "Finder" to activate')
         assert result is False
+
+
+class TestBuildAgentCommandFallback:
+    """Tests for _build_agent_command with fallback_tool_args."""
+
+    def test_with_fallback_produces_time_guarded_command(self) -> None:
+        """fallback_tool_args should produce time-guarded fallback command."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command(
+            "claude::::8100",
+            tool_args=["--continue", "--dangerously-skip-permissions"],
+            fallback_tool_args=["--dangerously-skip-permissions"],
+        )
+        # Should contain POSIX time guard (date +%s)
+        assert "_st=$(date +%s)" in cmd
+        assert "$_el -lt 10" in cmd
+        assert "$_ec -ne 0" in cmd
+        # Main command has --continue
+        assert "--continue" in cmd
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_no_fallback_plain_command(self) -> None:
+        """Without fallback_tool_args, command should be plain (no guard)."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command(
+            "claude::::8100",
+            tool_args=["--dangerously-skip-permissions"],
+        )
+        assert "_st=$(date" not in cmd
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_fallback_empty_list(self) -> None:
+        """fallback_tool_args=[] should produce fallback with no tool args."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command(
+            "claude::::8100",
+            tool_args=["--continue"],
+            fallback_tool_args=[],
+        )
+        assert "_st=$(date +%s)" in cmd
+        assert "--continue" in cmd
+        # The fallback portion (after "then") should not have -- tool args
+        then_idx = cmd.index("then ")
+        fallback_part = cmd[then_idx:]
+        assert "-- " not in fallback_part
+
+    def test_fallback_preserves_spec(self) -> None:
+        """Fallback should preserve agent spec (name, port, etc)."""
+        from synapse.terminal_jump import _build_agent_command
+
+        cmd = _build_agent_command(
+            "claude:Reviewer:code review::8100",
+            tool_args=["--resume", "conv-123"],
+            fallback_tool_args=[],
+        )
+        assert "_st=$(date +%s)" in cmd
+        # The fallback portion (after "then") should have name and port
+        then_idx = cmd.index("then ")
+        fallback_part = cmd[then_idx:]
+        assert "--name" in fallback_part
+        assert "Reviewer" in fallback_part
+        assert "--port 8100" in fallback_part

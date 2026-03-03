@@ -448,6 +448,32 @@ class TerminalController:
         """Signal that agent initialization is complete and ready for tasks."""
         self._agent_ready = True
         self._agent_ready_event.set()
+        # Non-blocking session_id detection after readiness gate opens
+        if self.agent_id and self.agent_type:
+            threading.Thread(
+                target=self._detect_and_store_session_id, daemon=True
+            ).start()
+
+    def _detect_and_store_session_id(self) -> None:
+        """Detect the CLI session ID from the filesystem and store it.
+
+        Precondition: self.agent_id and self.agent_type are non-None
+        (guaranteed by _mark_agent_ready guard).
+        """
+        try:
+            from synapse.session_id_detector import detect_session_id
+
+            assert self.agent_id is not None  # guaranteed by _mark_agent_ready guard
+            session_id = detect_session_id(self.agent_type, os.getcwd())
+            if session_id:
+                self.registry.update_session_id(self.agent_id, session_id)
+                logger.info("[%s] session_id detected: %s", self.agent_id, session_id)
+        except Exception:
+            logger.debug(
+                "session_id detection failed for %s",
+                self.agent_id,
+                exc_info=True,
+            )
 
     @property
     def agent_ready(self) -> bool:

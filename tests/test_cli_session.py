@@ -7,7 +7,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 
@@ -624,3 +624,408 @@ def _make_store(project_dir: Path, user_dir: Path):
     from synapse.session import SessionStore
 
     return SessionStore(project_dir=project_dir, user_dir=user_dir)
+
+
+# ── cmd_session_restore with --resume ────────────────────
+
+
+def test_restore_with_resume_flag(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--resume should build per-agent resume tool_args from session_id."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+    from synapse.spawn import SpawnResult
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="resume-team",
+            agents=[
+                SessionAgent(profile="claude", name="Rev", session_id="conv-abc"),
+                SessionAgent(profile="gemini", session_id="gem-xyz"),
+            ],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    mock_result = SpawnResult(
+        agent_id="synapse-claude-8100",
+        port=8100,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    args = _make_args(session_name="resume-team", resume=True)
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch(
+            "synapse.commands.session.spawn_agent", return_value=mock_result
+        ) as mock_spawn,
+    ):
+        cmd_session_restore(args)
+
+    assert mock_spawn.call_count == 2
+    # Claude: --resume conv-abc prepended to tool_args
+    call0 = mock_spawn.call_args_list[0][1]
+    assert call0["tool_args"] == ["--resume", "conv-abc"]
+    # Gemini: --resume gem-xyz prepended to tool_args
+    call1 = mock_spawn.call_args_list[1][1]
+    assert call1["tool_args"] == ["--resume", "gem-xyz"]
+
+
+def test_restore_with_resume_flag_no_session_id(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--resume without session_id should fallback to latest resume."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+    from synapse.spawn import SpawnResult
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="no-id-team",
+            agents=[
+                SessionAgent(profile="claude", name="Rev"),  # no session_id
+                SessionAgent(profile="gemini"),
+            ],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    mock_result = SpawnResult(
+        agent_id="synapse-claude-8100",
+        port=8100,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    args = _make_args(session_name="no-id-team", resume=True)
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch(
+            "synapse.commands.session.spawn_agent", return_value=mock_result
+        ) as mock_spawn,
+    ):
+        cmd_session_restore(args)
+
+    # Claude: --continue (latest fallback)
+    call0 = mock_spawn.call_args_list[0][1]
+    assert call0["tool_args"] == ["--continue"]
+    # Gemini: --resume (latest)
+    call1 = mock_spawn.call_args_list[1][1]
+    assert call1["tool_args"] == ["--resume"]
+
+
+def test_restore_with_resume_and_tool_args(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--resume + global tool_args should merge resume args + tool_args."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+    from synapse.spawn import SpawnResult
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="merge-team",
+            agents=[
+                SessionAgent(profile="claude", session_id="conv-123"),
+            ],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    mock_result = SpawnResult(
+        agent_id="synapse-claude-8100",
+        port=8100,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    args = _make_args(
+        session_name="merge-team",
+        resume=True,
+        tool_args=["--dangerously-skip-permissions"],
+    )
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch(
+            "synapse.commands.session.spawn_agent", return_value=mock_result
+        ) as mock_spawn,
+    ):
+        cmd_session_restore(args)
+
+    # resume args should come first, then global tool_args
+    call0 = mock_spawn.call_args_list[0][1]
+    assert call0["tool_args"] == [
+        "--resume",
+        "conv-123",
+        "--dangerously-skip-permissions",
+    ]
+
+
+def test_restore_resume_passes_fallback_tool_args(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--resume should pass fallback_tool_args to spawn_agent."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+    from synapse.spawn import SpawnResult
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="fallback-team",
+            agents=[
+                SessionAgent(profile="claude", session_id="conv-abc"),
+            ],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    mock_result = SpawnResult(
+        agent_id="synapse-claude-8100",
+        port=8100,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    args = _make_args(
+        session_name="fallback-team",
+        resume=True,
+        tool_args=["--dangerously-skip-permissions"],
+    )
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch(
+            "synapse.commands.session.spawn_agent", return_value=mock_result
+        ) as mock_spawn,
+    ):
+        cmd_session_restore(args)
+
+    call0 = mock_spawn.call_args_list[0][1]
+    # fallback_tool_args = original tool_args (without resume args)
+    assert call0["fallback_tool_args"] == ["--dangerously-skip-permissions"]
+
+
+def test_restore_resume_opencode_skips_resume(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--resume with opencode should not add resume args (no support)."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+    from synapse.spawn import SpawnResult
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="oc-team",
+            agents=[SessionAgent(profile="opencode")],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    mock_result = SpawnResult(
+        agent_id="synapse-opencode-8130",
+        port=8130,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    args = _make_args(session_name="oc-team", resume=True)
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch(
+            "synapse.commands.session.spawn_agent", return_value=mock_result
+        ) as mock_spawn,
+    ):
+        cmd_session_restore(args)
+
+    call0 = mock_spawn.call_args_list[0][1]
+    # No resume args for opencode
+    assert call0["tool_args"] is None
+    # No fallback needed
+    assert call0.get("fallback_tool_args") is None
+
+
+def test_save_captures_session_id(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """save should capture session_id from registry if available."""
+    from synapse.commands.session import cmd_session_save
+
+    cwd = str(tmp_path)
+    agents = {
+        "synapse-claude-8100": {
+            "agent_id": "synapse-claude-8100",
+            "agent_type": "claude",
+            "port": 8100,
+            "name": "Rev",
+            "role": "reviewer",
+            "skill_set": None,
+            "working_dir": cwd,
+            "session_id": "conv-abc-123",
+        },
+    }
+
+    project_dir, user_dir = session_dirs
+    args = _make_args(session_name="with-sid")
+
+    with (
+        patch("synapse.commands.session.AgentRegistry") as MockReg,
+        patch("synapse.commands.session.os.getcwd", return_value=cwd),
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=_make_store(project_dir, user_dir),
+        ),
+    ):
+        MockReg.return_value.get_live_agents.return_value = agents
+        cmd_session_save(args)
+
+    saved = json.loads((project_dir / "with-sid.json").read_text())
+    assert saved["agents"][0]["session_id"] == "conv-abc-123"
+
+
+def test_show_displays_session_id(
+    tmp_path: Path, session_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """show should display session_id when present."""
+    from synapse.commands.session import cmd_session_show
+    from synapse.session import Session, SessionAgent
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="sid-show",
+            agents=[SessionAgent(profile="claude", name="Rev", session_id="conv-abc")],
+            working_dir="/p",
+            created_at=1700000000.0,
+            scope="project",
+        )
+    )
+
+    args = _make_args(session_name="sid-show")
+    with patch(
+        "synapse.commands.session._get_session_store",
+        return_value=store,
+    ):
+        cmd_session_show(args)
+
+    captured = capsys.readouterr()
+    assert "conv-abc" in captured.out
+
+
+# ── cmd_session_sessions ─────────────────────────────────────
+
+
+def test_session_sessions_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """sessions subcommand should list CLI sessions from filesystem."""
+    from synapse.commands.session import cmd_session_sessions
+    from synapse.session_id_detector import SessionInfo
+
+    mock_sessions = [
+        SessionInfo(
+            profile="claude",
+            session_id="d2a6ab67-uuid",
+            path=tmp_path / "d2a6ab67-uuid.jsonl",
+            modified_at=1709520000.0,
+            size_bytes=1200000,
+        ),
+        SessionInfo(
+            profile="gemini",
+            session_id="session-2026-03-04",
+            path=tmp_path / "session-2026-03-04.json",
+            modified_at=1709510000.0,
+            size_bytes=128000,
+        ),
+    ]
+
+    args = argparse.Namespace(profile=None, limit=20)
+
+    with patch("synapse.commands.session.list_sessions", return_value=mock_sessions):
+        cmd_session_sessions(args)
+
+    captured = capsys.readouterr()
+    assert "claude" in captured.out
+    assert "d2a6ab67-uuid" in captured.out
+    assert "gemini" in captured.out
+
+
+def test_session_sessions_with_profile_filter(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """sessions --profile claude should only show Claude sessions."""
+    from synapse.commands.session import cmd_session_sessions
+    from synapse.session_id_detector import SessionInfo
+
+    mock_sessions = [
+        SessionInfo(
+            profile="claude",
+            session_id="only-claude",
+            path=tmp_path / "only-claude.jsonl",
+            modified_at=1709520000.0,
+            size_bytes=500,
+        ),
+    ]
+
+    args = argparse.Namespace(profile="claude", limit=20)
+
+    with patch(
+        "synapse.commands.session.list_sessions", return_value=mock_sessions
+    ) as mock_list:
+        cmd_session_sessions(args)
+
+    # Verify profile was passed through
+    mock_list.assert_called_once_with("claude", ANY, limit=20)
+
+    captured = capsys.readouterr()
+    assert "claude" in captured.out
+    assert "only-claude" in captured.out
+
+
+def test_session_sessions_empty(capsys: pytest.CaptureFixture) -> None:
+    """sessions with no results should show a message."""
+    from synapse.commands.session import cmd_session_sessions
+
+    args = argparse.Namespace(profile=None, limit=20)
+
+    with patch("synapse.commands.session.list_sessions", return_value=[]):
+        cmd_session_sessions(args)
+
+    captured = capsys.readouterr()
+    assert "No CLI sessions found" in captured.out

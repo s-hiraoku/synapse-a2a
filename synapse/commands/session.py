@@ -15,8 +15,10 @@ from synapse.session import (
     SessionAgent,
     SessionError,
     SessionStore,
+    build_resume_args,
     resolve_scope_filter,
 )
+from synapse.session_id_detector import list_sessions
 from synapse.spawn import spawn_agent
 
 
@@ -71,6 +73,7 @@ def cmd_session_save(args: argparse.Namespace) -> None:
             role=info.get("role"),
             skill_set=info.get("skill_set"),
             worktree=bool(info.get("worktree_path")),
+            session_id=info.get("session_id"),
         )
         for info in filtered.values()
     ]
@@ -181,6 +184,8 @@ def cmd_session_show(args: argparse.Namespace) -> None:
             parts.append(f"skill_set={a.skill_set}")
         if a.worktree:
             parts.append("worktree=yes")
+        if a.session_id:
+            parts.append(f"session_id={a.session_id}")
         print("  ".join(parts))
 
 
@@ -207,6 +212,7 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
 
     worktree_flag = getattr(args, "worktree", None)
     tool_args = getattr(args, "tool_args", []) or []
+    resume = getattr(args, "resume", False)
 
     print(f"Restoring session '{name}' ({session.agent_count} agents)...")
 
@@ -215,6 +221,17 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
         wt = worktree_flag if worktree_flag is not None else agent.worktree
         label = _agent_label(agent)
 
+        # Build per-agent tool_args, prepending resume args when requested.
+        agent_tool_args = list(tool_args)
+        fallback: list[str] | None = None
+        resume_args: list[str] = []
+
+        if resume:
+            resume_args = build_resume_args(agent.profile, agent.session_id)
+            if resume_args:
+                agent_tool_args = resume_args + agent_tool_args
+                fallback = list(tool_args)
+
         try:
             result = spawn_agent(
                 profile=agent.profile,
@@ -222,13 +239,17 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
                 role=agent.role,
                 skill_set=agent.skill_set,
                 worktree=wt,
-                tool_args=tool_args or None,
+                tool_args=agent_tool_args or None,
+                fallback_tool_args=fallback,
             )
-            wt_info = (
-                f" (worktree: {result.worktree_path})" if result.worktree_path else ""
-            )
+            suffixes: list[str] = []
+            if result.worktree_path:
+                suffixes.append(f"worktree: {result.worktree_path}")
+            if resume_args:
+                suffixes.append(f"resume: {agent.session_id or 'latest'}")
+            extra = f" ({', '.join(suffixes)})" if suffixes else ""
             print(
-                f"  Spawned {label} → {result.agent_id} [{result.terminal_used}]{wt_info}"
+                f"  Spawned {label} → {result.agent_id} [{result.terminal_used}]{extra}"
             )
         except (RuntimeError, FileNotFoundError, ValueError) as e:
             print(f"  Failed to spawn {label}: {e}", file=sys.stderr)
@@ -270,3 +291,70 @@ def cmd_session_delete(args: argparse.Namespace) -> None:
     else:
         print(f"Error: Failed to delete session '{name}'.", file=sys.stderr)
         sys.exit(1)
+
+
+# ── sessions (CLI tool session listing) ─────────────────────
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes as human-readable size."""
+    if size_bytes >= 1_000_000:
+        return f"{size_bytes / 1_000_000:.1f} MB"
+    if size_bytes >= 1_000:
+        return f"{size_bytes / 1_000:.0f} KB"
+    return f"{size_bytes} B"
+
+
+def cmd_session_sessions(args: argparse.Namespace) -> None:
+    """List CLI tool sessions from the filesystem."""
+    profile: str | None = getattr(args, "profile", None)
+    limit: int = getattr(args, "limit", 20)
+    working_dir = os.getcwd()
+
+    sessions = list_sessions(profile, working_dir, limit=limit)
+
+    if not sessions:
+        print("No CLI sessions found.")
+        return
+
+    if sys.stdout.isatty():
+        try:
+            from rich import box
+            from rich.console import Console
+            from rich.table import Table
+
+            table = Table(
+                title=f"CLI Sessions (working_dir: {working_dir})",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+            )
+            table.add_column("Profile", style="green")
+            table.add_column("Session ID")
+            table.add_column("Last Modified")
+            table.add_column("Size", justify="right")
+
+            for s in sessions:
+                modified = datetime.fromtimestamp(s.modified_at).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                table.add_row(
+                    s.profile,
+                    s.session_id,
+                    modified,
+                    _format_size(s.size_bytes),
+                )
+            Console().print(table)
+            return
+        except Exception:
+            pass
+
+    # Plain text fallback
+    print(f"CLI Sessions (working_dir: {working_dir})")
+    print(f"{'PROFILE':<10} {'SESSION ID':<40} {'MODIFIED':<20} {'SIZE':>10}")
+    print("-" * 82)
+    for s in sessions:
+        modified = datetime.fromtimestamp(s.modified_at).strftime("%Y-%m-%d %H:%M:%S")
+        print(
+            f"{s.profile:<10} {s.session_id:<40} {modified:<20} {_format_size(s.size_bytes):>10}"
+        )

@@ -4,6 +4,19 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.2
+
+- **Added**: `synapse session restore --resume` flag to resume each agent's CLI conversation session
+  - Saved sessions now capture `session_id` from the agent registry
+  - Per-agent resume args: Claude (`--resume`/`--continue`), Gemini (`--resume`), Codex (`resume`/`resume --last`), Copilot (`--resume`), OpenCode (no support)
+  - Shell-level time-guarded fallback: if resume fails within 10 seconds, retries without resume args
+- **Added**: `synapse session sessions` command to browse CLI tool session files from the filesystem
+  - Supports Claude, Gemini, Codex, and Copilot session discovery
+  - Filter by `--profile` and `--limit`; sorted by modification time (newest first)
+- **Added**: Automatic `session_id` capture from CLI tool filesystems on agent startup (`synapse/session_id_detector.py`)
+  - Background detection after readiness gate; stored in agent registry for use by `session save`
+- **Changed**: `synapse session show` now displays `session_id` for each agent entry
+
 ### v0.9.1
 
 - **Added**: Saved Workflows (`synapse workflow`) — define and replay reusable message sequences to running agents

@@ -30,6 +30,7 @@ from synapse.commands.session import (
     cmd_session_list,
     cmd_session_restore,
     cmd_session_save,
+    cmd_session_sessions,
     cmd_session_show,
 )
 from synapse.commands.start import StartCommand
@@ -5086,6 +5087,12 @@ Run 'synapse session <subcommand> --help' for detailed usage.""",
         metavar="NAME",
         help="Create git worktree per agent (overrides saved worktree settings)",
     )
+    p_session_restore.add_argument(
+        "--resume",
+        action="store_true",
+        default=False,
+        help="Resume each agent's previous CLI session (conversation history)",
+    )
     p_session_restore.set_defaults(func=cmd_session_restore)
 
     # session delete
@@ -5102,6 +5109,24 @@ Run 'synapse session <subcommand> --help' for detailed usage.""",
         help="Delete without confirmation",
     )
     p_session_delete.set_defaults(func=cmd_session_delete)
+
+    # session sessions (CLI tool session listing)
+    p_session_sessions = session_subparsers.add_parser(
+        "sessions",
+        help="List CLI tool sessions from filesystem",
+    )
+    p_session_sessions.add_argument(
+        "--profile",
+        choices=["claude", "gemini", "codex", "copilot"],
+        help="Filter by CLI tool profile",
+    )
+    p_session_sessions.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of sessions to show (default: 20)",
+    )
+    p_session_sessions.set_defaults(func=cmd_session_sessions)
 
     # ── workflow ─────────────────────────────────────────────
     p_workflow = subparsers.add_parser(

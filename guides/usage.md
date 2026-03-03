@@ -1120,9 +1120,21 @@ synapse session save my-team --workdir /path/to/project
 # worktree 分離で復元
 synapse session restore my-team --worktree
 
+# 各エージェントの CLI 会話セッションを再開して復元
+synapse session restore my-team --resume
+
+# worktree + resume を併用
+synapse session restore my-team --worktree --resume
+
 # ツール固有の引数を追加して復元
 synapse session restore my-team -- --dangerously-skip-permissions
 ```
+
+**`--resume` の動作**:
+- 保存時にレジストリから取得した `session_id` を使い、各エージェントの CLI 会話を再開します
+- エージェントごとの resume 引数: claude (`--resume`/`--continue`), gemini (`--resume`), codex (`resume`/`resume --last`), copilot (`--resume`), opencode (未対応)
+- `session_id` が保存されている場合はそのIDで再開、ない場合は最新セッションを再開
+- resume に失敗した場合（10秒以内にプロセスが終了）、resume 引数なしで自動リトライします
 
 #### 保存される情報
 
@@ -1132,6 +1144,7 @@ synapse session restore my-team -- --dangerously-skip-permissions
 - **role**: ロール
 - **skill_set**: スキルセット
 - **worktree**: worktree 使用の有無
+- **session_id**: CLI 会話セッションID（`--resume` 復元に使用）
 
 ---
 

@@ -1175,7 +1175,7 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Session Save/Restore
 
-Save running team configurations as named snapshots and restore them later. Each session captures agent profiles, names, roles, skill sets, and worktree settings as a JSON file.
+Save running team configurations as named snapshots and restore them later. Each session captures agent profiles, names, roles, skill sets, worktree settings, and `session_id` (CLI conversation identifier) as a JSON file.
 
 ### Save Session
 
@@ -1194,6 +1194,8 @@ synapse session save my-team --workdir /path/to/project
 - Default (project): captures agents whose `working_dir` matches `CWD`, saves to `.synapse/sessions/`
 - `--user`: captures all running agents regardless of directory, saves to `~/.synapse/sessions/`
 - `--workdir DIR`: captures agents matching the specified directory, saves to `DIR/.synapse/sessions/`
+
+**`session_id` capture:** Each agent's CLI conversation identifier (if available) is read from the registry and stored in the session JSON. This enables `--resume` during restore to target the exact conversation.
 
 ### List Sessions
 
@@ -1216,7 +1218,7 @@ Output columns: NAME, AGENTS (count), SCOPE, WORKING_DIR, CREATED. Rich table in
 synapse session show my-team
 ```
 
-Displays session name, scope, working directory, creation timestamp, agent count, and per-agent details (profile, name, role, skill_set, worktree).
+Displays session name, scope, working directory, creation timestamp, agent count, and per-agent details (profile, name, role, skill_set, worktree, session_id).
 
 ### Restore Session
 
@@ -1228,11 +1230,31 @@ synapse session restore my-team
 synapse session restore my-team --worktree
 synapse session restore my-team -w
 
+# Resume each agent's previous CLI session (conversation history)
+synapse session restore my-team --resume
+
+# Combine resume with worktree and tool args
+synapse session restore my-team --resume --worktree -- --dangerously-skip-permissions
+
 # Pass tool args to spawned agents (after '--')
 synapse session restore my-team -- --dangerously-skip-permissions
 ```
 
 Each agent in the session is spawned via `spawn_agent()`. The `--worktree` / `-w` flag overrides the saved worktree setting for all agents. Tool args after `--` are passed through to the underlying CLI.
+
+**`--resume` flag:**
+
+When `--resume` is specified, each agent receives CLI-specific resume arguments built from `build_resume_args()`. If the session snapshot includes a `session_id` for an agent, the resume targets that specific conversation; otherwise, the latest session is resumed.
+
+| Profile | With `session_id` | Without `session_id` |
+|---------|-------------------|---------------------|
+| claude | `--resume <id>` | `--continue` |
+| gemini | `--resume <id>` | `--resume` |
+| codex | `resume <id>` | `resume --last` |
+| copilot | `--resume` | `--resume` |
+| opencode | *(no support)* | *(no support)* |
+
+**Shell-level fallback:** If the resume command exits with a non-zero status within 10 seconds (e.g., session ID not found), the agent is automatically retried without resume args. This prevents a missing session from blocking the entire restore. Failures after 10 seconds (e.g., a long-running agent crashing) do not trigger the fallback.
 
 ### Delete Session
 

@@ -266,7 +266,7 @@ synapse session show <name> [--project | --user | --workdir DIR]
 ### Restore Session
 
 ```bash
-synapse session restore <name> [--project | --user | --workdir DIR] [--worktree [NAME]] [-- TOOL_ARGS]
+synapse session restore <name> [--project | --user | --workdir DIR] [--worktree [NAME]] [--resume] [-- TOOL_ARGS]
 ```
 
 Spawns all agents from the saved session.
@@ -274,6 +274,7 @@ Spawns all agents from the saved session.
 | Flag | Description |
 |------|-------------|
 | `--worktree [NAME]`, `-w` | Create per-agent git worktrees (overrides saved settings) |
+| `--resume` | Resume each agent's previous CLI conversation session (uses saved session_id when available, falls back to latest) |
 | `-- TOOL_ARGS` | Pass CLI-specific arguments to spawned agents |
 
 ### Delete Session
@@ -285,6 +286,19 @@ synapse session delete <name> [--project | --user | --workdir DIR] [--force]
 | Flag | Description |
 |------|-------------|
 | `--force`, `-f` | Delete without confirmation prompt |
+
+### Browse CLI Sessions
+
+```bash
+synapse session sessions [--profile PROFILE] [--limit N]
+```
+
+Lists CLI tool session files from the filesystem (Claude, Gemini, Codex, Copilot). Sessions are sorted by modification time, newest first.
+
+| Flag | Description |
+|------|-------------|
+| `--profile PROFILE` | Filter by CLI tool: `claude`, `gemini`, `codex`, `copilot` |
+| `--limit N` | Maximum number of sessions to show (default: 20) |
 
 ## Task Board
 

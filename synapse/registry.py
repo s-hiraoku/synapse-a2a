@@ -614,3 +614,22 @@ class AgentRegistry:
                 data["skill_set"] = skill_set
 
         return self._atomic_update(agent_id, set_skill_set, "skill_set")
+
+    def update_session_id(self, agent_id: str, session_id: str | None) -> bool:
+        """Update the session ID for an agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            session_id: CLI session ID, or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_session_id(data: dict) -> None:
+            if session_id is None:
+                data.pop("session_id", None)
+            else:
+                data["session_id"] = session_id
+
+        return self._atomic_update(agent_id, set_session_id, "session_id")

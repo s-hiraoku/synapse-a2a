@@ -444,3 +444,151 @@ def test_loaded_session_has_path(store, session_dirs: tuple[Path, Path]) -> None
     loaded = store.load("pathed")
     assert loaded is not None
     assert loaded.path == project_dir / "pathed.json"
+
+
+# ── session_id round-trip ─────────────────────────────────
+
+
+def test_session_id_roundtrip(store) -> None:
+    """session_id should survive save/load round-trip."""
+    from synapse.session import Session, SessionAgent
+
+    agents = [
+        SessionAgent(profile="claude", name="Rev", session_id="conv-abc-123"),
+        SessionAgent(profile="gemini", session_id="gem-sess-456"),
+    ]
+    session = Session(
+        session_name="with-ids",
+        agents=agents,
+        working_dir="/p",
+        created_at=time.time(),
+        scope="project",
+    )
+    store.save(session)
+    loaded = store.load("with-ids")
+    assert loaded is not None
+    assert loaded.agents[0].session_id == "conv-abc-123"
+    assert loaded.agents[1].session_id == "gem-sess-456"
+
+
+def test_session_id_backward_compat(store, session_dirs: tuple[Path, Path]) -> None:
+    """Old JSON files without session_id should load with session_id=None."""
+    import json
+
+    project_dir, _ = session_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    data = {
+        "session_name": "legacy",
+        "agents": [
+            {
+                "profile": "claude",
+                "name": "Old",
+                "role": None,
+                "skill_set": None,
+                "worktree": False,
+            }
+        ],
+        "working_dir": "/p",
+        "created_at": 1700000000.0,
+        "scope": "project",
+        "agent_count": 1,
+    }
+    (project_dir / "legacy.json").write_text(json.dumps(data), encoding="utf-8")
+    loaded = store.load("legacy")
+    assert loaded is not None
+    assert loaded.agents[0].session_id is None
+
+
+# ── build_resume_args ─────────────────────────────────────
+
+
+def test_build_resume_args_claude_with_id() -> None:
+    """Claude with session_id should return --resume <id>."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("claude", "conv-123") == ["--resume", "conv-123"]
+
+
+def test_build_resume_args_claude_latest() -> None:
+    """Claude without session_id should return --continue (latest)."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("claude") == ["--continue"]
+
+
+def test_build_resume_args_gemini_with_id() -> None:
+    """Gemini with session_id should return --resume <id>."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("gemini", "gem-456") == ["--resume", "gem-456"]
+
+
+def test_build_resume_args_gemini_latest() -> None:
+    """Gemini without session_id should return --resume (latest)."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("gemini") == ["--resume"]
+
+
+def test_build_resume_args_codex_with_id() -> None:
+    """Codex with session_id should return resume <id>."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("codex", "cdx-789") == ["resume", "cdx-789"]
+
+
+def test_build_resume_args_codex_latest() -> None:
+    """Codex without session_id should return resume --last."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("codex") == ["resume", "--last"]
+
+
+def test_build_resume_args_copilot() -> None:
+    """Copilot only supports --resume (latest, no id)."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("copilot") == ["--resume"]
+    # Even with session_id, copilot only does --resume
+    assert build_resume_args("copilot", "some-id") == ["--resume"]
+
+
+def test_build_resume_args_opencode() -> None:
+    """OpenCode has no resume support — returns empty list."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("opencode") == []
+    assert build_resume_args("opencode", "some-id") == []
+
+
+def test_build_resume_args_unknown() -> None:
+    """Unknown profiles should return empty list."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("unknown-agent") == []
+
+
+def test_build_resume_args_trims_whitespace() -> None:
+    """Whitespace in profile and session_id should be trimmed."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("  claude  ", "  conv-123  ") == ["--resume", "conv-123"]
+    assert build_resume_args("  gemini  ") == ["--resume"]
+
+
+def test_build_resume_args_case_insensitive() -> None:
+    """Profile matching should be case-insensitive."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("Claude", "conv-123") == ["--resume", "conv-123"]
+    assert build_resume_args("GEMINI") == ["--resume"]
+    assert build_resume_args("Codex", "cdx-1") == ["resume", "cdx-1"]
+    assert build_resume_args("COPILOT") == ["--resume"]
+
+
+def test_build_resume_args_empty_session_id_treated_as_none() -> None:
+    """Whitespace-only session_id should be treated as None (use latest)."""
+    from synapse.session import build_resume_args
+
+    assert build_resume_args("claude", "   ") == ["--continue"]
+    assert build_resume_args("gemini", "") == ["--resume"]
