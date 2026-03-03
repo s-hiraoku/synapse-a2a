@@ -191,12 +191,12 @@ def _gemini_chats_dir(working_dir: str, gemini_home: Path | None = None) -> Path
         try:
             mapping = json.loads(projects_json.read_text())
             if isinstance(mapping, dict):
-                ref: str | None = mapping.get(working_dir)
-                if ref:
+                ref = mapping.get(working_dir)
+                if isinstance(ref, str) and ref:
                     chats: Path = home / "tmp" / ref / "chats"
                     if chats.is_dir():
                         return chats
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, TypeError):
             pass
 
     # Fallback: SHA256 hash

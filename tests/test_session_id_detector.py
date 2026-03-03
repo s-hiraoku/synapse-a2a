@@ -127,6 +127,26 @@ class TestDetectGemini:
         result = detect_session_id("gemini", working_dir, gemini_home=gemini_home)
         assert result == "session-hash-fallback"
 
+    def test_detect_gemini_non_string_ref_in_projects_json(
+        self, tmp_path: Path
+    ) -> None:
+        """projects.json with non-string values should fall back to SHA256 hash."""
+        working_dir = "/Volumes/SSD/myproject"
+        gemini_home = tmp_path / ".gemini"
+        gemini_home.mkdir(parents=True)
+
+        # Value for working_dir is an int, not a string
+        (gemini_home / "projects.json").write_text(json.dumps({working_dir: 12345}))
+
+        # Create sessions under SHA256 hash path
+        proj_hash = _gemini_project_hash(working_dir)
+        chats_dir = gemini_home / "tmp" / proj_hash / "chats"
+        chats_dir.mkdir(parents=True)
+        _touch(chats_dir / "session-from-hash.json", "{}", mtime=6000.0)
+
+        result = detect_session_id("gemini", working_dir, gemini_home=gemini_home)
+        assert result == "session-from-hash"
+
     def test_detect_gemini_no_chats_dir(self, tmp_path: Path) -> None:
         """chats directory doesn't exist → None."""
         result = detect_session_id(
