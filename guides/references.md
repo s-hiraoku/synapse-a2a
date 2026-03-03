@@ -1554,7 +1554,7 @@ synapse memory stats
 
 #### 1.22.1 synapse session save
 
-実行中のエージェントをセッションとして保存します。
+実行中のエージェントをセッションとして保存します。各エージェントの `session_id` もレジストリから取得して保存されます（`--resume` 復元に使用）。
 
 ```bash
 synapse session save <name> [--project|--user|--workdir <dir>]
@@ -1591,7 +1591,7 @@ synapse session list [--project|--user|--workdir <dir>]
 
 #### 1.22.3 synapse session show
 
-セッションの詳細（エージェント構成）を表示します。
+セッションの詳細（エージェント構成）を表示します。各エージェントの `session_id` も表示されます（保存時に取得された場合）。
 
 ```bash
 synapse session show <name> [--project|--user|--workdir <dir>]
@@ -1609,7 +1609,7 @@ synapse session show <name> [--project|--user|--workdir <dir>]
 保存済みセッションを復元し、全エージェントを spawn します。
 
 ```bash
-synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [-- tool_args...]
+synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [--resume] [-- tool_args...]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -1619,6 +1619,7 @@ synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [
 | `--user` | No | ユーザースコープ |
 | `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 | `--worktree` | No | worktree 分離を強制（保存時の設定を上書き） |
+| `--resume` | No | 各エージェントの CLI 会話セッションを再開（保存時の `session_id` を使用） |
 | `-- tool_args` | No | ツール固有の引数（全エージェントに適用） |
 
 **例**:
@@ -1626,8 +1627,24 @@ synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [
 ```bash
 synapse session restore my-team                              # 通常復元
 synapse session restore my-team --worktree                   # worktree で復元
+synapse session restore my-team --resume                     # 会話セッションを再開して復元
+synapse session restore my-team --worktree --resume          # worktree + resume
 synapse session restore my-team -- --dangerously-skip-permissions  # ツール引数付き
 ```
+
+**`--resume` の詳細**:
+
+`session save` 時にレジストリから取得した `session_id` を使い、各エージェントの CLI 固有の resume 引数を自動生成します。
+
+| エージェント | session_id あり | session_id なし |
+|-------------|----------------|----------------|
+| claude | `--resume <id>` | `--continue` |
+| gemini | `--resume <id>` | `--resume` |
+| codex | `resume <id>` | `resume --last` |
+| copilot | `--resume` | `--resume` |
+| opencode | （未対応） | （未対応） |
+
+resume に失敗した場合（プロセスが10秒以内に終了）、resume 引数なしで自動リトライします（shell レベルの time guard による fallback）。
 
 #### 1.22.5 synapse session delete
 

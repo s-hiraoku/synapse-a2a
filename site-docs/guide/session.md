@@ -16,6 +16,8 @@ This saves all agents in the current working directory to:
 
 `.synapse/sessions/review-team.json` (project scope, default)
 
+Each agent entry captures: profile, name, role, skill set, worktree flag, and **session_id** (the CLI conversation/session identifier from the agent registry). The session_id is used by `--resume` during restore.
+
 You can choose a different scope:
 
 ```bash
@@ -43,7 +45,7 @@ In interactive terminals, sessions are displayed in a Rich TUI table with name, 
 synapse session show review-team
 ```
 
-Displays the full session record including each agent's profile, name, role, skill set, and worktree flag. Use this to inspect the saved snapshot before restore.
+Displays the full session record including each agent's profile, name, role, skill set, worktree flag, and session_id (if captured). Use this to inspect the saved snapshot before restore.
 
 ## Restore a Session
 
@@ -62,6 +64,27 @@ synapse session save review-team
 # Later, restore the same configuration
 synapse session restore review-team
 ```
+
+### Resume Conversations (`--resume`)
+
+Add `--resume` to restore each agent's CLI conversation session alongside the team configuration. When saved session_ids are present, agents resume the exact conversation; otherwise they resume the most recent session.
+
+```bash
+synapse session restore review-team --resume
+```
+
+Per-agent resume behavior depends on the CLI tool:
+
+| Agent | With session_id | Without session_id |
+|-------|----------------|--------------------|
+| Claude | `--resume <id>` | `--continue` (latest) |
+| Gemini | `--resume <id>` | `--resume` (latest) |
+| Codex | `resume <id>` | `resume --last` (latest) |
+| Copilot | `--resume` (latest only) | `--resume` (latest only) |
+| OpenCode | No resume support | No resume support |
+
+!!! note "Time-guarded fallback"
+    If an agent's resume fails within the first 10 seconds (e.g., the saved session no longer exists), Synapse automatically retries without resume arguments. This prevents a stale session_id from blocking the restore entirely. Agents that run longer than 10 seconds before failing are not retried, avoiding silent restarts after a long-running session crashes.
 
 ## Delete a Session
 
@@ -114,14 +137,14 @@ Sessions are stored as JSON files:
 - Project scope: `.synapse/sessions/<name>.json`
 - User scope: `~/.synapse/sessions/<name>.json`
 
-Each file contains the session name, agent list (profile, name, role, skill set, worktree flag), working directory, creation timestamp, and scope.
+Each file contains the session name, agent list (profile, name, role, skill set, worktree flag, session_id), working directory, creation timestamp, and scope.
 
 ## Combining with Workflows
 
 Sessions restore agents; workflows send them tasks. A common pattern is to restore a session and then run a workflow:
 
 ```bash
-synapse session restore review-team --worktree
+synapse session restore review-team --worktree --resume
 # Wait for agents to become READY...
 synapse workflow run review-and-test
 ```

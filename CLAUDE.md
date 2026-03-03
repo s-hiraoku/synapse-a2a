@@ -148,7 +148,7 @@ synapse memory stats
 synapse session save <name> [--project|--user|--workdir <dir>]
 synapse session list [--project|--user|--workdir <dir>]
 synapse session show <name> [--project|--user|--workdir <dir>]
-synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [-- tool_args...]
+synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [--resume] [-- tool_args...]
 synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
 
 # Workflow (saved message sequences)

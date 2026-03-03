@@ -15,6 +15,7 @@ from synapse.session import (
     SessionAgent,
     SessionError,
     SessionStore,
+    build_resume_args,
     resolve_scope_filter,
 )
 from synapse.spawn import spawn_agent
@@ -71,6 +72,7 @@ def cmd_session_save(args: argparse.Namespace) -> None:
             role=info.get("role"),
             skill_set=info.get("skill_set"),
             worktree=bool(info.get("worktree_path")),
+            session_id=info.get("session_id"),
         )
         for info in filtered.values()
     ]
@@ -181,6 +183,8 @@ def cmd_session_show(args: argparse.Namespace) -> None:
             parts.append(f"skill_set={a.skill_set}")
         if a.worktree:
             parts.append("worktree=yes")
+        if a.session_id:
+            parts.append(f"session_id={a.session_id}")
         print("  ".join(parts))
 
 
@@ -207,6 +211,7 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
 
     worktree_flag = getattr(args, "worktree", None)
     tool_args = getattr(args, "tool_args", []) or []
+    resume = getattr(args, "resume", False)
 
     print(f"Restoring session '{name}' ({session.agent_count} agents)...")
 
@@ -215,6 +220,17 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
         wt = worktree_flag if worktree_flag is not None else agent.worktree
         label = _agent_label(agent)
 
+        # Build per-agent tool_args, prepending resume args when requested.
+        agent_tool_args = list(tool_args)
+        fallback: list[str] | None = None
+        resume_args: list[str] = []
+
+        if resume:
+            resume_args = build_resume_args(agent.profile, agent.session_id)
+            if resume_args:
+                agent_tool_args = resume_args + agent_tool_args
+                fallback = list(tool_args)
+
         try:
             result = spawn_agent(
                 profile=agent.profile,
@@ -222,13 +238,17 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
                 role=agent.role,
                 skill_set=agent.skill_set,
                 worktree=wt,
-                tool_args=tool_args or None,
+                tool_args=agent_tool_args or None,
+                fallback_tool_args=fallback,
             )
-            wt_info = (
-                f" (worktree: {result.worktree_path})" if result.worktree_path else ""
-            )
+            suffixes: list[str] = []
+            if result.worktree_path:
+                suffixes.append(f"worktree: {result.worktree_path}")
+            if resume_args:
+                suffixes.append(f"resume: {agent.session_id or 'latest'}")
+            extra = f" ({', '.join(suffixes)})" if suffixes else ""
             print(
-                f"  Spawned {label} → {result.agent_id} [{result.terminal_used}]{wt_info}"
+                f"  Spawned {label} → {result.agent_id} [{result.terminal_used}]{extra}"
             )
         except (RuntimeError, FileNotFoundError, ValueError) as e:
             print(f"  Failed to spawn {label}: {e}", file=sys.stderr)

@@ -266,7 +266,7 @@ synapse session show <name> [--project | --user | --workdir DIR]
 ### Restore Session
 
 ```bash
-synapse session restore <name> [--project | --user | --workdir DIR] [--worktree [NAME]] [-- TOOL_ARGS]
+synapse session restore <name> [--project | --user | --workdir DIR] [--worktree [NAME]] [--resume] [-- TOOL_ARGS]
 ```
 
 Spawns all agents from the saved session.
@@ -274,6 +274,7 @@ Spawns all agents from the saved session.
 | Flag | Description |
 |------|-------------|
 | `--worktree [NAME]`, `-w` | Create per-agent git worktrees (overrides saved settings) |
+| `--resume` | Resume each agent's previous CLI conversation session (uses saved session_id when available, falls back to latest) |
 | `-- TOOL_ARGS` | Pass CLI-specific arguments to spawned agents |
 
 ### Delete Session

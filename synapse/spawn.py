@@ -38,6 +38,7 @@ def spawn_agent(
     terminal: str | None = None,
     tool_args: list[str] | None = None,
     worktree: str | bool | None = None,
+    fallback_tool_args: list[str] | None = None,
 ) -> SpawnResult:
     """Spawn a single agent in a new terminal pane.
 
@@ -52,6 +53,9 @@ def spawn_agent(
             (e.g., ``["--dangerously-skip-permissions"]``).
         worktree: If True, create a worktree with auto-generated name.
             If a string, use it as the worktree name. If None/False, no worktree.
+        fallback_tool_args: If not None, produces a shell-level fallback
+            command when the primary command fails (e.g., resume session
+            not found).
 
     Returns:
         SpawnResult with agent_id, port, terminal_used, status.
@@ -118,6 +122,7 @@ def spawn_agent(
         tool_args=tool_args,
         cwd=cwd,
         extra_env=extra_env,
+        fallback_tool_args=fallback_tool_args,
     )
 
     if not commands:

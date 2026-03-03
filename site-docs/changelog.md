@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.2
+
+- **Added**: `synapse session restore --resume` flag to resume each agent's CLI conversation session
+  - Saved sessions now capture `session_id` from the agent registry
+  - Per-agent resume args: Claude (`--resume`/`--continue`), Gemini (`--resume`), Codex (`resume`/`resume --last`), Copilot (`--resume`), OpenCode (no support)
+  - Shell-level time-guarded fallback: if resume fails within 10 seconds, retries without resume args
+- **Changed**: `synapse session show` now displays `session_id` for each agent entry
+
 ### v0.9.1
 
 - **Added**: Saved Workflows (`synapse workflow`) — define and replay reusable message sequences to running agents
