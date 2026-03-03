@@ -65,8 +65,8 @@ synapse claude --name my-claude --role "code reviewer"
 synapse claude --skill-set dev-set
 
 # With saved agent definition (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude --agent wise-strategist --role "override role"  # CLI args override saved values
+synapse claude --agent calm-lead
+synapse claude --agent calm-lead --role "override role"  # CLI args override saved values
 
 # With role from file (@prefix reads file content as role)
 synapse claude --name reviewer --role "@./roles/reviewer.md"
@@ -132,9 +132,9 @@ synapse spawn claude --terminal tmux          # Use specific terminal
 synapse spawn claude -n Tester -r "reviewer" -S backend-tools  # Short options
 
 # Spawn from saved agent definition (by ID or display name)
-synapse spawn silent-snake                    # Spawn by saved Agent ID
-synapse spawn Alice                           # Spawn by saved agent display name
-synapse spawn silent-snake --role "temporary override"  # Override saved values
+synapse spawn sharp-checker                    # Spawn by saved Agent ID
+synapse spawn Claud                           # Spawn by saved agent display name
+synapse spawn sharp-checker --role "temporary override"  # Override saved values
 
 # Worktree isolation (Synapse-level flag, before '--'; works for ALL agent types)
 synapse spawn claude --name Impl --role "implementer" --worktree            # auto-named worktree
@@ -242,7 +242,7 @@ synapse rename my-claude --clear
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.
 
-IDs must use Agent ID format (e.g., `silent-snake`).
+IDs must use Agent ID format (e.g., `sharp-checker`).
 
 ```bash
 # List all saved agent definitions
@@ -262,21 +262,21 @@ synapse agents delete <id-or-name>
 
 ```bash
 # Save a codex agent with role from file
-synapse agents add silent-snake --name Reviewer --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
+synapse agents add sharp-checker --name Reviewer --profile codex --role @./roles/reviewer.md --skill-set architect --scope project
 
 # List saved agents (Rich TUI table when interactive)
 synapse agents list
 
 # Show saved agent details
-synapse agents show silent-snake
+synapse agents show sharp-checker
 synapse agents show Reviewer          # Also resolves by display name
 
 # Delete a saved agent
-synapse agents delete silent-snake
+synapse agents delete sharp-checker
 ```
 
 **Output columns** (in `synapse agents list`):
-- **ID**: Agent ID identifier (e.g., `silent-snake`)
+- **ID**: Agent ID identifier (e.g., `sharp-checker`)
 - **NAME**: Display name
 - **PROFILE**: Agent type (claude, codex, gemini, opencode, copilot)
 - **ROLE**: Role description (or `-` if not set)

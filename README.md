@@ -539,8 +539,8 @@ synapse copilot
 synapse claude --name my-claude --role "code reviewer"
 
 # Start with saved agent definition (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice                           # Short flag, lookup by display name
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # Short flag, lookup by display name
 
 # Skip interactive name/role setup
 synapse claude --no-setup
@@ -571,8 +571,8 @@ synapse claude --name my-claude --role "code reviewer"
 synapse claude --name reviewer --role "@./roles/reviewer.md"
 
 # Use saved agent definition (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice                           # Short flag
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # Short flag
 
 # After agent is running, change name/role
 synapse rename synapse-claude-8100 --name my-claude --role "test writer"

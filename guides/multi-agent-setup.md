@@ -106,8 +106,8 @@ synapse claude --name my-claude --role "コードレビュー担当"
 synapse claude --name reviewer --role "@./roles/reviewer.md"
 
 # 保存済みエージェント定義を使用 (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice                           # 短縮フラグ
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # 短縮フラグ
 ```
 
 > 保存済みエージェント定義の管理については `synapse agents` コマンドを参照してください。

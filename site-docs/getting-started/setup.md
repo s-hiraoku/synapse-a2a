@@ -47,9 +47,9 @@ synapse gemini --role "@~/my-roles/analyst.md"
 If you have [saved agent definitions](../guide/agent-teams.md#saved-agent-definitions), use `--agent` / `-A` to load name, role, and skill set from a reusable template:
 
 ```bash
-synapse claude --agent wise-strategist        # By saved agent ID
-synapse claude -A Alice                       # By display name
-synapse claude --agent wise-strategist --role "temporary override"  # CLI overrides
+synapse claude --agent calm-lead        # By saved agent ID
+synapse claude -A Claud                       # By display name
+synapse claude --agent calm-lead --role "temporary override"  # CLI overrides
 ```
 
 ## Agent Names and Roles

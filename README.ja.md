@@ -512,8 +512,8 @@ synapse copilot
 synapse claude --name my-claude --role "コードレビュー担当"
 
 # 保存済みエージェント定義を使用して起動 (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice                           # 短縮フラグ、表示名で指定
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # 短縮フラグ、表示名で指定
 
 # 対話型セットアップをスキップ
 synapse claude --no-setup
@@ -544,8 +544,8 @@ synapse claude --name my-claude --role "コードレビュー担当"
 synapse claude --name reviewer --role "@./roles/reviewer.md"
 
 # 保存済みエージェント定義を使用 (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice                           # 短縮フラグ
+synapse claude --agent calm-lead
+synapse claude -A Claud                           # 短縮フラグ
 
 # エージェントの実行中に名前/ロールを変更
 synapse rename synapse-claude-8100 --name my-claude --role "テスト作成担当"

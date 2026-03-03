@@ -6,10 +6,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.8.6
 
+- **Changed**: Unify agent example names with model-hinting English names (Claud, Cody, Rex, Gem)
+- **Docs**: Expand delegate-mode guide with architecture, config, and use cases
 - **Docs**: Document `--agent`/`-A` flag for starting agents with saved agent definitions
-- **Docs**: Document role file conventions — recommended directories (`./roles/`, `~/my-roles/`)
-- **Docs**: Document petname ID format, scope precedence (project > user), `.agent` file format
-- **Docs**: Sync READMEs, guides, and plugin skills with `--agent`/`-A` documentation
+- **Docs**: Document role file conventions, petname ID format, scope precedence, `.agent` file format
+- **Docs**: Update all site-docs, guides, CLAUDE.md, and plugin skills with consistent agent names
 
 ### v0.8.5
 

@@ -213,8 +213,8 @@ synapse claude --port 8100
 synapse claude --name my-claude --role "コードレビュー担当"
 
 # 保存済みエージェント定義を使用して起動 (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude -A Alice
+synapse claude --agent calm-lead
+synapse claude -A Claud
 
 # カスタム名でメッセージ送信（最優先で解決される）
 synapse send my-claude "ファイルを確認して"

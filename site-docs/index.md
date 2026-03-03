@@ -79,6 +79,18 @@ synapse send codex "Update API docs for the new endpoint" --silent
 ```
 </div>
 
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-lightning-bolt:</div>
+
+### On-Demand Specialists
+
+Spawn task-specific agents from [saved templates](guide/agent-teams.md#saved-agent-definitions) — each in its own isolated worktree. Agents can even spawn other agents via API.
+
+```bash
+synapse spawn sharp-checker --worktree
+```
+</div>
+
 </div>
 
 ## Core Principles
@@ -150,10 +162,10 @@ synapse team start claude gemini codex \
 <div class="feature-icon" markdown>:material-account-cog-outline:</div>
 
 ### Agent Management
-Orchestrate work with the `synapse-manager` skill. 5-step workflow: Delegate, Monitor, Verify, Feedback, Review.
+Orchestrate agents with delegate mode and the `synapse-manager` skill. Spawn, monitor, and verify — all from one terminal.
 
 ```bash
-synapse spawn claude --name Impl --role "implementation"
+synapse claude --delegate-mode --name Claud
 ```
 </div>
 

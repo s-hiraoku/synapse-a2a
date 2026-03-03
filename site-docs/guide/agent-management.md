@@ -26,9 +26,9 @@ synapse gemini --name test-writer --role "test specialist"
 Use a [saved agent definition](agent-teams.md#saved-agent-definitions) to load name, role, and skill set from a reusable template:
 
 ```bash
-synapse claude --agent wise-strategist        # By saved agent ID
-synapse claude -A Alice                       # By display name (short flag)
-synapse claude --agent wise-strategist --role "temporary override"  # CLI flags override saved values
+synapse claude --agent calm-lead        # By saved agent ID
+synapse claude -A Claud                       # By display name (short flag)
+synapse claude --agent calm-lead --role "temporary override"  # CLI flags override saved values
 ```
 
 The saved agent's profile must match the profile shortcut (e.g., a `gemini` saved agent cannot be used with `synapse claude`).
@@ -224,10 +224,10 @@ synapse rename my-claude --clear
 Save frequently used name/role/skill-set combinations as reusable definitions:
 
 ```bash
-synapse agents add silent-snake --name Alice --profile codex --role @./roles/reviewer.md --scope project
+synapse agents add sharp-checker --name Rex --profile codex --role @./roles/tester.md --skill-set developer --scope project
 synapse agents list
-synapse codex --agent silent-snake    # Start using saved definition (profile must match)
-synapse spawn silent-snake            # Spawn using saved definition (any profile OK)
+synapse codex --agent sharp-checker    # Start using saved definition (profile must match)
+synapse spawn sharp-checker            # Spawn using saved definition (any profile OK)
 ```
 
 On interactive exit, Synapse also offers a save prompt for the current

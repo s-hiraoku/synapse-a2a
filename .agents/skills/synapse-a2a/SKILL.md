@@ -336,8 +336,8 @@ synapse claude --name my-claude --role "code reviewer"
 synapse claude --skill-set dev-set
 
 # Start with saved agent definition (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude --agent wise-strategist --role "override role"  # CLI args override saved values
+synapse claude --agent calm-lead
+synapse claude --agent calm-lead --role "override role"  # CLI args override saved values
 
 # Role from file (@prefix reads file content as role)
 synapse claude --name reviewer --role "@./roles/reviewer.md"
@@ -425,7 +425,7 @@ To inject instructions later: `synapse instructions send <agent>`.
 ## Key Features
 
 - **Agent Naming**: Custom names and roles for easy identification
-- **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope. Use `--agent`/`-A` flag to start from a saved definition (e.g., `synapse claude --agent wise-strategist`), or pass the saved ID/name directly to `synapse spawn`.
+- **Saved Agent Definitions**: Persist reusable agent definitions with `synapse agents` (add/list/show/delete). Stored as `.agent` files in project or user scope. Use `--agent`/`-A` flag to start from a saved definition (e.g., `synapse claude --agent calm-lead`), or pass the saved ID/name directly to `synapse spawn`.
 - **Agent Communication**: `synapse send` command, `synapse broadcast` for cwd-scoped messaging, priority control, response handling
 - **Sender Identification**: Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (fallback)
 - **Soft Interrupt**: `synapse interrupt` — shorthand for `synapse send -p 4 --silent` (urgent, fire-and-forget)
@@ -626,8 +626,8 @@ synapse spawn claude                          # Spawn in new pane
 synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
 synapse spawn claude --terminal tmux          # Specific terminal
-synapse spawn silent-snake                    # Spawn by saved Agent ID
-synapse spawn Alice                           # Spawn by saved agent display name
+synapse spawn sharp-checker                    # Spawn by saved Agent ID
+synapse spawn Claud                           # Spawn by saved agent display name
 synapse spawn claude --worktree              # Spawn in isolated worktree
 synapse spawn claude -w my-feature           # Named worktree
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'

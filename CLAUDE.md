@@ -100,8 +100,8 @@ synapse claude --name my-claude --role "code reviewer"
 synapse gemini --name test-writer --role "test specialist"
 
 # Run agent with saved agent definition (--agent / -A)
-synapse claude --agent wise-strategist
-synapse claude --agent wise-strategist --role "override role"
+synapse claude --agent calm-lead
+synapse claude --agent calm-lead --role "override role"
 
 # Run agent with role from file (@prefix reads file content as role)
 synapse claude --name reviewer --role "@./roles/reviewer.md"
@@ -292,7 +292,7 @@ curl -X POST http://localhost:8100/team/start \
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
 synapse spawn claude                          # Spawn Claude in a new pane
-synapse spawn silent-snake                    # Spawn by saved Agent ID
+synapse spawn steady-builder                  # Spawn by saved Agent ID
 synapse spawn gemini --port 8115              # Spawn with explicit port
 synapse spawn claude --name Tester --role "test writer"  # With name/role
 synapse spawn claude --terminal tmux          # Use specific terminal
