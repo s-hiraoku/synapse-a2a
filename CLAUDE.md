@@ -91,6 +91,7 @@ pytest tests/test_memory_api.py -v       # API endpoint tests
 # Session Save/Restore tests
 pytest tests/test_session.py -v            # SessionStore core tests
 pytest tests/test_cli_session.py -v        # Session CLI command tests
+pytest tests/test_session_id_detector.py -v # Session ID detection tests
 
 # Workflow tests
 pytest tests/test_workflow.py -v           # WorkflowStore core tests
@@ -150,6 +151,9 @@ synapse session list [--project|--user|--workdir <dir>]
 synapse session show <name> [--project|--user|--workdir <dir>]
 synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [--resume] [-- tool_args...]
 synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
+synapse session sessions                                       # List CLI tool sessions from filesystem
+synapse session sessions --profile claude                      # Filter by profile
+synapse session sessions --limit 10                            # Limit results
 
 # Workflow (saved message sequences)
 synapse workflow create <name> [--project|--user] [--force]     # Create workflow template YAML
@@ -401,6 +405,7 @@ synapse/
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
 ├── worktree.py      # Synapse-native git worktree isolation for all agent types
 ├── session.py       # Session save/restore: team configuration snapshots
+├── session_id_detector.py # Session ID auto-detection from CLI tool filesystems
 ├── workflow.py      # Workflow definitions: saved YAML-based message sequences
 ├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry

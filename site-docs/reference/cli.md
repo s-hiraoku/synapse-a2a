@@ -287,6 +287,19 @@ synapse session delete <name> [--project | --user | --workdir DIR] [--force]
 |------|-------------|
 | `--force`, `-f` | Delete without confirmation prompt |
 
+### Browse CLI Sessions
+
+```bash
+synapse session sessions [--profile PROFILE] [--limit N]
+```
+
+Lists CLI tool session files from the filesystem (Claude, Gemini, Codex, Copilot). Sessions are sorted by modification time, newest first.
+
+| Flag | Description |
+|------|-------------|
+| `--profile PROFILE` | Filter by CLI tool: `claude`, `gemini`, `codex`, `copilot` |
+| `--limit N` | Maximum number of sessions to show (default: 20) |
+
 ## Task Board
 
 ### List Tasks

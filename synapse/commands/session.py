@@ -18,6 +18,7 @@ from synapse.session import (
     build_resume_args,
     resolve_scope_filter,
 )
+from synapse.session_id_detector import list_sessions
 from synapse.spawn import spawn_agent
 
 
@@ -290,3 +291,70 @@ def cmd_session_delete(args: argparse.Namespace) -> None:
     else:
         print(f"Error: Failed to delete session '{name}'.", file=sys.stderr)
         sys.exit(1)
+
+
+# ── sessions (CLI tool session listing) ─────────────────────
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes as human-readable size."""
+    if size_bytes >= 1_000_000:
+        return f"{size_bytes / 1_000_000:.1f} MB"
+    if size_bytes >= 1_000:
+        return f"{size_bytes / 1_000:.0f} KB"
+    return f"{size_bytes} B"
+
+
+def cmd_session_sessions(args: argparse.Namespace) -> None:
+    """List CLI tool sessions from the filesystem."""
+    profile: str | None = getattr(args, "profile", None)
+    limit: int = getattr(args, "limit", 20)
+    working_dir = os.getcwd()
+
+    sessions = list_sessions(profile, working_dir, limit=limit)
+
+    if not sessions:
+        print("No CLI sessions found.")
+        return
+
+    if sys.stdout.isatty():
+        try:
+            from rich import box
+            from rich.console import Console
+            from rich.table import Table
+
+            table = Table(
+                title=f"CLI Sessions (working_dir: {working_dir})",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+            )
+            table.add_column("Profile", style="green")
+            table.add_column("Session ID")
+            table.add_column("Last Modified")
+            table.add_column("Size", justify="right")
+
+            for s in sessions:
+                modified = datetime.fromtimestamp(s.modified_at).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                table.add_row(
+                    s.profile,
+                    s.session_id,
+                    modified,
+                    _format_size(s.size_bytes),
+                )
+            Console().print(table)
+            return
+        except Exception:
+            pass
+
+    # Plain text fallback
+    print(f"CLI Sessions (working_dir: {working_dir})")
+    print(f"{'PROFILE':<10} {'SESSION ID':<40} {'MODIFIED':<20} {'SIZE':>10}")
+    print("-" * 82)
+    for s in sessions:
+        modified = datetime.fromtimestamp(s.modified_at).strftime("%Y-%m-%d %H:%M:%S")
+        print(
+            f"{s.profile:<10} {s.session_id:<40} {modified:<20} {_format_size(s.size_bytes):>10}"
+        )

@@ -139,6 +139,45 @@ Sessions are stored as JSON files:
 
 Each file contains the session name, agent list (profile, name, role, skill set, worktree flag, session_id), working directory, creation timestamp, and scope.
 
+## Browsing CLI Sessions
+
+The `synapse session sessions` command lists CLI tool session files directly from the filesystem. This is useful for discovering available session IDs before saving or understanding what conversations exist for each agent.
+
+```bash
+synapse session sessions                          # All profiles
+synapse session sessions --profile claude         # Claude only
+synapse session sessions --profile gemini         # Gemini only
+synapse session sessions --limit 10               # Limit results
+```
+
+The output shows each session's profile, session ID, last modification time, and file size. Sessions are sorted by modification time (newest first).
+
+### Supported CLI Tools
+
+| Tool | Session Location | ID Format |
+|------|-----------------|-----------|
+| Claude | `~/.claude/projects/<project-hash>/*.jsonl` | JSONL file stem |
+| Gemini | `~/.gemini/tmp/<project-hash>/chats/*.json` | JSON file stem |
+| Codex | `~/.codex/sessions/**/*.jsonl` | JSONL file stem |
+| Copilot | `~/.copilot/session-state/*.jsonl` | JSONL file stem |
+
+!!! note "Project-scoped detection"
+    Claude and Gemini sessions are scoped to the current working directory. The command uses the same directory-based lookup that `session save` uses when auto-capturing session IDs.
+
+### Session ID Auto-Capture
+
+When agents start, Synapse automatically detects the CLI tool's session ID from the filesystem and stores it in the agent registry. This happens in a background thread after the agent passes the readiness gate, so it does not delay startup.
+
+The auto-captured `session_id` is then included when you run `synapse session save`, enabling `--resume` to target the exact conversation rather than falling back to "most recent."
+
+**Flow:**
+
+1. Agent starts and reaches READY state
+2. Background thread calls `detect_session_id()` for the agent's profile
+3. The detected ID is written to the registry via `update_session_id()`
+4. `synapse session save` reads the registry and stores the `session_id` per agent
+5. `synapse session restore --resume` uses the saved `session_id` to resume the exact conversation
+
 ## Combining with Workflows
 
 Sessions restore agents; workflows send them tasks. A common pattern is to restore a session and then run a workflow:

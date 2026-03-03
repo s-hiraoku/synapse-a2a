@@ -7,7 +7,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 
@@ -946,3 +946,86 @@ def test_show_displays_session_id(
 
     captured = capsys.readouterr()
     assert "conv-abc" in captured.out
+
+
+# ── cmd_session_sessions ─────────────────────────────────────
+
+
+def test_session_sessions_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """sessions subcommand should list CLI sessions from filesystem."""
+    from synapse.commands.session import cmd_session_sessions
+    from synapse.session_id_detector import SessionInfo
+
+    mock_sessions = [
+        SessionInfo(
+            profile="claude",
+            session_id="d2a6ab67-uuid",
+            path=tmp_path / "d2a6ab67-uuid.jsonl",
+            modified_at=1709520000.0,
+            size_bytes=1200000,
+        ),
+        SessionInfo(
+            profile="gemini",
+            session_id="session-2026-03-04",
+            path=tmp_path / "session-2026-03-04.json",
+            modified_at=1709510000.0,
+            size_bytes=128000,
+        ),
+    ]
+
+    args = argparse.Namespace(profile=None, limit=20)
+
+    with patch("synapse.commands.session.list_sessions", return_value=mock_sessions):
+        cmd_session_sessions(args)
+
+    captured = capsys.readouterr()
+    assert "claude" in captured.out
+    assert "d2a6ab67-uuid" in captured.out
+    assert "gemini" in captured.out
+
+
+def test_session_sessions_with_profile_filter(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """sessions --profile claude should only show Claude sessions."""
+    from synapse.commands.session import cmd_session_sessions
+    from synapse.session_id_detector import SessionInfo
+
+    mock_sessions = [
+        SessionInfo(
+            profile="claude",
+            session_id="only-claude",
+            path=tmp_path / "only-claude.jsonl",
+            modified_at=1709520000.0,
+            size_bytes=500,
+        ),
+    ]
+
+    args = argparse.Namespace(profile="claude", limit=20)
+
+    with patch(
+        "synapse.commands.session.list_sessions", return_value=mock_sessions
+    ) as mock_list:
+        cmd_session_sessions(args)
+
+    # Verify profile was passed through
+    mock_list.assert_called_once_with("claude", ANY, limit=20)
+
+    captured = capsys.readouterr()
+    assert "claude" in captured.out
+    assert "only-claude" in captured.out
+
+
+def test_session_sessions_empty(capsys: pytest.CaptureFixture) -> None:
+    """sessions with no results should show a message."""
+    from synapse.commands.session import cmd_session_sessions
+
+    args = argparse.Namespace(profile=None, limit=20)
+
+    with patch("synapse.commands.session.list_sessions", return_value=[]):
+        cmd_session_sessions(args)
+
+    captured = capsys.readouterr()
+    assert "No CLI sessions found" in captured.out

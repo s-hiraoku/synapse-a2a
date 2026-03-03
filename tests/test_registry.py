@@ -359,3 +359,36 @@ def test_update_transport_preserves_other_fields(registry):
     assert info["port"] == 8100
     assert info["status"] == "READY"
     assert info["active_transport"] == "UDS→"
+
+
+# ── update_session_id ────────────────────────────────────────
+
+
+def test_update_session_id(registry):
+    """update_session_id should write and read back the session_id."""
+    agent_id = "test_session_id"
+    registry.register(agent_id, "claude", 8100)
+
+    result = registry.update_session_id(agent_id, "conv-abc-123")
+    assert result is True
+
+    info = registry.get_agent(agent_id)
+    assert info["session_id"] == "conv-abc-123"
+
+
+def test_update_session_id_none_clears(registry):
+    """update_session_id(None) should remove the session_id key."""
+    agent_id = "test_session_id_clear"
+    registry.register(agent_id, "claude", 8100)
+
+    registry.update_session_id(agent_id, "conv-xyz")
+    registry.update_session_id(agent_id, None)
+
+    info = registry.get_agent(agent_id)
+    assert "session_id" not in info
+
+
+def test_update_session_id_nonexistent(registry):
+    """update_session_id returns False for non-existent agent."""
+    result = registry.update_session_id("nonexistent", "conv-123")
+    assert result is False
