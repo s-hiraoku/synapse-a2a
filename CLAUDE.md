@@ -92,6 +92,10 @@ pytest tests/test_memory_api.py -v       # API endpoint tests
 pytest tests/test_session.py -v            # SessionStore core tests
 pytest tests/test_cli_session.py -v        # Session CLI command tests
 
+# Workflow tests
+pytest tests/test_workflow.py -v           # WorkflowStore core tests
+pytest tests/test_cli_workflow.py -v       # Workflow CLI command tests
+
 # Run agent (interactive)
 synapse claude
 synapse codex
@@ -146,6 +150,13 @@ synapse session list [--project|--user|--workdir <dir>]
 synapse session show <name> [--project|--user|--workdir <dir>]
 synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [-- tool_args...]
 synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
+
+# Workflow (saved message sequences)
+synapse workflow create <name> [--project|--user] [--force]     # Create workflow template YAML
+synapse workflow list [--project|--user]                        # List saved workflows
+synapse workflow show <name> [--project|--user]                 # Show workflow details
+synapse workflow run <name> [--project|--user] [--dry-run] [--continue-on-error]  # Execute workflow steps
+synapse workflow delete <name> [--project|--user] [--force]    # Delete a saved workflow
 
 # Instructions management (for --resume mode or recovery)
 synapse instructions show                 # Show default instruction
@@ -390,6 +401,7 @@ synapse/
 ├── spawn.py         # Single-agent pane spawning (synapse spawn + POST /spawn)
 ├── worktree.py      # Synapse-native git worktree isolation for all agent types
 ├── session.py       # Session save/restore: team configuration snapshots
+├── workflow.py      # Workflow definitions: saved YAML-based message sequences
 ├── agent_profiles.py # Saved agent definitions: AgentProfileStore (synapse agents)
 ├── token_parser.py  # Token/cost tracking: TokenUsage dataclass + parse_tokens() registry
 ├── skills.py        # Skill discovery, deploy, import, skill sets
@@ -400,6 +412,7 @@ synapse/
 │   ├── list.py            # synapse list command
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
 │   ├── session.py         # synapse session command
+│   ├── workflow.py        # synapse workflow command
 │   └── start.py           # synapse start command
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 
@@ -632,6 +645,7 @@ idle_detection:
 ~/.synapse/agents/   # Saved agent definitions (user scope)
 ~/.synapse/logs/     # Log files
 ~/.synapse/sessions/ # Saved session configurations (user scope)
+~/.synapse/workflows/ # Saved workflow definitions (user scope)
 
 .synapse/agents/     # Saved agent definitions (project scope)
 .synapse/worktrees/  # Synapse-native git worktrees (per-agent isolation)
@@ -639,6 +653,7 @@ idle_detection:
 .synapse/file_safety.db  # File safety database (project-local)
 .synapse/task_board.db   # Shared task board database (project-local)
 .synapse/sessions/   # Saved session configurations (project scope)
+.synapse/workflows/  # Saved workflow definitions (project scope)
 ```
 
 ## Testing Registry & Status Updates

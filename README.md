@@ -110,6 +110,7 @@ flowchart LR
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete`). Supports project and user scopes (`.synapse/sessions/`, `~/.synapse/sessions/`). Restore spawns all saved agents with their original names, roles, skill sets, and worktree settings |
+| **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
 
 ---
 
@@ -678,6 +679,11 @@ Save this agent definition for reuse? [y/N]:
 | `synapse session show <name>` | Show session details |
 | `synapse session restore <name>` | Restore a saved session (spawns agents) |
 | `synapse session delete <name>` | Delete a saved session |
+| `synapse workflow create <name>` | Create a workflow template YAML |
+| `synapse workflow list` | List saved workflows |
+| `synapse workflow show <name>` | Show workflow details |
+| `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
+| `synapse workflow delete <name>` | Delete a saved workflow |
 
 ### Resume Mode
 
