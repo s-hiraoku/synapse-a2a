@@ -1082,7 +1082,7 @@ synapse session save my-team --user
 # ユーザースコープのセッションのみ表示
 synapse session list --user
 
-# 特定ディレクトリのエージェントを保存
+# 特定ディレクトリを project スコープとして保存
 synapse session save my-team --workdir /path/to/project
 ```
 

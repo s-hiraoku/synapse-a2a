@@ -29,10 +29,10 @@ synapse session save review-team --workdir /path/to/project
 ## List Sessions
 
 ```bash
-synapse session list                           # Both scopes
+synapse session list                           # Project scope (current repo, default)
 synapse session list --project                 # Project scope only
 synapse session list --user                    # User scope only
-synapse session list --workdir /path/to/project
+synapse session list --workdir /path/to/project  # Project scope rooted at /path/to/project
 ```
 
 In interactive terminals, sessions are displayed in a Rich TUI table with name, agent count, scope, working directory, and creation date.
@@ -78,9 +78,9 @@ Session commands support three mutually exclusive scope flags:
 |------|-------------|
 | `--project` | Project scope (default): `.synapse/sessions/` in the current repository |
 | `--user` | User scope: `~/.synapse/sessions/` for cross-project reuse |
-| `--workdir <path>` | Resolve project scope from the given working directory |
+| `--workdir <path>` | Use project scope rooted at the given working directory (`<path>/.synapse/sessions/`) |
 
-When loading or deleting without a scope flag, Synapse searches project scope first, then user scope.
+Without scope flags, session commands use project scope in the current repository.
 
 !!! tip "Sharing sessions"
     Project-scope session files live in `.synapse/sessions/` and can be committed to version control. This lets team members share reusable team presets.

@@ -249,7 +249,7 @@ Saves running agents in the current working directory as a named snapshot.
 |------|-------------|
 | `--project` | Project scope (default): `.synapse/sessions/` |
 | `--user` | User scope: `~/.synapse/sessions/` |
-| `--workdir DIR` | Filter by working directory |
+| `--workdir DIR` | Use project scope rooted at `DIR` (`DIR/.synapse/sessions/`) |
 
 ### List Sessions
 

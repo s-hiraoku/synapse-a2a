@@ -1565,14 +1565,14 @@ synapse session save <name> [--project|--user|--workdir <dir>]
 | `name` | Yes | セッション名（英数字、ドット、ハイフン、アンダースコア） |
 | `--project` | No | プロジェクトスコープに保存（デフォルト） |
 | `--user` | No | ユーザースコープに保存（全エージェントを対象） |
-| `--workdir <dir>` | No | 指定ディレクトリのエージェントを対象 |
+| `--workdir <dir>` | No | 指定ディレクトリを project スコープとして使用（`<dir>/.synapse/sessions/`） |
 
 **例**:
 
 ```bash
 synapse session save my-team                    # CWDのエージェントを保存
 synapse session save my-team --user             # ユーザースコープに保存
-synapse session save my-team --workdir /tmp/p   # 指定ディレクトリのエージェントを保存
+synapse session save my-team --workdir /tmp/p   # /tmp/p の project スコープに保存
 ```
 
 #### 1.22.2 synapse session list
