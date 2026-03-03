@@ -242,6 +242,34 @@ A2A: テストを実行してコミットして
 
 ---
 
+## Agent Card Context Extension (x-synapse-context)
+
+Synapse では、Agent Card を利用して AI エージェントに初期設定（コンテキスト）を渡します。これにより、ターミナル（PTY）に長いインストラクションを表示することなく、エージェントが必要な情報を取得できます。
+
+### ブートストラップの流れ
+
+1. **最小限のメッセージ**: エージェント起動時に、PTY に以下のような最小限のメッセージが送信されます。
+   ```text
+   [SYNAPSE A2A] Your ID: synapse-claude-8100
+   Retrieve your system context:
+   curl -s http://localhost:8100/.well-known/agent.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('extensions', {}).get('x-synapse-context', {}), indent=2))"
+   ```
+
+2. **コンテキストの取得**: AI エージェントはこの `curl` コマンド（または同等の HTTP リクエスト）を実行し、`x-synapse-context` フィールドから以下の情報を取得します。
+   - 自分の ID とタイプ
+   - ルーティングルールと転送コマンドの書式
+   - 他の利用可能なエージェントのリスト
+   - 優先度レベルの定義
+   - コマンドの使用例
+
+### メリット
+
+- **ターミナルのクリーン化**: 長い説明テキストが PTY に出力されません。
+- **A2A プロトコル準拠**: A2A 標準の発見メカニズムである Agent Card を活用しています。
+- **動的な更新**: 通信ごとに最新の他エージェント情報を反映できます。
+
+---
+
 ## Priority レベル
 
 | Priority | 動作 | 用途 |

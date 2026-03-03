@@ -84,6 +84,7 @@ flowchart LR
 | Category | Feature |
 | -------- | ------- |
 | **A2A Compliant** | All communication uses Message/Part + Task format, Agent Card discovery |
+| **Agent Card Context Extension** | Pass system context (ID, routing rules, other agents) via `x-synapse-context` to keep PTY clean |
 | **CLI Integration** | Turn existing CLI tools into A2A agents without modification |
 | **synapse send** | Send messages between agents via `synapse send <agent> "message"` |
 | **Sender Identification** | Auto-identify sender via `SYNAPSE_AGENT_ID` env var → `metadata.sender` + PID matching (process ancestry, fallback) |
@@ -501,8 +502,8 @@ sequenceDiagram
     Synapse->>Registry: 1. Register agent (agent_id, pid, port)
     Synapse->>PTY: 2. Start PTY
     PTY->>CLI: 3. Start CLI agent
-    Synapse->>PTY: 4. Send initial instructions (sender: synapse-system)
-    PTY->>CLI: 5. AI receives initial instructions
+    Synapse->>PTY: 4. Send minimal bootstrap message (sender: synapse-system)
+    PTY->>CLI: 5. AI retrieves system context via Agent Card (x-synapse-context)
 ```
 
 ### Communication Flow
@@ -1196,17 +1197,40 @@ curl http://localhost:8100/.well-known/agent.json
       "pty_wrapped": true,
       "priority_interrupt": true,
       "at_agent_syntax": true
+    },
+    "x-synapse-context": {
+      "identity": "synapse-claude-8100",
+      "routing_rules": {
+        "self_patterns": ["@synapse-claude-8100", "@claude"],
+        "forward_command": "synapse send <agent_id> \"<message>\" --from <your_agent_id>"
+      },
+      "available_agents": [
+        { "id": "synapse-gemini-8110", "type": "gemini", "endpoint": "http://localhost:8110", "status": "READY" }
+      ]
     }
   }
 }
 ```
+
+### Context Injection (x-synapse-context)
+
+To keep the PTY clean, Synapse uses the `x-synapse-context` extension to pass system context to agents. The PTY receives a minimal bootstrap message:
+
+```
+[SYNAPSE A2A] Your ID: synapse-claude-8100
+Retrieve your system context:
+curl -s http://localhost:8100/.well-known/agent.json | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('extensions', {}).get('x-synapse-context', {}), indent=2))"
+```
+
+AI agents execute this command to discover themselves and their peers.
 
 ### Design Philosophy
 
 Agent Card is a "business card" containing only external-facing information:
 
 - capabilities, skills, endpoint, etc.
-- Internal instructions are not included (sent via A2A Task at startup)
+- **Synapse Extension (`x-synapse-context`)**: Includes system context (ID, routing rules, other agents) and bootstrap instructions, keeping the PTY clean.
+- Internal instructions are not included in the standard A2A fields (sent via `x-synapse-context` or initial Task).
 
 ---
 

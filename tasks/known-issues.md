@@ -6,12 +6,12 @@
 - [x] dummy <-> gemini bidirectional communication
 - [x] dummy <-> dummy communication
 - [x] @Agent pattern detection and routing
+- [x] Multiple Agent Resolution (@type-port notation and custom naming)
 - [x] submit_sequence configuration per profile
 
 ### Not Working
 - [ ] Claude Code - Multiple input fields rendering bug (upstream issue)
 - [ ] Codex CLI - Screen doesn't display properly
-- [ ] Same agent type multiple instances (e.g., @gemini:8102)
 
 ---
 
@@ -49,22 +49,7 @@ Codex CLI doesn't display screen when launched via Synapse.
 
 ---
 
-### 3. Same Agent Type Multiple Instances
-**Priority:** Low
-**Type:** Feature Request
-
-Currently cannot distinguish between multiple instances of same agent type:
-- Two `gemini` instances on different ports both register as "gemini"
-- `@gemini` command cannot specify which instance
-
-**Proposed Solutions:**
-1. Support `@gemini:8102` format (with port)
-2. Support `@gemini-1`, `@gemini-2` aliases
-3. Allow custom agent names in profile
-
----
-
-### 4. TUI Submit Sequence
+### 3. TUI Submit Sequence
 **Priority:** Medium
 **Type:** Compatibility
 
