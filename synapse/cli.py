@@ -628,6 +628,17 @@ def _maybe_prompt_save_agent_profile(
     if headless or not is_tty or not name:
         return
 
+    # Skip if an identical profile already exists in the store.
+    resolved_store = store or AgentProfileStore()
+    for existing in resolved_store.list_all():
+        if (
+            existing.profile == profile
+            and existing.name == name
+            and existing.role == role
+            and existing.skill_set == skill_set
+        ):
+            return
+
     save = input_func("Save this agent definition for reuse? [y/N]: ").strip().lower()
     if save not in {"y", "yes"}:
         return
@@ -646,7 +657,6 @@ def _maybe_prompt_save_agent_profile(
         print_func("Invalid scope. Use 'project' or 'user'.")
         return
 
-    resolved_store = store or AgentProfileStore()
     try:
         resolved_store.add(
             profile_id=profile_id,
