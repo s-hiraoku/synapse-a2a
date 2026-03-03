@@ -490,3 +490,85 @@ def test_load_yaml_with_empty_steps_returns_none(
         "name: test\nsteps: []\n", encoding="utf-8"
     )
     assert store.load("emptysteps", scope="project") is None
+
+
+# ── exists() method ────────────────────────────────────────
+
+
+def test_exists_true(store) -> None:
+    """exists() returns True for saved workflow."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    store.save(
+        Workflow(
+            name="present",
+            steps=[WorkflowStep(target="claude", message="x")],
+            scope="project",
+        )
+    )
+    assert store.exists("present", scope="project") is True
+
+
+def test_exists_false(store) -> None:
+    """exists() returns False for missing workflow."""
+    assert store.exists("absent", scope="project") is False
+
+
+def test_exists_corrupted_yaml(store, workflow_dirs: tuple[Path, Path]) -> None:
+    """exists() returns True even for corrupted YAML files."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "corrupted.yaml").write_text("{bad yaml: [", encoding="utf-8")
+    assert store.exists("corrupted", scope="project") is True
+
+
+def test_exists_auto_scope(store) -> None:
+    """exists() without scope checks project then user."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    store.save(
+        Workflow(
+            name="inuser",
+            steps=[WorkflowStep(target="claude", message="x")],
+            scope="user",
+        )
+    )
+    assert store.exists("inuser") is True
+    assert store.exists("nowhere") is False
+
+
+# ── str type validation on target/message ─────────────────
+
+
+def test_step_rejects_non_str_target() -> None:
+    """Non-string target should raise WorkflowError."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="target"):
+        WorkflowStep(target=123, message="hi")  # type: ignore[arg-type]
+
+
+def test_step_rejects_non_str_message() -> None:
+    """Non-string message should raise WorkflowError."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="message"):
+        WorkflowStep(target="claude", message=42)  # type: ignore[arg-type]
+
+
+# ── name/filename mismatch ────────────────────────────────
+
+
+def test_parse_file_uses_filename_on_mismatch(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """When YAML name differs from filename, filename wins."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "actual.yaml").write_text(
+        "name: wrong\nsteps:\n  - target: claude\n    message: hi\n",
+        encoding="utf-8",
+    )
+    loaded = store.load("actual", scope="project")
+    assert loaded is not None
+    assert loaded.name == "actual"

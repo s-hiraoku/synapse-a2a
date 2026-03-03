@@ -40,10 +40,10 @@ class WorkflowStep:
     response_mode: str = "notify"
 
     def __post_init__(self) -> None:
-        if not self.target:
-            raise WorkflowError("Step target must not be empty.")
-        if not self.message:
-            raise WorkflowError("Step message must not be empty.")
+        if not isinstance(self.target, str) or not self.target:
+            raise WorkflowError("Step target must be a non-empty string.")
+        if not isinstance(self.message, str) or not self.message:
+            raise WorkflowError("Step message must be a non-empty string.")
         if (
             isinstance(self.priority, bool)
             or not isinstance(self.priority, int)
@@ -138,6 +138,15 @@ class WorkflowStore:
             return result
         return self._load_from_dir(name, self.user_dir, "user")
 
+    def exists(self, name: str, scope: Scope | None = None) -> bool:
+        """Check whether a workflow file exists on disk (ignoring parse errors)."""
+        self._validate_name(name)
+        if scope is not None:
+            return (self._scope_dir(scope) / f"{name}.yaml").is_file()
+        return (self.project_dir / f"{name}.yaml").is_file() or (
+            self.user_dir / f"{name}.yaml"
+        ).is_file()
+
     def list_workflows(self, scope: Scope | None = None) -> list[Workflow]:
         """List workflows, optionally filtered by scope."""
         workflows: list[Workflow] = []
@@ -229,6 +238,14 @@ class WorkflowStore:
             raise ValueError(
                 f"Invalid workflow YAML at {file_path}: missing or empty 'steps' list"
             )
+        raw_name = raw.get("name", file_path.stem)
+        if raw_name != file_path.stem:
+            logger.warning(
+                "Workflow name '%s' does not match filename '%s'; using filename.",
+                raw_name,
+                file_path.stem,
+            )
+            raw_name = file_path.stem
         steps = [
             WorkflowStep(
                 target=s["target"],
@@ -239,7 +256,7 @@ class WorkflowStore:
             for s in raw["steps"]
         ]
         wf = Workflow(
-            name=raw["name"],
+            name=raw_name,
             steps=steps,
             description=raw.get("description", ""),
             scope=scope,

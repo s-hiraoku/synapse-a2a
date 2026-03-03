@@ -108,6 +108,27 @@ def test_create_refuses_overwrite(
         cmd_workflow_create(args)
 
 
+def test_create_refuses_overwrite_corrupted_yaml(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """create should refuse overwrite even when existing file has corrupted YAML."""
+    from synapse.commands.workflow import cmd_workflow_create
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+
+    # Write a corrupted YAML file directly
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "test-wf.yaml").write_text("{broken yaml: [", encoding="utf-8")
+
+    args = _make_args(workflow_name="test-wf")
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_create(args)
+
+
 def test_create_force_overwrites(
     tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
 ) -> None:

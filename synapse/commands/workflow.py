@@ -56,8 +56,9 @@ def cmd_workflow_create(args: argparse.Namespace) -> None:
 
     store = _get_workflow_store()
     try:
-        # Check for existing workflow (load() validates the name)
-        if not force and store.load(name, scope=scope) is not None:
+        # Check for existing file (not load() — corrupted YAML should still block overwrite)
+        WorkflowStore._validate_name(name)
+        if not force and store.exists(name, scope=scope):
             print(
                 f"Error: Workflow '{name}' already exists. Use --force to overwrite.",
                 file=sys.stderr,
@@ -188,7 +189,7 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
         except (EOFError, KeyboardInterrupt):
             print("\nCancelled.")
             return
-        if answer.lower() not in ("y", "yes"):
+        if answer.strip().lower() not in ("y", "yes"):
             print("Cancelled.")
             return
 

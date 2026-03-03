@@ -98,7 +98,7 @@ synapse workflow list --project                    # Project scope only
 synapse workflow list --user                       # User scope only
 ```
 
-In interactive terminals, workflows are displayed in a Rich TUI table with name, step count, scope, and description.
+In interactive terminals, workflows are displayed in a Rich TUI table with name, step count, scope, and description. Non-interactive environments (pipes, CI) fall back to plain-text tabular output.
 
 ## Show Workflow Details
 
