@@ -3878,7 +3878,14 @@ Features: Agent Teams, Session Save/Restore, Shared Task Board, Shared Memory,
 Skills System, File Safety, History & Tracing, Worktree Isolation.""",
         prog="synapse",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""Examples:
+        epilog="""Profile Shortcuts:
+  synapse claude                          Start Claude directly (interactive mode)
+  synapse codex                           Start Codex directly (interactive mode)
+  synapse gemini                          Start Gemini directly (interactive mode)
+  synapse opencode                        Start OpenCode directly (interactive mode)
+  synapse copilot                         Start Copilot directly (interactive mode)
+
+Examples:
   synapse claude                          Start Claude agent (interactive mode)
   synapse team start claude gemini codex  Start a multi-agent team
   synapse session save review-team        Save team configuration
@@ -3895,6 +3902,8 @@ Environment Variables:
   SYNAPSE_HISTORY_ENABLED=false           Disable task history (enabled by default)
   SYNAPSE_FILE_SAFETY_ENABLED=true        Enable file locking for multi-agent safety
   SYNAPSE_AUTH_ENABLED=true               Enable API key authentication
+
+Run 'synapse <command> --help' for detailed usage.
 
 Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     )
@@ -4940,6 +4949,11 @@ Integration with synapse list:
         help="Team management commands",
         description="Manage teams of agents.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Quick Start:
+  synapse team start claude gemini
+  synapse team start claude gemini codex --worktree
+
+Run 'synapse team <subcommand> --help' for detailed usage.""",
     )
     team_subparsers = p_team.add_subparsers(dest="team_command", metavar="SUBCOMMAND")
 
@@ -4991,6 +5005,13 @@ Extended Specification:
         help="Save and restore team configurations",
         description="Save running agent configurations as named snapshots and restore them later.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Quick Start:
+  synapse session save review-team
+  synapse session list
+  synapse session show review-team
+  synapse session restore review-team
+
+Run 'synapse session <subcommand> --help' for detailed usage.""",
     )
     session_subparsers = p_session.add_subparsers(
         dest="session_command", metavar="SUBCOMMAND"
