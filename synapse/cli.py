@@ -5013,7 +5013,7 @@ Extended Specification:
         scope_group.add_argument(
             "--workdir",
             metavar="DIR",
-            help="Filter by working directory",
+            help="Use DIR/.synapse/sessions/ as session store (for list/show/restore/delete)",
         )
 
     # session save

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import tempfile
 from argparse import Namespace
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -93,10 +94,15 @@ class SessionStore:
             "scope": session.scope,
             "agent_count": session.agent_count,
         }
-        target_path.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        # Atomic write: write to temp file then rename to avoid partial JSON.
+        fd, tmp = tempfile.mkstemp(dir=str(target_path.parent), suffix=".tmp")
+        try:
+            with open(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            Path(tmp).replace(target_path)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
         return target_path
 
     def load(

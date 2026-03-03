@@ -1587,6 +1587,7 @@ synapse session list [--project|--user|--workdir <dir>]
 |------|------|------|
 | `--project` | No | プロジェクトスコープのみ表示（デフォルト） |
 | `--user` | No | ユーザースコープのみ表示 |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 
 #### 1.22.3 synapse session show
 
@@ -1599,6 +1600,9 @@ synapse session show <name> [--project|--user|--workdir <dir>]
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 
 #### 1.22.4 synapse session restore
 
@@ -1611,6 +1615,9 @@ synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 | `--worktree` | No | worktree 分離を強制（保存時の設定を上書き） |
 | `-- tool_args` | No | ツール固有の引数（全エージェントに適用） |
 
@@ -1633,6 +1640,9 @@ synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 | `--force` | No | 確認なしで削除 |
 
 ---

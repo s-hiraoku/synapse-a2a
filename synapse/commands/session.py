@@ -210,6 +210,7 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
 
     print(f"Restoring session '{name}' ({session.agent_count} agents)...")
 
+    failures = 0
     for agent in session.agents:
         wt = worktree_flag if worktree_flag is not None else agent.worktree
         label = _agent_label(agent)
@@ -229,9 +230,13 @@ def cmd_session_restore(args: argparse.Namespace) -> None:
             print(
                 f"  Spawned {label} → {result.agent_id} [{result.terminal_used}]{wt_info}"
             )
-        except (RuntimeError, FileNotFoundError) as e:
+        except (RuntimeError, FileNotFoundError, ValueError) as e:
             print(f"  Failed to spawn {label}: {e}", file=sys.stderr)
+            failures += 1
 
+    if failures:
+        print(f"Done with {failures} failure(s).", file=sys.stderr)
+        sys.exit(1)
     print("Done.")
 
 

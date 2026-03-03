@@ -17,8 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `synapse session show <name>` — display session details
   - `synapse session restore <name>` — re-spawn agents from saved configuration (with `--worktree` support)
   - `synapse session delete <name>` — remove saved sessions
-  - Scope support: `--project` (default, `.synapse/sessions/`) and `--user` (`~/.synapse/sessions/`)
-  - API endpoint: `GET /session/list` for programmatic access
+  - Scope support: `--project` (default, `.synapse/sessions/`), `--user` (`~/.synapse/sessions/`), and `--workdir DIR` (custom project scope)
 
 ### Documentation
 
@@ -1810,6 +1809,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.9.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.6...v0.9.0
 [0.8.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.3...v0.8.4

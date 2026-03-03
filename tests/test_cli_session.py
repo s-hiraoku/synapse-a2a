@@ -564,6 +564,58 @@ def test_restore_with_tool_args(
     ]
 
 
+def test_restore_exits_nonzero_on_spawn_failure(
+    tmp_path: Path, session_dirs: tuple[Path, Path]
+) -> None:
+    """restore should exit non-zero when any spawn fails."""
+    from synapse.commands.session import cmd_session_restore
+    from synapse.session import Session, SessionAgent
+
+    project_dir, user_dir = session_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Session(
+            session_name="fail-team",
+            agents=[
+                SessionAgent(profile="claude", name="Good"),
+                SessionAgent(profile="gemini", name="Bad"),
+            ],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    from synapse.spawn import SpawnResult
+
+    mock_result = SpawnResult(
+        agent_id="synapse-claude-8100",
+        port=8100,
+        terminal_used="tmux",
+        status="submitted",
+    )
+
+    call_count = 0
+
+    def _side_effect(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise RuntimeError("spawn failed")
+        return mock_result
+
+    args = _make_args(session_name="fail-team")
+    with (
+        patch(
+            "synapse.commands.session._get_session_store",
+            return_value=store,
+        ),
+        patch("synapse.commands.session.spawn_agent", side_effect=_side_effect),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_session_restore(args)
+
+
 # ── helpers ──────────────────────────────────────────────────
 
 
