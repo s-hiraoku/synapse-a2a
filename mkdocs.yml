@@ -3,7 +3,7 @@ site_url: https://s-hiraoku.github.io/synapse-a2a/
 site_description: Multi-agent collaboration framework using Google A2A Protocol
 site_author: s-hiraoku
 repo_url: https://github.com/s-hiraoku/synapse-a2a
-repo_name: s-hiraoku/synapse-a2a v0.8.6
+repo_name: s-hiraoku/synapse-a2a
 docs_dir: site-docs
 
 theme:
@@ -124,6 +124,7 @@ nav:
     - Skills: guide/skills.md
     - Shared Memory: guide/shared-memory.md
     - History & Tracing: guide/history.md
+    - Session Save/Restore: guide/session.md
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md

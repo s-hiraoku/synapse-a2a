@@ -44,6 +44,7 @@ flowchart TB
         memory["memory"]
         agents["agents"]
         tasks["tasks"]
+        session["session"]
         approve["approve"]
         reject["reject"]
         init["init"]
@@ -112,6 +113,14 @@ flowchart TB
         ts_reopen["reopen"]
     end
 
+    subgraph SessionCmds["session サブコマンド"]
+        sess_save["save"]
+        sess_list["list"]
+        sess_show["show"]
+        sess_restore["restore"]
+        sess_delete["delete"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
@@ -121,6 +130,7 @@ flowchart TB
     skills --> Skills
     agents --> Agents
     tasks --> Tasks
+    session --> SessionCmds
 ```
 
 ---
@@ -1528,6 +1538,112 @@ synapse memory delete <id_or_key> [--force]
 ```bash
 synapse memory stats
 ```
+
+---
+
+### 1.22 synapse session
+
+チーム構成のスナップショットを保存・復元します。実行中のエージェント構成を名前付きで保存し、後から同じ構成を再現できます。
+
+**ストレージ**:
+
+| スコープ | パス |
+|---------|------|
+| Project（デフォルト） | `.synapse/sessions/<name>.json` |
+| User | `~/.synapse/sessions/<name>.json` |
+
+#### 1.22.1 synapse session save
+
+実行中のエージェントをセッションとして保存します。
+
+```bash
+synapse session save <name> [--project|--user|--workdir <dir>]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | セッション名（英数字、ドット、ハイフン、アンダースコア） |
+| `--project` | No | プロジェクトスコープに保存（デフォルト） |
+| `--user` | No | ユーザースコープに保存（全エージェントを対象） |
+| `--workdir <dir>` | No | 指定ディレクトリを project スコープとして使用（`<dir>/.synapse/sessions/`） |
+
+**例**:
+
+```bash
+synapse session save my-team                    # CWDのエージェントを保存
+synapse session save my-team --user             # ユーザースコープに保存
+synapse session save my-team --workdir /tmp/p   # /tmp/p の project スコープに保存
+```
+
+#### 1.22.2 synapse session list
+
+保存済みセッションを一覧表示します。
+
+```bash
+synapse session list [--project|--user|--workdir <dir>]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--project` | No | プロジェクトスコープのみ表示（デフォルト） |
+| `--user` | No | ユーザースコープのみ表示 |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
+
+#### 1.22.3 synapse session show
+
+セッションの詳細（エージェント構成）を表示します。
+
+```bash
+synapse session show <name> [--project|--user|--workdir <dir>]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
+
+#### 1.22.4 synapse session restore
+
+保存済みセッションを復元し、全エージェントを spawn します。
+
+```bash
+synapse session restore <name> [--project|--user|--workdir <dir>] [--worktree] [-- tool_args...]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
+| `--worktree` | No | worktree 分離を強制（保存時の設定を上書き） |
+| `-- tool_args` | No | ツール固有の引数（全エージェントに適用） |
+
+**例**:
+
+```bash
+synapse session restore my-team                              # 通常復元
+synapse session restore my-team --worktree                   # worktree で復元
+synapse session restore my-team -- --dangerously-skip-permissions  # ツール引数付き
+```
+
+#### 1.22.5 synapse session delete
+
+保存済みセッションを削除します。
+
+```bash
+synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `name` | Yes | セッション名 |
+| `--project` | No | プロジェクトスコープ（デフォルト） |
+| `--user` | No | ユーザースコープ |
+| `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
+| `--force` | No | 確認なしで削除 |
 
 ---
 

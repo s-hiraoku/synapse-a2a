@@ -233,6 +233,7 @@ flowchart TB
         memory["memory"]
         agents["agents"]
         tasks["tasks"]
+        session["session"]
         approve["approve"]
         reject["reject"]
         init["init"]
@@ -301,6 +302,14 @@ flowchart TB
         ts_reopen["reopen"]
     end
 
+    subgraph SessionCmds["session サブコマンド"]
+        sess_save["save"]
+        sess_list["list"]
+        sess_show["show"]
+        sess_restore["restore"]
+        sess_delete["delete"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
@@ -310,6 +319,7 @@ flowchart TB
     skills --> Skills
     agents --> Agents
     tasks --> Tasks
+    session --> SessionCmds
 ```
 
 | コマンド | 説明 |
@@ -337,6 +347,7 @@ flowchart TB
 | `synapse approve/reject` | プランの承認/却下 |
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用（`--dry-run` でプレビュー） |
+| `synapse session` | セッション保存/復元（チーム構成のスナップショット管理） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
 | `synapse auth` | API キー認証の管理（`setup` / `generate-key`） |
 
@@ -1030,6 +1041,69 @@ synapse skills add <repo>  ─┐
                               ~/.claude/skills/, ~/.agents/skills/ ...  (ユーザ)
                               ./.claude/skills/, ./.agents/skills/ ...  (プロジェクト)
 ```
+
+---
+
+### 2.8 セッション管理（Session Save/Restore）
+
+実行中のエージェント構成を名前付きスナップショットとして保存し、後から復元できます。チーム構成の再利用に便利です。
+
+#### 基本操作
+
+```bash
+# 現在のディレクトリで動作中のエージェントをセッションとして保存
+synapse session save my-team
+
+# 保存済みセッション一覧
+synapse session list
+
+# セッション詳細（エージェント構成）を確認
+synapse session show my-team
+
+# セッションを復元（保存されたエージェントを spawn）
+synapse session restore my-team
+
+# セッションを削除
+synapse session delete my-team
+synapse session delete my-team --force  # 確認なし
+```
+
+#### スコープ
+
+| スコープ | パス | 説明 |
+|---------|------|------|
+| **Project**（デフォルト） | `.synapse/sessions/` | プロジェクトローカル |
+| **User** | `~/.synapse/sessions/` | ユーザー全体で共有 |
+
+```bash
+# ユーザースコープに保存
+synapse session save my-team --user
+
+# ユーザースコープのセッションのみ表示
+synapse session list --user
+
+# 特定ディレクトリを project スコープとして保存
+synapse session save my-team --workdir /path/to/project
+```
+
+#### 復元オプション
+
+```bash
+# worktree 分離で復元
+synapse session restore my-team --worktree
+
+# ツール固有の引数を追加して復元
+synapse session restore my-team -- --dangerously-skip-permissions
+```
+
+#### 保存される情報
+
+各エージェントについて以下が保存されます:
+- **profile**: エージェントタイプ（claude, gemini, codex 等）
+- **name**: カスタム名
+- **role**: ロール
+- **skill_set**: スキルセット
+- **worktree**: worktree 使用の有無
 
 ---
 

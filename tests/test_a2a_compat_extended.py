@@ -10,6 +10,7 @@ from synapse.a2a_compat import (
     Message,
     Task,
     TextPart,
+    _dispatch_task_event,
     _save_task_to_history,
     _send_response_to_sender,
     create_a2a_router,
@@ -241,3 +242,40 @@ class TestExtendedRouterEndpoints:
 
             assert resp.status_code == 200
             assert len(resp.json()) == 1
+
+
+class TestDispatchTaskEvent:
+    """Tests for _dispatch_task_event event-loop handling."""
+
+    def test_dispatch_task_event_with_running_loop_schedules_task(self):
+        """Should schedule dispatch_event on the current running loop."""
+        mock_loop = MagicMock()
+        mock_loop.create_task.side_effect = lambda coro: coro.close()
+
+        with (
+            patch("synapse.a2a_compat.get_webhook_registry", return_value=MagicMock()),
+            patch("synapse.a2a_compat.dispatch_event", new_callable=AsyncMock),
+            patch(
+                "synapse.a2a_compat.asyncio.get_running_loop", return_value=mock_loop
+            ),
+        ):
+            _dispatch_task_event("task.completed", {"task_id": "t-1"})
+
+        mock_loop.create_task.assert_called_once()
+
+    def test_dispatch_task_event_without_running_loop_does_not_raise(self):
+        """Should fallback safely when called from threads without event loop."""
+        mock_thread = MagicMock()
+
+        with (
+            patch("synapse.a2a_compat.get_webhook_registry", return_value=MagicMock()),
+            patch("synapse.a2a_compat.dispatch_event", new_callable=AsyncMock),
+            patch(
+                "synapse.a2a_compat.asyncio.get_running_loop",
+                side_effect=RuntimeError("no running event loop"),
+            ),
+            patch("synapse.a2a_compat.threading.Thread", return_value=mock_thread),
+        ):
+            _dispatch_task_event("task.completed", {"task_id": "t-2"})
+
+        mock_thread.start.assert_called_once()

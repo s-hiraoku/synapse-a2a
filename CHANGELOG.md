@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-03
+
+### Added
+
+- **Session Save/Restore** (`synapse session`): save and restore team configurations as named snapshots
+  - `synapse session save <name>` — capture running agent set (profiles, names, roles, ports, worktrees)
+  - `synapse session list` — list saved sessions with agent counts
+  - `synapse session show <name>` — display session details
+  - `synapse session restore <name>` — re-spawn agents from saved configuration (with `--worktree` support)
+  - `synapse session delete <name>` — remove saved sessions
+  - Scope support: `--project` (default, `.synapse/sessions/`), `--user` (`~/.synapse/sessions/`), and `--workdir DIR` (custom project scope)
+
+### Documentation
+
+- Add Session Save/Restore guide (`site-docs/guide/session.md`)
+- Update CLI reference, README, guides, and plugin skills with session commands
+
 ## [0.8.6] - 2026-03-03
 
 ### Changed
@@ -278,7 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Worktree cleanup guidance**: Added branch merge/delete instructions after `synapse kill` in examples, headless cleanup caveat for `synapse spawn`
 - **Gitignore recommendations**: Added `.claude/worktrees/` to recommended `.gitignore` entries; added `.venv/` to not-copied file examples for consistency
 - **Cross-references**: Added link from team start worktree example to "Worktree の注意事項" section in `guides/usage.md`
-- **Skill copy sync**: Synchronized `.agents/` and `.gemini/` skill copies with canonical `plugins/` source
+- **Skill copy sync**: Synchronized .agents/ skill copies with canonical plugins/ source
 - **CI Automation docs**: Added CI hooks/skills to CLAUDE.md architecture, README features/skills tables, and plugin skill references
 - **Default base branch**: Explicitly documented `main` as default PR base branch in CLAUDE.md Branch Management Rules
 - **Claude Code worktree technical guide**: Added `docs/HANDOFF_WORKTREE.md`
@@ -446,7 +463,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Zellij pane revival**: Added `--close-on-exit` to all `zellij run` commands to prevent panes from surviving after agent kill
-- **Plugin skill sync**: `.gemini/skills/synapse-a2a/references/file-safety.md` was missing `--wait` lock examples that existed in the plugin source
+- **Plugin skill sync**: .agents/skills/synapse-a2a/ (Gemini) references/file-safety.md was missing --wait lock examples that existed in the plugin source
 - **Spawn error handling**: `subprocess.run` uses `check=True` for proper error propagation; empty `create_panes` result raises `RuntimeError`
 - **`POST /spawn` error response**: Returns HTTP 500 (not 200) when `spawn_agent` fails
 - **CLAUDE.md**: Removed duplicated "Agent Teams feature tests" block
@@ -655,7 +672,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `synapse skills create` - Create new skill template (uses skill-creator if available)
   - `synapse skills set list` / `synapse skills set show <name>` - Skill set management
 - **SYNAPSE skill scope** - New central skill store at `~/.synapse/skills/` with flat structure
-  - Skills are deployed from central store to agent-specific directories (`.claude/skills/`, `.agents/skills/`, `.gemini/skills/`)
+  - Skills are deployed from central store to agent-specific directories (`.claude/skills/`, `.agents/skills/`)
   - `SYNAPSE_SKILLS_DIR` environment variable for path override
 - **`synapse/skills.py`** - Core skill management module with discovery, deploy, import, create, and skill set CRUD
 - **`synapse/commands/skill_manager.py`** - TUI and CLI command implementations for skill management
@@ -675,7 +692,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `CLAUDE.md` with Agent Teams commands, architecture, and test entries
 - Updated `README.md` feature table, CLI commands, and API endpoints
 - Updated README.md, CLAUDE.md, guides/usage.md, guides/references.md with skill management commands
-- Updated plugin skills (SKILL.md, references/commands.md) and synced to `.agents/` and `.gemini/`
+- Updated plugin skills (SKILL.md, references/commands.md) and synced to `.agents/` and `.claude/`
 - Updated code-doc-mapping.md with skills.py and skill_manager.py entries
 
 ### Tests
@@ -698,7 +715,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **synapse-reinst skill** - Re-inject initial instructions after `/clear` or context reset
   - Script reads environment variables (`SYNAPSE_AGENT_ID`, `SYNAPSE_AGENT_TYPE`, `SYNAPSE_PORT`) to restore agent identity
   - Fallback path with conditional section processing when synapse module is not importable
-  - Deployed to `.claude/`, `.gemini/`, and `.agents/` skill directories
+  - Deployed to `.claude/` and `.agents/` skill directories
 
 ### Changed
 
@@ -960,7 +977,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
   - Add role section (`{{#agent_role}}`) to default.md and gemini.md
   - Update `--response` / `--no-response` guidance with safer default recommendation
 - Update skill files with consistent documentation across all agent directories
-  - Sync synapse-a2a and delegation skills to .claude/, .codex/, .gemini/, .opencode/
+  - Sync synapse-a2a and delegation skills to .claude/ and .agents/
 
 ## [0.3.11] - 2026-02-01
 
@@ -1792,6 +1809,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.9.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.6...v0.9.0
 [0.8.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.3...v0.8.4
