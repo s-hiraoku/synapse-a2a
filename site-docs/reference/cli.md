@@ -486,6 +486,8 @@ synapse config show [--scope SCOPE]
 synapse reset [--scope user|project|both] [-f]
 ```
 
+`synapse init` uses a merge strategy: only template files are written. User-generated data (agents, databases, sessions, workflows, worktrees) is preserved. Safe to re-run after upgrades.
+
 ## External Agents
 
 ```bash

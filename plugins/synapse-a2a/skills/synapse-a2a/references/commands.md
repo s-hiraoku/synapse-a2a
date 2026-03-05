@@ -664,7 +664,7 @@ synapse init
 #     Project scope (./.synapse/)
 ```
 
-Creates `.synapse/` directory with all template files (settings.json, default.md, gemini.md, file-safety.md, learning.md).
+Creates or updates `.synapse/` directory by merging all files from `synapse/templates/.synapse/` into the target. User-generated data (agents/, databases, sessions/, workflows/, worktrees/) is preserved — only template files are overwritten.
 
 ### Edit Settings (Interactive TUI)
 

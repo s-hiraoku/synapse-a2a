@@ -2035,14 +2035,12 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
     """
     Copy template files from synapse/templates/.synapse/ to target directory.
 
-    This copies all template files including settings.json, default.md,
-    file-safety.md, etc. to the target .synapse/ directory.
+    This merges template files into the target .synapse/ directory,
+    preserving any user-generated data (agents/, databases, sessions/,
+    workflows/, worktrees/, etc.) that is not part of the templates.
 
-    Uses atomic replacement to avoid data loss:
-    1. Copy templates to a temporary directory
-    2. If target exists, back it up
-    3. Rename temp to target
-    4. Clean up backup on success
+    Only files that exist in the templates are overwritten; all other
+    files and directories in the target are left untouched.
 
     Args:
         target_dir: Target directory path (e.g., ~/.synapse or ./.synapse)
@@ -2050,8 +2048,6 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
     Returns:
         True if successful, False otherwise.
     """
-    import tempfile
-
     try:
         # Find templates directory relative to synapse package
         import synapse
@@ -2063,49 +2059,35 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
             print(f"Error: Templates directory not found: {templates_dir}")
             return False
 
-        # Create temp directory in same parent for atomic rename
-        parent_dir = target_dir.parent
-        parent_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure target directory exists
+        target_dir.mkdir(parents=True, exist_ok=True)
 
-        tmp_dir = Path(tempfile.mkdtemp(dir=parent_dir, prefix=".synapse_tmp_"))
-        backup_dir = target_dir.with_suffix(".bak")
+        # Merge: copy each template file individually, preserving non-template data
+        resolved_target = target_dir.resolve()
+        for src_file in templates_dir.rglob("*"):
+            if not src_file.is_file():
+                continue
+            # Reject symlinks in source tree
+            if src_file.is_symlink():
+                print(f"Warning: Skipping symlink in templates: {src_file}")
+                continue
+            rel_path = src_file.relative_to(templates_dir)
+            dst_file = target_dir / rel_path
+            # Reject if destination resolves outside target_dir (symlink traversal)
+            if not dst_file.resolve().is_relative_to(resolved_target):
+                print(f"Warning: Skipping path escaping target dir: {dst_file}")
+                continue
+            # Reject if any parent component is a symlink
+            for parent in dst_file.relative_to(target_dir).parents:
+                parent_path = target_dir / parent
+                if parent_path != target_dir and parent_path.is_symlink():
+                    print(f"Warning: Skipping path with symlink parent: {dst_file}")
+                    break
+            else:
+                dst_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_file, dst_file)
 
-        try:
-            # Step 1: Copy templates to temp directory
-            # Remove the mkdtemp-created dir first, copytree needs non-existent target
-            tmp_dir.rmdir()
-            shutil.copytree(templates_dir, tmp_dir)
-
-            # Step 2: If target exists, back it up
-            if target_dir.exists():
-                # Remove old backup if exists
-                if backup_dir.exists():
-                    shutil.rmtree(backup_dir)
-                target_dir.rename(backup_dir)
-
-            # Step 3: Rename temp to target (atomic on same filesystem)
-            tmp_dir.rename(target_dir)
-
-            # Step 4: Clean up backup on success
-            if backup_dir.exists():
-                shutil.rmtree(backup_dir)
-
-            return True
-
-        except Exception as e:
-            # Restore from backup if something went wrong
-            if backup_dir.exists() and not target_dir.exists():
-                try:
-                    backup_dir.rename(target_dir)
-                except OSError:
-                    print(f"Warning: Failed to restore backup from {backup_dir}")
-
-            # Clean up temp directory if it still exists
-            if tmp_dir.exists():
-                with contextlib.suppress(OSError):
-                    shutil.rmtree(tmp_dir)
-
-            raise e
+        return True
 
     except OSError as e:
         print(f"Error copying templates: {e}")

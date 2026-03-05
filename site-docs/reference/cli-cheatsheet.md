@@ -439,7 +439,7 @@ synapse config --scope project
 synapse config show
 synapse config show --scope user
 
-# Initialize
+# Initialize (merge strategy — preserves user data, updates templates only)
 synapse init --scope user       # ~/.synapse/settings.json
 synapse init --scope project    # ./.synapse/settings.json
 
