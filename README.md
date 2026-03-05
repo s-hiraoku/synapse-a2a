@@ -111,7 +111,7 @@ flowchart LR
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
-| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
+| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes MUST go through an Agent Assignment Plan before coding begins. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 
 ---
 
@@ -342,6 +342,7 @@ synapse kill Tester -f
 ```
 
 Key principles:
+- **Mandatory Collaboration Gate**: Tasks with 3+ phases or 10+ file changes MUST build an Agent Assignment Plan (Phase / Agent / Rationale) and register phases on the task board before writing any code
 - **Cross-model preference**: Spawn different model types (Claude, Gemini, Codex) to leverage diverse strengths and distribute rate limit pressure
 - **Worker autonomy**: Any agent can spawn helpers and delegate, not just managers
 - **Check before spawning**: Run `synapse list` first to reuse existing READY agents before spawning new ones

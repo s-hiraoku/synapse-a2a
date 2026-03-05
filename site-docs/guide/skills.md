@@ -147,6 +147,8 @@ Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four
 !!! tip "synapse-manager"
     The `synapse-manager` skill teaches an agent a structured 7-step workflow: **Plan & Setup** (assess agents and fill gaps), **Delegate** (task board + detailed instructions), **Monitor** (status and artifacts), **Approve** (gate execution with plan review), **Verify** (tests with regression triage), **Feedback** (actionable fix instructions), and **Review** (cross-review and cleanup). It also includes a **Worker Agent Guide** that teaches worker agents autonomous task execution -- receiving tasks, reporting progress, delegating subtasks, and cleaning up spawned agents. Activate it via the `manager` skill set or deploy it directly.
 
+    **When to use**: Coordinating 2+ agents, monitoring delegated work, verifying outputs, sending feedback, orchestrating cross-review, implementing multi-phase plans (3+ phases or 10+ file changes), executing plans with multiple deliverables, or planning agent assignment for multi-file changes across a codebase.
+
 !!! tip "synapse-reinst"
     When an agent runs `/clear` or loses context, it forgets its Synapse instructions.
     The `synapse-reinst` skill rebuilds and re-injects the complete instruction set using

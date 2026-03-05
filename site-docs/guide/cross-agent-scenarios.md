@@ -633,6 +633,43 @@ Effective multi-agent work requires more than just sending messages. At the star
 | Completed a milestone | Report progress | `synapse send <requester> "Done: ..." --silent` |
 | Discovered a pattern or pitfall | Share knowledge | `synapse memory save <key> "..." --tags ...` |
 
+### Mandatory Collaboration Gate
+
+For tasks with **3+ phases** or **10+ file changes**, agents MUST follow this gate before writing any code:
+
+1. Run `synapse list` to check available agents
+2. Run `synapse memory search "<topic>"` to check shared knowledge
+3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
+4. Build an **Agent Assignment Plan** (see below) before writing any code
+5. If no suitable agent exists, spawn a specialist with `synapse spawn`
+6. Prefer a different model type for subtasks (diversity improves quality)
+
+!!! warning "Do NOT skip this step"
+    Single-agent execution of multi-phase plans leads to slower delivery, no parallel work, and missed review opportunities.
+
+#### Agent Assignment Plan Template
+
+Before starting multi-phase work, create a table mapping phases to agents:
+
+| Phase | Agent | Rationale |
+|-------|-------|-----------|
+| Phase 1 tests | Codex | Test writing strength |
+| Phase 1 impl | Claude | Complex refactoring |
+| Phase 2 | Gemini | Independent feature, different model |
+| Review | Codex | Fresh perspective from different model |
+
+Then register each phase on the task board:
+
+```bash
+synapse tasks create "Phase 1: Write tests for auth module" -d "..." --priority 4
+synapse tasks assign <id> Codex
+
+synapse tasks create "Phase 1: Implement auth module" -d "..." --priority 4
+synapse tasks assign <id> Claude
+```
+
+This ensures every phase has an owner, progress is visible on the task board, and no work is duplicated.
+
 ### Cross-Model Spawning
 
 When spawning or delegating, prefer a **different model type** than your own. This provides two benefits:
