@@ -141,6 +141,10 @@ flowchart TB
 | | 翻訳サポート | JP→EN Learning セクションを有効化（再利用可能な英語テンプレート・スロットマッピング・意訳・語彙チートシート）。LEARNING_MODE_ENABLED と独立して動作 | `SYNAPSE_LEARNING_MODE_TRANSLATION=true` |
 | **認証** | API Key 認証 | HTTP API のアクセス制御 | `SYNAPSE_AUTH_ENABLED=true` |
 | | Webhook 通知 | タスク完了時に外部通知 | Webhook 登録時 |
+| **コラボレーション** | プロアクティブコラボレーション | タスク開始前にコラボレーション機会を自動評価。判断フレームワーク（自分で実行/委任/ヘルプ/報告/共有） | 常時（`.synapse/default.md` で設定） |
+| | クロスモデル生成 | spawn 時に異なるモデルタイプを優先（品質向上 + レート制限分散） | 常時 |
+| | ワーカー自律性 | マネージャーだけでなくワーカーも spawn/委任可能 | 常時 |
+| | 必須クリーンアップ | spawn したエージェントは完了後に必ず kill | 常時 |
 
 ---
 

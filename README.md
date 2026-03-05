@@ -111,6 +111,7 @@ flowchart LR
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
+| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 
 ---
 
@@ -322,6 +323,31 @@ Read legacy_api.js and create TypeScript type definitions
 synapse send claude "Use the type definitions you created to rewrite legacy_api.js to src/new_api.ts"
 ```
 
+### 7. Proactive Collaboration with Cross-Model Spawning (Advanced)
+
+Agents proactively assess when to delegate, spawn helpers, or share knowledge. The collaboration framework encourages cross-model spawning to distribute token usage across providers and avoid rate limits.
+
+```bash
+# Manager spawns a different model type for a subtask (cross-model preference)
+synapse spawn gemini --worktree --name Tester --role "test writer"
+
+# Worker agent discovers work outside its scope and delegates
+synapse send Tester "Write integration tests for auth module" --silent
+
+# Share discoveries via shared memory for all agents to use
+synapse memory save auth-pattern "OAuth2 flow uses refresh tokens" --tags auth --notify
+
+# MANDATORY: Always clean up agents you spawn
+synapse kill Tester -f
+```
+
+Key principles:
+- **Cross-model preference**: Spawn different model types (Claude, Gemini, Codex) to leverage diverse strengths and distribute rate limit pressure
+- **Worker autonomy**: Any agent can spawn helpers and delegate, not just managers
+- **Check before spawning**: Run `synapse list` first to reuse existing READY agents before spawning new ones
+- **Mandatory cleanup**: Always `synapse kill <name> -f` agents you spawned after their work completes
+- **Feature usage**: Actively use task board, shared memory, file safety, worktree, broadcast, and history
+
 ### Comparison with SSH Remote
 
 | Operation | SSH | Synapse |
@@ -361,7 +387,7 @@ npx skills add s-hiraoku/synapse-a2a
 | Skill | Description |
 |-------|-------------|
 | **synapse-a2a** | Comprehensive guide for inter-agent communication: `synapse send`, priority, A2A protocol, history, File Safety, settings |
-| **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **synapse-manager** | Multi-agent management workflow: task delegation, progress monitoring, quality verification with regression testing, feedback delivery, cross-review orchestration, worker agent guide, and mandatory cleanup enforcement |
 | **check-ci** | Check CI status, merge conflict state, and CodeRabbit review status for the current PR (`/check-ci`, `/check-ci --fix`) |
 | **fix-ci** | Auto-diagnose and fix CI failures: lint, format, type-check, test errors |
 | **fix-conflict** | Auto-resolve merge conflicts: fetch base, test merge, analyze both sides, resolve, verify, push |

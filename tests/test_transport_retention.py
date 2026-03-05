@@ -191,9 +191,9 @@ class TestListCommandTransportRetention:
             mock_fs.from_env.return_value.enabled = False
             agents, _, _ = cmd._get_agent_data(mock_registry)
 
-        # Verify get_transport_display was called with retention
+        # Verify get_transport_display was called (uses function default)
         mock_registry.get_transport_display.assert_called_once_with(
-            "synapse-claude-8100", retention_seconds=3.0
+            "synapse-claude-8100"
         )
 
         # Verify output contains the retained transport

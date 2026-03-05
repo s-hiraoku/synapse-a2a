@@ -98,6 +98,105 @@ Inter-agent communication framework via Google A2A Protocol.
 
 **Tip:** Run `synapse list` before sending to verify the target agent is READY.
 
+## Collaboration Patterns
+
+### When You Receive a Task
+1. If `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
+2. Execute the task
+3. Report completion: `synapse send <sender> "Done: <summary>" --silent`
+
+### When You Need Help from Other Agents
+1. Run `synapse list` to check available agents (prefer same WORKING_DIR)
+2. Run `synapse memory search "<topic>"` to check shared knowledge
+3. If no suitable agent exists, spawn one: `synapse spawn <profile> --name <name> --role "<role>"`
+   - **Cross-model preference**: Spawn a different model type than yourself for diverse perspectives
+4. Send request: `synapse send <target> "<specific request>" --wait`
+
+### When You Complete a Large Task
+1. Save knowledge: `synapse memory save <key> "<what you learned>" --tags <topic>`
+2. Notify stakeholders: `synapse send <requester> "Completed: <summary>" --silent`
+3. Check task board: `synapse tasks list --status pending`
+
+### When You Are Stuck
+1. Search shared knowledge: `synapse memory search "<problem>"`
+2. If a manager exists, ask them: `synapse send <manager> "<specific question>" --wait`
+3. Otherwise, ask a teammate: `synapse send <agent> "<specific question>" --wait`
+4. If no agents are available, spawn a specialist: `synapse spawn <profile> --name <name> --role "<role>"`
+
+### Worker Autonomy — You Can Delegate Too
+Even if you are a worker agent (not a manager), you should proactively:
+- **Spawn helpers** for independent subtasks (prefer different model types for diversity)
+- **Request reviews** from other agents (different models catch different issues)
+- **Delegate out-of-scope work** instead of doing everything yourself
+- **Kill agents you spawn** when their work is done: `synapse kill <name> -f`
+
+## Use Synapse Features Actively
+
+Synapse provides powerful coordination tools. Use them proactively — don't just communicate via `send`/`reply`.
+
+### Task Board — Structure Your Work
+Use the shared task board for visibility and tracking, not just ad-hoc messages:
+```bash
+synapse tasks create "Write unit tests for auth module" -d "Cover login, logout, token refresh" --priority 4
+synapse tasks list --status pending          # Check what needs doing
+synapse tasks assign <id> <agent>            # Claim or assign work
+synapse tasks complete <id>                  # Mark done
+synapse tasks fail <id> --reason "..."       # Report failures transparently
+```
+
+### Shared Memory — Build Collective Knowledge
+Save discoveries so the entire team benefits, not just you:
+```bash
+synapse memory save <key> "<insight>" --tags <topic> --notify   # --notify tells other agents
+synapse memory search "<topic>"              # Check before reinventing the wheel
+synapse memory list --tags architecture      # Browse by topic
+```
+
+### File Safety — Prevent Conflicts
+Lock files before editing in multi-agent setups:
+```bash
+synapse file-safety lock <file> $SYNAPSE_AGENT_ID
+synapse file-safety unlock <file> $SYNAPSE_AGENT_ID
+synapse file-safety locks                    # Check who is editing what
+```
+
+### Worktree Isolation — Safe Parallel Edits
+When multiple agents edit files, use worktrees to avoid conflicts:
+```bash
+synapse spawn claude --worktree --name Impl --role "implementation"
+synapse spawn gemini -w review --name Reviewer --role "code review"
+```
+
+### Broadcast — Team-Wide Communication
+Use broadcast for announcements that affect everyone:
+```bash
+synapse broadcast "Status check" --priority 4    # Ask all agents for status
+synapse broadcast "Build passed" --silent         # Inform all agents
+```
+
+### History & Tracing — Audit and Learn
+Review past work and trace task execution:
+```bash
+synapse history list --agent <name>          # What did this agent do?
+synapse history stats                        # Token usage overview
+synapse trace <task_id>                      # Full audit trail
+```
+
+### Spawn — Scale the Team Dynamically
+Don't work alone when you can parallelize. Prefer spawning a different model type to distribute
+token usage across providers and avoid rate limits.
+```bash
+synapse spawn gemini --name Tester --role "test writer"     # Spawn a specialist (different model)
+synapse spawn codex -w --name Impl --role "implementation"  # Spawn with worktree isolation
+```
+
+**CLEANUP IS MANDATORY**: Always kill agents you spawned after their work is complete.
+Leaving orphaned agents wastes resources and can cause conflicts.
+```bash
+synapse kill Tester -f
+synapse kill Impl -f
+```
+
 ## Sending Messages (Recommended)
 
 **Use `synapse send` command for inter-agent communication.** This works reliably from any environment including sandboxed agents.

@@ -4,6 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.3
+
+- **Added**: Proactive Collaboration Framework — agents receive a decision framework at startup for when to delegate, ask for help, report progress, and share knowledge
+- **Added**: Cross-model spawn preference — agents are guided to spawn different model types for diverse perspectives and rate limit distribution
+- **Added**: Worker autonomy — worker agents can proactively spawn helpers, delegate subtasks, and request reviews
+- **Added**: USE SYNAPSE FEATURES ACTIVELY section — explicit guidance for task board, shared memory, file safety, worktree, broadcast, and history
+- **Added**: TRANSPORT column in text-mode `synapse list` for scripted use
+- **Changed**: synapse-manager Step 1 now checks existing agents before spawning
+- **Changed**: Mandatory cleanup enforcement for spawned agents across all skill docs
+
 ### v0.9.2
 
 - **Added**: `synapse session restore --resume` flag to resume each agent's CLI conversation session

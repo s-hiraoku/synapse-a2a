@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-03-05
+
+### Added
+
+- **Proactive Collaboration Framework**: agents now receive a decision framework at startup for when to delegate, ask for help, report progress, and share knowledge
+- **Cross-model spawn preference**: agents are guided to spawn different model types for diverse perspectives and rate limit distribution
+- **Worker autonomy**: worker agents can now proactively spawn helpers, delegate subtasks, and request reviews — not just managers
+- **USE SYNAPSE FEATURES ACTIVELY section**: explicit guidance for agents to use task board, shared memory, file safety, worktree, broadcast, and history
+- **TRANSPORT column in text-mode `synapse list`**: non-TTY output now includes transport state (UDS→/→UDS/TCP→/→TCP) for scripted use
+
+### Changed
+
+- **synapse-manager Step 1**: managers now check existing agents in the same WORKING_DIR before spawning new ones
+- **Mandatory cleanup**: all skill docs enforce `synapse kill <name> -f` after spawned agents complete work
+
+### Documentation
+
+- Added Collaboration Patterns section to synapse-a2a skill
+- Added Worker Agent Guide to synapse-manager skill (receipt/during/completion/failure/no-manager)
+- Updated site-docs: cross-agent-scenarios, agent-management, agent-teams, communication, skills, multi-agent-setup
+- Enriched documentation from docs/ and guides/ sources
+
+### Fixed
+
+- Address review findings — webhook 4xx retry bug and doc corrections
+- Address review round 2 — security, payload format, and consistency
+- Address review round 3 — payload consistency and CSS consolidation
+
 ## [Unreleased]
 
 ## [0.9.2] - 2026-03-04
@@ -1845,6 +1873,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.9.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.8.6...v0.9.0

@@ -139,13 +139,8 @@ class ListCommand:
                 "tty_device": info.get("tty_device"),
                 "zellij_pane_id": info.get("zellij_pane_id"),
                 "current_task_preview": info.get("current_task_preview"),
+                "transport": registry.get_transport_display(agent_id) or "-",
             }
-
-            # Include transport info
-            transport = (
-                registry.get_transport_display(agent_id, retention_seconds=3.0) or "-"
-            )
-            agent_data["transport"] = transport
 
             if show_file_safety:
                 # Try PID first, then fall back to agent_id for CLI-acquired locks
@@ -623,6 +618,7 @@ class ListCommand:
                     ("ID", 24),
                     ("PORT", 8),
                     ("STATUS", 12),
+                    ("TRANSPORT", 10),
                     ("WORKING_DIR", 20),
                 ]
                 if show_file_safety:
@@ -644,6 +640,7 @@ class ListCommand:
                         (agent.get("agent_id", "-"), 24),
                         (agent["port"], 8),
                         (agent["status"], 12),
+                        (str(agent.get("transport") or "-"), 10),
                         (agent.get("working_dir") or "-", 20),
                     ]
                     if show_file_safety:

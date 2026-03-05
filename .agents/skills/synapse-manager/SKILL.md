@@ -24,7 +24,21 @@ Orchestrate multi-agent work with structured delegation, monitoring, and quality
 
 ### Step 1: Plan & Setup
 
-Prepare the task board, define agent roles, and optionally start in delegate mode.
+Prepare the task board, assess available agents, and fill gaps by spawning.
+
+**FIRST: Check existing agents in the same WORKING_DIR:**
+```bash
+synapse list
+```
+Review the output carefully:
+- **WORKING_DIR**: Only agents in your directory can collaborate efficiently
+- **ROLE**: Match tasks to agents with relevant roles
+- **STATUS**: Only READY agents can accept work immediately
+- **TYPE**: Prefer delegating to different model types for diverse perspectives
+
+**THEN: Assign tasks to existing agents BEFORE spawning new ones.**
+This is more efficient — spawning has overhead (startup, instruction injection, readiness wait).
+Only spawn when no existing agent can handle the task, or when you need parallel execution.
 
 **Start as a manager (delegate mode — no file editing):**
 ```bash
@@ -41,11 +55,14 @@ synapse spawn calm-lead
 synapse spawn sharp-checker
 ```
 
-**Or spawn agents with ad-hoc roles:**
+**Spawn with worktree isolation when multiple agents will edit files:**
 ```bash
-synapse spawn claude --name Impl --role "feature implementation"
-synapse spawn gemini --name Tester --role "test writer"
+synapse spawn claude --worktree --name Impl --role "feature implementation"
+synapse spawn gemini -w --name Tester --role "test writer"
 ```
+
+**Cross-model preference**: Spawn different model types to (1) leverage diverse strengths and
+(2) distribute token usage across providers, avoiding rate limits on any single model.
 
 **Wait for readiness:**
 ```bash
@@ -260,10 +277,12 @@ synapse tasks complete 1
 synapse tasks complete 2
 ```
 
-**Cleanup:**
+**Cleanup (MANDATORY — do NOT leave orphaned agents):**
 ```bash
 synapse kill Impl -f
 synapse kill Tester -f
+# Verify all spawned agents are cleaned up:
+synapse list
 ```
 
 **Report completion:**
@@ -368,3 +387,37 @@ curl -X POST http://localhost:8100/spawn \
 | `synapse history stats --agent <name>` | Token/cost breakdown |
 | `synapse trace <task_id>` | Full audit trail |
 | `synapse kill <name> -f` | Terminate agent |
+
+## Worker Agent Guide
+
+When you receive a task from a manager or pick one from the task board:
+
+### On Task Receipt
+1. Start work immediately (`[REPLY EXPECTED]` requires a reply; otherwise no reply needed)
+2. Check shared knowledge: `synapse memory search "<task topic>"`
+3. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
+
+### During Work
+- Report progress if the task takes >5 minutes: `synapse send <manager> "Progress: <update>" --silent`
+- Report blockers immediately: `synapse send <manager> "<specific question>" --wait`
+- Save findings: `synapse memory save <key> "<finding>" --tags <topic>`
+- **You can delegate subtasks too**: If your task has independent parts, spawn helpers
+  (prefer different model types to distribute load and avoid rate limits)
+- **ALWAYS clean up**: Kill any agents you spawn after their work is done: `synapse kill <name> -f`
+
+### On Completion
+1. Update task board: `synapse tasks complete <task_id>`
+2. Report to manager: `synapse send <manager> "Done: <change summary>" --silent`
+3. Include test results if tests were run
+
+### On Failure
+1. Update task board: `synapse tasks fail <task_id> --reason "<reason>"`
+2. Report details to manager: `synapse send <manager> "Failed: <error details>" --silent`
+3. Do NOT silently move on — the manager needs to know the situation
+
+### When No Manager Exists
+If there is no manager/coordinator agent in the team:
+- Assess the situation yourself by running `synapse list`
+- Coordinate directly with available teammates
+- Proactively delegate and spawn agents when it would improve efficiency
+- Use `synapse memory` to share decisions and findings with the team

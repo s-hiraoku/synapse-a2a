@@ -480,6 +480,31 @@ Always use `--worktree` for agents that modify code. This prevents:
 - **PTY mangling**: One agent seeing the other's unfinished changes in `git status`.
 - **Merge noise**: Uncontrolled file system changes affecting both agents.
 
+### Spawn Cross-Model
+
+When spawning agents for delegation or parallel work, prefer a **different model type** than the one doing the spawning. This provides two benefits:
+
+1. **Diverse perspectives** -- Different LLMs have distinct strengths and blind spots
+2. **Rate limit distribution** -- Spreading token usage across providers avoids hitting rate limits on any single model
+
+```bash
+# Claude manager spawning Gemini and Codex workers (cross-model)
+synapse spawn gemini --name Reviewer --role "code reviewer"
+synapse spawn codex -w --name Impl --role "implementation"
+```
+
+### Worker Autonomy
+
+Worker agents are not limited to receiving tasks -- they can also delegate:
+
+- **Spawn helpers** for independent subtasks (prefer different model types)
+- **Request reviews** from other agents
+- **Delegate out-of-scope work** instead of handling everything yourself
+- **Share findings** via `synapse memory save` so the team benefits
+- **Always clean up** -- kill agents you spawn when done: `synapse kill <name> -f`
+
+See [Proactive Collaboration](cross-agent-scenarios.md#proactive-collaboration-framework) for the full decision framework.
+
 ### Kill Your Darlings
 
 Ensure your implementation includes `synapse kill <name> -f` at the end of a delegated task. Unused resident agents consume:

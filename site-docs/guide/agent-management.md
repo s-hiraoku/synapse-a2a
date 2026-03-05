@@ -86,7 +86,7 @@ Displays a live table with:
 | `NAME` | Custom name (if set) |
 | `STATUS` | Current state with color coding |
 | `CURRENT` | Current task preview |
-| `TRANSPORT` | Active communication (`UDS→` / `→UDS` / `-`) |
+| `TRANSPORT` | Active communication direction and protocol (see below) |
 | `WORKING_DIR` | Agent's working directory |
 | `SKILL_SET` | Applied skill set name (optional) |
 | `EDITING_FILE` | Locked file name (shown when File Safety is enabled) |
@@ -104,6 +104,18 @@ Optional columns (`list.columns`): `TYPE`, `ROLE`, `SKILL_SET`.
 | `/` | Filter by TYPE, NAME, or WORKING_DIR |
 | ++escape++ | Clear filter |
 | `q` | Quit |
+
+**TRANSPORT column values:**
+
+| Value | Meaning |
+|-------|---------|
+| `UDS→` | Sending a message via Unix Domain Socket |
+| `→UDS` | Receiving a message via Unix Domain Socket |
+| `TCP→` | Sending a message via TCP |
+| `→TCP` | Receiving a message via TCP |
+| `-` | No active communication |
+
+The TRANSPORT column appears in both the Rich TUI (interactive mode) and the plain-text output (non-TTY / piped output). During a `synapse send` exchange, the sender briefly shows `UDS→` (or `TCP→`) while the receiver shows `→UDS` (or `→TCP`). Both return to `-` after the message is delivered.
 
 !!! info "Real-Time Updates"
     `synapse list` uses file watchers (fsevents on macOS, inotify on Linux) to detect registry changes instantly. Falls back to 10-second polling if watchers are unavailable.

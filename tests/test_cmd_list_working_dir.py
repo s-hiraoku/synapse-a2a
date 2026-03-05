@@ -132,8 +132,9 @@ class TestCmdListWorkingDir:
             cmd_list(args)
 
         captured = capsys.readouterr()
-        # Header should include WORKING_DIR
+        # Header should include WORKING_DIR and TRANSPORT
         assert "WORKING_DIR" in captured.out
+        assert "TRANSPORT" in captured.out
         # Value should show basename of the working_dir
         assert "my-project" in captured.out
 

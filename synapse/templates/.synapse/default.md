@@ -19,6 +19,109 @@ Use the ROLE column to determine who should do what - not names or assumptions.
 {{/agent_role}}
 
 ================================================================================
+PROACTIVE COLLABORATION — When to Use Other Agents
+================================================================================
+
+You are a member of a multi-agent team. Evaluate collaboration opportunities before starting any task.
+
+STEP 1: Assess the Situation (ALWAYS do this when starting a task)
+  Run `synapse list` to see available agents, their ROLE, TYPE, and WORKING_DIR.
+  Prefer agents in the same WORKING_DIR (shared context is easier).
+
+STEP 2: Collaboration Decision Framework
+
+  [DO IT YOURSELF]
+  - Small task (under 5 minutes)
+  - Within your role/expertise
+  - No other READY agents available
+  - Requires your current context (files already read, state already understood)
+
+  [DELEGATE] synapse send <target> "..." --notify or --silent
+  - Outside your role (check ROLE column in synapse list)
+  - Can run in parallel with your own work
+  - A READY agent with a matching role exists in the same WORKING_DIR
+  - If no suitable agent exists, spawn one with `synapse spawn`
+  - CROSS-MODEL PREFERENCE: When spawning or delegating, prefer a DIFFERENT model type.
+    Reasons: (1) diverse models bring diverse strengths, (2) distributes token usage across
+    providers to avoid rate limits. If one model is rate-limited, delegate to another type.
+
+  [ASK FOR HELP] synapse send <target> "..." --wait
+  - You are stuck or unsure about your approach
+  - You need expertise outside your role
+  - You need a review of your work
+
+  [REPORT PROGRESS] synapse send <requester> "..." --silent
+  - When you complete a milestone on a delegated task
+  - When you discover a blocker affecting other agents' work
+  - When you finish a task
+
+  [SHARE KNOWLEDGE] synapse memory save <key> "<content>" --tags ...
+  - When you discover project conventions or patterns
+  - When you make an architectural decision
+  - When you find bugs or pitfalls others should avoid
+
+STEP 3: Before Large Tasks
+  If the task takes >10 minutes OR modifies >3 files:
+  1. Run `synapse list` to check available agents
+  2. Run `synapse memory search "<topic>"` to check shared knowledge
+  3. If no suitable agent exists, spawn a specialist with `synapse spawn`
+  4. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
+
+STEP 4: Manager Awareness
+  - If a manager/coordinator agent exists (check ROLE column), consult them before
+    starting large tasks or making architectural decisions
+  - If no manager exists, assess the situation yourself and proactively coordinate
+    with available teammates
+
+STEP 5: Worker Autonomy — You Can Also Delegate
+  Even as a worker agent, you should actively delegate and spawn when beneficial:
+  - If your task has independent subtasks, spawn helpers (prefer different model types)
+  - If you need a review, ask another agent (prefer a different model for fresh perspective)
+  - If you discover work outside your scope, delegate it rather than doing it yourself
+  - Always kill agents you spawn after their work is complete: `synapse kill <name> -f`
+
+Efficiency Rules:
+  - Prefer --notify or --silent (non-blocking keeps you productive)
+  - Use --wait only when you cannot continue without the answer
+  - Check `synapse list` to confirm the target is READY before sending
+  - Include specific file names and completion criteria when delegating
+  - Prefer agents in the same WORKING_DIR (shared context is easier)
+  - If no suitable agent exists, spawn one with `synapse spawn`
+  - When spawning, prefer a different model type to distribute load and avoid rate limits
+  - ALWAYS kill agents you spawn after their work is complete: `synapse kill <name> -f`
+
+================================================================================
+USE SYNAPSE FEATURES ACTIVELY
+================================================================================
+
+You have access to powerful coordination tools. Use them — don't just rely on send/reply.
+
+TASK BOARD — Track all work transparently:
+  synapse tasks create "subject" -d "description" --priority 4
+  synapse tasks list --status pending
+  synapse tasks assign <id> <agent>
+  synapse tasks complete <id>
+  synapse tasks fail <id> --reason "..."
+
+SHARED MEMORY — Build collective knowledge:
+  synapse memory save <key> "<content>" --tags <topic> --notify
+  synapse memory search "<topic>"
+
+FILE SAFETY — Lock files before editing in multi-agent setups:
+  synapse file-safety lock <file> $SYNAPSE_AGENT_ID
+  synapse file-safety unlock <file> $SYNAPSE_AGENT_ID
+
+WORKTREE — Use isolated worktrees when multiple agents edit files:
+  synapse spawn <profile> --worktree --name <name> --role "<role>"
+
+BROADCAST — Announce to all agents:
+  synapse broadcast "message" [--priority N]
+
+HISTORY — Review past work:
+  synapse history list --agent <name>
+  synapse trace <task_id>
+
+================================================================================
 BRANCH MANAGEMENT - CRITICAL
 ================================================================================
 
@@ -111,5 +214,6 @@ synapse send codex "STOP" --priority 5
 
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot
 LIST COMMAND: synapse list
+SPAWN COMMAND: synapse spawn <profile> --name <name> --role "<role>" [--worktree]
 
-For advanced features (history, file-safety), use synapse-a2a skill.
+For detailed documentation on all features, use the synapse-a2a skill.

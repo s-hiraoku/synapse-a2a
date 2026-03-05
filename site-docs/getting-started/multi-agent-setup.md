@@ -89,13 +89,15 @@ synapse list
 You will see a live-updating TUI table showing all running agents:
 
 ```
-┌────┬──────────────────────┬──────────┬────────┬────────┬──────────┐
-│ #  │ ID                   │ NAME     │ STATUS │ TYPE   │ PORT     │
-├────┼──────────────────────┼──────────┼────────┼────────┼──────────┤
-│ 1  │ synapse-claude-8100  │ reviewer │ READY  │ claude │ 8100     │
-│ 2  │ synapse-gemini-8110  │ researcher│ READY │ gemini │ 8110     │
-└────┴──────────────────────┴──────────┴────────┴────────┴──────────┘
+┌────┬──────────────────────┬────────────┬────────┬────────┬───────────┬──────────┐
+│ #  │ ID                   │ NAME       │ STATUS │ TYPE   │ TRANSPORT │ PORT     │
+├────┼──────────────────────┼────────────┼────────┼────────┼───────────┼──────────┤
+│ 1  │ synapse-claude-8100  │ reviewer   │ READY  │ claude │ -         │ 8100     │
+│ 2  │ synapse-gemini-8110  │ researcher │ READY  │ gemini │ -         │ 8110     │
+└────┴──────────────────────┴────────────┴────────┴────────┴───────────┴──────────┘
 ```
+
+The TRANSPORT column shows active communication direction (`UDS→` for sending, `→UDS` for receiving, or `-` when idle).
 
 !!! tip "Interactive Controls"
     In `synapse list`, use ++up++ / ++down++ to select an agent, ++enter++ or `j` to jump to its terminal, `k` to kill it, and `/` to filter.
