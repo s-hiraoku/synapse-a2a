@@ -14,6 +14,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse opencode` | Start OpenCode interactively |
 | `synapse copilot` | Start GitHub Copilot CLI interactively |
 | `synapse list` | Live TUI showing all running agents |
+| `synapse status <target>` | Detailed status for a single agent |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse jump <target>` | Jump to agent terminal |
@@ -134,6 +135,10 @@ synapse claude --delegate-mode --name manager --role "coordinator"
 ```bash
 # Live agent dashboard (auto-refreshes)
 synapse list
+
+# Detailed status for a single agent (uptime, current task, history, locks)
+synapse status my-claude
+synapse status my-claude --json    # Machine-readable JSON output
 
 # Jump to an agent's terminal
 synapse jump my-claude
@@ -434,7 +439,7 @@ synapse config --scope project
 synapse config show
 synapse config show --scope user
 
-# Initialize
+# Initialize (merge strategy — preserves user data, updates templates only)
 synapse init --scope user       # ~/.synapse/settings.json
 synapse init --scope project    # ./.synapse/settings.json
 

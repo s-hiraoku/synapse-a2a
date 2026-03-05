@@ -8,7 +8,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Fixed**: Spawn pane layout (#336) — `synapse spawn` creates side-by-side panes instead of top-bottom
 - **Fixed**: ANSI escape sequences in A2A replies (#337) — `get_context()` strips ANSI codes
+- **Fixed**: `synapse init` data loss — was replacing entire `.synapse/` directory, destroying saved agent definitions, databases, sessions, workflows, and worktrees. Now uses merge strategy (template files only).
+- **Added**: `synapse status <target>` command — detailed single-agent view with uptime, current task elapsed time, recent messages, file locks, and task board assignments (supports `--json` output)
+- **Added**: Compound signal status detection — PROCESSING-to-READY transitions now check `task_active` flag and file lock state to prevent premature status changes
+- **Added**: WAITING detection improvements — fresh-output-only matching eliminates false positives from old buffer content; auto-expiry when pattern disappears from visible buffer
+- **Added**: Elapsed time display in CURRENT column of `synapse list` (e.g., `Review code (2m 15s)`)
 - **Changed**: Task receipt collaboration flow — agents delegate independent work units via `synapse spawn` + `synapse send`
+- **Changed**: `parallel-docs-simplify-sync` skill now uses Claude Code built-in `/simplify` instead of custom subagent
 
 ### v0.9.3
 

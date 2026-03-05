@@ -139,6 +139,7 @@ class ListCommand:
                 "tty_device": info.get("tty_device"),
                 "zellij_pane_id": info.get("zellij_pane_id"),
                 "current_task_preview": info.get("current_task_preview"),
+                "task_received_at": info.get("task_received_at"),
                 "transport": registry.get_transport_display(agent_id) or "-",
             }
 
@@ -439,6 +440,10 @@ class ListCommand:
         last_poll_time = self._time.time()
         poll_interval = 10.0
 
+        # Periodic refresh for elapsed time display (1 second)
+        last_elapsed_refresh = self._time.time()
+        elapsed_refresh_interval = 1.0
+
         try:
             with Live(
                 console=console,
@@ -531,8 +536,13 @@ class ListCommand:
                                     kill_confirm_agent = selected_agent
                                     needs_refresh = True
 
-                    # Fallback polling: trigger update every poll_interval seconds
+                    # Periodic elapsed time refresh (1s interval)
                     current_time = self._time.time()
+                    if current_time - last_elapsed_refresh >= elapsed_refresh_interval:
+                        needs_refresh = True
+                        last_elapsed_refresh = current_time
+
+                    # Fallback polling: trigger update every poll_interval seconds
                     if current_time - last_poll_time >= poll_interval:
                         change_event.set()
                         last_poll_time = current_time
@@ -645,9 +655,21 @@ class ListCommand:
                     ]
                     if show_file_safety:
                         values.append((agent.get("editing_file") or "-", 20))
+                    # Format CURRENT with elapsed time
+                    preview = agent.get("current_task_preview") or "-"
+                    received_at = agent.get("task_received_at")
+                    if preview != "-" and isinstance(received_at, (int, float)):
+                        import time as _time
+
+                        from synapse.commands.renderers.rich_renderer import (
+                            format_elapsed,
+                        )
+
+                        elapsed = _time.time() - received_at
+                        preview = f"{preview} ({format_elapsed(elapsed)})"
                     values.extend(
                         [
-                            (agent.get("current_task_preview") or "-", 35),
+                            (preview, 35),
                             (agent["pid"], 8),
                             (agent["endpoint"], 0),
                         ]

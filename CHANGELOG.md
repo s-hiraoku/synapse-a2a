@@ -13,10 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Spawn pane layout** (#336): `synapse spawn` now creates side-by-side (horizontal) tmux panes instead of top-bottom
 - **ANSI escape sequences in A2A replies** (#337): `get_context()` now strips ANSI escape codes, producing clean text for artifacts, history, and replies
+- **`synapse init` data loss**: `_copy_synapse_templates()` was replacing the entire `.synapse/` directory, destroying user-generated data (saved agent definitions, SQLite databases, sessions, workflows, worktrees). Changed to merge strategy that only overwrites template files.
 
 ### Changed
 
 - **Task receipt collaboration flow**: agents now identify independent work units and delegate via `synapse spawn` + `synapse send --silent` when receiving tasks
+- **`parallel-docs-simplify-sync` skill**: replaced custom `code-simplifier` subagent with Claude Code built-in `/simplify` command
+
+### Documentation
+
+- Updated `synapse init` descriptions across guides, skills, and site-docs to reflect merge strategy behavior
 
 ## [0.9.3] - 2026-03-05
 
@@ -1884,6 +1890,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.9.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.0...v0.9.1

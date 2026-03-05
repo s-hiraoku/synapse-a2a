@@ -20,6 +20,19 @@ synapse init --scope user              # Create ~/.synapse/settings.json
 synapse init --scope project           # Create ./.synapse/settings.json
 ```
 
+`synapse init` uses a **merge strategy**: only template files are copied into the `.synapse/` directory. If the directory already exists, user-generated data is preserved:
+
+| Overwritten (templates) | Preserved (user data) |
+|------------------------|-----------------------|
+| `settings.json` | `agents/` (saved agent definitions) |
+| `default.md` | `*.db` (file_safety, task_board, memory) |
+| `gemini.md` | `sessions/` |
+| `file-safety.md` | `workflows/` |
+| `learning.md` | `worktrees/` |
+| `shared-memory.md` | `settings.local.json` |
+
+This makes it safe to re-run `synapse init` after upgrading to pick up new templates without losing project data.
+
 ## Interactive Config Editor
 
 ```bash

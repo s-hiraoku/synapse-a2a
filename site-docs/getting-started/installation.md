@@ -73,6 +73,9 @@ synapse init --scope project   # ./.synapse/settings.json
 
 This creates the configuration directory with default settings and instruction templates.
 
+!!! info "Safe to re-run"
+    `synapse init` uses a **merge strategy** — only template files (`settings.json`, `default.md`, `gemini.md`, `file-safety.md`, `learning.md`, `shared-memory.md`) are written. User-generated data such as saved agent definitions (`agents/`), databases (`*.db`), sessions, workflows, and worktrees are **preserved**. You can safely re-run `synapse init` to pick up new template files after upgrading.
+
 ## Install Skills
 
 Skills teach agents how to use Synapse features — messaging, file safety, task delegation, and more. The `synapse-a2a` skill package is **essential** for multi-agent communication.

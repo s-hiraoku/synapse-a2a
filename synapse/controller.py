@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import codecs
 import fcntl
 import logging
@@ -13,6 +15,10 @@ import termios
 import threading
 import time
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from synapse.file_safety import FileSafetyManager
 
 from synapse.config import (
     IDENTITY_WAIT_TIMEOUT,
@@ -20,6 +26,8 @@ from synapse.config import (
     OUTPUT_BUFFER_MAX,
     POST_WRITE_IDLE_DELAY,
     STARTUP_DELAY,
+    TASK_PROTECTION_TIMEOUT,
+    WAITING_EXPIRY_SECONDS,
     WRITE_PROCESSING_DELAY,
 )
 from synapse.long_message import format_file_reference, get_long_message_store
@@ -139,6 +147,17 @@ class TerminalController:
             self.waiting_config.get("idle_timeout", 0.5)
         )
         self._waiting_pattern_time: float | None = None  # When pattern was last seen
+        self._waiting_expiry: float = float(
+            self.waiting_config.get("waiting_expiry", WAITING_EXPIRY_SECONDS)
+        )
+
+        # Compound signal: task_active flag (#314)
+        self._task_active_count: int = 0
+        self._task_active_since: float | None = None
+        self._task_protection_timeout: float = float(
+            self.idle_config.get("task_protection_timeout", TASK_PROTECTION_TIMEOUT)
+        )
+        self._file_safety_manager: FileSafetyManager | None = None
 
         self.env = env or os.environ.copy()
         self.master_fd: int | None = None
@@ -196,6 +215,42 @@ class TerminalController:
             callback: Called with (old_status, new_status) on a daemon thread.
         """
         self._status_callbacks.append(callback)
+
+    def set_task_active(self) -> None:
+        """Increment task active count (suppresses READY while > 0)."""
+        with self.lock:
+            self._task_active_count += 1
+            self._task_active_since = time.time()
+
+    def clear_task_active(self) -> None:
+        """Decrement task active count (allows READY when reaches 0)."""
+        with self.lock:
+            self._task_active_count = max(0, self._task_active_count - 1)
+            if self._task_active_count == 0:
+                self._task_active_since = None
+
+    def set_file_safety_manager(self, manager: FileSafetyManager) -> None:
+        """Set FileSafetyManager for compound signal file lock detection."""
+        self._file_safety_manager = manager
+
+    def _is_task_protection_active(self) -> bool:
+        """Check if task protection is active (within timeout). Lock must be held."""
+        if self._task_active_count <= 0 or self._task_active_since is None:
+            return False
+        elapsed = time.time() - self._task_active_since
+        return elapsed < self._task_protection_timeout
+
+    def _has_file_locks(self) -> bool:
+        """Check if this agent holds any active file locks. Lock must be held."""
+        if self._file_safety_manager is None or not self.agent_id:
+            return False
+        try:
+            locks = self._file_safety_manager.list_locks(
+                agent_name=self.agent_id, include_stale=False
+            )
+            return bool(locks)
+        except Exception:
+            return False
 
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
@@ -319,6 +374,12 @@ class TerminalController:
         else:
             base_status = "PROCESSING"
 
+        # Compound signal: suppress READY when task/locks active (#314)
+        if base_status == "READY" and (
+            self._is_task_protection_active() or self._has_file_locks()
+        ):
+            base_status = "PROCESSING"
+
         # Handle DONE state transitions
         if self.status != "DONE":
             return base_status
@@ -348,8 +409,9 @@ class TerminalController:
         """Check if agent is in WAITING state (user input prompt).
 
         WAITING is detected when:
-        1. A regex pattern matches recent output (selection UI structure)
+        1. A regex pattern matches *new data* (not the full buffer — fixes #140)
         2. No new output for waiting_idle_timeout (if require_idle is True)
+        3. Pattern was seen within waiting_expiry seconds (auto-clears stale WAITING)
 
         Args:
             new_data: New data from PTY.
@@ -360,16 +422,33 @@ class TerminalController:
         if not self._waiting_regex:
             return False
 
-        # Decode recent output for regex matching (last 2KB for multi-line UIs)
-        text = self.output_buffer[-2048:].decode("utf-8", errors="replace")
-        pattern_found = bool(self._waiting_regex.search(text))
+        # Check new_data only for pattern (fixes false positive from stale buffer)
+        new_text = new_data.decode("utf-8", errors="replace") if new_data else ""
+        pattern_in_new = bool(new_text and self._waiting_regex.search(new_text))
 
-        if not pattern_found:
-            self._waiting_pattern_time = None
+        if pattern_in_new:
+            # Fresh pattern match — update timestamp
+            self._waiting_pattern_time = time.time()
+        elif self._waiting_pattern_time is None:
+            # No fresh match and no prior match — not waiting
             return False
 
-        # Update pattern timestamp
-        self._update_waiting_pattern_time(new_data)
+        # Auto-expire: if pattern was seen too long ago, do a lightweight
+        # re-check of the buffer tail.  If the pattern is still present
+        # (e.g., selection UI still on screen), refresh the timestamp
+        # instead of expiring.  This avoids false READY when a user is
+        # still looking at a prompt beyond the expiry window (#140 review).
+        if self._waiting_pattern_time is not None:
+            elapsed = time.time() - self._waiting_pattern_time
+            if elapsed > self._waiting_expiry:
+                # Lightweight re-check: last 512 bytes of buffer
+                tail = self.output_buffer[-512:].decode("utf-8", errors="replace")
+                if self._waiting_regex.search(tail):
+                    # Pattern still visible — refresh timestamp
+                    self._waiting_pattern_time = time.time()
+                else:
+                    self._waiting_pattern_time = None
+                    return False
 
         # Check if waiting conditions are met
         if not self._waiting_require_idle:
@@ -380,15 +459,6 @@ class TerminalController:
 
         time_since_output = time.time() - self._last_output_time
         return time_since_output >= self._waiting_idle_timeout
-
-    def _update_waiting_pattern_time(self, new_data: bytes) -> None:
-        """Update waiting pattern timestamp based on new data."""
-        if self._waiting_pattern_time is None:
-            self._waiting_pattern_time = time.time()
-        elif new_data and self._waiting_regex:
-            new_text = new_data.decode("utf-8", errors="replace")
-            if self._waiting_regex.search(new_text):
-                self._waiting_pattern_time = time.time()
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""

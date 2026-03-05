@@ -67,6 +67,20 @@ synapse list
 
 Interactive TUI with real-time updates. See [Agent Management](../guide/agent-management.md) for controls.
 
+### Status
+
+```bash
+synapse status <target>            # Show detailed agent status
+synapse status <target> --json     # Output as JSON
+```
+
+Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, file locks, and task board assignments. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
+
+| Flag | Description |
+|------|-------------|
+| `<target>` | Agent name, ID, type-port, or type |
+| `--json` | Output as JSON (machine-readable) |
+
 ### Kill
 
 ```bash
@@ -471,6 +485,8 @@ synapse config [--scope user|project]
 synapse config show [--scope SCOPE]
 synapse reset [--scope user|project|both] [-f]
 ```
+
+`synapse init` uses a merge strategy: only template files are written. User-generated data (agents, databases, sessions, workflows, worktrees) is preserved. Safe to re-run after upgrades.
 
 ## External Agents
 

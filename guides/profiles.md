@@ -44,6 +44,12 @@ idle_detection:            # IDLE 状態検出設定（新形式）
   strategy: "pattern"       # "pattern" | "timeout" | "hybrid"
   pattern: "> $"           # 正規表現パターン
   timeout: 1.5             # 秒数（フォールバック）
+  task_protection_timeout: 30  # Compound signal: A2A タスク中の READY 遷移抑制（秒）
+waiting_detection:          # WAITING 状態検出設定
+  regex: "\\[Y/n\\]"       # WAITING 検出正規表現（new_data のみでマッチング）
+  require_idle: true        # IDLE 状態を前提とするか
+  idle_timeout: 0.3         # パターン検出前の IDLE 待ち時間（秒）
+  waiting_expiry: 10        # WAITING 自動クリア秒数（バッファにパターン残存時は延長）
 env:                        # 環境変数
   TERM: "xterm-256color"
 ```
@@ -61,6 +67,7 @@ env:                        # 環境変数
 | `submit_sequence` | string | No | `\n` | 送信時のキーシーケンス |
 | `write_delay` | float\|null | No | `null` (→ 0.5s) | データ送信後、submit_sequence 送信前の遅延（秒）。`0` で遅延なし。省略時は `WRITE_PROCESSING_DELAY` (0.5s) を使用 |
 | `idle_detection` | object | No | `{strategy: "timeout", timeout: 1.5}` | IDLE 検出戦略 |
+| `waiting_detection` | object | No | - | WAITING 状態検出設定（`regex`, `require_idle`, `idle_timeout`, `waiting_expiry`） |
 | `env` | object | No | `{}` | 追加/上書きする環境変数 |
 
 ---
@@ -260,6 +267,12 @@ idle_detection:
   pattern: "BRACKETED_PASTE_MODE"
   pattern_use: "startup_only"
   timeout: 0.5
+  task_protection_timeout: 15
+waiting_detection:
+  regex: "^❯\\s+.+|^[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
+  require_idle: true
+  idle_timeout: 0.3
+  waiting_expiry: 10
 env:
   TERM: "xterm-256color"
 ```
@@ -273,6 +286,8 @@ env:
   - 以降: タイムアウト (500ms) で検出
   - パターンは起動時一度だけ出現するため、`pattern_use: "startup_only"` で最初の IDLE のみ使用
 - 500ms の短いタイムアウト（高速応答性）
+- **compound signal**: `task_protection_timeout: 15` — A2A タスク処理中の誤 READY 遷移を抑制
+- **WAITING 検出**: `new_data` のみでマッチング + `waiting_expiry: 10` で自動クリア（偽陽性防止）
 
 ---
 
@@ -283,9 +298,14 @@ command: "codex"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "pattern"
-  pattern: "›"
-  timeout: 1.5
+  strategy: "timeout"
+  timeout: 3.0
+  task_protection_timeout: 30
+waiting_detection:
+  regex: "^\\s+\\d+\\.\\s+.+$"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 env:
   TERM: "xterm-256color"
 ```
@@ -293,8 +313,10 @@ env:
 **特徴**:
 
 - OpenAI Codex CLI 用
-- **pattern 戦略**: Codex は一貫したプロンプト文字 (`›`) を使用
-- 1.5 秒のタイムアウト（フォールバック）
+- **timeout 戦略**: プロンプトパターンが会話履歴に含まれるため、タイムアウトベースで検出
+- 3.0 秒のタイムアウト
+- **compound signal**: `task_protection_timeout: 30` — A2A タスク処理中の誤 READY 遷移を抑制
+- **WAITING 検出**: 番号付き選択肢を検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 
@@ -305,9 +327,15 @@ command: "gemini"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "pattern"
-  pattern: "(> |\\*)"
-  timeout: 1.5
+  strategy: "hybrid"
+  pattern: "BRACKETED_PASTE_MODE"
+  pattern_use: "startup_only"
+  timeout: 3.0
+waiting_detection:
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 env:
   TERM: "xterm-256color"
 ```
@@ -315,8 +343,8 @@ env:
 **特徴**:
 
 - Google Gemini CLI 用
-- **pattern 戦略**: Gemini は一貫したプロンプトパターン (`> ` または `*`) を使用
-- 1.5 秒のタイムアウト（フォールバック）
+- **hybrid 戦略**: 起動時は `BRACKETED_PASTE_MODE` パターン、以降はタイムアウト (3.0s) で検出
+- **WAITING 検出**: 選択肢 UI (●/○) と実行許可プロンプトを検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 
@@ -361,6 +389,7 @@ waiting_detection:
   regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
   require_idle: true
   idle_timeout: 0.5
+  waiting_expiry: 10
 ```
 
 **特徴**:
@@ -370,7 +399,7 @@ waiting_detection:
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
-- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出
+- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 
