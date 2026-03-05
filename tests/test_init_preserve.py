@@ -77,7 +77,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """Saved agent definitions (.agent files) must survive init."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         agents_dir = synapse_dir / "agents"
         assert agents_dir.exists(), "agents/ directory was deleted"
@@ -94,7 +95,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """SQLite databases must survive init."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         assert (synapse_dir / "file_safety.db").exists(), "file_safety.db was deleted"
         assert (synapse_dir / "task_board.db").exists(), "task_board.db was deleted"
@@ -104,7 +106,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """Session configurations must survive init."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         sessions_dir = synapse_dir / "sessions"
         assert sessions_dir.exists(), "sessions/ directory was deleted"
@@ -114,7 +117,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """Workflow definitions must survive init."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         workflows_dir = synapse_dir / "workflows"
         assert workflows_dir.exists(), "workflows/ directory was deleted"
@@ -124,7 +128,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """Worktree directories must survive init."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         worktrees_dir = synapse_dir / "worktrees"
         assert worktrees_dir.exists(), "worktrees/ directory was deleted"
@@ -134,7 +139,8 @@ class TestCopySynapseTemplatesPreservesUserData:
         """Template files (settings.json, *.md) must be updated."""
         synapse_dir = synapse_dir_with_user_data
 
-        _copy_synapse_templates(synapse_dir)
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
 
         # settings.json should have new default values, not old ones
         settings = json.loads((synapse_dir / "settings.json").read_text())
@@ -154,6 +160,23 @@ class TestCopySynapseTemplatesPreservesUserData:
         assert result is True
         assert (synapse_dir / "settings.json").exists()
         assert (synapse_dir / "default.md").exists()
+
+    def test_skips_symlink_in_destination(self, temp_dir):
+        """Symlinks in destination path must be rejected."""
+        synapse_dir = temp_dir / ".synapse"
+        synapse_dir.mkdir(parents=True)
+
+        # Create a symlink pointing outside .synapse/
+        outside_dir = temp_dir / "outside"
+        outside_dir.mkdir()
+        escape_link = synapse_dir / "escape"
+        escape_link.symlink_to(outside_dir)
+
+        result = _copy_synapse_templates(synapse_dir)
+        assert result is True
+
+        # The symlink target should not have any files written to it
+        assert not list(outside_dir.iterdir()), "Files written through symlink"
 
 
 class TestCmdInitPreservesUserData:

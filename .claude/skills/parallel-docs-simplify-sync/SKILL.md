@@ -49,7 +49,7 @@ Each Task call should use the prompt template below.
 ```
 # Example: four parallel calls (3 Task agents + 1 Skill)
 Task(subagent_type="general-purpose", prompt="[synapse-docs prompt]")
-Skill(name="simplify")                                           # Claude Code built-in
+Skill("simplify")                                                # Claude Code built-in
 Task(subagent_type="general-purpose", prompt="[sync-plugin-skills prompt]")
 Task(subagent_type="general-purpose", prompt="[github-pages-sync prompt]")
 ```

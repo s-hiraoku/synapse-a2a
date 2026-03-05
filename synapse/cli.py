@@ -2063,13 +2063,29 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # Merge: copy each template file individually, preserving non-template data
+        resolved_target = target_dir.resolve()
         for src_file in templates_dir.rglob("*"):
             if not src_file.is_file():
                 continue
+            # Reject symlinks in source tree
+            if src_file.is_symlink():
+                print(f"Warning: Skipping symlink in templates: {src_file}")
+                continue
             rel_path = src_file.relative_to(templates_dir)
             dst_file = target_dir / rel_path
-            dst_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_file, dst_file)
+            # Reject if destination resolves outside target_dir (symlink traversal)
+            if not dst_file.resolve().is_relative_to(resolved_target):
+                print(f"Warning: Skipping path escaping target dir: {dst_file}")
+                continue
+            # Reject if any parent component is a symlink
+            for parent in dst_file.relative_to(target_dir).parents:
+                parent_path = target_dir / parent
+                if parent_path != target_dir and parent_path.is_symlink():
+                    print(f"Warning: Skipping path with symlink parent: {dst_file}")
+                    break
+            else:
+                dst_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_file, dst_file)
 
         return True
 
