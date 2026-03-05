@@ -51,12 +51,14 @@ To put all agents in new panes (keeping your current terminal free):
 synapse team start claude gemini --all-new
 ```
 
+<!-- markdownlint-disable MD046 -->
 !!! tip "Layout Options"
     Use `--layout horizontal` or `--layout split` to control how panes are arranged:
 
     ```bash
     synapse team start claude gemini codex --layout horizontal
     ```
+<!-- markdownlint-enable MD046 -->
 
 !!! warning "Ghostty Limitation"
     Ghostty uses AppleScript to target the **currently focused window/tab**. Do not switch tabs while `team start` is running, or agents may be created in the wrong tab.

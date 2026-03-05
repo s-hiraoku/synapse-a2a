@@ -257,8 +257,9 @@ def handle_webhook():
     # Parse event
     event = request.json
     event_type = event.get("event")
-    task_id = event.get("task_id")
-    agent_id = event.get("agent_id")
+    data = event.get("data", {})
+    task_id = data.get("task_id")
+    agent_id = data.get("agent_id")
 
     logger.info(f"Received {event_type} for task {task_id} from {agent_id}")
 
@@ -331,7 +332,8 @@ app.post("/webhook", (req, res) => {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
-  const { event, task_id, agent_id, data } = req.body;
+  const { event, data } = req.body;
+  const { task_id, agent_id } = data || {};
   console.log(`Received ${event} for task ${task_id} from ${agent_id}`);
 
   switch (event) {

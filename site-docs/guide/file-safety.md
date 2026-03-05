@@ -137,19 +137,20 @@ from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
 
 manager = FileSafetyManager.from_env()
 
-# Acquire lock
+# Acquire lock (use agent_id/agent_type keyword args)
+agent = "synapse-claude-8100"
 result = manager.acquire_lock(
-    "src/auth.py", agent_id="synapse-claude-8100", agent_type="claude",
+    "src/auth.py", agent_id=agent, agent_type="claude",
     intent="Refactoring"
 )
 if result["status"] == LockStatus.ACQUIRED:
     # Edit file...
     manager.record_modification(
-        "src/auth.py", "claude", "task-123",
+        "src/auth.py", agent, "task-123",
         change_type=ChangeType.MODIFY,
         intent="Added OAuth2"
     )
-    manager.release_lock("src/auth.py", "claude")
+    manager.release_lock("src/auth.py", agent)
 
 # Query
 context = manager.get_file_context("src/auth.py", limit=5)

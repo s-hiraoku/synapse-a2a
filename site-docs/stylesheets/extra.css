@@ -164,9 +164,11 @@
 .md-typeset .terminal-dot.yellow { background: #ffbd2e; }
 .md-typeset .terminal-dot.green { background: #27c93f; }
 
-/* Architecture diagram styling */
+/* Mermaid diagrams */
 .md-typeset .mermaid {
   text-align: center;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /* Quick reference tables */
@@ -267,12 +269,6 @@
 .md-typeset .feature-card pre code {
   word-break: normal;
   white-space: pre;
-}
-
-/* Mermaid diagram responsive */
-.md-typeset .mermaid {
-  max-width: 100%;
-  overflow-x: auto;
 }
 
 /* Bottom CTA buttons */
