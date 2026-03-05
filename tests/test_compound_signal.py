@@ -64,24 +64,39 @@ class TestCompoundSignalTaskActive:
 
         assert ctrl.status == "READY"
 
-    def test_set_task_active_sets_flag_and_timestamp(self):
-        """set_task_active() should set flag and record timestamp."""
+    def test_set_task_active_sets_count_and_timestamp(self):
+        """set_task_active() should increment count and record timestamp."""
         ctrl = _make_controller()
         before = time.time()
         ctrl.set_task_active()
 
-        assert ctrl._task_active is True
+        assert ctrl._task_active_count == 1
         assert ctrl._task_active_since is not None
         assert ctrl._task_active_since >= before
 
-    def test_clear_task_active_clears_flag(self):
-        """clear_task_active() should clear flag and timestamp."""
+        # Second call increments further
+        ctrl.set_task_active()
+        assert ctrl._task_active_count == 2
+
+    def test_clear_task_active_decrements_count(self):
+        """clear_task_active() should decrement count; clears timestamp at 0."""
         ctrl = _make_controller()
         ctrl.set_task_active()
-        ctrl.clear_task_active()
+        ctrl.set_task_active()
 
-        assert ctrl._task_active is False
+        ctrl.clear_task_active()
+        assert ctrl._task_active_count == 1
+        assert ctrl._task_active_since is not None  # Still active
+
+        ctrl.clear_task_active()
+        assert ctrl._task_active_count == 0
         assert ctrl._task_active_since is None
+
+    def test_clear_task_active_floor_at_zero(self):
+        """clear_task_active() should not go below 0."""
+        ctrl = _make_controller()
+        ctrl.clear_task_active()  # No prior set
+        assert ctrl._task_active_count == 0
 
     def test_done_state_unaffected_by_task_active(self):
         """DONE state should not be affected by task_active flag."""
@@ -193,8 +208,8 @@ class TestCompoundSignalCombined:
             t.join()
 
         assert not errors
-        # Final state should be cleared
-        assert ctrl._task_active is False
+        # Final state should be cleared (each thread does equal set/clear)
+        assert ctrl._task_active_count == 0
 
 
 # ============================================================

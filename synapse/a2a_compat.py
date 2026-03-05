@@ -1127,7 +1127,16 @@ def create_a2a_router(
                 sender_id=sender_info.sender_id if not used_file else None,
                 sender_name=sender_info.sender_name if not used_file else None,
             )
-            controller.write(prefixed_content, submit_seq=submit_seq)
+            written = controller.write(prefixed_content, submit_seq=submit_seq)
+            if not written:
+                controller.clear_task_active()
+                task_store.update_status(task.id, "failed")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to send: agent process not running",
+                )
+        except HTTPException:
+            raise  # Re-raise our own HTTPException from write check above
         except Exception as e:
             controller.clear_task_active()  # Release on any preparation/send failure
             task_store.update_status(task.id, "failed")

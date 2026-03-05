@@ -137,7 +137,7 @@ class TerminalController:
         )
 
         # Compound signal: task_active flag (#314)
-        self._task_active: bool = False
+        self._task_active_count: int = 0
         self._task_active_since: float | None = None
         self._task_protection_timeout: float = float(
             self.idle_config.get("task_protection_timeout", TASK_PROTECTION_TIMEOUT)
@@ -202,16 +202,17 @@ class TerminalController:
         self._status_callbacks.append(callback)
 
     def set_task_active(self) -> None:
-        """Mark that an A2A task is being processed (suppresses READY)."""
+        """Increment task active count (suppresses READY while > 0)."""
         with self.lock:
-            self._task_active = True
+            self._task_active_count += 1
             self._task_active_since = time.time()
 
     def clear_task_active(self) -> None:
-        """Clear the task_active flag (allows READY transition)."""
+        """Decrement task active count (allows READY when reaches 0)."""
         with self.lock:
-            self._task_active = False
-            self._task_active_since = None
+            self._task_active_count = max(0, self._task_active_count - 1)
+            if self._task_active_count == 0:
+                self._task_active_since = None
 
     def set_file_safety_manager(self, manager: FileSafetyManager) -> None:
         """Set FileSafetyManager for compound signal file lock detection."""
@@ -219,7 +220,7 @@ class TerminalController:
 
     def _is_task_protection_active(self) -> bool:
         """Check if task protection is active (within timeout). Lock must be held."""
-        if not self._task_active or self._task_active_since is None:
+        if self._task_active_count <= 0 or self._task_active_since is None:
             return False
         elapsed = time.time() - self._task_active_since
         return elapsed < self._task_protection_timeout

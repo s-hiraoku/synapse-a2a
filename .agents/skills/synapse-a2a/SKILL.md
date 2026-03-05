@@ -390,7 +390,7 @@ synapse send codex "STOP" --priority 5
 | SHUTTING_DOWN | Graceful shutdown in progress | Red |
 
 **Compound Signal Detection:** Status transitions use multiple signals beyond PTY output patterns:
-- **task_active flag**: Set when an A2A task is received, cleared on task termination (completion, failure, cancellation, send error, or `task_protection_timeout` expiry — default 30s, configurable per profile). Suppresses premature READY transitions while a task is actively being processed.
+- **task_active flag**: Reference-counted; incremented when an A2A task is received, decremented on task finalization (completion or failure) and on send error. When all tasks complete the count reaches 0 and READY transitions are allowed. If the count is not cleared, `task_protection_timeout` (default 30s, configurable per profile) expires the protection automatically.
 - **File locks**: Agents holding file locks remain in PROCESSING even if PTY output looks idle.
 - **WAITING auto-expiry**: WAITING status auto-clears after `waiting_expiry` seconds (default 10s) to prevent stale states.
 
