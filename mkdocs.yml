@@ -109,6 +109,7 @@ nav:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - Interactive Setup: getting-started/setup.md
+    - Multi-Agent Setup: getting-started/multi-agent-setup.md
   - Core Concepts:
     - Architecture: concepts/architecture.md
     - A2A Protocol: concepts/a2a-protocol.md
@@ -116,6 +117,7 @@ nav:
     - Design Philosophy: concepts/philosophy.md
   - User Guide:
     - Agent Management: guide/agent-management.md
+    - Agent Identity: guide/agent-identity.md
     - Communication: guide/communication.md
     - Cross-Agent Scenarios: guide/cross-agent-scenarios.md
     - Agent Teams: guide/agent-teams.md
@@ -129,6 +131,7 @@ nav:
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md
+    - CLI Cheatsheet: reference/cli-cheatsheet.md
     - API Endpoints: reference/api.md
     - Configuration: reference/configuration.md
     - Profile YAML Schema: reference/profiles-yaml.md

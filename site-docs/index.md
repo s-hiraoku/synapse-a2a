@@ -344,7 +344,7 @@ That's it — Gemini analyzed the codebase and responded via A2A protocol. No co
 
 ---
 
-<div style="text-align: center" markdown>
+<div class="cta-buttons" markdown>
 [Get Started :material-arrow-right:](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub :material-github:](https://github.com/s-hiraoku/synapse-a2a){ .md-button }
 </div>
