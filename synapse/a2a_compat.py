@@ -919,6 +919,10 @@ def create_a2a_router(
                     task_id, Artifact(type="text", data=recent_context)
                 )
 
+        # Compound signal: clear task active to allow READY transition (#314)
+        if controller:
+            controller.clear_task_active()
+
         # Clear task preview in registry
         if registry and agent_id:
             registry.update_current_task(agent_id, None)
@@ -1065,6 +1069,9 @@ def create_a2a_router(
         # Update to working
         task_store.update_status(task.id, "working")
 
+        # Compound signal: mark task active to suppress premature READY (#314)
+        controller.set_task_active()
+
         # Update current task preview in registry (for synapse list display)
         if registry and agent_id:
             preview = (
@@ -1118,6 +1125,7 @@ def create_a2a_router(
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
+            controller.clear_task_active()  # Release protection on write failure
             task_store.update_status(task.id, "failed")
             msg = f"Failed to send: {e!s}"
             raise HTTPException(status_code=500, detail=msg) from e

@@ -183,12 +183,14 @@ class AgentRegistry:
         Returns:
             Path to the created registry file.
         """
+        now = time.time()
         data = {
             "agent_id": agent_id,
             "agent_type": agent_type,
             "port": port,
             "status": status,
-            "status_updated_at": time.time(),
+            "status_updated_at": now,
+            "registered_at": now,
             "pid": os.getpid(),
             "working_dir": os.getcwd(),
             "endpoint": f"http://localhost:{port}",
@@ -591,8 +593,10 @@ class AgentRegistry:
         def set_task_preview(data: dict) -> None:
             if truncated_preview is None:
                 data.pop("current_task_preview", None)
+                data.pop("task_received_at", None)
             else:
                 data["current_task_preview"] = truncated_preview
+                data["task_received_at"] = time.time()
 
         return self._atomic_update(agent_id, set_task_preview, "current_task_preview")
 

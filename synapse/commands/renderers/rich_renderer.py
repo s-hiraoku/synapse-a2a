@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from rich import box
@@ -14,6 +15,23 @@ from rich.text import Text
 from synapse.port_manager import PORT_RANGES
 from synapse.status import STATUS_STYLES
 from synapse.utils import get_role_display
+
+
+def format_elapsed(seconds: float) -> str:
+    """Format elapsed seconds as human-readable string.
+
+    Args:
+        seconds: Elapsed time in seconds.
+
+    Returns:
+        Formatted string like "5s", "2m 15s", or "1h 3m".
+    """
+    s = int(seconds)
+    if s < 60:
+        return f"{s}s"
+    if s < 3600:
+        return f"{s // 60}m {s % 60}s"
+    return f"{s // 3600}h {(s % 3600) // 60}m"
 
 
 class RichRenderer:
@@ -172,6 +190,14 @@ class RichRenderer:
                 elif col_name == "ROLE":
                     # Show filename only for file references
                     row.append(get_role_display(agent.get(data_key)) or "-")
+                elif col_name == "CURRENT":
+                    preview = agent.get("current_task_preview")
+                    received_at = agent.get("task_received_at")
+                    if preview and isinstance(received_at, (int, float)):
+                        elapsed = time.time() - received_at
+                        row.append(f"{preview} ({format_elapsed(elapsed)})")
+                    else:
+                        row.append(preview or "-")
                 else:
                     row.append(agent.get(data_key) or "-")
 

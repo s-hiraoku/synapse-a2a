@@ -19,10 +19,9 @@ idle_detection:
 input_ready_pattern: ">"                       # Gemini shows > in input box when ready
 
 # WAITING status detection (user input prompts)
-# DISABLED: Current regex-based detection causes false positives
-# where WAITING status gets stuck because patterns remain in output buffer
-# See: https://github.com/s-hiraoku/synapse-a2a/issues/140
-# waiting_detection:
-#   regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
-#   require_idle: true
-#   idle_timeout: 0.5
+# Re-enabled with #140 fix: now uses new_data only + auto-expiry
+waiting_detection:
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10                           # Auto-clear WAITING after 10s
