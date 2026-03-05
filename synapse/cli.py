@@ -479,6 +479,40 @@ def cmd_list(args: argparse.Namespace) -> None:
     list_command.run(args)
 
 
+def cmd_status(args: argparse.Namespace) -> None:
+    """Show detailed status for a specific agent."""
+    import sys
+
+    from synapse.commands.status import StatusCommand
+    from synapse.file_safety import FileSafetyManager
+    from synapse.history import HistoryManager
+    from synapse.paths import get_history_db_path
+    from synapse.task_board import TaskBoard
+
+    registry = AgentRegistry()
+    try:
+        history = HistoryManager(get_history_db_path())
+    except Exception:
+        history = None
+    try:
+        file_safety = FileSafetyManager.from_env()
+    except Exception:
+        file_safety = None
+    try:
+        task_board = TaskBoard()
+    except Exception:
+        task_board = None
+
+    cmd = StatusCommand(
+        registry=registry,
+        history_manager=history,
+        file_safety_manager=file_safety,
+        task_board=task_board,
+        output=sys.stdout,
+    )
+    cmd.run(args.target, json_output=getattr(args, "json_output", False))
+
+
 def cmd_logs(args: argparse.Namespace) -> None:
     """Show logs for an agent."""
     profile = args.profile
@@ -4125,6 +4159,18 @@ Status meanings:
   DONE        Task completed (auto-transitions to READY)""",
     )
     p_list.set_defaults(func=cmd_list)
+
+    # status
+    p_status = subparsers.add_parser(
+        "status",
+        help="Show detailed agent status",
+        description="Show detailed status for a specific agent.",
+    )
+    p_status.add_argument("target", help="Agent name, ID, type-port, or type")
+    p_status.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output as JSON"
+    )
+    p_status.set_defaults(func=cmd_status)
 
     # logs
     p_logs = subparsers.add_parser(

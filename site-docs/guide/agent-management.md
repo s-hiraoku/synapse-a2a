@@ -85,7 +85,7 @@ Displays a live table with:
 | `ID` | Agent identifier |
 | `NAME` | Custom name (if set) |
 | `STATUS` | Current state with color coding |
-| `CURRENT` | Current task preview |
+| `CURRENT` | Current task preview with elapsed time (e.g., `Review code (2m 15s)`) |
 | `TRANSPORT` | Active communication direction and protocol (see below) |
 | `WORKING_DIR` | Agent's working directory |
 | `SKILL_SET` | Applied skill set name (optional) |
@@ -119,6 +119,31 @@ The TRANSPORT column appears in both the Rich TUI (interactive mode) and the pla
 
 !!! info "Real-Time Updates"
     `synapse list` uses file watchers (fsevents on macOS, inotify on Linux) to detect registry changes instantly. Falls back to 10-second polling if watchers are unavailable.
+
+### Detailed Status
+
+For a deep-dive into a single agent, use `synapse status`:
+
+```bash
+synapse status my-claude
+```
+
+This shows:
+
+- **Agent Info**: ID, type, name, role, port, status, PID, working directory, uptime
+- **Current Task**: Task preview with elapsed time since the task was received
+- **Recent Messages**: Last 5 incoming/outgoing A2A messages from history
+- **File Locks**: Files currently locked by this agent (when File Safety is enabled)
+- **Task Board**: Tasks assigned to this agent from the shared task board
+
+For machine-readable output:
+
+```bash
+synapse status my-claude --json
+```
+
+!!! tip "When to use `synapse status` vs `synapse list`"
+    Use `synapse list` for a live overview of all agents. Use `synapse status <target>` when you need detailed information about a specific agent, including its message history, file locks, and assigned tasks.
 
 ## Stopping Agents
 
@@ -279,3 +304,14 @@ When using `synapse send`, `synapse kill`, `synapse jump`, `synapse rename`, or 
 | **SHUTTING_DOWN** | :material-circle:{ .status-shutdown } | Shutdown in progress |
 
 Dead processes are automatically cleaned from the registry and hidden from `synapse list`.
+
+### Compound Signal Detection
+
+Status transitions use **compound signals** to improve accuracy. The PROCESSING-to-READY transition is suppressed when:
+
+- **task_active** is set (an A2A task was recently injected into the PTY), with a 30-second protection timeout
+- **File locks** are held by the agent via File Safety
+
+This prevents agents from briefly flickering to READY while still processing an injected task or actively editing files. WAITING detection uses **fresh-output-only** matching to avoid false positives from old prompt patterns in the scrollback buffer.
+
+See [Architecture — Compound Signal Detection](../concepts/architecture.md#compound-signal-detection) for technical details.

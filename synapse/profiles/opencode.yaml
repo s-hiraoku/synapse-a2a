@@ -28,3 +28,4 @@ waiting_detection:
   regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]"
   require_idle: true
   idle_timeout: 0.5          # 500ms no output after pattern
+  waiting_expiry: 10         # Auto-clear WAITING after 10s

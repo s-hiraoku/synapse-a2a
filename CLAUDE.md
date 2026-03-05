@@ -73,6 +73,11 @@ pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fi
 pytest tests/test_worktree.py -v              # Worktree core operations (cleanup, change detection, base branch fallback)
 pytest tests/test_worktree_cli.py -v          # Worktree CLI integration
 
+# Status detection tests
+pytest tests/test_cmd_status.py -v         # synapse status command
+pytest tests/test_compound_signal.py -v    # Compound signal status detection + WAITING false positive fix
+pytest tests/test_task_elapsed.py -v       # Task elapsed time display in CURRENT column
+
 # Injection observability tests
 pytest tests/test_injection_observability.py -v # INJECT/* structured logs
 
@@ -122,6 +127,10 @@ synapse claude --no-setup
 # List agents (Rich TUI with event-driven auto-update)
 synapse list                              # Show all running agents with auto-refresh on changes
 # Interactive controls: 1-9 or ↑/↓ select agent, Enter/j jump to terminal, k kill (with confirm), / filter by TYPE/NAME/DIR, ESC clear, q quit
+
+# Detailed agent status (single agent)
+synapse status my-claude                  # Show detailed status (info, current task, history, file locks, task board)
+synapse status claude-8100 --json         # JSON output for scripting
 
 # Agent management by name
 synapse kill my-claude                    # Graceful shutdown (default, 30s timeout)
@@ -362,7 +371,7 @@ curl -X POST http://localhost:8100/spawn \
 
 ## Target Resolution
 
-When using `synapse send`, `synapse interrupt`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`, targets are resolved in priority order:
+When using `synapse send`, `synapse status`, `synapse interrupt`, `synapse kill`, `synapse jump`, `synapse rename`, or `synapse skills apply`, targets are resolved in priority order:
 
 1. **Custom name** (highest priority): `my-claude`
 2. **Full Runtime ID**: `synapse-claude-8100`
@@ -415,6 +424,7 @@ synapse/
 ├── commands/        # CLI command implementations
 │   ├── instructions.py    # synapse instructions command
 │   ├── list.py            # synapse list command
+│   ├── status.py          # synapse status command (detailed single-agent status)
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
 │   ├── session.py         # synapse session command
 │   ├── workflow.py        # synapse workflow command
@@ -499,7 +509,7 @@ The `/tasks/send` and `/tasks/send-priority` endpoints are blocked by a readines
 
 Agents use a five-state status system:
 - **READY** (green): Agent is idle, waiting for user input
-- **WAITING** (cyan): Agent is showing selection UI, waiting for user choice (detected via regex)
+- **WAITING** (cyan): Agent is showing selection UI, waiting for user choice (detected via regex in `new_data` only)
 - **PROCESSING** (yellow): Agent is actively processing (startup, handling requests, or producing output)
 - **DONE** (blue): Task completed (auto-transitions to READY after 10 seconds)
 - **SHUTTING_DOWN** (red): Graceful shutdown in progress (B4)
@@ -512,6 +522,14 @@ Status transitions:
 - On task completion: → `DONE` (via `set_done()` call)
 - After 10s idle in DONE: `DONE` → `READY`
 - On shutdown request: → `SHUTTING_DOWN` (via graceful kill, B4)
+
+**Compound signal status detection**: The `PROCESSING` → `READY` transition is suppressed when either of these signals is active, preventing premature READY detection during A2A task processing:
+- **`task_active` flag**: Set via `set_task_active()` when an A2A task is received. Cleared by `clear_task_active()` when the task completes. Protected by `TASK_PROTECTION_TIMEOUT` (default 30s, configurable via `task_protection_timeout` in `idle_detection` profile config).
+- **File locks**: If the agent holds file locks (via `FileSafetyManager`), READY transition is suppressed until locks are released.
+
+**WAITING detection improvements**: WAITING status now only triggers from fresh PTY output (`new_data`), not from stale buffer content. WAITING auto-expires after `WAITING_EXPIRY_SECONDS` (default 10s, configurable via `waiting_expiry` in `waiting_detection` profile config) unless the pattern is still visible in the buffer tail (re-check on expiry). This eliminates false positives from old prompt patterns lingering in the output buffer.
+
+**Elapsed time in CURRENT column**: When an agent is PROCESSING with a current task, `synapse list` shows elapsed time (e.g., "Review code (2m 15s)") using `task_received_at` timestamp.
 
 Dead processes are automatically cleaned up from the registry and not displayed in `synapse list`.
 
@@ -549,9 +567,16 @@ idle_detection:
   pattern: "(> |\\*)"          # Regex pattern or special name
   pattern_use: "always"        # "always" | "startup_only"
   timeout: 1.5                 # Seconds of no output to trigger idle
+  task_protection_timeout: 30  # Compound signal: seconds to suppress READY during A2A task (default: TASK_PROTECTION_TIMEOUT)
+
+waiting_detection:
+  regex: "\\[Y/n\\]"          # Regex to detect WAITING state (matched against new_data only)
+  require_idle: true           # Require idle state before checking
+  idle_timeout: 0.3            # Seconds of idle before checking waiting pattern
+  waiting_expiry: 10           # Auto-clear WAITING after N seconds if pattern gone from buffer (default: WAITING_EXPIRY_SECONDS)
 ```
 
-### Claude Code (Ink TUI) - Timeout Strategy
+### Claude Code (Ink TUI) - Hybrid Strategy
 
 Claude Code uses Ink-based TUI with BRACKETED_PASTE_MODE sequence:
 
@@ -560,14 +585,24 @@ Claude Code uses Ink-based TUI with BRACKETED_PASTE_MODE sequence:
 submit_sequence: "\r"          # CR required (not LF or CRLF)
 
 idle_detection:
-  strategy: "timeout"          # Pure timeout-based detection
-  timeout: 0.5                 # 500ms no output = idle
+  strategy: "hybrid"           # Pattern first, then timeout
+  pattern: "BRACKETED_PASTE_MODE"  # ESC[?2004h = ready for input
+  pattern_use: "startup_only"  # Only check pattern at startup
+  timeout: 0.5                 # 500ms no output = idle (fallback)
+  task_protection_timeout: 15  # Suppress READY during A2A task
+
+waiting_detection:
+  regex: "^❯\\s+.+|^[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
+  require_idle: true
+  idle_timeout: 0.3
+  waiting_expiry: 10           # Auto-clear WAITING after 10s
 ```
 
-**Why timeout-only?**: BRACKETED_PASTE_MODE only appears once during TUI initialization, not on subsequent idle transitions. Since the pattern is unreliable for detecting ongoing idle states, we use pure timeout-based detection (0.5s) which reliably detects when Claude Code is waiting for input.
+**Why hybrid?**: BRACKETED_PASTE_MODE indicates the TUI input area is ready at startup. Pattern detection is used only for first IDLE; subsequent idle states use timeout-based detection (0.5s) for reliability.
 
 - **Submit Sequence**: `\r` (CR only) is required for v2.0.76+. CRLF does not work.
 - **Write Strategy**: Data and submit sequence are sent as **separate** `os.write()` calls with a configurable delay between them. The delay is controlled by the `write_delay` profile key (default: `WRITE_PROCESSING_DELAY` = 0.5s). This prevents bracketed paste mode (v2.1.52+) from trapping the CR inside the paste boundary. A `_write_all()` helper handles partial write retries.
+- **WAITING detection**: Re-enabled with new_data-only matching and auto-expiry to prevent false positives.
 - See `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` for technical details.
 
 ### Gemini - Hybrid Strategy
@@ -581,20 +616,32 @@ idle_detection:
   pattern: "BRACKETED_PASTE_MODE"  # ESC[?2004h = TUI input ready
   pattern_use: "startup_only"      # Only use pattern for first READY detection
   timeout: 3.0                     # 3.0 seconds of no output = idle (after first)
+
+waiting_detection:
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10               # Auto-clear WAITING after 10s
 ```
 
 **Why hybrid?**: BRACKETED_PASTE_MODE indicates the TUI input area is ready. Pattern detection is used only for startup; subsequent idle states use timeout-based detection for reliability.
 
-### Codex - Pattern Strategy
+### Codex - Timeout Strategy
 
-Codex uses a consistent prompt character:
+Codex uses timeout-based detection for reliability:
 
 ```yaml
 # synapse/profiles/codex.yaml
 idle_detection:
-  strategy: "pattern"
-  pattern: "›"                 # Codex prompt
-  timeout: 1.5                 # Fallback if pattern fails
+  strategy: "timeout"
+  timeout: 3.0                 # 3.0 seconds of no output = idle
+  task_protection_timeout: 30  # Suppress READY during A2A task
+
+waiting_detection:
+  regex: "^\\s+\\d+\\.\\s+.+$"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10           # Auto-clear WAITING after 10s
 ```
 
 ### OpenCode - Timeout Strategy
@@ -769,6 +816,10 @@ When orchestrating multiple agents, use these commands to track progress:
 ```bash
 # Real-time agent status (auto-updates on registry changes)
 synapse list
+
+# Detailed status for a specific agent (info, current task with elapsed time, history, file locks, task board)
+synapse status my-claude
+synapse status gemini --json              # JSON output for scripting
 
 # Task history by agent
 synapse history list --agent gemini

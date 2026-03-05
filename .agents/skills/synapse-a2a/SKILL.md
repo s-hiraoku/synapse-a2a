@@ -12,6 +12,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Task | Command |
 |------|---------|
 | List agents (Rich TUI) | `synapse list` (event-driven refresh via file watcher with 10s fallback, ↑/↓ or 1-9 to select, Enter/j jump, k kill, / filter by TYPE/NAME/WORKING_DIR) |
+| Agent detail status | `synapse status <target> [--json]` (agent info, current task with elapsed time, recent messages, file locks, task board) |
 | Send message | `synapse send <target> "<message>"` (default: `--notify`; `--from` auto-detected; warns if target is in a different working directory; use `--force` to bypass) |
 | Broadcast to cwd agents | `synapse broadcast "<message>"` (default: `--notify`) |
 | Synchronous wait | `synapse send <target> "<message>" --wait` |
@@ -383,27 +384,41 @@ synapse send codex "STOP" --priority 5
 | Status | Meaning | Color |
 |--------|---------|-------|
 | READY | Idle, waiting for input | Green |
-| WAITING | Awaiting user input (selection, confirmation) | Cyan |
+| WAITING | Awaiting user input (selection, confirmation); auto-expires after `waiting_expiry` seconds (default 10s) | Cyan |
 | PROCESSING | Busy handling a task | Yellow |
 | DONE | Task completed (auto-clears after 10s) | Blue |
 | SHUTTING_DOWN | Graceful shutdown in progress | Red |
+
+**Compound Signal Detection:** Status transitions use multiple signals beyond PTY output patterns:
+- **task_active flag**: Reference-counted; incremented when an A2A task is received, decremented on task finalization (completion or failure) and on send error. When all tasks complete the count reaches 0 and READY transitions are allowed. If the count is not cleared, `task_protection_timeout` (default 30s, configurable per profile) expires the protection automatically.
+- **File locks**: Agents holding file locks remain in PROCESSING even if PTY output looks idle.
+- **WAITING auto-expiry**: WAITING status auto-clears after `waiting_expiry` seconds (default 10s) to prevent stale states.
+
+**CURRENT column** in `synapse list` shows the current task preview with elapsed time (e.g., `Review code (2m 15s)`).
 
 **Verify before sending:** Run `synapse list` and confirm the target agent's Status column shows `READY`. Also check WORKING_DIR to ensure the target is in the same directory (to avoid the working directory mismatch warning):
 
 ```bash
 synapse list
 # Output (NAME column shows custom name if set, otherwise agent type):
-# NAME        TYPE    STATUS      PORT   WORKING_DIR
-# my-claude   claude  READY       8100   my-project      # <- has custom name
-# gemini      gemini  WAITING     8110   my-project      # <- no custom name, shows type
-# codex       codex   PROCESSING  8120   other-project   # <- different directory
+# NAME        TYPE    STATUS      PORT   CURRENT              WORKING_DIR
+# my-claude   claude  READY       8100   -                    my-project
+# gemini      gemini  PROCESSING  8110   Review code (1m 5s)  my-project
+# codex       codex   PROCESSING  8120   Fix tests (30s)      other-project
 ```
 
 **Note:** Non-TTY text output (e.g., when piped or used in scripts) includes the WORKING_DIR column, making it easy to check agent directories programmatically.
 
+**Detailed status:** Use `synapse status <target>` for a comprehensive view of a single agent, including uptime, current task elapsed time, recent messages, file locks, and task board assignments.
+
+```bash
+synapse status my-claude          # Human-readable output
+synapse status my-claude --json   # Machine-readable JSON
+```
+
 **Status meanings:**
 - `READY`: Safe to send messages
-- `WAITING`: Agent needs user input - use terminal jump (see below) to respond
+- `WAITING`: Agent needs user input - use terminal jump (see below) to respond (auto-clears after `waiting_expiry`)
 - `PROCESSING`: Busy, wait or use `--priority 5` for emergency interrupt
 - `DONE`: Recently completed, will return to READY shortly
 

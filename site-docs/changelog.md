@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.4
+
+- **Added**: `synapse status <target>` command — detailed single-agent view with uptime, current task elapsed time, recent messages, file locks, and task board assignments (supports `--json` output)
+- **Added**: Compound signal status detection — PROCESSING-to-READY transitions now check `task_active` flag and file lock state to prevent premature status changes
+- **Added**: WAITING detection improvements — fresh-output-only matching eliminates false positives from old buffer content; auto-expiry when pattern disappears from visible buffer
+- **Added**: Elapsed time display in CURRENT column of `synapse list` (e.g., `Review code (2m 15s)`)
+- **Fixed**: `synapse spawn` horizontal layout rendering
+
 ### v0.9.3
 
 - **Added**: Proactive Collaboration Framework — agents receive a decision framework at startup for when to delegate, ask for help, report progress, and share knowledge

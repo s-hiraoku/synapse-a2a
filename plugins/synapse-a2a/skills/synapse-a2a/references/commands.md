@@ -13,10 +13,14 @@ synapse list
 - Auto-refresh when agent status changes (via file watcher)
 - Color-coded status display:
   - READY = green (idle, waiting for input)
-  - WAITING = cyan (awaiting user input - selection, confirmation)
+  - WAITING = cyan (awaiting user input - selection, confirmation; auto-expires after `waiting_expiry`, default 10s)
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
   - SHUTTING_DOWN = red (graceful shutdown in progress)
+- **Compound signal detection**: Status uses multiple signals beyond PTY output:
+  - `task_active` flag: suppresses READY during active A2A tasks (`task_protection_timeout`, default 30s)
+  - File locks: agents holding locks remain PROCESSING even when PTY is idle
+  - WAITING auto-expiry: auto-clears after `waiting_expiry` seconds (default 10s)
 - Flicker-free updates
 - **Interactive row selection**: Press 1-9 or ↑/↓ to select an agent row and view full paths in a detail panel
 - **Terminal Jump**: Press `Enter` or `j` to jump directly to the selected agent's terminal
@@ -38,7 +42,7 @@ synapse list
 - **ID**: Full Runtime ID (e.g., `synapse-claude-8100`)
 - **ROLE**: Role description if set
 - **STATUS**: READY / WAITING / PROCESSING / DONE / SHUTTING_DOWN
-- **CURRENT**: Current task preview (truncated to 30 chars) - shows what agent is working on
+- **CURRENT**: Current task preview (truncated to 30 chars) with elapsed time (e.g., `Review code (2m 15s)`) - shows what agent is working on and for how long
 - **TRANSPORT**: Communication method during inter-agent messages
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
@@ -237,6 +241,34 @@ synapse rename my-claude --clear
 - Custom names are for **display and user-facing operations** (prompts, `synapse list` output)
 - Runtime ID (`synapse-claude-8100`) is used **internally** for registry and processing
 - Target resolution: name has highest priority when matching
+
+### Show Agent Status
+
+Show detailed status for a single agent, including agent info, current task with elapsed time, recent messages, file locks, and task board assignments.
+
+```bash
+# Human-readable output
+synapse status my-claude
+synapse status synapse-claude-8100
+synapse status claude              # Only if single instance
+
+# Machine-readable JSON
+synapse status my-claude --json
+```
+
+**Text output sections:**
+- **Agent Info**: ID, type, name, role, port, status, PID, working directory, uptime
+- **Current Task**: Task preview with elapsed time (e.g., `Review code (2m 15s)`)
+- **Recent Messages**: Last 5 messages from history (task ID, direction, sender, preview)
+- **File Locks**: Files currently locked by this agent (if File Safety is enabled)
+- **Task Board**: Tasks assigned to this agent (if Task Board is active)
+
+**JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use.
+
+**Use cases:**
+- Checking what an agent is currently working on and how long it has been running
+- Debugging why an agent is stuck in PROCESSING (check file locks, task board)
+- Reviewing recent communication history for a specific agent
 
 ### Saved Agent Definitions
 

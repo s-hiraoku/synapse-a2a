@@ -62,6 +62,16 @@ CONTEXT_RECENT_SIZE: int = 3000
 API_RESPONSE_CONTEXT_SIZE: int = 2000
 
 # ============================================================
+# Compound Signal Constants
+# ============================================================
+
+# Max seconds task_active flag suppresses READY transition
+TASK_PROTECTION_TIMEOUT: float = 30.0
+
+# Seconds after which WAITING state auto-expires
+WAITING_EXPIRY_SECONDS: float = 10.0
+
+# ============================================================
 # Terminal States
 # ============================================================
 
