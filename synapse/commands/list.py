@@ -139,10 +139,7 @@ class ListCommand:
                 "tty_device": info.get("tty_device"),
                 "zellij_pane_id": info.get("zellij_pane_id"),
                 "current_task_preview": info.get("current_task_preview"),
-                "transport": registry.get_transport_display(
-                    agent_id, retention_seconds=3.0
-                )
-                or "-",
+                "transport": registry.get_transport_display(agent_id) or "-",
             }
 
             if show_file_safety:

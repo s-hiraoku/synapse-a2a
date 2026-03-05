@@ -1639,7 +1639,8 @@ synapse spawn codex --name Helper --role "実装補助"
 | ファイル安全 | `synapse file-safety lock/unlock` | マルチエージェント環境での排他制御 |
 | ワークツリー | `synapse spawn --worktree` | ファイル編集の分離 |
 | ブロードキャスト | `synapse broadcast` | チーム全体への通知 |
-| 履歴 | `synapse history list/trace` | 過去の作業レビュー |
+| 履歴 | `synapse history list` | 過去の作業一覧表示 |
+| トレース | `synapse trace <task_id>` | タスク横断の追跡 |
 
 **必須クリーンアップ:**
 spawn したエージェントは、作業完了後に**必ず** kill してください:
