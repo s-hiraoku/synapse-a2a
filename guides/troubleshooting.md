@@ -337,14 +337,11 @@ claude
 **対処法**:
 
 ```yaml
-# idle_detection の strategy と timeout を調整
+# idle_detection の strategy, timeout, compound signal を一括設定
 idle_detection:
   strategy: "timeout"
   timeout: 1.0
-
-# compound signal のタイムアウトを短縮（デフォルト 30s）
-idle_detection:
-  task_protection_timeout: 15
+  task_protection_timeout: 15  # compound signal のタイムアウトを短縮（デフォルト 30s）
 ```
 
 ---

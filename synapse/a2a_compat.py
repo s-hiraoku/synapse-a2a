@@ -952,6 +952,10 @@ def create_a2a_router(
                 metadata = task.metadata or {}
                 resp_mode = _resolve_response_mode(metadata)
                 if resp_mode == "silent":
+                    # Silent tasks still need cleanup (#314)
+                    context = controller.get_context()
+                    recent_ctx = context[-CONTEXT_RECENT_SIZE:]
+                    _finalize_working_task(tid, recent_ctx)
                     continue
                 # Guard: only complete if still working
                 current = task_store.get(tid)
@@ -1072,49 +1076,51 @@ def create_a2a_router(
         # Compound signal: mark task active to suppress premature READY (#314)
         controller.set_task_active()
 
-        # Update current task preview in registry (for synapse list display)
-        # Note: update_current_task handles truncation internally
-        if registry and agent_id:
-            registry.update_current_task(agent_id, text_content)
-
-        # Priority 5 = interrupt first
-        if priority >= 5:
-            controller.interrupt()
-
-        # Push sender info to reply stack for simplified reply routing
-        # Store when response_mode is "wait" or "notify" (sender expects a reply)
-        metadata = request.metadata or {}
-        response_mode = _resolve_response_mode(metadata)
-        sender_info = _extract_sender_info(request.metadata)
-        if (
-            response_mode in ("wait", "notify")
-            and sender_info.has_reply_target()
-            and sender_info.sender_id
-        ):
-            reply_stack = get_reply_stack()
-            reply_entry = sender_info.to_reply_stack_entry()
-            reply_stack.set(sender_info.sender_id, reply_entry)
-            if agent_id:
-                try:
-                    await asyncio.to_thread(save_reply_target, agent_id, reply_entry)
-                except Exception as e:
-                    logger.warning(
-                        "Failed to persist reply target for %s: %s", agent_id, e
-                    )
-
-        # Prepare message for PTY (may store to file if too long)
-        pty_text, used_file = _prepare_pty_message(
-            get_long_message_store(),
-            task.id,
-            pty_payload_text,
-            response_mode,
-            sender_id=sender_info.sender_id,
-            sender_name=sender_info.sender_name,
-        )
-
-        # Send to PTY with A2A prefix
-        # For file references, sender prefix is already in pty_text
         try:
+            # Update current task preview in registry (for synapse list display)
+            # Note: update_current_task handles truncation internally
+            if registry and agent_id:
+                registry.update_current_task(agent_id, text_content)
+
+            # Priority 5 = interrupt first
+            if priority >= 5:
+                controller.interrupt()
+
+            # Push sender info to reply stack for simplified reply routing
+            # Store when response_mode is "wait" or "notify" (sender expects a reply)
+            metadata = request.metadata or {}
+            response_mode = _resolve_response_mode(metadata)
+            sender_info = _extract_sender_info(request.metadata)
+            if (
+                response_mode in ("wait", "notify")
+                and sender_info.has_reply_target()
+                and sender_info.sender_id
+            ):
+                reply_stack = get_reply_stack()
+                reply_entry = sender_info.to_reply_stack_entry()
+                reply_stack.set(sender_info.sender_id, reply_entry)
+                if agent_id:
+                    try:
+                        await asyncio.to_thread(
+                            save_reply_target, agent_id, reply_entry
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to persist reply target for %s: %s", agent_id, e
+                        )
+
+            # Prepare message for PTY (may store to file if too long)
+            pty_text, used_file = _prepare_pty_message(
+                get_long_message_store(),
+                task.id,
+                pty_payload_text,
+                response_mode,
+                sender_id=sender_info.sender_id,
+                sender_name=sender_info.sender_name,
+            )
+
+            # Send to PTY with A2A prefix
+            # For file references, sender prefix is already in pty_text
             prefixed_content = format_a2a_message(
                 pty_text,
                 response_mode=response_mode if not used_file else "silent",
@@ -1123,7 +1129,7 @@ def create_a2a_router(
             )
             controller.write(prefixed_content, submit_seq=submit_seq)
         except Exception as e:
-            controller.clear_task_active()  # Release protection on write failure
+            controller.clear_task_active()  # Release on any preparation/send failure
             task_store.update_status(task.id, "failed")
             msg = f"Failed to send: {e!s}"
             raise HTTPException(status_code=500, detail=msg) from e

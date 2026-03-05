@@ -225,11 +225,13 @@ class TerminalController:
         return elapsed < self._task_protection_timeout
 
     def _has_file_locks(self) -> bool:
-        """Check if this agent holds any file locks. Lock must be held."""
-        if self._file_safety_manager is None:
+        """Check if this agent holds any active file locks. Lock must be held."""
+        if self._file_safety_manager is None or not self.agent_id:
             return False
         try:
-            locks = self._file_safety_manager.list_locks(agent_name=self.agent_id)
+            locks = self._file_safety_manager.list_locks(
+                agent_name=self.agent_id, include_stale=False
+            )
             return bool(locks)
         except Exception:
             return False

@@ -1488,7 +1488,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 ### WAITING Detection
 
-WAITING detection is re-enabled in claude, codex, and gemini profiles. The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check.
+WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check.
 
 Detects agents waiting for user input (selection UI, Y/n prompts) using regex patterns:
 
