@@ -60,12 +60,33 @@ STEP 2: Collaboration Decision Framework
   - When you make an architectural decision
   - When you find bugs or pitfalls others should avoid
 
-STEP 3: Before Large Tasks
-  If the task takes >10 minutes OR modifies >3 files:
+STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
+  For tasks with 3+ phases OR 10+ file changes, you MUST:
   1. Run `synapse list` to check available agents
   2. Run `synapse memory search "<topic>"` to check shared knowledge
-  3. If no suitable agent exists, spawn a specialist with `synapse spawn`
-  4. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
+  3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
+  4. Build an Agent Assignment plan (see below) before writing any code
+  5. If no suitable agent exists, spawn a specialist with `synapse spawn`
+  6. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
+
+  Agent Assignment Plan Template:
+  Before starting multi-phase work, create a table like this:
+
+  | Phase | Agent | Rationale |
+  |-------|-------|-----------|
+  | Phase 1 tests | Codex | Test writing strength |
+  | Phase 1 impl | Claude | Complex refactoring |
+  | Phase 2 | Gemini | Independent feature, different model |
+  | Review | Codex | Fresh perspective from different model |
+
+  Then register each phase on the task board:
+  ```
+  synapse tasks create "Phase 1: ..." -d "..." --priority 4
+  synapse tasks assign <id> <agent>
+  ```
+
+  DO NOT skip this step. Single-agent execution of multi-phase plans leads to
+  slower delivery, no parallel work, and missed review opportunities.
 
 STEP 4: Manager Awareness
   - If a manager/coordinator agent exists (check ROLE column), consult them before

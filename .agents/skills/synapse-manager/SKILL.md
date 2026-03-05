@@ -19,6 +19,9 @@ Orchestrate multi-agent work with structured delegation, monitoring, and quality
 - Verifying agent outputs (tests, file changes, integration)
 - Sending targeted feedback with error details and fix guidance
 - Orchestrating cross-review between agents
+- Implementing a multi-phase plan (3+ phases or 10+ file changes)
+- Executing an implementation plan with multiple deliverables
+- Planning agent assignment for multi-file changes across a codebase
 
 ## Workflow (7 Steps)
 
