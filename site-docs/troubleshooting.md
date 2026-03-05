@@ -775,7 +775,7 @@ rm .synapse/memory.db
 rm .synapse/task_board.db
 rm .synapse/file_safety.db
 
-# Re-initialize
+# Re-initialize (merge strategy — only updates template files, preserves other user data)
 synapse init --scope project
 ```
 

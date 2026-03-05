@@ -45,7 +45,7 @@ Synapse A2A の設定ファイルについての詳細ガイドです。
 
 ### synapse init
 
-`.synapse/` ディレクトリを対話的に作成します。テンプレートから全ファイルをコピーします。
+`.synapse/` ディレクトリを対話的に作成します。テンプレートファイルをマージ方式でコピーします。
 
 ```bash
 $ synapse init
@@ -68,13 +68,13 @@ $ synapse init
 | `learning.md` | Learning Mode の指示（構造化されたプロンプト改善・学習フィードバック） |
 | `shared-memory.md` | Shared Memory の指示（エージェント間の知識共有コマンド） |
 
-既に `.synapse/` ディレクトリが存在する場合は、上書き確認のプロンプトが表示されます：
+既に `.synapse/` ディレクトリが存在する場合は、マージ方式で更新されます。テンプレートファイル（上記のファイル）のみが上書きされ、ユーザーが生成したデータ（`agents/`、`sessions/`、`workflows/`、`worktrees/`、SQLite データベースなど）は保持されます：
 
 ```bash
 $ synapse init
 
-/path/to/.synapse already exists. Overwrite? (y/N): y
-✔ Created /path/to/.synapse
+/path/to/.synapse already exists. Merge template files? (y/N): y
+✔ Updated /path/to/.synapse (user data preserved)
 ```
 
 ### synapse reset
