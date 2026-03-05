@@ -484,8 +484,8 @@ When spawning agents with full autonomy, pass the appropriate flag after `--`:
 
 | Agent | Ports |
 |-------|-------|
-| Claude | 8100--8109 |
-| Gemini | 8110--8119 |
-| Codex | 8120--8129 |
-| OpenCode | 8130--8139 |
-| Copilot | 8140--8149 |
+| Claude | 8100-8109 |
+| Gemini | 8110-8119 |
+| Codex | 8120-8129 |
+| OpenCode | 8130-8139 |
+| Copilot | 8140-8149 |

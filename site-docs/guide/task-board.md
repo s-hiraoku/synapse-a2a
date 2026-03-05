@@ -497,7 +497,7 @@ curl -X POST http://localhost:8100/tasks/board \
 ### Claim Task
 
 ```bash
-curl -X POST http://localhost:8100/tasks/board/<task_id>/claim \
+curl -X POST http://localhost:8100/tasks/board/{task_id}/claim \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "synapse-claude-8100"}'
 ```
@@ -505,7 +505,7 @@ curl -X POST http://localhost:8100/tasks/board/<task_id>/claim \
 ### Complete Task
 
 ```bash
-curl -X POST http://localhost:8100/tasks/board/<task_id>/complete \
+curl -X POST http://localhost:8100/tasks/board/{task_id}/complete \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "synapse-claude-8100"}'
 ```
@@ -514,10 +514,10 @@ curl -X POST http://localhost:8100/tasks/board/<task_id>/complete \
 
 ```bash
 # Approve a plan
-curl -X POST http://localhost:8100/tasks/<task_id>/approve
+curl -X POST http://localhost:8100/tasks/{task_id}/approve
 
 # Reject a plan with reason
-curl -X POST http://localhost:8100/tasks/<task_id>/reject \
+curl -X POST http://localhost:8100/tasks/{task_id}/reject \
   -H "Content-Type: application/json" \
   -d '{"reason": "Use a different approach"}'
 ```

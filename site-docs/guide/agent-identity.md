@@ -26,7 +26,7 @@ For example:
 | Gemini CLI | 8110 | `synapse-gemini-8110` |
 | Codex CLI | 8120 | `synapse-codex-8120` |
 
-The Runtime ID is guaranteed to be unique on a single machine because the `synapse-` prefix prevents collisions with file references and the port number is never reused.
+The Runtime ID is guaranteed to be unique among simultaneously running instances on a single machine. The `synapse-` prefix prevents collisions with file references, and the port number ensures no two active agents share the same ID. Note that ports can be reused over time once an agent shuts down.
 
 ## Custom Names and Roles
 
@@ -186,7 +186,7 @@ Routing rules:
 ```
 
 !!! info "Readiness Gate"
-    The identity instruction must be sent before the agent accepts incoming tasks. Until it completes, `/tasks/send` returns HTTP 503 (Service Unavailable) with a `Retry-After: 5` header. Priority-5 (emergency) messages and replies (`in_reply_to`) bypass the gate. The timeout is 30 seconds.
+    The identity instruction must be sent before the agent accepts incoming tasks. Until it completes, both `/tasks/send` and `/tasks/send-priority` return HTTP 503 (Service Unavailable) with a `Retry-After: 5` header. Priority-5 (emergency) messages and replies (`in_reply_to`) bypass the gate. The timeout is 30 seconds.
 
 ### Skill Set in Identity
 

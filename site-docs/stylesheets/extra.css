@@ -262,7 +262,7 @@
 }
 
 .md-typeset .feature-card code {
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .md-typeset .feature-card pre code {

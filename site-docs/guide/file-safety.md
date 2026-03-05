@@ -36,7 +36,7 @@ synapse file-safety locks --agent claude
 ```bash
 synapse file-safety lock src/auth.py claude \
   --intent "Refactoring authentication" \
-  --duration 300    # 5 minutes (default: auto-expiry)
+  --duration 300    # 5 minutes (default: 300 seconds)
 ```
 
 !!! danger "Always Lock Before Editing"
@@ -138,7 +138,10 @@ from synapse.file_safety import FileSafetyManager, ChangeType, LockStatus
 manager = FileSafetyManager.from_env()
 
 # Acquire lock
-result = manager.acquire_lock("src/auth.py", "claude", intent="Refactoring")
+result = manager.acquire_lock(
+    "src/auth.py", agent_id="synapse-claude-8100", agent_type="claude",
+    intent="Refactoring"
+)
 if result["status"] == LockStatus.ACQUIRED:
     # Edit file...
     manager.record_modification(

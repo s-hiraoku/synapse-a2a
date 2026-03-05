@@ -201,6 +201,13 @@ async def deliver_webhook(
                         f"Webhook delivered: {webhook.url} ({event.event_type})"
                     )
                     break
+                elif 400 <= response.status_code < 500:
+                    # 4xx client errors are permanent — do not retry
+                    logger.warning(
+                        f"Webhook permanently failed (4xx): "
+                        f"{webhook.url} status={response.status_code}"
+                    )
+                    break
                 else:
                     logger.warning(
                         f"Webhook failed: {webhook.url} status={response.status_code}"

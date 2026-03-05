@@ -413,8 +413,8 @@ Failed deliveries are retried with exponential backoff:
 | Attempt | Delay | Cumulative |
 |:-------:|:-----:|:----------:|
 | 1 | Immediate | 0s |
-| 2 | 30 seconds | 30s |
-| 3 | 5 minutes | 5m 30s |
+| 2 | 1 second | 1s |
+| 3 | 2 seconds | 3s |
 
 !!! note "Retry Conditions"
     Retries are triggered when:

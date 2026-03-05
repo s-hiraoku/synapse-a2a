@@ -70,10 +70,10 @@ synapse claude --name reviewer --role "code reviewer"
 synapse gemini --name researcher --role "research specialist"
 ```
 
-With `team start`, you can use the extended spec format (`profile:Name:skill-set:role`):
+With `team start`, you can use the extended spec format (`profile:Name:role:skill-set`):
 
 ```bash
-synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher
+synapse team start claude:Reviewer:reviewer:code-review gemini:Searcher
 ```
 
 ### Verifying Agents Are Running
