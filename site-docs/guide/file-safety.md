@@ -171,13 +171,13 @@ sequenceDiagram
     participant FS as File Safety
     participant Gemini
 
-    Claude->>FS: acquire_lock("src/api.py", "claude")
+    Claude->>FS: acquire_lock("src/api.py", agent_id="synapse-claude-8100")
     FS-->>Claude: ACQUIRED
-    Gemini->>FS: acquire_lock("src/api.py", "gemini")
-    FS-->>Gemini: ALREADY_LOCKED (holder: claude)
+    Gemini->>FS: acquire_lock("src/api.py", agent_id="synapse-gemini-8110")
+    FS-->>Gemini: ALREADY_LOCKED (holder: synapse-claude-8100)
     Note over Gemini: Waits or works on other files
     Claude->>FS: release_lock("src/api.py", "claude")
-    Gemini->>FS: acquire_lock("src/api.py", "gemini")
+    Gemini->>FS: acquire_lock("src/api.py", agent_id="synapse-gemini-8110")
     FS-->>Gemini: ACQUIRED
 ```
 

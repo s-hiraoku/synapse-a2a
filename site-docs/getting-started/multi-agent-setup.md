@@ -174,6 +174,7 @@ synapse broadcast "Status check — what are you working on?"
 | **PROCESSING** (yellow) | Actively working |
 | **WAITING** (cyan) | Showing a selection UI, waiting for a user choice |
 | **DONE** (blue) | Task completed (auto-transitions to READY after 10 seconds) |
+| **SHUTTING_DOWN** (red) | Graceful shutdown in progress, not accepting new work |
 
 ### Task History
 

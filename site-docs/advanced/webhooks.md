@@ -107,10 +107,11 @@ All webhook deliveries use the same envelope format:
 ```json
 {
   "event": "task.completed",
-  "task_id": "abc-123",
-  "agent_id": "synapse-claude-8100",
-  "timestamp": "2026-02-26T10:30:00Z",
+  "event_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+  "timestamp": "2026-02-26T10:30:00+00:00",
   "data": {
+    "task_id": "abc-123",
+    "agent_id": "synapse-claude-8100",
     "subject": "Code review",
     "status": "completed"
   }
@@ -204,7 +205,10 @@ X-Synapse-Signature: sha256=<hex-digest>
         .createHmac("sha256", secret)
         .update(payload)
         .digest("hex");
-      return signature === `sha256=${expected}`;
+      const expectedBuf = Buffer.from(`sha256=${expected}`);
+      const signatureBuf = Buffer.from(signature);
+      if (expectedBuf.length !== signatureBuf.length) return false;
+      return crypto.timingSafeEqual(expectedBuf, signatureBuf);
     }
     ```
 

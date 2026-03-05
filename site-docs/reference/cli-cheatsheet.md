@@ -174,8 +174,8 @@ synapse team start claude gemini --all-new
 # With worktree isolation for every agent
 synapse team start claude gemini --worktree
 
-# Extended spec  profile:Name:skill-set:role
-synapse team start claude:Reviewer:code-review:reviewer gemini:Searcher
+# Extended spec  profile:Name:role:skill-set
+synapse team start claude:Reviewer:reviewer:code-review gemini:Searcher
 ```
 
 ---

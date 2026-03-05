@@ -258,7 +258,6 @@
 /* Prevent code block overflow on all screen sizes */
 .md-typeset .feature-card pre {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .md-typeset .feature-card code {
@@ -274,7 +273,6 @@
 .md-typeset .mermaid {
   max-width: 100%;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Bottom CTA buttons */
