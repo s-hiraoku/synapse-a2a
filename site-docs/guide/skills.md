@@ -139,13 +139,13 @@ Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four
 
 | Skill | Description |
 |-------|-------------|
-| **synapse-a2a** | Core A2A communication — commands, API endpoints, file safety, task board usage |
-| **synapse-manager** | Multi-agent management workflow — task delegation, progress monitoring, quality verification with regression testing, feedback delivery, and cross-review orchestration |
+| **synapse-a2a** | Core A2A communication — commands, API endpoints, file safety, task board, collaboration patterns, and active feature usage guidance |
+| **synapse-manager** | 7-step multi-agent orchestration (Plan, Delegate, Monitor, Approve, Verify, Feedback, Review) with a Worker Agent Guide for autonomous task execution |
 | **synapse-reinst** | Re-inject initial instructions after `/clear` — restores agent identity using preserved `SYNAPSE_*` env vars |
 | **doc-organizer** | Documentation audit, restructure, and consolidation — inventory docs, detect staleness, deduplicate content, normalize terminology, and improve navigation |
 
 !!! tip "synapse-manager"
-    The `synapse-manager` skill teaches an agent a structured 5-step workflow: **Delegate** (spawn agents and assign subtasks), **Monitor** (check status and artifacts), **Verify** (run tests with regression triage), **Feedback** (send actionable fix instructions), and **Review** (cross-review and cleanup). Activate it via the `manager` skill set or deploy it directly.
+    The `synapse-manager` skill teaches an agent a structured 7-step workflow: **Plan & Setup** (assess agents and fill gaps), **Delegate** (task board + detailed instructions), **Monitor** (status and artifacts), **Approve** (gate execution with plan review), **Verify** (tests with regression triage), **Feedback** (actionable fix instructions), and **Review** (cross-review and cleanup). It also includes a **Worker Agent Guide** that teaches worker agents autonomous task execution -- receiving tasks, reporting progress, delegating subtasks, and cleaning up spawned agents. Activate it via the `manager` skill set or deploy it directly.
 
 !!! tip "synapse-reinst"
     When an agent runs `/clear` or loses context, it forgets its Synapse instructions.

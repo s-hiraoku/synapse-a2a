@@ -309,6 +309,37 @@ synapse workflow run review-and-test
 
 See [Workflows](workflow.md) for details on creating, managing, and running saved workflows.
 
+## Collaboration Patterns
+
+Beyond explicit messaging, the synapse-a2a skill teaches agents structured collaboration patterns for common situations.
+
+### When You Receive a Task
+
+1. If the message contains `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
+2. Execute the task
+3. Report completion: `synapse send <sender> "Done: <summary>" --silent`
+
+### When You Need Help
+
+1. Run `synapse list` to check available agents (prefer same `WORKING_DIR`)
+2. Run `synapse memory search "<topic>"` to check shared knowledge first
+3. If no suitable agent exists, spawn one: `synapse spawn <profile> --name <name> --role "<role>"`
+4. Send the request: `synapse send <target> "<specific request>" --wait`
+
+!!! tip "Cross-Model Preference"
+    When spawning or delegating, prefer a **different model type** than your own. Different LLMs bring diverse strengths, and distributing token usage across providers avoids rate limits on any single model.
+
+### Worker Autonomy
+
+Even non-manager agents can and should proactively collaborate:
+
+- **Spawn helpers** for independent subtasks
+- **Request reviews** from other agents (different models catch different issues)
+- **Delegate out-of-scope work** instead of doing everything yourself
+- **Always clean up** -- kill agents you spawn when their work is done: `synapse kill <name> -f`
+
+For the full collaboration decision framework, see [Proactive Collaboration](cross-agent-scenarios.md#proactive-collaboration-framework) in Cross-Agent Scenarios.
+
 ## A2A Flow Configuration
 
 Configure default communication behavior in settings:

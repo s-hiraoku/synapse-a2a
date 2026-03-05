@@ -618,6 +618,71 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 
 ---
 
+## Proactive Collaboration Framework
+
+Effective multi-agent work requires more than just sending messages. At the start of every task, each agent should evaluate whether to collaborate or work solo.
+
+### Collaboration Decision Framework
+
+| Situation | Action | Command Pattern |
+|-----------|--------|-----------------|
+| Small task within your expertise | Do it yourself | -- |
+| Task outside your role | Delegate to a matching agent | `synapse send <target> "..." --silent` |
+| Can run in parallel with your work | Delegate and continue | `synapse send <target> "..." --notify` |
+| You are stuck or unsure | Ask for help | `synapse send <target> "..." --wait` |
+| Completed a milestone | Report progress | `synapse send <requester> "Done: ..." --silent` |
+| Discovered a pattern or pitfall | Share knowledge | `synapse memory save <key> "..." --tags ...` |
+
+### Cross-Model Spawning
+
+When spawning or delegating, prefer a **different model type** than your own. This provides two benefits:
+
+1. **Diverse perspectives** -- Different LLMs have different strengths and blind spots. Claude excels at reasoning, Gemini at search and analysis, Codex at focused implementation.
+2. **Rate limit distribution** -- Spreading token usage across providers avoids hitting rate limits on any single model. If one model is rate-limited, delegate to another type.
+
+```bash
+# Claude spawning a Gemini helper (cross-model)
+synapse spawn gemini --name Reviewer --role "code reviewer"
+
+# Gemini spawning a Codex helper (cross-model)
+synapse spawn codex -w --name Impl --role "implementation"
+```
+
+### Worker Autonomy
+
+Worker agents are not passive -- they can and should proactively collaborate:
+
+- **Spawn helpers** for independent subtasks (prefer different model types)
+- **Request reviews** from other agents (different models catch different issues)
+- **Delegate out-of-scope work** instead of trying to handle everything
+- **Share findings** via `synapse memory save` so the team benefits from your discoveries
+- **Clean up after yourself** -- always kill agents you spawn when done: `synapse kill <name> -f`
+
+```bash
+# A worker agent spawning its own helper
+synapse spawn gemini --name Helper --role "test writer"
+synapse send Helper "Write unit tests for auth.py" --silent
+
+# After the helper finishes
+synapse kill Helper -f
+```
+
+### Use Synapse Features Actively
+
+Beyond `send` and `reply`, agents should use the full set of coordination tools:
+
+| Feature | When to Use | Command |
+|---------|-------------|---------|
+| **Task Board** | Track structured work | `synapse tasks create/assign/complete/fail` |
+| **Shared Memory** | Save discoveries for the team | `synapse memory save <key> "..." --notify` |
+| **File Safety** | Lock files before editing | `synapse file-safety lock <file> $SYNAPSE_AGENT_ID` |
+| **Worktrees** | Parallel edits without conflicts | `synapse spawn <profile> --worktree` |
+| **Broadcast** | Team-wide announcements | `synapse broadcast "..." --priority 4` |
+| **History** | Review past work | `synapse history list --agent <name>` |
+
+!!! tip "Mandatory Cleanup"
+    Always kill agents you spawn after their work is complete. Orphaned agents waste memory (~12MB each), consume port slots (10 per type), and clutter `synapse list`.
+
 ## Tips for Effective Cross-Agent Collaboration
 
 | Tip | Details |
@@ -631,6 +696,8 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 | **Use worktrees for parallel edits** | `--worktree` prevents file conflicts when agents modify the same files |
 | **Broadcast for team coordination** | `synapse broadcast` reaches all agents at once for status checks or announcements |
 | **Automate with workflows** | `synapse workflow run` replays saved multi-step sequences so you don't re-type recurring pipelines |
+| **Spawn cross-model** | Prefer different model types when spawning to diversify perspectives and distribute rate limits |
+| **Clean up agents** | Always `synapse kill <name> -f` agents you spawn after their work is done |
 
 ## Related Pages
 

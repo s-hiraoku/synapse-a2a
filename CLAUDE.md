@@ -819,10 +819,65 @@ synapse send gemini "Status update?" --priority 4 --wait
 | 4 | Urgent follow-ups |
 | 5 | Critical/emergency tasks |
 
+### Proactive Collaboration
+
+Agents are configured to proactively evaluate collaboration opportunities before starting any task. The default agent instructions (`.synapse/default.md`) include a structured decision framework:
+
+**Collaboration Decision Framework:**
+
+| Situation | Action |
+|-----------|--------|
+| Small task within your role | Do it yourself |
+| Task outside your role, READY agent exists | Delegate with `synapse send --notify` or `--silent` |
+| No suitable agent exists | Spawn one with `synapse spawn` |
+| Stuck or need expertise | Ask for help with `synapse send --wait` |
+| Completed a milestone | Report progress with `synapse send --silent` |
+| Discovered a pattern/convention | Share via `synapse memory save` |
+
+**Cross-Model Spawning Preference:**
+When spawning or delegating, prefer a DIFFERENT model type (e.g., Claude spawns Gemini, Gemini spawns Codex). This provides:
+1. Diverse model strengths for better quality
+2. Distributed token usage across providers to avoid rate limits
+3. Fresh perspectives for code review and problem solving
+
+**Worker Autonomy:**
+Worker agents (not just managers) can also spawn helpers and delegate subtasks:
+```bash
+# Worker spawns a helper for an independent subtask
+synapse spawn gemini --worktree --name Helper --role "test writer"
+synapse send Helper "Write tests for auth.py" --silent
+# After completion:
+synapse kill Helper -f
+```
+
+**Mandatory Cleanup:**
+Any agent that spawns another agent MUST clean up after the work is done:
+```bash
+synapse kill <spawned-agent-name> -f
+synapse list  # Verify cleanup
+```
+
+**Active Feature Usage:**
+Agents are instructed to actively use all Synapse coordination features:
+- **Task Board**: `synapse tasks create/assign/complete/fail` for transparent work tracking
+- **Shared Memory**: `synapse memory save/search` for collective knowledge building
+- **File Safety**: `synapse file-safety lock/unlock` before editing in multi-agent setups
+- **Worktree**: `synapse spawn --worktree` for file isolation when multiple agents edit
+- **Broadcast**: `synapse broadcast` for team-wide announcements
+- **History**: `synapse history list/trace` to review past work
+
+**Manager Awareness:**
+Managers check existing agents with `synapse list` BEFORE spawning new ones. Assigning tasks to existing READY agents is more efficient than spawning (avoids startup overhead, instruction injection, and readiness wait).
+
 ### Best Practices
 
 - Always check `synapse list` before sending tasks to ensure agents are READY
+- Prefer existing READY agents over spawning new ones (less overhead)
+- When spawning, prefer a different model type to distribute load and avoid rate limits
 - Use `git log` and `git status` to verify completed work
 - Track task IDs from responses for follow-up
 - Use `--priority 4-5` for urgent status checks
 - Monitor `synapse list` during active orchestration (auto-updates on registry changes)
+- ALWAYS kill agents you spawn after their work is complete: `synapse kill <name> -f`
+- Use `synapse memory save` to share discoveries and patterns across agents
+- Use `synapse tasks` to make work visible to the whole team

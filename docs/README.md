@@ -70,6 +70,16 @@ For user guides, see the [`/guides`](../guides/) directory.
   - CLI コマンドと Python API の詳細リファレンス
   - ワークフロー例とトラブルシューティング
 
+### コラボレーション設計
+
+- **プロアクティブコラボレーション** — エージェントがタスク開始前にコラボレーションの機会を自動評価
+  - コラボレーション判断フレームワーク（自分で実行/委任/ヘルプ要請/進捗報告/知識共有）
+  - クロスモデル生成推奨（異なるモデルタイプで品質向上 + レート制限分散）
+  - ワーカーエージェントの自律性（マネージャーだけでなくワーカーも spawn/委任可能）
+  - 必須クリーンアップ（spawn したエージェントは完了後に必ず kill）
+  - 設定ファイル: `.synapse/default.md`, `synapse/templates/.synapse/default.md`
+  - スキル: `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md`, `plugins/synapse-a2a/skills/synapse-manager/SKILL.md`
+
 - `../PHASE2_HANDOFF.md` - **セッション履歴機能 Phase 2 実装完了レポート**
   - キーワード検索、統計情報、エクスポート、クリーンアップ機能
   - テスト覆率: 56 個のテストケース（全て合格）
