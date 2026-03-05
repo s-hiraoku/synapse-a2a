@@ -310,11 +310,15 @@ class TestWaitingFreshOutput:
 
     def test_waiting_detection_enabled_in_claude(self):
         """Claude profile should have WAITING detection enabled."""
+        from pathlib import Path
+
         import yaml
 
         profile_path = (
-            "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a"
-            "/synapse/profiles/claude.yaml"
+            Path(__file__).resolve().parent.parent
+            / "synapse"
+            / "profiles"
+            / "claude.yaml"
         )
         with open(profile_path) as f:
             profile = yaml.safe_load(f)
