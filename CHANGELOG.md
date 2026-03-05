@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-03-06
+
+### Changed
+
+- **Mandatory Collaboration Gate** (#335): agents MUST evaluate collaboration for tasks with 3+ phases or 10+ file changes, including Agent Assignment Plan template
+- **synapse-manager skill triggers expanded** (#335): now triggers on implementation plans, multi-phase work, and multi-file changes
+
+### Documentation
+
+- Synced Mandatory Collaboration Gate across CLAUDE.md, README.md, and site-docs guides
+- Added Agent Assignment Plan Template to cross-agent-scenarios guide
+
+### Tests
+
+- Added `tests/test_proactive_collaboration.py` with 15 tests covering all acceptance criteria
+
 ## [0.9.5] - 2026-03-06
 
 ### Fixed

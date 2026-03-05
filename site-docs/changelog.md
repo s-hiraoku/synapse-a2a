@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.6
+
+- **Changed**: Mandatory Collaboration Gate (#335) — agents MUST evaluate collaboration for tasks with 3+ phases or 10+ file changes, with Agent Assignment Plan template
+- **Changed**: synapse-manager skill triggers expanded (#335) — now covers implementation plans, multi-phase work, and multi-file changes
+- **Docs**: Synced collaboration gate across CLAUDE.md, README.md, and site-docs guides
+
 ### v0.9.5
 
 - **Fixed**: Spawn pane layout (#336) — `synapse spawn` creates side-by-side panes instead of top-bottom
