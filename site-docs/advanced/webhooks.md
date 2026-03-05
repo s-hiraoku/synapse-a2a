@@ -120,41 +120,40 @@ All webhook deliveries use the same envelope format:
 
 ### Payload Schemas by Event Type
 
-#### `task.created`
+The envelope always contains `event`, `event_id`, `timestamp`, and `data`. The contents of `data` vary by event type and depend on what the caller passes to `dispatch_event`. Fields marked as optional may not be present in every delivery.
+
+!!! note "task.created"
+    The `task.created` event is reserved for future use and is **not currently emitted** by the implementation. The schema below is provisional.
+
+#### `task.created` (reserved)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | `string` | Always `"task.created"` |
-| `task_id` | `string` | UUID of the created task |
-| `agent_id` | `string` | Runtime ID of the receiving agent |
+| `event_id` | `string` | UUID of this webhook delivery |
 | `timestamp` | `string` | ISO 8601 timestamp |
-| `data.subject` | `string` | Task subject / first message text |
-| `data.status` | `string` | Always `"submitted"` |
-| `data.sender` | `string` | Agent ID or name of the sender |
+| `data.task_id` | `string` | UUID of the created task |
+| `data.subject` | `string` | Task subject / first message text (optional) |
+| `data.status` | `string` | Task status (optional) |
+| `data.sender` | `string` | Agent ID or name of the sender (optional) |
 
 #### `task.completed`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | `string` | Always `"task.completed"` |
-| `task_id` | `string` | UUID of the completed task |
-| `agent_id` | `string` | Runtime ID of the agent |
+| `event_id` | `string` | UUID of this webhook delivery |
 | `timestamp` | `string` | ISO 8601 timestamp |
-| `data.subject` | `string` | Task subject |
-| `data.status` | `string` | Always `"completed"` |
-| `data.artifacts` | `array` | List of output artifacts (code, text, files) |
-| `data.duration_ms` | `number` | Task duration in milliseconds |
+| `data.task_id` | `string` | UUID of the completed task |
 
 #### `task.failed`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | `string` | Always `"task.failed"` |
-| `task_id` | `string` | UUID of the failed task |
-| `agent_id` | `string` | Runtime ID of the agent |
+| `event_id` | `string` | UUID of this webhook delivery |
 | `timestamp` | `string` | ISO 8601 timestamp |
-| `data.subject` | `string` | Task subject |
-| `data.status` | `string` | Always `"failed"` |
+| `data.task_id` | `string` | UUID of the failed task |
 | `data.error.code` | `string` | Error code (e.g., `PERMISSION_DENIED`, `TIMEOUT`) |
 | `data.error.message` | `string` | Human-readable error message |
 
@@ -163,11 +162,9 @@ All webhook deliveries use the same envelope format:
 | Field | Type | Description |
 |-------|------|-------------|
 | `event` | `string` | Always `"task.canceled"` |
-| `task_id` | `string` | UUID of the canceled task |
-| `agent_id` | `string` | Runtime ID of the agent |
+| `event_id` | `string` | UUID of this webhook delivery |
 | `timestamp` | `string` | ISO 8601 timestamp |
-| `data.subject` | `string` | Task subject |
-| `data.status` | `string` | Always `"canceled"` |
+| `data.task_id` | `string` | UUID of the canceled task |
 
 ---
 
@@ -425,11 +422,11 @@ Failed deliveries are retried with exponential backoff:
 !!! note "Retry Conditions"
     Retries are triggered when:
 
-    - The target server returns a 5xx status code
-    - The connection times out
-    - The connection is refused
+    - The target server returns any non-2xx response **except 4xx** (e.g., 3xx redirects and 5xx server errors are retried)
+    - The connection times out (`httpx.TimeoutException`)
+    - The connection is refused or fails (`httpx.RequestError`)
 
-    A 4xx response (e.g., 400, 401, 404) is **not** retried, as it indicates a client-side issue.
+    A 4xx response (e.g., 400, 401, 404) is treated as a **permanent failure** and is not retried, as it indicates a client-side issue.
 
 ### Configuration
 

@@ -177,7 +177,7 @@ sequenceDiagram
     Gemini->>FS: acquire_lock("src/api.py", agent_id="synapse-gemini-8110")
     FS-->>Gemini: ALREADY_LOCKED (holder: synapse-claude-8100)
     Note over Gemini: Waits or works on other files
-    Claude->>FS: release_lock("src/api.py", "claude")
+    Claude->>FS: release_lock("src/api.py", "synapse-claude-8100")
     Gemini->>FS: acquire_lock("src/api.py", agent_id="synapse-gemini-8110")
     FS-->>Gemini: ACQUIRED
 ```
