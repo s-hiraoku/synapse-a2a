@@ -1073,11 +1073,9 @@ def create_a2a_router(
         controller.set_task_active()
 
         # Update current task preview in registry (for synapse list display)
+        # Note: update_current_task handles truncation internally
         if registry and agent_id:
-            preview = (
-                text_content[:30] + "..." if len(text_content) > 30 else text_content
-            )
-            registry.update_current_task(agent_id, preview)
+            registry.update_current_task(agent_id, text_content)
 
         # Priority 5 = interrupt first
         if priority >= 5:

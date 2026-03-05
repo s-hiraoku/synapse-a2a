@@ -164,6 +164,24 @@ stateDiagram-v2
     SHUTTING_DOWN --> [*]: Process exits
 ```
 
+### Compound Signal Detection
+
+The PROCESSING-to-READY transition uses **compound signals** to avoid false positives. Even when PTY output has stopped (idle), the controller checks additional signals before transitioning to READY:
+
+| Signal | Suppresses READY | Expires After |
+|--------|:---:|---------------|
+| **task_active** | Yes | `TASK_PROTECTION_TIMEOUT` (30 s default) |
+| **File locks held** | Yes | Until locks are released |
+
+- **task_active**: Set when the A2A layer injects a task into the PTY. Prevents the agent from appearing idle while the CLI tool is still processing the injected message internally.
+- **File locks**: If the agent holds file locks via File Safety, it is assumed to still be working, even if PTY output has paused.
+
+Both signals are checked together. If *either* signal is active (and not expired), the agent remains in PROCESSING. The WAITING and DONE states are not affected by compound signals.
+
+### WAITING Detection
+
+WAITING detection uses a **fresh-output-only** strategy: the regex pattern is matched only against newly received PTY data, not the entire output buffer. This eliminates false positives from old prompt patterns that remain in the scrollback. WAITING auto-expires when the pattern disappears from the visible buffer tail after `WAITING_EXPIRY_SECONDS` (10 s default).
+
 ## Readiness Gate
 
 The Readiness Gate prevents messages from being lost during agent initialization.

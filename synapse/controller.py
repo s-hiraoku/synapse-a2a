@@ -406,9 +406,7 @@ class TerminalController:
 
         # Check new_data only for pattern (fixes false positive from stale buffer)
         new_text = new_data.decode("utf-8", errors="replace") if new_data else ""
-        pattern_in_new = (
-            bool(self._waiting_regex.search(new_text)) if new_text else False
-        )
+        pattern_in_new = bool(new_text and self._waiting_regex.search(new_text))
 
         if pattern_in_new:
             # Fresh pattern match — update timestamp

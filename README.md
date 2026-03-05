@@ -649,6 +649,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse --version` | Show version |
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
+| `synapse status <target>` | Show detailed agent status (info, current task, history, file locks, task board). Supports `--json` |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message |
 | `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
@@ -1446,7 +1447,7 @@ The display automatically updates when agent status changes (via file watcher) w
 | TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
 | STATUS | Current status (READY, WAITING, PROCESSING, DONE) |
-| CURRENT | Current task preview |
+| CURRENT | Current task preview with elapsed time (e.g., "Review code (2m 15s)") |
 | TRANSPORT | Communication transport indicator |
 | WORKING_DIR | Current working directory |
 | SKILL_SET | Applied skill set name (if any) |
@@ -1487,15 +1488,24 @@ The display automatically updates when agent status changes (via file watcher) w
 
 ### WAITING Detection
 
-> **Note**: WAITING detection is currently disabled due to false positives on startup. See [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) for details.
+WAITING detection is re-enabled in claude, codex, and gemini profiles. The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check.
 
-When enabled, detects agents waiting for user input (selection UI, Y/n prompts) using regex patterns:
+Detects agents waiting for user input (selection UI, Y/n prompts) using regex patterns:
 
 - **Gemini**: `● 1. Option` selection UI, `Allow execution` prompts
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
 - **Codex**: Indented numbered lists
 - **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
 - **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts
+
+### Compound Signal Status Detection
+
+The `PROCESSING` to `READY` transition uses compound signals to prevent premature detection during A2A task processing:
+
+- **`task_active` flag**: Suppresses READY when an A2A task is being processed (timeout: `task_protection_timeout`, default 30s)
+- **File locks**: Suppresses READY when the agent holds file locks via FileSafetyManager
+
+Use `synapse status <agent>` to inspect the detailed state of a specific agent, including current task elapsed time, file locks, and task board assignments.
 
 ---
 

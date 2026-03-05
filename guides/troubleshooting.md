@@ -303,22 +303,30 @@ curl -v http://localhost:8100/status
 
 ```mermaid
 flowchart TB
-    Problem["永久に BUSY"]
-    Check1{"idle_regex 正しい?"}
+    Problem["永久に PROCESSING"]
+    Check1{"idle_detection 正しい?"}
     Check2{"プロンプト表示される?"}
+    Check3{"compound signal 有効?"}
 
     Problem --> Check1
-    Check1 -->|"No"| Fix1["プロンプトに合わせて修正"]
+    Check1 -->|"No"| Fix1["idle_detection の strategy/timeout を修正"]
     Check1 -->|"Yes"| Check2
     Check2 -->|"No"| Fix2["CLI が正常に動作しているか確認"]
+    Check2 -->|"Yes"| Check3
+    Check3 -->|"Yes"| Fix3["task_active フラグまたはファイルロックを確認"]
 ```
 
-**原因**:
-`idle_regex` が CLI のプロンプトと一致していない
+**原因候補**:
+1. `idle_detection` の設定が CLI のプロンプトと一致していない
+2. **Compound signal が READY 遷移を抑制している**: `task_active` フラグが設定されている、またはファイルロックが保持されている場合、PTY がアイドルでも PROCESSING が維持される
 
 **確認方法**:
 
 ```bash
+# synapse status で詳細状態を確認
+synapse status <agent-name>
+synapse status <agent-name> --json
+
 # CLI を直接起動してプロンプトを確認
 claude
 
@@ -329,11 +337,14 @@ claude
 **対処法**:
 
 ```yaml
-# プロンプトに合わせて修正
-idle_regex: "> $"
+# idle_detection の strategy と timeout を調整
+idle_detection:
+  strategy: "timeout"
+  timeout: 1.0
 
-# 複数パターンに対応
-idle_regex: "(> |>>> )$"
+# compound signal のタイムアウトを短縮（デフォルト 30s）
+idle_detection:
+  task_protection_timeout: 15
 ```
 
 ---
@@ -354,6 +365,10 @@ idle_regex: "(> |>>> )$"
 1. 相手エージェントの状態を確認
 
 ```bash
+# synapse status コマンドで詳細確認
+synapse status <agent-name>
+
+# API 経由で確認
 curl http://localhost:8120/status
 ```
 
@@ -361,7 +376,7 @@ curl http://localhost:8120/status
 
 ```bash
 # ステータスを監視
-watch -n 1 'curl -s http://localhost:8120/status | jq .'
+watch -n 1 'synapse status <agent-name> --json'
 ```
 
 ---
