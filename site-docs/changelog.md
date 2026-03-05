@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.9.4
+
+- **Fixed**: Spawn pane layout (#336) — `synapse spawn` creates side-by-side panes instead of top-bottom
+- **Fixed**: ANSI escape sequences in A2A replies (#337) — `get_context()` strips ANSI codes
+- **Changed**: Task receipt collaboration flow — agents delegate independent work units via `synapse spawn` + `synapse send`
+
 ### v0.9.3
 
 - **Added**: Proactive Collaboration Framework — agents receive a decision framework at startup for when to delegate, ask for help, report progress, and share knowledge

@@ -317,6 +317,7 @@ curl -X POST http://localhost:8100/team/start \
   -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
+# Default layout is horizontal (side-by-side panes)
 synapse spawn claude                          # Spawn Claude in a new pane
 synapse spawn steady-builder                  # Spawn by saved Agent ID
 synapse spawn gemini --port 8115              # Spawn with explicit port

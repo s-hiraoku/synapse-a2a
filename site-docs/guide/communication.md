@@ -316,8 +316,9 @@ Beyond explicit messaging, the synapse-a2a skill teaches agents structured colla
 ### When You Receive a Task
 
 1. If the message contains `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
-2. Execute the task
-3. Report completion: `synapse send <sender> "Done: <summary>" --silent`
+2. Identify independent work units and delegate them via `synapse spawn` + `synapse send --silent` to reduce your context and parallelize
+3. Execute the remaining work yourself
+4. Report completion: `synapse send <sender> "Done: <summary>" --silent`
 
 ### When You Need Help
 

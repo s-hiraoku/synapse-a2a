@@ -119,6 +119,7 @@ def spawn_agent(
         [agent_spec],
         terminal_app=terminal_used,
         all_new=True,
+        layout="horizontal",
         tool_args=tool_args,
         cwd=cwd,
         extra_env=extra_env,

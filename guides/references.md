@@ -376,7 +376,7 @@ synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NA
 | `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される（例: `-- --dangerously-skip-permissions`） |
 
 **動作**:
-- 新しいペイン/ウィンドウでエージェントを起動
+- 新しいペイン/ウィンドウでエージェントを起動（デフォルトで水平分割＝横並び）
 - 自動的に `--no-setup --headless` フラグを付与（対話型セットアップと承認のスキップ）
 - 起動成功後、エージェント ID とポートを出力
 - 親エージェントは `synapse list` で READY 確認後にタスクを送信し、結果評価後に `synapse kill -f` で終了させる

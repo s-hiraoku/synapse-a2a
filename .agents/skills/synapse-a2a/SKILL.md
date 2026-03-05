@@ -102,8 +102,9 @@ Inter-agent communication framework via Google A2A Protocol.
 
 ### When You Receive a Task
 1. If `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
-2. Execute the task
-3. Report completion: `synapse send <sender> "Done: <summary>" --silent`
+2. Identify independent work units and delegate them via `synapse spawn` + `synapse send --silent` to reduce your context and parallelize
+3. Execute the remaining work yourself
+4. Report completion: `synapse send <sender> "Done: <summary>" --silent`
 
 ### When You Need Help from Other Agents
 1. Run `synapse list` to check available agents (prefer same WORKING_DIR)

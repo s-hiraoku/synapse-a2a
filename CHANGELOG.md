@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.9.4] - 2026-03-06
+
+### Fixed
+
+- **Spawn pane layout** (#336): `synapse spawn` now creates side-by-side (horizontal) tmux panes instead of top-bottom
+- **ANSI escape sequences in A2A replies** (#337): `get_context()` now strips ANSI escape codes, producing clean text for artifacts, history, and replies
+
+### Changed
+
+- **Task receipt collaboration flow**: agents now identify independent work units and delegate via `synapse spawn` + `synapse send --silent` when receiving tasks
+
 ## [0.9.3] - 2026-03-05
 
 ### Added
@@ -32,8 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address review findings — webhook 4xx retry bug and doc corrections
 - Address review round 2 — security, payload format, and consistency
 - Address review round 3 — payload consistency and CSS consolidation
-
-## [Unreleased]
 
 ## [0.9.2] - 2026-03-04
 
