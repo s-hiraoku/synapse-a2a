@@ -886,6 +886,17 @@ Agents are configured to proactively evaluate collaboration opportunities before
 | Completed a milestone | Report progress with `synapse send --silent` |
 | Discovered a pattern/convention | Share via `synapse memory save` |
 
+**Mandatory Collaboration Gate (STEP 3):**
+For tasks with 3+ phases OR 10+ file changes, agents MUST go through a mandatory collaboration gate before writing any code:
+1. Run `synapse list` to check available agents
+2. Run `synapse memory search` to check shared knowledge
+3. Create a task board entry with `synapse tasks create`
+4. Build an Agent Assignment Plan (Phase / Agent / Rationale table) to distribute work
+5. Spawn specialists if no suitable agent exists
+6. Prefer a different model type for subtasks (diversity improves quality)
+
+This gate ensures large tasks are parallelized across agents rather than executed sequentially by a single agent.
+
 **Cross-Model Spawning Preference:**
 When spawning or delegating, prefer a DIFFERENT model type (e.g., Claude spawns Gemini, Gemini spawns Codex). This provides:
 1. Diverse model strengths for better quality

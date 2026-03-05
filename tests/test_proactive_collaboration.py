@@ -22,13 +22,19 @@ MANAGER_SKILL_MD = (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def template_content() -> str:
     """Read the default.md template content."""
     return TEMPLATE_DEFAULT_MD.read_text()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
+def live_content() -> str:
+    """Read the live .synapse/default.md content."""
+    return LIVE_DEFAULT_MD.read_text()
+
+
+@pytest.fixture(scope="module")
 def manager_skill_content() -> str:
     """Read the synapse-manager SKILL.md content."""
     return MANAGER_SKILL_MD.read_text()
@@ -52,11 +58,6 @@ class TestAgentAssignmentTemplate:
         assert "Agent" in template_content
         assert "Rationale" in template_content
 
-    def test_agent_assignment_mentions_task_board(self, template_content: str) -> None:
-        """Agent assignment section should reference task board for tracking."""
-        # After planning agent assignment, agents should create tasks
-        assert "synapse tasks create" in template_content
-
 
 # ===========================================================================
 # AC2: Agent demonstrates collaboration on multi-phase tasks
@@ -76,20 +77,16 @@ class TestMandatoryCollaborationGate:
 
     def test_must_keyword_enforcement(self, template_content: str) -> None:
         """Must use MUST (not should/consider) to enforce the gate."""
-        # Find the section about large task collaboration
         lines = template_content.split("\n")
-        found_must = False
-        for line in lines:
-            if ("3+" in line or "10+" in line) and "MUST" in line:
-                found_must = True
-                break
+        found_must = any(
+            ("3+" in line or "10+" in line) and "MUST" in line for line in lines
+        )
         assert found_must, "Large task gate must use MUST keyword for enforcement"
 
     def test_synapse_list_required_before_implementation(
         self, template_content: str
     ) -> None:
         """Large task gate must require synapse list check."""
-        # The gate section should mention synapse list as mandatory
         assert "synapse list" in template_content
 
     def test_task_board_entry_required(self, template_content: str) -> None:
@@ -105,35 +102,22 @@ class TestMandatoryCollaborationGate:
 class TestManagerSkillTriggers:
     """synapse-manager SKILL.md must trigger on implementation keywords."""
 
-    def test_triggers_on_implement(self, manager_skill_content: str) -> None:
-        """Skill must list 'implement' as a trigger context."""
-        lower = manager_skill_content.lower()
-        assert "implement" in lower
-
-    def test_triggers_on_phase(self, manager_skill_content: str) -> None:
-        """Skill must list 'phase' as a trigger context."""
-        lower = manager_skill_content.lower()
-        assert "phase" in lower
-
-    def test_triggers_on_multi_file(self, manager_skill_content: str) -> None:
-        """Skill must mention multi-file changes as a trigger."""
-        lower = manager_skill_content.lower()
-        assert "multi-file" in lower or "multiple file" in lower
-
-    def test_triggers_on_plan(self, manager_skill_content: str) -> None:
-        """Skill must list 'plan' as a trigger context."""
-        lower = manager_skill_content.lower()
-        assert "plan" in lower
+    @pytest.mark.parametrize(
+        "keyword",
+        ["implement", "phase", "plan", "multi-file"],
+    )
+    def test_triggers_on_keyword(
+        self, manager_skill_content: str, keyword: str
+    ) -> None:
+        """Skill must mention the keyword in its content."""
+        assert keyword in manager_skill_content.lower()
 
     def test_when_to_use_covers_implementation(
         self, manager_skill_content: str
     ) -> None:
         """When to Use section must cover implementation task scenarios."""
-        # Should mention implementation plans or multi-phase work
-        assert (
-            "implementation" in manager_skill_content.lower()
-            or "multi-phase" in manager_skill_content.lower()
-        )
+        lower = manager_skill_content.lower()
+        assert "implementation" in lower or "multi-phase" in lower
 
 
 # ===========================================================================
@@ -148,14 +132,12 @@ class TestTemplateConsistency:
         """Live .synapse/default.md must exist."""
         assert LIVE_DEFAULT_MD.exists(), f"{LIVE_DEFAULT_MD} does not exist"
 
-    def test_live_has_agent_assignment(self) -> None:
+    def test_live_has_agent_assignment(self, live_content: str) -> None:
         """Live default.md must also include agent assignment section."""
-        content = LIVE_DEFAULT_MD.read_text()
-        assert "Agent Assignment" in content
+        assert "Agent Assignment" in live_content
 
-    def test_live_has_mandatory_gate(self) -> None:
+    def test_live_has_mandatory_gate(self, live_content: str) -> None:
         """Live default.md must also include mandatory collaboration gate."""
-        content = LIVE_DEFAULT_MD.read_text()
-        assert "MUST" in content
-        has_gate = "3+" in content or "3 or more" in content
+        assert "MUST" in live_content
+        has_gate = "3+" in live_content or "3 or more" in live_content
         assert has_gate, "Live default.md missing large-task collaboration gate"
