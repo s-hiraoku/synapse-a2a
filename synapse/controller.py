@@ -45,6 +45,21 @@ from synapse.utils import (
 
 logger = logging.getLogger(__name__)
 
+_ANSI_ESCAPE_RE = re.compile(
+    r"\x1b"
+    r"(?:"
+    r"\[[?]?[0-9;]*[a-zA-Z]"  # CSI sequences
+    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC sequences
+    r"|[()][AB0-2]"  # Character set selection
+    r"|[>=]"  # Keypad mode
+    r")"
+)
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    return _ANSI_ESCAPE_RE.sub("", text)
+
 
 class TerminalController:
     def __init__(
@@ -882,7 +897,8 @@ class TerminalController:
     def get_context(self) -> str:
         """Get the current output context from the controlled process."""
         with self.lock:
-            return "".join(self._render_buffer)
+            raw = "".join(self._render_buffer)
+        return strip_ansi(raw)
 
     def set_done(self) -> None:
         """Set status to DONE (task completed).

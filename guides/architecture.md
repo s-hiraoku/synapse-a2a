@@ -104,7 +104,7 @@ classDiagram
 | `stop()` | プロセスを終了し PTY をクローズ |
 | `write(data, submit_seq)` | PTY の stdin にデータを書き込み |
 | `interrupt()` | SIGINT をプロセスグループに送信 |
-| `get_context()` | 出力バッファの内容を取得 |
+| `get_context()` | 出力バッファの内容を取得（ANSI エスケープシーケンスは除去済み） |
 | `run_interactive()` | `pty.spawn()` を使ったインタラクティブモード |
 
 **READY/PROCESSING 状態管理**:
