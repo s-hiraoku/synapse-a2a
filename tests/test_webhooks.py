@@ -172,6 +172,23 @@ class TestDeliverWebhook:
             assert delivery.status_code == 500
             assert delivery.attempts == 3
 
+    def test_4xx_not_retried(self):
+        """4xx client errors should fail immediately without retrying."""
+        webhook = WebhookConfig(url="https://example.com/hook")
+        event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
+
+        with patch("httpx.AsyncClient.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_response.text = "Not Found"
+            mock_post.return_value = mock_response
+
+            delivery = run_async(deliver_webhook(webhook, event, max_retries=3))
+
+            assert delivery.success is False
+            assert delivery.status_code == 404
+            assert delivery.attempts == 1  # No retries for 4xx
+
     def test_timeout_error(self):
         webhook = WebhookConfig(url="https://example.com/hook")
         event = WebhookEvent(event_type="task.completed", payload={"task_id": "123"})
