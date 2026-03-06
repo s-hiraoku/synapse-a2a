@@ -183,10 +183,21 @@ class TestScriptsExecutable:
         if not scripts_dir.exists():
             pytest.skip(f"{skill_dir.name} has no scripts/")
         for script in scripts_dir.iterdir():
-            if script.suffix in (".py", ".sh") and not script.name.startswith("__"):
-                mode = script.stat().st_mode
-                assert mode & stat.S_IXUSR, (
-                    f"{script.relative_to(PLUGIN_SKILLS_DIR)} is not executable"
+            if script.suffix not in (".py", ".sh") or script.name.startswith("__"):
+                continue
+
+            plugin_mode = script.stat().st_mode
+            assert plugin_mode & stat.S_IXUSR, (
+                f"{script.relative_to(PLUGIN_SKILLS_DIR)} is not executable"
+            )
+
+            rel_path = script.relative_to(skill_dir)
+            for target_root in (AGENTS_SKILLS_DIR, CLAUDE_SKILLS_DIR):
+                synced_script = target_root / skill_dir.name / rel_path
+                assert synced_script.exists(), f"Missing synced script: {synced_script}"
+                synced_mode = synced_script.stat().st_mode
+                assert synced_mode & stat.S_IXUSR, (
+                    f"{synced_script.relative_to(REPO_ROOT)} is not executable"
                 )
 
 
