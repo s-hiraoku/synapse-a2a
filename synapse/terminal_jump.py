@@ -588,9 +588,15 @@ def create_tmux_panes(
     commands: list[str] = []
     split_flag = "-h" if layout == "horizontal" else "-v"
 
+    # Resolve the current pane ID so splits stay scoped to the source pane.
+    # Commands are executed via subprocess without a shell, so env vars
+    # must be resolved here rather than relying on shell expansion.
+    pane_target = os.environ.get("TMUX_PANE", "")
+    target_flag = f"-t {pane_target} " if pane_target else ""
+
     if all_new:
         # Everyone gets a new pane
-        for agent_spec in agents:
+        for i, agent_spec in enumerate(agents):
             cmd = _build_agent_command(
                 agent_spec,
                 tool_args=tool_args,
@@ -598,7 +604,14 @@ def create_tmux_panes(
                 fallback_tool_args=fallback_tool_args,
             )
             safe_cmd = shlex.quote(cmd)
-            commands.append(f"tmux split-window {split_flag} -c {safe_cwd} {safe_cmd}")
+            # For "split" layout with 3+ agents, alternate -h/-v for tiling
+            if layout == "split" and len(agents) > 2:
+                flag = "-h" if i % 2 == 0 else "-v"
+            else:
+                flag = split_flag
+            commands.append(
+                f"tmux split-window {flag} {target_flag}-c {safe_cwd} {safe_cmd}"
+            )
     else:
         # First agent runs in current pane (via terminal input buffer)
         first_cmd = _build_agent_command(
@@ -610,8 +623,8 @@ def create_tmux_panes(
         safe_first = shlex.quote(f"cd {shlex.quote(cwd)} && {first_cmd}")
         commands.append(f"tmux send-keys {safe_first} Enter")
 
-        # Remaining agents get new panes
-        for agent_spec in agents[1:]:
+        # Remaining agents get new panes, scoped to source pane
+        for i, agent_spec in enumerate(agents[1:]):
             cmd = _build_agent_command(
                 agent_spec,
                 tool_args=tool_args,
@@ -619,15 +632,13 @@ def create_tmux_panes(
                 fallback_tool_args=fallback_tool_args,
             )
             safe_cmd = shlex.quote(cmd)
-            commands.append(f"tmux split-window {split_flag} -c {safe_cwd} {safe_cmd}")
-
-    # Apply even layout
-    if layout == "split" and len(agents) > 2:
-        commands.append("tmux select-layout tiled")
-    elif layout == "horizontal":
-        commands.append("tmux select-layout even-horizontal")
-    else:
-        commands.append("tmux select-layout even-vertical")
+            if layout == "split" and len(agents) > 2:
+                flag = "-h" if i % 2 == 0 else "-v"
+            else:
+                flag = split_flag
+            commands.append(
+                f"tmux split-window {flag} {target_flag}-c {safe_cwd} {safe_cmd}"
+            )
 
     return commands
 
