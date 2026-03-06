@@ -4,7 +4,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.10.0
+### v0.10.1
 
 - **Changed**: Skill Progressive Disclosure — `synapse-a2a` SKILL.md reduced from 877→159 lines, `synapse-manager` from 426→199 lines. Detail moved to `references/` for on-demand loading
 - **Added**: Manager helper scripts (`wait_ready.sh`, `check_team_status.sh`, `regression_triage.sh`) for deterministic operations
