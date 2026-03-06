@@ -42,6 +42,7 @@ pytest -k "test_identity" -v              # Pattern match
 pytest tests/test_history.py -v           # History feature tests
 pytest tests/test_file_safety_extended.py -v # File Safety tests
 pytest tests/test_skills.py -v            # Skills core tests
+pytest tests/test_skill_structure.py -v   # Skill directory structure validation
 pytest tests/test_cmd_skill_manager.py -v # Skill manager command tests
 pytest tests/test_send_message_file.py -v # Send --message-file/--stdin/auto-temp tests
 pytest tests/test_file_attachment.py -v   # --attach file attachment tests
@@ -433,15 +434,28 @@ synapse/
 └── profiles/        # YAML configs per agent type (claude.yaml, codex.yaml, etc.)
 
 plugins/synapse-a2a/skills/synapse-a2a/   # Skills source of truth (plugin scope)
-├── SKILL.md                               # Main skill definition
+├── SKILL.md                               # Main skill definition (Progressive Disclosure)
 └── references/                            # Detailed reference docs
     ├── api.md
+    ├── collaboration.md
     ├── commands.md
     ├── examples.md
-    └── file-safety.md
+    ├── features.md
+    ├── file-safety.md
+    ├── messaging.md
+    └── spawning.md
 
 plugins/synapse-a2a/skills/synapse-manager/  # Multi-agent management skill
-└── SKILL.md                                 # Delegation, monitoring, verification, feedback, review
+├── SKILL.md                                 # Delegation, monitoring, verification, feedback, review
+├── references/                              # Detailed reference docs
+│   ├── auto-approve-flags.md
+│   ├── commands-quick-ref.md
+│   ├── features-table.md
+│   └── worker-guide.md
+└── scripts/                                 # Reusable shell scripts
+    ├── check_team_status.sh
+    ├── regression_triage.sh
+    └── wait_ready.sh
 
 .claude/hooks/                             # Claude Code PostToolUse hooks
 ├── check-ci-trigger.sh                    # PostToolUse: triggers CI poll + PR status poll on git push / gh pr create

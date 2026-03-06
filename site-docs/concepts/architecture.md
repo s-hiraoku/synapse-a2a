@@ -257,10 +257,10 @@ sequenceDiagram
 | File Safety | `.synapse/file_safety.db` | File locks/tracking | SQLite (WAL) |
 | Saved Agents | `~/.synapse/agents/`, `.synapse/agents/` | Reusable agent definitions | JSON files |
 | Logs | `~/.synapse/logs/` | Agent logs | Text files |
-| Skills (Source) | `plugins/synapse-a2a/skills/` | Canonical skill definitions (source of truth) | Markdown |
+| Skills (Source) | `plugins/synapse-a2a/skills/` | Canonical skill definitions (source of truth); each skill uses Progressive Disclosure (`SKILL.md` + `references/` + optional `scripts/`) | Markdown |
 | Skills (Central) | `~/.synapse/skills/` | Central skill store (SYNAPSE scope) | Markdown |
 | Skills (Claude) | `.claude/skills/` | Claude Code project-local skills | Markdown |
 | Skills (Agents) | `.agents/skills/` | Codex/OpenCode/Copilot/Gemini skills | Markdown |
 
 !!! info "Skill Synchronization"
-    `plugins/synapse-a2a/skills/` is the source of truth. Edit skills there, then run `sync-plugin-skills` to propagate changes to `.claude/skills/` and `.agents/skills/`. Never edit agent-specific skill directories directly.
+    `plugins/synapse-a2a/skills/` is the source of truth for published skills. Edit skills there, then run `sync-plugin-skills` to propagate changes to `.claude/skills/` and `.agents/skills/`. Never edit agent-specific skill directories directly. Dev-only skills (e.g., `synapse-docs`) live exclusively in `.agents/skills/` and are not synced from `plugins/`.

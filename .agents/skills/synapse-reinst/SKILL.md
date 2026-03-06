@@ -3,8 +3,9 @@ name: synapse-reinst
 description: >-
   Re-inject Synapse A2A initial instructions after context has been cleared.
   Use this skill when the agent has lost its identity, A2A communication
-  protocol, or configuration after /clear or context reset. Triggered by
-  /synapse-reinst command.
+  protocol, or configuration after /clear or context reset, when synapse
+  send/reply commands stop working, or when the agent no longer recognizes
+  its SYNAPSE_AGENT_ID. Triggered by /synapse-reinst command.
 ---
 
 # Synapse Re-Instruction
