@@ -101,7 +101,7 @@ Each CLI has its own flag to skip interactive permission prompts. These are pass
 | CLI | Flag | Notes |
 |-----|------|-------|
 | **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
-| **Gemini CLI** | `-y` | Yolo mode -- auto-approve all actions |
+| **Gemini CLI** | `--approval-mode=yolo` | Yolo mode -- auto-approve all actions |
 | **Codex CLI** | `--full-auto` | Sandboxed auto-approve (`-a on-request --sandbox workspace-write`) |
 | **OpenCode** | *(no flag)* | No auto-approve flag available |
 | **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
@@ -109,12 +109,13 @@ Each CLI has its own flag to skip interactive permission prompts. These are pass
 ```bash
 # Spawn with permission skip
 synapse spawn claude -- --dangerously-skip-permissions
-synapse spawn gemini -- -y
+synapse spawn gemini -- --approval-mode=yolo
 synapse spawn codex -- --full-auto
 synapse spawn copilot -- --allow-all-tools
 
-# Team start with permission skip (flag applies to ALL agents)
-synapse team start claude gemini -- --dangerously-skip-permissions
+# Team start with permission skip (flag applies to ALL agents, so keep teams homogeneous)
+synapse team start claude claude -- --dangerously-skip-permissions
+synapse team start gemini gemini -- --approval-mode=yolo
 # For Codex full unrestricted mode: --dangerously-bypass-approvals-and-sandbox
 ```
 
@@ -132,7 +133,7 @@ synapse spawn Claud                           # Spawn by saved agent display nam
 synapse spawn claude --worktree               # Spawn in isolated worktree
 synapse spawn claude -w my-feature            # Named worktree
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
-synapse spawn gemini -- -y                               # Gemini yolo mode
+synapse spawn gemini -- --approval-mode=yolo            # Gemini yolo mode
 synapse spawn codex -- --full-auto                       # Codex sandboxed auto-approve
 synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```
@@ -143,7 +144,7 @@ Agents can spawn other agents programmatically via `POST /spawn`:
 
 ```jsonc
 // Basic spawn
-{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["-y"]}
+{"profile": "gemini", "name": "Helper", "skill_set": "dev-set", "tool_args": ["--approval-mode=yolo"]}
 
 // With worktree isolation
 {"profile": "gemini", "name": "Worker", "worktree": true}
@@ -167,14 +168,14 @@ synapse team start claude gemini codex --layout horizontal
 synapse team start claude gemini --all-new  # All agents in new panes
 synapse team start claude gemini --worktree  # Each agent in its own worktree
 synapse team start claude gemini codex -w my-feature  # Named prefix: my-feature-claude-0, etc.
-synapse team start claude gemini -- --dangerously-skip-permissions
+synapse team start claude claude -- --dangerously-skip-permissions
 ```
 
 Team Start via API (`POST /team/start`):
 
 ```jsonc
 {"agents": ["gemini", "codex"], "layout": "split"}
-{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}
+{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}
 ```
 
 ## Worktree Isolation

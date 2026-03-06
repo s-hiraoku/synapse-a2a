@@ -688,6 +688,36 @@ class TestTmuxPaneScopedSplit:
         )
         assert not any("select-layout" in c for c in commands)
 
+    def test_three_agents_handoff_uses_tiling_flags(self) -> None:
+        """Handoff mode should still alternate -h/-v for a 3-agent split layout."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            all_new=False,
+        )
+
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 2
+        assert "split-window -h " in split_cmds[0]
+        assert "split-window -v " in split_cmds[1]
+
+    def test_remote_agents_for_handoff_still_tile_as_three_person_team(self) -> None:
+        """Remote-pane creation should count the local handoff agent for split tiling."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["gemini", "codex"],
+            layout="split",
+            all_new=True,
+        )
+
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 2
+        assert "split-window -h " in split_cmds[0]
+        assert "split-window -v " in split_cmds[1]
+
     def test_no_target_when_tmux_pane_unset(self) -> None:
         """Without TMUX_PANE, -t should be omitted for graceful degradation."""
         from synapse.terminal_jump import create_tmux_panes

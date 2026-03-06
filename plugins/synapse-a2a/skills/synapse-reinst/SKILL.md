@@ -24,7 +24,11 @@ Restore Synapse A2A agent identity and instructions after `/clear` or context re
 Run the reinst script to output your full Synapse instructions:
 
 ```bash
+# From the source tree
 python plugins/synapse-a2a/skills/synapse-reinst/scripts/reinst.py
+
+# From a synced or installed skill copy
+cd .claude/skills/synapse-reinst && python scripts/reinst.py
 ```
 
 The script reads environment variables set by Synapse at startup (`SYNAPSE_AGENT_ID`, `SYNAPSE_AGENT_TYPE`, `SYNAPSE_PORT`) which persist even after `/clear`.

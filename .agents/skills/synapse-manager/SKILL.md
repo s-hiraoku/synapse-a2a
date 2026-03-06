@@ -24,7 +24,11 @@ Orchestrate multi-agent work with structured delegation, monitoring, and quality
 
 ## Workflow (7 Steps)
 
-### Step 1: Plan & Setup
+### Step 1: Plan, Spec, and Setup
+
+New tests first. Follow this order for every implementation task: create tests -> present/confirm spec -> then implement.
+
+Edit `plugins/synapse-a2a/skills/` first, then sync generated copies with `sync-plugin-skills`.
 
 **Check existing agents before spawning** — reuse is faster (avoids startup overhead,
 instruction injection, and readiness wait):
@@ -43,54 +47,71 @@ synapse spawn gemini -w --name Tester --role "test writer"
 Cross-model spawning (Claude spawns Gemini, etc.) provides diverse strengths and
 distributes token usage across providers, avoiding rate limits.
 
-**Wait for readiness** using the helper script:
+**Wait for readiness** using the helper script. Resolve it from the skill root so the
+command works from any working directory, whether you are in the plugin source or a
+synced copy:
 ```bash
+cd plugins/synapse-a2a/skills/synapse-manager
 scripts/wait_ready.sh Impl 30
 scripts/wait_ready.sh Tester 30
+
+# Synced copy example
+cd .agents/skills/synapse-manager
+scripts/wait_ready.sh Impl 30
 ```
 
 See `references/auto-approve-flags.md` for per-CLI permission skip flags.
 
-### Step 2: Delegate via Task Board
+### Step 2: Create Tests and Confirm the Spec
 
-Task board makes work visible to the entire team, preventing duplication:
+Task board makes work visible to the entire team, prevents duplication, and ensures
+implementation is blocked on confirmed tests/spec:
 ```bash
-synapse tasks create "Implement auth module" \
-  -d "Add OAuth2 with JWT in synapse/auth.py. Follow patterns in synapse/server.py." \
-  --priority 4
-
 synapse tasks create "Write auth tests" \
-  -d "Cover: valid login, invalid credentials, token expiry, refresh flow" \
+  -d "Create tests/spec for valid login, invalid credentials, token expiry, refresh flow" \
+  --priority 5
+
+synapse tasks create "Implement auth module" \
+  -d "Add OAuth2 with JWT in synapse/auth.py after tests/spec are confirmed. Follow patterns in synapse/server.py." \
+  --priority 4 \
   --blocked-by 1
 ```
 
-**Assign and send instructions:**
+**Assign the test/spec task and confirm scope before implementation starts:**
 ```bash
-synapse tasks assign 1 Impl
-synapse send Impl "Implement auth module — see task #1 on the board.
-- Add OAuth2 flow in synapse/auth.py
-- Follow existing patterns" --attach synapse/server.py --silent
+synapse tasks assign 1 Tester
+synapse send Tester "Write the tests first and confirm the spec for task #1.
+- Cover valid login, invalid credentials, token expiry, refresh flow
+- Report any scope gaps before implementation starts" --attach synapse/server.py --force --wait
 ```
 
 Use `--attach` to send reference files the agent should study.
-Use `--silent` for delegated tasks, `--wait` when you need immediate results.
+Use `--wait` while confirming tests/spec, then `--silent` or `--notify` once execution is unblocked.
 
-### Step 3: Monitor
+### Step 3: Delegate Implementation and Monitor
+
+After tests/spec are confirmed, assign the implementation task:
+```bash
+synapse tasks assign 2 Impl
+synapse send Impl "Implement auth module — tests/spec are confirmed in task #1.
+- Add OAuth2 flow in synapse/auth.py
+- Follow existing patterns" --attach synapse/server.py --force --silent
+```
 
 ```bash
 synapse list                              # Live status (auto-updates)
-synapse tasks list --status in_progress   # Task board progress
+synapse tasks list                        # Task board progress and dependencies
 synapse history list --agent Impl         # Completed work
 ```
 
 Or use the aggregation script:
 ```bash
-scripts/check_team_status.sh
+cd plugins/synapse-a2a/skills/synapse-manager && scripts/check_team_status.sh
 ```
 
 If an agent stays PROCESSING >5 min, send an interrupt:
 ```bash
-synapse interrupt Impl "Status update — what is your current progress?"
+synapse interrupt Impl "Status update — what is your current progress?" --force
 ```
 
 ### Step 4: Approve Plans
@@ -102,8 +123,9 @@ synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs
 
 ### Step 5: Verify
 
-Testing is the critical quality gate — an agent's changes may break unrelated
-modules through import chains or shared state:
+Testing is the critical quality gate — start with the new tests/spec that were created
+up front, then run broader regression coverage because an agent's changes may break
+unrelated modules through import chains or shared state:
 
 ```bash
 # New tests first (fast feedback)
@@ -115,7 +137,7 @@ pytest --tb=short -q
 
 **Regression triage** — distinguish new breakage from pre-existing issues:
 ```bash
-scripts/regression_triage.sh tests/test_failing_module.py -v
+cd plugins/synapse-a2a/skills/synapse-manager && scripts/regression_triage.sh tests/test_failing_module.py -v
 ```
 - Exit 0 = REGRESSION (your changes broke it) → proceed to Step 6
 - Exit 1 = PRE-EXISTING (already broken) → note it and continue
@@ -139,7 +161,7 @@ synapse send Impl "Issues found — please fix:
 2. REGRESSION: test_existing_endpoint broke
    ERROR: expected 200, got 401
    CAUSE: auth middleware intercepts all routes
-   FIX: Exclude health-check endpoints from auth" --silent
+   FIX: Exclude health-check endpoints from auth" --force --silent
 ```
 
 **Save patterns for the team:**
@@ -155,9 +177,9 @@ After sending feedback, return to Step 3 (Monitor).
 
 **Cross-review catches blind spots** — each agent reviews the other's work:
 ```bash
-synapse send Tester "Review implementation. Focus on: correctness, edge cases" \
+synapse send Tester "Review implementation. Focus on: correctness, edge cases" --force \
   --attach synapse/auth.py --wait
-synapse send Impl "Review test coverage. Focus on: missing cases, assertion quality" \
+synapse send Impl "Review test coverage. Focus on: missing cases, assertion quality" --force \
   --attach tests/test_auth.py --wait
 ```
 

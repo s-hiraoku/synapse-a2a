@@ -12,7 +12,6 @@ shift
 echo "=== Regression Triage: ${test_path} ==="
 
 # Check for uncommitted or untracked changes
-has_tracked_changes=true
 has_untracked=$(git ls-files --others --exclude-standard)
 if git diff --quiet && git diff --cached --quiet && [ -z "$has_untracked" ]; then
   echo "No uncommitted changes to stash — cannot compare clean vs dirty state" >&2

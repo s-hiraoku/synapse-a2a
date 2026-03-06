@@ -587,6 +587,7 @@ def create_tmux_panes(
 
     commands: list[str] = []
     split_flag = "-h" if layout == "horizontal" else "-v"
+    effective_count = len(agents) + (1 if all_new else 0)
 
     # Resolve the current pane ID so splits stay scoped to the source pane.
     # Commands are executed via subprocess without a shell, so env vars
@@ -605,7 +606,7 @@ def create_tmux_panes(
             )
             safe_cmd = shlex.quote(cmd)
             # For "split" layout with 3+ agents, alternate -h/-v for tiling
-            if layout == "split" and len(agents) > 2:
+            if layout == "split" and effective_count > 2:
                 flag = "-h" if i % 2 == 0 else "-v"
             else:
                 flag = split_flag
@@ -632,7 +633,7 @@ def create_tmux_panes(
                 fallback_tool_args=fallback_tool_args,
             )
             safe_cmd = shlex.quote(cmd)
-            if layout == "split" and len(agents) > 2:
+            if layout == "split" and effective_count > 2:
                 flag = "-h" if i % 2 == 0 else "-v"
             else:
                 flag = split_flag

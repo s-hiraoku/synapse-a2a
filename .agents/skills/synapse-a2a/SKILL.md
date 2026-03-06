@@ -88,7 +88,7 @@ Evaluate collaboration opportunities before starting work:
 | Single focused subtask | Spawn 1 agent |
 | N independent subtasks | Spawn N agents |
 
-**Spawn lifecycle**: spawn → wait for READY → send task → evaluate result → kill
+**Spawn lifecycle**: spawn → confirm in `synapse list` → wait for READY → send task → evaluate result → kill → confirm cleanup in `synapse list`
 
 Killing spawned agents after completion frees ports, memory, and PTY sessions,
 and prevents orphaned agents from accidentally accepting future tasks.
@@ -96,11 +96,17 @@ and prevents orphaned agents from accidentally accepting future tasks.
 ```bash
 # Spawn, delegate, verify, cleanup
 synapse spawn gemini --name Tester --role "test writer"
+synapse list                              # Verify agent appears
 # Wait for readiness (or rely on server-side Readiness Gate)
 synapse send Tester "Write tests for src/auth.py" --wait
 # Evaluate result, then cleanup
 synapse kill Tester -f
+synapse list                              # Verify cleanup
 ```
+
+If `synapse kill` fails or the agent still appears in `synapse list`, retry with `-f`,
+check the agent status/logs, and report the cleanup failure instead of leaving an
+orphaned agent behind.
 
 ## Response Mode Guide
 

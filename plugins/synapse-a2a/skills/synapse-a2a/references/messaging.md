@@ -252,7 +252,7 @@ Messages sent to an agent that has not yet reached READY for the first time are 
 - **iTerm2** (macOS) -- switches to the correct tab/pane
 - **Terminal.app** (macOS) -- switches to the correct tab
 - **Ghostty** (macOS) -- activates the application. Targets the focused tab, so avoid switching tabs during spawn.
-- **VS Code** integrated terminal -- opens to the working directory
+- **VS Code** integrated terminal -- brings the application/window to the front; does not switch the integrated terminal or change WORKING_DIR
 - **tmux** -- switches to the agent's session
 - **Zellij** -- activates the terminal app (direct pane focus not supported via CLI)
 

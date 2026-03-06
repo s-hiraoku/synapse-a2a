@@ -13,6 +13,7 @@
 | `synapse tasks assign <id> <agent>` | Assign task |
 | `synapse tasks complete <id>` | Mark task done |
 | `synapse tasks fail <id> --reason "<why>"` | Mark task failed |
+| `synapse tasks reopen <id>` | Reopen a completed or failed task |
 | `synapse approve <id>` | Approve agent plan |
 | `synapse reject <id> --reason "<feedback>"` | Reject with guidance |
 | `synapse memory save <key> "<content>" --tags <t> --notify` | Share knowledge |

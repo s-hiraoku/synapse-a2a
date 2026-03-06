@@ -263,4 +263,4 @@ sequenceDiagram
 | Skills (Agents) | `.agents/skills/` | Codex/OpenCode/Copilot/Gemini skills | Markdown |
 
 !!! info "Skill Synchronization"
-    `plugins/synapse-a2a/skills/` is the source of truth for published skills. Edit skills there, then run `sync-plugin-skills` to propagate changes to `.claude/skills/` and `.agents/skills/`. Never edit agent-specific skill directories directly. Dev-only skills (e.g., `synapse-docs`) live exclusively in `.agents/skills/` and are not synced from `plugins/`.
+    `plugins/synapse-a2a/skills/` is the source of truth for published skills. Edit skills there, then run `sync-plugin-skills` to propagate changes to `.claude/skills/` and `.agents/skills/`. Never edit agent-specific skill directories directly. Dev-only skills (e.g., `synapse-docs`) are stored in `.agents/skills/`, and `.claude/skills/` may contain a reference entry when needed; they are not synced from `plugins/`.

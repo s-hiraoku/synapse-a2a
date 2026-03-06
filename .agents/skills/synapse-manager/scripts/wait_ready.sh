@@ -7,7 +7,10 @@ agent="${1:?Usage: wait_ready.sh <agent_name> [timeout_seconds]}"
 timeout="${2:-30}"
 elapsed=0
 
-while ! synapse list 2>/dev/null | grep -F "$agent" | grep -q "READY"; do
+while true; do
+  if synapse status "$agent" --json 2>/dev/null | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"'; then
+    break
+  fi
   sleep 1
   elapsed=$((elapsed + 1))
   if [ "$elapsed" -ge "$timeout" ]; then

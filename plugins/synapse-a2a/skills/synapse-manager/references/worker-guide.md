@@ -26,8 +26,10 @@ Progress reporting prevents managers from sending unnecessary interrupts:
 Workers can spawn helpers for independent subtasks. This is efficient when your task has naturally parallel parts:
 ```bash
 synapse spawn gemini --worktree --name Helper --role "test writer"
-synapse send Helper "Write tests for auth.py" --silent
-# After completion:
+synapse send Helper "Write tests for auth.py and report the result" --notify
+# Poll or interrupt if you need an urgent status check:
+synapse interrupt Helper "Quick status check" --priority 4
+# Wait for the completion notification (or use --wait above), then clean up:
 synapse kill Helper -f
 ```
 Prefer different model types to distribute load and avoid rate limits.

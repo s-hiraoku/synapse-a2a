@@ -15,7 +15,10 @@ from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).parent.parent
 PLUGIN_SKILLS_DIR = Path(__file__).parent.parent / "plugins" / "synapse-a2a" / "skills"
+AGENTS_SKILLS_DIR = REPO_ROOT / ".agents" / "skills"
+CLAUDE_SKILLS_DIR = REPO_ROOT / ".claude" / "skills"
 
 # Skills that should be in plugins/ (user-distributable)
 EXPECTED_PLUGIN_SKILLS = {"synapse-a2a", "synapse-manager", "synapse-reinst"}
@@ -77,6 +80,13 @@ def _discover_plugin_skills() -> list[Path]:
     ]
 
 
+def _iter_skill_files(skill_dir: Path) -> list[Path]:
+    """Return all files within a skill directory, relative to the skill root."""
+    return sorted(
+        path.relative_to(skill_dir) for path in skill_dir.rglob("*") if path.is_file()
+    )
+
+
 # Cache at module level to avoid repeated filesystem scans during parametrize
 _PLUGIN_SKILLS = _discover_plugin_skills()
 
@@ -99,6 +109,16 @@ class TestSkillPresence:
             "synapse-docs should not be in plugins/ — "
             "it is project-specific and lives in .agents/skills/ only"
         )
+
+    @pytest.mark.parametrize("target_root", [AGENTS_SKILLS_DIR, CLAUDE_SKILLS_DIR])
+    def test_plugin_skills_exist_in_sync_targets(self, target_root: Path) -> None:
+        """Plugin skills should be synced into both project agent directories."""
+        missing = [
+            skill_dir.name
+            for skill_dir in _PLUGIN_SKILLS
+            if not (target_root / skill_dir.name / "SKILL.md").exists()
+        ]
+        assert not missing, f"Missing synced skills in {target_root}: {missing}"
 
 
 class TestDescriptionLength:
@@ -168,3 +188,28 @@ class TestScriptsExecutable:
                 assert mode & stat.S_IXUSR, (
                     f"{script.relative_to(PLUGIN_SKILLS_DIR)} is not executable"
                 )
+
+
+class TestSyncedSkillParity:
+    """Synced skill copies must match the plugin source of truth."""
+
+    @pytest.mark.parametrize("skill_dir", _PLUGIN_SKILLS, ids=lambda d: d.name)
+    @pytest.mark.parametrize("target_root", [AGENTS_SKILLS_DIR, CLAUDE_SKILLS_DIR])
+    def test_synced_skill_files_match_plugin(
+        self, skill_dir: Path, target_root: Path
+    ) -> None:
+        target_dir = target_root / skill_dir.name
+        assert target_dir.exists(), f"Missing synced directory: {target_dir}"
+
+        plugin_files = _iter_skill_files(skill_dir)
+        target_files = _iter_skill_files(target_dir)
+        assert target_files == plugin_files, (
+            f"{target_dir} differs from plugin source. Run skill sync from plugins/."
+        )
+
+        for rel_path in plugin_files:
+            plugin_bytes = (skill_dir / rel_path).read_bytes()
+            target_bytes = (target_dir / rel_path).read_bytes()
+            assert target_bytes == plugin_bytes, (
+                f"{target_dir / rel_path} is out of sync with {skill_dir / rel_path}"
+            )
