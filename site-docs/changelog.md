@@ -9,6 +9,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Changed**: Skill Progressive Disclosure — `synapse-a2a` SKILL.md reduced from 877→159 lines, `synapse-manager` from 426→199 lines. Detail moved to `references/` for on-demand loading
 - **Added**: Manager helper scripts (`wait_ready.sh`, `check_team_status.sh`, `regression_triage.sh`) for deterministic operations
 - **Added**: Skill structure tests (`test_skill_structure.py`) enforcing Progressive Disclosure best practices
+- **Fixed**: tmux pane scoped splitting — `split-window` now targets `$TMUX_PANE` so new panes stay next to the source pane instead of applying a global layout
 - **Removed**: `synapse-docs` from plugins (dev-only, now in `.agents/skills/` only)
 
 ### v0.9.5

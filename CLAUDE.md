@@ -479,6 +479,8 @@ plugins/synapse-a2a/skills/synapse-manager/  # Multi-agent management skill
 
 **`plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース（`synapse-a2a`, `synapse-manager` 等）。** スキルを更新する際は必ず `plugins/` 側を編集し、`sync-plugin-skills` で `.claude/`, `.agents/` に同期すること。個別のエージェントディレクトリを直接編集してはならない。
 
+**Progressive Disclosure パターン**: スキルは SKILL.md をコンパクトな概要（判断フレームワーク、コマンド早見表）に留め、詳細リファレンスは `references/` サブディレクトリに分離する。これによりトークン消費を抑えつつ、エージェントが必要に応じて詳細を参照できる。`synapse-manager` はさらに再利用可能なシェルスクリプトを `scripts/` に格納する。
+
 ### CI Automation: Hooks and Skills
 
 Claude Code の PostToolUse フックと専用スキルにより、CI 監視・修復を自動化する。
