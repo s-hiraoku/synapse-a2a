@@ -115,9 +115,14 @@ The command creates a standard skill structure:
 ```
 my-skill/
 ├── SKILL.md          # Skill definition (frontmatter + instructions)
-└── references/       # Optional reference documents
-    └── docs.md
+├── references/       # Optional reference documents
+│   └── docs.md
+└── scripts/          # Optional automation scripts
+    └── helper.sh
 ```
+
+!!! info "Progressive Disclosure Pattern"
+    Core skills use a **Progressive Disclosure** pattern: `SKILL.md` is kept concise (under ~200 lines) with essential instructions only. Detailed reference material, examples, and command catalogs live in `references/` subdirectories. Automation scripts live in `scripts/`. This keeps the main skill file focused while allowing agents to load deeper context on demand.
 
 ## Moving Skills
 
@@ -139,8 +144,8 @@ Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four
 
 | Skill | Description |
 |-------|-------------|
-| **synapse-a2a** | Core A2A communication — commands, API endpoints, file safety, task board, collaboration patterns, and active feature usage guidance |
-| **synapse-manager** | 7-step multi-agent orchestration (Plan, Delegate, Monitor, Approve, Verify, Feedback, Review) with a Worker Agent Guide for autonomous task execution |
+| **synapse-a2a** | Core A2A communication — concise SKILL.md with `references/` for commands, API, messaging, spawning, collaboration, features, examples, and file safety |
+| **synapse-manager** | 7-step multi-agent orchestration (Plan, Delegate, Monitor, Approve, Verify, Feedback, Review) with `references/` (worker guide, feature tables, command quick-ref) and `scripts/` (team status check, regression triage, readiness wait) |
 | **synapse-reinst** | Re-inject initial instructions after `/clear` — restores agent identity using preserved `SYNAPSE_*` env vars |
 | **doc-organizer** | Documentation audit, restructure, and consolidation — inventory docs, detect staleness, deduplicate content, normalize terminology, and improve navigation |
 
@@ -233,4 +238,7 @@ This equips the agent with multi-agent management capabilities (from `synapse-ma
 ## Source of Truth
 
 !!! important
-    `plugins/synapse-a2a/skills/synapse-a2a/` is the source of truth for skills. Always edit skills in `plugins/` and sync to agent directories with `sync-plugin-skills`. Never edit agent directories directly.
+    `plugins/synapse-a2a/skills/` is the source of truth for published skills (`synapse-a2a`, `synapse-manager`, etc.). Always edit skills in `plugins/` and sync to agent directories with `sync-plugin-skills`. Never edit agent directories directly.
+
+!!! note "Dev-only skills"
+    Some skills like `synapse-docs` live only in `.agents/skills/` and are not published via `plugins/`. These are development-only utilities not intended for end-user distribution.

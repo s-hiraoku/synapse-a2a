@@ -269,6 +269,9 @@ The delegate mode instruction template can be customized in [settings](settings.
 !!! note
     Terminal detection is automatic. Use `--terminal <name>` to override.
 
+!!! info "tmux Pane Scoping"
+    In tmux, `split-window` targets `$TMUX_PANE` so new panes are created adjacent to the source pane. This prevents layout disruption when other panes or windows are open in the same tmux session.
+
 !!! info "Ghostty Pane Creation"
     Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
 

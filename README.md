@@ -458,8 +458,13 @@ plugins/
     ├── .claude-plugin/plugin.json
     ├── README.md
     └── skills/
-        ├── synapse-a2a/SKILL.md
-        └── synapse-manager/SKILL.md
+        ├── synapse-a2a/
+        │   ├── SKILL.md
+        │   └── references/          # api, collaboration, commands, examples, features, file-safety, messaging, spawning
+        └── synapse-manager/
+            ├── SKILL.md
+            ├── references/          # auto-approve-flags, commands-quick-ref, features-table, worker-guide
+            └── scripts/             # wait_ready.sh, check_team_status.sh, regression_triage.sh
 ```
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.

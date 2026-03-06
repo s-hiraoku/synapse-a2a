@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-03-06
+
+### Changed
+
+- **Skill Progressive Disclosure**: Restructured `synapse-a2a` SKILL.md (877→159 lines) and `synapse-manager` SKILL.md (426→199 lines). Detailed content moved to `references/` subdirectories for on-demand loading, reducing context window consumption
+- **synapse-a2a description**: Optimized with explicit trigger contexts ("Use this skill when...") for more reliable skill activation
+- **synapse-manager description**: Added implementation task triggers for better activation on multi-phase plans
+- **synapse-reinst description**: Added trigger contexts for lost identity and broken synapse send/reply scenarios
+- **Why-driven documentation**: Replaced must-driven language ("EVERY EDIT NEEDS A LOCK") with explanatory language ("Locking prevents data loss when two agents edit the same file")
+
+### Added
+
+- **synapse-a2a references**: `collaboration.md`, `messaging.md`, `spawning.md`, `features.md` — detailed reference files for Progressive Disclosure
+- **synapse-manager references**: `auto-approve-flags.md`, `worker-guide.md`, `features-table.md`, `commands-quick-ref.md`
+- **synapse-manager scripts**: `wait_ready.sh` (readiness polling), `check_team_status.sh` (team status aggregation), `regression_triage.sh` (regression vs pre-existing failure classification)
+- **Skill structure tests**: `tests/test_skill_structure.py` — validates description length, body line count, references existence, trigger contexts, and script permissions
+
+### Removed
+
+- **synapse-docs from plugins**: Moved to `.agents/skills/` only (dev-only skill, not distributed to users)
+
 ## [0.9.5] - 2026-03-06
 
 ### Fixed
@@ -1898,6 +1919,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.10.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.5...v0.10.0
 [0.9.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.2...v0.9.3

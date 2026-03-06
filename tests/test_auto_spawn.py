@@ -5,6 +5,7 @@ Test-first development: tests for pane creation and team start command.
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -612,3 +613,125 @@ class TestITerm2AppleScriptTarget:
         split_count = script.count("split vertically with default profile")
         assert split_count == 3
         assert "current session of current tab" in script
+
+
+class TestTmuxPaneScopedSplit:
+    """tmux splits should target the source pane and not affect other panes."""
+
+    def test_split_targets_source_pane(self) -> None:
+        """split-window should use -t to target the source pane when TMUX_PANE is set."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        with patch.dict(os.environ, {"TMUX_PANE": "%1"}):
+            commands = create_tmux_panes(
+                agents=["claude", "gemini"],
+                layout="horizontal",
+                all_new=True,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        for cmd in split_cmds:
+            assert "-t %1" in cmd, (
+                f"split-window should target source pane with -t: {cmd}"
+            )
+
+    def test_no_global_select_layout(self) -> None:
+        """Should not use select-layout which resizes all panes in the window."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["claude", "gemini"],
+            layout="horizontal",
+            all_new=True,
+        )
+        layout_cmds = [c for c in commands if "select-layout" in c]
+        assert len(layout_cmds) == 0, (
+            f"select-layout affects all panes in the window: {layout_cmds}"
+        )
+
+    def test_handoff_mode_splits_target_source(self) -> None:
+        """Handoff mode (all_new=False) should also scope splits to source pane."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        with patch.dict(os.environ, {"TMUX_PANE": "%5"}):
+            commands = create_tmux_panes(
+                agents=["claude", "gemini", "codex"],
+                layout="horizontal",
+                all_new=False,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 2  # gemini + codex
+        for cmd in split_cmds:
+            assert "-t %5" in cmd
+
+    def test_single_agent_spawn_targets_source(self) -> None:
+        """Single agent spawn (synapse spawn) should target source pane."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        with patch.dict(os.environ, {"TMUX_PANE": "%0"}):
+            commands = create_tmux_panes(
+                agents=["claude"],
+                layout="horizontal",
+                all_new=True,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 1
+        assert "-t %0" in split_cmds[0]
+
+    def test_three_agents_all_new_no_global_layout(self) -> None:
+        """Three agents with all_new should not use global select-layout."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            all_new=True,
+        )
+        assert not any("select-layout" in c for c in commands)
+
+    def test_three_agents_handoff_uses_tiling_flags(self) -> None:
+        """Handoff mode should still alternate -h/-v for a 3-agent split layout."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+            all_new=False,
+        )
+
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 2
+        assert "split-window -h " in split_cmds[0]
+        assert "split-window -v " in split_cmds[1]
+
+    def test_remote_agents_for_handoff_still_tile_as_three_person_team(self) -> None:
+        """Remote-pane creation should count the local handoff agent for split tiling."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        commands = create_tmux_panes(
+            agents=["gemini", "codex"],
+            layout="split",
+            all_new=True,
+        )
+
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 2
+        assert "split-window -h " in split_cmds[0]
+        assert "split-window -v " in split_cmds[1]
+
+    def test_no_target_when_tmux_pane_unset(self) -> None:
+        """Without TMUX_PANE, -t should be omitted for graceful degradation."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        env = os.environ.copy()
+        env.pop("TMUX_PANE", None)
+        with patch.dict(os.environ, env, clear=True):
+            commands = create_tmux_panes(
+                agents=["claude", "gemini"],
+                layout="horizontal",
+                all_new=True,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        for cmd in split_cmds:
+            assert "-t " not in cmd, (
+                f"split-window should NOT have -t when TMUX_PANE is unset: {cmd}"
+            )
