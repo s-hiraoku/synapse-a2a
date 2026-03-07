@@ -64,6 +64,59 @@ class TestCanvasPost:
         assert content["format"] == "mermaid"
         assert content["body"] == "graph TD; File-->Canvas"
 
+    def test_post_shortcut_autofills_agent_name_from_registry(
+        self, tmp_path, monkeypatch
+    ):
+        """Should resolve agent_name from registry when only agent_id is given."""
+        from synapse.commands.canvas import post_shortcut
+
+        class _Registry:
+            def get_agent(self, agent_id):
+                assert agent_id == "synapse-codex-8120"
+                return {"name": "Cody"}
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.AgentRegistry", lambda: _Registry()
+        )
+
+        result = post_shortcut(
+            format_name="markdown",
+            body="hello",
+            title="Auto Name",
+            agent_id="synapse-codex-8120",
+            db_path=str(tmp_path / "canvas.db"),
+        )
+
+        assert result is not None
+        assert result["agent_name"] == "Cody"
+
+    def test_post_shortcut_prefers_explicit_agent_name_over_registry(
+        self, tmp_path, monkeypatch
+    ):
+        """Explicit agent_name should win over registry-derived name."""
+        from synapse.commands.canvas import post_shortcut
+
+        class _Registry:
+            def get_agent(self, agent_id):
+                assert agent_id == "synapse-codex-8120"
+                return {"name": "RegistryName"}
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.AgentRegistry", lambda: _Registry()
+        )
+
+        result = post_shortcut(
+            format_name="markdown",
+            body="hello",
+            title="Explicit Name",
+            agent_id="synapse-codex-8120",
+            agent_name="Cody",
+            db_path=str(tmp_path / "canvas.db"),
+        )
+
+        assert result is not None
+        assert result["agent_name"] == "Cody"
+
 
 # ============================================================
 # TestCanvasMermaid — synapse canvas mermaid shortcut
