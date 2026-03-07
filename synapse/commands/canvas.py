@@ -30,12 +30,7 @@ def _resolve_agent_name(agent_id: str, agent_name: str = "") -> str:
     if agent_name or not agent_id:
         return agent_name
 
-    try:
-        info = AgentRegistry().get_agent(agent_id)
-    except Exception:
-        logger.debug("Failed to resolve agent name for %s", agent_id, exc_info=True)
-        return ""
-
+    info = AgentRegistry().get_agent(agent_id)
     if not info:
         return ""
     return str(info.get("name") or "")

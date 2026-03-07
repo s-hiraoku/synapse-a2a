@@ -7,10 +7,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.11.0
 
 - **Added**: Canvas SPA routing — `#/` (full-viewport Canvas view) and `#/dashboard` (Dashboard view with system panel, live feed, agent messages)
-- **Added**: Highlight.js syntax highlighting for code cards, side-by-side diff renderer, HTML iframe full-height in Canvas view
+- **Added**: Highlight.js syntax highlighting for `code` and `file-preview` card formats, side-by-side diff renderer, HTML iframe full-height in Canvas view
 - **Added**: Chart.js supports all types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
+- **Changed**: Content size limit increased from 500KB to 2MB per content block
+- **Changed**: Theme toggle moved to header level (visible in both Canvas and Dashboard views)
 - **Changed**: Canvas performance — debounced rendering, skip-unchanged spotlight, O(n) latest card lookup
 - **Changed**: iframe sandbox reverted to `allow-scripts` only (security fix)
+- **Fixed**: `from_dict` guards non-dict content input
+- **Fixed**: `simpleMarkdown` blocks `javascript:` URLs (XSS hardening)
+- **Fixed**: `card_id` is globally unique (not per-agent); server returns 403 on cross-agent reuse
 
 ### v0.10.1
 

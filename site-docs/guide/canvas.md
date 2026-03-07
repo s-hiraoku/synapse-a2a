@@ -332,4 +332,3 @@ The Dashboard view shows the traditional card grid alongside system state.
 - **Dark/light theme**: Follows `prefers-color-scheme` with manual toggle
 - **Toast notifications**: `notify` type shows ephemeral messages
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp
-- **Pin/delete controls**: Pin icon and X button on card headers

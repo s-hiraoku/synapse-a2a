@@ -117,6 +117,29 @@ class TestCanvasPost:
         assert result is not None
         assert result["agent_name"] == "Cody"
 
+    def test_post_shortcut_does_not_swallow_unexpected_registry_errors(
+        self, tmp_path, monkeypatch
+    ):
+        """Unexpected registry failures should surface instead of becoming empty names."""
+        from synapse.commands.canvas import post_shortcut
+
+        class _Registry:
+            def get_agent(self, agent_id):
+                raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.AgentRegistry", lambda: _Registry()
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            post_shortcut(
+                format_name="markdown",
+                body="hello",
+                title="Error Name",
+                agent_id="synapse-codex-8120",
+                db_path=str(tmp_path / "canvas.db"),
+            )
+
 
 # ============================================================
 # TestCanvasMermaid — synapse canvas mermaid shortcut

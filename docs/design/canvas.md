@@ -407,7 +407,7 @@ The Dashboard view is divided into three sections: the **System Panel** (top), *
 |                                                                                               |
 |  +-- v [●] DocWriter (synapse-gemini-8110) ----------------------------- [2 cards] ------+    |
 |  |                                                                                        |   |
-|  |  +-- System Design (auth-flow) ----------------------- 14:23 -- [pin] [x] ----------+  |   |
+|  |  +-- System Design (auth-flow) ----------------------------------------- 14:23 --+  |   |
 |  |  | +-----------------------------------------------------------------------------+ |  |   |
 |  |  | | ## Architecture Overview          (markdown)                                | |  |   |
 |  |  | | ...                                                                         | |  |   |
@@ -595,7 +595,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] SPA routing: `#/` (Canvas view — full-viewport latest card) and `#/dashboard` (Dashboard view)
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
-- [ ] Dark/light theme toggle
+- [x] Dark/light theme toggle
 - [ ] Card animations (insert/update/delete)
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
