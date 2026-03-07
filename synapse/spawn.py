@@ -117,7 +117,7 @@ def spawn_agent(
     # 6. Create pane commands via existing infrastructure
     commands = create_panes(
         [agent_spec],
-        layout="horizontal",
+        layout="auto",
         terminal_app=terminal_used,
         all_new=True,
         tool_args=tool_args,

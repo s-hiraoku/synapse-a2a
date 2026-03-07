@@ -238,12 +238,11 @@ class TestSpawnAgent:
         assert "Reviewer" in spec
         assert "code review" in spec
 
-    def test_spawn_uses_horizontal_layout(self) -> None:
-        """spawn_agent() should pass layout='horizontal' to create_panes.
+    def test_spawn_uses_auto_layout(self) -> None:
+        """spawn_agent() should pass layout='auto' to create_panes.
 
-        Fix #336: Without explicit layout, create_panes defaults to 'split'
-        which creates top-bottom (vertical) tmux panes. Spawning a single
-        agent should create a side-by-side (horizontal) pane.
+        Auto layout alternates split direction based on existing pane count,
+        preventing all panes from splitting in the same direction.
         """
         from synapse.spawn import spawn_agent
 
@@ -261,7 +260,7 @@ class TestSpawnAgent:
             spawn_agent("claude")
 
         call_kwargs = mock_cp.call_args[1]
-        assert call_kwargs.get("layout") == "horizontal"
+        assert call_kwargs.get("layout") == "auto"
 
     def test_spawn_explicit_terminal(self) -> None:
         """Explicit terminal should override auto-detection."""
