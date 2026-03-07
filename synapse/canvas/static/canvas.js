@@ -1463,8 +1463,17 @@
   // ----------------------------------------------------------------
   // Simple markdown parser (no external dependency)
   // ----------------------------------------------------------------
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function simpleMarkdown(text) {
-    return text
+    return escapeHtml(text)
       // Code blocks
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
       // Inline code
@@ -1477,12 +1486,10 @@
       .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Links (only allow safe URL schemes, escape HTML in href/text)
+      // Links (only allow safe URL schemes; input is already HTML-escaped)
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
-        if (/^(https?:|mailto:|#)/i.test(href)) {
-          var safeHref = href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-          var safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-          return '<a href="' + safeHref + '" target="_blank" rel="noopener">' + safeText + '</a>';
+        if (/^(https?:|mailto:|#)/i.test(href) && !/^javascript:/i.test(href)) {
+          return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
         }
         return text;
       })
