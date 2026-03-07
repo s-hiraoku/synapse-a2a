@@ -94,31 +94,34 @@ synapse kill <spawned-agent-name> -f
 synapse list  # Verify the agent is gone
 ```
 
-## Permission Skip Flags (per CLI)
+## Automation Args (per CLI)
 
-Each CLI has its own flag to skip interactive permission prompts. These are passed as tool args after `--` because they are forwarded to the underlying CLI, not consumed by Synapse itself.
+Each CLI has its own automation args. These are passed as tool args after `--`
+because they are forwarded to the underlying CLI, not consumed by Synapse
+itself.
 
 **Recommended default:** When using `synapse spawn` or `synapse team start`,
-include the relevant approval-skip flag unless you explicitly want an
-interactive approval flow. Spawned agents are normally used unattended, so
-approval-skipping should be the default operating mode.
+include the relevant automation args unless you explicitly want an interactive
+flow. Spawned agents are normally used unattended, so approval-skipping should
+be the default where the CLI supports it directly.
 
 | CLI | Flag | Notes |
 |-----|------|-------|
 | **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
 | **Gemini CLI** | `--approval-mode=yolo` | Yolo mode -- auto-approve all actions |
 | **Codex CLI** | `--full-auto` | Sandboxed auto-approve (`-a on-request --sandbox workspace-write`) |
-| **OpenCode** | *(no flag)* | No auto-approve flag available |
+| **OpenCode** | *(no dedicated flag)* | `--agent build` selects the build agent profile; approval behavior still depends on OpenCode permission config |
 | **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
 
 ```bash
-# Spawn with permission skip
+# Spawn with automation args
 synapse spawn claude -- --dangerously-skip-permissions
 synapse spawn gemini -- --approval-mode=yolo
 synapse spawn codex -- --full-auto
+synapse spawn opencode -- --agent build                  # Select OpenCode's build agent profile
 synapse spawn copilot -- --allow-all-tools
 
-# Team start with permission skip (flag applies to ALL agents, so keep teams homogeneous)
+# Team start with automation args (tool args apply to ALL agents, so keep teams homogeneous)
 synapse team start claude claude -- --dangerously-skip-permissions
 synapse team start gemini gemini -- --approval-mode=yolo
 # For Codex full unrestricted mode: --dangerously-bypass-approvals-and-sandbox
@@ -140,6 +143,7 @@ synapse spawn claude -w my-feature            # Named worktree
 synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
 synapse spawn gemini -- --approval-mode=yolo            # Gemini yolo mode
 synapse spawn codex -- --full-auto                       # Codex sandboxed auto-approve
+synapse spawn opencode -- --agent build                  # OpenCode build agent profile (permissions are configured separately)
 synapse spawn copilot -- --allow-all-tools               # Copilot allow all
 ```
 

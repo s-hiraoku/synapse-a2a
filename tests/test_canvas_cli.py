@@ -90,6 +90,33 @@ class TestCanvasPost:
         assert result is not None
         assert result["agent_name"] == "Cody"
 
+    def test_post_card_autofills_agent_name_from_registry(self, tmp_path, monkeypatch):
+        """Should resolve agent_name from registry when only agent_id is given in raw JSON."""
+        from synapse.commands.canvas import post_card
+
+        class _Registry:
+            def get_agent(self, agent_id):
+                assert agent_id == "synapse-codex-8120"
+                return {"name": "Cody"}
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.AgentRegistry", lambda: _Registry()
+        )
+
+        msg_json = json.dumps(
+            {
+                "type": "render",
+                "content": {"format": "markdown", "body": "hello"},
+                "agent_id": "synapse-codex-8120",
+                "title": "Raw Auto Name",
+            }
+        )
+
+        result = post_card(msg_json, db_path=str(tmp_path / "canvas.db"))
+
+        assert result is not None
+        assert result["agent_name"] == "Cody"
+
     def test_post_shortcut_prefers_explicit_agent_name_over_registry(
         self, tmp_path, monkeypatch
     ):

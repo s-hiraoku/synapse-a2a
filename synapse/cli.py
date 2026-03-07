@@ -2720,6 +2720,30 @@ def interactive_agent_setup(
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_settings)
 
 
+def _resolve_task_id(short_id: str) -> str:
+    """Resolve a short task ID (prefix) to a full UUID."""
+    from synapse.task_board import TaskBoard
+
+    if len(short_id) == 36:  # Already a full UUID
+        return short_id
+
+    board = TaskBoard.from_env()
+    tasks = board.list_tasks()
+    matches = [t["id"] for t in tasks if t["id"].startswith(short_id)]
+
+    if not matches:
+        print(f"Error: No task found starting with '{short_id}'", file=sys.stderr)
+        sys.exit(1)
+    if len(matches) > 1:
+        print(
+            f"Error: Multiple tasks found starting with '{short_id}': {', '.join(matches[:3])}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return str(matches[0])
+
+
 # ============================================================
 # Task Board Commands (B1)
 # ============================================================
@@ -2781,8 +2805,9 @@ def cmd_tasks_assign(args: argparse.Namespace) -> None:
     """Assign (claim) a task."""
     from synapse.task_board import TaskBoard
 
+    task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
-    result = board.claim_task(args.task_id, args.agent)
+    result = board.claim_task(task_id, args.agent)
     if result:
         print(f"Assigned {args.task_id[:8]} to {args.agent}")
     else:
@@ -2794,9 +2819,10 @@ def cmd_tasks_complete(args: argparse.Namespace) -> None:
     """Complete a task."""
     from synapse.task_board import TaskBoard
 
+    task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
     agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-    unblocked = board.complete_task(args.task_id, agent_id)
+    unblocked = board.complete_task(task_id, agent_id)
     print(f"Completed task: {args.task_id[:8]}")
     if unblocked:
         print(f"Unblocked: {', '.join(t[:8] for t in unblocked)}")
@@ -2806,17 +2832,18 @@ def cmd_tasks_fail(args: argparse.Namespace) -> None:
     """Report a task as failed."""
     from synapse.task_board import TaskBoard
 
+    task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
     agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
     reason = getattr(args, "reason", "") or ""
-    updated = board.fail_task(args.task_id, agent_id, reason=reason)
+    updated = board.fail_task(task_id, agent_id, reason=reason)
     if not updated:
         print(
-            f"Error: Task {args.task_id[:8]} not found or not in_progress for {agent_id}",
+            f"Error: Task {task_id[:8]} not found or not in_progress for {agent_id}",
             file=sys.stderr,
         )
         sys.exit(1)
-    print(f"Failed task: {args.task_id[:8]}")
+    print(f"Failed task: {task_id[:8]}")
     if reason:
         print(f"Reason: {reason}")
 
@@ -2825,11 +2852,12 @@ def cmd_tasks_reopen(args: argparse.Namespace) -> None:
     """Reopen a completed or failed task."""
     from synapse.task_board import TaskBoard
 
+    task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
     agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-    result = board.reopen_task(args.task_id, agent_id)
+    result = board.reopen_task(task_id, agent_id)
     if result:
-        print(f"Reopened task: {args.task_id[:8]}")
+        print(f"Reopened task: {task_id[:8]}")
     else:
         print("Failed to reopen task (may be pending or in_progress)")
         sys.exit(1)

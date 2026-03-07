@@ -8,7 +8,7 @@ Each CLI agent uses a different flag to skip permission prompts. Pass after `--`
 | **Gemini CLI** | `-y` (or `--yolo`) | `synapse spawn gemini -- -y` |
 | **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
 | **GitHub Copilot CLI** | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
-| **OpenCode** | *(no flag available)* | N/A |
+| **OpenCode** | *(no dedicated flag)* | `synapse spawn opencode -- --agent build` selects the build agent profile; approval still depends on OpenCode permissions |
 
 **Codex details:** `--full-auto` = `-a on-request --sandbox workspace-write` (sandboxed auto-approve).
 For fully unrestricted: `--dangerously-bypass-approvals-and-sandbox`.
@@ -18,6 +18,7 @@ When combining flags fails, start agents individually:
 ```bash
 synapse spawn claude -- --dangerously-skip-permissions
 synapse spawn gemini -- -y
+synapse spawn opencode -- --agent build   # Build agent profile only; not a universal skip-approval flag
 ```
 
 **Via API:**

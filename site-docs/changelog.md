@@ -10,6 +10,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: `SYNAPSE_SPAWN_PANES` environment variable for automatic spawn zone pane tracking (tmux)
 - **Changed**: Default `layout` for `synapse spawn` is now `"auto"` (spawn zone tiling); `team start` retains `"horizontal"` default
 - **Added**: Alternating split direction support for iTerm2, Ghostty, and Zellij spawn tiling
+- **Changed**: Task board lifecycle commands accept unique short task ID prefixes for assign, complete, fail, and reopen
+- **Changed**: Synapse skill guidance now uses tool-specific automation args wording and clarifies that OpenCode `--agent build` selects the build agent profile rather than acting as a universal skip-approval flag
+- **Fixed**: Canvas raw JSON posts autofill `agent_name` from the registry when only `agent_id` is provided
+- **Fixed**: Canvas system panel surfaces registry read and JSON parse errors instead of silently dropping broken entries
 
 ### v0.11.1
 
