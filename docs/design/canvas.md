@@ -241,9 +241,7 @@ Agents don't see the browser. This is the only human-exclusive interface.
 | View cards | Just open the page (SSE auto-updates) |
 | Canvas view | `#/` — full-viewport latest card |
 | Dashboard view | `#/dashboard` — system panel + live feed + agent messages |
-| Filter | By format type, by agent, by tag (Dashboard view only) |
-| Pin/unpin | Pin icon on card header |
-| Delete card | X button on card header |
+| Filter | By format type and by agent (Dashboard view only) |
 | Theme toggle | Dark/light switch |
 
 ### HTTP API (programmatic)
@@ -504,7 +502,7 @@ class CanvasMessage:
 - `type` must be one of: `render`, `update`, `clear`, `notify`
 - `content.format` must be a registered format (extensible registry)
 - `content.body` max size: 2MB per block
-- `card_id` if provided, must be unique per agent (allows cross-agent same IDs)
+- `card_id` must be globally unique (schema: `card_id TEXT UNIQUE`). If a different agent reuses an existing `card_id`, the server returns 403
 - Composite cards: max 10 content blocks per card
 
 ### Format Registry (Extensible)

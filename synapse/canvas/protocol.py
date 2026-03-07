@@ -118,13 +118,16 @@ class CanvasMessage:
                     lang=b.get("lang"),
                 )
                 for b in raw_content
+                if isinstance(b, dict)
             ]
-        else:
+        elif isinstance(raw_content, dict):
             content = ContentBlock(
                 format=raw_content.get("format", ""),
                 body=raw_content.get("body", ""),
                 lang=raw_content.get("lang"),
             )
+        else:
+            content = ContentBlock(format="", body="")
 
         return cls(
             type=data.get("type", "render"),

@@ -819,6 +819,9 @@
       .join("\n");
     pre.appendChild(code);
     el.appendChild(pre);
+    if (data.lang && typeof hljs !== "undefined") {
+      hljs.highlightElement(code);
+    }
   }
 
   function renderTrace(el, body) {
@@ -1474,8 +1477,13 @@
       .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      // Links (only allow safe URL schemes)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
+        if (/^(https?:|mailto:|#)/i.test(href)) {
+          return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
+        }
+        return text;
+      })
       // Unordered list
       .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
       // Line breaks

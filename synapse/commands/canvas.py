@@ -96,6 +96,7 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
         stderr=log_file,
         start_new_session=True,
     )
+    log_file.close()  # child has its own fd copy
     write_pid_file(pid_path, pid=proc.pid, port=port)
 
     # Wait for server to become ready
@@ -166,6 +167,7 @@ def post_card(
             content=content_json,
             title=msg.title,
             agent_name=msg.agent_name or None,
+            card_type=msg.type or "render",
             pinned=msg.pinned,
             tags=msg.tags or None,
         )
@@ -174,6 +176,7 @@ def post_card(
         content=content_json,
         title=msg.title,
         agent_name=msg.agent_name or None,
+        card_type=msg.type or "render",
         pinned=msg.pinned,
         tags=msg.tags or None,
     )
