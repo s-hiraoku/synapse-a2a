@@ -1477,10 +1477,12 @@
       .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Links (only allow safe URL schemes)
+      // Links (only allow safe URL schemes, escape HTML in href/text)
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
         if (/^(https?:|mailto:|#)/i.test(href)) {
-          return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
+          var safeHref = href.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+          var safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          return '<a href="' + safeHref + '" target="_blank" rel="noopener">' + safeText + '</a>';
         }
         return text;
       })
