@@ -105,6 +105,30 @@ synapse reset --scope both -f             # Reset both without confirmation
 
 Settings include `approvalMode` for controlling initial instruction approval behavior.
 
+## Proactive Mode
+
+Enforces mandatory usage of all Synapse coordination features for every task, regardless of size.
+
+**Activation:** `SYNAPSE_PROACTIVE_MODE_ENABLED=true synapse claude`
+
+When enabled, the `.synapse/proactive.md` instruction file is injected at startup. It requires agents to follow a strict per-task checklist:
+
+**Before work:** Register on task board, search shared memory, check available agents.
+**During work:** Lock files before editing, save discoveries to memory, post artifacts to canvas, delegate subtasks.
+**After work:** Unlock files, mark task complete, broadcast completion, post summary to canvas.
+
+**Rules:**
+- Never skip task board registration — even for 1-line fixes
+- Always lock files before editing in multi-agent setups
+- Always save useful findings to shared memory
+- Always post significant artifacts to canvas
+- For tasks with 2+ phases: delegate at least one phase to another agent
+- For tasks touching 3+ files: use file-safety locks on all files
+
+**Difference from default behavior:** Without proactive mode, the Collaboration Decision Framework in default instructions recommends feature usage but leaves it to agent judgment. With proactive mode, every step is mandatory and must be followed as a checklist.
+
+**Configuration:** Toggle via `synapse config` TUI or set the environment variable directly.
+
 ## Canvas Board
 
 Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.

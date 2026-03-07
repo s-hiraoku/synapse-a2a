@@ -141,6 +141,7 @@ flowchart TB
 | | 翻訳サポート | JP→EN Learning セクションを有効化（再利用可能な英語テンプレート・スロットマッピング・意訳・語彙チートシート）。LEARNING_MODE_ENABLED と独立して動作 | `SYNAPSE_LEARNING_MODE_TRANSLATION=true` |
 | **認証** | API Key 認証 | HTTP API のアクセス制御 | `SYNAPSE_AUTH_ENABLED=true` |
 | | Webhook 通知 | タスク完了時に外部通知 | Webhook 登録時 |
+| | Proactive Mode | すべてのタスクで Synapse 機能（タスクボード、共有メモリ、キャンバス、ファイルセーフティ、委任、ブロードキャスト）の使用を必須にする | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` |
 | **コラボレーション** | プロアクティブコラボレーション | タスク開始前にコラボレーション機会を自動評価。判断フレームワーク（自分で実行/委任/ヘルプ/報告/共有） | 常時（`.synapse/default.md` で設定） |
 | | クロスモデル生成 | spawn 時に異なるモデルタイプを優先（品質向上 + レート制限分散） | 常時 |
 | | ワーカー自律性 | マネージャーだけでなくワーカーも spawn/委任可能 | 常時 |
@@ -349,6 +350,7 @@ CREATE TABLE file_modifications (
 | `SYNAPSE_API_KEYS` | APIキー（カンマ区切り） | - |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Prompt Improvement セクションを有効化（Goal/Problem/Fix、推奨リライト、詳細レベル別オプション）。TRANSLATION と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | JP→EN Learning セクションを有効化（再利用可能な英語パターンとスロットマッピング）。LEARNING_MODE_ENABLED と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Proactive Mode を有効化。すべてのタスクで Synapse 機能の使用を必須にする。起動時に `.synapse/proactive.md` を注入 | `false` |
 | `SYNAPSE_LOG_LEVEL` | ログレベル | `INFO` |
 | `SYNAPSE_LOG_FILE` | ファイルログ有効化 | `false` |
 
@@ -360,6 +362,7 @@ CREATE TABLE file_modifications (
 | `gemini.md` | `instructions.gemini` が `gemini.md` の場合 | Gemini専用の指示 |
 | `file-safety.md` | `SYNAPSE_FILE_SAFETY_ENABLED=true` | ファイル安全ルール |
 | `learning.md` | `SYNAPSE_LEARNING_MODE_ENABLED=true` または `SYNAPSE_LEARNING_MODE_TRANSLATION=true` | 構造化されたプロンプト改善・学習フィードバック（どちらかのフラグが有効なら注入される） |
+| `proactive.md` | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` | すべてのタスクで Synapse 機能の使用を必須にする指示 |
 
 ---
 

@@ -33,7 +33,8 @@
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
     "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
-    "SYNAPSE_LEARNING_MODE_TRANSLATION": "false"
+    "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
+    "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
   },
   "instructions": {
     "default": "default.md",
@@ -92,6 +93,7 @@
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Cross-agent shared memory |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Prompt improvement feedback |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | JP→EN translation assistance |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | `false` | Mandatory full-feature usage for every task |
 
 ### Authentication
 

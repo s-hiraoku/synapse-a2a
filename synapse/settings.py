@@ -112,6 +112,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         # Learning mode settings
         "SYNAPSE_LEARNING_MODE_ENABLED": "false",
         "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
+        # Proactive mode settings
+        "SYNAPSE_PROACTIVE_MODE_ENABLED": "false",
     },
     "instructions": {
         "default": get_default_instructions(),
@@ -519,6 +521,12 @@ class SynapseSettings:
         ):
             files.append("shared-memory.md")
 
+        # Proactive mode
+        if self._is_proactive_mode_enabled() and self._instruction_file_exists(
+            "proactive.md"
+        ):
+            files.append("proactive.md")
+
         return files
 
     def get_instruction_file_paths(
@@ -577,6 +585,10 @@ class SynapseSettings:
         # Shared memory
         if self._is_shared_memory_enabled():
             add_if_exists("shared-memory.md")
+
+        # Proactive mode
+        if self._is_proactive_mode_enabled():
+            add_if_exists("proactive.md")
 
         return paths
 
@@ -646,6 +658,10 @@ class SynapseSettings:
         """Check if shared memory is enabled via env var or settings."""
         return self._is_env_flag_enabled("SYNAPSE_SHARED_MEMORY_ENABLED")
 
+    def _is_proactive_mode_enabled(self) -> bool:
+        """Check if proactive mode is enabled via env var or settings."""
+        return self._is_env_flag_enabled("SYNAPSE_PROACTIVE_MODE_ENABLED")
+
     def _is_any_learning_enabled(self) -> bool:
         """Check if any learning feature (mode or translation) is enabled."""
         return (
@@ -689,6 +705,11 @@ class SynapseSettings:
             memory_content = self._load_instruction_file("shared-memory.md")
             if memory_content:
                 instruction = instruction + "\n\n" + memory_content
+
+        if self._is_proactive_mode_enabled():
+            proactive_content = self._load_instruction_file("proactive.md")
+            if proactive_content:
+                instruction = instruction + "\n\n" + proactive_content
 
         return instruction
 
