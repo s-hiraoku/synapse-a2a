@@ -585,6 +585,28 @@ class _TmuxAutoSplit:
     flag: str  # "-h" or "-v"
 
 
+def _get_tmux_spawn_panes() -> str:
+    """Read SYNAPSE_SPAWN_PANES from the tmux session environment.
+
+    Falls back to os.environ for testing / non-tmux contexts.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "show-environment", "SYNAPSE_SPAWN_PANES"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            line = result.stdout.strip()
+            if "=" in line:
+                return line.split("=", 1)[1]
+    except Exception:
+        pass
+    # Fallback to process env (for tests)
+    return os.environ.get("SYNAPSE_SPAWN_PANES", "")
+
+
 def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
     """Determine the best pane to split and the direction for tiling.
 
@@ -605,7 +627,7 @@ def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
             return None
 
         # Filter by spawn zone if set
-        spawn_panes_str = os.environ.get("SYNAPSE_SPAWN_PANES", "")
+        spawn_panes_str = _get_tmux_spawn_panes()
         spawn_panes = set(spawn_panes_str.split(",")) if spawn_panes_str else None
 
         best_pane = None
@@ -737,7 +759,7 @@ def create_tmux_panes(
     # - Subsequent spawns: find largest pane in spawn zone and split it
     auto_split: _TmuxAutoSplit | None = None
     if layout == "auto":
-        spawn_panes = os.environ.get("SYNAPSE_SPAWN_PANES", "")
+        spawn_panes = _get_tmux_spawn_panes()
         if spawn_panes:
             auto_split = _get_tmux_auto_split()
             split_flag = auto_split.flag if auto_split else "-h"

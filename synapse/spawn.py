@@ -6,6 +6,7 @@ the ``synapse spawn`` CLI command and the ``POST /spawn`` API endpoint.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import subprocess
@@ -38,6 +39,39 @@ def _get_new_tmux_pane_id(before: set[str]) -> str | None:
     after = _get_tmux_pane_ids()
     new_panes = after - before
     return new_panes.pop() if new_panes else None
+
+
+def _get_tmux_spawn_panes() -> str:
+    """Read SYNAPSE_SPAWN_PANES from the tmux session environment.
+
+    Uses ``tmux show-environment`` so the value persists across CLI
+    invocations within the same tmux session.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "show-environment", "SYNAPSE_SPAWN_PANES"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Output format: "SYNAPSE_SPAWN_PANES=value"
+            line = result.stdout.strip()
+            if "=" in line:
+                return line.split("=", 1)[1]
+    except Exception:
+        pass
+    return ""
+
+
+def _set_tmux_spawn_panes(value: str) -> None:
+    """Write SYNAPSE_SPAWN_PANES to the tmux session environment."""
+    with contextlib.suppress(Exception):
+        subprocess.run(
+            ["tmux", "set-environment", "SYNAPSE_SPAWN_PANES", value],
+            capture_output=True,
+            timeout=5,
+        )
 
 
 @dataclass
@@ -166,14 +200,15 @@ def spawn_agent(
         raise RuntimeError(f"Failed to spawn agent: {e}") from e
 
     # 8. Track new pane in SYNAPSE_SPAWN_PANES for spawn zone tiling
+    #    Uses tmux session environment so value persists across CLI calls.
     if terminal_used == "tmux" and panes_before:
         new_pane = _get_new_tmux_pane_id(panes_before)
         if new_pane:
-            existing = os.environ.get("SYNAPSE_SPAWN_PANES", "")
+            existing = _get_tmux_spawn_panes()
             if existing:
-                os.environ["SYNAPSE_SPAWN_PANES"] = f"{existing},{new_pane}"
+                _set_tmux_spawn_panes(f"{existing},{new_pane}")
             else:
-                os.environ["SYNAPSE_SPAWN_PANES"] = new_pane
+                _set_tmux_spawn_panes(new_pane)
 
     agent_id = f"synapse-{profile}-{port}"
     wt_path = str(worktree_info.path) if worktree_info else None

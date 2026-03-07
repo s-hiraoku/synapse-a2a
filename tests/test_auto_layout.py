@@ -412,15 +412,10 @@ class TestSpawnPaneTracking:
     """spawn_agent() should track spawn zone pane IDs via SYNAPSE_SPAWN_PANES."""
 
     def test_spawn_records_new_pane_id(self) -> None:
-        """After spawning, the new pane ID should be added to SYNAPSE_SPAWN_PANES."""
+        """After spawning, the new pane ID should be stored via tmux session env."""
         from synapse.spawn import spawn_agent
 
-        env = os.environ.copy()
-        env.pop("SYNAPSE_SPAWN_PANES", None)
-        env["TMUX_PANE"] = "%0"
-
         with (
-            patch.dict(os.environ, env, clear=True),
             patch("synapse.spawn.load_profile"),
             patch("synapse.spawn.is_port_available", return_value=True),
             patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
@@ -428,20 +423,17 @@ class TestSpawnPaneTracking:
             patch("subprocess.run"),
             patch("synapse.spawn._get_tmux_pane_ids", return_value={"%0", "%1"}),
             patch("synapse.spawn._get_new_tmux_pane_id", return_value="%5"),
+            patch("synapse.spawn._get_tmux_spawn_panes", return_value=""),
+            patch("synapse.spawn._set_tmux_spawn_panes") as mock_set,
         ):
             spawn_agent(profile="claude", port=9999)
-            assert os.environ.get("SYNAPSE_SPAWN_PANES") == "%5"
+            mock_set.assert_called_once_with("%5")
 
     def test_spawn_appends_pane_id_to_existing(self) -> None:
-        """Subsequent spawns should append to SYNAPSE_SPAWN_PANES."""
+        """Subsequent spawns should append to existing spawn zone panes."""
         from synapse.spawn import spawn_agent
 
-        env = os.environ.copy()
-        env["SYNAPSE_SPAWN_PANES"] = "%5"
-        env["TMUX_PANE"] = "%0"
-
         with (
-            patch.dict(os.environ, env, clear=True),
             patch("synapse.spawn.load_profile"),
             patch("synapse.spawn.is_port_available", return_value=True),
             patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
@@ -452,9 +444,11 @@ class TestSpawnPaneTracking:
                 return_value={"%0", "%1", "%5"},
             ),
             patch("synapse.spawn._get_new_tmux_pane_id", return_value="%8"),
+            patch("synapse.spawn._get_tmux_spawn_panes", return_value="%5"),
+            patch("synapse.spawn._set_tmux_spawn_panes") as mock_set,
         ):
             spawn_agent(profile="claude", port=9998)
-            assert os.environ.get("SYNAPSE_SPAWN_PANES") == "%5,%8"
+            mock_set.assert_called_once_with("%5,%8")
 
 
 # ============================================================
