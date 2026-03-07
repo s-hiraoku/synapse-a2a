@@ -165,7 +165,7 @@ class TestValidation:
             validate_message,
         )
 
-        large_body = "x" * 600_000  # > 500KB
+        large_body = "x" * 2_100_000  # > 2MB
         msg = CanvasMessage(
             type="render",
             content=ContentBlock(format="markdown", body=large_body),
