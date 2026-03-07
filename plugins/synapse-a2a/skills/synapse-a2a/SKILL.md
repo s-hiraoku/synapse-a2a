@@ -44,6 +44,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Kill agent | `synapse kill <name> -f` |
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
 | Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
+| Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
+| Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 
 ## Collaboration Decision Framework
 
@@ -76,6 +78,7 @@ Evaluate collaboration opportunities before starting work:
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
+| **Canvas** | Visual dashboard for sharing rich cards (code, charts, diffs, diagrams) | `synapse canvas post/open/list` |
 
 ## Spawning Decision Table
 
@@ -162,4 +165,4 @@ For detailed information, consult these reference files:
 | `references/messaging.md` | Sending, replying, priorities, status states, interactive controls |
 | `references/spawning.md` | Spawn lifecycle, patterns, worktree, permissions, API |
 | `references/collaboration.md` | Agent naming, external agents, auth, resume, path overrides |
-| `references/features.md` | Sessions, workflows, saved agents, tokens, skills, settings |
+| `references/features.md` | Sessions, workflows, saved agents, tokens, skills, settings, Canvas |

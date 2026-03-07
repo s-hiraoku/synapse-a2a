@@ -1547,7 +1547,10 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 
 ## Canvas Board
 
-Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser.
+Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with two views navigated via hash routing:
+
+- **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
+- **`#/dashboard`** (Dashboard view) — Grid layout with filters, live feed, and system panel
 
 ### Post Cards
 
@@ -1561,14 +1564,18 @@ synapse canvas post markdown "## Summary\nAll tests pass" --title "Report"
 # Post a table
 synapse canvas post table '{"headers":["Test","Status"],"rows":[["auth","pass"],["api","pass"]]}' --title "Results"
 
-# Post code with language hint
+# Post code with language hint (syntax highlighted via highlight.js)
 synapse canvas post code "def hello(): pass" --lang python --title "Snippet"
 
-# Post a Chart.js chart
+# Post a Chart.js chart (supports bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 synapse canvas post chart '{"type":"bar","data":{"labels":["A","B"],"datasets":[{"data":[10,20]}]}}' --title "Metrics"
+synapse canvas post chart '{"type":"pie","data":{"labels":["Pass","Fail"],"datasets":[{"data":[95,5]}]}}' --title "Results"
 
-# Post a diff
+# Post a diff (rendered as side-by-side comparison)
 synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
+
+# Post HTML (rendered in sandboxed iframe with auto-height)
+synapse canvas post html "<h1>Hello</h1><p>Rich content</p>" --title "HTML Card"
 
 # Read body from file
 synapse canvas post mermaid "" --file diagram.mmd --title "From File"
@@ -1586,7 +1593,17 @@ synapse canvas post markdown "Hello" --title "Greeting" --agent-name "Reviewer"
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
 
-**Supported formats:** mermaid, markdown, html, table, json, diff, code, chart, image
+**Supported formats (18):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board
+
+### Rendering Details
+
+| Format | Renderer | Notes |
+|--------|----------|-------|
+| code | highlight.js 11.x | Syntax highlighting; set `--lang` for best results |
+| chart | Chart.js 4.x | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
+| diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
+| html | Sandboxed iframe | `allow-scripts allow-same-origin`; auto-resizes to content height |
+| mermaid | Mermaid 11.x | Diagrams rendered client-side |
 
 ### Manage Cards
 

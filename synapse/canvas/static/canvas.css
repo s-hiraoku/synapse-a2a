@@ -120,6 +120,293 @@ header {
   backdrop-filter: blur(8px);
 }
 
+/* ── Nav Menu ──────────────────────────────── */
+
+#nav-menu {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.nav-link {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-overlay);
+}
+
+.nav-link.active {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  font-weight: 600;
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* ── View Visibility ──────────────────────── */
+
+.view-hidden {
+  display: none !important;
+}
+
+/* ── Canvas View — Full-Viewport Projection ── */
+
+#canvas-view {
+  position: relative;
+  height: calc(100vh - 52px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Ambient glow behind content — set dynamically via JS */
+#canvas-view::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  opacity: 0.07;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 30%,
+    var(--canvas-glow, var(--color-accent)),
+    transparent
+  );
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+
+#canvas-spotlight {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ── Canvas Title Bar ─────────────────────── */
+
+.canvas-title-bar {
+  flex-shrink: 0;
+  padding: var(--sp-6) var(--sp-8) var(--sp-4);
+  animation: canvasSlideDown 0.5s var(--ease-out);
+}
+
+.canvas-title-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+/* ── Canvas Content — fills viewport ──────── */
+
+.canvas-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--sp-8) var(--sp-8);
+  font-size: clamp(0.9375rem, 1.5vw, 1.125rem);
+  line-height: 1.8;
+  overflow-y: auto;
+  animation: canvasFadeIn 0.6s var(--ease-out) 0.1s both;
+}
+
+.canvas-content .content-block {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) 0;
+  max-width: 100%;
+}
+
+.canvas-content .content-block iframe {
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-content .format-table table {
+  font-size: clamp(var(--text-sm), 1.2vw, var(--text-base));
+}
+
+.canvas-content .format-code pre,
+.canvas-content .json-view,
+.canvas-content .diff-view,
+.canvas-content .log-view {
+  font-size: clamp(var(--text-xs), 1.1vw, var(--text-sm));
+  padding: var(--sp-5);
+  border-radius: var(--radius-md);
+}
+
+.canvas-content .format-markdown pre {
+  padding: var(--sp-5);
+  border-radius: var(--radius-md);
+}
+
+/* Mermaid and chart blocks expand */
+.canvas-content .format-mermaid pre.mermaid,
+.canvas-content .format-chart pre.mermaid {
+  padding: var(--sp-6);
+}
+
+.canvas-content .format-chart canvas {
+  max-height: 60vh;
+}
+
+/* Metric type — large centered display */
+.canvas-content .format-metric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30vh;
+}
+
+.canvas-content .metric-value {
+  font-size: clamp(3rem, 10vw, 8rem);
+}
+
+/* ── Canvas Info Bar — floating bottom overlay ─ */
+
+.canvas-info-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-8);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  animation: canvasSlideUp 0.5s var(--ease-out) 0.2s both;
+}
+
+.canvas-info-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.canvas-info-agent {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.canvas-info-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.canvas-info-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.canvas-info-tags {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.canvas-info-tags .tag-chip {
+  font-size: var(--text-xs);
+}
+
+.canvas-info-time {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.canvas-info-card-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* ── Canvas Empty State ───────────────────── */
+
+.canvas-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  color: var(--color-text-muted);
+  animation: canvasFadeIn 0.6s var(--ease-out);
+}
+
+.canvas-empty-icon {
+  font-size: 4rem;
+  opacity: 0.3;
+  line-height: 1;
+}
+
+.canvas-empty-text {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.canvas-empty-sub {
+  font-size: var(--text-sm);
+}
+
+/* ── Canvas Animations ────────────────────── */
+
+@keyframes canvasFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes canvasSlideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes canvasSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-title-bar,
+  .canvas-content,
+  .canvas-info-bar,
+  .canvas-empty {
+    animation: none;
+  }
+  #canvas-view::before {
+    transition: none;
+  }
+}
+
 header h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -192,11 +479,29 @@ header h1 {
   transform: scale(0.98);
 }
 
+/* ── Dashboard View ─────────────────────────── */
+
+#dashboard-view {
+  height: calc(100vh - 52px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#dashboard-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ── System Area ────────────────────────────── */
 
 #system-area {
+  flex-shrink: 0;
   background: var(--color-bg-raised);
   border-bottom: 1px solid var(--color-border);
+  overflow-y: auto;
+  max-height: 40vh;
 }
 
 #system-panel {
@@ -778,29 +1083,84 @@ header h1 {
   color: var(--color-success);
 }
 
-/* Diff */
-.diff-view {
-  background: var(--color-bg-inset);
-  padding: var(--sp-3);
+/* Diff — Side by Side */
+.diff-side-by-side {
+  display: flex;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.diff-pane {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.diff-pane pre {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  overflow-x: auto;
+  line-height: 1.6;
+}
+
+.diff-pane-left {
+  border-right: 1px solid var(--color-border);
+}
+
+.diff-row {
+  display: flex;
+  min-height: 1.6em;
+}
+
+.diff-line-num {
+  display: inline-block;
+  width: 3.5em;
+  padding: 0 var(--sp-2);
+  text-align: right;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.diff-line-text {
+  flex: 1;
+  padding: 0 var(--sp-2);
   white-space: pre;
 }
 
-.diff-add {
-  color: var(--color-success);
-  background: var(--color-success-subtle);
+.diff-del {
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
 }
 
-.diff-del {
-  color: var(--color-danger);
-  background: var(--color-danger-subtle);
+.diff-add {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.diff-empty {
+  background: var(--color-bg-inset);
+  opacity: 0.4;
 }
 
 .diff-hunk {
+  background: var(--color-accent-subtle);
   color: var(--color-accent);
+  font-weight: 600;
+}
+
+.diff-hunk .diff-line-text {
+  font-size: var(--text-xs);
+}
+
+.diff-header {
+  color: var(--color-text-muted);
+}
+
+.diff-ctx {
+  background: var(--color-bg-inset);
 }
 
 /* Code */

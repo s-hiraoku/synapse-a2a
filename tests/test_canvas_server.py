@@ -64,6 +64,30 @@ class TestHealthEndpoint:
 
 
 # ============================================================
+# TestCanvasRouting
+# ============================================================
+
+
+class TestCanvasRouting:
+    """Tests for SPA routing at GET /."""
+
+    def test_root_returns_index_shell_with_main_views(self, client):
+        """GET / should return the SPA shell with canvas and dashboard views."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert "nav-menu" in resp.text
+        assert "canvas-view" in resp.text
+        assert "dashboard-view" in resp.text
+
+    def test_root_includes_canvas_and_dashboard_nav_links(self, client):
+        """GET / should include nav links for the canvas and dashboard routes."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert 'data-route="canvas"' in resp.text
+        assert 'data-route="dashboard"' in resp.text
+
+
+# ============================================================
 # TestCreateCard
 # ============================================================
 

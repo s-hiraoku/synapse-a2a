@@ -11,6 +11,16 @@
   const toastContainer = document.getElementById("toast-container");
   const systemPanel = document.getElementById("system-panel");
   const liveFeedList = document.getElementById("live-feed-list");
+  const canvasView = document.getElementById("canvas-view");
+  const canvasSpotlight = document.getElementById("canvas-spotlight");
+  const dashboardView = document.getElementById("dashboard-view");
+  const navLinks = document.querySelectorAll(".nav-link");
+
+  // Current route
+  let currentRoute = "canvas";
+  // Track displayed card to skip redundant rebuilds
+  let _spotlightCardId = "";
+  let _spotlightUpdatedAt = "";
 
   // Card cache: card_id -> card data
   const cards = new Map();
@@ -31,7 +41,7 @@
         cards.set(card.card_id, card);
         trackAgent(card);
       }
-      renderAll();
+      renderCurrentView();
     } catch (e) {
       console.error("Failed to load cards:", e);
     }
@@ -47,7 +57,7 @@
       const card = JSON.parse(e.data);
       cards.set(card.card_id, card);
       trackAgent(card);
-      renderAll();
+      renderCurrentView();
       showToast(card.title || "New card", card.agent_name || card.agent_id);
     });
 
@@ -55,7 +65,7 @@
       const card = JSON.parse(e.data);
       cards.set(card.card_id, card);
       trackAgent(card);
-      renderAll();
+      renderCurrentView();
       showToast(card.title || "Card updated", card.agent_name || card.agent_id);
     });
 
@@ -63,7 +73,11 @@
       const data = JSON.parse(e.data);
       const deleted = cards.get(data.card_id);
       cards.delete(data.card_id);
-      renderAll();
+      if (data.card_id === _spotlightCardId) {
+        _spotlightCardId = "";
+        _spotlightUpdatedAt = "";
+      }
+      renderCurrentView();
       showToast(deleted ? deleted.title : "Card deleted", "Removed");
     });
 
@@ -123,6 +137,18 @@
   // ----------------------------------------------------------------
   // Rendering
   // ----------------------------------------------------------------
+  let _renderRAF = 0;
+  function renderCurrentView() {
+    cancelAnimationFrame(_renderRAF);
+    _renderRAF = requestAnimationFrame(() => {
+      if (currentRoute === "canvas") {
+        renderSpotlight();
+      } else {
+        renderAll();
+      }
+    });
+  }
+
   function renderAll() {
     const filtered = getFilteredCards();
     const countText = `${filtered.length} card${filtered.length !== 1 ? "s" : ""}`;
@@ -463,9 +489,16 @@
     iframe.style.minHeight = "200px";
     iframe.style.border = "1px solid var(--color-border)";
     iframe.style.borderRadius = "4px";
+    // In canvas view, fill the available content area
+    const isCanvasView = el.closest(".canvas-content") !== null;
+    if (isCanvasView) {
+      iframe.style.height = "100%";
+      iframe.style.minHeight = "0";
+    }
     iframe.srcdoc = body;
-    // Auto-resize
+    // Auto-resize (dashboard only — canvas uses CSS flex)
     iframe.onload = function () {
+      if (isCanvasView) return;
       try {
         iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + "px";
       } catch { /* cross-origin fallback */ }
@@ -525,23 +558,70 @@
     el.appendChild(pre);
   }
 
-  function renderDiff(el, body) {
+  function buildDiffPane(lines, className) {
+    const pane = document.createElement("div");
+    pane.className = "diff-pane " + className;
     const pre = document.createElement("pre");
-    pre.className = "diff-view";
-    const lines = body.split("\n");
-    for (const line of lines) {
-      const span = document.createElement("span");
-      if (line.startsWith("+")) {
-        span.className = "diff-add";
-      } else if (line.startsWith("-")) {
-        span.className = "diff-del";
-      } else if (line.startsWith("@@")) {
-        span.className = "diff-hunk";
-      }
-      span.textContent = line + "\n";
-      pre.appendChild(span);
+    for (const l of lines) {
+      const row = document.createElement("div");
+      row.className = "diff-row diff-" + l.type;
+      const numSpan = document.createElement("span");
+      numSpan.className = "diff-line-num";
+      numSpan.textContent = l.num;
+      row.appendChild(numSpan);
+      const textSpan = document.createElement("span");
+      textSpan.className = "diff-line-text";
+      textSpan.textContent = l.text;
+      row.appendChild(textSpan);
+      pre.appendChild(row);
     }
-    el.appendChild(pre);
+    pane.appendChild(pre);
+    return pane;
+  }
+
+  function renderDiff(el, body) {
+    const container = document.createElement("div");
+    container.className = "diff-side-by-side";
+
+    const lines = body.split("\n");
+    const leftLines = [];
+    const rightLines = [];
+    let leftNum = 0;
+    let rightNum = 0;
+
+    for (const line of lines) {
+      if (line.startsWith("@@")) {
+        // Parse hunk header for line numbers
+        const match = line.match(/@@ -(\d+)/);
+        if (match) leftNum = parseInt(match[1], 10) - 1;
+        const matchR = line.match(/\+(\d+)/);
+        if (matchR) rightNum = parseInt(matchR[1], 10) - 1;
+        leftLines.push({ type: "hunk", text: line, num: "" });
+        rightLines.push({ type: "hunk", text: line, num: "" });
+      } else if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("diff ") || line.startsWith("index ")) {
+        // File headers — show on both sides
+        leftLines.push({ type: "header", text: line, num: "" });
+        rightLines.push({ type: "header", text: line, num: "" });
+      } else if (line.startsWith("-")) {
+        leftNum++;
+        leftLines.push({ type: "del", text: line.slice(1), num: leftNum });
+        rightLines.push({ type: "empty", text: "", num: "" });
+      } else if (line.startsWith("+")) {
+        rightNum++;
+        leftLines.push({ type: "empty", text: "", num: "" });
+        rightLines.push({ type: "add", text: line.slice(1), num: rightNum });
+      } else {
+        leftNum++;
+        rightNum++;
+        const text = line.startsWith(" ") ? line.slice(1) : line;
+        leftLines.push({ type: "ctx", text, num: leftNum });
+        rightLines.push({ type: "ctx", text, num: rightNum });
+      }
+    }
+
+    container.appendChild(buildDiffPane(leftLines, "diff-pane-left"));
+    container.appendChild(buildDiffPane(rightLines, "diff-pane-right"));
+    el.appendChild(container);
   }
 
   function renderCode(el, body, lang) {
@@ -551,6 +631,9 @@
     code.textContent = body;
     pre.appendChild(code);
     el.appendChild(pre);
+    if (typeof hljs !== "undefined") {
+      hljs.highlightElement(code);
+    }
   }
 
   function renderImage(el, body) {
@@ -1482,13 +1565,181 @@
   }
 
   // ----------------------------------------------------------------
+  // Router
+  // ----------------------------------------------------------------
+  function getRoute() {
+    const hash = location.hash || "#/";
+    if (hash === "#/dashboard") return "dashboard";
+    return "canvas";
+  }
+
+  function navigate() {
+    currentRoute = getRoute();
+
+    // Update nav links
+    navLinks.forEach(link => {
+      link.classList.toggle("active", link.dataset.route === currentRoute);
+    });
+
+    // Toggle views
+    if (currentRoute === "canvas") {
+      canvasView.classList.remove("view-hidden");
+      dashboardView.classList.add("view-hidden");
+      filterType.style.display = "none";
+      filterAgent.style.display = "none";
+      renderSpotlight();
+    } else {
+      canvasView.classList.add("view-hidden");
+      dashboardView.classList.remove("view-hidden");
+      filterType.style.display = "";
+      filterAgent.style.display = "";
+      renderAll();
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // Canvas View — full-viewport projection of latest card
+  // ----------------------------------------------------------------
+  function renderSpotlight() {
+    if (!canvasSpotlight) return;
+    canvasSpotlight.innerHTML = "";
+
+    const allCards = [...cards.values()];
+    if (allCards.length === 0) {
+      // Empty state
+      const empty = document.createElement("div");
+      empty.className = "canvas-empty";
+      const icon = document.createElement("div");
+      icon.className = "canvas-empty-icon";
+      icon.textContent = "\u25EF"; // ◯
+      empty.appendChild(icon);
+      const text = document.createElement("div");
+      text.className = "canvas-empty-text";
+      text.textContent = "Canvas is ready";
+      empty.appendChild(text);
+      const sub = document.createElement("div");
+      sub.className = "canvas-empty-sub";
+      sub.textContent = "Waiting for agent messages\u2026";
+      empty.appendChild(sub);
+      canvasSpotlight.appendChild(empty);
+      canvasView.style.removeProperty("--canvas-glow");
+      return;
+    }
+
+    // Find the most recently updated card (O(n) instead of sorting)
+    const card = allCards.reduce((latest, c) =>
+      (c.updated_at || "") > (latest.updated_at || "") ? c : latest
+    );
+
+    // Skip rebuild if the same card version is already displayed
+    if (card.card_id === _spotlightCardId && card.updated_at === _spotlightUpdatedAt) {
+      return;
+    }
+    _spotlightCardId = card.card_id;
+    _spotlightUpdatedAt = card.updated_at;
+
+    const agentInfo = systemAgents.find(a => a.agent_id === card.agent_id);
+    const agentStatus = agentInfo ? agentInfo.status : "";
+
+    // Set ambient glow color based on agent status
+    canvasView.style.setProperty("--canvas-glow", statusColor(agentStatus));
+
+    // Title bar
+    const titleBar = document.createElement("div");
+    titleBar.className = "canvas-title-bar";
+    const titleText = document.createElement("h2");
+    titleText.className = "canvas-title-text";
+    titleText.textContent = card.title || "Untitled";
+    titleBar.appendChild(titleText);
+    canvasSpotlight.appendChild(titleBar);
+
+    // Content — fills the viewport
+    const content = document.createElement("div");
+    content.className = "canvas-content";
+    const parsed = parseContent(card.content);
+    const blocks = Array.isArray(parsed) ? parsed : [parsed];
+    for (const block of blocks) {
+      content.appendChild(renderBlock(block));
+    }
+    canvasSpotlight.appendChild(content);
+
+    // Info bar — floating at bottom
+    const infoBar = document.createElement("div");
+    infoBar.className = "canvas-info-bar";
+
+    // Status dot with glow
+    const dot = document.createElement("span");
+    dot.className = "canvas-info-dot";
+    const dotColor = statusColor(agentStatus);
+    dot.style.background = dotColor;
+    dot.style.color = dotColor;
+    infoBar.appendChild(dot);
+
+    // Agent name
+    const agentName = document.createElement("span");
+    agentName.className = "canvas-info-agent";
+    agentName.textContent = card.agent_name || card.agent_id;
+    infoBar.appendChild(agentName);
+
+    // Agent ID
+    const idEl = document.createElement("span");
+    idEl.className = "canvas-info-id";
+    idEl.textContent = card.agent_id;
+    infoBar.appendChild(idEl);
+
+    // Tags
+    if (card.tags) {
+      try {
+        const tags = typeof card.tags === "string" ? JSON.parse(card.tags) : card.tags;
+        if (Array.isArray(tags) && tags.length > 0) {
+          const divider = document.createElement("span");
+          divider.className = "canvas-info-divider";
+          infoBar.appendChild(divider);
+          const tagWrap = document.createElement("div");
+          tagWrap.className = "canvas-info-tags";
+          for (const t of tags) {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.textContent = t;
+            tagWrap.appendChild(chip);
+          }
+          infoBar.appendChild(tagWrap);
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Time
+    const time = document.createElement("span");
+    time.className = "canvas-info-time";
+    time.textContent = formatTime(card.updated_at);
+    infoBar.appendChild(time);
+
+    // Card ID
+    const cardId = document.createElement("span");
+    cardId.className = "canvas-info-card-id";
+    cardId.textContent = card.card_id;
+    infoBar.appendChild(cardId);
+
+    canvasSpotlight.appendChild(infoBar);
+
+    // Re-run mermaid
+    if (typeof mermaid !== "undefined") {
+      mermaid.run({ querySelector: "#canvas-spotlight .mermaid-pending" });
+    }
+  }
+
+  // ----------------------------------------------------------------
   // Init
   // ----------------------------------------------------------------
   filterType.addEventListener("change", renderAll);
   filterAgent.addEventListener("change", renderAll);
+  window.addEventListener("hashchange", navigate);
 
   if (typeof mermaid !== "undefined") {
     mermaid.initialize({ startOnLoad: false, theme: "default" });
+  }
+  if (typeof hljs !== "undefined") {
+    hljs.configure({ ignoreUnescapedHTML: true });
   }
 
   initTheme();
@@ -1496,4 +1747,7 @@
   loadSystemPanel();
   connectSSE();
   window.setInterval(loadSystemPanel, 10000);
+
+  // Initial route
+  navigate();
 })();

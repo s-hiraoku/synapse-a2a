@@ -6,6 +6,8 @@
 <title>Synapse Canvas</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,6 +16,10 @@
 <body>
 <header>
   <h1>Synapse Canvas</h1>
+  <nav id="nav-menu">
+    <a href="#/" class="nav-link active" data-route="canvas">Canvas</a>
+    <a href="#/dashboard" class="nav-link" data-route="dashboard">Dashboard</a>
+  </nav>
   <div id="filter-bar">
     <select id="filter-type">
       <option value="">All types</option>
@@ -43,21 +49,32 @@
   </div>
 </header>
 <div id="toast-container"></div>
-<section id="system-area">
-  <div id="system-panel"></div>
+
+<!-- Canvas View (main) -->
+<section id="canvas-view">
+  <div id="canvas-spotlight"></div>
 </section>
-<section id="live-feed">
-  <div class="live-feed-header">
-    <span class="live-feed-dot"></span>
-    <span class="live-feed-label">Live Feed</span>
+
+<!-- Dashboard View -->
+<section id="dashboard-view" class="view-hidden">
+  <div id="system-area">
+    <div id="system-panel"></div>
   </div>
-  <div id="live-feed-list" class="live-feed-list"></div>
-</section>
-<section id="cards-area">
-  <div id="cards-area-header">
-    <h2>Agent Messages</h2>
+  <div id="dashboard-scroll">
+    <div id="live-feed">
+      <div class="live-feed-header">
+        <span class="live-feed-dot"></span>
+        <span class="live-feed-label">Live Feed</span>
+      </div>
+      <div id="live-feed-list" class="live-feed-list"></div>
+    </div>
+    <div id="cards-area">
+      <div id="cards-area-header">
+        <h2>Agent Messages</h2>
+      </div>
+      <main id="canvas-grid"></main>
+    </div>
   </div>
-  <main id="canvas-grid"></main>
 </section>
 <script src="/static/canvas.js"></script>
 </body>

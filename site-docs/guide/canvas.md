@@ -100,14 +100,14 @@ The `content.format` field determines how `content.body` is rendered. New format
 | Format | Body | Renderer | Use Case |
 |---|---|---|---|
 | `mermaid` | Mermaid source | mermaid.js | Flowcharts, sequence diagrams, ER diagrams |
-| `markdown` | Markdown text | marked.js + highlight.js | Design docs, explanations, formatted text |
-| `html` | Raw HTML string | Sandboxed iframe | Full freedom — any visual expression |
+| `markdown` | Markdown text | marked.js + Highlight.js | Design docs, explanations, formatted text |
+| `html` | Raw HTML string | Sandboxed iframe (fills Canvas view) | Full freedom — any visual expression |
 | `table` | `{headers, rows}` | Native HTML | Structured data, test results, comparisons |
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
-| `diff` | Unified diff | diff2html | Code changes, before/after |
-| `chart` | Chart.js config | Chart.js | Bar, line, pie, radar charts |
+| `diff` | Unified diff | Side-by-side diff renderer | Code changes, before/after comparisons |
+| `chart` | Chart.js config | Chart.js | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
 | `image` | Base64 data URI or URL | `<img>` | Screenshots, generated images |
-| `code` | Source code + `lang` | highlight.js | Syntax-highlighted code blocks |
+| `code` | Source code + `lang` | Highlight.js | Syntax-highlighted code blocks |
 | `log` | `[{level, ts, msg}]` | Agent logs | Agent logs with INFO/WARN/ERROR color coding |
 | `status` | `{state, label, detail}` | Status badge | Build/task status with colored badge |
 | `metric` | `{value, unit, label}` | Single KPI | Single KPI display (large number) |
@@ -119,7 +119,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
 
 !!! tip "The `html` Escape Hatch"
-    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety.
+    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the Dashboard view (`#/dashboard`), the iframe auto-resizes to fit its content.
 
 ### Composite Cards
 
@@ -268,14 +268,37 @@ Internal limits:
 
 ## Browser UI
 
-Open `http://localhost:3000` to view the Canvas dashboard.
+Open `http://localhost:3000` to view the Canvas.
+
+The Canvas UI uses **SPA hash routing** with two views:
+
+| Route | View | Purpose |
+|---|---|---|
+| `#/` | **Canvas** (default) | Full-viewport display of the latest card |
+| `#/dashboard` | **Dashboard** | Card grid with system panel, live feed, and filters |
+
+### Canvas View (`#/`)
+
+The Canvas view is a **full-viewport projection** of the most recently updated card. It is designed for ambient display — put it on a secondary monitor or share-screen during pairing.
+
+- The latest card fills the entire content area
+- A **title bar** at the top shows the card title
+- A **floating info bar** at the bottom shows agent name, status dot, tags, timestamp, and card ID
+- An **ambient glow** border reflects the posting agent's status color (green=READY, yellow=PROCESSING, etc.)
+- HTML cards render inside a sandboxed `<iframe>` that fills the full content area (no auto-resize — uses CSS flex)
+- Filter controls are hidden in this view
+
+### Dashboard View (`#/dashboard`)
+
+The Dashboard view shows the traditional card grid alongside system state.
 
 **Features:**
 
-- **Real-time updates**: SSE auto-updates with smooth card animations
-- **Filter bar**: Filter by format type, by agent, by tag
+- **System Panel**: Real-time agents, tasks, and file locks (see [System Panel](#system-panel))
+- **Live Feed**: Chronological event stream with pulsing dot indicator
+- **Card Grid**: All cards in a responsive grid layout
+- **Filter bar**: Filter by format type and by agent
 - **Dark/light theme**: Follows `prefers-color-scheme` with manual toggle
-- **Responsive layout**: Cards reflow on window resize
 - **Toast notifications**: `notify` type shows ephemeral messages
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp
 - **Pin/delete controls**: Pin icon and X button on card headers

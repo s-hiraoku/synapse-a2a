@@ -61,8 +61,8 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `html` | Raw HTML string | Sandboxed iframe | Full freedom — any visual expression |
 | `table` | `{headers: [...], rows: [[...]]}` | Native HTML | Structured data, test results, comparisons |
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
-| `diff` | Unified diff | diff2html | Code changes, before/after |
-| `chart` | Chart.js config object | Chart.js | Bar, line, pie, radar charts |
+| `diff` | Unified diff | Side-by-side diff renderer | Code changes, before/after |
+| `chart` | Chart.js config object | Chart.js | bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
 | `image` | Base64 data URI or URL | `<img>` | Screenshots, generated images |
 | `code` | Source code string + `lang` | highlight.js | Syntax-highlighted code blocks |
 | `log` | `[{level, ts, msg}]` | Agent logs | Agent logs with INFO/WARN/ERROR color coding |
@@ -239,7 +239,9 @@ Agents don't see the browser. This is the only human-exclusive interface.
 | Feature | Method |
 |---|---|
 | View cards | Just open the page (SSE auto-updates) |
-| Filter | By format type, by agent, by tag |
+| Canvas view | `#/` — full-viewport latest card |
+| Dashboard view | `#/dashboard` — system panel + live feed + agent messages |
+| Filter | By format type, by agent, by tag (Dashboard view only) |
 | Pin/unpin | Pin icon on card header |
 | Delete card | X button on card header |
 | Theme toggle | Dark/light switch |
@@ -363,35 +365,63 @@ event: system_update
 data: {"timestamp": "..."} // Triggers /api/system refetch
 ```
 
-### Layout
+### SPA Routing
 
-The Canvas browser UI is divided into two primary sections: the **System Panel** (top) and **Agent Messages** (bottom).
+The browser UI uses hash-based SPA routing with two views:
+
+| Route | View | Description |
+|---|---|---|
+| `#/` | **Canvas view** | Full-viewport projection of the latest card. Designed for immersive content display. |
+| `#/dashboard` | **Dashboard view** | System Panel (top) + Live Feed + Agent Messages (bottom). The traditional overview. |
+
+Navigation links in the header switch between views. The URL hash updates accordingly and the browser back/forward buttons work as expected.
+
+### Canvas View (`#/`)
+
+The Canvas view displays the most recent card in a full-viewport layout. Key behaviors:
+
+- **Full viewport**: The latest card fills the entire content area below the nav bar.
+- **HTML iframe**: When the latest card is `html` format, the iframe expands to fill the Canvas view content area (no fixed `minHeight`). In Dashboard view, iframes auto-resize to their content height.
+- **Code highlighting**: `code` format cards use highlight.js for syntax highlighting.
+- **Auto-update**: When a new card arrives via SSE, the spotlight automatically switches to it.
+
+Format and agent filters are hidden in Canvas view (they apply only to Dashboard view).
+
+### Dashboard View (`#/dashboard`)
+
+The Dashboard view is divided into three sections: the **System Panel** (top), **Live Feed** (middle), and **Agent Messages** (bottom).
 
 ```
-+--[Synapse Canvas]--[Filter: All | mermaid | table | log | ...]--[Agents: All | Gojo | gemini]--+
-|                                                                                           |
-|  [System Panel (Control Panel)]                                                           |
-|  +-------------------------------------------------------------------------------------+  |
-|  | [Agents] [Saved Agents] [Tasks] [File Locks] [Shared Memory] [Worktrees] [History]  |  |
-|  +-------------------------------------------------------------------------------------+  |
-|                                                                                           |
-|  [Agent Messages]                                                                         |
-|                                                                                           |
-|  +-- v [●] DocWriter (synapse-gemini-8110) --------------------------- [2 cards] --+  |
-|  |                                                                                  |
-|  |  +-- System Design (auth-flow) ----------------------- 14:23 -- [pin] [x] --+    |
-|  |  | +-----------------------------------------------------------------------+ |    |
-|  |  | | ## Architecture Overview          (markdown)                          | |    |
-|  |  | | ...                                                                   | |    |
-|  |  | +-----------------------------------------------------------------------+ |    |
-|  |  +--------------------------------------------------------------------------+    |
-|  |                                                                                  |
-|  +----------------------------------------------------------------------------------+  |
-|                                                                                           |
-|  +-- > [●] Gojo (synapse-claude-8103) -------------------------------- [0 cards] --+  |
-|  +----------------------------------------------------------------------------------+  |
-|                                                                                           |
-+-------------------------------------------------------------------------------------------+
++--[Synapse Canvas]--[Canvas | Dashboard]--[Filter: All | mermaid | ...]--[Agents: All | ...]--+
+|                                                                                               |
+|  [System Panel (Control Panel)]                                                               |
+|  +-----------------------------------------------------------------------------------------+  |
+|  | [Agents] [Saved Agents] [Tasks] [File Locks] [Shared Memory] [Worktrees] [History]      |  |
+|  +-----------------------------------------------------------------------------------------+  |
+|                                                                                               |
+|  [Live Feed]                                                                                  |
+|  +-----------------------------------------------------------------------------------------+  |
+|  | 14:23  Gojo posted "System Design"                                                      |  |
+|  | 14:21  DocWriter posted "Test Results"                                                   |  |
+|  +-----------------------------------------------------------------------------------------+  |
+|                                                                                               |
+|  [Agent Messages]                                                                             |
+|                                                                                               |
+|  +-- v [●] DocWriter (synapse-gemini-8110) ----------------------------- [2 cards] ------+    |
+|  |                                                                                        |   |
+|  |  +-- System Design (auth-flow) ----------------------- 14:23 -- [pin] [x] ----------+  |   |
+|  |  | +-----------------------------------------------------------------------------+ |  |   |
+|  |  | | ## Architecture Overview          (markdown)                                | |  |   |
+|  |  | | ...                                                                         | |  |   |
+|  |  | +-----------------------------------------------------------------------------+ |  |   |
+|  |  +--------------------------------------------------------------------------------+  |   |
+|  |                                                                                        |   |
+|  +----------------------------------------------------------------------------------------+   |
+|                                                                                               |
+|  +-- > [●] Gojo (synapse-claude-8103) ---------------------------------- [0 cards] ------+    |
+|  +----------------------------------------------------------------------------------------+   |
+|                                                                                               |
++-----------------------------------------------------------------------------------------------+
 ```
 
 ### Agent Messages
@@ -432,8 +462,8 @@ synapse/
     templates/
       index.html             # Main page (Jinja2)
     static/
-      canvas.js              # SSE, card rendering, format dispatching
-      canvas.css             # Card grid, badges, theme, animations
+      canvas.js              # SSE, card rendering, format dispatching, SPA routing
+      canvas.css             # Card grid, badges, theme, animations, Canvas/Dashboard views
   commands/
     canvas.py                # CLI: serve, post, mermaid, table, ..., list, clear, delete
 
@@ -486,7 +516,7 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "html":     FormatSpec(body_type="string", cdn=None, sandboxed=True),
     "table":    FormatSpec(body_type="object", cdn=None),  # {headers, rows}
     "json":     FormatSpec(body_type="any",    cdn=None),
-    "diff":     FormatSpec(body_type="string", cdn="diff2html/3.4.48/diff2html.min.js"),
+    "diff":     FormatSpec(body_type="string", cdn="diff2html/3.4.48/diff2html.min.js"),  # Rendered as side-by-side diff
     "chart":    FormatSpec(body_type="object", cdn="chart.js/4.4.7/chart.umd.min.js"),
     "image":    FormatSpec(body_type="string", cdn=None),   # data URI or URL
     "code":     FormatSpec(body_type="string", cdn="highlight.js/11.11.1/highlight.min.js"),
@@ -552,14 +582,19 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] Tests for protocol, store, and API
 
 ### Phase 2: All Formats
-- [ ] `markdown`, `table`, `json`, `code`, `diff`, `html` renderers
-- [ ] Corresponding CLI shortcuts
-- [ ] Composite cards (multi-block)
-- [ ] `chart` format with Chart.js
-- [ ] `image` format
-- [ ] Filter bar in browser UI
+- [x] `markdown`, `table`, `json`, `code`, `diff`, `html` renderers
+- [x] Corresponding CLI shortcuts
+- [x] Composite cards (multi-block)
+- [x] `chart` format with Chart.js (all types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
+- [x] `image` format
+- [x] Filter bar in browser UI
+- [x] highlight.js integration for `code` format syntax highlighting
+- [x] Side-by-side diff renderer (replaces unified diff)
+- [x] HTML iframe fills Canvas view content area
+- [x] All 18 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
+- [x] SPA routing: `#/` (Canvas view — full-viewport latest card) and `#/dashboard` (Dashboard view)
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
 - [ ] Dark/light theme toggle
@@ -582,9 +617,12 @@ Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `me
 
 1. **Port**: Default 3000. Configurable via `SYNAPSE_CANVAS_PORT`.
 2. **Persistence**: Cards are **ephemeral** — cleared on server restart. Additionally, cards expire after `CANVAS_CARD_TTL` (default 1 hour). Pinned cards are exempt from TTL expiry.
-3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`.
+3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in Dashboard view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in future.
 5. **Card ownership**: Agents can only update/delete their own cards.
+6. **SPA routing**: Hash-based (`#/`, `#/dashboard`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
+7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
+8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 
 ---
 
