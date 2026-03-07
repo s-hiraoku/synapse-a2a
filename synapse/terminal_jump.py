@@ -604,6 +604,10 @@ def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
         if result.returncode != 0 or not result.stdout.strip():
             return None
 
+        # Filter by spawn zone if set
+        spawn_panes_str = os.environ.get("SYNAPSE_SPAWN_PANES", "")
+        spawn_panes = set(spawn_panes_str.split(",")) if spawn_panes_str else None
+
         best_pane = None
         best_area = -1
         best_w = 0
@@ -613,6 +617,9 @@ def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
             if len(parts) != 3:
                 continue
             pane_id, w_str, h_str = parts
+            # Only consider spawn zone panes when zone exists
+            if spawn_panes and pane_id not in spawn_panes:
+                continue
             w, h = int(w_str), int(h_str)
             area = w * h
             if area > best_area:
@@ -725,11 +732,17 @@ def create_tmux_panes(
 
     commands: list[str] = []
 
-    # For "auto" layout, find the largest pane and split along its longer axis
+    # For "auto" layout, use spawn zone tiling:
+    # - First spawn (no SYNAPSE_SPAWN_PANES): split current pane with -h
+    # - Subsequent spawns: find largest pane in spawn zone and split it
     auto_split: _TmuxAutoSplit | None = None
     if layout == "auto":
-        auto_split = _get_tmux_auto_split()
-        split_flag = auto_split.flag if auto_split else "-h"
+        spawn_panes = os.environ.get("SYNAPSE_SPAWN_PANES", "")
+        if spawn_panes:
+            auto_split = _get_tmux_auto_split()
+            split_flag = auto_split.flag if auto_split else "-h"
+        else:
+            split_flag = "-h"
     elif layout == "horizontal":
         split_flag = "-h"
     else:

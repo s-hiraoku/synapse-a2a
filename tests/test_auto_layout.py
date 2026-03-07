@@ -9,6 +9,7 @@ Covers: tmux, iTerm2, Ghostty, zellij.
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 # ============================================================
@@ -23,9 +24,15 @@ class TestTmuxAutoLayout:
         """A wide pane (width >= height*2) should split horizontally (-h)."""
         from synapse.terminal_jump import _TmuxAutoSplit, create_tmux_panes
 
-        with patch(
-            "synapse.terminal_jump._get_tmux_auto_split",
-            return_value=_TmuxAutoSplit(target_pane="%0", flag="-h"),
+        env = os.environ.copy()
+        env["SYNAPSE_SPAWN_PANES"] = "%0"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch(
+                "synapse.terminal_jump._get_tmux_auto_split",
+                return_value=_TmuxAutoSplit(target_pane="%0", flag="-h"),
+            ),
         ):
             commands = create_tmux_panes(
                 agents=["claude"],
@@ -41,9 +48,15 @@ class TestTmuxAutoLayout:
         """A tall pane (height*2 > width) should split vertically (-v)."""
         from synapse.terminal_jump import _TmuxAutoSplit, create_tmux_panes
 
-        with patch(
-            "synapse.terminal_jump._get_tmux_auto_split",
-            return_value=_TmuxAutoSplit(target_pane="%1", flag="-v"),
+        env = os.environ.copy()
+        env["SYNAPSE_SPAWN_PANES"] = "%1"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch(
+                "synapse.terminal_jump._get_tmux_auto_split",
+                return_value=_TmuxAutoSplit(target_pane="%1", flag="-v"),
+            ),
         ):
             commands = create_tmux_panes(
                 agents=["gemini"],
@@ -59,9 +72,15 @@ class TestTmuxAutoLayout:
         """Should target the largest pane, not the current pane."""
         from synapse.terminal_jump import _TmuxAutoSplit, create_tmux_panes
 
-        with patch(
-            "synapse.terminal_jump._get_tmux_auto_split",
-            return_value=_TmuxAutoSplit(target_pane="%5", flag="-h"),
+        env = os.environ.copy()
+        env["SYNAPSE_SPAWN_PANES"] = "%5"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch(
+                "synapse.terminal_jump._get_tmux_auto_split",
+                return_value=_TmuxAutoSplit(target_pane="%5", flag="-h"),
+            ),
         ):
             commands = create_tmux_panes(
                 agents=["codex"],
@@ -279,6 +298,163 @@ class TestSpawnDefaultLayout:
             or call_kwargs[1].get("layout") == "auto"
             or call_kwargs[0][1] == "auto"
         ), f"create_panes should be called with layout='auto', got: {call_kwargs}"
+
+
+# ============================================================
+# TestGetPaneCount - pane count helper functions
+# ============================================================
+
+
+# ============================================================
+# TestTmuxSpawnZone - spawn zone pane filtering
+# ============================================================
+
+
+class TestTmuxSpawnZone:
+    """tmux auto layout should filter panes by SYNAPSE_SPAWN_PANES."""
+
+    def test_first_spawn_creates_spawn_zone(self) -> None:
+        """First spawn (no SYNAPSE_SPAWN_PANES) should split current pane."""
+        from synapse.terminal_jump import create_tmux_panes
+
+        env = os.environ.copy()
+        env.pop("SYNAPSE_SPAWN_PANES", None)
+        env["TMUX_PANE"] = "%0"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch("synapse.terminal_jump._get_tmux_auto_split", return_value=None),
+        ):
+            commands = create_tmux_panes(
+                agents=["claude"],
+                layout="auto",
+                all_new=True,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 1
+        assert "split-window -h " in split_cmds[0]
+
+    def test_second_spawn_targets_spawn_zone(self) -> None:
+        """Second spawn should split within spawn zone, not current pane."""
+        from synapse.terminal_jump import _TmuxAutoSplit, create_tmux_panes
+
+        env = os.environ.copy()
+        env["SYNAPSE_SPAWN_PANES"] = "%5"
+        env["TMUX_PANE"] = "%0"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch(
+                "synapse.terminal_jump._get_tmux_auto_split",
+                return_value=_TmuxAutoSplit(target_pane="%5", flag="-v"),
+            ),
+        ):
+            commands = create_tmux_panes(
+                agents=["gemini"],
+                layout="auto",
+                all_new=True,
+            )
+        split_cmds = [c for c in commands if "split-window" in c]
+        assert len(split_cmds) == 1
+        assert "-t %5 " in split_cmds[0]
+        assert "split-window -v " in split_cmds[0]
+
+    def test_auto_split_excludes_current_pane(self) -> None:
+        """_get_tmux_auto_split should only consider spawn zone panes."""
+        from synapse.terminal_jump import _get_tmux_auto_split
+
+        env = os.environ.copy()
+        env["TMUX_PANE"] = "%0"
+        env["SYNAPSE_SPAWN_PANES"] = "%1,%2"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch("synapse.terminal_jump.subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="%0 200 78\n%1 70 40\n%2 70 38\n",
+            )
+            result = _get_tmux_auto_split()
+
+        # Should NOT pick %0 (current pane), even though it's largest
+        assert result is not None
+        assert result.target_pane in ("%1", "%2")
+
+    def test_auto_split_picks_largest_in_spawn_zone(self) -> None:
+        """Should pick the largest pane within spawn zone."""
+        from synapse.terminal_jump import _get_tmux_auto_split
+
+        env = os.environ.copy()
+        env["TMUX_PANE"] = "%0"
+        env["SYNAPSE_SPAWN_PANES"] = "%1,%2,%3"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch("synapse.terminal_jump.subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="%0 200 78\n%1 70 40\n%2 140 78\n%3 70 38\n",
+            )
+            result = _get_tmux_auto_split()
+
+        assert result is not None
+        assert result.target_pane == "%2"
+
+
+# ============================================================
+# TestSpawnPaneTracking - spawn.py tracks spawn zone panes
+# ============================================================
+
+
+class TestSpawnPaneTracking:
+    """spawn_agent() should track spawn zone pane IDs via SYNAPSE_SPAWN_PANES."""
+
+    def test_spawn_records_new_pane_id(self) -> None:
+        """After spawning, the new pane ID should be added to SYNAPSE_SPAWN_PANES."""
+        from synapse.spawn import spawn_agent
+
+        env = os.environ.copy()
+        env.pop("SYNAPSE_SPAWN_PANES", None)
+        env["TMUX_PANE"] = "%0"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch("synapse.spawn.load_profile"),
+            patch("synapse.spawn.is_port_available", return_value=True),
+            patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
+            patch("synapse.spawn.create_panes", return_value=["echo test"]),
+            patch("subprocess.run"),
+            patch("synapse.spawn._get_tmux_pane_ids", return_value={"%0", "%1"}),
+            patch("synapse.spawn._get_new_tmux_pane_id", return_value="%5"),
+        ):
+            spawn_agent(profile="claude", port=9999)
+            assert os.environ.get("SYNAPSE_SPAWN_PANES") == "%5"
+
+    def test_spawn_appends_pane_id_to_existing(self) -> None:
+        """Subsequent spawns should append to SYNAPSE_SPAWN_PANES."""
+        from synapse.spawn import spawn_agent
+
+        env = os.environ.copy()
+        env["SYNAPSE_SPAWN_PANES"] = "%5"
+        env["TMUX_PANE"] = "%0"
+
+        with (
+            patch.dict(os.environ, env, clear=True),
+            patch("synapse.spawn.load_profile"),
+            patch("synapse.spawn.is_port_available", return_value=True),
+            patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
+            patch("synapse.spawn.create_panes", return_value=["echo test"]),
+            patch("subprocess.run"),
+            patch(
+                "synapse.spawn._get_tmux_pane_ids",
+                return_value={"%0", "%1", "%5"},
+            ),
+            patch("synapse.spawn._get_new_tmux_pane_id", return_value="%8"),
+        ):
+            spawn_agent(profile="claude", port=9998)
+            assert os.environ.get("SYNAPSE_SPAWN_PANES") == "%5,%8"
 
 
 # ============================================================
