@@ -2426,6 +2426,7 @@ def cmd_canvas_post(args: argparse.Namespace) -> None:
         tags=tags,
         lang=args.lang,
         port=port,
+        file_path=getattr(args, "file", None),
     )
     if result:
         print(f"Card posted: {result['card_id']}")
@@ -5788,6 +5789,9 @@ Scopes:
         "--lang", default=None, help="Language hint (for code format)"
     )
     p_canvas_post.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_post.add_argument(
+        "--file", default=None, help="Read body from file instead of argument"
+    )
     p_canvas_post.set_defaults(func=cmd_canvas_post)
 
     # canvas list [options]

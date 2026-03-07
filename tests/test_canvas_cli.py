@@ -43,6 +43,27 @@ class TestCanvasPost:
         result = post_card("not valid json", db_path=db_path)
         assert result is None
 
+    def test_post_from_file(self, tmp_path):
+        """post_shortcut should read the body from a file when file_path is given."""
+        from synapse.commands.canvas import post_shortcut
+
+        db_path = str(tmp_path / "canvas.db")
+        body_file = tmp_path / "diagram.mmd"
+        body_file.write_text("graph TD; File-->Canvas", encoding="utf-8")
+
+        result = post_shortcut(
+            format_name="mermaid",
+            body="ignored when file_path is set",
+            file_path=str(body_file),
+            title="Flow From File",
+            agent_id="synapse-claude-8103",
+            db_path=db_path,
+        )
+        assert result is not None
+        content = json.loads(result["content"])
+        assert content["format"] == "mermaid"
+        assert content["body"] == "graph TD; File-->Canvas"
+
 
 # ============================================================
 # TestCanvasMermaid — synapse canvas mermaid shortcut

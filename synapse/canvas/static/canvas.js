@@ -7,6 +7,8 @@
   const filterType = document.getElementById("filter-type");
   const filterAgent = document.getElementById("filter-agent");
   const cardCount = document.getElementById("card-count");
+  const themeToggle = document.getElementById("theme-toggle");
+  const toastContainer = document.getElementById("toast-container");
 
   // Card cache: card_id -> card data
   const cards = new Map();
@@ -42,6 +44,7 @@
       cards.set(card.card_id, card);
       trackAgent(card);
       renderAll();
+      showToast(card.title || "New card", card.agent_name || card.agent_id);
     });
 
     es.addEventListener("card_updated", (e) => {
@@ -49,12 +52,15 @@
       cards.set(card.card_id, card);
       trackAgent(card);
       renderAll();
+      showToast(card.title || "Card updated", card.agent_name || card.agent_id);
     });
 
     es.addEventListener("card_deleted", (e) => {
       const data = JSON.parse(e.data);
+      const deleted = cards.get(data.card_id);
       cards.delete(data.card_id);
       renderAll();
+      showToast(deleted ? deleted.title : "Card deleted", "Removed");
     });
 
     es.onerror = () => {
@@ -423,6 +429,43 @@
   }
 
   // ----------------------------------------------------------------
+  // Toast Notifications
+  // ----------------------------------------------------------------
+  function showToast(title, agentLabel) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    const titleEl = document.createElement("div");
+    titleEl.className = "toast-title";
+    titleEl.textContent = title || "Card updated";
+    toast.appendChild(titleEl);
+    if (agentLabel) {
+      const agentEl = document.createElement("div");
+      agentEl.className = "toast-agent";
+      agentEl.textContent = agentLabel;
+      toast.appendChild(agentEl);
+    }
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+  }
+
+  // ----------------------------------------------------------------
+  // Theme Toggle
+  // ----------------------------------------------------------------
+  function initTheme() {
+    const saved = localStorage.getItem("canvas-theme") || "dark";
+    document.documentElement.setAttribute("data-theme", saved);
+    themeToggle.textContent = saved === "dark" ? "Light" : "Dark";
+  }
+
+  themeToggle.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("canvas-theme", next);
+    themeToggle.textContent = next === "dark" ? "Light" : "Dark";
+  });
+
+  // ----------------------------------------------------------------
   // Init
   // ----------------------------------------------------------------
   filterType.addEventListener("change", renderAll);
@@ -432,6 +475,7 @@
     mermaid.initialize({ startOnLoad: false, theme: "default" });
   }
 
+  initTheme();
   loadCards();
   connectSSE();
 })();

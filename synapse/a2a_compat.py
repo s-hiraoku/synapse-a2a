@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
@@ -2171,5 +2171,105 @@ def create_a2a_router(
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
         )
+
+    # ================================================================
+    # Canvas proxy endpoints — /canvas/cards CRUD
+    # ================================================================
+
+    from synapse.canvas.protocol import CanvasMessage, validate_message
+    from synapse.canvas.store import CanvasStore
+    from synapse.paths import get_canvas_db_path
+
+    canvas_db = os.environ.get("SYNAPSE_CANVAS_DB_PATH") or get_canvas_db_path()
+    canvas_store = CanvasStore(db_path=canvas_db)
+
+    @router.post("/canvas/cards", status_code=201, response_model=None)
+    async def canvas_post_card(request: Request) -> Any:
+        """Create or update a Canvas card (proxy to local store)."""
+        body = await request.json()
+        msg = CanvasMessage.from_dict(body)
+        errors = validate_message(msg)
+        if errors:
+            raise HTTPException(status_code=422, detail=errors)
+
+        if isinstance(msg.content, list):
+            content_json = json.dumps(
+                [
+                    {
+                        "format": b.format,
+                        "body": b.body,
+                        **({} if not b.lang else {"lang": b.lang}),
+                    }
+                    for b in msg.content
+                ],
+                ensure_ascii=False,
+            )
+        else:
+            d: dict[str, Any] = {"format": msg.content.format, "body": msg.content.body}
+            if msg.content.lang:
+                d["lang"] = msg.content.lang
+            content_json = json.dumps(d, ensure_ascii=False)
+
+        if msg.card_id:
+            existing = canvas_store.get_card(msg.card_id)
+            result = canvas_store.upsert_card(
+                card_id=msg.card_id,
+                agent_id=msg.agent_id,
+                content=content_json,
+                title=msg.title,
+                agent_name=msg.agent_name or None,
+                pinned=msg.pinned,
+                tags=msg.tags or None,
+            )
+            if result is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Card '{msg.card_id}' is owned by a different agent",
+                )
+            if existing is not None:
+                return JSONResponse(content=result, status_code=200)
+            return result
+        else:
+            return canvas_store.add_card(
+                agent_id=msg.agent_id,
+                content=content_json,
+                title=msg.title,
+                agent_name=msg.agent_name or None,
+                pinned=msg.pinned,
+                tags=msg.tags or None,
+            )
+
+    @router.get("/canvas/cards")
+    async def canvas_list_cards(
+        agent_id: str | None = None,
+        search: str | None = None,
+        type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List Canvas cards."""
+        return canvas_store.list_cards(
+            agent_id=agent_id, search=search, content_type=type
+        )
+
+    @router.get("/canvas/cards/{card_id}")
+    async def canvas_get_card(card_id: str) -> dict[str, Any]:
+        """Get a single Canvas card."""
+        card = canvas_store.get_card(card_id)
+        if card is None:
+            raise HTTPException(status_code=404, detail="Card not found")
+        return card
+
+    @router.delete("/canvas/cards/{card_id}")
+    async def canvas_delete_card(card_id: str, request: Request) -> dict[str, str]:
+        """Delete a Canvas card."""
+        x_agent_id = request.headers.get("X-Agent-Id", "")
+        card = canvas_store.get_card(card_id)
+        if card is None:
+            raise HTTPException(status_code=404, detail="Card not found")
+        if card["agent_id"] != x_agent_id:
+            raise HTTPException(
+                status_code=403, detail="Cannot delete another agent's card"
+            )
+        canvas_store.delete_card(card_id, agent_id=x_agent_id)
+        return {"deleted": card_id}
 
     return router

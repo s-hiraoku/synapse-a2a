@@ -209,8 +209,11 @@ def post_shortcut(
     lang: str | None = None,
     db_path: str | None = None,
     port: int = DEFAULT_PORT,
+    file_path: str | None = None,
 ) -> dict | None:
     """Post a card via format shortcut. Returns card dict or None."""
+    if file_path:
+        body = Path(file_path).read_text(encoding="utf-8")
     content_dict: dict = {"format": format_name, "body": body}
     if lang:
         content_dict["lang"] = lang

@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -23,9 +25,25 @@ def canvas_app(tmp_path):
 @pytest.fixture
 def client(canvas_app):
     """Create a test client."""
-    from fastapi.testclient import TestClient
-
     return TestClient(canvas_app)
+
+
+@pytest.fixture
+def a2a_canvas_client(tmp_path, monkeypatch):
+    """Create a test client with the A2A router and a temp Canvas DB."""
+    from synapse.a2a_compat import create_a2a_router
+
+    monkeypatch.setenv("SYNAPSE_CANVAS_DB_PATH", str(tmp_path / "canvas.db"))
+
+    app = FastAPI()
+    router = create_a2a_router(
+        controller=None,
+        agent_type="claude",
+        port=8100,
+        agent_id="synapse-claude-8100",
+    )
+    app.include_router(router)
+    return TestClient(app)
 
 
 # ============================================================
@@ -424,6 +442,98 @@ class TestFormatsEndpoint:
         assert "mermaid" in formats
         assert "markdown" in formats
         assert "html" in formats
+
+
+# ============================================================
+# TestCanvasProxy
+# ============================================================
+
+
+class TestCanvasProxy:
+    """Tests for the A2A Canvas proxy endpoints."""
+
+    def test_post_canvas_card_creates_card(self, a2a_canvas_client):
+        """POST /canvas/cards should create a card."""
+        resp = a2a_canvas_client.post(
+            "/canvas/cards",
+            json={
+                "type": "render",
+                "content": {"format": "mermaid", "body": "graph TD; Proxy-->Canvas"},
+                "agent_id": "synapse-claude-8100",
+                "title": "Proxy Flow",
+                "card_id": "proxy-flow",
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["card_id"] == "proxy-flow"
+        assert data["title"] == "Proxy Flow"
+
+    def test_get_canvas_cards_lists_cards(self, a2a_canvas_client):
+        """GET /canvas/cards should return the current cards."""
+        a2a_canvas_client.post(
+            "/canvas/cards",
+            json={
+                "type": "render",
+                "content": {"format": "markdown", "body": "## Proxy"},
+                "agent_id": "synapse-claude-8100",
+                "title": "Proxy Card",
+                "card_id": "proxy-card",
+            },
+        )
+
+        resp = a2a_canvas_client.get("/canvas/cards")
+        assert resp.status_code == 200
+        cards = resp.json()
+        assert len(cards) == 1
+        assert cards[0]["card_id"] == "proxy-card"
+
+    def test_get_canvas_card_returns_single_card(self, a2a_canvas_client):
+        """GET /canvas/cards/{card_id} should return one card."""
+        a2a_canvas_client.post(
+            "/canvas/cards",
+            json={
+                "type": "render",
+                "content": {"format": "json", "body": {"ok": True}},
+                "agent_id": "synapse-claude-8100",
+                "title": "Single Proxy Card",
+                "card_id": "single-proxy-card",
+            },
+        )
+
+        resp = a2a_canvas_client.get("/canvas/cards/single-proxy-card")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["card_id"] == "single-proxy-card"
+        assert data["title"] == "Single Proxy Card"
+
+    def test_delete_canvas_card_removes_card(self, a2a_canvas_client):
+        """DELETE /canvas/cards/{card_id} should delete the card."""
+        a2a_canvas_client.post(
+            "/canvas/cards",
+            json={
+                "type": "render",
+                "content": {
+                    "format": "code",
+                    "body": "print('proxy')",
+                    "lang": "python",
+                },
+                "agent_id": "synapse-claude-8100",
+                "title": "Delete Proxy Card",
+                "card_id": "delete-proxy-card",
+            },
+        )
+
+        resp = a2a_canvas_client.delete(
+            "/canvas/cards/delete-proxy-card",
+            headers={"X-Agent-Id": "synapse-claude-8100"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"deleted": "delete-proxy-card"}
+
+        list_resp = a2a_canvas_client.get("/canvas/cards")
+        assert list_resp.status_code == 200
+        assert list_resp.json() == []
 
 
 # ============================================================

@@ -39,10 +39,30 @@ def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
             q.put_nowait(payload)
 
 
+CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
+
+
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
-    app = FastAPI(title="Synapse Canvas")
     store = CanvasStore(db_path=db_path)
+
+    async def _cleanup_loop() -> None:
+        """Periodically remove expired cards."""
+        while True:
+            await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+            removed = store.cleanup_expired()
+            if removed:
+                logger.info("Auto-cleanup removed %d expired card(s)", removed)
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+        task = asyncio.create_task(_cleanup_loop())
+        yield
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    app = FastAPI(title="Synapse Canvas", lifespan=lifespan)
 
     # Store reference for access in endpoints
     app.state.store = store

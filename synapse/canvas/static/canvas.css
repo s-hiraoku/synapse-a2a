@@ -323,6 +323,115 @@ header h1 {
   text-align: right;
 }
 
+/* ── Light Theme ─────────────────────────────── */
+
+[data-theme="light"] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-hover: #f0f0f0;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --accent: #0969da;
+  --accent-bg: rgba(9, 105, 218, 0.1);
+  --green: #1a7f37;
+  --red: #cf222e;
+  --yellow: #9a6700;
+  --pin: #bc4c00;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Theme Toggle ────────────────────────────── */
+
+#theme-toggle {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#theme-toggle:hover {
+  background: var(--surface-hover);
+}
+
+/* ── Card Animations ─────────────────────────── */
+
+.canvas-card {
+  animation: cardIn 0.3s ease-out;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Toast Notifications ─────────────────────── */
+
+#toast-container {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 4.5s forwards;
+  pointer-events: auto;
+  max-width: 350px;
+}
+
+.toast .toast-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.toast .toast-agent {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
 /* ── Responsive ──────────────────────────────── */
 
 @media (max-width: 500px) {
