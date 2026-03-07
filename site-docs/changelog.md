@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.1
+
+- **Added**: Proactive Mode — `SYNAPSE_PROACTIVE_MODE_ENABLED=true` injects mandatory checklist for using all Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast)
+- **Added**: New proactive mode user guide and specification document
+
 ### v0.11.0
 
 - **Added**: Canvas SPA routing — `#/` (full-viewport Canvas view) and `#/dashboard` (Dashboard view with system panel, live feed, agent messages)

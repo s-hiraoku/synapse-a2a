@@ -108,6 +108,7 @@ flowchart LR
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
+| **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` makes agents mandatorily use ALL Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast) for every task regardless of size. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
@@ -1617,6 +1618,7 @@ synapse config show --scope user
 | `gemini.md` | Gemini-specific initial instructions |
 | `file-safety.md` | File Safety instructions |
 | `learning.md` | Learning Mode instructions (structured prompt improvement and learning feedback) |
+| `proactive.md` | Proactive Mode instructions (mandatory use of all Synapse features for every task) |
 
 ### settings.json Structure
 
@@ -1664,6 +1666,7 @@ synapse config show --scope user
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Threshold for auto temp-file fallback (bytes) | `102400` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable Prompt Improvement section (Goal/Problem/Fix, recommended rewrite, detail-level options). Independent of TRANSLATION flag. Either flag enables `learning.md` injection and Tips | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable JP-to-EN Learning section (reusable English patterns with slot mapping). Independent of LEARNING_MODE_ENABLED flag. Either flag enables `learning.md` injection and Tips | `false` |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Enable Proactive Mode: agents mandatorily use ALL Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast) for every task. Appends `.synapse/proactive.md` instructions at startup | `false` |
 
 ### A2A Communication Settings (a2a)
 

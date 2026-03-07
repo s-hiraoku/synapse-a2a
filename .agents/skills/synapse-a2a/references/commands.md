@@ -105,6 +105,9 @@ SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
 # With both Learning Mode flags (prompt improvement + translation)
 SYNAPSE_LEARNING_MODE_ENABLED=true SYNAPSE_LEARNING_MODE_TRANSLATION=true synapse claude
 
+# With Proactive Mode: mandatory Synapse feature usage for every task
+SYNAPSE_PROACTIVE_MODE_ENABLED=true synapse claude
+
 # Resume mode (skip initial instructions)
 # Note: Claude/Gemini use --resume flag, Codex uses resume subcommand, OpenCode/Copilot use --continue
 synapse claude -- --resume
@@ -686,7 +689,7 @@ synapse config show --scope project    # Show project settings only
 ```
 
 **TUI Categories:**
-- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, `SYNAPSE_LEARNING_MODE_ENABLED`, `SYNAPSE_LEARNING_MODE_TRANSLATION`, etc.
+- **Environment Variables**: `SYNAPSE_HISTORY_ENABLED`, `SYNAPSE_FILE_SAFETY_ENABLED`, `SYNAPSE_LEARNING_MODE_ENABLED`, `SYNAPSE_LEARNING_MODE_TRANSLATION`, `SYNAPSE_PROACTIVE_MODE_ENABLED`, etc.
 - **Instructions**: Agent-specific initial instruction files
 - **Approval Mode**: `required` (prompt before sending) or `auto` (no prompt)
 - **A2A Protocol**: `flow` mode (auto/roundtrip/oneway)
@@ -739,6 +742,7 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | Shared memory DB path | `.synapse/memory.db` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Enable proactive mode (mandatory Synapse feature usage for every task) | `false` |
 | `SYNAPSE_REGISTRY_DIR` | Local registry directory | `~/.a2a/registry` |
 | `SYNAPSE_REPLY_TARGET_DIR` | Reply target persistence directory | `~/.a2a/reply` |
 | `SYNAPSE_EXTERNAL_REGISTRY_DIR` | External registry directory | `~/.a2a/external` |
@@ -801,6 +805,7 @@ synapse instructions send synapse-claude-8100
 **Optional instruction files:** Additional instruction files are automatically appended based on settings:
 - `file-safety.md` — appended when `SYNAPSE_FILE_SAFETY_ENABLED=true`
 - `learning.md` — appended when either `SYNAPSE_LEARNING_MODE_ENABLED=true` or `SYNAPSE_LEARNING_MODE_TRANSLATION=true` is set (the two flags are independent). `SYNAPSE_LEARNING_MODE_ENABLED` adds a PROMPT IMPROVEMENT section; `SYNAPSE_LEARNING_MODE_TRANSLATION` adds a JP-to-EN LEARNING section (English pattern template, slot mapping, assembled prompt with JP paraphrase, quick alternatives). Either flag alone or both together enable `learning.md` injection and TIPS. The RESPONSE section uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for the learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS). Template uses `{{#learning_mode}}`/`{{#learning_translation}}` Mustache conditionals for layout switching.
+- `proactive.md` — appended when `SYNAPSE_PROACTIVE_MODE_ENABLED=true`. Injects a mandatory per-task checklist requiring agents to use task board, shared memory, file safety, canvas, and broadcast for every task regardless of size. See the Features reference for details.
 
 ## Logs
 

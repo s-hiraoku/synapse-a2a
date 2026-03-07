@@ -49,6 +49,7 @@ pytest tests/test_file_attachment.py -v   # --attach file attachment tests
 pytest tests/test_cmd_trace.py -v         # synapse trace command tests
 pytest tests/test_interactive_setup.py -v # Interactive setup + core skills tests
 pytest tests/test_learning_mode.py -v    # Learning mode tests
+pytest tests/test_proactive_mode.py -v   # Proactive mode tests
 
 # Agent Teams feature tests
 pytest tests/test_task_board.py -v           # B1: Shared Task Board

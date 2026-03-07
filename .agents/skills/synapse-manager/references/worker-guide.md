@@ -53,6 +53,10 @@ Transparency prevents wasted effort — the manager needs to reassign or adjust 
 2. `synapse send <manager> "Failed: <error details>" --silent`
 3. Do NOT silently move on
 
+## Proactive Mode
+
+When `SYNAPSE_PROACTIVE_MODE_ENABLED=true`, every task requires mandatory use of task board, shared memory, file safety, canvas, and broadcast — even 1-line fixes. Follow the injected checklist strictly: register on task board before work, lock files before editing, save findings to memory, post artifacts to canvas, and broadcast completion. See `synapse-a2a/references/features.md` for the full checklist.
+
 ## When No Manager Exists
 
 If there is no manager/coordinator agent in the team:

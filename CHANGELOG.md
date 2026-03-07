@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-03-08
+
+### Added
+
+- **Proactive Mode**: New `SYNAPSE_PROACTIVE_MODE_ENABLED` environment variable that injects mandatory Synapse feature usage instructions (task board, shared memory, canvas, file safety, delegation, broadcast) via `.synapse/proactive.md`
+
+### Documentation
+
+- Added proactive mode to CLAUDE.md, README.md, guides, plugin skills, and GitHub Pages site
+- New `docs/proactive-mode-spec.md` specification document
+- New `site-docs/guide/proactive-mode.md` user guide
+
+### Tests
+
+- Added `tests/test_proactive_mode.py` with 15 tests covering settings, injection, file lists, template structure, and independence from learning mode
+
 ## [0.11.0] - 2026-03-07
 
 ### Added

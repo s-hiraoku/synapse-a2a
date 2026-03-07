@@ -30,6 +30,7 @@ synapse init --scope project           # Create ./.synapse/settings.json
 | `file-safety.md` | `workflows/` |
 | `learning.md` | `worktrees/` |
 | `shared-memory.md` | `settings.local.json` |
+| `proactive.md` | |
 
 This makes it safe to re-run `synapse init` after upgrading to pick up new templates without losing project data.
 
@@ -69,7 +70,8 @@ synapse reset --scope both -f          # Reset both without confirmation
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
     "SYNAPSE_TASK_BOARD_ENABLED": "true",
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
-    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db"
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
+    "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
   },
   "a2a_flow": "auto",
   "approvalMode": "required",
@@ -111,6 +113,7 @@ synapse reset --scope both -f          # Reset both without confirmation
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Enable learning mode |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | Enable translation mode |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | `false` | Enable [proactive mode](proactive-mode.md) |
 
 ### Authentication
 

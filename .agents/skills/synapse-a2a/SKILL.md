@@ -79,6 +79,7 @@ Evaluate collaboration opportunities before starting work:
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards (code, charts, diffs, diagrams) | `synapse canvas post/open/list` |
+| **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 
 ## Spawning Decision Table
 

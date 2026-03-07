@@ -268,6 +268,7 @@ Codex もプラグインには対応していませんが、展開された skil
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | `synapse send` の自動 temp file 化の閾値（バイト） | `102400` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Prompt Improvement セクションを有効化（Goal/Problem/Fix、推奨リライト、詳細レベル別オプション）。TRANSLATION と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | JP→EN Learning セクションを有効化（再利用可能な英語パターンとスロットマッピング）。LEARNING_MODE_ENABLED と独立して動作。どちらかが有効なら `learning.md` 注入と Tips が有効化される | `false` |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Proactive Mode を有効化。すべてのタスクで Synapse 機能（タスクボード、共有メモリ、キャンバス、ファイルセーフティ、委任、ブロードキャスト）の使用を必須にする。起動時に `.synapse/proactive.md` を注入 | `false` |
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | エージェント間の共有メモリ機能を有効化 | `true` |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | 共有メモリ SQLite データベースのパス | `.synapse/memory.db` |
 | `SYNAPSE_REGISTRY_DIR` | ローカル Registry ディレクトリのパス | `~/.a2a/registry` |
