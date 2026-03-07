@@ -537,6 +537,165 @@ class TestCanvasProxy:
 
 
 # ============================================================
+# TestNewFormats — Phase 5 format roundtrip via API
+# ============================================================
+
+
+class TestNewFormats:
+    """Tests for new format types via POST /api/cards + GET."""
+
+    def _post_card(self, client, fmt, body, title="Test", card_id=None):
+        payload = {
+            "type": "render",
+            "content": {"format": fmt, "body": body},
+            "agent_id": "synapse-claude-8100",
+            "title": title,
+        }
+        if card_id:
+            payload["card_id"] = card_id
+        return client.post("/api/cards", json=payload)
+
+    def test_log_format(self, client):
+        """log format should accept array of log entries."""
+        body = [
+            {"level": "INFO", "ts": "2026-03-07T10:00:00Z", "msg": "Server started"},
+            {
+                "level": "ERROR",
+                "ts": "2026-03-07T10:01:00Z",
+                "msg": "Connection failed",
+            },
+        ]
+        resp = self._post_card(client, "log", body, "Server Log", "log-1")
+        assert resp.status_code == 201
+        data = resp.json()
+        content = json.loads(data["content"])
+        assert content["format"] == "log"
+
+    def test_status_format(self, client):
+        """status format should accept status object."""
+        body = {"state": "success", "label": "Build", "detail": "All 42 tests pass"}
+        resp = self._post_card(client, "status", body, "Build Status", "status-1")
+        assert resp.status_code == 201
+
+    def test_metric_format(self, client):
+        """metric format should accept metric object."""
+        body = {"value": 98.5, "unit": "%", "label": "Test Coverage"}
+        resp = self._post_card(client, "metric", body, "Coverage", "metric-1")
+        assert resp.status_code == 201
+
+    def test_checklist_format(self, client):
+        """checklist format should accept list of items."""
+        body = [
+            {"text": "Write tests", "checked": True},
+            {"text": "Implement feature", "checked": False},
+            {"text": "Code review", "checked": False},
+        ]
+        resp = self._post_card(client, "checklist", body, "Sprint Tasks", "check-1")
+        assert resp.status_code == 201
+
+    def test_timeline_format(self, client):
+        """timeline format should accept list of events."""
+        body = [
+            {"ts": "2026-03-07T10:00:00Z", "event": "Task created", "agent": "claude"},
+            {"ts": "2026-03-07T10:05:00Z", "event": "Tests written", "agent": "codex"},
+        ]
+        resp = self._post_card(client, "timeline", body, "Task Progress", "tl-1")
+        assert resp.status_code == 201
+
+    def test_alert_format(self, client):
+        """alert format should accept alert object."""
+        body = {
+            "severity": "error",
+            "message": "CI pipeline failed",
+            "source": "github",
+        }
+        resp = self._post_card(client, "alert", body, "CI Alert", "alert-1")
+        assert resp.status_code == 201
+
+    def test_file_preview_format(self, client):
+        """file-preview format should accept file info object."""
+        body = {
+            "path": "synapse/server.py",
+            "lang": "python",
+            "snippet": "def create_app():\n    pass",
+            "start_line": 42,
+        }
+        resp = self._post_card(client, "file-preview", body, "File Preview", "fp-1")
+        assert resp.status_code == 201
+
+    def test_trace_format(self, client):
+        """trace format should accept trace spans."""
+        body = [
+            {
+                "name": "send_task",
+                "duration_ms": 150,
+                "status": "ok",
+                "children": [
+                    {"name": "validate", "duration_ms": 5, "status": "ok"},
+                    {"name": "pty_write", "duration_ms": 120, "status": "ok"},
+                ],
+            },
+        ]
+        resp = self._post_card(client, "trace", body, "A2A Trace", "trace-1")
+        assert resp.status_code == 201
+
+    def test_task_board_format(self, client):
+        """task-board format should accept kanban columns."""
+        body = {
+            "columns": [
+                {
+                    "name": "Todo",
+                    "items": [
+                        {"id": "1", "subject": "Write tests", "assignee": "codex"},
+                    ],
+                },
+                {
+                    "name": "Doing",
+                    "items": [
+                        {
+                            "id": "2",
+                            "subject": "Implement feature",
+                            "assignee": "claude",
+                        },
+                    ],
+                },
+                {"name": "Done", "items": []},
+            ]
+        }
+        resp = self._post_card(client, "task-board", body, "Sprint Board", "board-1")
+        assert resp.status_code == 201
+
+
+# ============================================================
+# TestSystemPanel — GET /api/system endpoint
+# ============================================================
+
+
+class TestSystemPanel:
+    """Tests for the system panel data endpoint."""
+
+    def test_system_endpoint_returns_data(self, client):
+        """GET /api/system should return system panel data."""
+        resp = client.get("/api/system")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "agents" in data
+        assert "tasks" in data
+        assert "file_locks" in data
+        assert isinstance(data["agents"], list)
+        assert isinstance(data["tasks"], dict)
+
+    def test_system_tasks_has_columns(self, client):
+        """Tasks in system panel should have status groups."""
+        resp = client.get("/api/system")
+        data = resp.json()
+        tasks = data["tasks"]
+        assert "pending" in tasks
+        assert "in_progress" in tasks
+        assert "completed" in tasks
+
+
+# ============================================================
 # TestSSE — Server-Sent Events
 # ============================================================
 

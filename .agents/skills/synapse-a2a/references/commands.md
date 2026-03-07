@@ -1545,6 +1545,75 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 - **Style** (auto-fix): nitpicks, formatting, naming issues; delegates to `ruff check --fix` and `ruff format` when applicable
 - **Suggestion** (report only): refactoring ideas, performance hints; only auto-fixed with `--all` flag
 
+## Canvas Board
+
+Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser.
+
+### Post Cards
+
+```bash
+# Post a Mermaid diagram
+synapse canvas post mermaid "graph TD; A-->B" --title "Architecture" --pinned
+
+# Post markdown
+synapse canvas post markdown "## Summary\nAll tests pass" --title "Report"
+
+# Post a table
+synapse canvas post table '{"headers":["Test","Status"],"rows":[["auth","pass"],["api","pass"]]}' --title "Results"
+
+# Post code with language hint
+synapse canvas post code "def hello(): pass" --lang python --title "Snippet"
+
+# Post a Chart.js chart
+synapse canvas post chart '{"type":"bar","data":{"labels":["A","B"],"datasets":[{"data":[10,20]}]}}' --title "Metrics"
+
+# Post a diff
+synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
+
+# Read body from file
+synapse canvas post mermaid "" --file diagram.mmd --title "From File"
+
+# Upsert: update an existing card by ID (or create if not found)
+synapse canvas post markdown "Updated content" --title "Report" --card-id my-report-1
+
+# Add tags for categorisation
+synapse canvas post markdown "Notes" --title "Review" --tags "review,auth"
+
+# Override agent display name
+synapse canvas post markdown "Hello" --title "Greeting" --agent-name "Reviewer"
+
+# Post raw JSON (composite cards with multiple content blocks)
+synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
+```
+
+**Supported formats:** mermaid, markdown, html, table, json, diff, code, chart, image
+
+### Manage Cards
+
+```bash
+synapse canvas list                      # List all cards
+synapse canvas list --agent-id claude    # Filter by agent
+synapse canvas list --type markdown      # Filter by content type
+synapse canvas list --search "Auth"      # Search by title
+synapse canvas delete <card_id> --agent-id <id>  # Delete own card
+synapse canvas clear                     # Clear all cards
+synapse canvas clear --agent-id <id>     # Clear agent's cards
+```
+
+### Server Management
+
+```bash
+synapse canvas serve [--port 3000]       # Start server foreground
+synapse canvas open                      # Open in browser (auto-starts server)
+synapse canvas status                    # Show server status
+synapse canvas logs [-n 50] [-f]         # View server logs
+synapse canvas stop                      # Stop server
+```
+
+**Auto-start:** The server starts automatically when you post the first card. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
+
+**Canvas proxy:** Each agent's A2A server exposes `/canvas/cards` endpoints, so agents can post cards through their own port without knowing the Canvas server port.
+
 ## Storage Locations
 
 ```text
@@ -1560,6 +1629,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
+.synapse/canvas.db   # Canvas card storage (project-local)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)

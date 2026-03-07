@@ -65,6 +65,15 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `chart` | Chart.js config object | Chart.js | Bar, line, pie, radar charts |
 | `image` | Base64 data URI or URL | `<img>` | Screenshots, generated images |
 | `code` | Source code string + `lang` | highlight.js | Syntax-highlighted code blocks |
+| `log` | `[{level, ts, msg}]` | Agent logs | Agent logs with INFO/WARN/ERROR color coding |
+| `status` | `{state, label, detail}` | Status badge | Build/task status with colored badge |
+| `metric` | `{value, unit, label}` | Single KPI | Single KPI display (large number) |
+| `checklist` | `[{text, checked}]` | Checklist | Task progress with checkboxes |
+| `timeline` | `[{ts, event, agent}]` | Timeline | Time-series events, task progression |
+| `alert` | `{severity, message, source}` | Alert notification | Persistent important notifications |
+| `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
+| `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
+| `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
 
 **Key: `html` format** — This is the escape hatch. When no predefined format fits, agents can send raw HTML. This makes expression essentially unlimited.
 
@@ -245,7 +254,18 @@ DELETE /api/cards/{id}      Delete card (own cards only, matched by agent_id)
 DELETE /api/cards           Clear all cards (optional ?agent_id= filter)
 GET    /api/stream          SSE stream (card_created, card_updated, card_deleted events)
 GET    /api/formats         List supported formats (format registry)
+GET    /api/system          System state summary (Agents, Saved Agents, Tasks, File Locks, Shared Memory, Worktrees, Recent History)
 ```
+
+#### `/api/system` Response Details
+The `/api/system` endpoint aggregates state from across the project:
+- `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
+- `agent_profiles`: Saved agent definitions from `.synapse/agents/` or `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
+- `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`).
+- `file_locks`: Active file locks.
+- `memories`: Latest 20 shared memory entries.
+- `worktrees`: Active worktrees from the registry.
+- `history`: Latest 20 events from the history database.
 
 ---
 
@@ -261,11 +281,11 @@ GET    /api/formats         List supported formats (format registry)
                |    Port: 3000 (dedicated)     |
                +---------+----+----+-----------+
                     POST  |    |    | GET
-                 /api/cards    |    /api/cards
+                 /api/cards    |    /api/system
                          |    |    |
                          v    v    v
-                       canvas.db  registry/
-                       (cards)    (agents)
+                       canvas.db  registry/ & .synapse/*.db
+                       (cards)    (system state)
 
     Agent PTY                          Agent PTY
     +----------+                       +----------+
@@ -338,57 +358,64 @@ data: {"card_id":"auth"}
 
 event: notification
 data: {"agent_name":"Gojo","message":"Tests passed!","level":"success"}
+
+event: system_update
+data: {"timestamp": "..."} // Triggers /api/system refetch
 ```
 
 ### Layout
 
+The Canvas browser UI is divided into two primary sections: the **System Panel** (top) and **Agent Messages** (bottom).
+
 ```
-+--[Synapse Canvas]--[Filter: All | mermaid | table | ...]--[Agents: All | Gojo | gemini]--+
++--[Synapse Canvas]--[Filter: All | mermaid | table | log | ...]--[Agents: All | Gojo | gemini]--+
 |                                                                                           |
-|  +-- Gojo (claude-8103) ---------- 14:23 -- [pin] [x] --+                                |
-|  | System Design                                  pinned |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | | ## Architecture Overview          (markdown)       | |                                |
-|  | | This system uses a layered...                      | |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | | graph TD                          (mermaid)        | |                                |
-|  | |   API --> DB                                       | |                                |
-|  | |   API --> Cache                                    | |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | | Component | Status               (table)          | |                                |
-|  | | API       | Done                                   | |                                |
-|  | | DB        | WIP                                    | |                                |
-|  | +---------------------------------------------------+ |                                |
-|  +--------------------------------------------------------+                                |
+|  [System Panel (Control Panel)]                                                           |
+|  +-------------------------------------------------------------------------------------+  |
+|  | [Agents] [Saved Agents] [Tasks] [File Locks] [Shared Memory] [Worktrees] [History]  |  |
+|  +-------------------------------------------------------------------------------------+  |
 |                                                                                           |
-|  +-- gemini-8110 ------------- 14:25 -- [pin] [x] ------+                                |
-|  | Test Coverage Report                                   |                                |
-|  | +---------------------------------------------------+ |                                |
-|  | |  [Chart.js bar chart]             (chart)         | |                                |
-|  | |  auth: 92%  api: 75%  db: 98%                     | |                                |
-|  | +---------------------------------------------------+ |                                |
-|  +--------------------------------------------------------+                                |
+|  [Agent Messages]                                                                         |
+|                                                                                           |
+|  +-- v [●] DocWriter (synapse-gemini-8110) --------------------------- [2 cards] --+  |
+|  |                                                                                  |
+|  |  +-- System Design (auth-flow) ----------------------- 14:23 -- [pin] [x] --+    |
+|  |  | +-----------------------------------------------------------------------+ |    |
+|  |  | | ## Architecture Overview          (markdown)                          | |    |
+|  |  | | ...                                                                   | |    |
+|  |  | +-----------------------------------------------------------------------+ |    |
+|  |  +--------------------------------------------------------------------------+    |
+|  |                                                                                  |
+|  +----------------------------------------------------------------------------------+  |
+|                                                                                           |
+|  +-- > [●] Gojo (synapse-claude-8103) -------------------------------- [0 cards] --+  |
+|  +----------------------------------------------------------------------------------+  |
 |                                                                                           |
 +-------------------------------------------------------------------------------------------+
 ```
 
-### Agent Badge
+### Agent Messages
+Cards are grouped into panels per agent, sorted by the latest activity.
+- **Panel Header**: Displays agent name, status dot, `agent_id`, card count, and a folding toggle.
+- **Empty State**: Agents without cards are shown as empty panels to provide a complete view of the team.
+- **Persistence**: Panel collapse state is saved in `localStorage`.
 
-Each card shows:
-- Agent name (or ID if no name) with color indicator
-- Agent type icon/color (claude=purple, gemini=blue, codex=green)
-- Timestamp (relative: "2 min ago")
-- Pin/delete controls
-- Tags as small badges
+### System Panel (Control Panel)
+The System Panel aggregates real-time state via the `/api/system` endpoint:
+1. **Agents**: Table showing status dot, TYPE, NAME, ROLE, SKILL SET, STATUS, PORT, DIR, and CURRENT (elapsed time).
+2. **Saved Agents**: Displays ID, NAME, PROFILE, ROLE, SKILL SET, and SCOPE for configurations in `.synapse/agents/` or `~/.synapse/agents/`.
+3. **Tasks**: Kanban view of `pending`, `in_progress`, and `completed` tasks.
+4. **File Locks**: Table showing FILE and the AGENT holding the lock.
+5. **Shared Memory**: Latest 20 entries with KEY, AUTHOR, TAGS, and UPDATED. Hovering over a row shows the content preview.
+6. **Worktrees**: Registry-extracted list of active worktrees (AGENT, PATH, BRANCH, BASE).
+7. **Recent History**: Latest 20 events with status dot, AGENT, TASK, STATUS, and relative TIME.
 
-### Features
-- **Real-time**: SSE auto-updates, smooth card insert/update animations
-- **Filter bar**: By format type, by agent, by tag
-- **Dark/light theme**: `prefers-color-scheme` + manual toggle
-- **Responsive**: Cards reflow on resize
-- **Toast notifications**: `notify` type shows ephemeral messages
+### CSS Design System
+The UI adheres to a strict design system for consistency and accessibility:
+- **Spacing**: 4px base scale using variables `--sp-1` (4px) through `--sp-8` (32px).
+- **Colors**: Semantic tokens including `--color-bg`, `--color-bg-raised`, `--color-bg-inset`, and `--color-accent-subtle`.
+- **Fonts**: Inter for display/headings, system sans-serif for body text, and SF Mono for code.
+- **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states.
 
 ---
 
@@ -463,6 +490,15 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "chart":    FormatSpec(body_type="object", cdn="chart.js/4.4.7/chart.umd.min.js"),
     "image":    FormatSpec(body_type="string", cdn=None),   # data URI or URL
     "code":     FormatSpec(body_type="string", cdn="highlight.js/11.11.1/highlight.min.js"),
+    "log":      FormatSpec(body_type="any",    cdn=None),
+    "status":   FormatSpec(body_type="object", cdn=None),
+    "metric":   FormatSpec(body_type="object", cdn=None),
+    "checklist":FormatSpec(body_type="any",    cdn=None),
+    "timeline": FormatSpec(body_type="any",    cdn=None),
+    "alert":    FormatSpec(body_type="object", cdn=None),
+    "file-preview": FormatSpec(body_type="object", cdn=None),
+    "trace":    FormatSpec(body_type="any",    cdn=None),
+    "task-board":FormatSpec(body_type="object", cdn=None),
 }
 ```
 
@@ -505,21 +541,17 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 ## Implementation Phases
 
 ### Phase 1: Protocol + Store + Server + Mermaid
-
-- [ ] `CanvasMessage` protocol dataclass + validation
-- [ ] `CanvasStore` (SQLite CRUD with upsert)
-- [ ] Canvas FastAPI server (HTML + POST/GET + SSE)
-- [ ] `synapse canvas serve` command
-- [ ] `synapse canvas post` command (raw JSON)
-- [ ] `synapse canvas mermaid` shortcut
-- [ ] `index.html` with card grid + Mermaid rendering + SSE
-- [ ] Agent badge with name/type/timestamp
-- [ ] Tests for protocol, store, and API
-
-**Deliverable**: Agents post Mermaid diagrams via protocol, rendered live in browser.
+- [x] `CanvasMessage` protocol dataclass + validation
+- [x] `CanvasStore` (SQLite CRUD with upsert)
+- [x] Canvas FastAPI server (HTML + POST/GET + SSE)
+- [x] `synapse canvas serve` command
+- [x] `synapse canvas post` command (raw JSON)
+- [x] `synapse canvas mermaid` shortcut
+- [x] `index.html` with card grid + Mermaid rendering + SSE
+- [x] Agent badge with name/type/timestamp
+- [x] Tests for protocol, store, and API
 
 ### Phase 2: All Formats
-
 - [ ] `markdown`, `table`, `json`, `code`, `diff`, `html` renderers
 - [ ] Corresponding CLI shortcuts
 - [ ] Composite cards (multi-block)
@@ -528,7 +560,6 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Filter bar in browser UI
 
 ### Phase 3: UX Polish
-
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
 - [ ] Dark/light theme toggle
@@ -537,25 +568,23 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] `--file` flag for all shortcuts
 
 ### Phase 4: Integration
-
 - [ ] `/canvas/cards` proxy endpoint on agent A2A server
 - [ ] Auto-start Canvas server on first `synapse canvas post`
 - [ ] Agent instructions update (teach agents about Canvas)
 - [ ] Skill update (add Canvas commands to synapse-a2a skill)
+
+### Phase 5: New Card Formats
+Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, and `task-board`.
 
 ---
 
 ## Design Decisions (Resolved)
 
 1. **Port**: Default 3000. Configurable via `SYNAPSE_CANVAS_PORT`.
-
-2. **Persistence**: Cards are **ephemeral** — cleared on server restart. Additionally, cards expire after `CANVAS_CARD_TTL` (default 1 hour). Pinned cards are exempt from TTL expiry. Rationale: Canvas is a live working surface, not an archive. Stale cards clutter the view.
-
-3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>` (no access to parent page). Sufficient for localhost-only use.
-
+2. **Persistence**: Cards are **ephemeral** — cleared on server restart. Additionally, cards expire after `CANVAS_CARD_TTL` (default 1 hour). Pinned cards are exempt from TTL expiry.
+3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in future.
-
-5. **Card ownership**: Agents can only update/delete their own cards (matched by `agent_id`). `synapse canvas clear` without filter clears all (admin operation from CLI).
+5. **Card ownership**: Agents can only update/delete their own cards.
 
 ---
 

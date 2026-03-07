@@ -6,6 +6,9 @@
 <title>Synapse Canvas</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/canvas.css">
 </head>
 <body>
@@ -22,16 +25,40 @@
       <option value="code">code</option>
       <option value="diff">diff</option>
       <option value="chart">chart</option>
+      <option value="log">log</option>
+      <option value="status">status</option>
+      <option value="metric">metric</option>
+      <option value="checklist">checklist</option>
+      <option value="timeline">timeline</option>
+      <option value="alert">alert</option>
+      <option value="file-preview">file-preview</option>
+      <option value="trace">trace</option>
+      <option value="task-board">task-board</option>
     </select>
     <select id="filter-agent">
       <option value="">All agents</option>
     </select>
-    <span id="card-count">0 cards</span>
+    <span id="card-count" style="display:none">0 cards</span>
     <button id="theme-toggle" title="Toggle light/dark theme">Light</button>
   </div>
 </header>
 <div id="toast-container"></div>
-<main id="canvas-grid"></main>
+<section id="system-area">
+  <div id="system-panel"></div>
+</section>
+<section id="live-feed">
+  <div class="live-feed-header">
+    <span class="live-feed-dot"></span>
+    <span class="live-feed-label">Live Feed</span>
+  </div>
+  <div id="live-feed-list" class="live-feed-list"></div>
+</section>
+<section id="cards-area">
+  <div id="cards-area-header">
+    <h2>Agent Messages</h2>
+  </div>
+  <main id="canvas-grid"></main>
+</section>
 <script src="/static/canvas.js"></script>
 </body>
 </html>

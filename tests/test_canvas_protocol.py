@@ -275,6 +275,23 @@ class TestFormatRegistry:
         }
         assert expected.issubset(set(FORMAT_REGISTRY.keys()))
 
+    def test_new_formats_registered(self):
+        """Phase 5 formats should be in the registry."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        new_formats = {
+            "log",
+            "status",
+            "metric",
+            "checklist",
+            "timeline",
+            "alert",
+            "file-preview",
+            "trace",
+            "task-board",
+        }
+        assert new_formats.issubset(set(FORMAT_REGISTRY.keys()))
+
     def test_format_spec_has_body_type(self):
         """Each format spec should declare a body_type."""
         from synapse.canvas.protocol import FORMAT_REGISTRY

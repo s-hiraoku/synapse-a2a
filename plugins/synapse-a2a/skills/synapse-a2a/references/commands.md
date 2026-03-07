@@ -1573,6 +1573,15 @@ synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
 # Read body from file
 synapse canvas post mermaid "" --file diagram.mmd --title "From File"
 
+# Upsert: update an existing card by ID (or create if not found)
+synapse canvas post markdown "Updated content" --title "Report" --card-id my-report-1
+
+# Add tags for categorisation
+synapse canvas post markdown "Notes" --title "Review" --tags "review,auth"
+
+# Override agent display name
+synapse canvas post markdown "Hello" --title "Greeting" --agent-name "Reviewer"
+
 # Post raw JSON (composite cards with multiple content blocks)
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
@@ -1584,6 +1593,7 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":
 ```bash
 synapse canvas list                      # List all cards
 synapse canvas list --agent-id claude    # Filter by agent
+synapse canvas list --type markdown      # Filter by content type
 synapse canvas list --search "Auth"      # Search by title
 synapse canvas delete <card_id> --agent-id <id>  # Delete own card
 synapse canvas clear                     # Clear all cards

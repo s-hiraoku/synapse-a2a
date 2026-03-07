@@ -41,6 +41,15 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "chart": FormatSpec(body_type="object", cdn="chart.js/4.4.7/chart.umd.min.js"),
     "image": FormatSpec(body_type="string", cdn=None),
     "code": FormatSpec(body_type="string", cdn="highlight.js/11.11.1/highlight.min.js"),
+    "log": FormatSpec(body_type="any"),
+    "status": FormatSpec(body_type="object"),
+    "metric": FormatSpec(body_type="object"),
+    "checklist": FormatSpec(body_type="any"),
+    "timeline": FormatSpec(body_type="any"),
+    "alert": FormatSpec(body_type="object"),
+    "file-preview": FormatSpec(body_type="object"),
+    "trace": FormatSpec(body_type="any"),
+    "task-board": FormatSpec(body_type="object"),
 }
 
 

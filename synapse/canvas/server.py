@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import glob
 import json
 import logging
+import os
+import sqlite3
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -88,6 +91,203 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
         return {"status": "ok", "cards": store.count()}
+
+    # ----------------------------------------------------------------
+    # GET /api/system
+    # ----------------------------------------------------------------
+    @app.get("/api/system")
+    def system_panel() -> dict[str, Any]:
+        """Return system panel data (agents, tasks, file locks)."""
+        agents: list[dict[str, Any]] = []
+        worktrees: list[dict[str, str]] = []
+        registry_dir = os.path.expanduser("~/.a2a/registry")
+        if os.path.isdir(registry_dir):
+            for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
+                try:
+                    data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    continue
+
+                working_dir = data.get("working_dir", "")
+                worktree_branch = data.get("worktree_branch")
+                working_dir_short = os.path.basename(working_dir) if working_dir else ""
+                if worktree_branch:
+                    working_dir_short = f"[WT] {working_dir_short}"
+
+                agents.append(
+                    {
+                        "agent_id": data.get("agent_id", ""),
+                        "name": data.get("name", ""),
+                        "agent_type": data.get("agent_type", ""),
+                        "status": data.get("status", ""),
+                        "port": data.get("port"),
+                        "pid": data.get("pid"),
+                        "role": data.get("role", ""),
+                        "skill_set": data.get("skill_set", ""),
+                        "working_dir": working_dir_short,
+                        "endpoint": data.get("endpoint", ""),
+                        "current_task_preview": data.get("current_task_preview", ""),
+                        "task_received_at": data.get("task_received_at"),
+                    }
+                )
+
+                # Extract worktree info in the same pass
+                wt_path = data.get("worktree_path")
+                if wt_path:
+                    worktrees.append(
+                        {
+                            "agent_id": data.get("agent_id", ""),
+                            "agent_name": data.get("name", ""),
+                            "path": os.path.basename(wt_path),
+                            "branch": data.get("worktree_branch", ""),
+                            "base_branch": data.get("worktree_base_branch", ""),
+                        }
+                    )
+
+        tasks: dict[str, list[dict[str, Any]]] = {
+            "pending": [],
+            "in_progress": [],
+            "completed": [],
+        }
+        task_db = ".synapse/task_board.db"
+        if os.path.exists(task_db):
+            try:
+                conn = sqlite3.connect(task_db)
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT id, subject, status, assignee "
+                    "FROM tasks ORDER BY created_at DESC LIMIT 50"
+                ).fetchall()
+                conn.close()
+                for row in rows:
+                    status = row["status"]
+                    if status not in tasks:
+                        continue
+                    tasks[status].append(
+                        {
+                            "id": row["id"],
+                            "subject": row["subject"],
+                            "assignee": row["assignee"] or "",
+                        }
+                    )
+            except (sqlite3.Error, OSError):
+                pass
+
+        file_locks: list[dict[str, str]] = []
+        lock_db = ".synapse/file_safety.db"
+        if os.path.exists(lock_db):
+            try:
+                conn = sqlite3.connect(lock_db)
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT file_path, agent_id FROM file_locks WHERE released_at IS NULL"
+                ).fetchall()
+                conn.close()
+                for row in rows:
+                    file_locks.append(
+                        {"path": row["file_path"], "agent_id": row["agent_id"]}
+                    )
+            except (sqlite3.Error, OSError):
+                pass
+
+        # Shared Memory
+        memories: list[dict[str, Any]] = []
+        memory_db = ".synapse/memory.db"
+        if os.path.exists(memory_db):
+            try:
+                conn = sqlite3.connect(memory_db)
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT id, key, content, author, tags, updated_at "
+                    "FROM memories ORDER BY updated_at DESC LIMIT 20"
+                ).fetchall()
+                conn.close()
+                for row in rows:
+                    tags_raw = row["tags"] or "[]"
+                    try:
+                        tags_parsed = json.loads(tags_raw)
+                    except (json.JSONDecodeError, TypeError):
+                        tags_parsed = []
+                    memories.append(
+                        {
+                            "id": row["id"],
+                            "key": row["key"],
+                            "content": (row["content"] or "")[:120],
+                            "author": row["author"],
+                            "tags": tags_parsed,
+                            "updated_at": row["updated_at"],
+                        }
+                    )
+            except (sqlite3.Error, OSError):
+                pass
+
+        # Recent History
+        history: list[dict[str, Any]] = []
+        history_db = ".synapse/history.db"
+        if os.path.exists(history_db):
+            try:
+                conn = sqlite3.connect(history_db)
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT task_id, agent_name, input, status, timestamp "
+                    "FROM observations ORDER BY timestamp DESC LIMIT 20"
+                ).fetchall()
+                conn.close()
+                for row in rows:
+                    input_text = row["input"] or ""
+                    history.append(
+                        {
+                            "task_id": row["task_id"],
+                            "agent_name": row["agent_name"],
+                            "input": input_text[:100],
+                            "status": row["status"],
+                            "timestamp": row["timestamp"],
+                        }
+                    )
+            except (sqlite3.Error, OSError):
+                pass
+
+        # Saved Agent Profiles
+        agent_profiles: list[dict[str, str]] = []
+        for scope, profiles_dir in [
+            ("user", os.path.expanduser("~/.synapse/agents")),
+            ("project", ".synapse/agents"),
+        ]:
+            if not os.path.isdir(profiles_dir):
+                continue
+            for file_path in sorted(glob.glob(os.path.join(profiles_dir, "*.agent"))):
+                try:
+                    profile_data: dict[str, str] = {}
+                    for raw_line in (
+                        Path(file_path).read_text(encoding="utf-8").splitlines()
+                    ):
+                        line = raw_line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, value = line.split("=", 1)
+                        profile_data[key.strip()] = value.strip()
+                    agent_profiles.append(
+                        {
+                            "id": profile_data.get("id", ""),
+                            "name": profile_data.get("name", ""),
+                            "profile": profile_data.get("profile", ""),
+                            "role": profile_data.get("role", ""),
+                            "skill_set": profile_data.get("skill_set", ""),
+                            "scope": scope,
+                        }
+                    )
+                except OSError:
+                    continue
+
+        return {
+            "agents": agents,
+            "tasks": tasks,
+            "file_locks": file_locks,
+            "memories": memories,
+            "worktrees": worktrees,
+            "history": history,
+            "agent_profiles": agent_profiles,
+        }
 
     # ----------------------------------------------------------------
     # POST /api/cards — Create or update card

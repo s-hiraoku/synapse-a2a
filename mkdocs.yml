@@ -128,6 +128,7 @@ nav:
     - History & Tracing: guide/history.md
     - Session Save/Restore: guide/session.md
     - Workflows: guide/workflow.md
+    - Canvas: guide/canvas.md
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md
@@ -141,6 +142,7 @@ nav:
     - Authentication: advanced/authentication.md
     - Webhooks: advanced/webhooks.md
     - Worktree Isolation: advanced/worktree.md
+    - Generative UI Landscape: advanced/generative-ui.md
     - Enterprise: advanced/enterprise.md
   - Troubleshooting: troubleshooting.md
   - Changelog: changelog.md
