@@ -75,6 +75,21 @@ WAITING_EXPIRY_SECONDS: float = 10.0
 # Terminal States
 # ============================================================
 
+# ============================================================
+# Canvas Constants
+# ============================================================
+
+CANVAS_DEFAULT_PORT: int = 3000
+CANVAS_MAX_CONTENT_SIZE: int = 500_000
+CANVAS_MAX_BLOCKS_PER_CARD: int = 10
+CANVAS_MAX_CARDS: int = 200
+CANVAS_NOTIFICATION_TTL: int = 10
+CANVAS_CARD_TTL: int = 3600
+
+# ============================================================
+# Terminal States
+# ============================================================
+
 # Task states that indicate completion (no need to wait further)
 COMPLETED_TASK_STATES: frozenset[str] = frozenset(
     {

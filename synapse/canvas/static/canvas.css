@@ -1,0 +1,328 @@
+/* Synapse Canvas — card grid layout and styling */
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-hover: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-bg: rgba(88, 166, 255, 0.1);
+  --green: #3fb950;
+  --red: #f85149;
+  --yellow: #d29922;
+  --pin: #f0883e;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Header ─────────────────────────────────── */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+#filter-bar select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#card-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Card Grid ──────────────────────────────── */
+
+#canvas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* ── Card ────────────────────────────────────── */
+
+.canvas-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s;
+}
+
+.canvas-card:hover {
+  border-color: var(--accent);
+}
+
+.canvas-card.pinned {
+  border-color: var(--pin);
+}
+
+.canvas-card > header {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.canvas-card > header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.pin-icon {
+  font-size: 13px;
+}
+
+/* ── Tags ────────────────────────────────────── */
+
+.tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 14px 0;
+}
+
+.tag-chip {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(139, 148, 158, 0.15);
+  color: var(--text-muted);
+}
+
+/* ── Content Blocks ──────────────────────────── */
+
+.content-block {
+  padding: 12px 14px;
+}
+
+.content-block + .content-block {
+  border-top: 1px solid var(--border);
+}
+
+/* Markdown */
+.format-markdown h2,
+.format-markdown h3,
+.format-markdown h4 {
+  margin: 8px 0 4px;
+}
+
+.format-markdown code {
+  background: rgba(110, 118, 129, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 85%;
+}
+
+.format-markdown pre {
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.format-markdown li {
+  margin-left: 20px;
+}
+
+.format-markdown a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.format-markdown a:hover {
+  text-decoration: underline;
+}
+
+/* Mermaid */
+.format-mermaid pre.mermaid {
+  background: var(--bg);
+  padding: 16px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.format-mermaid svg {
+  max-width: 100%;
+}
+
+/* Table */
+.format-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.format-table th,
+.format-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.format-table th {
+  background: var(--bg);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.format-table tr:hover td {
+  background: var(--surface-hover);
+}
+
+/* JSON */
+.json-view {
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--green);
+}
+
+/* Diff */
+.diff-view {
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.diff-add {
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.1);
+}
+
+.diff-del {
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.1);
+}
+
+.diff-hunk {
+  color: var(--accent);
+}
+
+/* Code */
+.format-code pre {
+  background: var(--bg);
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.format-code code {
+  font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  font-size: 12px;
+}
+
+/* Image */
+.format-image img {
+  border-radius: 4px;
+}
+
+/* Chart (rendered as mermaid) */
+.format-chart pre.mermaid {
+  background: var(--bg);
+  padding: 16px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* HTML (sandboxed iframe) */
+.format-html iframe {
+  background: #fff;
+  border-radius: 4px;
+}
+
+/* ── Footer ──────────────────────────────────── */
+
+.canvas-card > footer {
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
+/* ── Responsive ──────────────────────────────── */
+
+@media (max-width: 500px) {
+  #canvas-grid {
+    grid-template-columns: 1fr;
+    padding: 10px;
+    gap: 10px;
+  }
+}

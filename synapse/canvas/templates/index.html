@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse Canvas</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<link rel="stylesheet" href="/static/canvas.css">
+</head>
+<body>
+<header>
+  <h1>Synapse Canvas</h1>
+  <div id="filter-bar">
+    <select id="filter-type">
+      <option value="">All types</option>
+      <option value="mermaid">mermaid</option>
+      <option value="markdown">markdown</option>
+      <option value="table">table</option>
+      <option value="html">html</option>
+      <option value="json">json</option>
+      <option value="code">code</option>
+      <option value="diff">diff</option>
+      <option value="chart">chart</option>
+    </select>
+    <select id="filter-agent">
+      <option value="">All agents</option>
+    </select>
+    <span id="card-count">0 cards</span>
+  </div>
+</header>
+<main id="canvas-grid"></main>
+<script src="/static/canvas.js"></script>
+</body>
+</html>
