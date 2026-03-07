@@ -104,3 +104,26 @@ synapse reset --scope both -f             # Reset both without confirmation
 ```
 
 Settings include `approvalMode` for controlling initial instruction approval behavior.
+
+## Canvas Board
+
+Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.
+
+**Views:** Hash-routed SPA with two views — `#/` (Canvas spotlight) and `#/dashboard` (grid + live feed + system panel). Navigation via header links; view state preserved across SSE reconnects.
+
+**18 card formats:** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board.
+
+**Rendering highlights:**
+- **Code cards**: Syntax highlighted via highlight.js (set `--lang` for best results)
+- **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
+- **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
+- **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with auto-resize to content height
+- **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
+
+```bash
+synapse canvas post <format> "<body>" --title "<title>" [--pinned] [--tags "t1,t2"]
+synapse canvas open                      # Open in browser (auto-starts server)
+synapse canvas list [--agent-id <id>] [--type <format>] [--search "<query>"]
+```
+
+**Storage:** `.synapse/canvas.db` (project-local, SQLite).

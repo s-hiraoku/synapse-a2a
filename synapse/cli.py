@@ -2374,6 +2374,224 @@ def cmd_skills_apply(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_canvas_serve(args: argparse.Namespace) -> None:
+    """Start Canvas server."""
+    from synapse.canvas.server import create_app
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    try:
+        import uvicorn
+    except ImportError:
+        print(
+            "Error: uvicorn is required. Install with: uv add uvicorn", file=sys.stderr
+        )
+        sys.exit(1)
+
+    app = create_app()
+    print(f"Starting Canvas server on http://localhost:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
+
+
+def cmd_canvas_post(args: argparse.Namespace) -> None:
+    """Post a card to Canvas."""
+    from synapse.canvas.protocol import FORMAT_REGISTRY
+    from synapse.commands.canvas import ensure_server_running, post_shortcut
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    fmt = args.format
+    if fmt not in FORMAT_REGISTRY:
+        print(
+            f"Error: Unknown format '{fmt}'. Valid: {', '.join(FORMAT_REGISTRY)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    body = args.body
+    if body == "-":
+        body = sys.stdin.read()
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
+    result = post_shortcut(
+        format_name=fmt,
+        body=body,
+        title=args.title,
+        agent_id=args.agent_id,
+        agent_name=args.agent_name,
+        card_id=args.card_id,
+        pinned=args.pinned,
+        tags=tags,
+        lang=args.lang,
+        port=port,
+        file_path=getattr(args, "file", None),
+    )
+    if result:
+        print(f"Card posted: {result['card_id']}")
+    else:
+        print("Failed to post card", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_canvas_list(args: argparse.Namespace) -> None:
+    """List cards on Canvas."""
+    from synapse.canvas.store import CanvasStore
+    from synapse.paths import get_canvas_db_path
+
+    store = CanvasStore(db_path=get_canvas_db_path())
+    cards = store.list_cards(
+        agent_id=args.agent_id,
+        search=args.search,
+        content_type=args.type,
+    )
+    if not cards:
+        print("No cards found.")
+        return
+
+    for card in cards:
+        pin = " [pinned]" if card.get("pinned") else ""
+        agent = card.get("agent_name") or card.get("agent_id", "?")
+        title = card.get("title") or "(untitled)"
+        print(f"  {card['card_id']}  {title}  ({agent}){pin}")
+
+
+def cmd_canvas_delete(args: argparse.Namespace) -> None:
+    """Delete a card from Canvas."""
+    from synapse.canvas.store import CanvasStore
+    from synapse.paths import get_canvas_db_path
+
+    store = CanvasStore(db_path=get_canvas_db_path())
+    ok = store.delete_card(args.card_id, agent_id=args.agent_id)
+    if ok:
+        print(f"Deleted card: {args.card_id}")
+    else:
+        print(
+            f"Failed to delete card '{args.card_id}' (not found or not owned)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def cmd_canvas_clear(args: argparse.Namespace) -> None:
+    """Clear all cards from Canvas."""
+    from synapse.canvas.store import CanvasStore
+    from synapse.paths import get_canvas_db_path
+
+    store = CanvasStore(db_path=get_canvas_db_path())
+    count = store.clear_all(agent_id=args.agent_id)
+    print(f"Cleared {count} card(s).")
+
+
+def cmd_canvas_post_raw(args: argparse.Namespace) -> None:
+    """Post raw Canvas message JSON (supports composite cards)."""
+    from synapse.commands.canvas import ensure_server_running, post_card
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    raw = args.json_data
+    if raw == "-":
+        raw = sys.stdin.read()
+
+    result = post_card(raw, port=port)
+    if result:
+        print(f"Card posted: {result['card_id']}")
+    else:
+        sys.exit(1)
+
+
+def cmd_canvas_open(args: argparse.Namespace) -> None:
+    """Open Canvas in browser."""
+    from synapse.commands.canvas import ensure_server_running
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    import webbrowser
+
+    url = f"http://localhost:{port}"
+    webbrowser.open(url)
+    print(f"Opened {url} in browser")
+
+
+def cmd_canvas_status(args: argparse.Namespace) -> None:
+    """Show Canvas server status."""
+    from synapse.commands.canvas import (
+        LOG_FILE,
+        PID_FILE,
+        is_canvas_server_running,
+        is_pid_alive,
+        read_pid_file,
+    )
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    pid, stored_port = read_pid_file(PID_FILE)
+    running = is_canvas_server_running(port)
+
+    print("Canvas Server Status")
+    print(f"  URL:      http://localhost:{port}")
+    print(f"  Running:  {'yes' if running else 'no'}")
+    if pid:
+        alive = is_pid_alive(pid)
+        print(f"  PID:      {pid} ({'alive' if alive else 'dead'})")
+        if stored_port:
+            print(f"  Port:     {stored_port}")
+    else:
+        print("  PID:      (no PID file)")
+    print(f"  Log:      {LOG_FILE}")
+
+    if running:
+        try:
+            import httpx
+
+            resp = httpx.get(f"http://localhost:{port}/api/health", timeout=2.0)
+            data = resp.json()
+            print(f"  Cards:    {data.get('cards', '?')}")
+        except Exception:
+            pass
+
+
+def cmd_canvas_logs(args: argparse.Namespace) -> None:
+    """Show Canvas server logs."""
+    from synapse.commands.canvas import LOG_FILE
+
+    if not os.path.exists(LOG_FILE):
+        print(f"No log file found at {LOG_FILE}")
+        return
+
+    if args.follow:
+        os.execlp("tail", "tail", "-f", "-n", str(args.lines), LOG_FILE)
+    else:
+        with open(LOG_FILE) as f:
+            lines = f.readlines()
+            for line in lines[-args.lines :]:
+                print(line, end="")
+
+
+def cmd_canvas_stop(args: argparse.Namespace) -> None:
+    """Stop Canvas server."""
+    import signal as sig
+
+    from synapse.commands.canvas import PID_FILE, is_pid_alive, read_pid_file
+
+    pid, _ = read_pid_file(PID_FILE)
+    if not pid or not is_pid_alive(pid):
+        print("Canvas server is not running.")
+        return
+
+    import contextlib
+
+    os.kill(pid, sig.SIGTERM)
+    print(f"Stopped Canvas server (PID: {pid})")
+    with contextlib.suppress(OSError):
+        os.remove(PID_FILE)
+
+
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -5533,6 +5751,111 @@ Scopes:
     )
     p_sk_apply.set_defaults(func=cmd_skills_apply)
 
+    # ── canvas ───────────────────────────────────────────────────
+    p_canvas = subparsers.add_parser(
+        "canvas",
+        help="Canvas board — shared visual output surface",
+        description="Post and view rich content cards (diagrams, tables, code, etc.) in the browser.",
+    )
+    canvas_subparsers = p_canvas.add_subparsers(
+        dest="canvas_command", metavar="SUBCOMMAND"
+    )
+
+    # canvas serve
+    p_canvas_serve = canvas_subparsers.add_parser("serve", help="Start Canvas server")
+    p_canvas_serve.add_argument(
+        "--port", type=int, default=None, help="Server port (default: 3000)"
+    )
+    p_canvas_serve.set_defaults(func=cmd_canvas_serve)
+
+    # canvas post <format> <body> [options]
+    p_canvas_post = canvas_subparsers.add_parser("post", help="Post a card to Canvas")
+    p_canvas_post.add_argument(
+        "format",
+        help="Content format (mermaid, markdown, html, table, json, diff, code, chart, image)",
+    )
+    p_canvas_post.add_argument("body", help="Content body (or '-' to read from stdin)")
+    p_canvas_post.add_argument("--title", default="", help="Card title")
+    p_canvas_post.add_argument(
+        "--agent-id", default=os.environ.get("SYNAPSE_AGENT_ID", "cli"), help="Agent ID"
+    )
+    p_canvas_post.add_argument("--agent-name", default="", help="Agent display name")
+    p_canvas_post.add_argument("--card-id", default=None, help="Card ID for upsert")
+    p_canvas_post.add_argument(
+        "--pinned", action="store_true", default=False, help="Pin card (no TTL expiry)"
+    )
+    p_canvas_post.add_argument("--tags", default=None, help="Comma-separated tags")
+    p_canvas_post.add_argument(
+        "--lang", default=None, help="Language hint (for code format)"
+    )
+    p_canvas_post.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_post.add_argument(
+        "--file", default=None, help="Read body from file instead of argument"
+    )
+    p_canvas_post.set_defaults(func=cmd_canvas_post)
+
+    # canvas list [options]
+    p_canvas_list = canvas_subparsers.add_parser("list", help="List cards")
+    p_canvas_list.add_argument("--agent-id", default=None, help="Filter by agent ID")
+    p_canvas_list.add_argument("--type", default=None, help="Filter by content type")
+    p_canvas_list.add_argument("--search", default=None, help="Search by title")
+    p_canvas_list.set_defaults(func=cmd_canvas_list)
+
+    # canvas delete <card_id>
+    p_canvas_delete = canvas_subparsers.add_parser("delete", help="Delete a card")
+    p_canvas_delete.add_argument("card_id", help="Card ID to delete")
+    p_canvas_delete.add_argument(
+        "--agent-id", default=os.environ.get("SYNAPSE_AGENT_ID", "cli"), help="Agent ID"
+    )
+    p_canvas_delete.set_defaults(func=cmd_canvas_delete)
+
+    # canvas clear
+    p_canvas_clear = canvas_subparsers.add_parser("clear", help="Clear all cards")
+    p_canvas_clear.add_argument(
+        "--agent-id", default=None, help="Clear only this agent's cards"
+    )
+    p_canvas_clear.set_defaults(func=cmd_canvas_clear)
+
+    # canvas post-raw <json> — raw JSON (supports composite cards)
+    p_canvas_raw = canvas_subparsers.add_parser(
+        "post-raw", help="Post raw Canvas message JSON (supports composite cards)"
+    )
+    p_canvas_raw.add_argument(
+        "json_data", help="Raw Canvas message JSON (or '-' for stdin)"
+    )
+    p_canvas_raw.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_raw.set_defaults(func=cmd_canvas_post_raw)
+
+    # canvas open
+    p_canvas_open = canvas_subparsers.add_parser("open", help="Open Canvas in browser")
+    p_canvas_open.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_open.set_defaults(func=cmd_canvas_open)
+
+    # canvas status
+    p_canvas_status = canvas_subparsers.add_parser(
+        "status", help="Show Canvas server status"
+    )
+    p_canvas_status.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_status.set_defaults(func=cmd_canvas_status)
+
+    # canvas logs
+    p_canvas_logs = canvas_subparsers.add_parser("logs", help="Show Canvas server logs")
+    p_canvas_logs.add_argument(
+        "-n",
+        "--lines",
+        type=int,
+        default=50,
+        help="Number of lines to show (default: 50)",
+    )
+    p_canvas_logs.add_argument(
+        "-f", "--follow", action="store_true", default=False, help="Follow log output"
+    )
+    p_canvas_logs.set_defaults(func=cmd_canvas_logs)
+
+    # canvas stop
+    p_canvas_stop = canvas_subparsers.add_parser("stop", help="Stop Canvas server")
+    p_canvas_stop.set_defaults(func=cmd_canvas_stop)
+
     # Pre-extract tool_args from sys.argv for commands that support '--'.
     # argparse.REMAINDER had a bug where it swallowed named options (--name,
     # --role) as positional tool_args.  Instead, we split sys.argv at '--'
@@ -5569,6 +5892,7 @@ Scopes:
         "session": ("session_command", p_session),
         "workflow": ("workflow_command", p_workflow),
         "agents": ("agents_command", p_agents),
+        "canvas": ("canvas_command", p_canvas),
     }
 
     # Handle subcommands without action (print help)

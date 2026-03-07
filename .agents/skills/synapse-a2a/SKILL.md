@@ -28,9 +28,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply | `synapse reply "<response>"` |
 | Reply to specific | `synapse reply "<response>" --to <sender_id>` |
 | Interrupt (priority 4) | `synapse interrupt <target> "<msg>"` |
-| Spawn agent | `synapse spawn <type> --name <n> --role "<r>"` |
-| Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>"` |
-| Team start | `synapse team start claude gemini [--worktree]` |
+| Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <approval-skip-flag>` |
+| Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <approval-skip-flag>` |
+| Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <approval-skip-flag>` |
 | Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n>` |
 | Assign task | `synapse tasks assign <id> <agent>` |
 | Complete task | `synapse tasks complete <id>` |
@@ -44,6 +44,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Kill agent | `synapse kill <name> -f` |
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
 | Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
+| Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
+| Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 
 ## Collaboration Decision Framework
 
@@ -53,7 +55,7 @@ Evaluate collaboration opportunities before starting work:
 |-----------|--------|
 | Small task within your role | Do it yourself |
 | Task outside your role, READY agent exists | Delegate: `synapse send --notify` or `--silent` |
-| No suitable agent exists | Spawn: `synapse spawn <type> --name <n> --role "<r>"` |
+| No suitable agent exists | Spawn: `synapse spawn <type> --name <n> --role "<r>" -- <approval-skip-flag>` |
 | Stuck or need expertise | Ask: `synapse send <target> "<question>" --wait` |
 | Completed a milestone | Report: `synapse send <manager> "<summary>" --silent` |
 | Discovered a pattern | Share: `synapse memory save <key> "<pattern>" --tags ... --notify` |
@@ -76,13 +78,31 @@ Evaluate collaboration opportunities before starting work:
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
+| **Canvas** | Visual dashboard for sharing rich cards (code, charts, diffs, diagrams) | `synapse canvas post/open/list` |
 
 ## Spawning Decision Table
+
+**Default spawn policy:** When using `synapse spawn`, pass the underlying CLI's
+approval-skip / auto-approve flag by default so spawned agents can run
+unattended. Use tool args after `--`.
+
+Apply the same rule to `synapse team start`: include the approval-skip flag by
+default, and keep teams homogeneous when the forwarded flag is CLI-specific.
+
+Common defaults:
+- Claude Code: `synapse spawn claude --name <n> --role "<r>" -- --dangerously-skip-permissions`
+- Gemini CLI: `synapse spawn gemini --name <n> --role "<r>" -- --approval-mode=yolo`
+- Codex CLI: `synapse spawn codex --name <n> --role "<r>" -- --full-auto`
+- Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all-tools`
+- Claude team: `synapse team start claude claude -- --dangerously-skip-permissions`
+- Gemini team: `synapse team start gemini gemini -- --approval-mode=yolo`
+- Codex team: `synapse team start codex codex -- --full-auto`
+- Copilot team: `synapse team start copilot copilot -- --allow-all-tools`
 
 | Condition | Action |
 |-----------|--------|
 | Existing READY agent can handle it | `synapse send` — reuse is faster (avoids startup overhead) |
-| Need parallel execution | `synapse spawn` with `--worktree` for file isolation |
+| Need parallel execution | `synapse spawn` with `--worktree -- <approval-skip-flag>` for file isolation |
 | Task needs a different model's strengths | Spawn a different type (Claude spawns Gemini, etc.) |
 | User specified agent count | Follow exactly |
 | Single focused subtask | Spawn 1 agent |
@@ -95,7 +115,7 @@ and prevents orphaned agents from accidentally accepting future tasks.
 
 ```bash
 # Spawn, delegate, verify, cleanup
-synapse spawn gemini --name Tester --role "test writer"
+synapse spawn gemini --name Tester --role "test writer" -- --approval-mode=yolo
 synapse list                              # Verify agent appears
 # Wait for readiness (or rely on server-side Readiness Gate)
 synapse send Tester "Write tests for src/auth.py" --wait
@@ -162,4 +182,4 @@ For detailed information, consult these reference files:
 | `references/messaging.md` | Sending, replying, priorities, status states, interactive controls |
 | `references/spawning.md` | Spawn lifecycle, patterns, worktree, permissions, API |
 | `references/collaboration.md` | Agent naming, external agents, auth, resume, path overrides |
-| `references/features.md` | Sessions, workflows, saved agents, tokens, skills, settings |
+| `references/features.md` | Sessions, workflows, saved agents, tokens, skills, settings, Canvas |

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-03-07
+
+### Added
+
+- **Canvas SPA routing**: Hash-based routing with `#/` (Canvas view — full-viewport latest card) and `#/dashboard` (Dashboard view with system panel, live feed, agent messages)
+- **Canvas view**: Immersive full-screen projection of the latest agent card with ambient glow, title bar, floating info bar, and `prefers-reduced-motion` support
+- **Highlight.js integration**: Syntax highlighting for `code` and `file-preview` card formats via CDN
+- **Side-by-side diff renderer**: Replaced unified diff with left/right split view showing line numbers, additions, deletions, and context
+- **HTML card full-height**: iframe fills Canvas view content area using CSS flex layout
+- **Chart.js all types**: Support for bar, line, pie, doughnut, radar, polarArea, scatter, and bubble chart types
+
+### Changed
+
+- **Dashboard layout**: System panel fixed at top (max 40vh), live feed and agent messages scroll independently below
+- **Canvas performance**: `renderCurrentView()` debounced with `requestAnimationFrame`; spotlight skips rebuild when displayed card unchanged; O(n) reduce replaces O(n log n) sort for latest card
+- **iframe sandbox**: Reverted to `allow-scripts` only (removed `allow-same-origin` to prevent XSS via agent-generated HTML)
+- **Diff pane construction**: Extracted `buildDiffPane()` helper to eliminate copy-paste DOM construction
+
+### Documentation
+
+- **docs/design/canvas.md**: Updated with SPA routing, side-by-side diff, highlight.js, and implementation phases
+- **Plugin skills**: Updated `synapse-a2a` SKILL.md, `references/commands.md`, and `references/features.md` with Canvas features and all 18 formats
+- **GitHub Pages**: Updated `site-docs/guide/canvas.md` with routing documentation and rendering details
+
 ## [0.10.1] - 2026-03-06
 
 ### Changed
@@ -1919,6 +1943,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.5...v0.10.0
 [0.9.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.9.4...v0.9.5

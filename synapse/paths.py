@@ -85,6 +85,17 @@ def get_shared_memory_db_path() -> str:
     )
 
 
+def get_canvas_db_path() -> str:
+    """Get the path to the canvas database.
+
+    Override with SYNAPSE_CANVAS_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_CANVAS_DB_PATH",
+        Path(".synapse") / "canvas.db",
+    )
+
+
 def get_synapse_skills_dir() -> str:
     """Get the path to the central synapse skills directory.
 

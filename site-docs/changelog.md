@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.0
+
+- **Added**: Canvas SPA routing — `#/` (full-viewport Canvas view) and `#/dashboard` (Dashboard view with system panel, live feed, agent messages)
+- **Added**: Highlight.js syntax highlighting for code cards, side-by-side diff renderer, HTML iframe full-height in Canvas view
+- **Added**: Chart.js supports all types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
+- **Changed**: Canvas performance — debounced rendering, skip-unchanged spotlight, O(n) latest card lookup
+- **Changed**: iframe sandbox reverted to `allow-scripts` only (security fix)
+
 ### v0.10.1
 
 - **Changed**: Skill Progressive Disclosure — `synapse-a2a` SKILL.md reduced from 877→159 lines, `synapse-manager` from 426→199 lines. Detail moved to `references/` for on-demand loading

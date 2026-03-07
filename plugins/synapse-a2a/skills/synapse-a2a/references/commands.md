@@ -1148,9 +1148,12 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (permission skip flags per CLI)
-synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
-synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --full-auto for Codex)
+# Pass tool-specific arguments after '--' (approval-skip should be the default)
+# Keep teams homogeneous when forwarding CLI-specific flags to all agents.
+synapse team start claude claude -- --dangerously-skip-permissions
+synapse team start gemini gemini -- --approval-mode=yolo
+synapse team start codex codex -- --full-auto
+synapse team start copilot copilot -- --allow-all-tools
 
 # Worktree isolation (Synapse-level flag, before '--'; creates per-agent worktrees for ALL agent types)
 synapse team start claude gemini --worktree
@@ -1168,12 +1171,12 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 
-# With tool_args (passed through to underlying CLI tool)
+# With tool_args (passed through to the underlying CLI tool; approval-skip is recommended by default)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
-  -d '{"agents": ["gemini", "codex"], "tool_args": ["-y"]}'
-# Note: tool_args are passed to ALL agents. Use CLI-specific flags:
-# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
+  -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'
+# Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific flags:
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1189,8 +1192,8 @@ curl -X POST http://localhost:8100/spawn \
 # With skill_set and tool_args
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
-# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
+  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--approval-mode=yolo"]}'
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Gemini ["--approval-mode=yolo"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
 
 # With worktree isolation (works for all agent types)
 curl -X POST http://localhost:8100/spawn \
@@ -1545,6 +1548,93 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 - **Style** (auto-fix): nitpicks, formatting, naming issues; delegates to `ruff check --fix` and `ruff format` when applicable
 - **Suggestion** (report only): refactoring ideas, performance hints; only auto-fixed with `--all` flag
 
+## Canvas Board
+
+Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with two views navigated via hash routing:
+
+- **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
+- **`#/dashboard`** (Dashboard view) — Grid layout with filters, live feed, and system panel
+
+### Post Cards
+
+```bash
+# Post a Mermaid diagram
+synapse canvas post mermaid "graph TD; A-->B" --title "Architecture" --pinned
+
+# Post markdown
+synapse canvas post markdown "## Summary\nAll tests pass" --title "Report"
+
+# Post a table
+synapse canvas post table '{"headers":["Test","Status"],"rows":[["auth","pass"],["api","pass"]]}' --title "Results"
+
+# Post code with language hint (syntax highlighted via highlight.js)
+synapse canvas post code "def hello(): pass" --lang python --title "Snippet"
+
+# Post a Chart.js chart (supports bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
+synapse canvas post chart '{"type":"bar","data":{"labels":["A","B"],"datasets":[{"data":[10,20]}]}}' --title "Metrics"
+synapse canvas post chart '{"type":"pie","data":{"labels":["Pass","Fail"],"datasets":[{"data":[95,5]}]}}' --title "Results"
+
+# Post a diff (rendered as side-by-side comparison)
+synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
+
+# Post HTML (rendered in sandboxed iframe with auto-height)
+synapse canvas post html "<h1>Hello</h1><p>Rich content</p>" --title "HTML Card"
+
+# Read body from file
+synapse canvas post mermaid "" --file diagram.mmd --title "From File"
+
+# Upsert: update an existing card by ID (or create if not found)
+synapse canvas post markdown "Updated content" --title "Report" --card-id my-report-1
+
+# Add tags for categorisation
+synapse canvas post markdown "Notes" --title "Review" --tags "review,auth"
+
+# Override agent display name
+synapse canvas post markdown "Hello" --title "Greeting" --agent-name "Reviewer"
+
+# Post raw JSON (composite cards with multiple content blocks)
+synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
+```
+
+**Supported formats (18):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board
+
+### Rendering Details
+
+| Format | Renderer | Notes |
+|--------|----------|-------|
+| code | highlight.js 11.x | Syntax highlighting; set `--lang` for best results |
+| chart | Chart.js 4.x | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
+| diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
+| html | Sandboxed iframe | `allow-scripts`; auto-resizes to content height |
+| image | `<img>` tag | PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB) |
+| mermaid | Mermaid 11.x | Diagrams rendered client-side |
+
+### Manage Cards
+
+```bash
+synapse canvas list                      # List all cards
+synapse canvas list --agent-id claude    # Filter by agent
+synapse canvas list --type markdown      # Filter by content type
+synapse canvas list --search "Auth"      # Search by title
+synapse canvas delete <card_id> --agent-id <id>  # Delete own card
+synapse canvas clear                     # Clear all cards
+synapse canvas clear --agent-id <id>     # Clear agent's cards
+```
+
+### Server Management
+
+```bash
+synapse canvas serve [--port 3000]       # Start server foreground
+synapse canvas open                      # Open in browser (auto-starts server)
+synapse canvas status                    # Show server status
+synapse canvas logs [-n 50] [-f]         # View server logs
+synapse canvas stop                      # Stop server
+```
+
+**Auto-start:** The server starts automatically when you post the first card. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
+
+**Canvas proxy:** Each agent's A2A server exposes `/canvas/cards` endpoints, so agents can post cards through their own port without knowing the Canvas server port.
+
 ## Storage Locations
 
 ```text
@@ -1560,6 +1650,7 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
+.synapse/canvas.db   # Canvas card storage (project-local)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)

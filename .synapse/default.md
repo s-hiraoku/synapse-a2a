@@ -138,6 +138,19 @@ WORKTREE — Use isolated worktrees when multiple agents edit files:
 BROADCAST — Announce to all agents:
   synapse broadcast "message" [--priority N]
 
+CANVAS — Post rich visual content to a shared browser dashboard:
+  synapse canvas post mermaid "graph TD; A-->B" --title "Flow" --pinned
+  synapse canvas post markdown "## Status\nAll tests pass" --title "Report"
+  synapse canvas post table '{"headers":["Test","Result"],"rows":[["auth","pass"]]}' --title "Results"
+  synapse canvas post code "def hello(): pass" --lang python --title "Snippet"
+  synapse canvas post chart '{"type":"bar","data":{...}}' --title "Metrics"
+  synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
+  synapse canvas post mermaid "" --file diagram.mmd --title "From File"
+  synapse canvas list [--agent-id ID] [--search TERM]
+  synapse canvas open                    # Open dashboard in browser
+  Use Canvas to share: architecture diagrams, test results, progress reports,
+  code snippets, data tables, and any visual artifacts with the team.
+
 HISTORY — Review past work:
   synapse history list --agent <name>
   synapse trace <task_id>

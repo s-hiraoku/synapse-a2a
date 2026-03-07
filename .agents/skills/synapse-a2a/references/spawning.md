@@ -98,6 +98,11 @@ synapse list  # Verify the agent is gone
 
 Each CLI has its own flag to skip interactive permission prompts. These are passed as tool args after `--` because they are forwarded to the underlying CLI, not consumed by Synapse itself.
 
+**Recommended default:** When using `synapse spawn` or `synapse team start`,
+include the relevant approval-skip flag unless you explicitly want an
+interactive approval flow. Spawned agents are normally used unattended, so
+approval-skipping should be the default operating mode.
+
 | CLI | Flag | Notes |
 |-----|------|-------|
 | **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
