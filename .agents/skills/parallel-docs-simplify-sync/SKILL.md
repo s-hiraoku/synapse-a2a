@@ -1,20 +1,22 @@
 ---
 name: parallel-docs-simplify-sync
 description: >-
-  Runs synapse-docs, code-simplifier, and sync-plugin-skills in parallel for
-  synapse-a2a development workflows. Use when you need doc updates, code
-  simplification, and plugin skill sync at the same time.
+  Runs synapse-docs, /simplify, sync-plugin-skills, and github-pages-sync
+  in parallel for synapse-a2a development workflows. Use when you need doc
+  updates, code simplification, plugin skill sync, and site-docs sync at the
+  same time.
 commands:
   - /parallel-docs-simplify-sync
 ---
 
 # Parallel Docs Simplify Sync
 
-Coordinate three independent skills in parallel using the **Task tool**:
+Coordinate four independent skills in parallel using the **Task tool**:
 
 - `synapse-docs` — documentation updates
-- `code-simplifier` — targeted refactors for readability
+- `/simplify` — Claude Code built-in code simplification (replaces custom code-simplifier)
 - `sync-plugin-skills` — plugin skill synchronization
+- `github-pages-sync` — GitHub Pages site synchronization
 
 > **Dev-only skill.** Lives in `.agents/skills/` (not deployed to `plugins/`).
 > This is a development orchestration tool, not a user-facing plugin skill.
@@ -24,34 +26,37 @@ Coordinate three independent skills in parallel using the **Task tool**:
 - Code and documentation were changed in the same task.
 - Simplification or refactor cleanup is needed while keeping docs in sync.
 - Plugin-skill synchronization should happen in the same run.
+- GitHub Pages site (`site-docs/`) needs to reflect code or doc changes.
 
 ## Parallel Execution Workflow
 
-### Step 1: Split into three independent sub-tasks
+### Step 1: Split into four independent sub-tasks
 
 Define one clear objective and divide it:
 
 | Track | Skill | Typical Scope |
 |-------|-------|---------------|
 | Docs | `synapse-docs` | README.md, guides/, CLAUDE.md |
-| Simplify | `code-simplifier` | Recently changed `.py` files |
+| Simplify | `/simplify` (built-in) | Recently changed `.py` files |
 | Sync | `sync-plugin-skills` | plugins/synapse-a2a/skills/ |
+| Pages | `github-pages-sync` | site-docs/ |
 
-### Step 2: Launch three Task tool calls in a single message
+### Step 2: Launch four Task tool calls in a single message
 
-Use the **Task tool** with three parallel invocations in one response.
+Use the **Task tool** with four parallel invocations in one response.
 Each Task call should use the prompt template below.
 
 ```
-# Example: three parallel Task tool calls
+# Example: four parallel calls (3 Task agents + 1 Skill)
 Task(subagent_type="general-purpose", prompt="[synapse-docs prompt]")
-Task(subagent_type="code-simplifier:code-simplifier", prompt="[simplify prompt]")
+Skill("simplify")                                                # Claude Code built-in
 Task(subagent_type="general-purpose", prompt="[sync-plugin-skills prompt]")
+Task(subagent_type="general-purpose", prompt="[github-pages-sync prompt]")
 ```
 
-### Step 3: Wait for all three outputs
+### Step 3: Wait for all four outputs
 
-All three tasks return independently. Collect results before merging.
+All four tasks return independently. Collect results before merging.
 
 ### Step 4: Merge and resolve conflicts
 
@@ -60,7 +65,7 @@ Apply changes from each track. If conflicts arise, follow the
 
 ### Step 5: Retry failed tracks only
 
-If any track fails, rerun only that track — do not re-execute all three.
+If any track fails, rerun only that track — do not re-execute all four.
 
 ## Task Prompt Template
 
@@ -68,7 +73,7 @@ Use this for each parallel track:
 
 ```text
 Goal: <shared task goal>
-Track: <synapse-docs | code-simplifier | sync-plugin-skills>
+Track: <synapse-docs | simplify | sync-plugin-skills | github-pages-sync>
 Scope: <files/areas>
 Constraints:
 - Keep behavior unchanged unless explicitly requested
@@ -89,11 +94,17 @@ Deliverable:
 3. If both modified the same SKILL.md, take `sync-plugin-skills` output and
    verify it against the doc changes from `synapse-docs`. Manually reconcile
    if descriptions diverge.
-4. `code-simplifier` should never conflict — it only touches `.py` files.
+4. `/simplify` should never conflict — it only touches `.py` files.
+5. `github-pages-sync` only modifies files under `site-docs/` and `mkdocs.yml`,
+   so it does not conflict with `synapse-docs` or `sync-plugin-skills` which
+   target different directories. If both `synapse-docs` and `github-pages-sync`
+   modify `mkdocs.yml`, `github-pages-sync` takes priority since it owns the
+   site build configuration.
 
 ## Completion Checklist
 
-- [ ] All three tracks completed: `synapse-docs`, `code-simplifier`, `sync-plugin-skills`
+- [ ] All four tracks completed: `synapse-docs`, `/simplify`, `sync-plugin-skills`, `github-pages-sync`
 - [ ] Conflicts resolved per rules above
 - [ ] `pytest` passes
+- [ ] `uv run mkdocs build --strict` passes (if Pages track ran)
 - [ ] Final diff is coherent and reviewable
