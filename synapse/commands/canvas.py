@@ -16,12 +16,29 @@ from pathlib import Path
 import httpx
 
 from synapse.canvas.store import CanvasStore
+from synapse.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 3000
 PID_FILE = ".synapse/canvas.pid"
 LOG_FILE = os.path.expanduser("~/.synapse/logs/canvas.log")
+
+
+def _resolve_agent_name(agent_id: str, agent_name: str = "") -> str:
+    """Resolve agent display name from registry unless already provided."""
+    if agent_name or not agent_id:
+        return agent_name
+
+    try:
+        info = AgentRegistry().get_agent(agent_id)
+    except Exception:
+        logger.debug("Failed to resolve agent name for %s", agent_id, exc_info=True)
+        return ""
+
+    if not info:
+        return ""
+    return str(info.get("name") or "")
 
 
 # ============================================================
@@ -217,6 +234,7 @@ def post_shortcut(
     """Post a card via format shortcut. Returns card dict or None."""
     if file_path:
         body = Path(file_path).read_text(encoding="utf-8")
+    agent_name = _resolve_agent_name(agent_id, agent_name)
     content_dict: dict = {"format": format_name, "body": body}
     if lang:
         content_dict["lang"] = lang
