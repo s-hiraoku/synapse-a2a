@@ -1148,9 +1148,12 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (permission skip flags per CLI)
-synapse team start claude gemini -- --dangerously-skip-permissions  # Claude skips; Gemini ignores
-synapse team start gemini codex -- -y         # Gemini uses -y; Codex ignores (use --full-auto for Codex)
+# Pass tool-specific arguments after '--' (approval-skip should be the default)
+# Keep teams homogeneous when forwarding CLI-specific flags to all agents.
+synapse team start claude claude -- --dangerously-skip-permissions
+synapse team start gemini gemini -- --approval-mode=yolo
+synapse team start codex codex -- --full-auto
+synapse team start copilot copilot -- --allow-all-tools
 
 # Worktree isolation (Synapse-level flag, before '--'; creates per-agent worktrees for ALL agent types)
 synapse team start claude gemini --worktree
@@ -1168,12 +1171,12 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 
-# With tool_args (passed through to underlying CLI tool)
+# With tool_args (passed through to the underlying CLI tool; approval-skip is recommended by default)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
-  -d '{"agents": ["gemini", "codex"], "tool_args": ["-y"]}'
-# Note: tool_args are passed to ALL agents. Use CLI-specific flags:
-# Claude: ["--dangerously-skip-permissions"], Gemini: ["-y"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
+  -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'
+# Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific flags:
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1189,8 +1192,8 @@ curl -X POST http://localhost:8100/spawn \
 # With skill_set and tool_args
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["-y"]}'
-# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
+  -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--approval-mode=yolo"]}'
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Gemini ["--approval-mode=yolo"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
 
 # With worktree isolation (works for all agent types)
 curl -X POST http://localhost:8100/spawn \
