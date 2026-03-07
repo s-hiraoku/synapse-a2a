@@ -106,7 +106,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
                 try:
                     data = json.loads(Path(file_path).read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError) as e:
+                except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
                     registry_errors.append(
                         {"source": os.path.basename(file_path), "message": str(e)}
                     )

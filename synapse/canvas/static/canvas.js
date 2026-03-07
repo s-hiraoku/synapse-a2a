@@ -950,7 +950,7 @@
     systemPanel.appendChild(toggle);
 
     // Content wrapper
-    const content = document.getElementById("system-panel-content") || document.createElement("div");
+    const content = document.createElement("div");
     content.id = "system-panel-content";
     if (isCollapsedPanel) content.classList.add("collapsed");
 

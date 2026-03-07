@@ -2728,8 +2728,7 @@ def _resolve_task_id(short_id: str) -> str:
         return short_id
 
     board = TaskBoard.from_env()
-    tasks = board.list_tasks()
-    matches = [t["id"] for t in tasks if t["id"].startswith(short_id)]
+    matches = [t["id"] for t in board.find_tasks_by_prefix(short_id)]
 
     if not matches:
         print(f"Error: No task found starting with '{short_id}'", file=sys.stderr)

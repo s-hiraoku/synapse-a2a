@@ -2066,3 +2066,4 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/s-hiraoku/synapse-a2a/releases/tag/v0.1.0
+[0.11.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.1...v0.11.2

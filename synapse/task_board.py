@@ -413,6 +413,32 @@ class TaskBoard:
             finally:
                 conn.close()
 
+    def find_tasks_by_prefix(self, prefix: str, limit: int = 4) -> list[dict[str, Any]]:
+        """Find tasks whose IDs start with the given prefix.
+
+        Args:
+            prefix: Task ID prefix to match.
+            limit: Maximum number of matches to return.
+
+        Returns:
+            Matching task dicts ordered by creation time.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM board_tasks
+                    WHERE id LIKE ? ESCAPE '\\'
+                    ORDER BY created_at
+                    LIMIT ?
+                    """,
+                    (f"{prefix}%", limit),
+                ).fetchall()
+                return [self._row_to_dict(row) for row in rows]
+            finally:
+                conn.close()
+
     def get_available_tasks(self) -> list[dict[str, Any]]:
         """Get tasks that are unblocked, unassigned, and pending.
 

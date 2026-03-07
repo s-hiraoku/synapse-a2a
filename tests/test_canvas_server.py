@@ -63,6 +63,35 @@ class TestHealthEndpoint:
         assert "cards" in data
 
 
+class TestSystemPanelRegistryErrors:
+    """Tests for registry error reporting in GET /api/system."""
+
+    def test_system_panel_collects_invalid_utf8_registry_files(
+        self, client, tmp_path, monkeypatch
+    ):
+        """Invalid UTF-8 registry files should be reported instead of crashing the endpoint."""
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+        bad_file = registry_dir / "broken.json"
+        bad_file.write_bytes(b"\xff\xfe\xfa")
+
+        monkeypatch.setattr(
+            "synapse.canvas.server.os.path.expanduser",
+            lambda path: str(registry_dir) if path == "~/.a2a/registry" else path,
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["registry_errors"] == [
+            {
+                "source": "broken.json",
+                "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+            }
+        ]
+
+
 # ============================================================
 # TestCanvasRouting
 # ============================================================

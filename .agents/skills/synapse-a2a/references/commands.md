@@ -1157,7 +1157,7 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (automation args should be the default for unattended agents)
+# Pass tool-specific arguments after '--' (automation args: unattended/permission-skip args such as --dangerously-skip-permissions, --approval-mode=yolo, --full-auto)
 # Keep teams homogeneous when forwarding CLI-specific args to all agents.
 synapse team start claude claude -- --dangerously-skip-permissions
 synapse team start gemini gemini -- --approval-mode=yolo
@@ -1180,7 +1180,7 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 
-# With tool_args (passed through to the underlying CLI tool; automation args are recommended by default)
+# With tool_args (passed through to the underlying CLI tool; automation args are recommended for unattended agents)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'

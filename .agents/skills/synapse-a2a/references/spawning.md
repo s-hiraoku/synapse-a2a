@@ -105,12 +105,12 @@ include the relevant automation args unless you explicitly want an interactive
 flow. Spawned agents are normally used unattended, so approval-skipping should
 be the default where the CLI supports it directly.
 
-| CLI | Flag | Notes |
+| CLI | Args | Notes |
 |-----|------|-------|
 | **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
 | **Gemini CLI** | `--approval-mode=yolo` | Yolo mode -- auto-approve all actions |
 | **Codex CLI** | `--full-auto` | Sandboxed auto-approve (`-a on-request --sandbox workspace-write`) |
-| **OpenCode** | *(no dedicated flag)* | `--agent build` selects the build agent profile; approval behavior still depends on OpenCode permission config |
+| **OpenCode** | `--agent build` | Selects the build agent profile; approval behavior still depends on OpenCode permission config |
 | **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
 
 ```bash

@@ -101,7 +101,7 @@ class TestTasksCLI:
         """synapse tasks assign should fail for an ambiguous task ID prefix."""
         with patch("synapse.task_board.TaskBoard.from_env") as from_env:
             board = from_env.return_value
-            board.list_tasks.return_value = [
+            board.find_tasks_by_prefix.return_value = [
                 {"id": "abc12345-0000-0000-0000-000000000001"},
                 {"id": "abc12345-0000-0000-0000-000000000002"},
             ]
