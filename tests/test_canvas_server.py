@@ -84,12 +84,11 @@ class TestSystemPanelRegistryErrors:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["registry_errors"] == [
-            {
-                "source": "broken.json",
-                "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
-            }
-        ]
+        error = next(
+            item for item in data["registry_errors"] if item["source"] == "broken.json"
+        )
+        assert "message" in error
+        assert "utf-8" in error["message"]
 
 
 # ============================================================

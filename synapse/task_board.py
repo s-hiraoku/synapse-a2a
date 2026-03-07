@@ -264,7 +264,7 @@ class TaskBoard:
                     SET status = 'completed',
                         completed_at = CURRENT_TIMESTAMP,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ? AND assignee = ?
+                    WHERE id = ? AND assignee = ? AND status = 'in_progress'
                     """,
                     (task_id, agent_id),
                 )
@@ -423,6 +423,8 @@ class TaskBoard:
         Returns:
             Matching task dicts ordered by creation time.
         """
+        escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        param = f"{escaped}%"
         with self._lock:
             conn = self._get_connection()
             try:
@@ -433,7 +435,7 @@ class TaskBoard:
                     ORDER BY created_at
                     LIMIT ?
                     """,
-                    (f"{prefix}%", limit),
+                    (param, limit),
                 ).fetchall()
                 return [self._row_to_dict(row) for row in rows]
             finally:

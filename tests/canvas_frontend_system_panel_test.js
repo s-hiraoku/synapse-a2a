@@ -27,7 +27,10 @@ class ClassList {
     this.values = new Set();
   }
   add(...names) {
-    names.forEach((name) => this.values.add(name));
+    names.forEach((name) => {
+      this.values.add(name);
+      return undefined;
+    });
   }
   toggle(name) {
     if (this.values.has(name)) {
@@ -208,6 +211,7 @@ function buildHarness() {
   global.__env = env;
   global.__headerCalls = headerCalls;
   global.__bodyCalls = bodyCalls;
+  // eslint-disable-next-line no-eval -- test harness executes extracted local canvas.js functions in isolation.
   eval(script);
 
   return { env, headerCalls, bodyCalls, renderSystemPanel: global.__renderSystemPanel };

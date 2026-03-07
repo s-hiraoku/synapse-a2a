@@ -2743,6 +2743,14 @@ def _resolve_task_id(short_id: str) -> str:
     return str(matches[0])
 
 
+def _normalize_task_assignee(agent: str) -> str:
+    """Normalize a task assignee to the runtime agent ID when possible."""
+    info = AgentRegistry().resolve_agent(agent)
+    if info and info.get("agent_id"):
+        return str(info["agent_id"])
+    return agent
+
+
 # ============================================================
 # Task Board Commands (B1)
 # ============================================================
@@ -2806,9 +2814,10 @@ def cmd_tasks_assign(args: argparse.Namespace) -> None:
 
     task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
-    result = board.claim_task(task_id, args.agent)
+    agent_id = _normalize_task_assignee(args.agent)
+    result = board.claim_task(task_id, agent_id)
     if result:
-        print(f"Assigned {args.task_id[:8]} to {args.agent}")
+        print(f"Assigned {task_id[:8]} to {agent_id}")
     else:
         print("Failed to assign task (may be blocked or already assigned)")
         sys.exit(1)
@@ -2821,7 +2830,21 @@ def cmd_tasks_complete(args: argparse.Namespace) -> None:
     task_id = _resolve_task_id(args.task_id)
     board = TaskBoard.from_env()
     agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+    before = board.get_task(task_id)
     unblocked = board.complete_task(task_id, agent_id)
+    after = board.get_task(task_id)
+    if (
+        not before
+        or before.get("status") != "in_progress"
+        or before.get("assignee") != agent_id
+        or not after
+        or after.get("status") != "completed"
+    ):
+        print(
+            f"Error: Task {task_id[:8]} not found or not in_progress for {agent_id}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     print(f"Completed task: {args.task_id[:8]}")
     if unblocked:
         print(f"Unblocked: {', '.join(t[:8] for t in unblocked)}")

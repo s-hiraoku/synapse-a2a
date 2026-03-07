@@ -101,9 +101,10 @@ because they are forwarded to the underlying CLI, not consumed by Synapse
 itself.
 
 **Recommended default:** When using `synapse spawn` or `synapse team start`,
-include the relevant automation args unless you explicitly want an interactive
-flow. Spawned agents are normally used unattended, so approval-skipping should
-be the default where the CLI supports it directly.
+include the appropriate tool-specific automation args for non-interactive or
+unattended runs. OpenCode is the exception here: `--agent build` selects the
+build agent profile, while approval behavior still depends on OpenCode
+permission config.
 
 | CLI | Args | Notes |
 |-----|------|-------|

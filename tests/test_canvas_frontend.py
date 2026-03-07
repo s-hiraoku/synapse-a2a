@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 
 def test_render_system_panel_registry_errors_states() -> None:
     """renderSystemPanel should omit or show registry errors UI based on errorCount."""
     script = Path("tests/canvas_frontend_system_panel_test.js")
+    if shutil.which("node") is None:
+        pytest.skip("node is required for tests/canvas_frontend_system_panel_test.js")
     result = subprocess.run(
         ["node", str(script)],
         check=False,

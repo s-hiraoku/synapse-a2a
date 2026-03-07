@@ -11,15 +11,16 @@ commands:
 
 # Parallel Docs Simplify Sync
 
-Coordinate four independent skills in parallel using the **Task tool**:
+Coordinate four independent skills in parallel using the **Task tool**.
+
+> **Dev-focused orchestration skill.** The canonical source lives in
+> `plugins/synapse-a2a/skills/` and is synced to `.agents/skills/` and
+> `.claude/skills/`.
 
 - `synapse-docs` — documentation updates
 - `/simplify` — Claude Code built-in code simplification (replaces custom code-simplifier)
 - `sync-plugin-skills` — plugin skill synchronization
 - `github-pages-sync` — GitHub Pages site synchronization
-
-> **Dev-only skill.** Lives in `.agents/skills/` (not deployed to `plugins/`).
-> This is a development orchestration tool, not a user-facing plugin skill.
 
 ## When To Use
 
@@ -46,10 +47,10 @@ Define one clear objective and divide it:
 Use the **Task tool** with four parallel invocations in one response.
 Each Task call should use the prompt template below.
 
-```
+```text
 # Example: four parallel calls (3 Task agents + 1 Skill)
 Task(subagent_type="general-purpose", prompt="[synapse-docs prompt]")
-Skill("simplify")                                                # Claude Code built-in
+Skill("simplify")
 Task(subagent_type="general-purpose", prompt="[sync-plugin-skills prompt]")
 Task(subagent_type="general-purpose", prompt="[github-pages-sync prompt]")
 ```
@@ -65,7 +66,7 @@ Apply changes from each track. If conflicts arise, follow the
 
 ### Step 5: Retry failed tracks only
 
-If any track fails, rerun only that track — do not re-execute all four.
+If any track fails, rerun only that track. Do not re-execute all four.
 
 ## Task Prompt Template
 
@@ -88,18 +89,15 @@ Deliverable:
 `synapse-docs` and `sync-plugin-skills` can both modify files under
 `plugins/synapse-a2a/skills/`. When this happens:
 
-1. **sync-plugin-skills wins** for skill SKILL.md content (it reads the
-   latest implementation and generates accurate skill instructions).
+1. **sync-plugin-skills wins** for skill SKILL.md content.
 2. **synapse-docs wins** for README.md, guides/, and non-skill documentation.
 3. If both modified the same SKILL.md, take `sync-plugin-skills` output and
    verify it against the doc changes from `synapse-docs`. Manually reconcile
    if descriptions diverge.
-4. `/simplify` should never conflict — it only touches `.py` files.
-5. `github-pages-sync` only modifies files under `site-docs/` and `mkdocs.yml`,
-   so it does not conflict with `synapse-docs` or `sync-plugin-skills` which
-   target different directories. If both `synapse-docs` and `github-pages-sync`
-   modify `mkdocs.yml`, `github-pages-sync` takes priority since it owns the
-   site build configuration.
+4. `/simplify` should never conflict because it only touches `.py` files.
+5. `github-pages-sync` only modifies `site-docs/` and `mkdocs.yml`. If both
+   `synapse-docs` and `github-pages-sync` modify `mkdocs.yml`,
+   `github-pages-sync` takes priority because it owns the site build config.
 
 ## Completion Checklist
 
