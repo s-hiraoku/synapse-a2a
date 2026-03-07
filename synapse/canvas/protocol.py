@@ -164,6 +164,10 @@ def validate_message(msg: CanvasMessage) -> list[str]:
     # Content validation
     blocks = msg.content if isinstance(msg.content, list) else [msg.content]
 
+    if not blocks:
+        errors.append("content must include at least one block")
+        return errors
+
     if len(blocks) > MAX_BLOCKS_PER_CARD:
         errors.append(
             f"Too many content blocks ({len(blocks)}). Maximum is {MAX_BLOCKS_PER_CARD}."

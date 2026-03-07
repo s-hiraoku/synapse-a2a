@@ -178,12 +178,16 @@ class TestValidation:
     def test_validate_too_many_blocks(self):
         """Composite card with too many blocks should fail."""
         from synapse.canvas.protocol import (
+            MAX_BLOCKS_PER_CARD,
             CanvasMessage,
             ContentBlock,
             validate_message,
         )
 
-        blocks = [ContentBlock(format="markdown", body=f"Block {i}") for i in range(15)]
+        blocks = [
+            ContentBlock(format="markdown", body=f"Block {i}")
+            for i in range(MAX_BLOCKS_PER_CARD + 1)
+        ]
         msg = CanvasMessage(
             type="render",
             content=blocks,
@@ -192,6 +196,19 @@ class TestValidation:
         errors = validate_message(msg)
         assert len(errors) > 0
         assert any("block" in e.lower() for e in errors)
+
+    def test_validate_empty_block_list(self):
+        """Composite card with no blocks should fail."""
+        from synapse.canvas.protocol import CanvasMessage, validate_message
+
+        msg = CanvasMessage(
+            type="render",
+            content=[],
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("content" in e.lower() or "block" in e.lower() for e in errors)
 
     def test_validate_missing_agent_id(self):
         """Empty agent_id should fail validation."""

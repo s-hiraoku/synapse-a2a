@@ -72,8 +72,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
     # ----------------------------------------------------------------
     # POST /api/cards — Create or update card
     # ----------------------------------------------------------------
-    @app.post("/api/cards", status_code=201)
-    async def create_card(request: Request) -> dict[str, Any] | JSONResponse:
+    @app.post("/api/cards", status_code=201, response_model=None)
+    async def create_card(request: Request) -> Any:
         body = await request.json()
         msg = CanvasMessage.from_dict(body)
 

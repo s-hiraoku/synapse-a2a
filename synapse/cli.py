@@ -2483,6 +2483,25 @@ def cmd_canvas_clear(args: argparse.Namespace) -> None:
     print(f"Cleared {count} card(s).")
 
 
+def cmd_canvas_post_raw(args: argparse.Namespace) -> None:
+    """Post raw Canvas message JSON (supports composite cards)."""
+    from synapse.commands.canvas import ensure_server_running, post_card
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    raw = args.json_data
+    if raw == "-":
+        raw = sys.stdin.read()
+
+    result = post_card(raw, port=port)
+    if result:
+        print(f"Card posted: {result['card_id']}")
+    else:
+        sys.exit(1)
+
+
 def cmd_canvas_open(args: argparse.Namespace) -> None:
     """Open Canvas in browser."""
     from synapse.commands.canvas import ensure_server_running
@@ -2496,6 +2515,80 @@ def cmd_canvas_open(args: argparse.Namespace) -> None:
     url = f"http://localhost:{port}"
     webbrowser.open(url)
     print(f"Opened {url} in browser")
+
+
+def cmd_canvas_status(args: argparse.Namespace) -> None:
+    """Show Canvas server status."""
+    from synapse.commands.canvas import (
+        LOG_FILE,
+        PID_FILE,
+        is_canvas_server_running,
+        is_pid_alive,
+        read_pid_file,
+    )
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    pid, stored_port = read_pid_file(PID_FILE)
+    running = is_canvas_server_running(port)
+
+    print("Canvas Server Status")
+    print(f"  URL:      http://localhost:{port}")
+    print(f"  Running:  {'yes' if running else 'no'}")
+    if pid:
+        alive = is_pid_alive(pid)
+        print(f"  PID:      {pid} ({'alive' if alive else 'dead'})")
+        if stored_port:
+            print(f"  Port:     {stored_port}")
+    else:
+        print("  PID:      (no PID file)")
+    print(f"  Log:      {LOG_FILE}")
+
+    if running:
+        try:
+            import httpx
+
+            resp = httpx.get(f"http://localhost:{port}/api/health", timeout=2.0)
+            data = resp.json()
+            print(f"  Cards:    {data.get('cards', '?')}")
+        except Exception:
+            pass
+
+
+def cmd_canvas_logs(args: argparse.Namespace) -> None:
+    """Show Canvas server logs."""
+    from synapse.commands.canvas import LOG_FILE
+
+    if not os.path.exists(LOG_FILE):
+        print(f"No log file found at {LOG_FILE}")
+        return
+
+    if args.follow:
+        os.execlp("tail", "tail", "-f", "-n", str(args.lines), LOG_FILE)
+    else:
+        with open(LOG_FILE) as f:
+            lines = f.readlines()
+            for line in lines[-args.lines :]:
+                print(line, end="")
+
+
+def cmd_canvas_stop(args: argparse.Namespace) -> None:
+    """Stop Canvas server."""
+    import signal as sig
+
+    from synapse.commands.canvas import PID_FILE, is_pid_alive, read_pid_file
+
+    pid, _ = read_pid_file(PID_FILE)
+    if not pid or not is_pid_alive(pid):
+        print("Canvas server is not running.")
+        return
+
+    import contextlib
+
+    os.kill(pid, sig.SIGTERM)
+    print(f"Stopped Canvas server (PID: {pid})")
+    with contextlib.suppress(OSError):
+        os.remove(PID_FILE)
 
 
 def cmd_auth_setup(args: argparse.Namespace) -> None:
@@ -5719,10 +5812,45 @@ Scopes:
     )
     p_canvas_clear.set_defaults(func=cmd_canvas_clear)
 
+    # canvas post-raw <json> — raw JSON (supports composite cards)
+    p_canvas_raw = canvas_subparsers.add_parser(
+        "post-raw", help="Post raw Canvas message JSON (supports composite cards)"
+    )
+    p_canvas_raw.add_argument(
+        "json_data", help="Raw Canvas message JSON (or '-' for stdin)"
+    )
+    p_canvas_raw.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_raw.set_defaults(func=cmd_canvas_post_raw)
+
     # canvas open
     p_canvas_open = canvas_subparsers.add_parser("open", help="Open Canvas in browser")
     p_canvas_open.add_argument("--port", type=int, default=None, help="Server port")
     p_canvas_open.set_defaults(func=cmd_canvas_open)
+
+    # canvas status
+    p_canvas_status = canvas_subparsers.add_parser(
+        "status", help="Show Canvas server status"
+    )
+    p_canvas_status.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_status.set_defaults(func=cmd_canvas_status)
+
+    # canvas logs
+    p_canvas_logs = canvas_subparsers.add_parser("logs", help="Show Canvas server logs")
+    p_canvas_logs.add_argument(
+        "-n",
+        "--lines",
+        type=int,
+        default=50,
+        help="Number of lines to show (default: 50)",
+    )
+    p_canvas_logs.add_argument(
+        "-f", "--follow", action="store_true", default=False, help="Follow log output"
+    )
+    p_canvas_logs.set_defaults(func=cmd_canvas_logs)
+
+    # canvas stop
+    p_canvas_stop = canvas_subparsers.add_parser("stop", help="Stop Canvas server")
+    p_canvas_stop.set_defaults(func=cmd_canvas_stop)
 
     # Pre-extract tool_args from sys.argv for commands that support '--'.
     # argparse.REMAINDER had a bug where it swallowed named options (--name,

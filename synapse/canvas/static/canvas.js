@@ -356,11 +356,32 @@
   }
 
   function renderChart(el, body) {
-    // Chart uses mermaid pie/bar syntax or falls back to code display
-    const pre = document.createElement("pre");
-    pre.className = "mermaid-pending mermaid";
-    pre.textContent = body;
-    el.appendChild(pre);
+    // Try Chart.js JSON config first, fall back to Mermaid syntax
+    let config;
+    try {
+      config = typeof body === "string" ? JSON.parse(body) : body;
+    } catch {
+      // Not JSON — treat as Mermaid pie/bar syntax
+      const pre = document.createElement("pre");
+      pre.className = "mermaid-pending mermaid";
+      pre.textContent = body;
+      el.appendChild(pre);
+      return;
+    }
+
+    if (typeof Chart === "undefined") {
+      // Chart.js not loaded — show raw JSON
+      const pre = document.createElement("pre");
+      pre.className = "json-view";
+      pre.textContent = JSON.stringify(config, null, 2);
+      el.appendChild(pre);
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.style.maxHeight = "400px";
+    el.appendChild(canvas);
+    new Chart(canvas, config);
   }
 
   // ----------------------------------------------------------------

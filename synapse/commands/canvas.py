@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 3000
 PID_FILE = ".synapse/canvas.pid"
+LOG_FILE = os.path.expanduser("~/.synapse/logs/canvas.log")
 
 
 # ============================================================
@@ -87,10 +88,12 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
 
     # Auto-start server in background
     logger.info("Canvas server not running. Starting on port %d...", port)
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+    log_file = open(LOG_FILE, "a")  # noqa: SIM115
     proc = subprocess.Popen(
         [sys.executable, "-m", "synapse.canvas", "--port", str(port)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_file,
+        stderr=log_file,
         start_new_session=True,
     )
     write_pid_file(pid_path, pid=proc.pid, port=port)
@@ -102,7 +105,10 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
             print(f"Canvas server started on http://localhost:{port}")
             return True
 
-    print("Warning: Canvas server failed to start", file=sys.stderr)
+    print(
+        f"Warning: Canvas server failed to start. Check logs: {LOG_FILE}",
+        file=sys.stderr,
+    )
     return False
 
 

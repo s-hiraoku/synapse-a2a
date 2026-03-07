@@ -293,7 +293,13 @@ header h1 {
   border-radius: 4px;
 }
 
-/* Chart (rendered as mermaid) */
+/* Chart (Chart.js or Mermaid fallback) */
+.format-chart canvas {
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px;
+}
+
 .format-chart pre.mermaid {
   background: var(--bg);
   padding: 16px;

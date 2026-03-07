@@ -6,6 +6,8 @@ for the Canvas server before implementation.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 
@@ -148,6 +150,37 @@ class TestCreateCard:
         )
         assert resp.status_code == 422
 
+    def test_create_composite_card(self, client):
+        """Should store composite card content as the expected JSON string."""
+        content = [
+            {"format": "markdown", "body": "## Overview"},
+            {"format": "mermaid", "body": "graph TD; A-->B"},
+            {
+                "format": "table",
+                "body": {
+                    "headers": ["service", "status"],
+                    "rows": [["auth", "ready"]],
+                },
+            },
+        ]
+
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": content,
+                "agent_id": "synapse-claude-8103",
+                "agent_name": "Gojo",
+                "title": "Composite Flow",
+                "card_id": "composite-flow",
+            },
+        )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["card_id"] == "composite-flow"
+        assert data["content"] == json.dumps(content, ensure_ascii=False)
+
 
 # ============================================================
 # TestListCards
@@ -204,6 +237,39 @@ class TestListCards:
         resp = client.get("/api/cards?search=Card 0")
         assert resp.status_code == 200
         assert len(resp.json()) == 1
+
+    def test_list_includes_composite_card_content(self, client):
+        """Composite card content should round-trip through GET /api/cards."""
+        content = [
+            {"format": "markdown", "body": "## Overview"},
+            {"format": "mermaid", "body": "graph TD; A-->B"},
+            {
+                "format": "table",
+                "body": {
+                    "headers": ["service", "status"],
+                    "rows": [["auth", "ready"]],
+                },
+            },
+        ]
+        expected_content = json.dumps(content, ensure_ascii=False)
+
+        client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": content,
+                "agent_id": "synapse-claude-8103",
+                "agent_name": "Gojo",
+                "title": "Composite Flow",
+                "card_id": "composite-flow",
+            },
+        )
+
+        resp = client.get("/api/cards")
+        assert resp.status_code == 200
+        cards = resp.json()
+        composite = next(card for card in cards if card["card_id"] == "composite-flow")
+        assert composite["content"] == expected_content
 
 
 # ============================================================
