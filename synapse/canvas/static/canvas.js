@@ -8,6 +8,7 @@
   const filterAgent = document.getElementById("filter-agent");
   const cardCount = document.getElementById("card-count");
   const themeToggle = document.getElementById("theme-toggle");
+  const filterBar = document.getElementById("filter-bar");
   const toastContainer = document.getElementById("toast-container");
   const systemPanel = document.getElementById("system-panel");
   const liveFeedList = document.getElementById("live-feed-list");
@@ -1585,14 +1586,12 @@
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
       dashboardView.classList.add("view-hidden");
-      filterType.style.display = "none";
-      filterAgent.style.display = "none";
+      filterBar.style.display = "none";
       renderSpotlight();
     } else {
       canvasView.classList.add("view-hidden");
       dashboardView.classList.remove("view-hidden");
-      filterType.style.display = "";
-      filterAgent.style.display = "";
+      filterBar.style.display = "";
       renderAll();
     }
   }

@@ -117,7 +117,8 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Code cards**: Syntax highlighted via highlight.js (set `--lang` for best results)
 - **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
-- **HTML cards**: Rendered in sandboxed iframe (`allow-scripts allow-same-origin`) with auto-resize to content height
+- **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with auto-resize to content height
+- **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 
 ```bash
 synapse canvas post <format> "<body>" --title "<title>" [--pinned] [--tags "t1,t2"]

@@ -1602,7 +1602,8 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":
 | code | highlight.js 11.x | Syntax highlighting; set `--lang` for best results |
 | chart | Chart.js 4.x | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
 | diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
-| html | Sandboxed iframe | `allow-scripts allow-same-origin`; auto-resizes to content height |
+| html | Sandboxed iframe | `allow-scripts`; auto-resizes to content height |
+| image | `<img>` tag | PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB) |
 | mermaid | Mermaid 11.x | Diagrams rendered client-side |
 
 ### Manage Cards

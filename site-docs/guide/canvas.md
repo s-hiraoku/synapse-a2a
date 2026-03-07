@@ -106,7 +106,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
 | `diff` | Unified diff | Side-by-side diff renderer | Code changes, before/after comparisons |
 | `chart` | Chart.js config | Chart.js | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
-| `image` | Base64 data URI or URL | `<img>` | Screenshots, generated images |
+| `image` | Base64 data URI or URL | `<img>` | Screenshots, SVG diagrams, generated images |
 | `code` | Source code + `lang` | Highlight.js | Syntax-highlighted code blocks |
 | `log` | `[{level, ts, msg}]` | Agent logs | Agent logs with INFO/WARN/ERROR color coding |
 | `status` | `{state, label, detail}` | Status badge | Build/task status with colored badge |
@@ -120,6 +120,37 @@ The `content.format` field determines how `content.body` is rendered. New format
 
 !!! tip "The `html` Escape Hatch"
     When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the Dashboard view (`#/dashboard`), the iframe auto-resizes to fit its content.
+
+!!! tip "Images: PNG, JPEG, SVG, and more"
+    The `image` format accepts any image the browser can render via `<img src>`. Use a URL for large images, or Base64 data URIs for inline embedding (up to 2MB).
+
+    **Supported formats:**
+
+    | Image Type | Data URI prefix | Use case |
+    |---|---|---|
+    | PNG | `data:image/png;base64,...` | Screenshots, UI mockups |
+    | JPEG | `data:image/jpeg;base64,...` | Photos, high-color images |
+    | SVG | `data:image/svg+xml;base64,...` | Architecture diagrams, network topology, vector illustrations |
+    | GIF | `data:image/gif;base64,...` | Animated demos |
+    | WebP | `data:image/webp;base64,...` | Compact screenshots |
+
+    **SVG is particularly powerful** — agents can programmatically generate vector diagrams (architecture layouts, agent network topology, data flow graphs) that scale perfectly at any resolution. SVG files are typically a few KB, well within the 2MB limit.
+
+    **Examples:**
+
+    ```bash
+    # URL-based image (no size limit)
+    synapse canvas image "https://example.com/screenshot.png" --title "UI Design"
+
+    # Base64 PNG screenshot
+    synapse canvas image "data:image/png;base64,iVBOR..." --title "Test Result"
+
+    # SVG diagram (agent-generated)
+    synapse canvas image "data:image/svg+xml;base64,PHN2Zy..." --title "System Architecture"
+
+    # From file
+    synapse canvas image --file ./diagram.svg --title "Network Diagram"
+    ```
 
 ### Composite Cards
 
@@ -260,7 +291,7 @@ Internal limits:
 
 | Setting | Value |
 |---|---|
-| Max content size | 500KB per content block |
+| Max content size | 2MB per content block |
 | Max blocks per card | 10 |
 | Max cards | 200 (auto-cleanup threshold) |
 | Notification TTL | 10 seconds |

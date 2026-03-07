@@ -63,7 +63,7 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
 | `diff` | Unified diff | Side-by-side diff renderer | Code changes, before/after |
 | `chart` | Chart.js config object | Chart.js | bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
-| `image` | Base64 data URI or URL | `<img>` | Screenshots, generated images |
+| `image` | Base64 data URI or URL | `<img>` | Screenshots, SVG diagrams, generated images |
 | `code` | Source code string + `lang` | highlight.js | Syntax-highlighted code blocks |
 | `log` | `[{level, ts, msg}]` | Agent logs | Agent logs with INFO/WARN/ERROR color coding |
 | `status` | `{state, label, detail}` | Status badge | Build/task status with colored badge |
@@ -503,7 +503,7 @@ class CanvasMessage:
 
 - `type` must be one of: `render`, `update`, `clear`, `notify`
 - `content.format` must be a registered format (extensible registry)
-- `content.body` max size: 500KB per block
+- `content.body` max size: 2MB per block
 - `card_id` if provided, must be unique per agent (allows cross-agent same IDs)
 - Composite cards: max 10 content blocks per card
 
@@ -559,7 +559,7 @@ dependencies = [
 ```python
 # config.py
 CANVAS_DEFAULT_PORT: int = 3000
-CANVAS_MAX_CONTENT_SIZE: int = 500_000      # 500KB per content block
+CANVAS_MAX_CONTENT_SIZE: int = 2_000_000    # 2MB per content block
 CANVAS_MAX_BLOCKS_PER_CARD: int = 10        # Max sections in composite card
 CANVAS_MAX_CARDS: int = 200                 # Auto-cleanup threshold
 CANVAS_NOTIFICATION_TTL: int = 10           # Seconds for toast notifications

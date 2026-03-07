@@ -13,7 +13,7 @@ from typing import Any
 # ============================================================
 
 VALID_MESSAGE_TYPES = {"render", "update", "clear", "notify"}
-MAX_CONTENT_SIZE = 500_000  # 500KB per content block
+MAX_CONTENT_SIZE = 2_000_000  # 2MB per content block
 MAX_BLOCKS_PER_CARD = 10
 
 
