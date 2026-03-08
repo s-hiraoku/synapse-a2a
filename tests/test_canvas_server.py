@@ -90,6 +90,44 @@ class TestSystemPanelRegistryErrors:
         assert "message" in error
         assert "utf-8" in error["message"]
 
+    def test_system_panel_discovers_skills_from_project_user_and_synapse_dirs(
+        self, client, tmp_path, monkeypatch
+    ):
+        """Skills should be discovered using explicit project/user/synapse roots."""
+        project_skill = tmp_path / ".agents" / "skills" / "project-skill"
+        project_skill.mkdir(parents=True)
+        (project_skill / "SKILL.md").write_text(
+            "---\nname: project-skill\ndescription: project\n---\nBody.\n",
+            encoding="utf-8",
+        )
+
+        user_home = tmp_path / "home"
+        user_skill = user_home / ".claude" / "skills" / "user-skill"
+        user_skill.mkdir(parents=True)
+        (user_skill / "SKILL.md").write_text(
+            "---\nname: user-skill\ndescription: user\n---\nBody.\n",
+            encoding="utf-8",
+        )
+
+        synapse_dir = user_home / ".synapse"
+        synapse_skill = synapse_dir / "skills" / "central-skill"
+        synapse_skill.mkdir(parents=True)
+        (synapse_skill / "SKILL.md").write_text(
+            "---\nname: central-skill\ndescription: synapse\n---\nBody.\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("synapse.canvas.server.Path.home", lambda: user_home)
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        names = {item["name"] for item in resp.json()["skills"]}
+        assert "project-skill" in names
+        assert "user-skill" in names
+        assert "central-skill" in names
+
 
 # ============================================================
 # TestCanvasRouting

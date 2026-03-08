@@ -97,7 +97,15 @@ def _collect_static_sections() -> dict[str, Any]:
     try:
         from synapse.skills import discover_skills
 
-        for sk in discover_skills():
+        project_dir = Path.cwd()
+        user_dir = Path.home()
+        synapse_dir = user_dir / ".synapse"
+
+        for sk in discover_skills(
+            project_dir=project_dir,
+            user_dir=user_dir,
+            synapse_dir=synapse_dir,
+        ):
             skills.append(
                 {
                     "name": sk.name,
