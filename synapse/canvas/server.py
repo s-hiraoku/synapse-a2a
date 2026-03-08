@@ -60,6 +60,7 @@ CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
 _STATIC_CACHE_TTL = 60  # seconds
 _static_cache: dict[str, Any] = {}
 _static_cache_ts: float = 0.0
+_static_cache_key: tuple[str, str, str] | None = None
 
 # Human-readable descriptions for SYNAPSE_* environment variables
 _ENV_DESCRIPTIONS: dict[str, str] = {
@@ -198,6 +199,17 @@ def _collect_static_sections() -> dict[str, Any]:
     result["environment"] = environment
 
     return result
+
+
+def _static_cache_roots() -> tuple[Path, Path, Path]:
+    """Return stable roots for /api/system cache invalidation."""
+    project_dir = Path.cwd()
+    try:
+        user_dir = Path.home()
+    except RuntimeError:
+        user_dir = Path(os.environ.get("HOME", "."))
+    synapse_dir = user_dir / ".synapse"
+    return project_dir, user_dir, synapse_dir
 
 
 def create_app(db_path: str | None = None) -> FastAPI:
@@ -455,10 +467,21 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     continue
 
         # Slow-changing sections: use TTL cache to avoid repeated I/O
-        global _static_cache, _static_cache_ts  # noqa: PLW0603
+        global _static_cache, _static_cache_key, _static_cache_ts  # noqa: PLW0603
         now_mono = time.monotonic()
-        if now_mono - _static_cache_ts > _STATIC_CACHE_TTL or not _static_cache:
+        project_dir, user_dir, synapse_dir = _static_cache_roots()
+        cache_key = (
+            str(project_dir.resolve()),
+            str(user_dir.resolve()),
+            str(synapse_dir.resolve()),
+        )
+        if (
+            now_mono - _static_cache_ts > _STATIC_CACHE_TTL
+            or not _static_cache
+            or _static_cache_key != cache_key
+        ):
             _static_cache = _collect_static_sections()
+            _static_cache_key = cache_key
             _static_cache_ts = now_mono
 
         skills = _static_cache.get("skills", [])
