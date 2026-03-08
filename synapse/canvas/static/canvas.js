@@ -1975,13 +1975,33 @@
       for (const item of items) {
         const card = document.createElement("div");
         card.className = "task-item";
-        card.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
+        card.style.cursor = "pointer";
+
+        const title = document.createElement("div");
+        title.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
+        card.appendChild(title);
+
         if (item.assignee) {
           const assignee = document.createElement("div");
           assignee.className = "task-assignee";
           assignee.textContent = item.assignee;
           card.appendChild(assignee);
         }
+
+        const detail = document.createElement("div");
+        detail.className = "task-item-detail";
+        const lines = [];
+        if (item.description) lines.push(item.description);
+        if (item.priority) lines.push("Priority: " + item.priority);
+        if (item.created_by) lines.push("Created by: " + item.created_by);
+        if (item.created_at) lines.push("Created: " + formatTimeShort(item.created_at));
+        detail.textContent = lines.join(" · ");
+        card.appendChild(detail);
+
+        card.addEventListener("click", (function (d) {
+          return function () { d.classList.toggle("expanded"); };
+        })(detail));
+
         column.appendChild(card);
       }
 

@@ -221,6 +221,28 @@ def test_dashboard_task_board_shows_summary_and_detail() -> None:
     assert "renderSystemTasks(tasks)" in body
 
 
+def test_task_card_shows_detail_on_click() -> None:
+    """Task cards should show description, priority, assignee on click."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderSystemTasks(tasks)")
+    end = js.index("\n  function renderSystemFileLocks(", start)
+    body = js[start:end]
+
+    assert "task-item-detail" in body
+    assert "item.description" in body
+    assert "item.priority" in body
+    assert "item.created_by" in body
+
+
+def test_canvas_server_sends_task_detail_fields() -> None:
+    """Canvas server should include description, priority, created_by in task data."""
+    source = Path("synapse/canvas/server.py").read_text(encoding="utf-8")
+
+    assert '"description": row.get("description"' in source
+    assert '"priority": row.get("priority"' in source
+    assert '"created_by": row.get("created_by"' in source
+
+
 def test_system_panel_polling_remains_enabled_for_dashboard_freshness() -> None:
     """Canvas should continue polling system data so dashboard agent/task widgets stay fresh."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")

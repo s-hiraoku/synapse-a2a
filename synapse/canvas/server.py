@@ -378,6 +378,10 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         "id": row.get("id", ""),
                         "subject": row.get("subject", ""),
                         "assignee": row.get("assignee") or "",
+                        "description": row.get("description", ""),
+                        "priority": row.get("priority", 3),
+                        "created_by": row.get("created_by", ""),
+                        "created_at": row.get("created_at", ""),
                     }
                 )
         except Exception:
