@@ -561,7 +561,6 @@
   }
 
   var _ansiMap = {
-    "0": "</span>",
     "1": '<span class="ansi-bold">',
     "30": '<span class="ansi-black">',
     "31": '<span class="ansi-red">',
@@ -1079,7 +1078,7 @@
     mermaid.run({ querySelector: target }).then(function () {
       // After mermaid replaces <pre> with <svg>, remove fixed height attributes
       // so the SVG flows naturally within its container.
-      document.querySelectorAll(".format-mermaid svg").forEach(function (svg) {
+      document.querySelectorAll(".format-mermaid svg, .dep-graph svg").forEach(function (svg) {
         // Mermaid sets inline style="max-width: XXXpx" based on diagram complexity.
         // Preserve it but cap at container width. Only override height.
         svg.removeAttribute("height");
@@ -1576,11 +1575,18 @@
   var _ansiRe = new RegExp("\u001b\\[(\\d+(?:;\\d+)*)m", "g");
   function ansiToHtml(text) {
     var escaped = escapeHtml(text);
+    var openSpans = 0;
     return escaped.replace(_ansiRe, function (_match, params) {
       var codes = params.split(";");
       var result = "";
       for (var ci = 0; ci < codes.length; ci++) {
-        result += _ansiMap[codes[ci]] || "";
+        var code = codes[ci];
+        if (code === "0") {
+          while (openSpans > 0) { result += "</span>"; openSpans--; }
+        } else {
+          var tag = _ansiMap[code];
+          if (tag) { result += tag; openSpans++; }
+        }
       }
       return result;
     });
@@ -2964,18 +2970,27 @@
 
   /** Inline markdown formatting (bold, italic, code, links, strikethrough). */
   function inlineMarkdown(line) {
-    return line
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
+    // Extract code spans and links first to protect them from bold/italic
+    var slots = [];
+    var ph = "\x00";
+    var result = line
+      .replace(/`([^`]+)`/g, function(m) { slots.push("<code>" + m.slice(1, -1) + "</code>"); return ph + (slots.length - 1) + ph; })
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
+        if (/^(https?:|mailto:|#)/i.test(href) && !/^javascript:/i.test(href)) {
+          slots.push('<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>');
+        } else {
+          slots.push(text);
+        }
+        return ph + (slots.length - 1) + ph;
+      });
+    // Apply bold/italic/strikethrough on remaining text
+    result = result
       .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/~~(.+?)~~/g, "<del>$1</del>")
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
-        if (/^(https?:|mailto:|#)/i.test(href) && !/^javascript:/i.test(href)) {
-          return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
-        }
-        return text;
-      });
+      .replace(/~~(.+?)~~/g, "<del>$1</del>");
+    // Restore protected slots
+    return result.replace(new RegExp(ph + "(\\d+)" + ph, "g"), function(_, idx) { return slots[parseInt(idx, 10)]; });
   }
 
   /** Line-based markdown parser with block-level element support. */
@@ -3077,7 +3092,7 @@
               out.push("</li></" + stack.pop().type + ">");
             }
             if (stack.length > 0 && stack[stack.length - 1].type !== listType && indent === stack[stack.length - 1].indent) {
-              out.push("</" + stack.pop().type + ">");
+              out.push("</li></" + stack.pop().type + ">");
               out.push("<" + listType + ">");
               stack.push({ type: listType, indent: indent });
             } else {

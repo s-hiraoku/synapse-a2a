@@ -2192,7 +2192,8 @@ body.sidebar-collapsed #main-content {
   height: auto;
 }
 
-.format-mermaid svg {
+.format-mermaid svg,
+.dep-graph svg {
   display: block;
   max-width: 100%;
   height: auto !important;

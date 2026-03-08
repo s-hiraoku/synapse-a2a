@@ -78,6 +78,7 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `terminal` | Raw string (ANSI escapes) | Terminal emulator | Command output with color support |
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation |
+| `tip` | String | Styled tip card | System tips and suggestions |
 
 **Key: `html` format** — This is the escape hatch. When no predefined format fits, agents can send raw HTML. This makes expression essentially unlimited.
 
