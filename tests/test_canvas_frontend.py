@@ -260,6 +260,53 @@ def test_live_feed_harness_uses_vm_instead_of_eval() -> None:
     assert "eval(script)" not in source
 
 
+def test_render_live_feed_reuses_existing_items() -> None:
+    """History live feed should preserve existing DOM nodes instead of rebuilding all rows."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderLiveFeed(recentCards)")
+    end = js.index("\n  function createAgentPanel(", start)
+    body = js[start:end]
+
+    assert "existingItems" in body
+    assert "dataset.cardId" in body
+    assert "existingItem" in body
+
+
+def test_history_rendering_uses_keyed_updates_instead_of_wholesale_clear() -> None:
+    """History rendering should avoid clearing the entire grid on every update."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderAll()")
+    end = js.index("\n  function renderLiveFeed(", start)
+    body = js[start:end]
+    update_body = js[
+        js.index("function updateAgentPanel(") : js.index(
+            "\n  // Format type", js.index("function updateAgentPanel(")
+        )
+    ]
+
+    assert 'grid.innerHTML = "";' not in body
+    assert "existingPanels" in body
+    assert "existingCards" in update_body
+
+
+def test_history_css_limits_entry_animations_to_new_items() -> None:
+    """History CSS should animate only explicitly marked new items."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    live_feed_start = css.index(".live-feed-item {")
+    live_feed_block = css[live_feed_start : css.index("}", live_feed_start)]
+    agent_panel_start = css.index(".agent-panel {")
+    agent_panel_block = css[agent_panel_start : css.index("}", agent_panel_start)]
+    canvas_card_start = css.index(".canvas-card {")
+    canvas_card_block = css[canvas_card_start : css.index("}", canvas_card_start)]
+
+    assert ".live-feed-item.is-new" in css
+    assert ".agent-panel.is-new" in css
+    assert ".canvas-card.is-new" in css
+    assert "animation:" not in live_feed_block
+    assert "animation:" not in agent_panel_block
+    assert "animation:" not in canvas_card_block
+
+
 def test_system_panel_does_not_render_dashboard_sections() -> None:
     """System view should NOT render agents, tasks, file-locks, history, memory, worktrees."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
@@ -325,6 +372,114 @@ def test_dashboard_css_has_expand_collapse_styles() -> None:
     assert ".dash-widget-chevron" in css
     assert ".dash-widget-detail" in css
     assert ".dash-widget-detail.expanded" in css
+
+
+def test_phase6_renderers_exist_in_js() -> None:
+    """canvas.js should define render functions for progress, terminal, dependency-graph, cost."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    for fn in [
+        "renderProgress",
+        "renderTerminal",
+        "renderDependencyGraph",
+        "renderCost",
+    ]:
+        assert f"function {fn}(el, body)" in js, f"Missing renderer: {fn}"
+
+
+def test_phase6_formats_in_render_block_switch() -> None:
+    """renderBlock switch should dispatch to the 4 new renderers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderBlock(block)")
+    end = js.index("\n  // ------", start)
+    body = js[start:end]
+
+    for fmt in ["progress", "terminal", "dependency-graph", "cost"]:
+        assert f'case "{fmt}":' in body, f"Missing case for '{fmt}' in renderBlock"
+
+
+def test_phase6_filter_options_in_html() -> None:
+    """index.html filter dropdown should include new card types."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    for fmt in ["progress", "terminal", "dependency-graph", "cost"]:
+        assert f'value="{fmt}"' in html, f"Missing filter option: {fmt}"
+
+
+def test_phase6_css_classes_exist() -> None:
+    """canvas.css should define CSS classes for the 4 new card types."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    for cls in [".progress-bar", ".terminal-output", ".dep-graph", ".cost-table"]:
+        assert cls in css, f"Missing CSS class: {cls}"
+
+
+def test_progress_renderer_has_bar_and_steps() -> None:
+    """renderProgress should render a progress bar and step list."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderProgress(el, body)")
+    end = js.index("\n  function ", start + 1)
+    body = js[start:end]
+
+    assert "progress-bar" in body
+    assert "progress-fill" in body
+    assert "current" in body
+    assert "total" in body
+
+
+def test_terminal_renderer_handles_ansi() -> None:
+    """renderTerminal should process ANSI escape codes."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderTerminal(el, body)")
+    end = js.index("\n  function ", start + 1)
+    body = js[start:end]
+
+    assert "terminal-output" in body
+    # Should handle ANSI color codes
+    assert "\\x1b" in body or "\\u001b" in body or "ansi" in body.lower()
+
+
+def test_dependency_graph_renderer_has_nodes_and_edges() -> None:
+    """renderDependencyGraph should render nodes and edges."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderDependencyGraph(el, body)")
+    end = js.index("\n  function ", start + 1)
+    body = js[start:end]
+
+    assert "nodes" in body
+    assert "edges" in body
+    assert "dep-graph" in body
+
+
+def test_cost_renderer_has_table_and_total() -> None:
+    """renderCost should render agent cost table and total."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderCost(el, body)")
+    end = js.index("\n  function ", start + 1)
+    body = js[start:end]
+
+    assert "cost-table" in body
+    assert "total_cost" in body
+    assert "agents" in body
+
+
+def test_mermaid_theme_syncs_with_canvas_theme() -> None:
+    """Mermaid should use custom theme variables that change with light/dark toggle."""
+    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    # Theme config exists for both modes
+    assert "MERMAID_THEMES" in source
+    assert "dark:" in source or '"dark"' in source
+    assert "light:" in source or '"light"' in source
+    assert "initMermaidTheme" in source
+
+    # Theme variables use Canvas brand color
+    assert "4051b5" in source, "should use Canvas brand color in Mermaid theme"
+
+    # Source preservation for re-rendering on theme switch
+    assert "mermaidSource" in source, (
+        "should store source for re-render on theme switch"
+    )
+
+    # Theme toggle triggers Mermaid re-render
+    assert "initMermaidTheme(next)" in source
 
 
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:

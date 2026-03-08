@@ -195,6 +195,10 @@ synapse canvas image "https://..." --title "Screenshot"        # Post image
 synapse canvas briefing '{"sections":[...],"content":[...]}' --pinned    # Post briefing template
 synapse canvas briefing --file report.json --title "CI Report"           # Briefing from file
 synapse canvas post '<Canvas Message JSON>'                    # Raw protocol JSON (supports all templates)
+synapse canvas post progress '{"current":3,"total":7}' --title "Progress"          # Post progress bar card
+synapse canvas post terminal "$ pytest\n\x1b[32mPASSED\x1b[0m" --title "Output"   # Post terminal output card
+synapse canvas post dependency-graph '{"nodes":[...],"edges":[...]}' --title "Deps" # Post dependency graph card
+synapse canvas post cost '{"agents":[...],"total_cost":0.57}' --title "Cost"       # Post cost aggregation card
 synapse canvas list [--mine] [--search "query"] [--type mermaid]         # List cards
 synapse canvas delete <card_id>                                # Delete a card
 synapse canvas clear [--agent claude]                          # Clear cards

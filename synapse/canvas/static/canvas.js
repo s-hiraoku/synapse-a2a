@@ -155,6 +155,71 @@
   // Rendering
   // ----------------------------------------------------------------
   let _renderRAF = 0;
+  function markAsNew(el) {
+    if (!el || !el.classList) return;
+    el.classList.remove("is-new");
+    void el.offsetWidth;
+    el.classList.add("is-new");
+    if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+      window.setTimeout(() => {
+        el.classList.remove("is-new");
+      }, 900);
+    }
+  }
+
+  function syncChildren(parent, nodes) {
+    while (parent.firstChild) {
+      parent.removeChild(parent.firstChild);
+    }
+    for (const node of nodes) {
+      parent.appendChild(node);
+    }
+  }
+
+  function populateLiveFeedItem(item, card) {
+    item.className = "live-feed-item";
+    item.dataset.cardId = card.card_id;
+    item.dataset.updatedAt = card.updated_at || "";
+    item.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "live-feed-item-header";
+
+    const agentInfo = systemAgents.find(a => a.agent_id === card.agent_id);
+    const dot = document.createElement("span");
+    dot.className = "live-feed-status-dot";
+    dot.style.background = statusColor(agentInfo ? agentInfo.status : "");
+    header.appendChild(dot);
+
+    const badge = document.createElement("span");
+    badge.className = "agent-badge";
+    badge.textContent = card.agent_name || card.agent_id;
+    header.appendChild(badge);
+
+    const agentId = document.createElement("span");
+    agentId.className = "live-feed-agent-id";
+    agentId.textContent = card.agent_id;
+    header.appendChild(agentId);
+
+    const title = document.createElement("span");
+    title.className = "live-feed-title";
+    title.textContent = card.title || "Untitled";
+    header.appendChild(title);
+
+    const time = document.createElement("span");
+    time.className = "live-feed-time";
+    time.textContent = formatTimeShort(card.updated_at);
+    header.appendChild(time);
+
+    item.appendChild(header);
+
+    const content = parseContent(card.content);
+    const blocks = Array.isArray(content) ? content : [content];
+    for (const block of blocks) {
+      item.appendChild(renderBlock(block));
+    }
+  }
+
   function renderCurrentView() {
     cancelAnimationFrame(_renderRAF);
     _renderRAF = requestAnimationFrame(() => {
@@ -175,7 +240,6 @@
     const agentVal = filterAgent.value;
     cardCount.textContent = countText;
     cardCount.style.display = "";
-    grid.innerHTML = "";
 
     // Sort agent messages by recency only.
     filtered.sort((a, b) => {
@@ -219,10 +283,24 @@
     );
     renderLiveFeed(byTime.slice(0, 3));
 
-    // Render each agent panel
-    for (const group of agentGroups.values()) {
-      grid.appendChild(createAgentPanel(group));
+    const existingPanels = new Map();
+    for (const child of Array.from(grid.children)) {
+      if (child.dataset && child.dataset.agentKey) {
+        existingPanels.set(child.dataset.agentKey, child);
+      }
     }
+
+    const nextPanels = [];
+    for (const group of agentGroups.values()) {
+      const panelKey = group.agentId || group.label;
+      const existingPanel = existingPanels.get(panelKey);
+      const panel = existingPanel || createAgentPanel(group);
+      panel.dataset.agentKey = panelKey;
+      updateAgentPanel(panel, group);
+      if (!existingPanel) markAsNew(panel);
+      nextPanels.push(panel);
+    }
+    syncChildren(grid, nextPanels);
 
     // Re-run mermaid on any new diagrams
     runMermaid(".mermaid-pending");
@@ -230,62 +308,33 @@
 
   function renderLiveFeed(recentCards) {
     if (!liveFeedList) return;
-    liveFeedList.innerHTML = "";
+    const existingItems = new Map();
+    for (const child of Array.from(liveFeedList.children)) {
+      if (child.dataset && child.dataset.cardId) {
+        existingItems.set(child.dataset.cardId, child);
+      }
+    }
 
     if (recentCards.length === 0) {
       const empty = document.createElement("div");
       empty.className = "live-feed-empty";
       empty.textContent = "Waiting for agent messages...";
-      liveFeedList.appendChild(empty);
+      syncChildren(liveFeedList, [empty]);
       return;
     }
 
+    const nextItems = [];
     for (const card of recentCards) {
-      const item = document.createElement("div");
-      item.className = "live-feed-item";
-
-      // Header row: badge + title + time
-      const header = document.createElement("div");
-      header.className = "live-feed-item-header";
-
-      // Status dot from systemAgents
-      const agentInfo = systemAgents.find(a => a.agent_id === card.agent_id);
-      const dot = document.createElement("span");
-      dot.className = "live-feed-status-dot";
-      dot.style.background = statusColor(agentInfo ? agentInfo.status : "");
-      header.appendChild(dot);
-
-      const badge = document.createElement("span");
-      badge.className = "agent-badge";
-      badge.textContent = card.agent_name || card.agent_id;
-      header.appendChild(badge);
-
-      const agentId = document.createElement("span");
-      agentId.className = "live-feed-agent-id";
-      agentId.textContent = card.agent_id;
-      header.appendChild(agentId);
-
-      const title = document.createElement("span");
-      title.className = "live-feed-title";
-      title.textContent = card.title || "Untitled";
-      header.appendChild(title);
-
-      const time = document.createElement("span");
-      time.className = "live-feed-time";
-      time.textContent = formatTimeShort(card.updated_at);
-      header.appendChild(time);
-
-      item.appendChild(header);
-
-      // Content preview: render actual card content
-      const content = parseContent(card.content);
-      const blocks = Array.isArray(content) ? content : [content];
-      for (const block of blocks) {
-        item.appendChild(renderBlock(block));
+      const existingItem = existingItems.get(card.card_id);
+      const item = existingItem || document.createElement("div");
+      const previousUpdatedAt = item.dataset.updatedAt || "";
+      populateLiveFeedItem(item, card);
+      if (!existingItem || previousUpdatedAt !== (card.updated_at || "")) {
+        markAsNew(item);
       }
-
-      liveFeedList.appendChild(item);
+      nextItems.push(item);
     }
+    syncChildren(liveFeedList, nextItems);
 
     // Re-run mermaid on live feed diagrams
     runMermaid("#live-feed-list .mermaid-pending");
@@ -294,6 +343,7 @@
   function createAgentPanel(group) {
     const panel = document.createElement("div");
     panel.className = "agent-panel";
+    panel.dataset.agentKey = group.agentId || group.label;
 
     // Header
     const header = document.createElement("div");
@@ -343,19 +393,56 @@
       );
     });
 
+    panel.appendChild(body);
+    return panel;
+  }
+
+  function updateAgentPanel(panel, group) {
+    panel.dataset.agentKey = group.agentId || group.label;
+
+    const header = panel.querySelector(".agent-panel-header");
+    const body = panel.querySelector(".agent-panel-body");
+    if (!header || !body) return;
+
+    const dot = header.querySelector(".agent-panel-dot");
+    if (dot) dot.style.background = statusColor(group.status);
+
+    const name = header.querySelector(".agent-panel-name");
+    if (name) name.textContent = group.label;
+
+    const id = header.querySelector(".agent-panel-id");
+    if (id) id.textContent = group.agentId;
+
+    const count = header.querySelector(".agent-panel-count");
+    if (count) count.textContent = `${group.cards.length}`;
+
+    const existingCards = new Map();
+    for (const child of Array.from(body.children)) {
+      if (child.dataset && child.dataset.cardId) {
+        existingCards.set(child.dataset.cardId, child);
+      }
+    }
+
     if (group.cards.length === 0) {
       const empty = document.createElement("div");
       empty.className = "agent-panel-empty";
       empty.textContent = "No messages";
-      body.appendChild(empty);
-    } else {
-      for (const card of group.cards) {
-        body.appendChild(createCardElement(card));
-      }
+      syncChildren(body, [empty]);
+      return;
     }
 
-    panel.appendChild(body);
-    return panel;
+    const nextCards = [];
+    for (const card of group.cards) {
+      const existingCard = existingCards.get(card.card_id);
+      const cardEl = existingCard || createCardElement(card);
+      const previousUpdatedAt = cardEl.dataset.updatedAt || "";
+      updateCardElement(cardEl, card);
+      if (!existingCard || previousUpdatedAt !== (card.updated_at || "")) {
+        markAsNew(cardEl);
+      }
+      nextCards.push(cardEl);
+    }
+    syncChildren(body, nextCards);
   }
 
   // Format type → Phosphor icon class (v2: requires "ph" base class)
@@ -385,6 +472,15 @@
     const el = document.createElement("article");
     el.className = "canvas-card";
     el.dataset.cardId = card.card_id;
+    updateCardElement(el, card);
+    return el;
+  }
+
+  function updateCardElement(el, card) {
+    el.className = "canvas-card";
+    el.dataset.cardId = card.card_id;
+    el.dataset.updatedAt = card.updated_at || "";
+    el.innerHTML = "";
 
     // Detect primary format
     var content = parseContent(card.content);
@@ -445,8 +541,6 @@
     const footer = document.createElement("footer");
     footer.textContent = formatTime(card.updated_at);
     el.appendChild(footer);
-
-    return el;
   }
 
   function parseContent(raw) {
@@ -460,6 +554,32 @@
   // ----------------------------------------------------------------
   // Block renderers
   // ----------------------------------------------------------------
+  function parseBody(body) {
+    if (typeof body === "string") { try { return JSON.parse(body); } catch (_e) { /* ignore */ } }
+    return body;
+  }
+
+  var _ansiMap = {
+    "0": "</span>",
+    "1": '<span class="ansi-bold">',
+    "30": '<span class="ansi-black">',
+    "31": '<span class="ansi-red">',
+    "32": '<span class="ansi-green">',
+    "33": '<span class="ansi-yellow">',
+    "34": '<span class="ansi-blue">',
+    "35": '<span class="ansi-magenta">',
+    "36": '<span class="ansi-cyan">',
+    "37": '<span class="ansi-white">',
+    "90": '<span class="ansi-bright-black">',
+    "91": '<span class="ansi-bright-red">',
+    "92": '<span class="ansi-bright-green">',
+    "93": '<span class="ansi-bright-yellow">',
+    "94": '<span class="ansi-bright-blue">',
+    "95": '<span class="ansi-bright-magenta">',
+    "96": '<span class="ansi-bright-cyan">',
+    "97": '<span class="ansi-bright-white">',
+  };
+
   function renderBlock(block) {
     const wrap = document.createElement("div");
     wrap.className = `content-block format-${block.format}`;
@@ -518,6 +638,18 @@
         break;
       case "task-board":
         renderTaskBoard(wrap, block.body);
+        break;
+      case "progress":
+        renderProgress(wrap, block.body);
+        break;
+      case "terminal":
+        renderTerminal(wrap, block.body);
+        break;
+      case "dependency-graph":
+        renderDependencyGraph(wrap, block.body);
+        break;
+      case "cost":
+        renderCost(wrap, block.body);
         break;
       default:
         wrap.textContent = block.body;
@@ -935,6 +1067,7 @@
     const pre = document.createElement("pre");
     pre.className = "mermaid-pending mermaid";
     pre.textContent = body;
+    pre.dataset.mermaidSource = body;
     el.appendChild(pre);
   }
 
@@ -1136,6 +1269,7 @@
       const pre = document.createElement("pre");
       pre.className = "mermaid-pending mermaid";
       pre.textContent = body;
+      pre.dataset.mermaidSource = body;
       el.appendChild(pre);
       return;
     }
@@ -1372,6 +1506,186 @@
     }
 
     el.appendChild(board);
+  }
+
+  function renderProgress(el, body) {
+    var data = parseBody(body);
+    data = data && typeof data === "object" ? data : {};
+    var current = Number(data.current) || 0;
+    var total = Number(data.total) || 1;
+    var pct = Math.min(100, Math.round((current / total) * 100));
+    var status = (data.status || "in_progress").replace(/[^a-z_-]/g, "");
+
+    // Label
+    if (data.label) {
+      var lbl = document.createElement("div");
+      lbl.className = "progress-label";
+      lbl.textContent = data.label;
+      el.appendChild(lbl);
+    }
+
+    // Bar
+    var barWrap = document.createElement("div");
+    barWrap.className = "progress-bar";
+    var fill = document.createElement("div");
+    fill.className = "progress-fill progress-" + status;
+    fill.style.width = pct + "%";
+    barWrap.appendChild(fill);
+    var pctLabel = document.createElement("span");
+    pctLabel.className = "progress-pct";
+    pctLabel.textContent = pct + "%";
+    barWrap.appendChild(pctLabel);
+    el.appendChild(barWrap);
+
+    // Counter
+    var counter = document.createElement("div");
+    counter.className = "progress-counter";
+    counter.textContent = current + " / " + total;
+    el.appendChild(counter);
+
+    // Steps
+    if (Array.isArray(data.steps) && data.steps.length > 0) {
+      var stepList = document.createElement("div");
+      stepList.className = "progress-steps";
+      for (var i = 0; i < data.steps.length; i++) {
+        var step = document.createElement("div");
+        step.className = "progress-step";
+        if (i < current) {
+          step.classList.add("done");
+        } else if (i === current) {
+          step.classList.add("active");
+        }
+        var icon = i < current ? "\u2714" : i === current ? "\u25b6" : "\u25cb";
+        step.textContent = icon + " " + data.steps[i];
+        stepList.appendChild(step);
+      }
+      el.appendChild(stepList);
+    }
+  }
+
+  function renderTerminal(el, body) {
+    var text = typeof body === "string" ? body : String(body || "");
+    var pre = document.createElement("pre");
+    pre.className = "terminal-output";
+    // Parse ANSI escape codes into styled spans
+    pre.innerHTML = ansiToHtml(text);
+    el.appendChild(pre);
+  }
+
+  function ansiToHtml(text) {
+    var escaped = escapeHtml(text);
+    return escaped.replace(/\x1b\[(\d+)m/g, function (_match, code) {
+      return _ansiMap[code] || "";
+    });
+  }
+
+  function renderDependencyGraph(el, body) {
+    var data = parseBody(body);
+    data = data && typeof data === "object" ? data : {};
+    var nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    var edges = Array.isArray(data.edges) ? data.edges : [];
+
+    // Build Mermaid graph syntax
+    var lines = ["graph TD"];
+    var groups = {};
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var id = (n.id || "node" + i).replace(/[^a-zA-Z0-9_]/g, "_");
+      var label = (n.id || "node" + i).replace(/["[\]]/g, "");
+      lines.push("  " + id + '["' + label + '"]');
+      if (n.group) {
+        if (!groups[n.group]) groups[n.group] = [];
+        groups[n.group].push(id);
+      }
+    }
+    // Subgraph grouping (appended after node declarations)
+    var groupKeys = Object.keys(groups);
+    for (var k = 0; k < groupKeys.length; k++) {
+      var gName = groupKeys[k].replace(/["[\]]/g, "");
+      lines.push("  subgraph " + gName);
+      var members = groups[groupKeys[k]];
+      for (var m = 0; m < members.length; m++) {
+        lines.push("    " + members[m]);
+      }
+      lines.push("  end");
+    }
+    // Edges after subgraphs
+    for (var j = 0; j < edges.length; j++) {
+      var e = edges[j];
+      var fromId = (e.from || "").replace(/[^a-zA-Z0-9_]/g, "_");
+      var toId = (e.to || "").replace(/[^a-zA-Z0-9_]/g, "_");
+      var edgeLabel = e.label ? " -->|" + e.label.replace(/[|]/g, "") + "| " : " --> ";
+      lines.push("  " + fromId + edgeLabel + toId);
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "dep-graph";
+    var mermaidPre = document.createElement("pre");
+    mermaidPre.className = "mermaid-pending mermaid";
+    var mermaidSrc = lines.join("\n");
+    mermaidPre.textContent = mermaidSrc;
+    mermaidPre.dataset.mermaidSource = mermaidSrc;
+    wrap.appendChild(mermaidPre);
+    el.appendChild(wrap);
+  }
+
+  function renderCost(el, body) {
+    var data = parseBody(body);
+    data = data && typeof data === "object" ? data : {};
+    var agents = Array.isArray(data.agents) ? data.agents : [];
+    var currency = data.currency || "USD";
+
+    var table = document.createElement("table");
+    table.className = "cost-table";
+
+    var thead = document.createElement("thead");
+    var headerRow = document.createElement("tr");
+    var cols = ["Agent", "Input Tokens", "Output Tokens", "Cost (" + currency + ")"];
+    for (var i = 0; i < cols.length; i++) {
+      var th = document.createElement("th");
+      th.textContent = cols[i];
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    for (var j = 0; j < agents.length; j++) {
+      var a = agents[j];
+      var row = document.createElement("tr");
+      var cells = [
+        a.name || "",
+        formatNumber(a.input_tokens),
+        formatNumber(a.output_tokens),
+        typeof a.cost === "number" ? a.cost.toFixed(4) : "-",
+      ];
+      for (var c = 0; c < cells.length; c++) {
+        var td = document.createElement("td");
+        td.textContent = cells[c];
+        row.appendChild(td);
+      }
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+
+    var tfoot = document.createElement("tfoot");
+    var totalRow = document.createElement("tr");
+    var totalLabel = document.createElement("td");
+    totalLabel.colSpan = 3;
+    totalLabel.textContent = "Total";
+    totalRow.appendChild(totalLabel);
+    var totalVal = document.createElement("td");
+    totalVal.textContent = typeof data.total_cost === "number" ? data.total_cost.toFixed(4) + " " + currency : "-";
+    totalRow.appendChild(totalVal);
+    tfoot.appendChild(totalRow);
+    table.appendChild(tfoot);
+
+    el.appendChild(table);
+  }
+
+  function formatNumber(n) {
+    if (n == null) return "-";
+    return Number(n).toLocaleString();
   }
 
   // ----------------------------------------------------------------
@@ -2637,31 +2951,136 @@
       .replace(/'/g, "&#39;");
   }
 
-  function simpleMarkdown(text) {
-    return escapeHtml(text)
-      // Code blocks
-      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-      // Inline code
+  /** Inline markdown formatting (bold, italic, code, links, strikethrough). */
+  function inlineMarkdown(line) {
+    return line
       .replace(/`([^`]+)`/g, "<code>$1</code>")
-      // Headings
-      .replace(/^### (.+)$/gm, "<h4>$1</h4>")
-      .replace(/^## (.+)$/gm, "<h3>$1</h3>")
-      .replace(/^# (.+)$/gm, "<h2>$1</h2>")
-      // Bold + italic
       .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      // Links (only allow safe URL schemes; input is already HTML-escaped)
+      .replace(/~~(.+?)~~/g, "<del>$1</del>")
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
         if (/^(https?:|mailto:|#)/i.test(href) && !/^javascript:/i.test(href)) {
           return '<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>';
         }
         return text;
-      })
-      // Unordered list
-      .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
-      // Line breaks
-      .replace(/\n/g, "<br>");
+      });
+  }
+
+  /** Line-based markdown parser with block-level element support. */
+  function simpleMarkdown(text) {
+    var lines = text.split("\n");
+    var out = [];
+    var i = 0;
+
+    while (i < lines.length) {
+      var line = lines[i];
+
+      // Code block
+      if (/^```/.test(line)) {
+        var lang = (line.match(/^```(\w*)/) || [])[1] || "";
+        var codeLines = [];
+        i++;
+        while (i < lines.length && !/^```$/.test(lines[i])) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        i++; // skip closing ```
+        out.push('<pre><code class="language-' + lang + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+        continue;
+      }
+
+      // Table: detect header row (| ... | ... |)
+      if (/^\|(.+\|)+\s*$/.test(line) && i + 1 < lines.length && /^\|[\s:]*-+/.test(lines[i + 1])) {
+        var headers = line.split("|").filter(function(c) { return c.trim() !== ""; });
+        // Parse alignment from separator row
+        var sepCells = lines[i + 1].split("|").filter(function(c) { return c.trim() !== ""; });
+        var aligns = sepCells.map(function(c) {
+          var t = c.trim();
+          if (t.charAt(0) === ":" && t.charAt(t.length - 1) === ":") return "center";
+          if (t.charAt(t.length - 1) === ":") return "right";
+          return "left";
+        });
+        var tableHtml = "<table><thead><tr>";
+        for (var h = 0; h < headers.length; h++) {
+          tableHtml += '<th style="text-align:' + (aligns[h] || "left") + '">' + inlineMarkdown(escapeHtml(headers[h].trim())) + "</th>";
+        }
+        tableHtml += "</tr></thead><tbody>";
+        i += 2; // skip header + separator
+        while (i < lines.length && /^\|(.+\|)+\s*$/.test(lines[i])) {
+          var cells = lines[i].split("|").filter(function(c) { return c.trim() !== ""; });
+          tableHtml += "<tr>";
+          for (var c = 0; c < cells.length; c++) {
+            tableHtml += '<td style="text-align:' + (aligns[c] || "left") + '">' + inlineMarkdown(escapeHtml(cells[c].trim())) + "</td>";
+          }
+          tableHtml += "</tr>";
+          i++;
+        }
+        tableHtml += "</tbody></table>";
+        out.push(tableHtml);
+        continue;
+      }
+
+      var escaped = escapeHtml(line);
+
+      // Horizontal rule
+      if (/^-{3,}\s*$/.test(line) || /^\*{3,}\s*$/.test(line)) {
+        out.push("<hr>");
+        i++;
+        continue;
+      }
+
+      // Headings
+      if (/^### /.test(line)) { out.push("<h4>" + inlineMarkdown(escaped.slice(4)) + "</h4>"); i++; continue; }
+      if (/^## /.test(line)) { out.push("<h3>" + inlineMarkdown(escaped.slice(3)) + "</h3>"); i++; continue; }
+      if (/^# /.test(line)) { out.push("<h2>" + inlineMarkdown(escaped.slice(2)) + "</h2>"); i++; continue; }
+
+      // Blockquote (consecutive > lines)
+      if (/^> /.test(line)) {
+        var bqLines = [];
+        while (i < lines.length && /^> /.test(lines[i])) {
+          bqLines.push(lines[i].slice(2));
+          i++;
+        }
+        out.push("<blockquote>" + bqLines.map(function(l) { return inlineMarkdown(escapeHtml(l)); }).join("<br>") + "</blockquote>");
+        continue;
+      }
+
+      // Unordered list (consecutive - or * lines)
+      if (/^[-*] /.test(line)) {
+        out.push("<ul>");
+        while (i < lines.length && /^[-*] /.test(lines[i])) {
+          out.push("<li>" + inlineMarkdown(escapeHtml(lines[i].replace(/^[-*] /, ""))) + "</li>");
+          i++;
+        }
+        out.push("</ul>");
+        continue;
+      }
+
+      // Ordered list (consecutive 1. 2. lines)
+      if (/^\d+\. /.test(line)) {
+        out.push("<ol>");
+        while (i < lines.length && /^\d+\. /.test(lines[i])) {
+          out.push("<li>" + inlineMarkdown(escapeHtml(lines[i].replace(/^\d+\. /, ""))) + "</li>");
+          i++;
+        }
+        out.push("</ol>");
+        continue;
+      }
+
+      // Empty line → paragraph break
+      if (line.trim() === "") {
+        out.push("");
+        i++;
+        continue;
+      }
+
+      // Regular paragraph
+      out.push("<p>" + inlineMarkdown(escaped) + "</p>");
+      i++;
+    }
+
+    return out.join("\n");
   }
 
   // ----------------------------------------------------------------
@@ -2710,6 +3129,22 @@
     const saved = localStorage.getItem("canvas-theme") || "dark";
     document.documentElement.setAttribute("data-theme", saved);
     setThemeLabel(saved);
+    initMermaidTheme(saved);
+  }
+
+  /** Rebuild all mermaid diagrams from stored source with current theme. */
+  function reRenderMermaid() {
+    if (typeof mermaid === "undefined") return;
+    document.querySelectorAll("[data-mermaid-source]").forEach(function (el) {
+      if (!el.parentNode) return;
+      var src = el.dataset.mermaidSource;
+      var pre = document.createElement("pre");
+      pre.className = "mermaid-pending mermaid";
+      pre.textContent = src;
+      pre.dataset.mermaidSource = src;
+      el.parentNode.replaceChild(pre, el);
+    });
+    runMermaid(".mermaid-pending");
   }
 
   themeToggle.addEventListener("click", () => {
@@ -2718,6 +3153,8 @@
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("canvas-theme", next);
     setThemeLabel(next);
+    initMermaidTheme(next);
+    reRenderMermaid();
   });
 
   function statusIcon(state) {
@@ -2985,9 +3422,136 @@
   filterAgent.addEventListener("change", renderAll);
   window.addEventListener("hashchange", navigate);
 
-  if (typeof mermaid !== "undefined") {
-    mermaid.initialize({ startOnLoad: false, theme: "default" });
+  /** Mermaid theme config keyed by canvas theme. */
+  var MERMAID_THEMES = {
+    dark: {
+      theme: "base",
+      themeVariables: {
+        darkMode: true,
+        background: "#0d1117",
+        primaryColor: "#2d333b",
+        primaryTextColor: "#e6edf3",
+        primaryBorderColor: "#4051b5",
+        secondaryColor: "#1c2333",
+        secondaryTextColor: "#c9d1d9",
+        secondaryBorderColor: "#6775c9",
+        tertiaryColor: "#161b22",
+        tertiaryTextColor: "#8b949e",
+        tertiaryBorderColor: "#30363d",
+        lineColor: "#6775c9",
+        textColor: "#e6edf3",
+        mainBkg: "#1c2333",
+        nodeBorder: "#4051b5",
+        clusterBkg: "#161b2266",
+        clusterBorder: "#30363d",
+        titleColor: "#e6edf3",
+        edgeLabelBackground: "#0d1117",
+        nodeTextColor: "#e6edf3",
+        actorTextColor: "#e6edf3",
+        actorBorder: "#4051b5",
+        actorBkg: "#1c2333",
+        actorLineColor: "#6775c9",
+        signalColor: "#e6edf3",
+        signalTextColor: "#0d1117",
+        labelBoxBkgColor: "#1c2333",
+        labelBoxBorderColor: "#4051b5",
+        labelTextColor: "#e6edf3",
+        loopTextColor: "#c9d1d9",
+        noteBkgColor: "#2d333b",
+        noteTextColor: "#e6edf3",
+        noteBorderColor: "#6775c9",
+        activationBkgColor: "#2d333b",
+        activationBorderColor: "#4051b5",
+        sequenceNumberColor: "#ffffff",
+        sectionBkgColor: "#1c2333",
+        altSectionBkgColor: "#161b22",
+        sectionBkgColor2: "#2d333b",
+        taskBkgColor: "#4051b5",
+        taskTextColor: "#ffffff",
+        taskTextLightColor: "#e6edf3",
+        taskBorderColor: "#6775c9",
+        taskTextOutsideColor: "#c9d1d9",
+        activeTaskBkgColor: "#6775c9",
+        activeTaskBorderColor: "#8b97db",
+        doneTaskBkgColor: "#238636",
+        doneTaskBorderColor: "#2ea043",
+        critBkgColor: "#da3633",
+        critBorderColor: "#f85149",
+        todayLineColor: "#58a6ff",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontSize: "13px",
+      },
+    },
+    light: {
+      theme: "base",
+      themeVariables: {
+        darkMode: false,
+        background: "#ffffff",
+        primaryColor: "#eef0fb",
+        primaryTextColor: "#24292f",
+        primaryBorderColor: "#4051b5",
+        secondaryColor: "#f3eefa",
+        secondaryTextColor: "#24292f",
+        secondaryBorderColor: "#7c4dff",
+        tertiaryColor: "#eef8ee",
+        tertiaryTextColor: "#24292f",
+        tertiaryBorderColor: "#4caf50",
+        lineColor: "#4051b5",
+        textColor: "#24292f",
+        mainBkg: "#eef0fb",
+        nodeBorder: "#4051b5",
+        clusterBkg: "#f8f9fc",
+        clusterBorder: "#c5cae9",
+        titleColor: "#24292f",
+        edgeLabelBackground: "#ffffff",
+        nodeTextColor: "#24292f",
+        actorTextColor: "#24292f",
+        actorBorder: "#4051b5",
+        actorBkg: "#eef0fb",
+        actorLineColor: "#4051b5",
+        signalColor: "#24292f",
+        signalTextColor: "#ffffff",
+        labelBoxBkgColor: "#eef0fb",
+        labelBoxBorderColor: "#4051b5",
+        labelTextColor: "#24292f",
+        loopTextColor: "#57606a",
+        noteBkgColor: "#fff8e1",
+        noteTextColor: "#24292f",
+        noteBorderColor: "#f9a825",
+        activationBkgColor: "#eef0fb",
+        activationBorderColor: "#4051b5",
+        sequenceNumberColor: "#ffffff",
+        sectionBkgColor: "#eef0fb",
+        altSectionBkgColor: "#f8f9fc",
+        sectionBkgColor2: "#dde1f7",
+        taskBkgColor: "#4051b5",
+        taskTextColor: "#ffffff",
+        taskTextLightColor: "#24292f",
+        taskBorderColor: "#303f9f",
+        taskTextOutsideColor: "#24292f",
+        activeTaskBkgColor: "#6775c9",
+        activeTaskBorderColor: "#4051b5",
+        doneTaskBkgColor: "#c8e6c9",
+        doneTaskBorderColor: "#4caf50",
+        critBkgColor: "#ffcdd2",
+        critBorderColor: "#e53935",
+        todayLineColor: "#4051b5",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontSize: "13px",
+      },
+    },
+  };
+
+  function initMermaidTheme(theme) {
+    if (typeof mermaid === "undefined") return;
+    var config = MERMAID_THEMES[theme] || MERMAID_THEMES.dark;
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: config.theme,
+      themeVariables: config.themeVariables,
+    });
   }
+
   if (typeof hljs !== "undefined") {
     hljs.configure({ ignoreUnescapedHTML: true });
   }
