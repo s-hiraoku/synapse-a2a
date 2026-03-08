@@ -1634,6 +1634,18 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"compariso
 | steps | `{"steps": [{"title": str, "blocks?": [int], "done?": bool, "description?": str}], "summary?": str}` | Linear workflow with completion tracking |
 | slides | `{"slides": [{"title?": str, "blocks": [int], "notes?": str}]}` | Page-by-page navigation |
 
+### Template Selection Guide
+
+- `briefing`: use for implementation reports, review notes, release summaries, and any output that benefits from sections + summaries
+- `comparison`: use for before/after diffs, option trade-offs, and architecture choices with parallel evidence
+- `steps`: use for rollout plans, migration procedures, bug-fix sequences, and checklist-driven execution
+- `slides`: use for walkthroughs, demos, and content that should be consumed one page at a time
+- `dashboard`: use for operational snapshots with multiple small widgets, counts, and mixed status blocks
+
+Rule of thumb:
+- One block, one idea: plain `synapse canvas post`
+- Many blocks, structured story: choose a template
+
 ### Rendering Details
 
 | Format | Renderer | Notes |
