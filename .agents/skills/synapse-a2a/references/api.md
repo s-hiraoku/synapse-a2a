@@ -44,9 +44,25 @@ The framework automatically handles routing - you don't need to know where the m
 |----------|--------|-------------|
 | `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt; subject to Readiness Gate) |
 | `/tasks/create` | POST | Create task without PTY send (for `--wait`) |
+| `/history/update` | POST | Update sender-side history observation (completion callback) |
 | `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
+
+## Completion Callback (`--silent` Flow)
+
+When `--silent` is used, the sender does not wait for a reply. However, the receiver still notifies the sender when the task completes (or fails) by calling `POST /history/update` on the sender's server. This updates the sender's history record from `sent` to the final status.
+
+1. **Sender** calls `/tasks/send` on the target agent with `response_mode: "silent"` and sender metadata (endpoint, UDS path, task ID)
+2. **Target agent** processes the message until completion
+3. **Target agent** calls `POST /history/update` on the sender's endpoint (UDS first, HTTP fallback)
+4. **Sender's** history record is updated from `sent` to `completed`/`failed`/`canceled`
+
+**Characteristics:**
+- **Best-effort**: Callback failures are logged but do not affect the receiver's processing
+- **Transport preference**: Uses UDS (Unix Domain Socket) when available, falls back to HTTP
+- **Timeout**: 10 seconds per callback attempt
+- **Metadata marker**: Updated observations include `completion_callback: true` in metadata
 
 ### Agent Teams Endpoints
 

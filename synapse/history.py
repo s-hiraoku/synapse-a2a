@@ -252,42 +252,23 @@ class HistoryManager:
                         with contextlib.suppress(TypeError, ValueError):
                             metadata_json = json.dumps(current_metadata)
 
-                    if output_text is None and metadata_json is None:
-                        cursor.execute(
-                            """
-                            UPDATE observations
-                            SET status = ?, timestamp = CURRENT_TIMESTAMP
-                            WHERE task_id = ?
-                            """,
-                            (status, task_id),
-                        )
-                    elif output_text is None:
-                        cursor.execute(
-                            """
-                            UPDATE observations
-                            SET status = ?, metadata = ?, timestamp = CURRENT_TIMESTAMP
-                            WHERE task_id = ?
-                            """,
-                            (status, metadata_json, task_id),
-                        )
-                    elif metadata_json is None:
-                        cursor.execute(
-                            """
-                            UPDATE observations
-                            SET status = ?, output = ?, timestamp = CURRENT_TIMESTAMP
-                            WHERE task_id = ?
-                            """,
-                            (status, output_text, task_id),
-                        )
-                    else:
-                        cursor.execute(
-                            """
-                            UPDATE observations
-                            SET status = ?, output = ?, metadata = ?, timestamp = CURRENT_TIMESTAMP
-                            WHERE task_id = ?
-                            """,
-                            (status, output_text, metadata_json, task_id),
-                        )
+                    set_clauses = ["status = ?"]
+                    params: list[Any] = [status]
+
+                    if output_text is not None:
+                        set_clauses.append("output = ?")
+                        params.append(output_text)
+                    if metadata_json is not None:
+                        set_clauses.append("metadata = ?")
+                        params.append(metadata_json)
+
+                    set_clauses.append("timestamp = CURRENT_TIMESTAMP")
+                    params.append(task_id)
+                    cursor.execute(
+                        f"UPDATE observations SET {', '.join(set_clauses)}"
+                        f" WHERE task_id = ?",
+                        params,
+                    )
 
                     return cursor.rowcount > 0
             except sqlite3.Error as e:

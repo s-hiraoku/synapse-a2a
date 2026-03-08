@@ -172,7 +172,7 @@ synapse send <target> "<message>" [OPTIONS]
 | `--priority N` / `-p N` | Priority 1-5 (default: 3) |
 | `--wait` | Wait for reply (synchronous blocking) |
 | `--notify` | Return immediately, receive PTY notification on completion (**default**) |
-| `--silent` | Fire-and-forget (no completion notification) |
+| `--silent` | Fire-and-forget (no PTY notification; sender history updated via completion callback) |
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
@@ -181,7 +181,7 @@ synapse send <target> "<message>" [OPTIONS]
 !!! tip "Choosing response mode"
     - `--notify` (default): Returns immediately; you get a PTY notification when the receiver completes. Best for most use cases.
     - `--wait`: Blocks until the receiver replies. Use for questions or when you need the result before proceeding.
-    - `--silent`: Fire-and-forget with no completion notification. Use for pure notifications or delegated tasks.
+    - `--silent`: Fire-and-forget with no PTY notification. Use for pure notifications or delegated tasks; sender history is still updated best-effort on completion.
 
 ### Reply
 

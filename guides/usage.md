@@ -847,7 +847,7 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 | `--silent` | - | - | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
-**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。待たない場合は `--silent` を指定してください。
+**Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。待たない場合は `--silent` を指定してください。`--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 
 **レスポンスモードの使い分け**:
 
