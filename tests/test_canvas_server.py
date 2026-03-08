@@ -7,6 +7,8 @@ for the Canvas server before implementation.
 from __future__ import annotations
 
 import json
+import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import FastAPI
@@ -214,6 +216,84 @@ class TestSystemPanelRegistryErrors:
         assert resp.status_code == 200
         failed = resp.json()["tasks"]["failed"]
         assert any(item["id"] == task_id for item in failed)
+
+    def test_system_panel_reads_active_file_locks_from_file_safety_db(
+        self, client, tmp_path, monkeypatch
+    ):
+        """System panel should surface active file locks from the current file safety schema."""
+        from synapse.file_safety import FileSafetyManager
+
+        monkeypatch.chdir(tmp_path)
+        manager = FileSafetyManager(
+            db_path=str(tmp_path / ".synapse" / "file_safety.db")
+        )
+        lock_path = tmp_path / "src" / "tracked.py"
+        lock_path.parent.mkdir(parents=True)
+        lock_path.write_text("pass\n", encoding="utf-8")
+
+        result = manager.acquire_lock(
+            str(lock_path), "codex", agent_id="synapse-codex-8120"
+        )
+
+        assert result["status"].value in {"ACQUIRED", "RENEWED"}
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        file_locks = resp.json()["file_locks"]
+        assert any(
+            item["path"] == str(lock_path) and item["agent_id"] == "synapse-codex-8120"
+            for item in file_locks
+        )
+
+    def test_system_panel_excludes_expired_file_locks(
+        self, client, tmp_path, monkeypatch
+    ):
+        """System panel should not surface expired file locks."""
+        monkeypatch.chdir(tmp_path)
+        db_dir = tmp_path / ".synapse"
+        db_dir.mkdir(parents=True)
+        db_path = db_dir / "file_safety.db"
+
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE file_locks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL UNIQUE,
+                agent_name TEXT NOT NULL,
+                agent_id TEXT,
+                agent_type TEXT,
+                pid INTEGER,
+                task_id TEXT,
+                locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL,
+                intent TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO file_locks (
+                file_path, agent_name, agent_id, expires_at, intent
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                str(tmp_path / "expired.py"),
+                "codex",
+                "synapse-codex-8120",
+                (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(),
+                "expired lock",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        file_locks = resp.json()["file_locks"]
+        assert all(item["path"] != str(tmp_path / "expired.py") for item in file_locks)
 
 
 # ============================================================
