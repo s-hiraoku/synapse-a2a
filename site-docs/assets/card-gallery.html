@@ -1,0 +1,1529 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Synapse Canvas Card Gallery</title>
+    <meta
+      name="description"
+      content="Static gallery of Synapse Canvas card formats and templates."
+    />
+    <link rel="stylesheet" href="../stylesheets/palette.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --gallery-bg: #eef3ff;
+        --gallery-bg-2: rgba(255, 255, 255, 0.72);
+        --gallery-panel: rgba(255, 255, 255, 0.7);
+        --gallery-panel-strong: rgba(255, 255, 255, 0.84);
+        --gallery-border: rgba(64, 81, 181, 0.2);
+        --gallery-text: #1c2340;
+        --gallery-muted: #55607f;
+        --gallery-shadow: 0 24px 64px rgba(34, 44, 90, 0.14);
+        --gallery-radius: 22px;
+        --gallery-radius-sm: 14px;
+        --gallery-code-bg: #10182d;
+        --gallery-code-border: rgba(255, 255, 255, 0.08);
+        --gallery-success: #237b5e;
+        --gallery-warning: #a65b00;
+        --gallery-danger: #b83d5a;
+        --gallery-info: #3752c8;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --gallery-bg: #091120;
+          --gallery-bg-2: rgba(12, 18, 33, 0.78);
+          --gallery-panel: rgba(14, 22, 40, 0.7);
+          --gallery-panel-strong: rgba(16, 24, 44, 0.82);
+          --gallery-border: rgba(125, 146, 255, 0.22);
+          --gallery-text: #ebf1ff;
+          --gallery-muted: #99a7c8;
+          --gallery-shadow: 0 28px 72px rgba(0, 0, 0, 0.42);
+          --gallery-code-bg: #07101f;
+          --gallery-code-border: rgba(255, 255, 255, 0.12);
+          --gallery-success: #72d3aa;
+          --gallery-warning: #ffbe62;
+          --gallery-danger: #ff8ea7;
+          --gallery-info: #9cadff;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI", sans-serif;
+        color: var(--gallery-text);
+        background:
+          radial-gradient(circle at top left, rgba(93, 108, 192, 0.22), transparent 32%),
+          radial-gradient(circle at top right, rgba(0, 188, 212, 0.18), transparent 28%),
+          radial-gradient(circle at bottom, rgba(255, 179, 0, 0.16), transparent 34%),
+          var(--gallery-bg);
+        min-height: 100vh;
+      }
+
+      a {
+        color: var(--brand);
+      }
+
+      .page-shell {
+        width: min(1320px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 72px;
+      }
+
+      .hero {
+        position: sticky;
+        top: 16px;
+        z-index: 10;
+        margin-bottom: 24px;
+        padding: 24px 28px;
+        border: 1px solid var(--gallery-border);
+        border-radius: 28px;
+        background: var(--gallery-panel);
+        box-shadow: var(--gallery-shadow);
+        backdrop-filter: blur(28px);
+        -webkit-backdrop-filter: blur(28px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(64, 81, 181, 0.12);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 10px;
+        font-size: clamp(2rem, 4vw, 3.8rem);
+        line-height: 1;
+      }
+
+      .hero p {
+        max-width: 76ch;
+        margin: 0;
+        color: var(--gallery-muted);
+        line-height: 1.7;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .hero-meta span {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.38);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        font-size: 13px;
+      }
+
+      .gallery-section {
+        margin-top: 32px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .section-header h2 {
+        margin: 0;
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+      }
+
+      .section-header p {
+        margin: 0;
+        color: var(--gallery-muted);
+        max-width: 64ch;
+      }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+
+      .gallery-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 100%;
+        padding: 18px;
+        border-radius: var(--gallery-radius);
+        border: 1px solid var(--gallery-border);
+        background: var(--gallery-panel-strong);
+        box-shadow: var(--gallery-shadow);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+      }
+
+      .gallery-card-header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .gallery-card-header h3 {
+        margin: 0 0 4px;
+        font-size: 1.05rem;
+      }
+
+      .gallery-card-header p {
+        margin: 0;
+        color: var(--gallery-muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .gallery-chip {
+        flex-shrink: 0;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(64, 81, 181, 0.14);
+        color: var(--brand);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .content-block {
+        padding: 16px;
+        border-radius: var(--gallery-radius-sm);
+        border: 1px solid rgba(127, 145, 204, 0.18);
+        background: rgba(255, 255, 255, 0.36);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .content-block,
+        .hero-meta span {
+          background: rgba(255, 255, 255, 0.04);
+        }
+      }
+
+      .content-block pre,
+      .content-block code {
+        font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+      }
+
+      .content-block pre {
+        margin: 0;
+        padding: 14px;
+        overflow: auto;
+        border-radius: 12px;
+        border: 1px solid var(--gallery-code-border);
+        background: var(--gallery-code-bg);
+        color: #eff4ff;
+      }
+
+      .content-block table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .content-block th,
+      .content-block td {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(127, 145, 204, 0.16);
+        text-align: left;
+      }
+
+      .content-block img {
+        display: block;
+        width: 100%;
+        border-radius: 12px;
+      }
+
+      .status-badge,
+      .metric-value-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--gallery-info);
+        box-shadow: 0 0 0 5px rgba(64, 81, 181, 0.14);
+      }
+
+      .status-dot.ready {
+        background: var(--gallery-success);
+      }
+
+      .status-dot.processing {
+        background: var(--gallery-warning);
+      }
+
+      .status-dot.error,
+      .status-dot.shutting_down {
+        background: var(--gallery-danger);
+      }
+
+      .status-detail,
+      .metric-label,
+      .alert-source,
+      .trace-meta,
+      .timeline-agent {
+        margin-top: 8px;
+        color: var(--gallery-muted);
+        font-size: 14px;
+      }
+
+      .metric-value {
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        font-weight: 800;
+      }
+
+      .metric-unit {
+        color: var(--gallery-muted);
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .checklist-item,
+      .timeline-item,
+      .trace-node,
+      .task-item {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(127, 145, 204, 0.14);
+      }
+
+      .checklist-item:last-child,
+      .timeline-item:last-child,
+      .trace-node:last-child,
+      .task-item:last-child {
+        border-bottom: 0;
+      }
+
+      .timeline-ts,
+      .task-meta,
+      .log-line span:first-child,
+      .trace-duration {
+        min-width: 88px;
+        color: var(--gallery-muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+      }
+
+      .alert-card {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 179, 0, 0.3);
+        background: rgba(255, 179, 0, 0.12);
+      }
+
+      .alert-card.error {
+        border-color: rgba(184, 61, 90, 0.34);
+        background: rgba(184, 61, 90, 0.12);
+      }
+
+      .alert-card.success {
+        border-color: rgba(35, 123, 94, 0.34);
+        background: rgba(35, 123, 94, 0.12);
+      }
+
+      .file-path {
+        margin-bottom: 10px;
+        color: var(--gallery-muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+      }
+
+      .log-view {
+        display: grid;
+        gap: 8px;
+      }
+
+      .log-line {
+        display: flex;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+      }
+
+      .log-line.warn {
+        border-left: 3px solid var(--gallery-warning);
+      }
+
+      .log-line.error {
+        border-left: 3px solid var(--gallery-danger);
+      }
+
+      .trace-tree,
+      .task-board,
+      .timeline-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .trace-children {
+        margin-left: 24px;
+      }
+
+      .trace-bar {
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--brand), rgba(64, 81, 181, 0.25));
+        flex: 0 0 auto;
+      }
+
+      .trace-bar.error {
+        background: linear-gradient(90deg, var(--gallery-danger), rgba(184, 61, 90, 0.25));
+      }
+
+      .task-board {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+
+      .task-column {
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(127, 145, 204, 0.16);
+      }
+
+      .task-column h4 {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
+
+      .task-item {
+        display: block;
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .task-item strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .template-stage {
+        display: grid;
+        gap: 14px;
+      }
+
+      .template-summary {
+        color: var(--gallery-muted);
+        line-height: 1.7;
+      }
+
+      .briefing-section,
+      .comparison-side,
+      .dashboard-widget,
+      .steps-step,
+      .slides-slide {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(127, 145, 204, 0.18);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .briefing-toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .briefing-toc a {
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: rgba(64, 81, 181, 0.12);
+        text-decoration: none;
+      }
+
+      .comparison-sides,
+      .dashboard-template {
+        display: grid;
+        gap: 12px;
+      }
+
+      .comparison-side-by-side .comparison-sides {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .comparison-stacked .comparison-sides {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-template {
+        grid-template-columns: repeat(var(--dashboard-cols, 2), minmax(0, 1fr));
+      }
+
+      .steps-progress {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .steps-progress-track {
+        flex: 1;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(127, 145, 204, 0.16);
+        overflow: hidden;
+      }
+
+      .steps-progress-bar {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--brand), rgba(64, 81, 181, 0.4));
+      }
+
+      .steps-step {
+        display: grid;
+        grid-template-columns: 36px 1fr;
+        gap: 12px;
+      }
+
+      .steps-marker {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        background: rgba(64, 81, 181, 0.12);
+        color: var(--brand);
+        font-weight: 800;
+      }
+
+      .slides-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .slides-nav button,
+      .briefing-toggle {
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--brand);
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .slides-slide-hidden {
+        display: none;
+      }
+
+      .iframe-preview {
+        width: 100%;
+        min-height: 180px;
+        border: 0;
+        border-radius: 12px;
+        background: white;
+      }
+
+      @media (max-width: 720px) {
+        .page-shell {
+          width: min(100vw - 20px, 1320px);
+          padding-top: 18px;
+        }
+
+        .hero {
+          position: static;
+          padding: 20px;
+        }
+
+        .section-header {
+          display: block;
+        }
+
+        .section-header p {
+          margin-top: 8px;
+        }
+
+        .dashboard-template,
+        .task-board {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <div class="eyebrow">Synapse Canvas Static Gallery</div>
+        <h1>Card Gallery</h1>
+        <p>
+          This standalone page renders every Canvas card format and template with
+          hardcoded sample data. It mirrors the production Canvas patterns without
+          importing <code>canvas.js</code> directly, so it can live safely under
+          <code>site-docs/assets/</code>.
+        </p>
+        <div class="hero-meta">
+          <span>18 card formats</span>
+          <span>5 templates</span>
+          <span>Glassmorphism panels</span>
+          <span>Responsive layout</span>
+          <span>prefers-color-scheme: dark</span>
+        </div>
+      </section>
+
+      <section class="gallery-section">
+        <div class="section-header">
+          <div>
+            <h2>Card Formats</h2>
+            <p>
+              Each card includes a short explanation plus the rendered output for
+              the current format.
+            </p>
+          </div>
+        </div>
+        <div id="card-grid" class="gallery-grid"></div>
+      </section>
+
+      <section class="gallery-section">
+        <div class="section-header">
+          <div>
+            <h2>Templates</h2>
+            <p>
+              Templates reuse the same block renderers and arrange them into
+              structured layouts such as briefing, comparison, dashboard, steps,
+              and slides.
+            </p>
+          </div>
+        </div>
+        <div id="template-grid" class="gallery-grid"></div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+    <script>
+      const svgDataUri =
+        "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(
+          "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'>" +
+            "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>" +
+            "<stop stop-color='#4051b5'/><stop offset='1' stop-color='#00bcd4'/></linearGradient></defs>" +
+            "<rect width='1280' height='720' rx='32' fill='url(#g)'/>" +
+            "<circle cx='240' cy='220' r='140' fill='rgba(255,255,255,0.12)'/>" +
+            "<circle cx='980' cy='460' r='180' fill='rgba(255,255,255,0.14)'/>" +
+            "<text x='96' y='138' font-family='Inter, sans-serif' font-size='52' fill='white'>Canvas image sample</text>" +
+            "<text x='96' y='206' font-family='Inter, sans-serif' font-size='28' fill='rgba(255,255,255,0.84)'>Static preview rendered inside the gallery page.</text>" +
+            "<rect x='96' y='280' width='520' height='220' rx='24' fill='rgba(7,16,31,0.22)' stroke='rgba(255,255,255,0.28)'/>" +
+            "<text x='128' y='350' font-family='JetBrains Mono, monospace' font-size='28' fill='white'>agent: synapse-codex-8120</text>" +
+            "<text x='128' y='402' font-family='JetBrains Mono, monospace' font-size='28' fill='white'>state: PROCESSING</text>" +
+            "<text x='128' y='454' font-family='JetBrains Mono, monospace' font-size='28' fill='white'>view: card-gallery</text>" +
+          "</svg>"
+        );
+
+      const CARD_SAMPLES = [
+        {
+          format: "mermaid",
+          title: "mermaid",
+          description: "Architecture or flow diagrams rendered from Mermaid syntax.",
+          body: "flowchart LR\n  User-->Canvas\n  Canvas-->Dashboard\n  Dashboard-->System",
+        },
+        {
+          format: "markdown",
+          title: "markdown",
+          description: "Rich text with headings, emphasis, and list content.",
+          body: "### Release checklist\n\n- Verify file locks\n- Refresh dashboard widgets\n- Post status to Canvas",
+        },
+        {
+          format: "html",
+          title: "html",
+          description: "Sandboxed iframe preview for raw HTML snippets.",
+          body: "<body style='margin:0;font-family:Inter,sans-serif;background:#111827;color:#eff4ff;display:grid;place-items:center;height:100vh'><div style='padding:24px;border:1px solid rgba(255,255,255,.18);border-radius:20px;background:rgba(255,255,255,.06)'><h2 style='margin-top:0'>HTML card</h2><p>Rendered in an isolated iframe.</p></div></body>",
+        },
+        {
+          format: "table",
+          title: "table",
+          description: "Structured tabular data with headers and rows.",
+          body: {
+            headers: ["Agent", "Status", "Current focus"],
+            rows: [
+              ["Codex", "READY", "Canvas polish"],
+              ["Claude", "PROCESSING", "Docs sync"],
+              ["Gemini", "WAITING", "Regression review"],
+            ],
+          },
+        },
+        {
+          format: "json",
+          title: "json",
+          description: "Pretty-printed structured payloads.",
+          body: {
+            route: "/api/system",
+            refreshed_at: "2026-03-08T20:25:00+09:00",
+            widgets: ["agents", "tasks", "file_locks"],
+          },
+        },
+        {
+          format: "diff",
+          title: "diff",
+          description: "Unified diffs rendered with a side-by-side view.",
+          body: "diff --git a/canvas.js b/canvas.js\nindex 1234567..89abcde 100644\n--- a/canvas.js\n+++ b/canvas.js\n@@ -10,3 +10,4 @@ function loadSystemPanel() {\n-  return fetch('/api/system')\n+  return fetch('/api/system')\n+    .then(syncFileLocks)\n }\n",
+        },
+        {
+          format: "chart",
+          title: "chart",
+          description: "Chart.js visualizations using the same JSON config style as Canvas.",
+          body: {
+            type: "bar",
+            data: {
+              labels: ["Agents", "Tasks", "Locks", "Memories"],
+              datasets: [
+                {
+                  label: "Dashboard entities",
+                  data: [6, 14, 3, 9],
+                  backgroundColor: ["#4051b5", "#5d6cc0", "#00bcd4", "#ffb300"],
+                  borderRadius: 10,
+                },
+              ],
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } },
+              },
+            },
+          },
+        },
+        {
+          format: "image",
+          title: "image",
+          description: "Static images, screenshots, and generated diagrams.",
+          body: svgDataUri,
+        },
+        {
+          format: "code",
+          title: "code",
+          description: "Syntax highlighted source blocks.",
+          lang: "python",
+          body: "def summarize_file_locks(locks: list[dict[str, str]]) -> int:\n    return len([lock for lock in locks if lock.get('agent_id')])\n",
+        },
+        {
+          format: "log",
+          title: "log",
+          description: "Timestamped operational logs with severity styling.",
+          body: [
+            { ts: "20:10:42", level: "INFO", msg: "Canvas SSE connected" },
+            { ts: "20:10:45", level: "WARNING", msg: "History route still using stale cache" },
+            { ts: "20:10:49", level: "ERROR", msg: "released_at column not found" },
+          ],
+        },
+        {
+          format: "status",
+          title: "status",
+          description: "State badge plus supporting detail.",
+          body: {
+            state: "ready",
+            label: "READY",
+            detail: "Dashboard widgets are receiving live updates.",
+          },
+        },
+        {
+          format: "metric",
+          title: "metric",
+          description: "Single KPI callout with value, unit, and label.",
+          body: {
+            value: "98.4",
+            unit: "%",
+            label: "SSE event delivery success",
+          },
+        },
+        {
+          format: "checklist",
+          title: "checklist",
+          description: "Task tracking with checked and unchecked rows.",
+          body: [
+            { checked: true, text: "Verify Dashboard route" },
+            { checked: true, text: "Fix file_locks query" },
+            { checked: false, text: "Publish docs update" },
+          ],
+        },
+        {
+          format: "timeline",
+          title: "timeline",
+          description: "Ordered events with timestamps and agent attribution.",
+          body: [
+            { ts: "19:42", event: "Dashboard redesign started", agent: "Codex" },
+            { ts: "20:04", event: "Skills panel fixed", agent: "Codex" },
+            { ts: "20:18", event: "File locks bug reproduced", agent: "Codex" },
+          ],
+        },
+        {
+          format: "alert",
+          title: "alert",
+          description: "Prominent warning, success, or error callout.",
+          body: {
+            severity: "error",
+            message: "Dashboard file locks are empty because /api/system queries a stale column.",
+            source: "synapse.canvas.server",
+          },
+        },
+        {
+          format: "file-preview",
+          title: "file-preview",
+          description: "Annotated snippet with path and line numbers.",
+          body: {
+            path: "synapse/canvas/server.py",
+            lang: "python",
+            start_line: 394,
+            snippet: "rows = conn.execute(\n    \"SELECT file_path, agent_id FROM file_locks WHERE expires_at > ?\",\n    (now,),\n).fetchall()",
+          },
+        },
+        {
+          format: "trace",
+          title: "trace",
+          description: "Nested span tree for latency and error visualization.",
+          body: [
+            {
+              name: "GET /api/system",
+              duration_ms: 84,
+              status: "ok",
+              children: [
+                { name: "registry", duration_ms: 18, status: "ok" },
+                { name: "task board", duration_ms: 22, status: "ok" },
+                { name: "file locks", duration_ms: 44, status: "error" },
+              ],
+            },
+          ],
+        },
+        {
+          format: "task-board",
+          title: "task-board",
+          description: "Compact kanban-style snapshot of work in progress.",
+          body: {
+            columns: [
+              {
+                name: "pending",
+                items: [
+                  { subject: "Link card gallery from docs", meta: "docs" },
+                ],
+              },
+              {
+                name: "in_progress",
+                items: [
+                  { subject: "Render 18 card formats", meta: "frontend" },
+                ],
+              },
+              {
+                name: "completed",
+                items: [
+                  { subject: "Verify template list", meta: "tests" },
+                ],
+              },
+            ],
+          },
+        },
+      ];
+
+      const TEMPLATE_SAMPLES = [
+        {
+          template: "briefing",
+          title: "briefing",
+          description: "Structured report with summary, sections, and a table of contents.",
+          blocks: [
+            { format: "markdown", body: "### Context\nCanvas now has four routes and a refreshed dashboard." },
+            { format: "table", body: { headers: ["Area", "State"], rows: [["Dashboard", "Stable"], ["System", "Expanded"]] } },
+            { format: "alert", body: { severity: "success", message: "All regression tests passed.", source: "pytest" } },
+          ],
+          template_data: {
+            summary: "Use briefing when you need a readable update with sections and collapsible detail.",
+            sections: [
+              { title: "Overview", blocks: [0] },
+              { title: "Status", blocks: [1], summary: "Key areas at a glance." },
+              { title: "Validation", blocks: [2] },
+            ],
+          },
+        },
+        {
+          template: "comparison",
+          title: "comparison",
+          description: "Compare approaches, outputs, or before/after states side by side.",
+          blocks: [
+            { format: "markdown", body: "### Before\nTwo-column dashboard with mixed update semantics." },
+            { format: "markdown", body: "### After\nSingle-column dashboard with scoped widgets and clearer summaries." },
+          ],
+          template_data: {
+            summary: "Comparison is ideal for tradeoffs, diffs in intent, or before/after design reviews.",
+            layout: "side-by-side",
+            sides: [
+              { label: "Previous", blocks: [0] },
+              { label: "Current", blocks: [1] },
+            ],
+          },
+        },
+        {
+          template: "dashboard",
+          title: "dashboard",
+          description: "Widget-based composition for metrics and operational status.",
+          blocks: [
+            { format: "metric", body: { value: 6, label: "Agents" } },
+            { format: "metric", body: { value: 14, label: "Tasks" } },
+            { format: "metric", body: { value: 3, label: "Locks" } },
+            { format: "status", body: { state: "processing", label: "Sync in progress", detail: "site-docs build running" } },
+          ],
+          template_data: {
+            cols: 2,
+            widgets: [
+              { title: "Agent Fleet", blocks: [0], size: "1x1" },
+              { title: "Task Board", blocks: [1], size: "1x1" },
+              { title: "File Locks", blocks: [2], size: "1x1" },
+              { title: "Docs Sync", blocks: [3], size: "1x1" },
+            ],
+          },
+        },
+        {
+          template: "steps",
+          title: "steps",
+          description: "Guided workflow with progress and per-step detail blocks.",
+          blocks: [
+            { format: "markdown", body: "Open `canvas.js` and identify block renderers." },
+            { format: "markdown", body: "Port the renderers to a standalone static page." },
+            { format: "markdown", body: "Link the page from `site-docs/guide/canvas.md`." },
+          ],
+          template_data: {
+            summary: "Use steps when the sequence itself matters more than the final summary.",
+            steps: [
+              { title: "Inspect renderers", description: "Understand the format and template dispatchers.", done: true, blocks: [0] },
+              { title: "Build the gallery", description: "Recreate renderers in a self-contained HTML asset.", done: true, blocks: [1] },
+              { title: "Publish the link", description: "Expose the gallery from the public Canvas guide.", done: false, blocks: [2] },
+            ],
+          },
+        },
+        {
+          template: "slides",
+          title: "slides",
+          description: "Sequence of presentation slides with simple navigation.",
+          blocks: [
+            { format: "markdown", body: "# Slide 1\nCanvas Cards" },
+            { format: "mermaid", body: "graph TD\n  Cards-->Templates\n  Templates-->Gallery" },
+            { format: "table", body: { headers: ["Metric", "Value"], rows: [["Formats", "18"], ["Templates", "5"]] } },
+          ],
+          template_data: {
+            slides: [
+              { title: "Intro", blocks: [0], notes: "Lead with the purpose of the static gallery." },
+              { title: "Flow", blocks: [1], notes: "Explain how renderers are reused conceptually." },
+              { title: "Coverage", blocks: [2], notes: "Show how much of Canvas is represented." },
+            ],
+          },
+        },
+      ];
+
+      function simpleMarkdown(text) {
+        if (window.marked && typeof window.marked.parse === "function") {
+          return window.marked.parse(text);
+        }
+        return String(text)
+          .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+          .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+          .replace(/^# (.*)$/gm, "<h1>$1</h1>")
+          .replace(/^- (.*)$/gm, "<li>$1</li>")
+          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br />");
+      }
+
+      function renderBlock(block) {
+        const wrap = document.createElement("div");
+        wrap.className = "content-block format-" + block.format;
+
+        switch (block.format) {
+          case "mermaid":
+            renderMermaid(wrap, block.body);
+            break;
+          case "markdown":
+            renderMarkdown(wrap, block.body);
+            break;
+          case "html":
+            renderHTML(wrap, block.body);
+            break;
+          case "table":
+            renderTable(wrap, block.body);
+            break;
+          case "json":
+            renderJSON(wrap, block.body);
+            break;
+          case "diff":
+            renderDiff(wrap, block.body);
+            break;
+          case "chart":
+            renderChart(wrap, block.body);
+            break;
+          case "image":
+            renderImage(wrap, block.body);
+            break;
+          case "code":
+            renderCode(wrap, block.body, block.lang);
+            break;
+          case "log":
+            renderLog(wrap, block.body);
+            break;
+          case "status":
+            renderStatus(wrap, block.body);
+            break;
+          case "metric":
+            renderMetric(wrap, block.body);
+            break;
+          case "checklist":
+            renderChecklist(wrap, block.body);
+            break;
+          case "timeline":
+            renderTimeline(wrap, block.body);
+            break;
+          case "alert":
+            renderAlert(wrap, block.body);
+            break;
+          case "file-preview":
+            renderFilePreview(wrap, block.body);
+            break;
+          case "trace":
+            renderTrace(wrap, block.body);
+            break;
+          case "task-board":
+            renderTaskBoard(wrap, block.body);
+            break;
+          default:
+            wrap.textContent = String(block.body);
+        }
+        return wrap;
+      }
+
+      function renderMermaid(el, body) {
+        const node = document.createElement("pre");
+        node.className = "mermaid";
+        node.textContent = body;
+        el.appendChild(node);
+      }
+
+      function renderMarkdown(el, body) {
+        el.innerHTML = simpleMarkdown(body);
+      }
+
+      function renderHTML(el, body) {
+        const iframe = document.createElement("iframe");
+        iframe.className = "iframe-preview";
+        iframe.sandbox = "allow-scripts";
+        iframe.srcdoc = body;
+        el.appendChild(iframe);
+      }
+
+      function renderTable(el, body) {
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        (body.headers || []).forEach((header) => {
+          const th = document.createElement("th");
+          th.textContent = header;
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        (body.rows || []).forEach((row) => {
+          const tr = document.createElement("tr");
+          row.forEach((cell) => {
+            const td = document.createElement("td");
+            td.textContent = cell;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        el.appendChild(table);
+      }
+
+      function renderJSON(el, body) {
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(body, null, 2);
+        el.appendChild(pre);
+      }
+
+      function renderDiff(el, body) {
+        if (window.Diff2HtmlUI) {
+          const target = document.createElement("div");
+          target.className = "diff2html-target";
+          el.appendChild(target);
+          const ui = new Diff2HtmlUI(target, body, {
+            drawFileList: false,
+            matching: "lines",
+            outputFormat: "side-by-side",
+          });
+          ui.draw();
+          return;
+        }
+        const pre = document.createElement("pre");
+        pre.textContent = body;
+        el.appendChild(pre);
+      }
+
+      function renderChart(el, body) {
+        const canvas = document.createElement("canvas");
+        canvas.height = 220;
+        el.appendChild(canvas);
+        if (window.Chart) {
+          new Chart(canvas, body);
+        }
+      }
+
+      function renderImage(el, body) {
+        const img = document.createElement("img");
+        img.src = body;
+        img.alt = "Canvas gallery sample";
+        el.appendChild(img);
+      }
+
+      function renderCode(el, body, lang) {
+        const pre = document.createElement("pre");
+        const code = document.createElement("code");
+        if (lang) {
+          code.className = "language-" + lang;
+        }
+        code.textContent = body;
+        pre.appendChild(code);
+        el.appendChild(pre);
+        if (window.hljs) {
+          window.hljs.highlightElement(code);
+        }
+      }
+
+      function renderLog(el, body) {
+        const log = document.createElement("div");
+        log.className = "log-view";
+        body.forEach((entry) => {
+          const row = document.createElement("div");
+          row.className = "log-line " + String(entry.level || "info").toLowerCase();
+          row.innerHTML =
+            "<span>" + entry.ts + "</span><span>[" + entry.level + "]</span><span>" + entry.msg + "</span>";
+          log.appendChild(row);
+        });
+        el.appendChild(log);
+      }
+
+      function renderStatus(el, body) {
+        const badge = document.createElement("div");
+        badge.className = "status-badge";
+        const dot = document.createElement("span");
+        dot.className = "status-dot " + String(body.state || "").toLowerCase();
+        badge.appendChild(dot);
+        const label = document.createElement("strong");
+        label.textContent = body.label;
+        badge.appendChild(label);
+        el.appendChild(badge);
+        if (body.detail) {
+          const detail = document.createElement("div");
+          detail.className = "status-detail";
+          detail.textContent = body.detail;
+          el.appendChild(detail);
+        }
+      }
+
+      function renderMetric(el, body) {
+        const row = document.createElement("div");
+        row.className = "metric-value-row";
+        row.innerHTML =
+          "<span class='metric-value'>" +
+          body.value +
+          "</span><span class='metric-unit'>" +
+          (body.unit || "") +
+          "</span>";
+        el.appendChild(row);
+        if (body.label) {
+          const label = document.createElement("div");
+          label.className = "metric-label";
+          label.textContent = body.label;
+          el.appendChild(label);
+        }
+      }
+
+      function renderChecklist(el, body) {
+        body.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "checklist-item";
+          row.textContent = (item.checked ? "[x] " : "[ ] ") + item.text;
+          el.appendChild(row);
+        });
+      }
+
+      function renderTimeline(el, body) {
+        const list = document.createElement("div");
+        list.className = "timeline-list";
+        body.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "timeline-item";
+          row.innerHTML =
+            "<span class='timeline-ts'>" +
+            item.ts +
+            "</span><span>" +
+            item.event +
+            "</span>";
+          if (item.agent) {
+            const agent = document.createElement("span");
+            agent.className = "timeline-agent";
+            agent.textContent = item.agent;
+            row.appendChild(agent);
+          }
+          list.appendChild(row);
+        });
+        el.appendChild(list);
+      }
+
+      function renderAlert(el, body) {
+        const card = document.createElement("div");
+        card.className = "alert-card " + (body.severity || "info");
+        const message = document.createElement("div");
+        message.textContent = body.message;
+        card.appendChild(message);
+        if (body.source) {
+          const source = document.createElement("div");
+          source.className = "alert-source";
+          source.textContent = body.source;
+          card.appendChild(source);
+        }
+        el.appendChild(card);
+      }
+
+      function renderFilePreview(el, body) {
+        const path = document.createElement("div");
+        path.className = "file-path";
+        path.textContent = body.path;
+        el.appendChild(path);
+        renderCode(
+          el,
+          String(body.snippet)
+            .split("\n")
+            .map((line, index) => String(Number(body.start_line) + index).padStart(4, " ") + " | " + line)
+            .join("\n"),
+          body.lang
+        );
+      }
+
+      function renderTrace(el, body) {
+        const root = document.createElement("div");
+        root.className = "trace-tree";
+        body.forEach((span) => root.appendChild(renderTraceNode(span)));
+        el.appendChild(root);
+      }
+
+      function renderTraceNode(span) {
+        const wrap = document.createElement("div");
+        wrap.className = "trace-node";
+        const bar = document.createElement("div");
+        bar.className = "trace-bar" + (span.status === "error" ? " error" : "");
+        bar.style.width = Math.max(18, Math.min(Number(span.duration_ms) * 2, 160)) + "px";
+        wrap.appendChild(bar);
+
+        const body = document.createElement("div");
+        body.innerHTML =
+          "<strong>" +
+          span.name +
+          "</strong><div class='trace-meta'><span class='trace-duration'>" +
+          span.duration_ms +
+          "ms</span></div>";
+        if (Array.isArray(span.children) && span.children.length > 0) {
+          const children = document.createElement("div");
+          children.className = "trace-children";
+          span.children.forEach((child) => children.appendChild(renderTraceNode(child)));
+          body.appendChild(children);
+        }
+        wrap.appendChild(body);
+        return wrap;
+      }
+
+      function renderTaskBoard(el, body) {
+        const board = document.createElement("div");
+        board.className = "task-board";
+        (body.columns || []).forEach((column) => {
+          const col = document.createElement("div");
+          col.className = "task-column";
+          const title = document.createElement("h4");
+          title.textContent = column.name;
+          col.appendChild(title);
+          (column.items || []).forEach((item) => {
+            const task = document.createElement("div");
+            task.className = "task-item";
+            task.innerHTML =
+              "<strong>" + item.subject + "</strong><span class='task-meta'>" + (item.meta || "") + "</span>";
+            col.appendChild(task);
+          });
+          board.appendChild(col);
+        });
+        el.appendChild(board);
+      }
+
+      function renderTemplate(sample) {
+        switch (sample.template) {
+          case "briefing":
+            return renderBriefing(sample.blocks, sample.template_data);
+          case "comparison":
+            return renderComparison(sample.blocks, sample.template_data);
+          case "dashboard":
+            return renderDashboardTemplate(sample.blocks, sample.template_data);
+          case "steps":
+            return renderStepsTemplate(sample.blocks, sample.template_data);
+          case "slides":
+            return renderSlidesTemplate(sample.blocks, sample.template_data);
+          default:
+            return document.createTextNode(sample.template);
+        }
+      }
+
+      function renderBriefing(blocks, templateData) {
+        const container = document.createElement("div");
+        container.className = "template-stage";
+        const summary = document.createElement("div");
+        summary.className = "template-summary";
+        summary.innerHTML = simpleMarkdown(templateData.summary || "");
+        container.appendChild(summary);
+
+        if ((templateData.sections || []).length >= 3) {
+          const toc = document.createElement("nav");
+          toc.className = "briefing-toc";
+          (templateData.sections || []).forEach((section) => {
+            const chip = document.createElement("a");
+            chip.href = "#";
+            chip.textContent = section.title;
+            toc.appendChild(chip);
+          });
+          container.appendChild(toc);
+        }
+
+        (templateData.sections || []).forEach((section) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "briefing-section";
+          const title = document.createElement("strong");
+          title.textContent = section.title;
+          wrapper.appendChild(title);
+          if (section.summary) {
+            const sub = document.createElement("div");
+            sub.className = "template-summary";
+            sub.innerHTML = simpleMarkdown(section.summary);
+            wrapper.appendChild(sub);
+          }
+          (section.blocks || []).forEach((idx) => wrapper.appendChild(renderBlock(blocks[idx])));
+          container.appendChild(wrapper);
+        });
+        return container;
+      }
+
+      function renderComparison(blocks, templateData) {
+        const container = document.createElement("div");
+        container.className = "template-stage comparison-container comparison-" + (templateData.layout || "side-by-side");
+        const summary = document.createElement("div");
+        summary.className = "template-summary";
+        summary.innerHTML = simpleMarkdown(templateData.summary || "");
+        container.appendChild(summary);
+        const sides = document.createElement("div");
+        sides.className = "comparison-sides";
+        (templateData.sides || []).forEach((side) => {
+          const panel = document.createElement("div");
+          panel.className = "comparison-side";
+          panel.innerHTML = "<strong>" + side.label + "</strong>";
+          (side.blocks || []).forEach((idx) => panel.appendChild(renderBlock(blocks[idx])));
+          sides.appendChild(panel);
+        });
+        container.appendChild(sides);
+        return container;
+      }
+
+      function renderDashboardTemplate(blocks, templateData) {
+        const container = document.createElement("div");
+        container.className = "dashboard-template";
+        container.style.setProperty("--dashboard-cols", templateData.cols || 2);
+        (templateData.widgets || []).forEach((widget) => {
+          const cell = document.createElement("div");
+          cell.className = "dashboard-widget";
+          const title = document.createElement("strong");
+          title.textContent = widget.title;
+          cell.appendChild(title);
+          (widget.blocks || []).forEach((idx) => cell.appendChild(renderBlock(blocks[idx])));
+          container.appendChild(cell);
+        });
+        return container;
+      }
+
+      function renderStepsTemplate(blocks, templateData) {
+        const container = document.createElement("div");
+        container.className = "template-stage";
+        const summary = document.createElement("div");
+        summary.className = "template-summary";
+        summary.innerHTML = simpleMarkdown(templateData.summary || "");
+        container.appendChild(summary);
+        const progress = document.createElement("div");
+        progress.className = "steps-progress";
+        const track = document.createElement("div");
+        track.className = "steps-progress-track";
+        const bar = document.createElement("div");
+        bar.className = "steps-progress-bar";
+        const steps = templateData.steps || [];
+        const done = steps.filter((step) => step.done).length;
+        bar.style.width = (steps.length ? (done / steps.length) * 100 : 0) + "%";
+        track.appendChild(bar);
+        progress.appendChild(track);
+        const label = document.createElement("span");
+        label.textContent = done + "/" + steps.length + " complete";
+        progress.appendChild(label);
+        container.appendChild(progress);
+        steps.forEach((step, index) => {
+          const item = document.createElement("div");
+          item.className = "steps-step";
+          item.innerHTML = "<div class='steps-marker'>" + (step.done ? "✓" : index + 1) + "</div>";
+          const content = document.createElement("div");
+          content.innerHTML = "<strong>" + step.title + "</strong><div class='template-summary'>" + simpleMarkdown(step.description || "") + "</div>";
+          (step.blocks || []).forEach((idx) => content.appendChild(renderBlock(blocks[idx])));
+          item.appendChild(content);
+          container.appendChild(item);
+        });
+        return container;
+      }
+
+      function renderSlidesTemplate(blocks, templateData) {
+        const container = document.createElement("div");
+        container.className = "template-stage";
+        const slides = templateData.slides || [];
+        let index = 0;
+        const viewport = document.createElement("div");
+        const slideEls = slides.map((slide, slideIndex) => {
+          const item = document.createElement("div");
+          item.className = "slides-slide" + (slideIndex ? " slides-slide-hidden" : "");
+          if (slide.title) {
+            const title = document.createElement("strong");
+            title.textContent = slide.title;
+            item.appendChild(title);
+          }
+          (slide.blocks || []).forEach((blockIndex) => item.appendChild(renderBlock(blocks[blockIndex])));
+          if (slide.notes) {
+            const notes = document.createElement("div");
+            notes.className = "template-summary";
+            notes.innerHTML = simpleMarkdown(slide.notes);
+            item.appendChild(notes);
+          }
+          viewport.appendChild(item);
+          return item;
+        });
+        container.appendChild(viewport);
+        if (slides.length > 1) {
+          const nav = document.createElement("div");
+          nav.className = "slides-nav";
+          const prev = document.createElement("button");
+          prev.textContent = "Prev";
+          prev.disabled = true;
+          const label = document.createElement("span");
+          label.textContent = "1 / " + slides.length;
+          const next = document.createElement("button");
+          next.textContent = "Next";
+          function show(nextIndex) {
+            slideEls[index].classList.add("slides-slide-hidden");
+            index = nextIndex;
+            slideEls[index].classList.remove("slides-slide-hidden");
+            prev.disabled = index === 0;
+            next.disabled = index === slides.length - 1;
+            label.textContent = index + 1 + " / " + slides.length;
+          }
+          prev.addEventListener("click", () => { if (index > 0) show(index - 1); });
+          next.addEventListener("click", () => { if (index < slides.length - 1) show(index + 1); });
+          nav.append(prev, label, next);
+          container.appendChild(nav);
+        }
+        return container;
+      }
+
+      function mountGallery() {
+        const cardGrid = document.getElementById("card-grid");
+        CARD_SAMPLES.forEach((sample) => {
+          const card = document.createElement("article");
+          card.className = "gallery-card";
+          const header = document.createElement("header");
+          header.className = "gallery-card-header";
+          header.innerHTML =
+            "<div><h3>" +
+            sample.title +
+            "</h3><p>" +
+            sample.description +
+            "</p></div><span class='gallery-chip'>" +
+            sample.format +
+            "</span>";
+          card.appendChild(header);
+          card.appendChild(renderBlock(sample));
+          cardGrid.appendChild(card);
+        });
+
+        const templateGrid = document.getElementById("template-grid");
+        TEMPLATE_SAMPLES.forEach((sample) => {
+          const card = document.createElement("article");
+          card.className = "gallery-card";
+          const header = document.createElement("header");
+          header.className = "gallery-card-header";
+          header.innerHTML =
+            "<div><h3>" +
+            sample.title +
+            "</h3><p>" +
+            sample.description +
+            "</p></div><span class='gallery-chip'>" +
+            sample.template +
+            "</span>";
+          card.appendChild(header);
+          card.appendChild(renderTemplate(sample));
+          templateGrid.appendChild(card);
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (window.mermaid) {
+          mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "loose",
+            theme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+          });
+        }
+
+        mountGallery();
+
+        if (window.mermaid && typeof mermaid.run === "function") {
+          try {
+            await mermaid.run({ querySelector: ".mermaid" });
+          } catch (error) {
+            console.warn("Mermaid render failed", error);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

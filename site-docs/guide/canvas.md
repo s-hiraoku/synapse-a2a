@@ -448,6 +448,8 @@ Open `http://localhost:3000` to view the Canvas.
 
 The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
+For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 18 card types plus the 5 built-in templates with hardcoded sample data under `site-docs/assets/`.
+
 The UI uses **SPA hash routing** with four views:
 
 | Route | View | Purpose |
