@@ -145,7 +145,8 @@ class TestJumpToTerminal:
         mock_applescript.return_value = True
         agent_info = {"agent_id": "synapse-claude-8100", "tty_device": "/dev/ttys003"}
 
-        result = jump_to_terminal(agent_info, terminal_app="Ghostty")
+        with patch.dict(os.environ, {}, clear=True):
+            result = jump_to_terminal(agent_info, terminal_app="Ghostty")
 
         assert result is True
         mock_applescript.assert_called_once()
