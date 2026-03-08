@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = ".synapse/canvas.db"
 DEFAULT_CARD_TTL = 3600  # 1 hour
+_TAG_TIP_FILTER = "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = 'tip')"
 
 
 class CanvasStore:
@@ -349,7 +350,7 @@ class CanvasStore:
             try:
                 rows = conn.execute(
                     "SELECT * FROM cards "
-                    "WHERE tags LIKE '%\"tip\"%' "
+                    f"WHERE {_TAG_TIP_FILTER} "
                     "AND (expires_at IS NULL OR expires_at > ?) "
                     "ORDER BY updated_at DESC",
                     (now,),
@@ -364,7 +365,7 @@ class CanvasStore:
             conn = self._get_connection()
             try:
                 cursor = conn.execute(
-                    "DELETE FROM cards WHERE card_id = ? AND tags LIKE '%\"tip\"%'",
+                    f"DELETE FROM cards WHERE card_id = ? AND {_TAG_TIP_FILTER}",
                     (card_id,),
                 )
                 conn.commit()

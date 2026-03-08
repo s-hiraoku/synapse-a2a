@@ -1562,7 +1562,8 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with two views navigated via hash routing:
 
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
-- **`#/dashboard`** (Dashboard view) — Grid layout with filters, live feed, and system panel
+- **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
+- **`#/system`** (System panel) — Dedicated system state view (agents, tasks, file locks, etc.)
 
 ### Post Cards
 

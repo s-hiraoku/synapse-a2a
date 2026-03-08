@@ -100,22 +100,22 @@ class TestCanvasRouting:
     """Tests for SPA routing at GET /."""
 
     def test_root_returns_index_shell_with_main_views(self, client):
-        """GET / should return the SPA shell with canvas and dashboard views."""
+        """GET / should return the SPA shell with canvas and history views."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert "nav-menu" in resp.text
         assert "canvas-view" in resp.text
-        assert "dashboard-view" in resp.text
+        assert "history-view" in resp.text
 
-    def test_root_includes_canvas_and_dashboard_nav_links(self, client):
-        """GET / should include nav links for the canvas and dashboard routes."""
+    def test_root_includes_canvas_and_history_nav_links(self, client):
+        """GET / should include nav links for the canvas and history routes."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert 'data-route="canvas"' in resp.text
-        assert 'data-route="dashboard"' in resp.text
+        assert 'data-route="history"' in resp.text
 
-    def test_root_dashboard_uses_latest_posts_label(self, client):
-        """GET / should label the dashboard feed as Latest Posts."""
+    def test_root_history_uses_latest_posts_label(self, client):
+        """GET / should label the history feed as Latest Posts."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert "Latest Posts" in resp.text

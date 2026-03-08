@@ -242,8 +242,8 @@ Agents don't see the browser. This is the only human-exclusive interface.
 |---|---|
 | View cards | Just open the page (SSE auto-updates) |
 | Canvas view | `#/` — full-viewport latest card |
-| Dashboard view | `#/dashboard` — system panel + live feed + agent messages |
-| Filter | By format type and by agent (Dashboard view only) |
+| History view | `#/history` — system panel + live feed + agent messages |
+| Filter | By format type and by agent (History view only) |
 | Theme toggle | Dark/light switch |
 
 ### HTTP API (programmatic)
@@ -394,27 +394,28 @@ The browser UI uses hash-based SPA routing with two views:
 | Route | View | Description |
 |---|---|---|
 | `#/` | **Canvas view** | Full-viewport projection of the latest card. Designed for immersive content display. |
-| `#/dashboard` | **Dashboard view** | System Panel (top) + Live Feed + Agent Messages (bottom). The traditional overview. |
+| `#/history` | **History view** | Live Feed + Agent Messages. The traditional card overview. |
+| `#/system` | **System view** | Dedicated System Panel showing agents, tasks, file locks, shared memory, worktrees, and recent history. |
 
-Navigation links in the header switch between views. The URL hash updates accordingly and the browser back/forward buttons work as expected.
+Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. The URL hash updates accordingly and the browser back/forward buttons work as expected.
 
 ### Canvas View (`#/`)
 
 The Canvas view displays the most recent card in a full-viewport layout. Key behaviors:
 
-- **Full viewport**: The latest card fills the entire content area below the nav bar.
-- **HTML iframe**: When the latest card is `html` format, the iframe expands to fill the Canvas view content area (no fixed `minHeight`). In Dashboard view, iframes auto-resize to their content height.
+- **Full viewport**: The latest card fills the entire content area below the sidebar.
+- **HTML iframe**: When the latest card is `html` format, the iframe expands to fill the Canvas view content area (no fixed `minHeight`). In History view, iframes auto-resize to their content height.
 - **Code highlighting**: `code` format cards use highlight.js for syntax highlighting.
 - **Auto-update**: When a new card arrives via SSE, the spotlight automatically switches to it.
 
-Format and agent filters are hidden in Canvas view (they apply only to Dashboard view).
+Format and agent filters are hidden in Canvas view (they apply only to History view).
 
-### Dashboard View (`#/dashboard`)
+### History View (`#/history`)
 
-The Dashboard view is divided into three sections: the **System Panel** (top), **Live Feed** (middle), and **Agent Messages** (bottom).
+The History view is divided into three sections: the **System Panel** (top), **Live Feed** (middle), and **Agent Messages** (bottom). Navigation is via a sidebar (fixed on desktop, hamburger drawer on mobile) using Phosphor Icons v2.
 
 ```
-+--[Synapse Canvas]--[Canvas | Dashboard]--[Filter: All | mermaid | ...]--[Agents: All | ...]--+
++--[Synapse Canvas]--[Canvas | History]--[Filter: All | mermaid | ...]--[Agents: All | ...]--+
 |                                                                                               |
 |  [System Panel (Control Panel)]                                                               |
 |  +-----------------------------------------------------------------------------------------+  |
@@ -464,6 +465,10 @@ The System Panel aggregates real-time state via the `/api/system` endpoint:
 
 ### CSS Design System
 The UI adheres to a strict design system for consistency and accessibility:
+- **Glassmorphism**: Glass panels with `backdrop-filter: blur` for depth and visual hierarchy.
+- **Brand color**: Unified to MkDocs Material indigo `#4051b5`, managed centrally via `palette.css`.
+- **Sidebar navigation**: Fixed sidebar on desktop with SVG synapse brand icon; hamburger drawer on mobile.
+- **Icons**: Phosphor Icons v2 used throughout the UI.
 - **Spacing**: 4px base scale using variables `--sp-1` (4px) through `--sp-8` (32px).
 - **Colors**: Semantic tokens including `--color-bg`, `--color-bg-raised`, `--color-bg-inset`, and `--color-accent-subtle`.
 - **Fonts**: Inter for display/headings, system sans-serif for body text, and SF Mono for code.
@@ -485,7 +490,8 @@ synapse/
       index.html             # Main page (Jinja2)
     static/
       canvas.js              # SSE, card rendering, format dispatching, SPA routing
-      canvas.css             # Card grid, badges, theme, animations, Canvas/Dashboard views
+      canvas.css             # Card grid, badges, theme, animations, Canvas/History views
+      palette.css            # Centralized color management (brand color #4051b5)
   commands/
     canvas.py                # CLI: serve, post, mermaid, table, ..., list, clear, delete
 
@@ -722,7 +728,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] All 18 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
-- [x] SPA routing: `#/` (Canvas view — full-viewport latest card) and `#/dashboard` (Dashboard view)
+- [x] SPA routing: `#/` (Canvas view — full-viewport latest card) and `#/history` (History view)
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
 - [x] Dark/light theme toggle
@@ -755,10 +761,10 @@ Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `me
 
 1. **Port**: Default 3000. Configurable via `SYNAPSE_CANVAS_PORT`.
 2. **Persistence**: Cards are **ephemeral** — cleared on server restart. Additionally, cards expire after `CANVAS_CARD_TTL` (default 1 hour). Pinned cards are exempt from TTL expiry.
-3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in Dashboard view, it auto-resizes to content height.
+3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/dashboard`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
+6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.4
+
+- **Added**: Dedicated `#/system` route for the Canvas System panel
+- **Added**: Expanded System view with skills, sessions, workflows, environment, and tips sections
+- **Added**: Signal Room visual refresh for Canvas with glassmorphism accents, iconography, and refined color palette
+- **Fixed**: `Latest Posts` no longer follows dashboard filters; `Agent Messages` filters now hide non-target agent panels
+
 ### v0.11.3
 
 - **Added**: Canvas Templates — 5 built-in templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`) for structured card layouts
@@ -28,11 +35,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.11.0
 
-- **Added**: Canvas SPA routing — `#/` (full-viewport Canvas view) and `#/dashboard` (Dashboard view with system panel, live feed, agent messages)
+- **Added**: Canvas SPA routing — `#/` (full-viewport Canvas view) and `#/history` (History view with system panel, live feed, agent messages)
 - **Added**: Highlight.js syntax highlighting for `code` and `file-preview` card formats, side-by-side diff renderer, HTML iframe full-height in Canvas view
 - **Added**: Chart.js supports all types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Changed**: Content size limit increased from 500KB to 2MB per content block
-- **Changed**: Theme toggle moved to header level (visible in both Canvas and Dashboard views)
+- **Changed**: Theme toggle moved to header level (visible in both Canvas and History views)
 - **Changed**: Canvas performance — debounced rendering, skip-unchanged spotlight, O(n) latest card lookup
 - **Changed**: iframe sandbox reverted to `allow-scripts` only (security fix)
 - **Fixed**: `from_dict` guards non-dict content input
