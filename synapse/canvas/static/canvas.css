@@ -2401,11 +2401,28 @@ body {
   border-top: 1px solid var(--glass-stroke);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .task-item-detail.expanded {
   display: block;
+}
+
+.task-detail-row {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 1px 0;
+}
+
+.task-detail-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.task-detail-label::after {
+  content: ":";
 }
 
 .task-assignee {

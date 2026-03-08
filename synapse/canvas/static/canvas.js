@@ -1990,12 +1990,25 @@
 
         const detail = document.createElement("div");
         detail.className = "task-item-detail";
-        const lines = [];
-        if (item.description) lines.push(item.description);
-        if (item.priority) lines.push("Priority: " + item.priority);
-        if (item.created_by) lines.push("Created by: " + item.created_by);
-        if (item.created_at) lines.push("Created: " + formatTimeShort(item.created_at));
-        detail.textContent = lines.join(" · ");
+        const fields = [
+          ["Description", item.description || "-"],
+          ["Priority", String(item.priority || 3)],
+          ["Assignee", item.assignee || "-"],
+          ["Created by", item.created_by || "-"],
+          ["Created", item.created_at ? formatTimeShort(item.created_at) : "-"],
+        ];
+        for (const [label, value] of fields) {
+          const row = document.createElement("div");
+          row.className = "task-detail-row";
+          const labelEl = document.createElement("span");
+          labelEl.className = "task-detail-label";
+          labelEl.textContent = label;
+          row.appendChild(labelEl);
+          const valueEl = document.createElement("span");
+          valueEl.textContent = value;
+          row.appendChild(valueEl);
+          detail.appendChild(row);
+        }
         card.appendChild(detail);
 
         card.addEventListener("click", (function (d) {
