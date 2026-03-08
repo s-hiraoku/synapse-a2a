@@ -133,7 +133,7 @@ When enabled, the `.synapse/proactive.md` instruction file is injected at startu
 
 Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.
 
-**Views:** Hash-routed SPA with four views — `#/` (Canvas spotlight), `#/dashboard` (operational overview: agents, tasks, alerts, activity, file locks, worktrees, memory, errors), `#/history` (grid + live feed + agent messages), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); view state preserved across SSE reconnects.
+**Views:** Hash-routed SPA with four views — `#/` (Canvas spotlight), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/history` (grid + live feed + agent messages), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); view state preserved across SSE reconnects.
 
 **18 card formats:** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board.
 

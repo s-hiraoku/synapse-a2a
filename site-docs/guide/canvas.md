@@ -453,7 +453,7 @@ The UI uses **SPA hash routing** with four views:
 | Route | View | Purpose |
 |---|---|---|
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
-| `#/dashboard` | **Dashboard** | Operational status overview (agents, tasks, attention alerts, activity feed, file locks, worktrees, shared memory, registry errors) |
+| `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
 | `#/history` | **History** | Card grid with live feed, agent messages, and filters |
 | `#/system` | **System** | Configuration and setup information (tips, saved agents, skills, skill sets, sessions, workflows, environment) |
 
@@ -472,16 +472,16 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 
 The Dashboard view provides a real-time operational status overview of the entire Synapse environment. It is designed for monitoring multi-agent systems at a glance.
 
-**Sections:**
+**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data.
+
+**Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
 - **Tasks**: Pending/in-progress/completed tasks from the task board
-- **Attention Alerts**: Items requiring human attention (failed tasks, registry errors)
-- **Activity Feed**: Chronological stream of system events
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
-- **Shared Memory**: Recent shared memory entries
-- **Registry Errors**: Any agent registry issues
+- **Memory**: Recent shared memory entries
+- **Errors**: Registry errors and agent issues
 
 The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity — no periodic polling.
 

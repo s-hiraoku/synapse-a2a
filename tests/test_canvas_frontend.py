@@ -80,11 +80,8 @@ def test_dashboard_widget_ids_in_html() -> None:
     """Dashboard section should contain expected widget IDs."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     for widget_id in [
-        "dash-status-strip",
         "dash-agents",
-        "dash-attention",
         "dash-tasks",
-        "dash-activity",
         "dash-file-locks",
         "dash-worktrees",
         "dash-memory",
@@ -101,7 +98,7 @@ def test_dashboard_widgets_render_in_vertical_flow() -> None:
     dashboard_section = html[section_start:section_end]
 
     assert dashboard_section.count('class="dash-grid"') == 1
-    assert dashboard_section.count('class="dash-widget"') >= 7
+    assert dashboard_section.count('class="dash-widget"') >= 6
     assert 'class="dash-widget dash-full-width"' not in dashboard_section
 
 
@@ -110,6 +107,18 @@ def test_dashboard_css_classes_exist() -> None:
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
     for cls in [".dash-strip", ".dash-grid", ".dash-widget"]:
         assert cls in css, f"Missing CSS class: {cls}"
+
+
+def test_system_skills_name_cells_allow_wrapping() -> None:
+    """System skills name cells should wrap instead of colliding with descriptions."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".agent-name-cell {")
+    end = css.index("}", start)
+    block = css[start:end]
+
+    assert "white-space: normal;" in block
+    assert "overflow-wrap: anywhere;" in block or "word-break: break-word;" in block
+    assert "white-space: nowrap;" not in block
 
 
 def test_dashboard_layout_is_single_column() -> None:
@@ -129,6 +138,14 @@ def test_dashboard_route_in_js() -> None:
     assert '"dashboard"' in js
     assert "dashboardView" in js or "dashboard-view" in js
     assert "renderDashboard" in js
+
+
+def test_dashboard_agent_widget_uses_agents_label() -> None:
+    """Dashboard agent widget should use the simpler 'Agents' label."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert '"ph-robot", "Agents (" + agents.length + ")"' in js
+    assert '"ph-robot", "Agent Fleet (' not in js
 
 
 def test_load_system_panel_fetches_before_route_specific_rendering() -> None:
@@ -193,15 +210,15 @@ def test_dashboard_task_board_renders_all_status_columns() -> None:
     assert '["pending", "in_progress", "completed", "failed"]' in body
 
 
-def test_dashboard_task_board_shows_status_summaries_only() -> None:
-    """Dashboard task widget should not render the full kanban board."""
+def test_dashboard_task_board_shows_summary_and_detail() -> None:
+    """Dashboard task widget should show summary bar and expandable detail."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
     start = js.index("function renderDashTasks(tasks) {")
-    end = js.index("\n  function renderDashActivity(", start)
+    end = js.index("\n  function renderDashMemory(", start)
     body = js[start:end]
 
     assert "dash-task-bar-row" in body
-    assert "renderSystemTasks(tasks)" not in body
+    assert "renderSystemTasks(tasks)" in body
 
 
 def test_system_panel_polling_remains_enabled_for_dashboard_freshness() -> None:
@@ -236,6 +253,56 @@ def test_system_panel_does_not_render_dashboard_sections() -> None:
         assert call_pattern not in system_body, (
             f"renderSystemPanel should not render '{section_key}' (moved to Dashboard)"
         )
+
+
+def test_dashboard_widgets_use_expandable_detail_pattern() -> None:
+    """Each dashboard widget should use createDashWidget for summary+detail toggle."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "function createDashWidget(" in js
+    assert "_dashExpandState" in js
+    assert "dash-widget-chevron" in js
+
+    # Each renderDash* function should call createDashWidget
+    for fn in [
+        "renderDashAgents",
+        "renderDashTasks",
+        "renderDashMemory",
+        "renderDashFileLocks",
+        "renderDashWorktrees",
+        "renderDashErrors",
+    ]:
+        start = js.index(f"function {fn}(")
+        end = js.index("\n  function ", start + 1)
+        body = js[start:end]
+        assert "createDashWidget(" in body, f"{fn} should use createDashWidget"
+
+
+def test_dashboard_expand_state_persists_across_renders() -> None:
+    """Expand state should be stored in a module-level object, not per-render."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "var _dashExpandState = {};" in js
+
+
+def test_dashboard_detail_sections_reuse_system_renderers() -> None:
+    """Expanded detail sections should reuse renderSystem* functions."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    # Memory detail should use renderSystemMemories
+    start = js.index("function renderDashMemory(")
+    end = js.index("\n  function ", start + 1)
+    body = js[start:end]
+    assert "renderSystemMemories(" in body
+
+
+def test_dashboard_css_has_expand_collapse_styles() -> None:
+    """canvas.css should define styles for the expandable widget pattern."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert ".dash-widget-chevron" in css
+    assert ".dash-widget-detail" in css
+    assert ".dash-widget-detail.expanded" in css
 
 
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:

@@ -1489,6 +1489,8 @@
   // Dashboard renderers
   // ----------------------------------------------------------------
 
+  var _dashExpandState = {};
+
   function createDashHeader(iconClass, titleText) {
     var header = document.createElement("div");
     header.className = "dash-widget-header";
@@ -1499,6 +1501,46 @@
     title.textContent = titleText;
     header.appendChild(title);
     return header;
+  }
+
+  /**
+   * Create a dashboard widget with summary + expandable detail.
+   * @param {string} widgetKey - unique key for expand state persistence
+   * @param {string} iconClass - Phosphor icon class (e.g. "ph-robot")
+   * @param {string} titleText - header title
+   * @param {HTMLElement|null} summaryEl - summary content (always visible)
+   * @param {function} detailBuilder - returns HTMLElement (lazy, called only when expanded)
+   * @returns {DocumentFragment}
+   */
+  function createDashWidget(widgetKey, iconClass, titleText, summaryEl, detailBuilder) {
+    var frag = document.createDocumentFragment();
+    var isExpanded = !!_dashExpandState[widgetKey];
+
+    // Header with chevron
+    var header = createDashHeader(iconClass, titleText);
+    var chevron = document.createElement("i");
+    chevron.className = "ph ph-caret-down dash-widget-chevron" + (isExpanded ? " expanded" : "");
+    header.appendChild(chevron);
+
+    // Detail wrapper — content built lazily on first expand
+    var detail = document.createElement("div");
+    detail.className = "dash-widget-detail" + (isExpanded ? " expanded" : "");
+    if (isExpanded && detailBuilder) detail.appendChild(detailBuilder());
+
+    header.addEventListener("click", function () {
+      _dashExpandState[widgetKey] = !_dashExpandState[widgetKey];
+      chevron.classList.toggle("expanded");
+      detail.classList.toggle("expanded");
+      if (_dashExpandState[widgetKey] && detailBuilder) {
+        detail.innerHTML = "";
+        detail.appendChild(detailBuilder());
+      }
+    });
+
+    frag.appendChild(header);
+    if (summaryEl) frag.appendChild(summaryEl);
+    frag.appendChild(detail);
+    return frag;
   }
 
   function formatElapsed(isoOrUnix) {
@@ -1512,24 +1554,17 @@
   }
 
   function renderDashboard(data) {
-    renderDashStatusStrip(Array.isArray(data.agents) ? data.agents : []);
     renderDashAgents(Array.isArray(data.agents) ? data.agents : []);
-    renderDashAttention(data);
     renderDashTasks(data.tasks || {});
-    renderDashActivity(
-      Array.isArray(data.history) ? data.history : [],
-      [...cards.values()]
-    );
     renderDashFileLocks(Array.isArray(data.file_locks) ? data.file_locks : []);
     renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
     renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
   }
 
-  function renderDashStatusStrip(agents) {
-    var el = document.getElementById("dash-status-strip");
-    if (!el) return;
-    el.innerHTML = "";
+  function buildStatusStrip(agents) {
+    var strip = document.createElement("div");
+    strip.className = "dash-strip";
 
     var counts = {};
     for (var i = 0; i < agents.length; i++) {
@@ -1544,7 +1579,7 @@
       if (si > 0) {
         var sep = document.createElement("div");
         sep.className = "dash-strip-separator";
-        el.appendChild(sep);
+        strip.appendChild(sep);
       }
       var item = document.createElement("div");
       item.className = "dash-strip-item";
@@ -1557,87 +1592,20 @@
       label.className = "dash-strip-label";
       label.textContent = status.toUpperCase();
       item.appendChild(label);
-      el.appendChild(item);
+      strip.appendChild(item);
     }
+    return strip;
   }
 
   function renderDashAgents(agents) {
     var el = document.getElementById("dash-agents");
     if (!el) return;
     el.innerHTML = "";
-    el.appendChild(createDashHeader("ph-robot", "Agent Fleet (" + agents.length + ")"));
-    el.appendChild(renderSystemAgents(agents));
-  }
 
-  function renderDashAttention(data) {
-    var el = document.getElementById("dash-attention");
-    if (!el) return;
-    el.innerHTML = "";
-    el.appendChild(createDashHeader("ph-warning", "Attention Needed"));
+    // Summary: status strip (READY 6 | PROCESSING 0 | ...)
+    var summary = buildStatusStrip(agents);
 
-    var alerts = [];
-    var agents = Array.isArray(data.agents) ? data.agents : [];
-    var tasks = data.tasks || {};
-    var locks = Array.isArray(data.file_locks) ? data.file_locks : [];
-    var errors = Array.isArray(data.registry_errors) ? data.registry_errors : [];
-    var worktrees = Array.isArray(data.worktrees) ? data.worktrees : [];
-
-    // WAITING agents
-    for (var i = 0; i < agents.length; i++) {
-      if ((agents[i].status || "").toLowerCase() === "waiting") {
-        alerts.push({ level: "warning", icon: "ph-hourglass", text: (agents[i].name || agents[i].agent_type) + " is waiting for input" });
-      }
-    }
-
-    // Unassigned pending tasks
-    var pending = tasks.pending || [];
-    for (var j = 0; j < pending.length; j++) {
-      if (!pending[j].assignee) {
-        alerts.push({ level: "info", icon: "ph-clipboard-text", text: "Unassigned: " + (pending[j].subject || pending[j].id) });
-      }
-    }
-
-    // Failed tasks
-    var failed = tasks.failed || [];
-    for (var k = 0; k < failed.length; k++) {
-      alerts.push({ level: "error", icon: "ph-x-circle", text: "Failed: " + (failed[k].subject || failed[k].id) });
-    }
-
-    // File locks
-    if (locks.length > 0) {
-      alerts.push({ level: "info", icon: "ph-lock", text: locks.length + " file lock" + (locks.length !== 1 ? "s" : "") + " active" });
-    }
-
-    // Registry errors
-    for (var m = 0; m < errors.length; m++) {
-      alerts.push({ level: "error", icon: "ph-warning-circle", text: errors[m].source + ": " + errors[m].message });
-    }
-
-    // Worktrees
-    if (worktrees.length > 0) {
-      alerts.push({ level: "info", icon: "ph-git-branch", text: worktrees.length + " worktree" + (worktrees.length !== 1 ? "s" : "") + " active" });
-    }
-
-    if (alerts.length === 0) {
-      el.appendChild(emptyState("All clear — no issues"));
-      return;
-    }
-
-    var list = document.createElement("div");
-    list.className = "dash-alert-list";
-    for (var n = 0; n < alerts.length; n++) {
-      var a = alerts[n];
-      var item = document.createElement("div");
-      item.className = "dash-alert-item alert-" + a.level;
-      var alertIcon = document.createElement("i");
-      alertIcon.className = "ph " + a.icon;
-      item.appendChild(alertIcon);
-      var textEl = document.createElement("span");
-      textEl.textContent = a.text;
-      item.appendChild(textEl);
-      list.appendChild(item);
-    }
-    el.appendChild(list);
+    el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
   }
 
   function renderDashTasks(tasks) {
@@ -1653,13 +1621,14 @@
       counts[statuses[i]] = items.length;
       total += items.length;
     }
-    el.appendChild(createDashHeader("ph-kanban", "Task Board (" + total + ")"));
 
     if (total === 0) {
+      el.appendChild(createDashHeader("ph-kanban", "Task Board (0)"));
       el.appendChild(emptyState("No tasks"));
       return;
     }
 
+    // Summary: bar chart
     var bars = document.createElement("div");
     bars.className = "dash-task-bars";
 
@@ -1695,79 +1664,22 @@
 
       bars.appendChild(row);
     }
-    el.appendChild(bars);
 
-  }
-
-  function renderDashActivity(history, allCards) {
-    var el = document.getElementById("dash-activity");
-    if (!el) return;
-    el.innerHTML = "";
-
-    el.appendChild(createDashHeader("ph-clock-counter-clockwise", "Activity Feed"));
-
-    // Merge history + canvas posts, sort by time desc, take 8
-    var items = [];
-    for (var i = 0; i < history.length; i++) {
-      var h = history[i];
-      items.push({ time: h.timestamp, agent: h.agent_name || "", text: h.input || "", type: "history" });
-    }
-    for (var j = 0; j < allCards.length; j++) {
-      var card = allCards[j];
-      items.push({ time: card.updated_at || card.created_at || "", agent: card.agent_name || card.agent_id || "", text: card.title || "", type: "canvas" });
-    }
-    items.sort(function (a, b) { return (b.time || "").localeCompare(a.time || ""); });
-    items = items.slice(0, 8);
-
-    if (items.length === 0) {
-      el.appendChild(emptyState("No recent activity"));
-      return;
-    }
-
-    var timeline = document.createElement("div");
-    timeline.className = "dash-timeline";
-    for (var k = 0; k < items.length; k++) {
-      var it = items[k];
-      var row = document.createElement("div");
-      row.className = "dash-timeline-item";
-
-      var timeEl = document.createElement("span");
-      timeEl.className = "dash-timeline-time";
-      if (it.time) {
-        var d = new Date(it.time);
-        timeEl.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-      }
-      row.appendChild(timeEl);
-
-      var textEl = document.createElement("span");
-      textEl.className = "dash-timeline-text";
-      if (it.agent) {
-        var agentSpan = document.createElement("span");
-        agentSpan.className = "dash-timeline-agent";
-        agentSpan.textContent = it.agent;
-        textEl.appendChild(agentSpan);
-        textEl.appendChild(document.createTextNode(" " + it.text));
-      } else {
-        textEl.textContent = it.text;
-      }
-      row.appendChild(textEl);
-
-      timeline.appendChild(row);
-    }
-    el.appendChild(timeline);
+    el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + total + ")", bars, function () { return renderSystemTasks(tasks); }));
   }
 
   function renderDashMemory(memories) {
     var el = document.getElementById("dash-memory");
     if (!el) return;
     el.innerHTML = "";
-    el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (" + memories.length + ")"));
 
     if (memories.length === 0) {
+      el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (0)"));
       el.appendChild(emptyState("No shared memories"));
       return;
     }
 
+    // Summary: compact key list
     var list = document.createElement("div");
     list.className = "dash-memory-list";
     var shown = memories.slice(0, 5);
@@ -1793,27 +1705,49 @@
 
       list.appendChild(item);
     }
-    el.appendChild(list);
+
+    // Detail: full memory table
+    el.appendChild(createDashWidget("memory", "ph-brain", "Shared Knowledge (" + memories.length + ")", list, function () { return renderSystemMemories(memories); }));
   }
 
   function renderDashFileLocks(locks) {
     var el = document.getElementById("dash-file-locks");
     if (!el) return;
     el.innerHTML = "";
-    el.appendChild(createDashHeader("ph-lock", "File Locks (" + locks.length + ")"));
-    el.appendChild(renderSystemFileLocks(locks));
+
+    if (locks.length === 0) {
+      el.appendChild(createDashHeader("ph-lock", "File Locks (0)"));
+      el.appendChild(emptyState("No active file locks"));
+      return;
+    }
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.textContent = locks.length + " file" + (locks.length !== 1 ? "s" : "") + " locked";
+
+    el.appendChild(createDashWidget("file-locks", "ph-lock", "File Locks (" + locks.length + ")", summary, function () { return renderSystemFileLocks(locks); }));
   }
 
   function renderDashWorktrees(worktrees) {
     var el = document.getElementById("dash-worktrees");
     if (!el) return;
     el.innerHTML = "";
-    el.appendChild(createDashHeader("ph-git-branch", "Worktrees (" + worktrees.length + ")"));
+
     if (worktrees.length === 0) {
+      el.appendChild(createDashHeader("ph-git-branch", "Worktrees (0)"));
       el.appendChild(emptyState("No active worktrees"));
       return;
     }
-    el.appendChild(renderSystemWorktrees(worktrees));
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    var branches = [];
+    for (var i = 0; i < worktrees.length && i < 3; i++) {
+      branches.push(worktrees[i].branch || worktrees[i].agent_name || worktrees[i].agent_id);
+    }
+    summary.textContent = worktrees.length + " worktree" + (worktrees.length !== 1 ? "s" : "") + " — " + branches.join(", ") + (worktrees.length > 3 ? "…" : "");
+
+    el.appendChild(createDashWidget("worktrees", "ph-git-branch", "Worktrees (" + worktrees.length + ")", summary, function () { return renderSystemWorktrees(worktrees); }));
   }
 
   function renderDashErrors(errors) {
@@ -1825,10 +1759,13 @@
       return;
     }
     el.style.display = "";
-    var header = createDashHeader("ph-warning-circle", "Registry Errors (" + errors.length + ")");
-    header.style.color = "var(--color-danger)";
-    el.appendChild(header);
-    el.appendChild(renderRegistryErrors(errors));
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.style.color = "var(--color-danger)";
+    summary.textContent = errors.length + " error" + (errors.length !== 1 ? "s" : "") + " detected";
+
+    el.appendChild(createDashWidget("errors", "ph-warning-circle", "Registry Errors (" + errors.length + ")", summary, function () { return renderRegistryErrors(errors); }));
   }
 
   // System section key → Phosphor icon class

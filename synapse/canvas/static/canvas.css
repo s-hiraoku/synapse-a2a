@@ -843,11 +843,45 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dash-widget-header:hover {
+  color: var(--color-text);
 }
 
 .dash-widget-header i {
   font-size: var(--text-base);
   opacity: 0.8;
+}
+
+.dash-widget-chevron {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  opacity: 0.5;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.dash-widget-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.dash-widget-summary {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.dash-widget-detail {
+  display: none;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--glass-stroke);
+}
+
+.dash-widget-detail.expanded {
+  display: block;
 }
 
 /* Agent tiles */
@@ -1352,6 +1386,8 @@ body {
 .agent-name-cell {
   font-weight: 600;
   color: var(--color-text) !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .agent-role-cell {

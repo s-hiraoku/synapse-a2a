@@ -398,7 +398,7 @@ The browser UI uses hash-based SPA routing with four views:
 | Route | View | Icon | Description |
 |---|---|---|---|
 | `#/` | **Canvas view** | `ph-projector-screen` | Full-viewport projection of the latest card. Designed for immersive content display. |
-| `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, attention alerts, activity feed, file locks, worktrees, shared memory, and registry errors. |
+| `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, file locks, worktrees, shared memory, and registry errors. Each widget uses a summary+detail expand/collapse pattern. |
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
 | `#/system` | **System view** | `ph-gear` | Configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, and environment. |
 
@@ -460,19 +460,26 @@ Cards are grouped into panels per agent, sorted by the latest activity.
 
 ### Dashboard View (`#/dashboard`)
 
-The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). Widget IDs:
+The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
 
-| Widget ID | Content |
-|---|---|
-| `dash-status-strip` | Summary strip: agent/task/memory counts at a glance |
-| `dash-agents` | Active agents table (status dot, TYPE, NAME, ROLE, STATUS, PORT, DIR, CURRENT) |
-| `dash-attention` | Attention alerts requiring human action |
-| `dash-tasks` | Kanban view of `pending`, `in_progress`, `completed`, and `failed` tasks |
-| `dash-activity` | Recent activity feed |
-| `dash-file-locks` | Active file locks (FILE, AGENT) |
-| `dash-worktrees` | Active worktrees (AGENT, PATH, BRANCH, BASE) |
-| `dash-memory` | Latest shared memory entries (KEY, AUTHOR, TAGS, UPDATED) |
-| `dash-errors` | Registry errors and warnings |
+- **Summary** (always visible): A compact overview rendered in the widget header area (e.g., status strip for agents, bar chart for tasks, counts for others).
+- **Detail** (expandable): Full content revealed by clicking the widget header. Expand/collapse state is persisted across SSE re-renders via `_dashExpandState`.
+
+Widget IDs:
+
+| Widget ID | Summary | Detail |
+|---|---|---|
+| `dash-agents` | Status strip (agent counts by status) | Active agents table (status dot, TYPE, NAME, ROLE, STATUS, PORT, DIR, CURRENT) |
+| `dash-tasks` | Bar chart of task counts by status | Kanban view of `pending`, `in_progress`, `completed`, and `failed` tasks |
+| `dash-file-locks` | Lock count | Active file locks (FILE, AGENT) |
+| `dash-worktrees` | Worktree count | Active worktrees (AGENT, PATH, BRANCH, BASE) |
+| `dash-memory` | Memory entry count | Latest shared memory entries (KEY, AUTHOR, TAGS, UPDATED) |
+| `dash-errors` | Error count | Registry errors and warnings |
+
+**Removed widgets** (previously present):
+- `dash-status-strip` — top-level summary strip; replaced by per-widget summaries (the agent status strip is now embedded in the `dash-agents` widget summary via `buildStatusStrip()`).
+- `dash-attention` — attention alerts widget.
+- `dash-activity` — recent activity feed widget.
 
 ### System View (`#/system`)
 

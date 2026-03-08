@@ -92,6 +92,17 @@ def test_synapse_a2a_skill_shows_cleanup_verification() -> None:
     assert "retry" in text.lower()
 
 
+def test_synapse_a2a_skill_defines_task_board_trigger_conditions() -> None:
+    text = _read("plugins/synapse-a2a/skills/synapse-a2a/SKILL.md")
+    assert "Use the Task Board by default when" in text
+    assert "2+ agents" in text
+    assert "30 minutes" in text
+    assert "3+ files" in text
+    assert "handoff" in text.lower() or "resume" in text.lower()
+    assert "synapse tasks create" in text
+    assert "synapse tasks assign" in text or "synapse tasks claim" in text
+
+
 def test_worker_guide_waits_for_helper_completion_before_kill() -> None:
     text = _read(
         "plugins/synapse-a2a/skills/synapse-manager/references/worker-guide.md"
@@ -123,3 +134,13 @@ def test_sync_targets_exist_for_plugin_skills() -> None:
     for root in (REPO_ROOT / ".agents" / "skills", REPO_ROOT / ".claude" / "skills"):
         for skill_name in ("synapse-a2a", "synapse-manager", "synapse-reinst"):
             assert (root / skill_name / "SKILL.md").exists()
+
+
+def test_synapse_manager_skill_makes_task_board_part_of_default_flow() -> None:
+    text = _read("plugins/synapse-a2a/skills/synapse-manager/SKILL.md")
+    assert "Task board is the default coordination surface" in text
+    assert "Create or refresh task board entries before delegation starts" in text
+    assert "synapse tasks create" in text
+    assert "synapse tasks assign" in text or "synapse tasks claim" in text
+    assert "synapse tasks complete" in text
+    assert "synapse tasks fail" in text
