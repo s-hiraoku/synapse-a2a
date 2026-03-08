@@ -558,25 +558,6 @@ def can_jump() -> bool:
 # ============================================================
 
 
-def _get_tmux_pane_count() -> int | None:
-    """Return the number of panes in the current tmux window.
-
-    Returns None if not inside tmux or if the command fails.
-    """
-    try:
-        result = subprocess.run(
-            ["tmux", "list-panes", "-F", "#{pane_id}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return len(result.stdout.strip().splitlines())
-    except Exception:
-        pass
-    return None
-
-
 @dataclass
 class _TmuxAutoSplit:
     """Result of auto-split analysis for tmux."""
@@ -702,7 +683,7 @@ def _get_ghostty_split_direction(layout: str = "auto") -> str:
         count = 1
     # Update counter for next spawn in same shell session
     os.environ["SYNAPSE_GHOSTTY_PANE_COUNT"] = str(count + 1)
-    return "-h" if count % 2 == 1 else "-v"
+    return "right" if count % 2 == 1 else "down"
 
 
 def _get_zellij_pane_count() -> int | None:

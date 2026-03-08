@@ -70,6 +70,7 @@ pytest tests/test_spawn.py -v               # Spawn CLI + core function
 pytest tests/test_spawn_api.py -v           # Spawn API endpoint
 pytest tests/test_tool_args_passthrough.py -v # tool_args passthrough (spawn/team)
 pytest tests/test_copilot_spawn_fixes.py -v # Copilot spawn parsing + send UX fixes
+pytest tests/test_auto_layout.py -v         # Spawn zone tiling + auto layout tests
 
 # Worktree tests
 pytest tests/test_worktree.py -v              # Worktree core operations (cleanup, change detection, base branch fallback)
@@ -328,7 +329,7 @@ curl -X POST http://localhost:8100/team/start \
   -d '{"agents": ["gemini", "codex"], "tool_args": ["--dangerously-skip-permissions"]}'
 
 # Spawn single agent in new pane (requires tmux/iTerm2/Terminal.app/Ghostty/zellij)
-# Default layout is horizontal (side-by-side panes)
+# Default layout is "auto" (spawn zone tiling — first spawn creates a zone pane, subsequent spawns tile within that zone)
 synapse spawn claude                          # Spawn Claude in a new pane
 synapse spawn steady-builder                  # Spawn by saved Agent ID
 synapse spawn gemini --port 8115              # Spawn with explicit port

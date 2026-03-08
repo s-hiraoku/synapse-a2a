@@ -15,7 +15,11 @@ from dataclasses import dataclass
 from synapse.port_manager import PortManager, is_port_available
 from synapse.registry import AgentRegistry
 from synapse.server import load_profile
-from synapse.terminal_jump import create_panes, detect_terminal_app
+from synapse.terminal_jump import (
+    _get_tmux_spawn_panes,
+    create_panes,
+    detect_terminal_app,
+)
 
 
 def _get_tmux_pane_ids() -> set[str]:
@@ -39,29 +43,6 @@ def _get_new_tmux_pane_id(before: set[str]) -> str | None:
     after = _get_tmux_pane_ids()
     new_panes = after - before
     return new_panes.pop() if new_panes else None
-
-
-def _get_tmux_spawn_panes() -> str:
-    """Read SYNAPSE_SPAWN_PANES from the tmux session environment.
-
-    Uses ``tmux show-environment`` so the value persists across CLI
-    invocations within the same tmux session.
-    """
-    try:
-        result = subprocess.run(
-            ["tmux", "show-environment", "SYNAPSE_SPAWN_PANES"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            # Output format: "SYNAPSE_SPAWN_PANES=value"
-            line = result.stdout.strip()
-            if "=" in line:
-                return line.split("=", 1)[1]
-    except Exception:
-        pass
-    return ""
 
 
 def _set_tmux_spawn_panes(value: str) -> None:

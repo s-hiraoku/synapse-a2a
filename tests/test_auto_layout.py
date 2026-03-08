@@ -459,25 +459,6 @@ class TestSpawnPaneTracking:
 class TestGetPaneCount:
     """Tests for terminal pane count detection helpers."""
 
-    def test_get_tmux_pane_count_parses_output(self) -> None:
-        """Should parse tmux list-panes output to get count."""
-        from synapse.terminal_jump import _get_tmux_pane_count
-
-        with patch("synapse.terminal_jump.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="%0\n%1\n%2\n")
-            count = _get_tmux_pane_count()
-        assert count == 3
-
-    def test_get_tmux_pane_count_returns_none_on_error(self) -> None:
-        """Should return None if tmux command fails."""
-        from synapse.terminal_jump import _get_tmux_pane_count
-
-        with patch(
-            "synapse.terminal_jump.subprocess.run", side_effect=Exception("not in tmux")
-        ):
-            count = _get_tmux_pane_count()
-        assert count is None
-
     def test_get_zellij_pane_count_parses_output(self) -> None:
         """Should parse zellij pane count."""
         from synapse.terminal_jump import _get_zellij_pane_count

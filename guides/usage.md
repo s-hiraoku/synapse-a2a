@@ -672,7 +672,9 @@ synapse spawn steady-builder                  # 保存済みエージェントID
 synapse spawn gemini --port 8115              # ポートを指定して起動
 synapse spawn claude --name Tester --role "テスト担当"  # 名前とロールを指定
 synapse spawn claude --terminal tmux          # 使用するターミナルを指定
-# デフォルトで水平分割（横並び）でペインが作成されます
+# デフォルトで layout="auto"（スポーンゾーンタイリング）でペインが作成されます
+# 最初の spawn でゾーンペインを作成し、以降の spawn はそのゾーン内でタイリング
+# SYNAPSE_SPAWN_PANES 環境変数（tmux セッション環境）でゾーンペイン ID を追跡
 
 # ツール固有の引数を '--' の後に渡す
 synapse spawn claude -- --dangerously-skip-permissions
