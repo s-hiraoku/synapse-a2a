@@ -125,8 +125,10 @@ body {
   gap: var(--sp-2);
 }
 
-.sidebar-header h1 i {
-  font-size: var(--text-xl);
+.sidebar-header h1 .brand-icon {
+  width: 1.3em;
+  height: 1.3em;
+  flex-shrink: 0;
   opacity: 0.9;
 }
 
