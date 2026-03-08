@@ -161,8 +161,10 @@
   }
 
   function renderAll() {
+    const allCards = [...cards.values()];
     const filtered = getFilteredCards();
     const countText = `${filtered.length} card${filtered.length !== 1 ? "s" : ""}`;
+    const agentVal = filterAgent.value;
     cardCount.textContent = countText;
     grid.innerHTML = "";
 
@@ -179,6 +181,7 @@
     // Seed panels from system agents (so empty agents get a panel)
     for (const agent of systemAgents) {
       const label = agent.name || agent.agent_id;
+      if (agentVal && label !== agentVal) continue;
       if (!agentGroups.has(label)) {
         agentGroups.set(label, {
           label,
@@ -203,8 +206,8 @@
       agentGroups.get(label).cards.push(card);
     }
 
-    // Live Feed (latest 3 by time, ignoring pin order)
-    const byTime = [...filtered].sort((a, b) =>
+    // Latest Posts ignores dashboard filters and always shows the newest cards.
+    const byTime = allCards.sort((a, b) =>
       (b.updated_at || "").localeCompare(a.updated_at || "")
     );
     renderLiveFeed(byTime.slice(0, 3));
