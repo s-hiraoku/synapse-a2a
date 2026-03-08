@@ -10,76 +10,92 @@
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="/static/palette.css">
 <link rel="stylesheet" href="/static/canvas.css">
 </head>
 <body>
-<header>
-  <h1>Synapse Canvas</h1>
-  <nav id="nav-menu">
-    <a href="#/" class="nav-link active" data-route="canvas">Canvas</a>
-    <a href="#/dashboard" class="nav-link" data-route="dashboard">Dashboard</a>
-    <a href="#/system" class="nav-link" data-route="system">System</a>
-  </nav>
-  <button id="theme-toggle" title="Toggle light/dark theme">Light</button>
-</header>
-<div id="toast-container"></div>
-
-<!-- Canvas View (main) -->
-<section id="canvas-view">
-  <div id="canvas-spotlight"></div>
-</section>
-
-<!-- Dashboard View -->
-<section id="dashboard-view" class="view-hidden">
-  <div id="dashboard-scroll">
-    <div id="live-feed">
-      <div class="live-feed-header">
-        <span class="live-feed-dot"></span>
-        <span class="live-feed-label">Latest Posts</span>
-      </div>
-      <div id="live-feed-list" class="live-feed-list"></div>
-    </div>
-    <div id="cards-area">
-      <div id="cards-area-header">
-        <h2>Agent Messages</h2>
-        <div id="filter-bar">
-          <select id="filter-type">
-            <option value="">All types</option>
-            <option value="mermaid">mermaid</option>
-            <option value="markdown">markdown</option>
-            <option value="table">table</option>
-            <option value="html">html</option>
-            <option value="json">json</option>
-            <option value="code">code</option>
-            <option value="diff">diff</option>
-            <option value="chart">chart</option>
-            <option value="log">log</option>
-            <option value="status">status</option>
-            <option value="metric">metric</option>
-            <option value="checklist">checklist</option>
-            <option value="timeline">timeline</option>
-            <option value="alert">alert</option>
-            <option value="file-preview">file-preview</option>
-            <option value="trace">trace</option>
-            <option value="task-board">task-board</option>
-            <option value="tip">tip</option>
-          </select>
-          <select id="filter-agent">
-            <option value="">All agents</option>
-          </select>
-          <span id="card-count" style="display:none">0 cards</span>
-        </div>
-      </div>
-      <main id="canvas-grid"></main>
-    </div>
+<!-- Sidebar Navigation -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <h1><i class="ph ph-graph"></i> Synapse Canvas</h1>
   </div>
-</section>
+  <nav id="nav-menu">
+    <a href="#/" class="nav-link active" data-route="canvas"><i class="ph ph-monitor"></i><span>Canvas</span></a>
+    <a href="#/history" class="nav-link" data-route="history"><i class="ph ph-clock-counter-clockwise"></i><span>History</span></a>
+    <a href="#/system" class="nav-link" data-route="system"><i class="ph ph-gear-six"></i><span>System</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <button id="theme-toggle" title="Toggle light/dark theme"><i class="ph ph-sun"></i><span>Light</span></button>
+  </div>
+</aside>
+<div id="sidebar-overlay"></div>
 
-<!-- System View -->
-<section id="system-view" class="view-hidden">
-  <div id="system-panel"></div>
-</section>
+<!-- Main Content -->
+<div id="main-content">
+  <header id="topbar">
+    <button id="sidebar-toggle" title="Toggle menu"><i class="ph ph-list"></i></button>
+    <span id="topbar-title">Canvas</span>
+  </header>
+  <div id="toast-container"></div>
+
+  <!-- Canvas View (main) -->
+  <section id="canvas-view">
+    <div id="canvas-spotlight"></div>
+  </section>
+
+  <!-- Dashboard View -->
+  <section id="history-view" class="view-hidden">
+    <div id="history-scroll">
+      <div id="live-feed">
+        <div class="live-feed-header">
+          <span class="live-feed-dot"></span>
+          <span class="live-feed-label">Latest Posts</span>
+        </div>
+        <div id="live-feed-list" class="live-feed-list"></div>
+      </div>
+      <div id="cards-area">
+        <div id="cards-area-header">
+          <h2><i class="ph ph-chat-centered-text"></i> Agent Messages</h2>
+          <div id="filter-bar">
+            <select id="filter-type">
+              <option value="">All types</option>
+              <option value="mermaid">mermaid</option>
+              <option value="markdown">markdown</option>
+              <option value="table">table</option>
+              <option value="html">html</option>
+              <option value="json">json</option>
+              <option value="code">code</option>
+              <option value="diff">diff</option>
+              <option value="chart">chart</option>
+              <option value="log">log</option>
+              <option value="status">status</option>
+              <option value="metric">metric</option>
+              <option value="checklist">checklist</option>
+              <option value="timeline">timeline</option>
+              <option value="alert">alert</option>
+              <option value="file-preview">file-preview</option>
+              <option value="trace">trace</option>
+              <option value="task-board">task-board</option>
+              <option value="tip">tip</option>
+            </select>
+            <select id="filter-agent">
+              <option value="">All agents</option>
+            </select>
+            <span id="card-count" style="display:none">0 cards</span>
+          </div>
+        </div>
+        <main id="canvas-grid"></main>
+      </div>
+    </div>
+  </section>
+
+  <!-- System View -->
+  <section id="system-view" class="view-hidden">
+    <div id="system-panel"></div>
+  </section>
+</div>
 <script src="/static/canvas.js"></script>
 </body>
 </html>

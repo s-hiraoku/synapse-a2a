@@ -14,9 +14,16 @@
   const liveFeedList = document.getElementById("live-feed-list");
   const canvasView = document.getElementById("canvas-view");
   const canvasSpotlight = document.getElementById("canvas-spotlight");
-  const dashboardView = document.getElementById("dashboard-view");
+  const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
   const navLinks = document.querySelectorAll(".nav-link");
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  const topbarTitle = document.getElementById("topbar-title");
+
+  // Route labels for topbar
+  var ROUTE_LABELS = { canvas: "Canvas", history: "History", system: "System" };
 
   // Current route
   let currentRoute = "canvas";
@@ -168,10 +175,8 @@
     cardCount.textContent = countText;
     grid.innerHTML = "";
 
-    // Sort: pinned first, then by updated_at desc
+    // Sort agent messages by recency only.
     filtered.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
       return (b.updated_at || "").localeCompare(a.updated_at || "");
     });
 
@@ -351,24 +356,51 @@
     return panel;
   }
 
+  // Format type → Phosphor icon class (v2: requires "ph" base class)
+  var FORMAT_ICONS = {
+    mermaid: "ph-tree-structure",
+    markdown: "ph-text-aa",
+    table: "ph-table",
+    html: "ph-code",
+    json: "ph-brackets-curly",
+    code: "ph-terminal",
+    diff: "ph-git-diff",
+    chart: "ph-chart-bar",
+    log: "ph-scroll",
+    status: "ph-pulse",
+    metric: "ph-gauge",
+    checklist: "ph-check-square",
+    timeline: "ph-clock-countdown",
+    alert: "ph-warning",
+    "file-preview": "ph-file-text",
+    trace: "ph-graph",
+    "task-board": "ph-kanban",
+    tip: "ph-lightbulb",
+    image: "ph-image",
+  };
+
   function createCardElement(card) {
     const el = document.createElement("article");
     el.className = "canvas-card";
-    if (card.pinned) el.classList.add("pinned");
     el.dataset.cardId = card.card_id;
+
+    // Detect primary format
+    var content = parseContent(card.content);
+    var blocks = Array.isArray(content) ? content : [content];
+    var primaryFormat = blocks.length > 0 ? blocks[0].format : "";
 
     // Header
     const header = document.createElement("header");
+
+    // Format icon
+    var iconClass = FORMAT_ICONS[primaryFormat] || "ph-article";
+    var fmtIcon = document.createElement("i");
+    fmtIcon.className = "ph " + iconClass + " card-format-icon";
+    header.appendChild(fmtIcon);
+
     const title = document.createElement("h2");
     title.textContent = card.title || "Untitled";
     header.appendChild(title);
-
-    if (card.pinned) {
-      const pin = document.createElement("span");
-      pin.className = "pin-icon";
-      pin.textContent = "\u{1F4CC}";
-      header.appendChild(pin);
-    }
 
     el.appendChild(header);
 
@@ -387,8 +419,6 @@
     }
 
     // Content blocks — delegate to template renderer if applicable
-    const content = parseContent(card.content);
-    const blocks = Array.isArray(content) ? content : [content];
 
     if (card.template && card.template_data) {
       const td =
@@ -1347,6 +1377,8 @@
   // ----------------------------------------------------------------
   async function loadSystemPanel() {
     if (!systemPanel) return;
+    // Skip fetch when system data is not visible (avoids ~10 I/O ops per call)
+    if (currentRoute !== "system" && currentRoute !== "history") return;
     try {
       const resp = await fetch("/api/system");
       if (!resp.ok) return;
@@ -1356,7 +1388,7 @@
       if (currentRoute === "system") {
         renderSystemPanel(data);
       }
-      if (currentRoute === "dashboard") {
+      if (currentRoute === "history") {
         renderAll();
       }
     } catch (e) {
@@ -1526,13 +1558,38 @@
     systemPanel.appendChild(content);
   }
 
+  // System section key → Phosphor icon class
+  var SECTION_ICONS = {
+    agents: "ph-robot",
+    "agent-profiles": "ph-user-circle",
+    tasks: "ph-kanban",
+    "file-locks": "ph-lock",
+    history: "ph-clock-counter-clockwise",
+    memories: "ph-brain",
+    worktrees: "ph-git-branch",
+    skills: "ph-puzzle-piece",
+    "skill-sets": "ph-stack",
+    sessions: "ph-folder-open",
+    workflows: "ph-flow-arrow",
+    environment: "ph-gear",
+    errors: "ph-warning-circle",
+  };
+
   function createSystemSection(key, title, bodyContent) {
     const section = document.createElement("section");
     section.className = "system-section";
 
     const header = document.createElement("div");
     header.className = "system-section-header";
-    header.textContent = title;
+
+    var sectionIcon = SECTION_ICONS[key] || "ph-circle";
+    var iconEl = document.createElement("i");
+    iconEl.className = "ph " + sectionIcon;
+    header.appendChild(iconEl);
+
+    var titleSpan = document.createElement("span");
+    titleSpan.textContent = title;
+    header.appendChild(titleSpan);
 
     const body = document.createElement("div");
     body.className = "system-section-body";
@@ -2302,15 +2359,6 @@
     count.textContent = tips.length + " tips";
     banner.appendChild(count);
 
-    // Consume the displayed tip
-    if (tip.card_id) {
-      fetch("/api/tips/consume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ card_id: tip.card_id }),
-      }).catch(() => {});
-    }
-
     return banner;
   }
 
@@ -2413,10 +2461,16 @@
   // ----------------------------------------------------------------
   // Theme Toggle
   // ----------------------------------------------------------------
+  function setThemeLabel(theme) {
+    var icon = theme === "dark" ? "ph-sun" : "ph-moon";
+    var label = theme === "dark" ? "Light" : "Dark";
+    themeToggle.innerHTML = '<i class="ph ' + icon + '"></i> ' + label;
+  }
+
   function initTheme() {
     const saved = localStorage.getItem("canvas-theme") || "dark";
     document.documentElement.setAttribute("data-theme", saved);
-    themeToggle.textContent = saved === "dark" ? "Light" : "Dark";
+    setThemeLabel(saved);
   }
 
   themeToggle.addEventListener("click", () => {
@@ -2424,7 +2478,7 @@
     const next = current === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("canvas-theme", next);
-    themeToggle.textContent = next === "dark" ? "Light" : "Dark";
+    setThemeLabel(next);
   });
 
   function statusIcon(state) {
@@ -2446,12 +2500,18 @@
     switch (String(status || "").toLowerCase()) {
       case "ready":
       case "success":
+      case "completed":
         return "var(--color-success)";
       case "processing":
       case "running":
+      case "in_progress":
         return "var(--color-accent)";
+      case "waiting":
+      case "pending":
       case "warn":
         return "var(--color-warning)";
+      case "done":
+        return "var(--color-signal)";
       case "error":
       case "failed":
         return "var(--color-danger)";
@@ -2465,10 +2525,28 @@
   // ----------------------------------------------------------------
   function getRoute() {
     const hash = location.hash || "#/";
-    if (hash === "#/dashboard") return "dashboard";
+    if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     return "canvas";
   }
+
+  // Sidebar toggle (mobile)
+  function openSidebar() {
+    sidebar.classList.add("open");
+    sidebarOverlay.classList.add("active");
+  }
+  function closeSidebar() {
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.remove("active");
+  }
+
+  if (sidebarToggle) sidebarToggle.addEventListener("click", openSidebar);
+  if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
+
+  // Close sidebar on nav link click (mobile)
+  navLinks.forEach(function (link) {
+    link.addEventListener("click", closeSidebar);
+  });
 
   function navigate() {
     currentRoute = getRoute();
@@ -2478,9 +2556,15 @@
       link.classList.toggle("active", link.dataset.route === currentRoute);
     });
 
+    // Update topbar title
+    if (topbarTitle) topbarTitle.textContent = ROUTE_LABELS[currentRoute] || "Canvas";
+
+    // Close sidebar on mobile after navigation
+    closeSidebar();
+
     // Hide all views, then show active
     canvasView.classList.add("view-hidden");
-    dashboardView.classList.add("view-hidden");
+    historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
 
     if (currentRoute === "canvas") {
@@ -2492,7 +2576,7 @@
       filterBar.style.display = "none";
       if (_lastSystemData) renderSystemPanel(_lastSystemData);
     } else {
-      dashboardView.classList.remove("view-hidden");
+      historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
       renderAll();
     }

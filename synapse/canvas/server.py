@@ -56,6 +56,141 @@ def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
 
 CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
 
+# TTL cache for slow-changing /api/system sections (skills, sessions, etc.)
+_STATIC_CACHE_TTL = 60  # seconds
+_static_cache: dict[str, Any] = {}
+_static_cache_ts: float = 0.0
+
+# Human-readable descriptions for SYNAPSE_* environment variables
+_ENV_DESCRIPTIONS: dict[str, str] = {
+    "SYNAPSE_HISTORY_ENABLED": "Enable task history persistence",
+    "SYNAPSE_FILE_SAFETY_ENABLED": "Enable file lock coordination for multi-agent editing",
+    "SYNAPSE_FILE_SAFETY_DB_PATH": "Path to file safety SQLite database",
+    "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "Days to retain file safety records",
+    "SYNAPSE_AUTH_ENABLED": "Require API key authentication for A2A endpoints",
+    "SYNAPSE_API_KEYS": "Comma-separated list of valid API keys",
+    "SYNAPSE_ADMIN_KEY": "Admin API key for privileged operations",
+    "SYNAPSE_ALLOW_LOCALHOST": "Allow unauthenticated access from localhost",
+    "SYNAPSE_USE_HTTPS": "Use HTTPS for agent endpoints",
+    "SYNAPSE_WEBHOOK_SECRET": "Shared secret for webhook signature verification",
+    "SYNAPSE_WEBHOOK_TIMEOUT": "Webhook request timeout in seconds",
+    "SYNAPSE_WEBHOOK_MAX_RETRIES": "Maximum webhook delivery retry attempts",
+    "SYNAPSE_LONG_MESSAGE_THRESHOLD": "Character limit before message is stored as file",
+    "SYNAPSE_LONG_MESSAGE_TTL": "File-based message retention in seconds",
+    "SYNAPSE_LONG_MESSAGE_DIR": "Directory for temporary message files",
+    "SYNAPSE_TASK_BOARD_ENABLED": "Enable shared task board for team coordination",
+    "SYNAPSE_TASK_BOARD_DB_PATH": "Path to task board SQLite database",
+    "SYNAPSE_SHARED_MEMORY_ENABLED": "Enable cross-agent shared memory",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": "Path to shared memory SQLite database",
+    "SYNAPSE_LEARNING_MODE_ENABLED": "Enable learning mode instructions for agents",
+    "SYNAPSE_LEARNING_MODE_TRANSLATION": "Enable translation in learning mode",
+    "SYNAPSE_PROACTIVE_MODE_ENABLED": "Enable proactive collaboration mode",
+}
+
+
+def _collect_static_sections() -> dict[str, Any]:
+    """Collect slow-changing system data (skills, sessions, etc.)."""
+    result: dict[str, Any] = {}
+
+    # Skills
+    skills: list[dict[str, Any]] = []
+    try:
+        from synapse.skills import discover_skills
+
+        for sk in discover_skills():
+            skills.append(
+                {
+                    "name": sk.name,
+                    "description": sk.description,
+                    "scope": sk.scope.value
+                    if hasattr(sk.scope, "value")
+                    else str(sk.scope),
+                    "agent_dirs": sk.agent_dirs,
+                }
+            )
+    except Exception:
+        logger.debug("Failed to collect skills", exc_info=True)
+    result["skills"] = skills
+
+    # Skill Sets
+    skill_sets: list[dict[str, Any]] = []
+    try:
+        from synapse.skills import load_skill_sets
+
+        for name, ss in load_skill_sets().items():
+            skill_sets.append(
+                {
+                    "name": name,
+                    "description": ss.description,
+                    "skills": ss.skills,
+                }
+            )
+    except Exception:
+        logger.debug("Failed to collect skill sets", exc_info=True)
+    result["skill_sets"] = skill_sets
+
+    # Sessions
+    sessions: list[dict[str, Any]] = []
+    try:
+        from synapse.session import SessionStore
+
+        sess_store = SessionStore()
+        for s in sess_store.list_sessions():
+            sessions.append(
+                {
+                    "name": s.session_name,
+                    "scope": s.scope,
+                    "agent_count": s.agent_count,
+                    "working_dir": s.working_dir or "",
+                    "created_at": s.created_at or "",
+                }
+            )
+    except Exception:
+        logger.debug("Failed to collect sessions", exc_info=True)
+    result["sessions"] = sessions
+
+    # Workflows
+    workflows: list[dict[str, Any]] = []
+    try:
+        from synapse.workflow import WorkflowStore
+
+        wf_store = WorkflowStore()
+        for wf in wf_store.list_workflows():
+            workflows.append(
+                {
+                    "name": wf.name,
+                    "description": wf.description,
+                    "scope": wf.scope,
+                    "step_count": wf.step_count,
+                }
+            )
+    except Exception:
+        logger.debug("Failed to collect workflows", exc_info=True)
+    result["workflows"] = workflows
+
+    # Environment (SYNAPSE_* env vars)
+    environment: dict[str, dict[str, str]] = {}
+    try:
+        from synapse.settings import DEFAULT_SETTINGS
+
+        default_env = DEFAULT_SETTINGS.get("env", {})
+        for key in sorted(default_env.keys()):
+            value = os.environ.get(key, "")
+            default_val = default_env.get(key, "")
+            environment[key] = {
+                "value": value
+                if value
+                else f"(default: {default_val})"
+                if default_val
+                else "(not set)",
+                "description": _ENV_DESCRIPTIONS.get(key, ""),
+            }
+    except Exception:
+        logger.debug("Failed to collect environment", exc_info=True)
+    result["environment"] = environment
+
+    return result
+
 
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
@@ -94,6 +229,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
     template_path = Path(__file__).parent / "templates" / "index.html"
     if template_path.exists():
         _index_html = template_path.read_text(encoding="utf-8")
+        _index_html = _index_html.replace(
+            "/static/palette.css", f"/static/palette.css?v={_cache_version}"
+        )
         _index_html = _index_html.replace(
             "/static/canvas.css", f"/static/canvas.css?v={_cache_version}"
         )
@@ -308,125 +446,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 except OSError:
                     continue
 
-        # Skills
-        skills: list[dict[str, Any]] = []
-        try:
-            from synapse.skills import discover_skills
+        # Slow-changing sections: use TTL cache to avoid repeated I/O
+        global _static_cache, _static_cache_ts  # noqa: PLW0603
+        now_mono = time.monotonic()
+        if now_mono - _static_cache_ts > _STATIC_CACHE_TTL or not _static_cache:
+            _static_cache = _collect_static_sections()
+            _static_cache_ts = now_mono
 
-            for sk in discover_skills(
-                project_dir=Path.cwd(),
-                user_dir=Path.home(),
-                synapse_dir=Path.home() / ".synapse" / "skills",
-            ):
-                skills.append(
-                    {
-                        "name": sk.name,
-                        "description": sk.description,
-                        "scope": sk.scope.value
-                        if hasattr(sk.scope, "value")
-                        else str(sk.scope),
-                        "agent_dirs": sk.agent_dirs,
-                    }
-                )
-        except Exception:
-            pass
-
-        # Skill Sets
-        skill_sets: list[dict[str, Any]] = []
-        try:
-            from synapse.skills import load_skill_sets
-
-            for name, ss in load_skill_sets().items():
-                skill_sets.append(
-                    {
-                        "name": name,
-                        "description": ss.description,
-                        "skills": ss.skills,
-                    }
-                )
-        except Exception:
-            pass
-
-        # Sessions
-        sessions: list[dict[str, Any]] = []
-        try:
-            from synapse.session import SessionStore
-
-            sess_store = SessionStore()
-            for s in sess_store.list_sessions():
-                sessions.append(
-                    {
-                        "name": s.session_name,
-                        "scope": s.scope,
-                        "agent_count": s.agent_count,
-                        "working_dir": s.working_dir or "",
-                        "created_at": s.created_at or "",
-                    }
-                )
-        except Exception:
-            pass
-
-        # Workflows
-        workflows: list[dict[str, Any]] = []
-        try:
-            from synapse.workflow import WorkflowStore
-
-            wf_store = WorkflowStore()
-            for wf in wf_store.list_workflows():
-                workflows.append(
-                    {
-                        "name": wf.name,
-                        "description": wf.description,
-                        "scope": wf.scope,
-                        "step_count": wf.step_count,
-                    }
-                )
-        except Exception:
-            pass
-
-        # Environment (SYNAPSE_* env vars)
-        _env_descriptions: dict[str, str] = {
-            "SYNAPSE_HISTORY_ENABLED": "Enable task history persistence",
-            "SYNAPSE_FILE_SAFETY_ENABLED": "Enable file lock coordination for multi-agent editing",
-            "SYNAPSE_FILE_SAFETY_DB_PATH": "Path to file safety SQLite database",
-            "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "Days to retain file safety records",
-            "SYNAPSE_AUTH_ENABLED": "Require API key authentication for A2A endpoints",
-            "SYNAPSE_API_KEYS": "Comma-separated list of valid API keys",
-            "SYNAPSE_ADMIN_KEY": "Admin API key for privileged operations",
-            "SYNAPSE_ALLOW_LOCALHOST": "Allow unauthenticated access from localhost",
-            "SYNAPSE_USE_HTTPS": "Use HTTPS for agent endpoints",
-            "SYNAPSE_WEBHOOK_SECRET": "Shared secret for webhook signature verification",
-            "SYNAPSE_WEBHOOK_TIMEOUT": "Webhook request timeout in seconds",
-            "SYNAPSE_WEBHOOK_MAX_RETRIES": "Maximum webhook delivery retry attempts",
-            "SYNAPSE_LONG_MESSAGE_THRESHOLD": "Character limit before message is stored as file",
-            "SYNAPSE_LONG_MESSAGE_TTL": "File-based message retention in seconds",
-            "SYNAPSE_LONG_MESSAGE_DIR": "Directory for temporary message files",
-            "SYNAPSE_TASK_BOARD_ENABLED": "Enable shared task board for team coordination",
-            "SYNAPSE_TASK_BOARD_DB_PATH": "Path to task board SQLite database",
-            "SYNAPSE_SHARED_MEMORY_ENABLED": "Enable cross-agent shared memory",
-            "SYNAPSE_SHARED_MEMORY_DB_PATH": "Path to shared memory SQLite database",
-            "SYNAPSE_LEARNING_MODE_ENABLED": "Enable learning mode instructions for agents",
-            "SYNAPSE_LEARNING_MODE_TRANSLATION": "Enable translation in learning mode",
-            "SYNAPSE_PROACTIVE_MODE_ENABLED": "Enable proactive collaboration mode",
-        }
-        environment: dict[str, dict[str, str]] = {}
-        try:
-            from synapse.settings import DEFAULT_SETTINGS
-
-            default_env = DEFAULT_SETTINGS.get("env", {})
-            for key in sorted(default_env.keys()):
-                value = os.environ.get(key, "")
-                default_val = default_env.get(key, "")
-                environment[key] = {
-                    "value": value
-                    if value
-                    else f"(default: {default_val})"
-                    if default_val
-                    else "(not set)",
-                    "description": _env_descriptions.get(key, ""),
-                }
-        except Exception:
-            pass
+        skills = _static_cache.get("skills", [])
+        skill_sets = _static_cache.get("skill_sets", [])
+        sessions = _static_cache.get("sessions", [])
+        workflows = _static_cache.get("workflows", [])
+        environment = _static_cache.get("environment", {})
 
         # Tips (from Canvas cards tagged "tip")
         tips: list[dict[str, str]] = []
@@ -443,7 +474,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 if tip_text:
                     tips.append({"card_id": tc["card_id"], "text": tip_text})
         except Exception:
-            pass
+            logger.debug("Failed to collect tips", exc_info=True)
 
         return {
             "agents": agents,
