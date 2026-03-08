@@ -496,6 +496,7 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
+**Note**: `--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
@@ -1692,6 +1693,7 @@ flowchart LR
 | GET | `/tasks` | Task 一覧 |
 | POST | `/tasks/{id}/cancel` | Task キャンセル |
 | POST | `/tasks/send-priority` | Priority 付きメッセージ送信（Synapse 拡張） |
+| POST | `/history/update` | sender 側 history ステータスを best-effort で更新（完了コールバック、Synapse 拡張） |
 | GET | `/reply-stack/list` | 返信可能な sender 一覧取得 |
 | GET | `/reply-stack/get` | 返信先 sender 情報取得（`?sender_id=` で指定可） |
 | GET | `/reply-stack/pop` | 返信先 sender 情報取得＋削除（`?sender_id=` で指定可） |
@@ -1843,6 +1845,56 @@ curl -X POST "http://localhost:8100/tasks/send-priority?priority=5" \
   -H "Content-Type: application/json" \
   -d '{"message": {"role": "user", "parts": [{"type": "text", "text": "処理を止めて"}]}}'
 ```
+
+---
+
+### 2.2.2 POST /history/update
+
+`--silent` 送信時の完了コールバック用エンドポイントです（Synapse 拡張）。受信側エージェントがタスクを完了すると、sender 側の history ステータスを best-effort で更新します。
+
+**リクエスト**:
+
+```http
+POST /history/update HTTP/1.1
+Host: localhost:8100
+Content-Type: application/json
+
+{
+  "task_id": "uuid-task-id",
+  "status": "completed",
+  "output_summary": "タスクの出力サマリー（省略可）"
+}
+```
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `task_id` | string | Yes | 更新対象のタスク ID |
+| `status` | string | Yes | 新しいステータス（`completed` / `failed` / `canceled`） |
+| `output_summary` | string | No | タスク出力のサマリー |
+
+**レスポンス**:
+
+```json
+{
+  "updated": true,
+  "task_id": "uuid-task-id",
+  "status": "completed"
+}
+```
+
+**エラーレスポンス**:
+
+| ステータスコード | 説明 |
+|----------------|------|
+| 200 | 更新成功 |
+| 404 | 指定された task_id が history に存在しない |
+
+**動作の流れ**:
+
+1. sender が `synapse send --silent` でメッセージを送信
+2. receiver がタスクを処理し、完了（`completed` / `failed` / `canceled`）に遷移
+3. receiver が sender の `/history/update` に POST して、sender 側 history のステータスを更新
+4. 通知不達時は sender 側 history は `sent` のまま（best-effort）
 
 ---
 

@@ -141,6 +141,26 @@ SYNAPSE_HISTORY_ENABLED=false synapse claude
 SYNAPSE_HISTORY_ENABLED=true
 ```
 
+## Completion Callback (`--silent`)
+
+When you send a message with `--silent`, the sender's history initially records the task as `sent`. Once the receiver finishes processing, a best-effort callback updates the sender-side history:
+
+```
+sent  →  completed / failed / canceled
+```
+
+**How it works:**
+
+1. Sender dispatches a fire-and-forget message; history records status as `sent`
+2. Receiver processes the task and reaches a terminal state (`completed`, `failed`, or `canceled`)
+3. Receiver sends `POST /history/update` to the sender (UDS first, HTTP fallback)
+4. Sender's history record is updated to the final status
+
+**Best-effort delivery:** If the sender is offline or unreachable when the callback fires, the history record stays as `sent`. No retries are attempted.
+
+!!! tip
+    Use `synapse history list` to check whether delegated tasks have been updated. Records still showing `sent` may indicate the callback was not delivered.
+
 ## Monitoring Delegated Tasks
 
 When orchestrating multiple agents, use history to track progress:

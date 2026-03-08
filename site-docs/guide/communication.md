@@ -27,6 +27,9 @@ synapse send <target> "<message>" \
 synapse send codex "Refactor the auth module" --silent
 ```
 
+!!! info "Completion Callback"
+    Even in `--silent` mode, sender-side history is updated when the receiver completes the task. The receiver sends a best-effort callback (`POST /history/update`) to transition the sender's history record from `sent` to `completed`, `failed`, or `canceled`. If the callback cannot be delivered, the history record remains `sent`.
+
 ### With Priority
 
 ```bash

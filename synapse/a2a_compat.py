@@ -659,28 +659,33 @@ async def _notify_sender_completion(
         "output_summary": output_summary,
     }
 
+    # Try UDS first, fall through to HTTP on failure
     if sender_uds_path and os.path.exists(sender_uds_path):
         try:
             transport = httpx.AsyncHTTPTransport(uds=sender_uds_path)
             async with httpx.AsyncClient(transport=transport, timeout=10.0) as client:
-                response = await client.post(
+                resp = await client.post(
                     "http://localhost/history/update", json=payload
                 )
-                response.raise_for_status()
+                resp.raise_for_status()
                 logger.info(
-                    "Completion callback sent via UDS for task %s", callback_task_id[:8]
+                    "Completion callback sent via UDS for task %s",
+                    callback_task_id[:8],
                 )
                 return True
         except httpx.HTTPError as e:
             logger.warning(
-                "UDS completion callback failed for %s: %s", callback_task_id, e
+                "UDS completion callback failed for %s, falling back to HTTP: %s",
+                callback_task_id[:8],
+                e,
             )
 
+    # HTTP fallback
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             url = f"{sender_endpoint}/history/update"
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
             logger.info(
                 "Completion callback sent to %s for task %s",
                 sender_endpoint,
@@ -693,17 +698,15 @@ async def _notify_sender_completion(
             sender_endpoint,
             e.response.status_code,
         )
-        return False
     except httpx.RequestError as e:
         logger.warning(
             "Failed to send completion callback to %s: %s", sender_endpoint, e
         )
-        return False
     except Exception as e:
         logger.error(
             "Unexpected completion callback error to %s: %s", sender_endpoint, e
         )
-        return False
+    return False
 
 
 # ============================================================

@@ -407,7 +407,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
   - 5: Critical/emergency (sends SIGINT first)
 - `--wait`: Synchronous blocking - wait for receiver to reply with `synapse reply`
 - `--notify`: Async notification - get notified when task completes (default)
-- `--silent`: Fire and forget - no reply or notification needed
+- `--silent`: Fire and forget - no reply or PTY notification needed. The receiver sends a best-effort completion callback (`POST /history/update`) to update the sender's history when the task finishes.
 - `--callback`: Shell command to run on sender after task completion (requires `--silent`)
 - `--message-file`: Read message from file (use `-` for stdin)
 - `--stdin`: Read message from stdin
@@ -431,6 +431,8 @@ Analyze the message content and determine if you need immediate results:
 | Task with result expected | `--notify` | "Run tests and report the results" |
 | Delegated task (fire-and-forget) | `--silent` | "Fix this bug and commit" |
 | Notification | `--silent` | "FYI: Build completed" |
+
+**Completion Callback:** With `--silent`, the receiver sends a best-effort callback to the sender when the task completes or fails. This updates the sender's history from `sent` to the final status with an output summary. The callback is fire-and-forget; failures are logged but do not block the receiver.
 
 **Examples:**
 ```bash

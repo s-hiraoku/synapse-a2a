@@ -137,7 +137,7 @@ Choose based on whether you need the result:
 |------|------|----------|
 | **Wait** | `--wait` | You need the answer before continuing (questions, reviews) |
 | **Notify** | `--notify` (default) | Async — you'll be notified on completion |
-| **Silent** | `--silent` | Fire-and-forget delegation (no response needed) |
+| **Silent** | `--silent` | Fire-and-forget delegation (no response needed; sender history still updates best-effort on completion) |
 
 ## Worker Agent Guide
 

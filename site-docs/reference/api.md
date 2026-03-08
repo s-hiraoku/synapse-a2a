@@ -227,6 +227,46 @@ curl -X POST http://localhost:8100/tasks/create \
 }
 ```
 
+## History Update (Completion Callback)
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| POST | `/history/update` | Update sender-side history status (completion callback) |
+
+Used by the receiver to notify the sender that a `--silent` task has reached a terminal state. The sender's history record is updated from `sent` to the new status.
+
+### Request
+
+```bash
+curl -X POST http://localhost:8100/history/update \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "abc123-...",
+    "status": "completed",
+    "output_summary": "Refactoring complete. 3 files changed."
+  }'
+```
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `task_id` | string | Yes | Task ID to update in sender's history |
+| `status` | string | Yes | New status: `completed`, `failed`, or `canceled` |
+| `output_summary` | string | No | Optional output summary text |
+
+### Response
+
+**200 OK:**
+
+```json
+{
+  "updated": true,
+  "task_id": "abc123-...",
+  "status": "completed"
+}
+```
+
+**404 Not Found** — returned if `task_id` does not exist in the sender's history.
+
 ### GET /status
 
 Returns the current agent status and a tail of recent PTY output (last 2000 characters).

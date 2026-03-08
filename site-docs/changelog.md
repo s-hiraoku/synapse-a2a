@@ -6,6 +6,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.11.1
 
+- **Added**: Completion callback for `--silent` sends — sender-side history is updated (`sent` -> `completed`/`failed`/`canceled`) via best-effort callback when the receiver finishes processing
+- **Added**: `POST /history/update` API endpoint for receiver-to-sender history status notification
+- **Added**: `HistoryManager.update_observation_status()` for atomic history record updates with metadata merge
 - **Added**: Proactive Mode — `SYNAPSE_PROACTIVE_MODE_ENABLED=true` injects mandatory checklist for using all Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast)
 - **Added**: New proactive mode user guide and specification document
 
