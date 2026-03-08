@@ -1559,11 +1559,12 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 
 ## Canvas Board
 
-Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with two views navigated via hash routing:
+Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with four views navigated via hash routing:
 
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
+- **`#/dashboard`** (Dashboard view) — Operational overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
 - **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
-- **`#/system`** (System panel) — Dedicated system state view (agents, tasks, file locks, etc.)
+- **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
 
 ### Post Cards
 

@@ -1,5 +1,5 @@
 /* Synapse A2A - Custom Styles */
-@import url("palette.css");
+@import "palette.css";
 
 /* Hero section on home page */
 .md-typeset .hero {

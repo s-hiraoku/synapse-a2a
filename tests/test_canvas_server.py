@@ -128,6 +128,93 @@ class TestSystemPanelRegistryErrors:
         assert "user-skill" in names
         assert "central-skill" in names
 
+    def test_system_panel_cache_is_scoped_per_app(self, tmp_path, monkeypatch):
+        """Static system cache should not leak across separate app instances."""
+        from synapse.canvas import server as canvas_server
+
+        static_responses = iter(
+            [
+                {"skills": [{"name": "one"}]},
+                {"skills": [{"name": "two"}]},
+            ]
+        )
+
+        monkeypatch.setattr(
+            canvas_server,
+            "_collect_static_sections",
+            lambda: next(static_responses),
+        )
+
+        app_one = canvas_server.create_app(db_path=str(tmp_path / "one.db"))
+        app_two = canvas_server.create_app(db_path=str(tmp_path / "two.db"))
+
+        first = TestClient(app_one).get("/api/system")
+        second = TestClient(app_two).get("/api/system")
+        again = TestClient(app_one).get("/api/system")
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert again.status_code == 200
+        assert first.json()["skills"][0]["name"] == "one"
+        assert second.json()["skills"][0]["name"] == "two"
+        assert again.json()["skills"][0]["name"] == "one"
+
+    def test_system_panel_tip_cards_extract_body_from_json_content(self, client):
+        """Tips should surface the block body text instead of raw JSON strings."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "agent_id": "synapse-codex-8120",
+                "agent_name": "Codex",
+                "title": "Tip of the day",
+                "tags": ["tip"],
+                "content": {"format": "markdown", "body": "Use test-first."},
+            },
+        )
+        assert resp.status_code == 201
+
+        system_resp = client.get("/api/system")
+
+        assert system_resp.status_code == 200
+        tips = system_resp.json()["tips"]
+        assert {"card_id": resp.json()["card_id"], "text": "Use test-first."} in tips
+
+    def test_system_panel_reads_tasks_from_board_tasks_table(self, client):
+        """System panel should surface pending tasks from the task board schema."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject="Dashboard task board check",
+            description="Verify dashboard task summary rendering.",
+            created_by="synapse-codex-8120",
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        pending = resp.json()["tasks"]["pending"]
+        assert any(item["id"] == task_id for item in pending)
+
+    def test_system_panel_groups_failed_tasks_from_board_tasks(self, client):
+        """System panel should surface failed tasks from the task board schema."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject="Broken task",
+            description="Fail me",
+            created_by="synapse-codex-8120",
+        )
+        assert board.claim_task(task_id, "synapse-codex-8120")
+        assert board.fail_task(task_id, "synapse-codex-8120", "test failure")
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        failed = resp.json()["tasks"]["failed"]
+        assert any(item["id"] == task_id for item in failed)
+
 
 # ============================================================
 # TestCanvasRouting
@@ -138,19 +225,22 @@ class TestCanvasRouting:
     """Tests for SPA routing at GET /."""
 
     def test_root_returns_index_shell_with_main_views(self, client):
-        """GET / should return the SPA shell with canvas and history views."""
+        """GET / should return the SPA shell with canvas, dashboard, and history views."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert "nav-menu" in resp.text
         assert "canvas-view" in resp.text
+        assert "dashboard-view" in resp.text
         assert "history-view" in resp.text
 
     def test_root_includes_canvas_and_history_nav_links(self, client):
-        """GET / should include nav links for the canvas and history routes."""
+        """GET / should include nav links for the canvas, dashboard, history, and system routes."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert 'data-route="canvas"' in resp.text
+        assert 'data-route="dashboard"' in resp.text
         assert 'data-route="history"' in resp.text
+        assert 'data-route="system"' in resp.text
 
     def test_root_history_uses_latest_posts_label(self, client):
         """GET / should label the history feed as Latest Posts."""
@@ -163,6 +253,7 @@ class TestCanvasRouting:
         """GET / should not render the filter bar inside the global header."""
         resp = client.get("/")
         assert resp.status_code == 200
+        assert "</header>" in resp.text
         header_block = resp.text.split("</header>", 1)[0]
         assert 'id="filter-bar"' not in header_block
 
@@ -171,10 +262,13 @@ class TestCanvasRouting:
         resp = client.get("/")
         assert resp.status_code == 200
         assert '<div id="cards-area-header">' in resp.text
-        assert resp.text.index('<div id="live-feed">') < resp.text.index(
+        assert '<div id="live-feed">' in resp.text
+        assert '<div id="filter-bar">' in resp.text
+        assert "Agent Messages" in resp.text
+        assert resp.text.find('<div id="live-feed">') < resp.text.find(
             '<div id="filter-bar">'
         )
-        assert resp.text.index("Agent Messages") < resp.text.index(
+        assert resp.text.find("Agent Messages") < resp.text.find(
             '<div id="filter-bar">'
         )
 
@@ -802,13 +896,14 @@ class TestSystemPanel:
         assert isinstance(data["tasks"], dict)
 
     def test_system_tasks_has_columns(self, client):
-        """Tasks in system panel should have status groups."""
+        """Tasks in system panel should have status groups including failed."""
         resp = client.get("/api/system")
         data = resp.json()
         tasks = data["tasks"]
         assert "pending" in tasks
         assert "in_progress" in tasks
         assert "completed" in tasks
+        assert "failed" in tasks
 
 
 # ============================================================

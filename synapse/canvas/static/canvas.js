@@ -14,6 +14,7 @@
   const liveFeedList = document.getElementById("live-feed-list");
   const canvasView = document.getElementById("canvas-view");
   const canvasSpotlight = document.getElementById("canvas-spotlight");
+  const dashboardView = document.getElementById("dashboard-view");
   const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
   const navLinks = document.querySelectorAll(".nav-link");
@@ -23,7 +24,7 @@
   const topbarTitle = document.getElementById("topbar-title");
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", history: "History", system: "System" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
 
   // Current route
   let currentRoute = "canvas";
@@ -159,7 +160,7 @@
     _renderRAF = requestAnimationFrame(() => {
       if (currentRoute === "canvas") {
         renderSpotlight();
-      } else if (currentRoute === "system") {
+      } else if (currentRoute === "system" || currentRoute === "dashboard") {
         // rendered by loadSystemPanel; no-op here
       } else {
         renderAll();
@@ -173,6 +174,7 @@
     const countText = `${filtered.length} card${filtered.length !== 1 ? "s" : ""}`;
     const agentVal = filterAgent.value;
     cardCount.textContent = countText;
+    cardCount.style.display = "";
     grid.innerHTML = "";
 
     // Sort agent messages by recency only.
@@ -1377,8 +1379,6 @@
   // ----------------------------------------------------------------
   async function loadSystemPanel() {
     if (!systemPanel) return;
-    // Skip fetch when system data is not visible (avoids ~10 I/O ops per call)
-    if (currentRoute !== "system" && currentRoute !== "history") return;
     try {
       const resp = await fetch("/api/system");
       if (!resp.ok) return;
@@ -1387,6 +1387,9 @@
       _lastSystemData = data;
       if (currentRoute === "system") {
         renderSystemPanel(data);
+      }
+      if (currentRoute === "dashboard") {
+        renderDashboard(data);
       }
       if (currentRoute === "history") {
         renderAll();
@@ -1400,14 +1403,7 @@
     if (!systemPanel) return;
     systemPanel.innerHTML = "";
 
-    const agentCount = Array.isArray(data.agents) ? data.agents.length : 0;
-    const taskCount = Object.values(data.tasks || {}).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
-    const lockCount = Array.isArray(data.file_locks) ? data.file_locks.length : 0;
-    const memoryCount = Array.isArray(data.memories) ? data.memories.length : 0;
-    const worktreeCount = Array.isArray(data.worktrees) ? data.worktrees.length : 0;
-    const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
-    const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
     const skillCount = Array.isArray(data.skills) ? data.skills.length : 0;
     const skillSetCount = Array.isArray(data.skill_sets) ? data.skill_sets.length : 0;
     const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : 0;
@@ -1422,25 +1418,7 @@
       content.appendChild(renderSystemTips(data.tips));
     }
 
-    // ── Errors (if any) ──
-    if (errorCount > 0) {
-      content.appendChild(
-        createSystemSection(
-          "errors",
-          "Registry Errors (" + errorCount + ")",
-          renderRegistryErrors(data.registry_errors)
-        )
-      );
-    }
-
-    // ── Agents (full-width, wide tables) ──
-    content.appendChild(
-      createSystemSection(
-        "agents",
-        "Agents (" + agentCount + ")",
-        renderSystemAgents(Array.isArray(data.agents) ? data.agents : [])
-      )
-    );
+    // ── Saved Agent Profiles ──
     if (profileCount > 0) {
       content.appendChild(
         createSystemSection(
@@ -1450,57 +1428,6 @@
         )
       );
     }
-
-    // ── Tasks (full-width) ──
-    content.appendChild(
-      createSystemSection(
-        "tasks",
-        "Tasks (" + taskCount + ")",
-        renderSystemTasks(data.tasks || {})
-      )
-    );
-
-    // ── Work group (file locks, history) ──
-    const workGroup = document.createElement("div");
-    workGroup.className = "system-group";
-
-    workGroup.appendChild(
-      createSystemSection(
-        "file-locks",
-        "File Locks (" + lockCount + ")",
-        renderSystemFileLocks(Array.isArray(data.file_locks) ? data.file_locks : [])
-      )
-    );
-    workGroup.appendChild(
-      createSystemSection(
-        "history",
-        "Recent History (" + historyCount + ")",
-        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
-      )
-    );
-    content.appendChild(workGroup);
-
-    // ── Knowledge group (memory, worktrees) ──
-    const knowledgeGroup = document.createElement("div");
-    knowledgeGroup.className = "system-group";
-
-    knowledgeGroup.appendChild(
-      createSystemSection(
-        "memories",
-        "Shared Memory (" + memoryCount + ")",
-        renderSystemMemories(Array.isArray(data.memories) ? data.memories : [])
-      )
-    );
-    if (worktreeCount > 0) {
-      knowledgeGroup.appendChild(
-        createSystemSection(
-          "worktrees",
-          "Worktrees (" + worktreeCount + ")",
-          renderSystemWorktrees(data.worktrees)
-        )
-      );
-    }
-    content.appendChild(knowledgeGroup);
 
     // ── Skills (full-width, wide tables) ──
     content.appendChild(
@@ -1556,6 +1483,289 @@
     }
 
     systemPanel.appendChild(content);
+  }
+
+  // ----------------------------------------------------------------
+  // Dashboard renderers
+  // ----------------------------------------------------------------
+
+  var _dashExpandState = {};
+
+  function createDashHeader(iconClass, titleText) {
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph " + iconClass;
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = titleText;
+    header.appendChild(title);
+    return header;
+  }
+
+  /**
+   * Create a dashboard widget with summary + expandable detail.
+   * @param {string} widgetKey - unique key for expand state persistence
+   * @param {string} iconClass - Phosphor icon class (e.g. "ph-robot")
+   * @param {string} titleText - header title
+   * @param {HTMLElement|null} summaryEl - summary content (always visible)
+   * @param {function} detailBuilder - returns HTMLElement (lazy, called only when expanded)
+   * @returns {DocumentFragment}
+   */
+  function createDashWidget(widgetKey, iconClass, titleText, summaryEl, detailBuilder) {
+    var frag = document.createDocumentFragment();
+    var isExpanded = !!_dashExpandState[widgetKey];
+
+    // Header with chevron
+    var header = createDashHeader(iconClass, titleText);
+    var chevron = document.createElement("i");
+    chevron.className = "ph ph-caret-down dash-widget-chevron" + (isExpanded ? " expanded" : "");
+    header.appendChild(chevron);
+
+    // Detail wrapper — content built lazily on first expand
+    var detail = document.createElement("div");
+    detail.className = "dash-widget-detail" + (isExpanded ? " expanded" : "");
+    if (isExpanded && detailBuilder) detail.appendChild(detailBuilder());
+
+    header.addEventListener("click", function () {
+      _dashExpandState[widgetKey] = !_dashExpandState[widgetKey];
+      chevron.classList.toggle("expanded");
+      detail.classList.toggle("expanded");
+      if (_dashExpandState[widgetKey] && detailBuilder) {
+        detail.innerHTML = "";
+        detail.appendChild(detailBuilder());
+      }
+    });
+
+    frag.appendChild(header);
+    if (summaryEl) frag.appendChild(summaryEl);
+    frag.appendChild(detail);
+    return frag;
+  }
+
+  function formatElapsed(isoOrUnix) {
+    if (!isoOrUnix) return "";
+    var ts = typeof isoOrUnix === "number" ? isoOrUnix : new Date(isoOrUnix).getTime() / 1000;
+    var elapsed = Math.floor(Date.now() / 1000 - ts);
+    if (elapsed < 0) elapsed = 0;
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    return mins > 0 ? mins + "m " + secs + "s" : secs + "s";
+  }
+
+  function renderDashboard(data) {
+    renderDashAgents(Array.isArray(data.agents) ? data.agents : []);
+    renderDashTasks(data.tasks || {});
+    renderDashFileLocks(Array.isArray(data.file_locks) ? data.file_locks : []);
+    renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
+    renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
+    renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
+  }
+
+  function buildStatusStrip(agents) {
+    var strip = document.createElement("div");
+    strip.className = "dash-strip";
+
+    var counts = {};
+    for (var i = 0; i < agents.length; i++) {
+      var s = (agents[i].status || "unknown").toLowerCase();
+      counts[s] = (counts[s] || 0) + 1;
+    }
+
+    var statuses = ["ready", "processing", "waiting", "done"];
+    for (var si = 0; si < statuses.length; si++) {
+      var status = statuses[si];
+      var count = counts[status] || 0;
+      if (si > 0) {
+        var sep = document.createElement("div");
+        sep.className = "dash-strip-separator";
+        strip.appendChild(sep);
+      }
+      var item = document.createElement("div");
+      item.className = "dash-strip-item";
+      var countEl = document.createElement("span");
+      countEl.className = "dash-strip-count";
+      countEl.style.color = statusColor(status);
+      countEl.textContent = String(count);
+      item.appendChild(countEl);
+      var label = document.createElement("span");
+      label.className = "dash-strip-label";
+      label.textContent = status.toUpperCase();
+      item.appendChild(label);
+      strip.appendChild(item);
+    }
+    return strip;
+  }
+
+  function renderDashAgents(agents) {
+    var el = document.getElementById("dash-agents");
+    if (!el) return;
+    el.innerHTML = "";
+
+    // Summary: status strip (READY 6 | PROCESSING 0 | ...)
+    var summary = buildStatusStrip(agents);
+
+    el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
+  }
+
+  function renderDashTasks(tasks) {
+    var el = document.getElementById("dash-tasks");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var total = 0;
+    var statuses = ["pending", "in_progress", "completed", "failed"];
+    var counts = {};
+    for (var i = 0; i < statuses.length; i++) {
+      var items = tasks[statuses[i]] || [];
+      counts[statuses[i]] = items.length;
+      total += items.length;
+    }
+
+    if (total === 0) {
+      el.appendChild(createDashHeader("ph-kanban", "Task Board (0)"));
+      el.appendChild(emptyState("No tasks"));
+      return;
+    }
+
+    // Summary: bar chart
+    var bars = document.createElement("div");
+    bars.className = "dash-task-bars";
+
+    var colors = { pending: "var(--color-warning)", in_progress: "var(--color-accent)", completed: "var(--color-success)", failed: "var(--color-danger)" };
+    var labels = { pending: "Pending", in_progress: "In Progress", completed: "Completed", failed: "Failed" };
+
+    for (var j = 0; j < statuses.length; j++) {
+      var s = statuses[j];
+      var c = counts[s];
+      if (c === 0 && s === "failed") continue;
+      var row = document.createElement("div");
+      row.className = "dash-task-bar-row";
+
+      var labelEl = document.createElement("span");
+      labelEl.className = "dash-task-bar-label";
+      labelEl.textContent = labels[s];
+      row.appendChild(labelEl);
+
+      var track = document.createElement("div");
+      track.className = "dash-task-bar-track";
+      var fill = document.createElement("div");
+      fill.className = "dash-task-bar-fill";
+      fill.style.width = (total > 0 ? Math.round((c / total) * 100) : 0) + "%";
+      fill.style.background = colors[s];
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      var countEl = document.createElement("span");
+      countEl.className = "dash-task-bar-count";
+      countEl.style.color = colors[s];
+      countEl.textContent = String(c);
+      row.appendChild(countEl);
+
+      bars.appendChild(row);
+    }
+
+    el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + total + ")", bars, function () { return renderSystemTasks(tasks); }));
+  }
+
+  function renderDashMemory(memories) {
+    var el = document.getElementById("dash-memory");
+    if (!el) return;
+    el.innerHTML = "";
+
+    if (memories.length === 0) {
+      el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (0)"));
+      el.appendChild(emptyState("No shared memories"));
+      return;
+    }
+
+    // Summary: compact key list
+    var list = document.createElement("div");
+    list.className = "dash-memory-list";
+    var shown = memories.slice(0, 5);
+    for (var i = 0; i < shown.length; i++) {
+      var m = shown[i];
+      var item = document.createElement("div");
+      item.className = "dash-memory-item";
+
+      var key = document.createElement("span");
+      key.className = "dash-memory-key";
+      key.textContent = m.key || "";
+      item.appendChild(key);
+
+      var content = document.createElement("span");
+      content.className = "dash-memory-content";
+      content.textContent = m.content || "";
+      item.appendChild(content);
+
+      var author = document.createElement("span");
+      author.className = "dash-memory-author";
+      author.textContent = m.author || "";
+      item.appendChild(author);
+
+      list.appendChild(item);
+    }
+
+    // Detail: full memory table
+    el.appendChild(createDashWidget("memory", "ph-brain", "Shared Knowledge (" + memories.length + ")", list, function () { return renderSystemMemories(memories); }));
+  }
+
+  function renderDashFileLocks(locks) {
+    var el = document.getElementById("dash-file-locks");
+    if (!el) return;
+    el.innerHTML = "";
+
+    if (locks.length === 0) {
+      el.appendChild(createDashHeader("ph-lock", "File Locks (0)"));
+      el.appendChild(emptyState("No active file locks"));
+      return;
+    }
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.textContent = locks.length + " file" + (locks.length !== 1 ? "s" : "") + " locked";
+
+    el.appendChild(createDashWidget("file-locks", "ph-lock", "File Locks (" + locks.length + ")", summary, function () { return renderSystemFileLocks(locks); }));
+  }
+
+  function renderDashWorktrees(worktrees) {
+    var el = document.getElementById("dash-worktrees");
+    if (!el) return;
+    el.innerHTML = "";
+
+    if (worktrees.length === 0) {
+      el.appendChild(createDashHeader("ph-git-branch", "Worktrees (0)"));
+      el.appendChild(emptyState("No active worktrees"));
+      return;
+    }
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    var branches = [];
+    for (var i = 0; i < worktrees.length && i < 3; i++) {
+      branches.push(worktrees[i].branch || worktrees[i].agent_name || worktrees[i].agent_id);
+    }
+    summary.textContent = worktrees.length + " worktree" + (worktrees.length !== 1 ? "s" : "") + " — " + branches.join(", ") + (worktrees.length > 3 ? "…" : "");
+
+    el.appendChild(createDashWidget("worktrees", "ph-git-branch", "Worktrees (" + worktrees.length + ")", summary, function () { return renderSystemWorktrees(worktrees); }));
+  }
+
+  function renderDashErrors(errors) {
+    var el = document.getElementById("dash-errors");
+    if (!el) return;
+    el.innerHTML = "";
+    if (errors.length === 0) {
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "";
+
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.style.color = "var(--color-danger)";
+    summary.textContent = errors.length + " error" + (errors.length !== 1 ? "s" : "") + " detected";
+
+    el.appendChild(createDashWidget("errors", "ph-warning-circle", "Registry Errors (" + errors.length + ")", summary, function () { return renderRegistryErrors(errors); }));
   }
 
   // System section key → Phosphor icon class
@@ -1697,11 +1907,7 @@
       tdCurrent.className = "agent-current-cell";
       const preview = agent.current_task_preview || "-";
       if (preview !== "-" && agent.task_received_at) {
-        const elapsed = Math.floor((Date.now() / 1000) - agent.task_received_at);
-        const mins = Math.floor(elapsed / 60);
-        const secs = elapsed % 60;
-        const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        tdCurrent.textContent = `${preview} (${elapsedStr})`;
+        tdCurrent.textContent = `${preview} (${formatElapsed(agent.task_received_at)})`;
       } else {
         tdCurrent.textContent = preview;
       }
@@ -1749,7 +1955,7 @@
   function renderSystemTasks(tasks) {
     const board = document.createElement("div");
     board.className = "task-board";
-    for (const name of ["pending", "in_progress", "completed"]) {
+    for (const name of ["pending", "in_progress", "completed", "failed"]) {
       const items = tasks[name] || [];
       const column = document.createElement("div");
       column.className = "task-column";
@@ -1769,13 +1975,46 @@
       for (const item of items) {
         const card = document.createElement("div");
         card.className = "task-item";
-        card.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
+        card.style.cursor = "pointer";
+
+        const title = document.createElement("div");
+        title.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
+        card.appendChild(title);
+
         if (item.assignee) {
           const assignee = document.createElement("div");
           assignee.className = "task-assignee";
           assignee.textContent = item.assignee;
           card.appendChild(assignee);
         }
+
+        const detail = document.createElement("div");
+        detail.className = "task-item-detail";
+        const fields = [
+          ["Description", item.description || "-"],
+          ["Priority", String(item.priority || 3)],
+          ["Assignee", item.assignee || "-"],
+          ["Created by", item.created_by || "-"],
+          ["Created", item.created_at ? formatTimeShort(item.created_at) : "-"],
+        ];
+        for (const [label, value] of fields) {
+          const row = document.createElement("div");
+          row.className = "task-detail-row";
+          const labelEl = document.createElement("span");
+          labelEl.className = "task-detail-label";
+          labelEl.textContent = label;
+          row.appendChild(labelEl);
+          const valueEl = document.createElement("span");
+          valueEl.textContent = value;
+          row.appendChild(valueEl);
+          detail.appendChild(row);
+        }
+        card.appendChild(detail);
+
+        card.addEventListener("click", (function (d) {
+          return function () { d.classList.toggle("expanded"); };
+        })(detail));
+
         column.appendChild(card);
       }
 
@@ -2499,19 +2738,24 @@
   function statusColor(status) {
     switch (String(status || "").toLowerCase()) {
       case "ready":
-      case "success":
-      case "completed":
         return "var(--color-success)";
-      case "processing":
-      case "running":
-      case "in_progress":
-        return "var(--color-accent)";
       case "waiting":
-      case "pending":
-      case "warn":
+        return "var(--color-accent)";
+      case "processing":
         return "var(--color-warning)";
       case "done":
         return "var(--color-signal)";
+      case "shutting_down":
+        return "var(--color-danger)";
+      case "success":
+      case "completed":
+        return "var(--color-success)";
+      case "running":
+      case "in_progress":
+        return "var(--color-accent)";
+      case "pending":
+      case "warn":
+        return "var(--color-warning)";
       case "error":
       case "failed":
         return "var(--color-danger)";
@@ -2525,6 +2769,7 @@
   // ----------------------------------------------------------------
   function getRoute() {
     const hash = location.hash || "#/";
+    if (hash === "#/dashboard") return "dashboard";
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     return "canvas";
@@ -2564,6 +2809,7 @@
 
     // Hide all views, then show active
     canvasView.classList.add("view-hidden");
+    if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
 
@@ -2571,6 +2817,11 @@
       canvasView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       renderSpotlight();
+    } else if (currentRoute === "dashboard") {
+      if (dashboardView) dashboardView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (_lastSystemData) renderDashboard(_lastSystemData);
+      loadSystemPanel();
     } else if (currentRoute === "system") {
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";

@@ -448,13 +448,14 @@ Open `http://localhost:3000` to view the Canvas.
 
 The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
-The UI uses **SPA hash routing** with three views:
+The UI uses **SPA hash routing** with four views:
 
 | Route | View | Purpose |
 |---|---|---|
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
+| `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
 | `#/history` | **History** | Card grid with live feed, agent messages, and filters |
-| `#/system` | **System** | Dedicated system panel (agents, tasks, file locks, shared memory, worktrees, history) |
+| `#/system` | **System** | Configuration and setup information (tips, saved agents, skills, skill sets, sessions, workflows, environment) |
 
 ### Canvas View (`#/`)
 
@@ -467,13 +468,29 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 - HTML cards render inside a sandboxed `<iframe>` that fills the full content area (no auto-resize — uses CSS flex)
 - Filter controls are hidden in this view
 
+### Dashboard View (`#/dashboard`)
+
+The Dashboard view provides a real-time operational status overview of the entire Synapse environment. It is designed for monitoring multi-agent systems at a glance.
+
+**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data.
+
+**Widgets:**
+
+- **Agents**: Running agents with status dots and metadata
+- **Tasks**: Pending/in-progress/completed tasks from the task board
+- **File Locks**: Active file locks with agent assignment
+- **Worktrees**: Active git worktrees for agent isolation
+- **Memory**: Recent shared memory entries
+- **Errors**: Registry errors and agent issues
+
+The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity — no periodic polling.
+
 ### History View (`#/history`)
 
-The History view shows the traditional card grid alongside system state. Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons.
+The History view shows the traditional card grid with live feed and agent messages. Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons.
 
 **Features:**
 
-- **System Panel**: Real-time agents, tasks, and file locks (see [System Panel](#system-panel))
 - **Live Feed**: Chronological event stream with pulsing dot indicator
 - **Card Grid**: All cards in a responsive grid layout
 - **Filter bar**: Filter by format type and by agent

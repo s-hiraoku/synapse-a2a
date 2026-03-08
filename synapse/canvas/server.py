@@ -58,9 +58,6 @@ CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
 
 # TTL cache for slow-changing /api/system sections (skills, sessions, etc.)
 _STATIC_CACHE_TTL = 60  # seconds
-_static_cache: dict[str, Any] = {}
-_static_cache_ts: float = 0.0
-_static_cache_key: tuple[str, str, str] | None = None
 
 # Human-readable descriptions for SYNAPSE_* environment variables
 _ENV_DESCRIPTIONS: dict[str, str] = {
@@ -212,6 +209,29 @@ def _static_cache_roots() -> tuple[Path, Path, Path]:
     return project_dir, user_dir, synapse_dir
 
 
+def _extract_tip_text(content: Any) -> str:
+    """Extract a displayable tip body from stored Canvas content."""
+    parsed = content
+    if isinstance(content, str):
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            return content
+
+    if isinstance(parsed, list) and parsed:
+        first = parsed[0]
+        if isinstance(first, dict):
+            body = first.get("body", "")
+            return body if isinstance(body, str) else str(body)
+
+    if isinstance(parsed, dict):
+        body = parsed.get("body", "")
+        if body:
+            return body if isinstance(body, str) else str(body)
+
+    return content if isinstance(content, str) else ""
+
+
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
     store = CanvasStore(db_path=db_path)
@@ -236,6 +256,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     # Store reference for access in endpoints
     app.state.store = store
+    app.state._static_cache = {}
+    app.state._static_cache_ts = 0.0
+    app.state._static_cache_key = None
 
     # Static files with no-cache headers
     static_dir = Path(__file__).parent / "static"
@@ -335,30 +358,34 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "pending": [],
             "in_progress": [],
             "completed": [],
+            "failed": [],
         }
-        task_db = ".synapse/task_board.db"
-        if os.path.exists(task_db):
-            try:
-                conn = sqlite3.connect(task_db)
-                conn.row_factory = sqlite3.Row
-                rows = conn.execute(
-                    "SELECT id, subject, status, assignee "
-                    "FROM tasks ORDER BY created_at DESC LIMIT 50"
-                ).fetchall()
-                conn.close()
-                for row in rows:
-                    status = row["status"]
-                    if status not in tasks:
-                        continue
-                    tasks[status].append(
-                        {
-                            "id": row["id"],
-                            "subject": row["subject"],
-                            "assignee": row["assignee"] or "",
-                        }
-                    )
-            except (sqlite3.Error, OSError):
-                pass
+        try:
+            from synapse.task_board import TaskBoard
+
+            board = TaskBoard.from_env()
+            rows = sorted(
+                board.list_tasks(),
+                key=lambda item: item.get("created_at", ""),
+                reverse=True,
+            )[:50]
+            for row in rows:
+                status = row.get("status", "")
+                if status not in tasks:
+                    continue
+                tasks[status].append(
+                    {
+                        "id": row.get("id", ""),
+                        "subject": row.get("subject", ""),
+                        "assignee": row.get("assignee") or "",
+                        "description": row.get("description", ""),
+                        "priority": row.get("priority", 3),
+                        "created_by": row.get("created_by", ""),
+                        "created_at": row.get("created_at", ""),
+                    }
+                )
+        except Exception:
+            logger.debug("Failed to collect tasks", exc_info=True)
 
         file_locks: list[dict[str, str]] = []
         lock_db = ".synapse/file_safety.db"
@@ -467,7 +494,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     continue
 
         # Slow-changing sections: use TTL cache to avoid repeated I/O
-        global _static_cache, _static_cache_key, _static_cache_ts  # noqa: PLW0603
         now_mono = time.monotonic()
         project_dir, user_dir, synapse_dir = _static_cache_roots()
         cache_key = (
@@ -476,32 +502,26 @@ def create_app(db_path: str | None = None) -> FastAPI:
             str(synapse_dir.resolve()),
         )
         if (
-            now_mono - _static_cache_ts > _STATIC_CACHE_TTL
-            or not _static_cache
-            or _static_cache_key != cache_key
+            now_mono - app.state._static_cache_ts > _STATIC_CACHE_TTL
+            or not app.state._static_cache
+            or app.state._static_cache_key != cache_key
         ):
-            _static_cache = _collect_static_sections()
-            _static_cache_key = cache_key
-            _static_cache_ts = now_mono
+            app.state._static_cache = _collect_static_sections()
+            app.state._static_cache_key = cache_key
+            app.state._static_cache_ts = now_mono
 
-        skills = _static_cache.get("skills", [])
-        skill_sets = _static_cache.get("skill_sets", [])
-        sessions = _static_cache.get("sessions", [])
-        workflows = _static_cache.get("workflows", [])
-        environment = _static_cache.get("environment", {})
+        skills = app.state._static_cache.get("skills", [])
+        skill_sets = app.state._static_cache.get("skill_sets", [])
+        sessions = app.state._static_cache.get("sessions", [])
+        workflows = app.state._static_cache.get("workflows", [])
+        environment = app.state._static_cache.get("environment", {})
 
         # Tips (from Canvas cards tagged "tip")
         tips: list[dict[str, str]] = []
         try:
             tip_cards = store.list_tips()
             for tc in tip_cards:
-                content = tc.get("content")
-                tip_text = ""
-                if isinstance(content, list) and content:
-                    body = content[0].get("body", "")
-                    tip_text = body if isinstance(body, str) else str(body)
-                elif isinstance(content, str):
-                    tip_text = content
+                tip_text = _extract_tip_text(tc.get("content"))
                 if tip_text:
                     tips.append({"card_id": tc["card_id"], "text": tip_text})
         except Exception:
