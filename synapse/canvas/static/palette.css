@@ -1,0 +1,162 @@
+/* Synapse Canvas — Color Palette
+   Single source of truth for all canvas colors.
+   Imported by canvas.css. */
+
+:root {
+  /* ── Brand (shared with site-docs) ──────── */
+  --brand: #4051b5;
+
+  /* ── Semantic Colors ────────────────────── */
+  --color-accent: var(--brand);
+  --color-success: #3fb950;
+  --color-danger: #f85149;
+  --color-warning: #d29922;
+  --color-signal: #4ecdc4;
+  --color-signal-strong: #a8ede8;
+  --color-amber: #f0a050;
+  --color-purple: #b392f0;
+
+  /* ── Accent Usage ───────────────────────── */
+  --color-accent-tint: rgba(64, 81, 181, 0.03);
+  --color-accent-hover: rgba(64, 81, 181, 0.04);
+  --color-accent-bg: rgba(64, 81, 181, 0.06);
+  --color-accent-subtle: rgba(64, 81, 181, 0.08);
+  --color-accent-glow: rgba(64, 81, 181, 0.10);
+  --color-accent-border: rgba(64, 81, 181, 0.15);
+  --color-accent-border-strong: rgba(64, 81, 181, 0.20);
+  --color-accent-ring: rgba(64, 81, 181, 0.30);
+  --color-accent-shimmer: rgba(64, 81, 181, 0.40);
+
+  /* ── Success Usage ──────────────────────── */
+  --color-success-subtle: rgba(63, 185, 80, 0.12);
+  --color-success-border: rgba(63, 185, 80, 0.30);
+
+  /* ── Danger Usage ───────────────────────── */
+  --color-danger-subtle: rgba(248, 81, 73, 0.10);
+
+  /* ── Warning Usage ──────────────────────── */
+  --color-warning-subtle: rgba(210, 153, 34, 0.10);
+  --color-warning-border: rgba(210, 153, 34, 0.30);
+
+  /* ── Amber Usage ────────────────────────── */
+  --color-amber-subtle: rgba(240, 160, 80, 0.10);
+  --color-amber-bg: rgba(240, 160, 80, 0.08);
+  --color-amber-shimmer: rgba(240, 160, 80, 0.20);
+
+  /* ── Purple Usage ───────────────────────── */
+  --color-purple-subtle: rgba(179, 146, 240, 0.12);
+  --color-purple-border: rgba(179, 146, 240, 0.30);
+
+  /* ── Neutral Surfaces (Dark) ────────────── */
+  --color-bg: #080c10;
+  --color-bg-raised: rgba(14, 20, 28, 0.85);
+  --color-bg-inset: rgba(10, 16, 24, 0.92);
+  --color-bg-overlay: rgba(14, 20, 28, 0.88);
+  --color-bg-card: rgba(14, 20, 28, 0.35);
+
+  /* ── Text (Dark) ────────────────────────── */
+  --color-text: #e8edf2;
+  --color-text-secondary: #a0b0c0;
+  --color-text-muted: #607080;
+
+  /* ── Border (Dark) ──────────────────────── */
+  --color-border: rgba(100, 140, 180, 0.12);
+  --color-border-accent: rgba(100, 180, 220, 0.24);
+  --color-border-faint: rgba(100, 180, 220, 0.05);
+
+  /* ── Overlay tints (Dark) ───────────────── */
+  --color-tint-light: rgba(255, 255, 255, 0.03);
+  --color-tint-light-hover: rgba(255, 255, 255, 0.05);
+  --color-tint-light-subtle: rgba(255, 255, 255, 0.04);
+
+  /* ── Glass system (Dark) ────────────────── */
+  --glass-bg: rgba(14, 20, 28, 0.55);
+  --glass-bg-strong: rgba(14, 20, 28, 0.72);
+  --glass-stroke: rgba(100, 180, 220, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+  --glass-blur: 20px;
+  --glass-blur-strong: 32px;
+  --glass-blur-subtle: 12px;
+  --glass-inner-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* ── Shadows (Dark) ─────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px var(--color-accent-border);
+}
+
+/* ── Light Theme ──────────────────────────── */
+
+[data-theme="light"] {
+  /* Semantic */
+  --color-accent: var(--brand);
+  --color-success: #1a7f37;
+  --color-danger: #cf222e;
+  --color-warning: #9a6700;
+  --color-signal: #0d9488;
+  --color-signal-strong: #115e59;
+  --color-amber: #9a6700;
+
+  /* Accent usage */
+  --color-accent-tint: rgba(64, 81, 181, 0.02);
+  --color-accent-hover: rgba(64, 81, 181, 0.03);
+  --color-accent-bg: rgba(64, 81, 181, 0.04);
+  --color-accent-subtle: rgba(64, 81, 181, 0.06);
+  --color-accent-glow: rgba(64, 81, 181, 0.08);
+  --color-accent-border: rgba(64, 81, 181, 0.12);
+  --color-accent-border-strong: rgba(64, 81, 181, 0.18);
+  --color-accent-ring: rgba(64, 81, 181, 0.25);
+  --color-accent-shimmer: rgba(64, 81, 181, 0.30);
+
+  /* Success */
+  --color-success-subtle: rgba(26, 127, 55, 0.08);
+  --color-success-border: rgba(26, 127, 55, 0.25);
+
+  /* Danger */
+  --color-danger-subtle: rgba(207, 34, 46, 0.08);
+
+  /* Warning */
+  --color-warning-subtle: rgba(154, 103, 0, 0.08);
+  --color-warning-border: rgba(154, 103, 0, 0.25);
+
+  /* Amber */
+  --color-amber-subtle: rgba(154, 103, 0, 0.08);
+  --color-amber-bg: rgba(154, 103, 0, 0.04);
+  --color-amber-shimmer: rgba(154, 103, 0, 0.15);
+
+  /* Neutral Surfaces */
+  --color-bg: #f0f2f5;
+  --color-bg-raised: rgba(255, 255, 255, 0.78);
+  --color-bg-inset: rgba(235, 238, 242, 0.88);
+  --color-bg-overlay: rgba(255, 255, 255, 0.82);
+  --color-bg-card: rgba(255, 255, 255, 0.45);
+
+  /* Text */
+  --color-text: #1a1e24;
+  --color-text-secondary: #4a5568;
+  --color-text-muted: #718096;
+
+  /* Border */
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-accent: rgba(0, 100, 120, 0.18);
+  --color-border-faint: rgba(0, 0, 0, 0.04);
+
+  /* Overlay tints */
+  --color-tint-light: rgba(0, 0, 0, 0.03);
+  --color-tint-light-hover: rgba(0, 0, 0, 0.04);
+  --color-tint-light-subtle: rgba(0, 0, 0, 0.02);
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-stroke: rgba(255, 255, 255, 0.72);
+  --glass-highlight: rgba(255, 255, 255, 0.42);
+  --glass-inner-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 20px var(--color-accent-glow);
+}

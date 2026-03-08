@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-03-08
+
+### Added
+
+- separate System panel into dedicated `#/system` route
+- add extended System panel sections (skills, sessions, workflows, env, tips)
+- glassmorphism redesign with iconography and a refined Canvas color palette
+- use the Synapse SVG brand icon in the Canvas sidebar header
+
+### Fixed
+
+- decouple `Latest Posts` from dashboard filters
+- stop showing filtered-out agent panels in `Agent Messages`
+- remove pin-specific ordering and pin icon rendering from the Canvas frontend
+
 ## [0.11.3] - 2026-03-08
 
 ### Added

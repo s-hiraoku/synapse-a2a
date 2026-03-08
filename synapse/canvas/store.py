@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = ".synapse/canvas.db"
 DEFAULT_CARD_TTL = 3600  # 1 hour
+_TAG_TIP_FILTER = "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = 'tip')"
 
 
 class CanvasStore:
@@ -338,6 +339,37 @@ class CanvasStore:
                     cursor = conn.execute("DELETE FROM cards")
                 conn.commit()
                 return cursor.rowcount
+            finally:
+                conn.close()
+
+    def list_tips(self) -> list[dict]:
+        """List cards tagged with 'tip'. Returns list of card dicts."""
+        now = self._now_utc()
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                rows = conn.execute(
+                    "SELECT * FROM cards "
+                    f"WHERE {_TAG_TIP_FILTER} "
+                    "AND (expires_at IS NULL OR expires_at > ?) "
+                    "ORDER BY updated_at DESC",
+                    (now,),
+                ).fetchall()
+                return [self._row_to_dict(row) for row in rows]
+            finally:
+                conn.close()
+
+    def consume_tip(self, card_id: str) -> bool:
+        """Delete a tip card by ID (no ownership check). Returns True if deleted."""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    f"DELETE FROM cards WHERE card_id = ? AND {_TAG_TIP_FILTER}",
+                    (card_id,),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
             finally:
                 conn.close()
 

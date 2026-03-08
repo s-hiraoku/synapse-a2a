@@ -127,7 +127,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
 
 !!! tip "The `html` Escape Hatch"
-    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the Dashboard view (`#/dashboard`), the iframe auto-resizes to fit its content.
+    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the History view (`#/history`), the iframe auto-resizes to fit its content.
 
 !!! tip "Images: PNG, JPEG, SVG, and more"
     The `image` format accepts any image the browser can render via `<img src>`. Use a URL for large images, or Base64 data URIs for inline embedding (up to 2MB).
@@ -446,12 +446,15 @@ Internal limits:
 
 Open `http://localhost:3000` to view the Canvas.
 
-The Canvas UI uses **SPA hash routing** with two views:
+The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
+
+The UI uses **SPA hash routing** with three views:
 
 | Route | View | Purpose |
 |---|---|---|
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
-| `#/dashboard` | **Dashboard** | Card grid with system panel, live feed, and filters |
+| `#/history` | **History** | Card grid with live feed, agent messages, and filters |
+| `#/system` | **System** | Dedicated system panel (agents, tasks, file locks, shared memory, worktrees, history) |
 
 ### Canvas View (`#/`)
 
@@ -464,9 +467,9 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 - HTML cards render inside a sandboxed `<iframe>` that fills the full content area (no auto-resize — uses CSS flex)
 - Filter controls are hidden in this view
 
-### Dashboard View (`#/dashboard`)
+### History View (`#/history`)
 
-The Dashboard view shows the traditional card grid alongside system state.
+The History view shows the traditional card grid alongside system state. Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons.
 
 **Features:**
 

@@ -14,8 +14,16 @@
   const liveFeedList = document.getElementById("live-feed-list");
   const canvasView = document.getElementById("canvas-view");
   const canvasSpotlight = document.getElementById("canvas-spotlight");
-  const dashboardView = document.getElementById("dashboard-view");
+  const historyView = document.getElementById("history-view");
+  const systemView = document.getElementById("system-view");
   const navLinks = document.querySelectorAll(".nav-link");
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  const topbarTitle = document.getElementById("topbar-title");
+
+  // Route labels for topbar
+  var ROUTE_LABELS = { canvas: "Canvas", history: "History", system: "System" };
 
   // Current route
   let currentRoute = "canvas";
@@ -29,6 +37,8 @@
   const knownAgents = new Set();
   // System agents cache for panel rendering
   let systemAgents = [];
+  // Cached system data for instant rendering on route change
+  let _lastSystemData = null;
 
   // ----------------------------------------------------------------
   // Initial load
@@ -149,6 +159,8 @@
     _renderRAF = requestAnimationFrame(() => {
       if (currentRoute === "canvas") {
         renderSpotlight();
+      } else if (currentRoute === "system") {
+        // rendered by loadSystemPanel; no-op here
       } else {
         renderAll();
       }
@@ -156,15 +168,15 @@
   }
 
   function renderAll() {
+    const allCards = [...cards.values()];
     const filtered = getFilteredCards();
     const countText = `${filtered.length} card${filtered.length !== 1 ? "s" : ""}`;
+    const agentVal = filterAgent.value;
     cardCount.textContent = countText;
     grid.innerHTML = "";
 
-    // Sort: pinned first, then by updated_at desc
+    // Sort agent messages by recency only.
     filtered.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
       return (b.updated_at || "").localeCompare(a.updated_at || "");
     });
 
@@ -174,6 +186,7 @@
     // Seed panels from system agents (so empty agents get a panel)
     for (const agent of systemAgents) {
       const label = agent.name || agent.agent_id;
+      if (agentVal && label !== agentVal) continue;
       if (!agentGroups.has(label)) {
         agentGroups.set(label, {
           label,
@@ -198,8 +211,8 @@
       agentGroups.get(label).cards.push(card);
     }
 
-    // Live Feed (latest 3 by time, ignoring pin order)
-    const byTime = [...filtered].sort((a, b) =>
+    // Latest Posts ignores dashboard filters and always shows the newest cards.
+    const byTime = allCards.sort((a, b) =>
       (b.updated_at || "").localeCompare(a.updated_at || "")
     );
     renderLiveFeed(byTime.slice(0, 3));
@@ -343,24 +356,51 @@
     return panel;
   }
 
+  // Format type → Phosphor icon class (v2: requires "ph" base class)
+  var FORMAT_ICONS = {
+    mermaid: "ph-tree-structure",
+    markdown: "ph-text-aa",
+    table: "ph-table",
+    html: "ph-code",
+    json: "ph-brackets-curly",
+    code: "ph-terminal",
+    diff: "ph-git-diff",
+    chart: "ph-chart-bar",
+    log: "ph-scroll",
+    status: "ph-pulse",
+    metric: "ph-gauge",
+    checklist: "ph-check-square",
+    timeline: "ph-clock-countdown",
+    alert: "ph-warning",
+    "file-preview": "ph-file-text",
+    trace: "ph-graph",
+    "task-board": "ph-kanban",
+    tip: "ph-lightbulb",
+    image: "ph-image",
+  };
+
   function createCardElement(card) {
     const el = document.createElement("article");
     el.className = "canvas-card";
-    if (card.pinned) el.classList.add("pinned");
     el.dataset.cardId = card.card_id;
+
+    // Detect primary format
+    var content = parseContent(card.content);
+    var blocks = Array.isArray(content) ? content : [content];
+    var primaryFormat = blocks.length > 0 ? blocks[0].format : "";
 
     // Header
     const header = document.createElement("header");
+
+    // Format icon
+    var iconClass = FORMAT_ICONS[primaryFormat] || "ph-article";
+    var fmtIcon = document.createElement("i");
+    fmtIcon.className = "ph " + iconClass + " card-format-icon";
+    header.appendChild(fmtIcon);
+
     const title = document.createElement("h2");
     title.textContent = card.title || "Untitled";
     header.appendChild(title);
-
-    if (card.pinned) {
-      const pin = document.createElement("span");
-      pin.className = "pin-icon";
-      pin.textContent = "\u{1F4CC}";
-      header.appendChild(pin);
-    }
 
     el.appendChild(header);
 
@@ -379,8 +419,6 @@
     }
 
     // Content blocks — delegate to template renderer if applicable
-    const content = parseContent(card.content);
-    const blocks = Array.isArray(content) ? content : [content];
 
     if (card.template && card.template_data) {
       const td =
@@ -1339,13 +1377,20 @@
   // ----------------------------------------------------------------
   async function loadSystemPanel() {
     if (!systemPanel) return;
+    // Skip fetch when system data is not visible (avoids ~10 I/O ops per call)
+    if (currentRoute !== "system" && currentRoute !== "history") return;
     try {
       const resp = await fetch("/api/system");
       if (!resp.ok) return;
       const data = await resp.json();
       systemAgents = Array.isArray(data.agents) ? data.agents : [];
-      renderSystemPanel(data);
-      renderAll();
+      _lastSystemData = data;
+      if (currentRoute === "system") {
+        renderSystemPanel(data);
+      }
+      if (currentRoute === "history") {
+        renderAll();
+      }
     } catch (e) {
       console.error("Failed to load system panel:", e);
     }
@@ -1355,25 +1400,6 @@
     if (!systemPanel) return;
     systemPanel.innerHTML = "";
 
-    // Panel toggle header
-    const toggle = document.createElement("button");
-    toggle.id = "system-panel-toggle";
-    const arrow = document.createElement("span");
-    arrow.className = "toggle-arrow";
-    // One-time reset of all collapsed states after redesign
-    if (!localStorage.getItem("canvas-layout-v3")) {
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("system-panel") || key.startsWith("agent-panel")) {
-          localStorage.removeItem(key);
-        }
-      }
-      localStorage.setItem("canvas-layout-v3", "1");
-    }
-    const isCollapsedPanel = localStorage.getItem("system-panel-main") === "collapsed";
-    if (isCollapsedPanel) arrow.classList.add("collapsed");
-    arrow.textContent = "\u25BC";
-    toggle.appendChild(arrow);
-
     const agentCount = Array.isArray(data.agents) ? data.agents.length : 0;
     const taskCount = Object.values(data.tasks || {}).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
     const lockCount = Array.isArray(data.file_locks) ? data.file_locks.length : 0;
@@ -1382,28 +1408,21 @@
     const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
     const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
-    
-    let systemText = `System  \u2014  ${agentCount} agents \u00B7 ${profileCount} profiles \u00B7 ${taskCount} tasks \u00B7 ${memoryCount} memories \u00B7 ${historyCount} history`;
-    if (errorCount > 0) {
-      systemText += ` \u00B7 \u26A0\uFE0F ${errorCount} errors`;
-    }
-    toggle.appendChild(document.createTextNode(systemText));
-    systemPanel.appendChild(toggle);
+    const skillCount = Array.isArray(data.skills) ? data.skills.length : 0;
+    const skillSetCount = Array.isArray(data.skill_sets) ? data.skill_sets.length : 0;
+    const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : 0;
+    const workflowCount = Array.isArray(data.workflows) ? data.workflows.length : 0;
 
     // Content wrapper
     const content = document.createElement("div");
     content.id = "system-panel-content";
-    if (isCollapsedPanel) content.classList.add("collapsed");
 
-    toggle.addEventListener("click", () => {
-      content.classList.toggle("collapsed");
-      arrow.classList.toggle("collapsed");
-      localStorage.setItem(
-        "system-panel-main",
-        content.classList.contains("collapsed") ? "collapsed" : "expanded"
-      );
-    });
+    // ── Information / Tips ──
+    if (Array.isArray(data.tips) && data.tips.length > 0) {
+      content.appendChild(renderSystemTips(data.tips));
+    }
 
+    // ── Errors (if any) ──
     if (errorCount > 0) {
       content.appendChild(
         createSystemSection(
@@ -1413,6 +1432,8 @@
         )
       );
     }
+
+    // ── Agents (full-width, wide tables) ──
     content.appendChild(
       createSystemSection(
         "agents",
@@ -1429,6 +1450,8 @@
         )
       );
     }
+
+    // ── Tasks (full-width) ──
     content.appendChild(
       createSystemSection(
         "tasks",
@@ -1436,14 +1459,32 @@
         renderSystemTasks(data.tasks || {})
       )
     );
-    content.appendChild(
+
+    // ── Work group (file locks, history) ──
+    const workGroup = document.createElement("div");
+    workGroup.className = "system-group";
+
+    workGroup.appendChild(
       createSystemSection(
         "file-locks",
         "File Locks (" + lockCount + ")",
         renderSystemFileLocks(Array.isArray(data.file_locks) ? data.file_locks : [])
       )
     );
-    content.appendChild(
+    workGroup.appendChild(
+      createSystemSection(
+        "history",
+        "Recent History (" + historyCount + ")",
+        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
+      )
+    );
+    content.appendChild(workGroup);
+
+    // ── Knowledge group (memory, worktrees) ──
+    const knowledgeGroup = document.createElement("div");
+    knowledgeGroup.className = "system-group";
+
+    knowledgeGroup.appendChild(
       createSystemSection(
         "memories",
         "Shared Memory (" + memoryCount + ")",
@@ -1451,7 +1492,7 @@
       )
     );
     if (worktreeCount > 0) {
-      content.appendChild(
+      knowledgeGroup.appendChild(
         createSystemSection(
           "worktrees",
           "Worktrees (" + worktreeCount + ")",
@@ -1459,15 +1500,80 @@
         )
       );
     }
+    content.appendChild(knowledgeGroup);
+
+    // ── Skills (full-width, wide tables) ──
     content.appendChild(
       createSystemSection(
-        "history",
-        "Recent History (" + historyCount + ")",
-        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
+        "skills",
+        "Skills (" + skillCount + ")",
+        renderSystemSkills(Array.isArray(data.skills) ? data.skills : [])
       )
     );
+    if (skillSetCount > 0) {
+      content.appendChild(
+        createSystemSection(
+          "skill-sets",
+          "Skill Sets (" + skillSetCount + ")",
+          renderSystemSkillSets(data.skill_sets)
+        )
+      );
+    }
+
+    // ── Configuration group (sessions, workflows, environment) ──
+    const configGroup = document.createElement("div");
+    configGroup.className = "system-group";
+
+    if (sessionCount > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "sessions",
+          "Sessions (" + sessionCount + ")",
+          renderSystemSessions(data.sessions)
+        )
+      );
+    }
+    if (workflowCount > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "workflows",
+          "Workflows (" + workflowCount + ")",
+          renderSystemWorkflows(data.workflows)
+        )
+      );
+    }
+    if (data.environment && Object.keys(data.environment).length > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "environment",
+          "Environment",
+          renderSystemEnvironment(data.environment)
+        )
+      );
+    }
+    if (configGroup.children.length > 0) {
+      content.appendChild(configGroup);
+    }
+
     systemPanel.appendChild(content);
   }
+
+  // System section key → Phosphor icon class
+  var SECTION_ICONS = {
+    agents: "ph-robot",
+    "agent-profiles": "ph-user-circle",
+    tasks: "ph-kanban",
+    "file-locks": "ph-lock",
+    history: "ph-clock-counter-clockwise",
+    memories: "ph-brain",
+    worktrees: "ph-git-branch",
+    skills: "ph-puzzle-piece",
+    "skill-sets": "ph-stack",
+    sessions: "ph-folder-open",
+    workflows: "ph-flow-arrow",
+    environment: "ph-gear",
+    errors: "ph-warning-circle",
+  };
 
   function createSystemSection(key, title, bodyContent) {
     const section = document.createElement("section");
@@ -1475,31 +1581,44 @@
 
     const header = document.createElement("div");
     header.className = "system-section-header";
-    header.textContent = title;
+
+    var sectionIcon = SECTION_ICONS[key] || "ph-circle";
+    var iconEl = document.createElement("i");
+    iconEl.className = "ph " + sectionIcon;
+    header.appendChild(iconEl);
+
+    var titleSpan = document.createElement("span");
+    titleSpan.textContent = title;
+    header.appendChild(titleSpan);
 
     const body = document.createElement("div");
     body.className = "system-section-body";
-    const collapsed = localStorage.getItem(`system-panel-${key}`) === "collapsed";
-    if (collapsed) body.classList.add("collapsed");
     body.appendChild(bodyContent);
-
-    header.addEventListener("click", () => {
-      body.classList.toggle("collapsed");
-      localStorage.setItem(
-        `system-panel-${key}`,
-        body.classList.contains("collapsed") ? "collapsed" : "expanded"
-      );
-    });
 
     section.appendChild(header);
     section.appendChild(body);
     return section;
   }
 
+  function emptyState(message) {
+    const el = document.createElement("div");
+    el.className = "system-empty";
+    el.textContent = message;
+    return el;
+  }
+
+  function scopeBadge(scope) {
+    const el = document.createElement("span");
+    el.className = "scope-badge";
+    el.dataset.scope = scope;
+    el.textContent = scope;
+    return el;
+  }
+
   function renderSystemAgents(agents) {
     const wrap = document.createElement("div");
     if (agents.length === 0) {
-      wrap.textContent = "No agents";
+      wrap.appendChild(emptyState("No agents running"));
       return wrap;
     }
 
@@ -1631,15 +1750,23 @@
     const board = document.createElement("div");
     board.className = "task-board";
     for (const name of ["pending", "in_progress", "completed"]) {
+      const items = tasks[name] || [];
       const column = document.createElement("div");
       column.className = "task-column";
+      column.dataset.status = name;
 
       const header = document.createElement("div");
       header.className = "task-column-header";
-      header.textContent = name.replace("_", " ");
+      const label = document.createElement("span");
+      label.textContent = name.replace("_", " ");
+      header.appendChild(label);
+      const countEl = document.createElement("span");
+      countEl.className = "task-column-count";
+      countEl.textContent = items.length;
+      header.appendChild(countEl);
       column.appendChild(header);
 
-      for (const item of tasks[name] || []) {
+      for (const item of items) {
         const card = document.createElement("div");
         card.className = "task-item";
         card.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
@@ -1660,7 +1787,7 @@
   function renderSystemFileLocks(locks) {
     const wrap = document.createElement("div");
     if (locks.length === 0) {
-      wrap.textContent = "No active locks";
+      wrap.appendChild(emptyState("No active file locks"));
       return wrap;
     }
 
@@ -1696,7 +1823,7 @@
   function renderSystemMemories(memories) {
     const wrap = document.createElement("div");
     if (memories.length === 0) {
-      wrap.textContent = "No shared memories";
+      wrap.appendChild(emptyState("No shared memories"));
       return wrap;
     }
 
@@ -1755,7 +1882,7 @@
   function renderSystemWorktrees(worktrees) {
     const wrap = document.createElement("div");
     if (!worktrees || worktrees.length === 0) {
-      wrap.textContent = "No active worktrees";
+      wrap.appendChild(emptyState("No active worktrees"));
       return wrap;
     }
 
@@ -1805,7 +1932,7 @@
   function renderSystemHistory(history) {
     const wrap = document.createElement("div");
     if (history.length === 0) {
-      wrap.textContent = "No history";
+      wrap.appendChild(emptyState("No task history"));
       return wrap;
     }
 
@@ -1865,7 +1992,7 @@
   function renderSystemProfiles(profiles) {
     const wrap = document.createElement("div");
     if (!profiles || profiles.length === 0) {
-      wrap.textContent = "No saved agents";
+      wrap.appendChild(emptyState("No saved agent definitions"));
       return wrap;
     }
 
@@ -1910,8 +2037,7 @@
       tr.appendChild(tdSkill);
 
       const tdScope = document.createElement("td");
-      tdScope.className = "agent-port-cell";
-      tdScope.textContent = p.scope;
+      tdScope.appendChild(scopeBadge(p.scope));
       tr.appendChild(tdScope);
 
       tbody.appendChild(tr);
@@ -1919,6 +2045,321 @@
     table.appendChild(tbody);
     wrap.appendChild(table);
     return wrap;
+  }
+
+  function renderSystemSkills(skills) {
+    const wrap = document.createElement("div");
+    if (skills.length === 0) {
+      wrap.appendChild(emptyState("No skills discovered"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "50%", "10%", "25%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SCOPE", "TARGETS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const sk of skills) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = sk.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = sk.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(sk.scope));
+      tr.appendChild(tdScope);
+
+      const tdDirs = document.createElement("td");
+      tdDirs.className = "agent-dir-cell";
+      tdDirs.textContent = (sk.agent_dirs || []).join(", ") || "-";
+      tr.appendChild(tdDirs);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemSkillSets(sets) {
+    const wrap = document.createElement("div");
+    if (!sets || sets.length === 0) {
+      wrap.appendChild(emptyState("No skill sets defined"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "45%", "40%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SKILLS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const ss of sets) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = ss.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = ss.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdSkills = document.createElement("td");
+      tdSkills.className = "skill-list-cell";
+      for (const sk of (ss.skills || [])) {
+        const tag = document.createElement("span");
+        tag.className = "skill-tag";
+        tag.textContent = sk;
+        tdSkills.appendChild(tag);
+      }
+      tr.appendChild(tdSkills);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemSessions(sessions) {
+    const wrap = document.createElement("div");
+    if (!sessions || sessions.length === 0) {
+      wrap.appendChild(emptyState("No saved sessions"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table";
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "SCOPE", "AGENTS", "DIRECTORY", "CREATED"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const s of sessions) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = s.name;
+      tr.appendChild(tdName);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(s.scope));
+      tr.appendChild(tdScope);
+
+      const tdCount = document.createElement("td");
+      tdCount.className = "agent-port-cell";
+      tdCount.textContent = s.agent_count;
+      tr.appendChild(tdCount);
+
+      const tdDir = document.createElement("td");
+      tdDir.className = "agent-dir-cell";
+      tdDir.textContent = s.working_dir ? s.working_dir.split("/").pop() : "-";
+      tr.appendChild(tdDir);
+
+      const tdCreated = document.createElement("td");
+      tdCreated.textContent = formatTimeShort(s.created_at);
+      tr.appendChild(tdCreated);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemWorkflows(workflows) {
+    const wrap = document.createElement("div");
+    if (!workflows || workflows.length === 0) {
+      wrap.appendChild(emptyState("No saved workflows"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "55%", "15%", "15%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SCOPE", "STEPS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const wf of workflows) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = wf.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = wf.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(wf.scope));
+      tr.appendChild(tdScope);
+
+      const tdSteps = document.createElement("td");
+      tdSteps.className = "agent-port-cell";
+      tdSteps.textContent = wf.step_count;
+      tr.appendChild(tdSteps);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemEnvironment(env) {
+    const wrap = document.createElement("div");
+    if (!env || Object.keys(env).length === 0) {
+      wrap.appendChild(emptyState("No environment variables"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table system-env-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["30%", "25%", "45%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["VARIABLE", "VALUE", "DESCRIPTION"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const [key, entry] of Object.entries(env)) {
+      const tr = document.createElement("tr");
+      // Support both old format (string) and new format ({value, description})
+      const value = typeof entry === "string" ? entry : (entry.value || "");
+      const description = typeof entry === "object" ? (entry.description || "") : "";
+
+      const tdKey = document.createElement("td");
+      tdKey.className = "env-key-cell";
+      tdKey.textContent = key;
+      tr.appendChild(tdKey);
+
+      const tdVal = document.createElement("td");
+      tdVal.className = "env-val-cell";
+      const isDefault = value.startsWith("(default:");
+      if (isDefault) {
+        tdVal.style.color = "var(--color-text-muted)";
+      } else if (value === "true") {
+        tdVal.style.color = "var(--color-success)";
+      } else if (value === "false") {
+        tdVal.style.color = "var(--color-text-muted)";
+      }
+      // Mask sensitive values
+      if (key.includes("KEY") || key.includes("SECRET")) {
+        tdVal.textContent = value && !isDefault ? "\u2022\u2022\u2022\u2022\u2022\u2022" : value;
+      } else {
+        tdVal.textContent = value;
+      }
+      tr.appendChild(tdVal);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = description;
+      tr.appendChild(tdDesc);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemTips(tips) {
+    const banner = document.createElement("div");
+    banner.className = "system-tips";
+
+    const icon = document.createElement("span");
+    icon.className = "system-tips-icon";
+    icon.textContent = "\uD83D\uDCA1";
+    banner.appendChild(icon);
+
+    // Pick a random tip
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+
+    const text = document.createElement("span");
+    text.className = "system-tips-text";
+    text.textContent = tip.text || tip;
+    banner.appendChild(text);
+
+    const count = document.createElement("span");
+    count.className = "system-tips-count";
+    count.textContent = tips.length + " tips";
+    banner.appendChild(count);
+
+    return banner;
   }
 
   function historyStatusColor(status) {
@@ -2020,10 +2461,16 @@
   // ----------------------------------------------------------------
   // Theme Toggle
   // ----------------------------------------------------------------
+  function setThemeLabel(theme) {
+    var icon = theme === "dark" ? "ph-sun" : "ph-moon";
+    var label = theme === "dark" ? "Light" : "Dark";
+    themeToggle.innerHTML = '<i class="ph ' + icon + '"></i> ' + label;
+  }
+
   function initTheme() {
     const saved = localStorage.getItem("canvas-theme") || "dark";
     document.documentElement.setAttribute("data-theme", saved);
-    themeToggle.textContent = saved === "dark" ? "Light" : "Dark";
+    setThemeLabel(saved);
   }
 
   themeToggle.addEventListener("click", () => {
@@ -2031,7 +2478,7 @@
     const next = current === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("canvas-theme", next);
-    themeToggle.textContent = next === "dark" ? "Light" : "Dark";
+    setThemeLabel(next);
   });
 
   function statusIcon(state) {
@@ -2053,12 +2500,18 @@
     switch (String(status || "").toLowerCase()) {
       case "ready":
       case "success":
+      case "completed":
         return "var(--color-success)";
       case "processing":
       case "running":
+      case "in_progress":
         return "var(--color-accent)";
+      case "waiting":
+      case "pending":
       case "warn":
         return "var(--color-warning)";
+      case "done":
+        return "var(--color-signal)";
       case "error":
       case "failed":
         return "var(--color-danger)";
@@ -2072,9 +2525,28 @@
   // ----------------------------------------------------------------
   function getRoute() {
     const hash = location.hash || "#/";
-    if (hash === "#/dashboard") return "dashboard";
+    if (hash === "#/history") return "history";
+    if (hash === "#/system") return "system";
     return "canvas";
   }
+
+  // Sidebar toggle (mobile)
+  function openSidebar() {
+    sidebar.classList.add("open");
+    sidebarOverlay.classList.add("active");
+  }
+  function closeSidebar() {
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.remove("active");
+  }
+
+  if (sidebarToggle) sidebarToggle.addEventListener("click", openSidebar);
+  if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
+
+  // Close sidebar on nav link click (mobile)
+  navLinks.forEach(function (link) {
+    link.addEventListener("click", closeSidebar);
+  });
 
   function navigate() {
     currentRoute = getRoute();
@@ -2084,15 +2556,27 @@
       link.classList.toggle("active", link.dataset.route === currentRoute);
     });
 
-    // Toggle views
+    // Update topbar title
+    if (topbarTitle) topbarTitle.textContent = ROUTE_LABELS[currentRoute] || "Canvas";
+
+    // Close sidebar on mobile after navigation
+    closeSidebar();
+
+    // Hide all views, then show active
+    canvasView.classList.add("view-hidden");
+    historyView.classList.add("view-hidden");
+    systemView.classList.add("view-hidden");
+
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
-      dashboardView.classList.add("view-hidden");
       filterBar.style.display = "none";
       renderSpotlight();
+    } else if (currentRoute === "system") {
+      systemView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (_lastSystemData) renderSystemPanel(_lastSystemData);
     } else {
-      canvasView.classList.add("view-hidden");
-      dashboardView.classList.remove("view-hidden");
+      historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
       renderAll();
     }

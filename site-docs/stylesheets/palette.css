@@ -1,0 +1,29 @@
+/* Synapse Site-Docs — Color Palette
+   Single source of truth for site-docs colors.
+   Brand indigo (#4051b5) is shared with Canvas.
+   Matches MkDocs Material's indigo primary. */
+
+:root {
+  /* ── Brand (shared) ─────────────────────── */
+  --brand: #4051b5;
+  --brand-light: #5d6cc0;
+
+  /* ── Neutral ────────────────────────────── */
+  --docs-text: #2d3748;
+  --docs-text-light: #e2e8f0;
+  --docs-shadow: rgba(0, 0, 0, 0.15);
+
+  /* ── Status Colors ──────────────────────── */
+  --docs-status-ready: #4caf50;
+  --docs-status-processing: #ffb300;
+  --docs-status-waiting: #00bcd4;
+  --docs-status-done: #42a5f5;
+  --docs-status-shutdown: #ef5350;
+
+  /* ── Terminal ────────────────────────────── */
+  --docs-terminal-bg: #1a202c;
+  --docs-terminal-header: #2d3748;
+  --docs-terminal-dot-red: #ff5f56;
+  --docs-terminal-dot-yellow: #ffbd2e;
+  --docs-terminal-dot-green: #27c93f;
+}
