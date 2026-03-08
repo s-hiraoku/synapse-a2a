@@ -1965,7 +1965,6 @@ body.sidebar-collapsed #main-content {
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--color-text);
-  word-wrap: break-word;
   overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

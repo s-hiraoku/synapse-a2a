@@ -1622,8 +1622,9 @@
     // Edges after subgraphs
     for (var j = 0; j < edges.length; j++) {
       var e = edges[j];
-      var fromId = idMap[e.from] || "n_unknown";
-      var toId = idMap[e.to] || "n_unknown";
+      if (!idMap[e.from] || !idMap[e.to]) continue;
+      var fromId = idMap[e.from];
+      var toId = idMap[e.to];
       var edgeLabel = e.label ? " -->|" + e.label.replace(/[|]/g, "") + "| " : " --> ";
       lines.push("  " + fromId + edgeLabel + toId);
     }
@@ -3249,8 +3250,9 @@
   if (sidebarToggle) sidebarToggle.addEventListener("click", openSidebar);
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
 
-  // Sidebar collapse/expand (desktop)
+  // Sidebar collapse/expand (desktop only)
   function toggleSidebarCollapse() {
+    if (window.innerWidth <= 768) return;
     document.body.classList.toggle("sidebar-collapsed");
     var collapsed = document.body.classList.contains("sidebar-collapsed");
     try { localStorage.setItem("canvas-sidebar", collapsed ? "collapsed" : "expanded"); } catch (e) { /* ignore */ }

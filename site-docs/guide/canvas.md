@@ -134,7 +134,7 @@ The `content.format` field determines how `content.body` is rendered. New format
     Mermaid diagrams automatically sync with the Canvas dark/light theme toggle. When the theme changes, diagrams re-render using a custom color palette — Catppuccin-inspired tones for dark mode and Indigo tones for light mode, with the brand accent color (`#4051b5`). The original Mermaid source is preserved in a `data-mermaid-source` attribute on each diagram element, enabling seamless re-rendering without re-posting the card.
 
 !!! tip "Enhanced Markdown Rendering"
-    The `markdown` format uses a built-in parser with support for tables, blockquotes (`>` lines), horizontal rules (`---`), ordered and unordered lists, headings (h1–h6), inline code, fenced code blocks, bold, italic, strikethrough, links, and proper paragraph wrapping. Markdown card content is rendered with **Source Sans 3** for body text and **Source Code Pro** for code, with styled heading hierarchy, blockquote accent stripes, and table styling.
+    The `markdown` format uses the built-in `simpleMarkdown()` parser with support for tables, blockquotes (`>` lines), horizontal rules (`---`), nested ordered and unordered lists, headings (`#` → h2, `##` → h3, `###` → h4), inline code, fenced code blocks, bold, italic, strikethrough, links, and proper paragraph wrapping. Markdown card content is rendered with **Source Sans 3** for body text and **Source Code Pro** for code, with styled heading hierarchy, blockquote accent stripes, and table styling.
 
 !!! tip "The `html` Escape Hatch"
     When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the History view (`#/history`), the iframe auto-resizes to fit its content.
@@ -510,6 +510,6 @@ The History view shows the traditional card grid with live feed and agent messag
 - **Live Feed**: Chronological event stream with pulsing dot indicator
 - **Card Grid**: All cards in a responsive grid layout
 - **Filter bar**: Filter by format type and by agent
-- **Dark/light theme**: Follows `prefers-color-scheme` with manual toggle. Mermaid diagrams re-render automatically when the theme changes, using palette-matched colors for each mode.
+- **Dark/light theme**: Manual toggle via sidebar button, persisted in `localStorage("canvas-theme")` (defaults to dark). Mermaid diagrams re-render automatically when the theme changes, using palette-matched colors for each mode.
 - **Toast notifications**: `notify` type shows ephemeral messages
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp

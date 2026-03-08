@@ -790,7 +790,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] highlight.js integration for `code` format syntax highlighting
 - [x] Side-by-side diff renderer (replaces unified diff)
 - [x] HTML iframe fills Canvas view content area
-- [x] All 22 card formats verified on Canvas view
+- [x] All 23 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
 - [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
