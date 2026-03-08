@@ -245,3 +245,15 @@ class TestGeneratedArtifactsIgnored:
         files = _iter_skill_files(skill_dir)
 
         assert files == [Path("SKILL.md"), Path("scripts/tool.py")]
+
+    def test_iter_skill_files_ignores_standalone_pyc(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "example-skill"
+        scripts_dir = skill_dir / "scripts"
+        scripts_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
+        (scripts_dir / "tool.py").write_text("print('ok')\n", encoding="utf-8")
+        (scripts_dir / "standalone.pyc").write_bytes(b"pyc")
+
+        files = _iter_skill_files(skill_dir)
+
+        assert files == [Path("SKILL.md"), Path("scripts/tool.py")]

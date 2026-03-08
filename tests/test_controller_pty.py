@@ -12,8 +12,8 @@ from synapse.controller import TerminalController
 
 def _wait_until(predicate, timeout: float = 1.0, interval: float = 0.01) -> bool:
     """Poll until predicate() becomes truthy or timeout expires."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         if predicate():
             return True
         time.sleep(interval)

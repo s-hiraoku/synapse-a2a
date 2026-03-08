@@ -31,6 +31,7 @@ process.stdout.write(simpleMarkdown({json.dumps(text)}));
         check=True,
         capture_output=True,
         text=True,
+        timeout=5,
     )
     return result.stdout
 
