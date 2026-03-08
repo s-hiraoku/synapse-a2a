@@ -8,7 +8,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Added**: Dedicated `#/system` route for the Canvas System panel
 - **Added**: Expanded System view with skills, sessions, workflows, environment, and tips sections
-- **Added**: Signal Room visual refresh for Canvas with glassmorphism accents, iconography, and refined color palette
+- **Added**: Canvas UI visual refresh with glassmorphism accents, iconography, and a refined color palette
 - **Fixed**: `Latest Posts` no longer follows dashboard filters; `Agent Messages` filters now hide non-target agent panels
 
 ### v0.11.3

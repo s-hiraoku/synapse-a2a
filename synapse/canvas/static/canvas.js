@@ -14,6 +14,7 @@
   const liveFeedList = document.getElementById("live-feed-list");
   const canvasView = document.getElementById("canvas-view");
   const canvasSpotlight = document.getElementById("canvas-spotlight");
+  const dashboardView = document.getElementById("dashboard-view");
   const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
   const navLinks = document.querySelectorAll(".nav-link");
@@ -23,7 +24,7 @@
   const topbarTitle = document.getElementById("topbar-title");
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", history: "History", system: "System" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
 
   // Current route
   let currentRoute = "canvas";
@@ -159,7 +160,7 @@
     _renderRAF = requestAnimationFrame(() => {
       if (currentRoute === "canvas") {
         renderSpotlight();
-      } else if (currentRoute === "system") {
+      } else if (currentRoute === "system" || currentRoute === "dashboard") {
         // rendered by loadSystemPanel; no-op here
       } else {
         renderAll();
@@ -173,6 +174,7 @@
     const countText = `${filtered.length} card${filtered.length !== 1 ? "s" : ""}`;
     const agentVal = filterAgent.value;
     cardCount.textContent = countText;
+    cardCount.style.display = "";
     grid.innerHTML = "";
 
     // Sort agent messages by recency only.
@@ -1377,8 +1379,6 @@
   // ----------------------------------------------------------------
   async function loadSystemPanel() {
     if (!systemPanel) return;
-    // Skip fetch when system data is not visible (avoids ~10 I/O ops per call)
-    if (currentRoute !== "system" && currentRoute !== "history") return;
     try {
       const resp = await fetch("/api/system");
       if (!resp.ok) return;
@@ -1387,6 +1387,9 @@
       _lastSystemData = data;
       if (currentRoute === "system") {
         renderSystemPanel(data);
+      }
+      if (currentRoute === "dashboard") {
+        renderDashboard(data);
       }
       if (currentRoute === "history") {
         renderAll();
@@ -1400,14 +1403,7 @@
     if (!systemPanel) return;
     systemPanel.innerHTML = "";
 
-    const agentCount = Array.isArray(data.agents) ? data.agents.length : 0;
-    const taskCount = Object.values(data.tasks || {}).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
-    const lockCount = Array.isArray(data.file_locks) ? data.file_locks.length : 0;
-    const memoryCount = Array.isArray(data.memories) ? data.memories.length : 0;
-    const worktreeCount = Array.isArray(data.worktrees) ? data.worktrees.length : 0;
-    const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
-    const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
     const skillCount = Array.isArray(data.skills) ? data.skills.length : 0;
     const skillSetCount = Array.isArray(data.skill_sets) ? data.skill_sets.length : 0;
     const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : 0;
@@ -1422,25 +1418,7 @@
       content.appendChild(renderSystemTips(data.tips));
     }
 
-    // ── Errors (if any) ──
-    if (errorCount > 0) {
-      content.appendChild(
-        createSystemSection(
-          "errors",
-          "Registry Errors (" + errorCount + ")",
-          renderRegistryErrors(data.registry_errors)
-        )
-      );
-    }
-
-    // ── Agents (full-width, wide tables) ──
-    content.appendChild(
-      createSystemSection(
-        "agents",
-        "Agents (" + agentCount + ")",
-        renderSystemAgents(Array.isArray(data.agents) ? data.agents : [])
-      )
-    );
+    // ── Saved Agent Profiles ──
     if (profileCount > 0) {
       content.appendChild(
         createSystemSection(
@@ -1450,57 +1428,6 @@
         )
       );
     }
-
-    // ── Tasks (full-width) ──
-    content.appendChild(
-      createSystemSection(
-        "tasks",
-        "Tasks (" + taskCount + ")",
-        renderSystemTasks(data.tasks || {})
-      )
-    );
-
-    // ── Work group (file locks, history) ──
-    const workGroup = document.createElement("div");
-    workGroup.className = "system-group";
-
-    workGroup.appendChild(
-      createSystemSection(
-        "file-locks",
-        "File Locks (" + lockCount + ")",
-        renderSystemFileLocks(Array.isArray(data.file_locks) ? data.file_locks : [])
-      )
-    );
-    workGroup.appendChild(
-      createSystemSection(
-        "history",
-        "Recent History (" + historyCount + ")",
-        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
-      )
-    );
-    content.appendChild(workGroup);
-
-    // ── Knowledge group (memory, worktrees) ──
-    const knowledgeGroup = document.createElement("div");
-    knowledgeGroup.className = "system-group";
-
-    knowledgeGroup.appendChild(
-      createSystemSection(
-        "memories",
-        "Shared Memory (" + memoryCount + ")",
-        renderSystemMemories(Array.isArray(data.memories) ? data.memories : [])
-      )
-    );
-    if (worktreeCount > 0) {
-      knowledgeGroup.appendChild(
-        createSystemSection(
-          "worktrees",
-          "Worktrees (" + worktreeCount + ")",
-          renderSystemWorktrees(data.worktrees)
-        )
-      );
-    }
-    content.appendChild(knowledgeGroup);
 
     // ── Skills (full-width, wide tables) ──
     content.appendChild(
@@ -1556,6 +1483,419 @@
     }
 
     systemPanel.appendChild(content);
+  }
+
+  // ----------------------------------------------------------------
+  // Dashboard renderers
+  // ----------------------------------------------------------------
+
+  function formatElapsed(isoOrUnix) {
+    if (!isoOrUnix) return "";
+    var ts = typeof isoOrUnix === "number" ? isoOrUnix : new Date(isoOrUnix).getTime() / 1000;
+    var elapsed = Math.floor(Date.now() / 1000 - ts);
+    if (elapsed < 0) elapsed = 0;
+    var mins = Math.floor(elapsed / 60);
+    var secs = elapsed % 60;
+    return mins > 0 ? mins + "m " + secs + "s" : secs + "s";
+  }
+
+  function renderDashboard(data) {
+    renderDashStatusStrip(Array.isArray(data.agents) ? data.agents : []);
+    renderDashAgents(Array.isArray(data.agents) ? data.agents : []);
+    renderDashAttention(data);
+    renderDashTasks(data.tasks || {});
+    renderDashActivity(
+      Array.isArray(data.history) ? data.history : [],
+      [...cards.values()]
+    );
+    renderDashFileLocks(Array.isArray(data.file_locks) ? data.file_locks : []);
+    renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
+    renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
+    renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
+  }
+
+  function renderDashStatusStrip(agents) {
+    var el = document.getElementById("dash-status-strip");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var counts = {};
+    var errorCount = 0;
+    for (var i = 0; i < agents.length; i++) {
+      var s = (agents[i].status || "unknown").toLowerCase();
+      counts[s] = (counts[s] || 0) + 1;
+    }
+
+    var statuses = ["ready", "processing", "waiting", "done"];
+    for (var si = 0; si < statuses.length; si++) {
+      var status = statuses[si];
+      var count = counts[status] || 0;
+      if (si > 0) {
+        var sep = document.createElement("div");
+        sep.className = "dash-strip-separator";
+        el.appendChild(sep);
+      }
+      var item = document.createElement("div");
+      item.className = "dash-strip-item";
+      var countEl = document.createElement("span");
+      countEl.className = "dash-strip-count";
+      countEl.style.color = statusColor(status);
+      countEl.textContent = String(count);
+      item.appendChild(countEl);
+      var label = document.createElement("span");
+      label.className = "dash-strip-label";
+      label.textContent = status.toUpperCase();
+      item.appendChild(label);
+      el.appendChild(item);
+    }
+  }
+
+  function renderDashAgents(agents) {
+    var el = document.getElementById("dash-agents");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-robot";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Agent Fleet (" + agents.length + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    // Reuse the full agent table from System view
+    el.appendChild(renderSystemAgents(agents));
+  }
+
+  function renderDashAttention(data) {
+    var el = document.getElementById("dash-attention");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-warning";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Attention Needed";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    var alerts = [];
+    var agents = Array.isArray(data.agents) ? data.agents : [];
+    var tasks = data.tasks || {};
+    var locks = Array.isArray(data.file_locks) ? data.file_locks : [];
+    var errors = Array.isArray(data.registry_errors) ? data.registry_errors : [];
+    var worktrees = Array.isArray(data.worktrees) ? data.worktrees : [];
+
+    // WAITING agents
+    for (var i = 0; i < agents.length; i++) {
+      if ((agents[i].status || "").toLowerCase() === "waiting") {
+        alerts.push({ level: "warning", icon: "ph-hourglass", text: (agents[i].name || agents[i].agent_type) + " is waiting for input" });
+      }
+    }
+
+    // Unassigned pending tasks
+    var pending = tasks.pending || [];
+    for (var j = 0; j < pending.length; j++) {
+      if (!pending[j].assignee) {
+        alerts.push({ level: "info", icon: "ph-clipboard-text", text: "Unassigned: " + (pending[j].subject || pending[j].id) });
+      }
+    }
+
+    // Failed tasks
+    var failed = tasks.failed || [];
+    for (var k = 0; k < failed.length; k++) {
+      alerts.push({ level: "error", icon: "ph-x-circle", text: "Failed: " + (failed[k].subject || failed[k].id) });
+    }
+
+    // File locks
+    if (locks.length > 0) {
+      alerts.push({ level: "info", icon: "ph-lock", text: locks.length + " file lock" + (locks.length !== 1 ? "s" : "") + " active" });
+    }
+
+    // Registry errors
+    for (var m = 0; m < errors.length; m++) {
+      alerts.push({ level: "error", icon: "ph-warning-circle", text: errors[m].source + ": " + errors[m].message });
+    }
+
+    // Worktrees
+    if (worktrees.length > 0) {
+      alerts.push({ level: "info", icon: "ph-git-branch", text: worktrees.length + " worktree" + (worktrees.length !== 1 ? "s" : "") + " active" });
+    }
+
+    if (alerts.length === 0) {
+      el.appendChild(emptyState("All clear — no issues"));
+      return;
+    }
+
+    var list = document.createElement("div");
+    list.className = "dash-alert-list";
+    for (var n = 0; n < alerts.length; n++) {
+      var a = alerts[n];
+      var item = document.createElement("div");
+      item.className = "dash-alert-item alert-" + a.level;
+      var alertIcon = document.createElement("i");
+      alertIcon.className = "ph " + a.icon;
+      item.appendChild(alertIcon);
+      var textEl = document.createElement("span");
+      textEl.textContent = a.text;
+      item.appendChild(textEl);
+      list.appendChild(item);
+    }
+    el.appendChild(list);
+  }
+
+  function renderDashTasks(tasks) {
+    var el = document.getElementById("dash-tasks");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-kanban";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    var total = 0;
+    var statuses = ["pending", "in_progress", "completed", "failed"];
+    var counts = {};
+    for (var i = 0; i < statuses.length; i++) {
+      var items = tasks[statuses[i]] || [];
+      counts[statuses[i]] = items.length;
+      total += items.length;
+    }
+    title.textContent = "Task Board (" + total + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    if (total === 0) {
+      el.appendChild(emptyState("No tasks"));
+      return;
+    }
+
+    var bars = document.createElement("div");
+    bars.className = "dash-task-bars";
+
+    var colors = { pending: "var(--color-warning)", in_progress: "var(--color-accent)", completed: "var(--color-success)", failed: "var(--color-danger)" };
+    var labels = { pending: "Pending", in_progress: "In Progress", completed: "Completed", failed: "Failed" };
+
+    for (var j = 0; j < statuses.length; j++) {
+      var s = statuses[j];
+      var c = counts[s];
+      if (c === 0 && s === "failed") continue;
+      var row = document.createElement("div");
+      row.className = "dash-task-bar-row";
+
+      var labelEl = document.createElement("span");
+      labelEl.className = "dash-task-bar-label";
+      labelEl.textContent = labels[s];
+      row.appendChild(labelEl);
+
+      var track = document.createElement("div");
+      track.className = "dash-task-bar-track";
+      var fill = document.createElement("div");
+      fill.className = "dash-task-bar-fill";
+      fill.style.width = (total > 0 ? Math.round((c / total) * 100) : 0) + "%";
+      fill.style.background = colors[s];
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      var countEl = document.createElement("span");
+      countEl.className = "dash-task-bar-count";
+      countEl.style.color = colors[s];
+      countEl.textContent = String(c);
+      row.appendChild(countEl);
+
+      bars.appendChild(row);
+    }
+    el.appendChild(bars);
+
+    // Also show the kanban-style task board below the bar chart
+    el.appendChild(renderSystemTasks(tasks));
+  }
+
+  function renderDashActivity(history, allCards) {
+    var el = document.getElementById("dash-activity");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-clock-counter-clockwise";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Activity Feed";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    // Merge history + canvas posts, sort by time desc, take 8
+    var items = [];
+    for (var i = 0; i < history.length; i++) {
+      var h = history[i];
+      items.push({ time: h.timestamp, agent: h.agent_name || "", text: h.input || "", type: "history" });
+    }
+    for (var j = 0; j < allCards.length; j++) {
+      var card = allCards[j];
+      items.push({ time: card.updated_at || card.created_at || "", agent: card.agent_name || card.agent_id || "", text: card.title || "", type: "canvas" });
+    }
+    items.sort(function (a, b) { return (b.time || "").localeCompare(a.time || ""); });
+    items = items.slice(0, 8);
+
+    if (items.length === 0) {
+      el.appendChild(emptyState("No recent activity"));
+      return;
+    }
+
+    var timeline = document.createElement("div");
+    timeline.className = "dash-timeline";
+    for (var k = 0; k < items.length; k++) {
+      var it = items[k];
+      var row = document.createElement("div");
+      row.className = "dash-timeline-item";
+
+      var timeEl = document.createElement("span");
+      timeEl.className = "dash-timeline-time";
+      if (it.time) {
+        var d = new Date(it.time);
+        timeEl.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      }
+      row.appendChild(timeEl);
+
+      var textEl = document.createElement("span");
+      textEl.className = "dash-timeline-text";
+      if (it.agent) {
+        var agentSpan = document.createElement("span");
+        agentSpan.className = "dash-timeline-agent";
+        agentSpan.textContent = it.agent;
+        textEl.appendChild(agentSpan);
+        textEl.appendChild(document.createTextNode(" " + it.text));
+      } else {
+        textEl.textContent = it.text;
+      }
+      row.appendChild(textEl);
+
+      timeline.appendChild(row);
+    }
+    el.appendChild(timeline);
+  }
+
+  function renderDashMemory(memories) {
+    var el = document.getElementById("dash-memory");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-brain";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Shared Knowledge (" + memories.length + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    if (memories.length === 0) {
+      el.appendChild(emptyState("No shared memories"));
+      return;
+    }
+
+    var list = document.createElement("div");
+    list.className = "dash-memory-list";
+    var shown = memories.slice(0, 5);
+    for (var i = 0; i < shown.length; i++) {
+      var m = shown[i];
+      var item = document.createElement("div");
+      item.className = "dash-memory-item";
+
+      var key = document.createElement("span");
+      key.className = "dash-memory-key";
+      key.textContent = m.key || "";
+      item.appendChild(key);
+
+      var content = document.createElement("span");
+      content.className = "dash-memory-content";
+      content.textContent = m.content || "";
+      item.appendChild(content);
+
+      var author = document.createElement("span");
+      author.className = "dash-memory-author";
+      author.textContent = m.author || "";
+      item.appendChild(author);
+
+      list.appendChild(item);
+    }
+    el.appendChild(list);
+  }
+
+  function renderDashFileLocks(locks) {
+    var el = document.getElementById("dash-file-locks");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-lock";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "File Locks (" + locks.length + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    el.appendChild(renderSystemFileLocks(locks));
+  }
+
+  function renderDashWorktrees(worktrees) {
+    var el = document.getElementById("dash-worktrees");
+    if (!el) return;
+    el.innerHTML = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-git-branch";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Worktrees (" + worktrees.length + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    if (worktrees.length === 0) {
+      el.appendChild(emptyState("No active worktrees"));
+      return;
+    }
+
+    el.appendChild(renderSystemWorktrees(worktrees));
+  }
+
+  function renderDashErrors(errors) {
+    var el = document.getElementById("dash-errors");
+    if (!el) return;
+    el.innerHTML = "";
+
+    if (errors.length === 0) {
+      el.style.display = "none";
+      return;
+    }
+    el.style.display = "";
+
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    header.style.color = "var(--color-danger)";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-warning-circle";
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = "Registry Errors (" + errors.length + ")";
+    header.appendChild(title);
+    el.appendChild(header);
+
+    el.appendChild(renderRegistryErrors(errors));
   }
 
   // System section key → Phosphor icon class
@@ -2499,19 +2839,24 @@
   function statusColor(status) {
     switch (String(status || "").toLowerCase()) {
       case "ready":
-      case "success":
-      case "completed":
         return "var(--color-success)";
-      case "processing":
-      case "running":
-      case "in_progress":
-        return "var(--color-accent)";
       case "waiting":
-      case "pending":
-      case "warn":
+        return "var(--color-accent)";
+      case "processing":
         return "var(--color-warning)";
       case "done":
         return "var(--color-signal)";
+      case "shutting_down":
+        return "var(--color-danger)";
+      case "success":
+      case "completed":
+        return "var(--color-success)";
+      case "running":
+      case "in_progress":
+        return "var(--color-accent)";
+      case "pending":
+      case "warn":
+        return "var(--color-warning)";
       case "error":
       case "failed":
         return "var(--color-danger)";
@@ -2525,6 +2870,7 @@
   // ----------------------------------------------------------------
   function getRoute() {
     const hash = location.hash || "#/";
+    if (hash === "#/dashboard") return "dashboard";
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     return "canvas";
@@ -2564,6 +2910,7 @@
 
     // Hide all views, then show active
     canvasView.classList.add("view-hidden");
+    if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
 
@@ -2571,6 +2918,11 @@
       canvasView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       renderSpotlight();
+    } else if (currentRoute === "dashboard") {
+      if (dashboardView) dashboardView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (_lastSystemData) renderDashboard(_lastSystemData);
+      loadSystemPanel();
     } else if (currentRoute === "system") {
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";
@@ -2745,7 +3097,6 @@
   loadCards();
   loadSystemPanel();
   connectSSE();
-  window.setInterval(loadSystemPanel, 10000);
 
   // Initial route
   navigate();

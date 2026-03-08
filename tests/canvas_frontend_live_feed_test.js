@@ -1,4 +1,5 @@
 const fs = require("fs");
+const vm = require("node:vm");
 
 const source = fs.readFileSync("synapse/canvas/static/canvas.js", "utf8");
 
@@ -107,18 +108,28 @@ function buildHarness(allCards, filteredCards) {
     globalThis.__renderAll = renderAll;
   `;
 
-  global.__env = env;
-  global.__allCards = allCards;
-  global.__filteredCards = filteredCards;
-  global.__systemAgents = allCards.map((card) => ({
-    agent_id: card.agent_id,
-    name: card.agent_name,
-    status: "ready",
-  }));
-  // eslint-disable-next-line no-eval -- test harness executes extracted local canvas.js functions in isolation.
-  eval(script);
+  const sandbox = {
+    console,
+    JSON,
+    Map,
+    Set,
+    Array,
+    Object,
+    __env: env,
+    __allCards: allCards,
+    __filteredCards: filteredCards,
+    __systemAgents: allCards.map((card) => ({
+      agent_id: card.agent_id,
+      name: card.agent_name,
+      status: "ready",
+    })),
+  };
+  sandbox.globalThis = sandbox;
 
-  return { env, renderAll: global.__renderAll };
+  const compiled = new vm.Script(script, { filename: "canvas.js" });
+  compiled.runInNewContext(sandbox, { timeout: 1000 });
+
+  return { env, renderAll: sandbox.__renderAll };
 }
 
 function assert(condition, message) {

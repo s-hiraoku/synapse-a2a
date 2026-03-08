@@ -23,6 +23,7 @@
   </div>
   <nav id="nav-menu">
     <a href="#/" class="nav-link active" data-route="canvas"><i class="ph ph-monitor"></i><span>Canvas</span></a>
+    <a href="#/dashboard" class="nav-link" data-route="dashboard"><i class="ph ph-squares-four"></i><span>Dashboard</span></a>
     <a href="#/history" class="nav-link" data-route="history"><i class="ph ph-clock-counter-clockwise"></i><span>History</span></a>
     <a href="#/system" class="nav-link" data-route="system"><i class="ph ph-gear-six"></i><span>System</span></a>
   </nav>
@@ -46,6 +47,23 @@
   </section>
 
   <!-- Dashboard View -->
+  <section id="dashboard-view" class="view-hidden">
+    <div id="dash-status-strip" class="dash-strip"></div>
+    <div class="dash-grid">
+      <div id="dash-agents" class="dash-widget"></div>
+      <div id="dash-attention" class="dash-widget"></div>
+      <div id="dash-tasks" class="dash-widget"></div>
+      <div id="dash-activity" class="dash-widget"></div>
+    </div>
+    <div class="dash-grid">
+      <div id="dash-file-locks" class="dash-widget"></div>
+      <div id="dash-worktrees" class="dash-widget"></div>
+    </div>
+    <div id="dash-memory" class="dash-widget dash-full-width"></div>
+    <div id="dash-errors" class="dash-widget dash-full-width"></div>
+  </section>
+
+  <!-- History View -->
   <section id="history-view" class="view-hidden">
     <div id="history-scroll">
       <div id="live-feed">
@@ -83,7 +101,7 @@
             <select id="filter-agent">
               <option value="">All agents</option>
             </select>
-            <span id="card-count" style="display:none">0 cards</span>
+            <span id="card-count">0 cards</span>
           </div>
         </div>
         <main id="canvas-grid"></main>

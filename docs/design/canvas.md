@@ -389,11 +389,12 @@ When the SSE connection drops (e.g., server restart, network interruption), `Eve
 
 ### SPA Routing
 
-The browser UI uses hash-based SPA routing with two views:
+The browser UI uses hash-based SPA routing with four views:
 
 | Route | View | Description |
 |---|---|---|
 | `#/` | **Canvas view** | Full-viewport projection of the latest card. Designed for immersive content display. |
+| `#/dashboard` | **Dashboard view** | Operational overview with agent, task, activity, and shared-memory widgets. |
 | `#/history` | **History view** | Live Feed + Agent Messages. The traditional card overview. |
 | `#/system` | **System view** | Dedicated System Panel showing agents, tasks, file locks, shared memory, worktrees, and recent history. |
 
@@ -728,7 +729,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] All 18 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
-- [x] SPA routing: `#/` (Canvas view — full-viewport latest card) and `#/history` (History view)
+- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
 - [x] Dark/light theme toggle
@@ -762,9 +763,9 @@ Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `me
 1. **Port**: Default 3000. Configurable via `SYNAPSE_CANVAS_PORT`.
 2. **Persistence**: Cards are **ephemeral** — cleared on server restart. Additionally, cards expire after `CANVAS_CARD_TTL` (default 1 hour). Pinned cards are exempt from TTL expiry.
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
-4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in future.
+4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
+6. **SPA routing**: Hash-based (`#/`, `#/dashboard`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 
