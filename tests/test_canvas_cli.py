@@ -357,3 +357,95 @@ class TestAutoStart:
         write_pid_file(pid_path, pid=999999, port=3000)  # Non-existent PID
 
         assert is_pid_alive(999999) is False
+
+
+# ============================================================
+# TestCanvasBriefing — synapse canvas briefing
+# ============================================================
+
+
+class TestCanvasBriefing:
+    """Tests for the canvas briefing CLI command."""
+
+    # Use a port that's not running to force direct DB write
+    _TEST_PORT = 39998
+
+    def test_post_briefing_json(self, tmp_path):
+        """post_briefing should accept JSON with content and sections."""
+        from synapse.commands.canvas import post_briefing
+
+        db_path = str(tmp_path / "canvas.db")
+        json_data = json.dumps(
+            {
+                "title": "Sprint 42",
+                "summary": "All green",
+                "sections": [
+                    {"title": "Tests", "blocks": [0]},
+                    {"title": "Architecture", "blocks": [1]},
+                ],
+                "content": [
+                    {"format": "markdown", "body": "## Test Results"},
+                    {"format": "mermaid", "body": "graph TD; A-->B"},
+                ],
+            }
+        )
+        result = post_briefing(
+            json_data=json_data,
+            agent_id="synapse-claude-8103",
+            db_path=db_path,
+            port=self._TEST_PORT,
+        )
+        assert result is not None
+        assert result["template"] == "briefing"
+        assert result["title"] == "Sprint 42"
+
+    def test_post_briefing_file(self, tmp_path):
+        """post_briefing should read from file."""
+        from synapse.commands.canvas import post_briefing
+
+        db_path = str(tmp_path / "canvas.db")
+        briefing_file = tmp_path / "report.json"
+        briefing_file.write_text(
+            json.dumps(
+                {
+                    "title": "CI Report",
+                    "sections": [{"title": "Results", "blocks": [0]}],
+                    "content": [{"format": "markdown", "body": "All pass"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = post_briefing(
+            json_data=None,
+            file_path=str(briefing_file),
+            agent_id="synapse-claude-8103",
+            db_path=db_path,
+            port=self._TEST_PORT,
+        )
+        assert result is not None
+        assert result["template"] == "briefing"
+        assert result["title"] == "CI Report"
+
+    def test_post_briefing_with_summary(self, tmp_path):
+        """summary argument should be reflected in template_data."""
+        from synapse.commands.canvas import post_briefing
+
+        db_path = str(tmp_path / "canvas.db")
+        json_data = json.dumps(
+            {
+                "sections": [{"title": "A", "blocks": [0]}],
+                "content": [{"format": "markdown", "body": "hello"}],
+            }
+        )
+        result = post_briefing(
+            json_data=json_data,
+            agent_id="synapse-claude-8103",
+            title="With Summary",
+            summary="Executive summary",
+            db_path=db_path,
+            port=self._TEST_PORT,
+        )
+        assert result is not None
+        # template_data should contain the summary
+        td = result["template_data"]
+        assert td["summary"] == "Executive summary"

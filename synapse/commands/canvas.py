@@ -185,6 +185,8 @@ def post_card(
             card_type=msg.type or "render",
             pinned=msg.pinned,
             tags=msg.tags or None,
+            template=msg.template,
+            template_data=msg.template_data or None,
         )
     return store.add_card(
         agent_id=msg.agent_id,
@@ -194,6 +196,8 @@ def post_card(
         card_type=msg.type or "render",
         pinned=msg.pinned,
         tags=msg.tags or None,
+        template=msg.template,
+        template_data=msg.template_data or None,
     )
 
 
@@ -213,6 +217,103 @@ def _post_via_api(payload: dict, port: int = DEFAULT_PORT) -> dict | None:
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         print(f"Failed to connect to Canvas server: {e}", file=sys.stderr)
         return None
+
+
+def post_briefing(
+    json_data: str | None = None,
+    file_path: str | None = None,
+    title: str = "",
+    summary: str = "",
+    agent_id: str = "",
+    agent_name: str = "",
+    card_id: str | None = None,
+    pinned: bool = False,
+    tags: list[str] | None = None,
+    db_path: str | None = None,
+    port: int = DEFAULT_PORT,
+) -> dict | None:
+    """Post a briefing card from JSON data or file. Returns card dict or None."""
+    if file_path:
+        raw = Path(file_path).read_text(encoding="utf-8")
+    elif json_data:
+        raw = json_data
+    else:
+        print("Error: No JSON data or file provided", file=sys.stderr)
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON", file=sys.stderr)
+        return None
+
+    # Extract content and sections from the input data
+    content_blocks = data.get("content", [])
+    sections = data.get("sections", [])
+    briefing_title = title or data.get("title", "")
+    briefing_summary = summary or data.get("summary", "")
+
+    template_data: dict = {"sections": sections}
+    if briefing_summary:
+        template_data["summary"] = briefing_summary
+
+    agent_name = _resolve_agent_name(agent_id, agent_name)
+
+    # Build the full Canvas message payload
+    payload: dict = {
+        "type": "render",
+        "content": content_blocks,
+        "agent_id": agent_id,
+        "title": briefing_title,
+        "pinned": pinned,
+        "template": "briefing",
+        "template_data": template_data,
+    }
+    if agent_name:
+        payload["agent_name"] = agent_name
+    if card_id:
+        payload["card_id"] = card_id
+    if tags:
+        payload["tags"] = tags
+
+    # Validate before posting
+    from synapse.canvas.protocol import CanvasMessage, validate_message
+
+    msg = CanvasMessage.from_dict(payload)
+    errors = validate_message(msg)
+    if errors:
+        print(f"Validation errors: {'; '.join(errors)}", file=sys.stderr)
+        return None
+
+    # Use HTTP API if server is running
+    if is_canvas_server_running(port):
+        return _post_via_api(payload, port)
+
+    # Fallback: direct DB write
+    content_json = json.dumps(content_blocks, ensure_ascii=False)
+    store = CanvasStore(db_path=db_path)
+    if card_id:
+        return store.upsert_card(
+            card_id=card_id,
+            agent_id=agent_id,
+            content=content_json,
+            title=briefing_title,
+            agent_name=agent_name or None,
+            pinned=pinned,
+            tags=tags,
+            template="briefing",
+            template_data=template_data,
+        )
+    return store.add_card(
+        agent_id=agent_id,
+        content=content_json,
+        title=briefing_title,
+        agent_name=agent_name or None,
+        pinned=pinned,
+        tags=tags,
+        template="briefing",
+        template_data=template_data,
+    )
 
 
 def post_shortcut(

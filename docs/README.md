@@ -23,6 +23,12 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ### 設計ドキュメント
 
+- `design/canvas.md` - **Synapse Canvas 設計ドキュメント**
+  - 共有ビジュアル出力サーフェス（Canvas Message Protocol）
+  - 18 コンテンツフォーマット + 5 テンプレート（briefing, comparison, dashboard, steps, slides）
+  - ブラウザ UI（SPA ルーティング、SSE リアルタイム更新、キャッシュバスティング）
+  - CLI コマンドリファレンス（`synapse canvas serve/mermaid/markdown/briefing/...`）
+
 - `a2a-design-rationale.md` - **A2A プロトコル準拠性と設計思想の分析**
   - Synapse A2A の PTY ラッピングアプローチの正当性
   - Google A2A 公式仕様との比較

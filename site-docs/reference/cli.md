@@ -505,6 +505,95 @@ synapse auth setup                             # Generate keys + instructions
 synapse auth generate-key [-n COUNT] [-e]      # Generate key(s)
 ```
 
+## Canvas
+
+### Serve
+
+```bash
+synapse canvas serve [--port PORT] [--no-open]
+```
+
+Starts the Canvas server and opens the browser. The server auto-starts in the background when you post your first card, so explicit `serve` is optional.
+
+| Flag | Description |
+|------|-------------|
+| `--port PORT` | Canvas server port (default: 3000) |
+| `--no-open` | Don't open browser automatically |
+
+### Post (Format Shortcuts)
+
+```bash
+synapse canvas <format> "<body>" [OPTIONS]
+```
+
+| Format | Body | Description |
+|--------|------|-------------|
+| `mermaid` | Mermaid source | Flowcharts, sequence diagrams |
+| `markdown` | Markdown text | Formatted documents |
+| `table` | `{headers, rows}` JSON | Structured data |
+| `html` | Raw HTML | Full freedom (sandboxed iframe) |
+| `code` | Source code | Syntax-highlighted code |
+| `diff` | Unified diff | Side-by-side diff view |
+| `chart` | Chart.js config JSON | All chart types |
+| `image` | URL or base64 data URI | Screenshots, SVG diagrams |
+
+**Common options** (all posting commands):
+
+| Flag | Description |
+|------|-------------|
+| `--title TITLE` | Card title |
+| `--id ID` | Stable card ID for upsert (auto-generated if omitted) |
+| `--pin` | Pin card (exempt from TTL expiry) |
+| `--tag TAG` | Tag for filtering (repeatable) |
+| `--file PATH` | Read body from file instead of argument |
+| `--lang LANG` | Language hint (for `code` format) |
+
+### Post Raw
+
+```bash
+synapse canvas post '<Canvas Message JSON>'
+```
+
+Post a full Canvas Message Protocol JSON payload. Supports composite cards (multiple content blocks), templates, and all protocol fields.
+
+### Briefing
+
+```bash
+synapse canvas briefing '<JSON>' [OPTIONS]
+synapse canvas briefing --file report.json [OPTIONS]
+```
+
+Shortcut for posting a `briefing` template card with structured sections.
+
+| Flag | Description |
+|------|-------------|
+| `--title TITLE` | Card title (overrides JSON `title`) |
+| `--summary TEXT` | Executive summary (overrides JSON `summary`) |
+| `--file PATH` | Read briefing JSON from file |
+| `--pin` | Pin card |
+| `--tag TAG` | Tag for filtering (repeatable) |
+
+### List
+
+```bash
+synapse canvas list [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--mine` | Show own cards only (filtered by `$SYNAPSE_AGENT_ID`) |
+| `--search QUERY` | Filter by title |
+| `--type FORMAT` | Filter by content format |
+| `--agent-id ID` | Filter by agent ID |
+
+### Delete / Clear
+
+```bash
+synapse canvas delete <card_id>            # Delete a single card
+synapse canvas clear                       # Clear all cards
+synapse canvas clear --agent <agent_id>    # Clear specific agent's cards
+```
+
 ## Logs
 
 ```bash

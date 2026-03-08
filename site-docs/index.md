@@ -262,6 +262,21 @@ synapse memory save auth-pattern \
 ```
 </div>
 
+<div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-palette-outline:</div>
+
+### Canvas
+Shared visual output surface for agents. Post Mermaid diagrams, tables, charts, code, diffs, and more to a browser UI with real-time SSE updates. Five layout templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`) structure multi-block cards into reports, side-by-side views, grids, workflows, and presentations.
+
+```bash
+synapse canvas serve
+synapse canvas mermaid "graph TD; A-->B" \
+  --title "Flow"
+synapse canvas briefing --file report.json \
+  --title "Sprint Review" --pinned
+```
+</div>
+
 </div>
 
 ## Supported Agents

@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import sqlite3
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from synapse.canvas.protocol import (
     FORMAT_REGISTRY,
@@ -32,6 +34,16 @@ logger = logging.getLogger(__name__)
 
 # SSE event queue for broadcasting to connected clients
 _sse_queues: list[asyncio.Queue[str]] = []
+
+
+class _NoCacheStaticMiddleware(BaseHTTPMiddleware):
+    """Add Cache-Control: no-cache to /static/ responses."""
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
@@ -70,19 +82,32 @@ def create_app(db_path: str | None = None) -> FastAPI:
     # Store reference for access in endpoints
     app.state.store = store
 
-    # Static files
+    # Static files with no-cache headers
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
+        app.add_middleware(_NoCacheStaticMiddleware)
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    # Pre-render HTML with cache-busting (read once at startup, not per-request)
+    _cache_version = str(int(time.time()))
+    _index_html: str | None = None
+    template_path = Path(__file__).parent / "templates" / "index.html"
+    if template_path.exists():
+        _index_html = template_path.read_text(encoding="utf-8")
+        _index_html = _index_html.replace(
+            "/static/canvas.css", f"/static/canvas.css?v={_cache_version}"
+        )
+        _index_html = _index_html.replace(
+            "/static/canvas.js", f"/static/canvas.js?v={_cache_version}"
+        )
 
     # ----------------------------------------------------------------
     # GET / — Main HTML page
     # ----------------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
     async def index() -> HTMLResponse:
-        template_path = Path(__file__).parent / "templates" / "index.html"
-        if template_path.exists():
-            return HTMLResponse(template_path.read_text(encoding="utf-8"))
+        if _index_html:
+            return HTMLResponse(_index_html, headers={"Cache-Control": "no-store"})
         return HTMLResponse("<h1>Synapse Canvas</h1><p>Template not found.</p>")
 
     # ----------------------------------------------------------------
@@ -337,6 +362,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 agent_name=msg.agent_name or None,
                 pinned=msg.pinned,
                 tags=msg.tags or None,
+                template=msg.template,
+                template_data=msg.template_data or None,
             )
             if result is None:
                 raise HTTPException(
@@ -358,6 +385,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 agent_name=msg.agent_name or None,
                 pinned=msg.pinned,
                 tags=msg.tags or None,
+                template=msg.template,
+                template_data=msg.template_data or None,
             )
             _broadcast_event("card_created", result)
             return result

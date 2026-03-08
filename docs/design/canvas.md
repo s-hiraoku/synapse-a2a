@@ -165,6 +165,8 @@ synapse canvas code "def foo(): pass" --lang python --title "Impl"
 synapse canvas diff "--- a/f.py\n+++ b/f.py\n..." --title "Changes"
 synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"
 synapse canvas image "https://..." --title "Screenshot"
+synapse canvas briefing '{"sections":[...],"content":[...]}' --title "Report"
+synapse canvas briefing --file report.json --title "CI Report"
 ```
 
 ### Card Posting (Full Control)
@@ -304,6 +306,22 @@ The `/api/system` endpoint aggregates state from across the project:
 - Canvas aggregates all agents' output in one place
 - Decoupled lifecycle: Canvas runs independently of any agent
 
+### Cache-Busting Strategy
+
+To ensure browsers always load the latest static assets during development and after server updates, Canvas uses a three-layer cache-busting strategy:
+
+1. **Query string versioning**: CSS and JS references in `index.html` are rewritten with `?v=<timestamp>` on each server start (e.g., `/static/canvas.css?v=1709900000`). The `_cache_version` is generated once at startup via `int(time.time())`.
+2. **`Cache-Control: no-store` on HTML**: The main `index.html` response includes `Cache-Control: no-store` to prevent browsers from caching the page itself. This guarantees the `?v=` versioned asset URLs are always fetched.
+3. **`NoCacheStaticMiddleware`**: A custom `BaseHTTPMiddleware` adds `Cache-Control: no-cache` to all `/static/` responses, forcing browsers to revalidate on every request.
+
+### Mermaid SVG Sizing
+
+Mermaid.js sets fixed `height` attributes on generated SVGs, which can cause clipping or oversized whitespace. The `runMermaid()` helper in `canvas.js` fixes this after rendering:
+
+- Removes the `height` attribute from all `.format-mermaid svg` elements
+- Sets `display: block` via CSS so SVGs flow naturally within their container
+- Preserves Mermaid's inline `max-width` style to respect diagram complexity
+
 ---
 
 ## Data Model
@@ -321,6 +339,8 @@ CREATE TABLE cards (
     title       TEXT,
     pinned      INTEGER DEFAULT 0,
     tags        TEXT,                             -- JSON array: ["design", "auth"]
+    template    TEXT DEFAULT '',                   -- Template name: briefing | comparison | dashboard | steps | slides
+    template_data TEXT DEFAULT '{}',              -- JSON: template-specific layout metadata
     expires_at  DATETIME,                         -- NULL = use default TTL. Pinned cards: NULL (no expiry)
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -362,6 +382,10 @@ data: {"agent_name":"Gojo","message":"Tests passed!","level":"success"}
 event: system_update
 data: {"timestamp": "..."} // Triggers /api/system refetch
 ```
+
+#### SSE Reconnection
+
+When the SSE connection drops (e.g., server restart, network interruption), `EventSource` auto-reconnects. On reconnection, `es.onopen` triggers a full card re-sync via `loadCards()` to pick up any changes that occurred during the disconnect. This ensures the browser UI never shows stale data after a reconnection.
 
 ### SPA Routing
 
@@ -495,6 +519,8 @@ class CanvasMessage:
     card_id: str = ""                   # For upserts
     pinned: bool = False
     tags: list[str] = field(default_factory=list)
+    template: str = ""                  # Template name (briefing | comparison | dashboard | steps | slides)
+    template_data: dict = field(default_factory=dict)  # Template-specific layout metadata
 ```
 
 ### Validation Rules
@@ -504,6 +530,110 @@ class CanvasMessage:
 - `content.body` max size: 2MB per block
 - `card_id` must be globally unique (schema: `card_id TEXT UNIQUE`). If a different agent reuses an existing `card_id`, the server returns 403
 - Composite cards: max 10 content blocks per card
+- `template` must be one of: `briefing`, `comparison`, `dashboard`, `steps`, `slides` (or empty for no template)
+- Template cards require composite content (list of blocks); `template_data` defines how blocks are grouped
+
+### Templates
+
+Templates add structured layout semantics on top of composite cards. The `template` field selects the layout, and `template_data` provides template-specific metadata that maps content blocks (by index) into sections, sides, widgets, steps, or slides.
+
+| Template | Purpose | Limits |
+|---|---|---|
+| `briefing` | Structured report with collapsible sections | MAX_SECTIONS = 20 |
+| `comparison` | 2–N-way side-by-side or stacked comparison | MAX_SIDES = 4 |
+| `dashboard` | Flexible grid of widgets with size hints | MAX_WIDGETS = 20, cols 1–4 |
+| `steps` | Linear workflow with completion tracking | MAX_STEPS = 30 |
+| `slides` | Page-by-page slide navigation | MAX_SLIDES = 30 |
+
+#### Template Schemas
+
+**briefing**:
+```jsonc
+{
+  "summary": "Executive summary (optional)",
+  "sections": [
+    {
+      "title": "Section Title",        // required
+      "blocks": [0, 1],               // indices into content[] (optional)
+      "summary": "Section summary",   // optional
+      "collapsed": false              // optional, default false
+    }
+  ]
+}
+```
+
+**comparison**:
+```jsonc
+{
+  "summary": "Comparison overview (optional)",
+  "sides": [
+    {"label": "Option A", "blocks": [0, 1]},  // label required, blocks required
+    {"label": "Option B", "blocks": [2, 3]}
+  ],
+  "layout": "side-by-side"  // optional: "side-by-side" (default) | "stacked"
+}
+```
+
+**dashboard**:
+```jsonc
+{
+  "cols": 2,  // optional: 1–4 (default 2)
+  "widgets": [
+    {
+      "title": "Widget Title",  // required
+      "blocks": [0],           // indices into content[]
+      "size": "1x1"            // optional: "1x1" | "2x1" | "1x2" | "2x2"
+    }
+  ]
+}
+```
+
+**steps**:
+```jsonc
+{
+  "summary": "Workflow overview (optional)",
+  "steps": [
+    {
+      "title": "Step Title",        // required
+      "blocks": [0],               // indices into content[] (optional)
+      "done": true,                // optional, default false
+      "description": "Details"     // optional
+    }
+  ]
+}
+```
+
+**slides**:
+```jsonc
+{
+  "slides": [
+    {
+      "title": "Slide Title",  // optional
+      "blocks": [0, 1],       // indices into content[] (required)
+      "notes": "Speaker notes" // optional
+    }
+  ]
+}
+```
+
+#### CLI: `synapse canvas briefing`
+
+```bash
+# Post briefing from inline JSON
+synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Overview","blocks":[0]}],"content":[{"format":"markdown","body":"## Summary\n..."}]}' --pinned
+
+# Post briefing from file
+synapse canvas briefing --file report.json --title "CI Report"
+
+# Options
+--title "Override title"       # Override title from JSON data
+--summary "Executive summary"  # Add/override summary
+--card-id my-report            # Stable ID for upsert
+--pinned                       # Pin to top
+--tags "sprint,weekly"         # Comma-separated tags
+```
+
+Other templates (`comparison`, `dashboard`, `steps`, `slides`) can be posted via `synapse canvas post` with the full Canvas Message Protocol JSON including `template` and `template_data` fields.
 
 ### Format Registry (Extensible)
 
@@ -608,6 +738,16 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 
 ### Phase 5: New Card Formats
 Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, and `task-board`.
+
+### Phase 6: Template System
+- [x] `template` and `template_data` fields added to `CanvasMessage`
+- [x] 5 templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`
+- [x] Per-template validation (`_validate_briefing`, `_validate_comparison`, `_validate_dashboard`, `_validate_steps`, `_validate_slides`)
+- [x] `template` / `template_data` columns added to `cards` table (with migration)
+- [x] POST/GET endpoints pass template fields through
+- [x] `synapse canvas briefing` CLI subcommand (`post_briefing()`)
+- [x] Client-side renderers: `renderBriefing`, `renderComparison`, `renderDashboardTemplate`, `renderStepsTemplate`, `renderSlidesTemplate`
+- [x] CSS styles for all 5 templates
 
 ---
 

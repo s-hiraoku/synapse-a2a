@@ -112,6 +112,7 @@ flowchart LR
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
+| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid), tables, charts, code, diffs, and 18 content formats in a browser UI. Supports 5 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides` for structured multi-block cards. CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/...`. Server: `synapse canvas serve` (port 3000). See [Canvas Design](docs/design/canvas.md) |
 | **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes MUST go through an Agent Assignment Plan before coding begins. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 
 ---
@@ -718,6 +719,20 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
+| `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000) |
+| `synapse canvas mermaid <body>` | Post Mermaid diagram card |
+| `synapse canvas markdown <body>` | Post Markdown card |
+| `synapse canvas table <json>` | Post table card |
+| `synapse canvas chart <json>` | Post Chart.js card |
+| `synapse canvas code <body>` | Post syntax-highlighted code card |
+| `synapse canvas html <body>` | Post raw HTML card (sandboxed iframe) |
+| `synapse canvas diff <body>` | Post side-by-side diff card |
+| `synapse canvas image <url>` | Post image card |
+| `synapse canvas briefing <json>` | Post briefing template card (structured report with sections). Supports `--file` |
+| `synapse canvas post <json>` | Post raw Canvas Message Protocol JSON (supports all templates via `template`/`template_data` fields) |
+| `synapse canvas list` | List cards (`--mine`, `--search`, `--type`) |
+| `synapse canvas delete <card_id>` | Delete a card |
+| `synapse canvas clear` | Clear all cards (`--agent` to filter) |
 
 ### Resume Mode
 

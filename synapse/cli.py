@@ -2503,6 +2503,39 @@ def cmd_canvas_post_raw(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_canvas_briefing(args: argparse.Namespace) -> None:
+    """Post a briefing card from JSON data or file."""
+    from synapse.commands.canvas import ensure_server_running, post_briefing
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    json_data = getattr(args, "json_data", None)
+    if json_data == "-":
+        json_data = sys.stdin.read()
+
+    file_path = getattr(args, "file", None)
+    tags = args.tags.split(",") if args.tags else None
+
+    result = post_briefing(
+        json_data=json_data,
+        file_path=file_path,
+        title=args.title,
+        summary=getattr(args, "summary", ""),
+        agent_id=args.agent_id,
+        agent_name=getattr(args, "agent_name", ""),
+        card_id=args.card_id,
+        pinned=args.pinned,
+        tags=tags,
+        port=port,
+    )
+    if result:
+        print(f"Briefing posted: {result['card_id']}")
+    else:
+        sys.exit(1)
+
+
 def cmd_canvas_open(args: argparse.Namespace) -> None:
     """Open Canvas in browser."""
     from synapse.commands.canvas import ensure_server_running
@@ -5865,6 +5898,42 @@ Scopes:
         "--agent-id", default=None, help="Clear only this agent's cards"
     )
     p_canvas_clear.set_defaults(func=cmd_canvas_clear)
+
+    # canvas briefing [json_data] — Post a briefing card
+    p_canvas_briefing = canvas_subparsers.add_parser(
+        "briefing", help="Post a briefing card (structured report with sections)"
+    )
+    p_canvas_briefing.add_argument(
+        "json_data",
+        nargs="?",
+        default=None,
+        help="Briefing JSON data (or '-' for stdin)",
+    )
+    p_canvas_briefing.add_argument(
+        "--file", default=None, help="Read briefing from JSON file"
+    )
+    p_canvas_briefing.add_argument("--title", default="", help="Briefing title")
+    p_canvas_briefing.add_argument(
+        "--summary", default="", help="Executive summary text"
+    )
+    p_canvas_briefing.add_argument(
+        "--agent-id",
+        default=os.environ.get("SYNAPSE_AGENT_ID", "cli"),
+        help="Agent ID",
+    )
+    p_canvas_briefing.add_argument(
+        "--agent-name", default="", help="Agent display name"
+    )
+    p_canvas_briefing.add_argument("--card-id", default=None, help="Card ID for upsert")
+    p_canvas_briefing.add_argument(
+        "--pinned",
+        action="store_true",
+        default=False,
+        help="Pin card (no TTL expiry)",
+    )
+    p_canvas_briefing.add_argument("--tags", default=None, help="Comma-separated tags")
+    p_canvas_briefing.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_briefing.set_defaults(func=cmd_canvas_briefing)
 
     # canvas post-raw <json> — raw JSON (supports composite cards)
     p_canvas_raw = canvas_subparsers.add_parser(

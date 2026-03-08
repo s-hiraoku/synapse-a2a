@@ -1607,6 +1607,31 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":
 
 **Supported formats (18):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board
 
+### Templates
+
+Templates control how composite content blocks are displayed. Each template has its own `template_data` schema. The `CanvasMessage` fields `template` (str) and `template_data` (dict) select and configure the layout.
+
+**5 templates:** briefing, comparison, dashboard, steps, slides
+
+```bash
+# Post a briefing (structured report with sections referencing content blocks)
+synapse canvas briefing '{"title":"Sprint","sections":[{"title":"Tests","blocks":[0]}],"content":[{"format":"markdown","body":"## Results"}]}' --pinned
+synapse canvas briefing --file report.json --title "CI Report"
+
+# Post via post-raw with template field (works for all 5 templates)
+synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"comparison","template_data":{"sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"code","body":"old","lang":"python"},{"format":"code","body":"new","lang":"python"}],"title":"Diff"}'
+```
+
+**Template data schemas:**
+
+| Template | Required `template_data` | Description |
+|----------|--------------------------|-------------|
+| briefing | `{"sections": [{"title": str, "blocks?": [int]}], "summary?": str}` | Structured report with collapsible sections |
+| comparison | `{"sides": [{"label": str, "blocks": [int]}], "layout?": "side-by-side"\|"stacked", "summary?": str}` | 2-to-4-way side-by-side or stacked comparison |
+| dashboard | `{"widgets": [{"title": str, "blocks": [int], "size?": "1x1"\|"2x1"\|"1x2"\|"2x2"}], "cols?": int}` | Grid layout with resizable widget cells (1-4 columns) |
+| steps | `{"steps": [{"title": str, "blocks?": [int], "done?": bool, "description?": str}], "summary?": str}` | Linear workflow with completion tracking |
+| slides | `{"slides": [{"title?": str, "blocks": [int], "notes?": str}]}` | Page-by-page navigation |
+
 ### Rendering Details
 
 | Format | Renderer | Notes |
