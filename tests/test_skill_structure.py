@@ -83,7 +83,9 @@ def _discover_plugin_skills() -> list[Path]:
 def _iter_skill_files(skill_dir: Path) -> list[Path]:
     """Return all files within a skill directory, relative to the skill root."""
     return sorted(
-        path.relative_to(skill_dir) for path in skill_dir.rglob("*") if path.is_file()
+        path.relative_to(skill_dir)
+        for path in skill_dir.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
     )
 
 
@@ -224,3 +226,22 @@ class TestSyncedSkillParity:
             assert target_bytes == plugin_bytes, (
                 f"{target_dir / rel_path} is out of sync with {skill_dir / rel_path}"
             )
+
+
+class TestGeneratedArtifactsIgnored:
+    """Generated Python cache files should not affect skill parity scans."""
+
+    def test_iter_skill_files_ignores_python_cache_artifacts(
+        self, tmp_path: Path
+    ) -> None:
+        skill_dir = tmp_path / "example-skill"
+        scripts_dir = skill_dir / "scripts"
+        pycache_dir = scripts_dir / "__pycache__"
+        pycache_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
+        (scripts_dir / "tool.py").write_text("print('ok')\n", encoding="utf-8")
+        (pycache_dir / "tool.cpython-314.pyc").write_bytes(b"pyc")
+
+        files = _iter_skill_files(skill_dir)
+
+        assert files == [Path("SKILL.md"), Path("scripts/tool.py")]

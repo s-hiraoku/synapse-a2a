@@ -975,9 +975,8 @@ class TestStatusTimestamp:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
         first_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
-        time.sleep(0.01)  # Ensure time passes
-
-        temp_registry.update_status(agent_id, "READY")
+        with patch("synapse.registry.time.time", return_value=float(first_ts) + 1.0):
+            temp_registry.update_status(agent_id, "READY")
         second_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
 
         assert second_ts > first_ts

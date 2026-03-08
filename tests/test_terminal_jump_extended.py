@@ -67,7 +67,7 @@ class TestJumpGhosttyExtended:
     @patch("synapse.terminal_jump._jump_tmux")
     def test_jump_ghostty_in_tmux(self, mock_jump_tmux):
         """Should delegate to tmux if inside tmux."""
-        with patch.dict(os.environ, {"TMUX": "1"}):
+        with patch.dict(os.environ, {"TMUX": "1"}, clear=True):
             # The function signature in source is _jump_ghostty(tty_device, agent_id)
             _jump_ghostty("/dev/tty1", "test")
 
@@ -194,21 +194,21 @@ class TestJumpZellijExtended:
         agent_info = {"agent_id": "test"}
 
         # Test fallback for Ghostty
-        with patch.dict(os.environ, {"TERM_PROGRAM": "ghostty"}):
+        with patch.dict(os.environ, {"TERM_PROGRAM": "ghostty"}, clear=True):
             _jump_zellij(agent_info)
             assert 'tell application "Ghostty"' in mock_applescript.call_args[0][0]
 
         # Test fallback for iTerm2
-        with patch.dict(os.environ, {"TERM_PROGRAM": "iTerm.app"}):
+        with patch.dict(os.environ, {"TERM_PROGRAM": "iTerm.app"}, clear=True):
             _jump_zellij(agent_info)
             assert 'tell application "iTerm2"' in mock_applescript.call_args[0][0]
 
         # Test fallback for Terminal
-        with patch.dict(os.environ, {"TERM_PROGRAM": "Apple_Terminal"}):
+        with patch.dict(os.environ, {"TERM_PROGRAM": "Apple_Terminal"}, clear=True):
             _jump_zellij(agent_info)
             assert 'tell application "Terminal"' in mock_applescript.call_args[0][0]
 
     def test_zellij_no_known_terminal(self):
         """Should return False if TERM_PROGRAM is unknown."""
-        with patch.dict(os.environ, {"TERM_PROGRAM": "Unknown"}):
+        with patch.dict(os.environ, {"TERM_PROGRAM": "Unknown"}, clear=True):
             assert _jump_zellij({}) is False
