@@ -360,29 +360,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "completed": [],
             "failed": [],
         }
-        task_db = ".synapse/task_board.db"
-        if os.path.exists(task_db):
-            try:
-                conn = sqlite3.connect(task_db)
-                conn.row_factory = sqlite3.Row
-                rows = conn.execute(
-                    "SELECT id, subject, status, assignee "
-                    "FROM tasks ORDER BY created_at DESC LIMIT 50"
-                ).fetchall()
-                conn.close()
-                for row in rows:
-                    status = row["status"]
-                    if status not in tasks:
-                        continue
-                    tasks[status].append(
-                        {
-                            "id": row["id"],
-                            "subject": row["subject"],
-                            "assignee": row["assignee"] or "",
-                        }
-                    )
-            except (sqlite3.Error, OSError):
-                pass
+        try:
+            from synapse.task_board import TaskBoard
+
+            board = TaskBoard.from_env()
+            rows = sorted(
+                board.list_tasks(),
+                key=lambda item: item.get("created_at", ""),
+                reverse=True,
+            )[:50]
+            for row in rows:
+                status = row.get("status", "")
+                if status not in tasks:
+                    continue
+                tasks[status].append(
+                    {
+                        "id": row.get("id", ""),
+                        "subject": row.get("subject", ""),
+                        "assignee": row.get("assignee") or "",
+                    }
+                )
+        except Exception:
+            logger.debug("Failed to collect tasks", exc_info=True)
 
         file_locks: list[dict[str, str]] = []
         lock_db = ".synapse/file_safety.db"

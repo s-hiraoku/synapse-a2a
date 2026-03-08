@@ -93,11 +93,34 @@ def test_dashboard_widget_ids_in_html() -> None:
         assert f'id="{widget_id}"' in html, f"Missing widget: {widget_id}"
 
 
+def test_dashboard_widgets_render_in_vertical_flow() -> None:
+    """Dashboard widgets should be stacked in one container from top to bottom."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    section_start = html.index('id="dashboard-view"')
+    section_end = html.index("</section>", section_start)
+    dashboard_section = html[section_start:section_end]
+
+    assert dashboard_section.count('class="dash-grid"') == 1
+    assert dashboard_section.count('class="dash-widget"') >= 7
+    assert 'class="dash-widget dash-full-width"' not in dashboard_section
+
+
 def test_dashboard_css_classes_exist() -> None:
     """canvas.css should define dashboard-specific CSS classes."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
     for cls in [".dash-strip", ".dash-grid", ".dash-widget"]:
         assert cls in css, f"Missing CSS class: {cls}"
+
+
+def test_dashboard_layout_is_single_column() -> None:
+    """Dashboard should use a single-column vertical layout on desktop."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".dash-grid {")
+    end = css.index("}", start)
+    dash_grid_block = css[start:end]
+
+    assert "grid-template-columns: 1fr;" in dash_grid_block
+    assert "grid-template-columns: 1fr 1fr;" not in dash_grid_block
 
 
 def test_dashboard_route_in_js() -> None:
@@ -158,6 +181,34 @@ def test_status_color_prioritizes_agent_specific_states() -> None:
     assert 'return "var(--color-warning)"' in body
     assert 'return "var(--color-signal)"' in body
     assert 'return "var(--color-danger)"' in body
+
+
+def test_dashboard_task_board_renders_all_status_columns() -> None:
+    """renderSystemTasks should include the failed status column for dashboard task boards."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderSystemTasks(tasks)")
+    end = js.index("\n  function renderSystemFileLocks(", start)
+    body = js[start:end]
+
+    assert '["pending", "in_progress", "completed", "failed"]' in body
+
+
+def test_dashboard_task_board_shows_status_summaries_only() -> None:
+    """Dashboard task widget should not render the full kanban board."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderDashTasks(tasks) {")
+    end = js.index("\n  function renderDashActivity(", start)
+    body = js[start:end]
+
+    assert "dash-task-bar-row" in body
+    assert "renderSystemTasks(tasks)" not in body
+
+
+def test_system_panel_polling_remains_enabled_for_dashboard_freshness() -> None:
+    """Canvas should continue polling system data so dashboard agent/task widgets stay fresh."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "window.setInterval(loadSystemPanel, 10000);" in js
 
 
 def test_live_feed_harness_uses_vm_instead_of_eval() -> None:

@@ -179,6 +179,42 @@ class TestSystemPanelRegistryErrors:
         tips = system_resp.json()["tips"]
         assert {"card_id": resp.json()["card_id"], "text": "Use test-first."} in tips
 
+    def test_system_panel_reads_tasks_from_board_tasks_table(self, client):
+        """System panel should surface pending tasks from the task board schema."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject="Dashboard task board check",
+            description="Verify dashboard task summary rendering.",
+            created_by="synapse-codex-8120",
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        pending = resp.json()["tasks"]["pending"]
+        assert any(item["id"] == task_id for item in pending)
+
+    def test_system_panel_groups_failed_tasks_from_board_tasks(self, client):
+        """System panel should surface failed tasks from the task board schema."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        task_id = board.create_task(
+            subject="Broken task",
+            description="Fail me",
+            created_by="synapse-codex-8120",
+        )
+        assert board.claim_task(task_id, "synapse-codex-8120")
+        assert board.fail_task(task_id, "synapse-codex-8120", "test failure")
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        failed = resp.json()["tasks"]["failed"]
+        assert any(item["id"] == task_id for item in failed)
+
 
 # ============================================================
 # TestCanvasRouting

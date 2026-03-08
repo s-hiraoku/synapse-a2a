@@ -1489,6 +1489,18 @@
   // Dashboard renderers
   // ----------------------------------------------------------------
 
+  function createDashHeader(iconClass, titleText) {
+    var header = document.createElement("div");
+    header.className = "dash-widget-header";
+    var icon = document.createElement("i");
+    icon.className = "ph " + iconClass;
+    header.appendChild(icon);
+    var title = document.createElement("span");
+    title.textContent = titleText;
+    header.appendChild(title);
+    return header;
+  }
+
   function formatElapsed(isoOrUnix) {
     if (!isoOrUnix) return "";
     var ts = typeof isoOrUnix === "number" ? isoOrUnix : new Date(isoOrUnix).getTime() / 1000;
@@ -1520,7 +1532,6 @@
     el.innerHTML = "";
 
     var counts = {};
-    var errorCount = 0;
     for (var i = 0; i < agents.length; i++) {
       var s = (agents[i].status || "unknown").toLowerCase();
       counts[s] = (counts[s] || 0) + 1;
@@ -1554,18 +1565,7 @@
     var el = document.getElementById("dash-agents");
     if (!el) return;
     el.innerHTML = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-robot";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Agent Fleet (" + agents.length + ")";
-    header.appendChild(title);
-    el.appendChild(header);
-
-    // Reuse the full agent table from System view
+    el.appendChild(createDashHeader("ph-robot", "Agent Fleet (" + agents.length + ")"));
     el.appendChild(renderSystemAgents(agents));
   }
 
@@ -1573,16 +1573,7 @@
     var el = document.getElementById("dash-attention");
     if (!el) return;
     el.innerHTML = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-warning";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Attention Needed";
-    header.appendChild(title);
-    el.appendChild(header);
+    el.appendChild(createDashHeader("ph-warning", "Attention Needed"));
 
     var alerts = [];
     var agents = Array.isArray(data.agents) ? data.agents : [];
@@ -1654,12 +1645,6 @@
     if (!el) return;
     el.innerHTML = "";
 
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-kanban";
-    header.appendChild(icon);
-    var title = document.createElement("span");
     var total = 0;
     var statuses = ["pending", "in_progress", "completed", "failed"];
     var counts = {};
@@ -1668,9 +1653,7 @@
       counts[statuses[i]] = items.length;
       total += items.length;
     }
-    title.textContent = "Task Board (" + total + ")";
-    header.appendChild(title);
-    el.appendChild(header);
+    el.appendChild(createDashHeader("ph-kanban", "Task Board (" + total + ")"));
 
     if (total === 0) {
       el.appendChild(emptyState("No tasks"));
@@ -1714,8 +1697,6 @@
     }
     el.appendChild(bars);
 
-    // Also show the kanban-style task board below the bar chart
-    el.appendChild(renderSystemTasks(tasks));
   }
 
   function renderDashActivity(history, allCards) {
@@ -1723,15 +1704,7 @@
     if (!el) return;
     el.innerHTML = "";
 
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-clock-counter-clockwise";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Activity Feed";
-    header.appendChild(title);
-    el.appendChild(header);
+    el.appendChild(createDashHeader("ph-clock-counter-clockwise", "Activity Feed"));
 
     // Merge history + canvas posts, sort by time desc, take 8
     var items = [];
@@ -1788,16 +1761,7 @@
     var el = document.getElementById("dash-memory");
     if (!el) return;
     el.innerHTML = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-brain";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Shared Knowledge (" + memories.length + ")";
-    header.appendChild(title);
-    el.appendChild(header);
+    el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (" + memories.length + ")"));
 
     if (memories.length === 0) {
       el.appendChild(emptyState("No shared memories"));
@@ -1836,17 +1800,7 @@
     var el = document.getElementById("dash-file-locks");
     if (!el) return;
     el.innerHTML = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-lock";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "File Locks (" + locks.length + ")";
-    header.appendChild(title);
-    el.appendChild(header);
-
+    el.appendChild(createDashHeader("ph-lock", "File Locks (" + locks.length + ")"));
     el.appendChild(renderSystemFileLocks(locks));
   }
 
@@ -1854,22 +1808,11 @@
     var el = document.getElementById("dash-worktrees");
     if (!el) return;
     el.innerHTML = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-git-branch";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Worktrees (" + worktrees.length + ")";
-    header.appendChild(title);
-    el.appendChild(header);
-
+    el.appendChild(createDashHeader("ph-git-branch", "Worktrees (" + worktrees.length + ")"));
     if (worktrees.length === 0) {
       el.appendChild(emptyState("No active worktrees"));
       return;
     }
-
     el.appendChild(renderSystemWorktrees(worktrees));
   }
 
@@ -1877,24 +1820,14 @@
     var el = document.getElementById("dash-errors");
     if (!el) return;
     el.innerHTML = "";
-
     if (errors.length === 0) {
       el.style.display = "none";
       return;
     }
     el.style.display = "";
-
-    var header = document.createElement("div");
-    header.className = "dash-widget-header";
+    var header = createDashHeader("ph-warning-circle", "Registry Errors (" + errors.length + ")");
     header.style.color = "var(--color-danger)";
-    var icon = document.createElement("i");
-    icon.className = "ph ph-warning-circle";
-    header.appendChild(icon);
-    var title = document.createElement("span");
-    title.textContent = "Registry Errors (" + errors.length + ")";
-    header.appendChild(title);
     el.appendChild(header);
-
     el.appendChild(renderRegistryErrors(errors));
   }
 
@@ -2037,11 +1970,7 @@
       tdCurrent.className = "agent-current-cell";
       const preview = agent.current_task_preview || "-";
       if (preview !== "-" && agent.task_received_at) {
-        const elapsed = Math.floor((Date.now() / 1000) - agent.task_received_at);
-        const mins = Math.floor(elapsed / 60);
-        const secs = elapsed % 60;
-        const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        tdCurrent.textContent = `${preview} (${elapsedStr})`;
+        tdCurrent.textContent = `${preview} (${formatElapsed(agent.task_received_at)})`;
       } else {
         tdCurrent.textContent = preview;
       }
@@ -2089,7 +2018,7 @@
   function renderSystemTasks(tasks) {
     const board = document.createElement("div");
     board.className = "task-board";
-    for (const name of ["pending", "in_progress", "completed"]) {
+    for (const name of ["pending", "in_progress", "completed", "failed"]) {
       const items = tasks[name] || [];
       const column = document.createElement("div");
       column.className = "task-column";
@@ -3097,6 +3026,7 @@
   loadCards();
   loadSystemPanel();
   connectSSE();
+  window.setInterval(loadSystemPanel, 10000);
 
   // Initial route
   navigate();

@@ -263,7 +263,7 @@ GET    /api/system          System state summary (Agents, Saved Agents, Tasks, F
 The `/api/system` endpoint aggregates state from across the project:
 - `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
 - `agent_profiles`: Saved agent definitions from `.synapse/agents/` or `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
-- `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`).
+- `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`, `failed`).
 - `file_locks`: Active file locks.
 - `memories`: Latest 20 shared memory entries.
 - `worktrees`: Active worktrees from the registry.
@@ -387,16 +387,20 @@ data: {"timestamp": "..."} // Triggers /api/system refetch
 
 When the SSE connection drops (e.g., server restart, network interruption), `EventSource` auto-reconnects. On reconnection, `es.onopen` triggers a full card re-sync via `loadCards()` to pick up any changes that occurred during the disconnect. This ensures the browser UI never shows stale data after a reconnection.
 
+#### SSE-Only Updates (No Polling)
+
+All real-time updates are delivered exclusively via SSE events. There is no periodic `setInterval` polling. The `system_update` event triggers a `/api/system` refetch in the Dashboard view, keeping all widgets current without any client-side timer.
+
 ### SPA Routing
 
 The browser UI uses hash-based SPA routing with four views:
 
-| Route | View | Description |
-|---|---|---|
-| `#/` | **Canvas view** | Full-viewport projection of the latest card. Designed for immersive content display. |
-| `#/dashboard` | **Dashboard view** | Operational overview with agent, task, activity, and shared-memory widgets. |
-| `#/history` | **History view** | Live Feed + Agent Messages. The traditional card overview. |
-| `#/system` | **System view** | Dedicated System Panel showing agents, tasks, file locks, shared memory, worktrees, and recent history. |
+| Route | View | Icon | Description |
+|---|---|---|---|
+| `#/` | **Canvas view** | `ph-projector-screen` | Full-viewport projection of the latest card. Designed for immersive content display. |
+| `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, attention alerts, activity feed, file locks, worktrees, shared memory, and registry errors. |
+| `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
+| `#/system` | **System view** | `ph-gear` | Configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, and environment. |
 
 Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. The URL hash updates accordingly and the browser back/forward buttons work as expected.
 
@@ -454,15 +458,33 @@ Cards are grouped into panels per agent, sorted by the latest activity.
 - **Empty State**: Agents without cards are shown as empty panels to provide a complete view of the team.
 - **Persistence**: Panel collapse state is saved in `localStorage`.
 
-### System Panel (Control Panel)
-The System Panel aggregates real-time state via the `/api/system` endpoint:
-1. **Agents**: Table showing status dot, TYPE, NAME, ROLE, SKILL SET, STATUS, PORT, DIR, and CURRENT (elapsed time).
+### Dashboard View (`#/dashboard`)
+
+The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). Widget IDs:
+
+| Widget ID | Content |
+|---|---|
+| `dash-status-strip` | Summary strip: agent/task/memory counts at a glance |
+| `dash-agents` | Active agents table (status dot, TYPE, NAME, ROLE, STATUS, PORT, DIR, CURRENT) |
+| `dash-attention` | Attention alerts requiring human action |
+| `dash-tasks` | Kanban view of `pending`, `in_progress`, `completed`, and `failed` tasks |
+| `dash-activity` | Recent activity feed |
+| `dash-file-locks` | Active file locks (FILE, AGENT) |
+| `dash-worktrees` | Active worktrees (AGENT, PATH, BRANCH, BASE) |
+| `dash-memory` | Latest shared memory entries (KEY, AUTHOR, TAGS, UPDATED) |
+| `dash-errors` | Registry errors and warnings |
+
+### System View (`#/system`)
+
+The System view shows configuration and environment information (no operational data):
+
+1. **Tips**: Contextual usage tips.
 2. **Saved Agents**: Displays ID, NAME, PROFILE, ROLE, SKILL SET, and SCOPE for configurations in `.synapse/agents/` or `~/.synapse/agents/`.
-3. **Tasks**: Kanban view of `pending`, `in_progress`, and `completed` tasks.
-4. **File Locks**: Table showing FILE and the AGENT holding the lock.
-5. **Shared Memory**: Latest 20 entries with KEY, AUTHOR, TAGS, and UPDATED. Hovering over a row shows the content preview.
-6. **Worktrees**: Registry-extracted list of active worktrees (AGENT, PATH, BRANCH, BASE).
-7. **Recent History**: Latest 20 events with status dot, AGENT, TASK, STATUS, and relative TIME.
+3. **Skills**: Discovered skills from all scopes.
+4. **Skill Sets**: Defined skill set configurations.
+5. **Sessions**: Saved session configurations.
+6. **Workflows**: Saved workflow definitions.
+7. **Environment**: Environment variables and runtime configuration.
 
 ### CSS Design System
 The UI adheres to a strict design system for consistency and accessibility:
@@ -765,7 +787,7 @@ Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `me
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/dashboard`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience.
+6. **SPA routing**: Hash-based (`#/`, `#/dashboard`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience. Dashboard shows operational status; System shows configuration.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

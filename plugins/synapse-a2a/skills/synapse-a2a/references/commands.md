@@ -1564,7 +1564,7 @@ Canvas is a shared visual dashboard where agents post rich content cards rendere
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
 - **`#/dashboard`** (Dashboard view) — Operational overview with agent, task, activity, and memory widgets
 - **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
-- **`#/system`** (System panel) — Dedicated system state view (agents, tasks, file locks, etc.)
+- **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
 
 ### Post Cards
 
