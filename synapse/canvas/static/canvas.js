@@ -1573,10 +1573,16 @@
     el.appendChild(pre);
   }
 
+  var _ansiRe = new RegExp("\u001b\\[(\\d+(?:;\\d+)*)m", "g");
   function ansiToHtml(text) {
     var escaped = escapeHtml(text);
-    return escaped.replace(/\x1b\[(\d+)m/g, function (_match, code) {
-      return _ansiMap[code] || "";
+    return escaped.replace(_ansiRe, function (_match, params) {
+      var codes = params.split(";");
+      var result = "";
+      for (var ci = 0; ci < codes.length; ci++) {
+        result += _ansiMap[codes[ci]] || "";
+      }
+      return result;
     });
   }
 
@@ -1586,17 +1592,20 @@
     var nodes = Array.isArray(data.nodes) ? data.nodes : [];
     var edges = Array.isArray(data.edges) ? data.edges : [];
 
-    // Build Mermaid graph syntax
+    // Build Mermaid graph syntax with unique internal IDs
     var lines = ["graph TD"];
     var groups = {};
+    var idMap = {}; // original node id → unique mermaid id
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i];
-      var id = (n.id || "node" + i).replace(/[^a-zA-Z0-9_]/g, "_");
-      var label = (n.id || "node" + i).replace(/["[\]]/g, "");
-      lines.push("  " + id + '["' + label + '"]');
+      var origId = n.id || "node" + i;
+      var mId = "n" + i;
+      idMap[origId] = mId;
+      var label = origId.replace(/["[\]]/g, "");
+      lines.push("  " + mId + '["' + label + '"]');
       if (n.group) {
         if (!groups[n.group]) groups[n.group] = [];
-        groups[n.group].push(id);
+        groups[n.group].push(mId);
       }
     }
     // Subgraph grouping (appended after node declarations)
@@ -1613,8 +1622,8 @@
     // Edges after subgraphs
     for (var j = 0; j < edges.length; j++) {
       var e = edges[j];
-      var fromId = (e.from || "").replace(/[^a-zA-Z0-9_]/g, "_");
-      var toId = (e.to || "").replace(/[^a-zA-Z0-9_]/g, "_");
+      var fromId = idMap[e.from] || "n_unknown";
+      var toId = idMap[e.to] || "n_unknown";
       var edgeLabel = e.label ? " -->|" + e.label.replace(/[|]/g, "") + "| " : " --> ";
       lines.push("  " + fromId + edgeLabel + toId);
     }
@@ -3047,25 +3056,39 @@
         continue;
       }
 
-      // Unordered list (consecutive - or * lines)
-      if (/^[-*] /.test(line)) {
-        out.push("<ul>");
-        while (i < lines.length && /^[-*] /.test(lines[i])) {
-          out.push("<li>" + inlineMarkdown(escapeHtml(lines[i].replace(/^[-*] /, ""))) + "</li>");
+      // List (unordered or ordered, with nesting support)
+      if (/^\s*([-*] |\d+\. )/.test(line)) {
+        var stack = []; // [{type: "ul"|"ol", indent: number}]
+        while (i < lines.length) {
+          var lm = lines[i].match(/^(\s*)([-*] |\d+\. )(.*)/);
+          if (!lm) break;
+          var indent = lm[1].length;
+          var listType = /^\d/.test(lm[2]) ? "ol" : "ul";
+          var content = lm[3];
+          if (stack.length === 0) {
+            out.push("<" + listType + ">");
+            stack.push({ type: listType, indent: indent });
+          } else if (indent > stack[stack.length - 1].indent) {
+            out.push("<" + listType + ">");
+            stack.push({ type: listType, indent: indent });
+          } else {
+            while (stack.length > 1 && indent < stack[stack.length - 1].indent) {
+              out.push("</li></" + stack.pop().type + ">");
+            }
+            if (stack.length > 0 && stack[stack.length - 1].type !== listType && indent === stack[stack.length - 1].indent) {
+              out.push("</" + stack.pop().type + ">");
+              out.push("<" + listType + ">");
+              stack.push({ type: listType, indent: indent });
+            } else {
+              out.push("</li>");
+            }
+          }
+          out.push("<li>" + inlineMarkdown(escapeHtml(content)));
           i++;
         }
-        out.push("</ul>");
-        continue;
-      }
-
-      // Ordered list (consecutive 1. 2. lines)
-      if (/^\d+\. /.test(line)) {
-        out.push("<ol>");
-        while (i < lines.length && /^\d+\. /.test(lines[i])) {
-          out.push("<li>" + inlineMarkdown(escapeHtml(lines[i].replace(/^\d+\. /, ""))) + "</li>");
-          i++;
+        while (stack.length > 0) {
+          out.push("</li></" + stack.pop().type + ">");
         }
-        out.push("</ol>");
         continue;
       }
 
@@ -3123,7 +3146,7 @@
   function setThemeLabel(theme) {
     var icon = theme === "dark" ? "ph-sun" : "ph-moon";
     var label = theme === "dark" ? "Light" : "Dark";
-    themeToggle.innerHTML = '<i class="ph ' + icon + '"></i> ' + label;
+    themeToggle.innerHTML = '<i class="ph ' + icon + '"></i><span>' + label + '</span>';
   }
 
   function initTheme() {
@@ -3232,9 +3255,9 @@
     var collapsed = document.body.classList.contains("sidebar-collapsed");
     try { localStorage.setItem("canvas-sidebar", collapsed ? "collapsed" : "expanded"); } catch (e) { /* ignore */ }
   }
-  // Restore saved sidebar state
+  // Restore saved sidebar state (desktop only)
   try {
-    if (localStorage.getItem("canvas-sidebar") === "collapsed") {
+    if (localStorage.getItem("canvas-sidebar") === "collapsed" && window.innerWidth > 768) {
       document.body.classList.add("sidebar-collapsed");
     }
   } catch (e) { /* ignore */ }

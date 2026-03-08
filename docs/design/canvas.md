@@ -707,7 +707,7 @@ Other templates (`comparison`, `dashboard`, `steps`, `slides`) can be posted via
 ```python
 FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "mermaid":  FormatSpec(body_type="string", cdn="mermaid/11.4.1/mermaid.min.js"),
-    "markdown": FormatSpec(body_type="string", cdn=None),  # Rendered by built-in simpleMarkdown parser
+    "markdown": FormatSpec(body_type="string", cdn="marked/15.0.0/marked.min.js"),  # Rendered by built-in parser (cdn for reference only)
     "html":     FormatSpec(body_type="string", cdn=None, sandboxed=True),
     "table":    FormatSpec(body_type="object", cdn=None),  # {headers, rows}
     "json":     FormatSpec(body_type="any",    cdn=None),

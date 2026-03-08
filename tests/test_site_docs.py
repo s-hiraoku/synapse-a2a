@@ -33,6 +33,10 @@ def test_card_gallery_lists_all_card_types_and_templates() -> None:
         "file-preview",
         "trace",
         "task-board",
+        "progress",
+        "terminal",
+        "dependency-graph",
+        "cost",
     ):
         assert card_type in text
 

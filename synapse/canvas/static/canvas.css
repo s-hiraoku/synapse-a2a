@@ -3342,7 +3342,7 @@ body.sidebar-collapsed #main-content {
 .progress-label {
   font-weight: 600;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  color: var(--color-text);
 }
 
 .progress-bar {
@@ -3351,7 +3351,7 @@ body.sidebar-collapsed #main-content {
   background: var(--glass-bg);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-stroke);
 }
 
 .progress-fill {
@@ -3372,13 +3372,13 @@ body.sidebar-collapsed #main-content {
   transform: translateY(-50%);
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text);
 }
 
 .progress-counter {
   text-align: center;
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-top: 4px;
 }
 
@@ -3393,7 +3393,7 @@ body.sidebar-collapsed #main-content {
   font-size: 0.85rem;
   padding: 4px 8px;
   border-radius: 4px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .progress-step.done { color: var(--color-success); text-decoration: line-through; opacity: 0.7; }
@@ -3455,15 +3455,15 @@ body.sidebar-collapsed #main-content {
 .cost-table th {
   text-align: left;
   padding: 8px 12px;
-  border-bottom: 2px solid var(--glass-border);
+  border-bottom: 2px solid var(--glass-stroke);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-text);
 }
 
 .cost-table td {
   padding: 6px 12px;
-  border-bottom: 1px solid var(--glass-border);
-  color: var(--text-secondary);
+  border-bottom: 1px solid var(--glass-stroke);
+  color: var(--color-text-secondary);
 }
 
 .cost-table td:nth-child(n+2),
@@ -3476,10 +3476,10 @@ body.sidebar-collapsed #main-content {
 }
 
 .cost-table tfoot td {
-  border-top: 2px solid var(--glass-border);
+  border-top: 2px solid var(--glass-stroke);
   border-bottom: none;
   padding-top: 8px;
-  color: var(--text-primary);
+  color: var(--color-text);
   font-weight: bold;
 }
 

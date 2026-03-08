@@ -591,7 +591,7 @@
           <code>site-docs/assets/</code>.
         </p>
         <div class="hero-meta">
-          <span>18 card formats</span>
+          <span>22 card formats</span>
           <span>5 templates</span>
           <span>Glassmorphism panels</span>
           <span>Responsive layout</span>
@@ -840,7 +840,7 @@
               {
                 name: "in_progress",
                 items: [
-                  { subject: "Render 18 card formats", meta: "frontend" },
+                  { subject: "Render 22 card formats", meta: "frontend" },
                 ],
               },
               {
@@ -850,6 +850,55 @@
                 ],
               },
             ],
+          },
+        },
+        {
+          format: "progress",
+          title: "progress",
+          description: "Progress bar with step indicators and completion percentage.",
+          body: {
+            current: 3,
+            total: 5,
+            label: "Building canvas cards",
+            status: "in_progress",
+            steps: ["Setup", "Protocol", "Renderer", "CSS", "Tests"],
+          },
+        },
+        {
+          format: "terminal",
+          title: "terminal",
+          description: "Terminal output with ANSI color code rendering.",
+          body: "$ pytest tests/ -q\n\x1b[32m42 passed\x1b[0m in 3.21s\n\x1b[33mWARN\x1b[0m: 1 skipped",
+        },
+        {
+          format: "dependency-graph",
+          title: "dependency-graph",
+          description: "Dependency graph rendered as a Mermaid subgraph diagram.",
+          body: {
+            nodes: [
+              { id: "protocol", group: "core" },
+              { id: "store", group: "core" },
+              { id: "server", group: "api" },
+              { id: "renderer" },
+            ],
+            edges: [
+              { from: "server", to: "store", label: "reads" },
+              { from: "server", to: "protocol", label: "validates" },
+              { from: "renderer", to: "protocol" },
+            ],
+          },
+        },
+        {
+          format: "cost",
+          title: "cost",
+          description: "Token usage and cost aggregation across agents.",
+          body: {
+            agents: [
+              { name: "claude", input_tokens: 12500, output_tokens: 3200, cost: 0.42 },
+              { name: "gemini", input_tokens: 8000, output_tokens: 1500, cost: 0.15 },
+            ],
+            total_cost: 0.57,
+            currency: "USD",
           },
         },
       ];
@@ -1018,6 +1067,18 @@
             break;
           case "task-board":
             renderTaskBoard(wrap, block.body);
+            break;
+          case "progress":
+            renderProgress(wrap, block.body);
+            break;
+          case "terminal":
+            renderTerminal(wrap, block.body);
+            break;
+          case "dependency-graph":
+            renderDependencyGraph(wrap, block.body);
+            break;
+          case "cost":
+            renderCost(wrap, block.body);
             break;
           default:
             wrap.textContent = String(block.body);
@@ -1286,6 +1347,98 @@
           board.appendChild(col);
         });
         el.appendChild(board);
+      }
+
+      function renderProgress(el, body) {
+        const data = typeof body === "string" ? JSON.parse(body) : body || {};
+        const current = data.current || 0;
+        const total = data.total || 1;
+        const pct = Math.round((current / total) * 100);
+        const label = document.createElement("div");
+        label.className = "progress-label";
+        label.innerHTML = "<span>" + (data.label || "Progress") + "</span><span class='progress-pct'>" + pct + "%</span>";
+        el.appendChild(label);
+        const bar = document.createElement("div");
+        bar.className = "progress-bar";
+        bar.style.cssText = "height:8px;border-radius:4px;background:rgba(128,128,128,0.2);overflow:hidden";
+        const fill = document.createElement("div");
+        fill.className = "progress-fill";
+        fill.style.cssText = "height:100%;width:" + pct + "%;background:var(--accent,#4051b5);border-radius:4px;transition:width .3s";
+        bar.appendChild(fill);
+        el.appendChild(bar);
+        if (Array.isArray(data.steps)) {
+          const steps = document.createElement("div");
+          steps.style.cssText = "display:flex;gap:8px;margin-top:8px;font-size:0.85em";
+          data.steps.forEach(function (s, i) {
+            const step = document.createElement("span");
+            step.textContent = s;
+            step.style.opacity = i < current ? "1" : "0.4";
+            steps.appendChild(step);
+          });
+          el.appendChild(steps);
+        }
+      }
+
+      function renderTerminal(el, body) {
+        const text = typeof body === "string" ? body : String(body || "");
+        const pre = document.createElement("pre");
+        pre.className = "terminal-output";
+        pre.style.cssText = "background:#1a1e24;color:#e8edf2;padding:12px;border-radius:6px;font-family:monospace;font-size:0.9em;overflow-x:auto";
+        const escaped = String(text).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        pre.innerHTML = escaped.replace(
+          new RegExp("\u001b\\[(\\d+(?:;\\d+)*)m", "g"),
+          function (_, params) {
+            const map = { "0": "</span>", "1": "<span style='font-weight:bold'>", "32": "<span style='color:#50fa7b'>", "33": "<span style='color:#f1fa8c'>", "31": "<span style='color:#ff5555'>", "36": "<span style='color:#8be9fd'>" };
+            return params.split(";").map(function (c) { return map[c] || ""; }).join("");
+          }
+        );
+        el.appendChild(pre);
+      }
+
+      function renderDependencyGraph(el, body) {
+        const data = typeof body === "string" ? JSON.parse(body) : body || {};
+        const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+        const edges = Array.isArray(data.edges) ? data.edges : [];
+        const lines = ["graph TD"];
+        const idMap = {};
+        nodes.forEach(function (n, i) {
+          const mId = "n" + i;
+          const origId = n.id || "node" + i;
+          idMap[origId] = mId;
+          lines.push("  " + mId + '["' + origId.replace(/["[\]]/g, "") + '"]');
+        });
+        edges.forEach(function (e) {
+          const from = idMap[e.from] || "n_unknown";
+          const to = idMap[e.to] || "n_unknown";
+          const lbl = e.label ? " -->|" + e.label + "| " : " --> ";
+          lines.push("  " + from + lbl + to);
+        });
+        const pre = document.createElement("pre");
+        pre.className = "mermaid";
+        pre.textContent = lines.join("\n");
+        el.appendChild(pre);
+      }
+
+      function renderCost(el, body) {
+        const data = typeof body === "string" ? JSON.parse(body) : body || {};
+        const agents = Array.isArray(data.agents) ? data.agents : [];
+        const currency = data.currency || "USD";
+        const table = document.createElement("table");
+        table.style.cssText = "width:100%;border-collapse:collapse;font-size:0.9em";
+        table.innerHTML = "<thead><tr><th style='text-align:left;padding:6px'>Agent</th><th style='text-align:right;padding:6px'>Input</th><th style='text-align:right;padding:6px'>Output</th><th style='text-align:right;padding:6px'>Cost</th></tr></thead>";
+        const tbody = document.createElement("tbody");
+        agents.forEach(function (a) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = "<td style='padding:6px'>" + (a.name || "") + "</td><td style='text-align:right;padding:6px'>" + (a.input_tokens || 0).toLocaleString() + "</td><td style='text-align:right;padding:6px'>" + (a.output_tokens || 0).toLocaleString() + "</td><td style='text-align:right;padding:6px'>" + currency + " " + (a.cost || 0).toFixed(2) + "</td>";
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        if (data.total_cost != null) {
+          const tfoot = document.createElement("tfoot");
+          tfoot.innerHTML = "<tr style='font-weight:bold;border-top:2px solid rgba(128,128,128,0.3)'><td colspan='3' style='padding:6px'>Total</td><td style='text-align:right;padding:6px'>" + currency + " " + data.total_cost.toFixed(2) + "</td></tr>";
+          table.appendChild(tfoot);
+        }
+        el.appendChild(table);
       }
 
       function renderTemplate(sample) {
