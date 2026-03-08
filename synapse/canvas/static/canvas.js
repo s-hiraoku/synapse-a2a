@@ -21,6 +21,7 @@
   const sidebar = document.getElementById("sidebar");
   const sidebarOverlay = document.getElementById("sidebar-overlay");
   const sidebarToggle = document.getElementById("sidebar-toggle");
+  const sidebarCollapseBtn = document.getElementById("sidebar-collapse");
   const topbarTitle = document.getElementById("topbar-title");
 
   // Route labels for topbar
@@ -3224,6 +3225,20 @@
 
   if (sidebarToggle) sidebarToggle.addEventListener("click", openSidebar);
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
+
+  // Sidebar collapse/expand (desktop)
+  function toggleSidebarCollapse() {
+    document.body.classList.toggle("sidebar-collapsed");
+    var collapsed = document.body.classList.contains("sidebar-collapsed");
+    try { localStorage.setItem("canvas-sidebar", collapsed ? "collapsed" : "expanded"); } catch (e) { /* ignore */ }
+  }
+  // Restore saved sidebar state
+  try {
+    if (localStorage.getItem("canvas-sidebar") === "collapsed") {
+      document.body.classList.add("sidebar-collapsed");
+    }
+  } catch (e) { /* ignore */ }
+  if (sidebarCollapseBtn) sidebarCollapseBtn.addEventListener("click", toggleSidebarCollapse);
 
   // Close sidebar on nav link click (mobile)
   navLinks.forEach(function (link) {

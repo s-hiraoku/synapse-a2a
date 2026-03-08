@@ -482,6 +482,23 @@ def test_mermaid_theme_syncs_with_canvas_theme() -> None:
     assert "initMermaidTheme(next)" in source
 
 
+def test_sidebar_collapse_toggle() -> None:
+    """Sidebar should have a collapse/expand toggle with localStorage persistence."""
+    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+
+    # HTML: collapse toggle button exists in sidebar header
+    assert "sidebar-collapse" in html, "sidebar-collapse button should exist in HTML"
+
+    # CSS: sidebar-collapsed class hides sidebar and adjusts main content
+    assert "sidebar-collapsed" in css, "sidebar-collapsed CSS class should exist"
+
+    # JS: toggle logic reads/writes localStorage for persistence
+    assert "sidebar-collapsed" in source, "JS should toggle sidebar-collapsed class"
+    assert "canvas-sidebar" in source, "JS should persist sidebar state to localStorage"
+
+
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
     """canvas.js should ignore legacy pin state in the frontend."""
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")

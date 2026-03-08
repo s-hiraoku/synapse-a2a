@@ -132,6 +132,87 @@ body {
   opacity: 0.9;
 }
 
+/* ── Sidebar Collapse Toggle ───────────── */
+
+#sidebar-collapse {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+#sidebar-collapse:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+#sidebar-collapse i {
+  font-size: var(--text-base);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+/* Collapsed state: rotate chevron */
+.sidebar-collapsed #sidebar-collapse i {
+  transform: rotate(180deg);
+}
+
+/* ── Sidebar Collapsed State ────────────── */
+/* .sidebar-collapsed is applied to <body> */
+
+body.sidebar-collapsed #sidebar {
+  width: 56px;
+}
+
+body.sidebar-collapsed .sidebar-header {
+  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+}
+
+body.sidebar-collapsed .sidebar-header h1 {
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Hide text next to brand icon; keep icon + collapse button */
+body.sidebar-collapsed .sidebar-header h1 {
+  font-size: 0;
+}
+
+body.sidebar-collapsed .sidebar-header h1 .brand-icon {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-lg);
+}
+
+body.sidebar-collapsed .nav-link span {
+  display: none;
+}
+
+body.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding: var(--sp-2);
+}
+
+body.sidebar-collapsed #theme-toggle span {
+  display: none;
+}
+
+body.sidebar-collapsed #theme-toggle {
+  justify-content: center;
+  padding: var(--sp-2);
+}
+
+body.sidebar-collapsed #main-content {
+  margin-left: 56px;
+}
+
 /* ── Nav Menu (sidebar) ──────────────────── */
 
 #nav-menu {
