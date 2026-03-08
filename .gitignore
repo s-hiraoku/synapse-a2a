@@ -37,6 +37,11 @@ venv/
 # Logs
 *.log
 
+# Project-local Synapse runtime state
+.synapse/*.db
+.synapse/*.db-shm
+.synapse/*.db-wal
+
 # OS
 .DS_Store
 ci_log.txt
