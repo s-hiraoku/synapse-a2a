@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.5] - 2026-03-08
+
+### Added
+
+- add Dashboard view to Canvas with operational status separation
+- expandable summary+detail widgets in Dashboard
+- clickable task cards with detail view
+
+### Changed
+
+- extract createDashHeader helper and reuse formatElapsed
+
+### Documentation
+
+- strengthen task board guidance in skills
+
+### Fixed
+
+- show labeled task detail fields on card click
+
 ## [Unreleased]
 
 ## [0.11.4] - 2026-03-08

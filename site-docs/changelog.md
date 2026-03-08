@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.5
+
+- **Added**: Dashboard view with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
+- **Added**: Clickable task cards with detail view (description, priority, created by, created at)
+- **Changed**: Dashboard widgets use progressive disclosure — compact summary by default, full table on expand
+
 ### v0.11.4
 
 - **Added**: Dedicated `#/system` route for the Canvas System panel
