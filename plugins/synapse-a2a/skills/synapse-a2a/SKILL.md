@@ -28,9 +28,9 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply | `synapse reply "<response>"` |
 | Reply to specific | `synapse reply "<response>" --to <sender_id>` |
 | Interrupt (priority 4) | `synapse interrupt <target> "<msg>"` |
-| Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <approval-skip-flag>` |
-| Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <approval-skip-flag>` |
-| Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <approval-skip-flag>` |
+| Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
+| Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |
+| Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <tool-specific-automation-args>` |
 | Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n>` |
 | Assign task | `synapse tasks assign <id> <agent>` |
 | Complete task | `synapse tasks complete <id>` |
@@ -55,7 +55,7 @@ Evaluate collaboration opportunities before starting work:
 |-----------|--------|
 | Small task within your role | Do it yourself |
 | Task outside your role, READY agent exists | Delegate: `synapse send --notify` or `--silent` |
-| No suitable agent exists | Spawn: `synapse spawn <type> --name <n> --role "<r>" -- <approval-skip-flag>` |
+| No suitable agent exists | Spawn: `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Stuck or need expertise | Ask: `synapse send <target> "<question>" --wait` |
 | Completed a milestone | Report: `synapse send <manager> "<summary>" --silent` |
 | Discovered a pattern | Share: `synapse memory save <key> "<pattern>" --tags ... --notify` |
@@ -84,26 +84,31 @@ Evaluate collaboration opportunities before starting work:
 ## Spawning Decision Table
 
 **Default spawn policy:** When using `synapse spawn`, pass the underlying CLI's
-approval-skip / auto-approve flag by default so spawned agents can run
-unattended. Use tool args after `--`.
+tool-specific automation args after `--` so spawned agents can run unattended.
+For most CLIs this is an approval-skip / auto-approve flag; for OpenCode use
+`--agent build` to select the build agent profile and rely on OpenCode's
+permission config for approval behavior.
 
-Apply the same rule to `synapse team start`: include the approval-skip flag by
-default, and keep teams homogeneous when the forwarded flag is CLI-specific.
+Apply the same rule to `synapse team start`: include the appropriate forwarded
+CLI args by default, and keep teams homogeneous when those args are
+CLI-specific.
 
 Common defaults:
 - Claude Code: `synapse spawn claude --name <n> --role "<r>" -- --dangerously-skip-permissions`
 - Gemini CLI: `synapse spawn gemini --name <n> --role "<r>" -- --approval-mode=yolo`
 - Codex CLI: `synapse spawn codex --name <n> --role "<r>" -- --full-auto`
+- OpenCode: `synapse spawn opencode --name <n> --role "<r>" -- --agent build` (selects the build agent profile; not a skip-approval flag)
 - Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all-tools`
 - Claude team: `synapse team start claude claude -- --dangerously-skip-permissions`
 - Gemini team: `synapse team start gemini gemini -- --approval-mode=yolo`
 - Codex team: `synapse team start codex codex -- --full-auto`
+- OpenCode team: `synapse team start opencode opencode -- --agent build` (selects the build agent profile; permission prompts still depend on OpenCode config)
 - Copilot team: `synapse team start copilot copilot -- --allow-all-tools`
 
 | Condition | Action |
 |-----------|--------|
 | Existing READY agent can handle it | `synapse send` — reuse is faster (avoids startup overhead) |
-| Need parallel execution | `synapse spawn` with `--worktree -- <approval-skip-flag>` for file isolation |
+| Need parallel execution | `synapse spawn` with `--worktree -- <tool-specific-automation-args>` for file isolation |
 | Task needs a different model's strengths | Spawn a different type (Claude spawns Gemini, etc.) |
 | User specified agent count | Follow exactly |
 | Single focused subtask | Spawn 1 agent |

@@ -148,9 +148,12 @@ def post_card(
         print(f"Validation errors: {'; '.join(errors)}", file=sys.stderr)
         return None
 
+    # Autofill agent name from registry if missing
+    msg.agent_name = _resolve_agent_name(msg.agent_id, msg.agent_name)
+
     # Use HTTP API if server is running (ensures SSE broadcast)
     if is_canvas_server_running(port):
-        return _post_via_api(data, port)
+        return _post_via_api(msg.to_dict(), port)
 
     # Fallback: direct DB write (no SSE)
     if isinstance(msg.content, list):

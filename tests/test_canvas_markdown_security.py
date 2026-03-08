@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 def _render_simple_markdown(text: str) -> str:
+    if shutil.which("node") is None:
+        pytest.skip("node is required for canvas markdown security tests")
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
     match = re.search(
         r"function escapeHtml\(text\) \{.*?\n  \}\n\n  function simpleMarkdown\(text\) \{.*?\n  \}",
@@ -26,6 +31,7 @@ process.stdout.write(simpleMarkdown({json.dumps(text)}));
         check=True,
         capture_output=True,
         text=True,
+        timeout=5,
     )
     return result.stdout
 

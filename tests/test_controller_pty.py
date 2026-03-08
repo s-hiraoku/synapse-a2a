@@ -10,6 +10,16 @@ import pytest
 from synapse.controller import TerminalController
 
 
+def _wait_until(predicate, timeout: float = 1.0, interval: float = 0.01) -> bool:
+    """Poll until predicate() becomes truthy or timeout expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return bool(predicate())
+
+
 class TestControllerPTY:
     """Tests for PTY management in TerminalController."""
 
@@ -79,8 +89,7 @@ class TestControllerPTY:
         """Test that _monitor_output reads data from master_fd."""
         controller.start()
 
-        # Allow thread to run briefly
-        time.sleep(0.1)
+        assert _wait_until(lambda: mock_os.read.called)
 
         # Stop controller to exit loop
         controller.running = False
@@ -100,7 +109,7 @@ class TestControllerPTY:
         mock_os.read.side_effect = OSError("Read error")
 
         controller.start()
-        time.sleep(0.1)
+        assert _wait_until(lambda: not controller.thread.is_alive())
         controller.running = False
         controller.thread.join(timeout=1.0)
 
@@ -114,7 +123,7 @@ class TestControllerPTY:
         mock_os.read.return_value = b""
 
         controller.start()
-        time.sleep(0.1)
+        assert _wait_until(lambda: not controller.thread.is_alive())
         controller.thread.join(timeout=1.0)
 
         assert not controller.thread.is_alive()
@@ -156,7 +165,7 @@ class TestControllerPTY:
             t = threading.Thread(target=controller.run_interactive)
             t.start()
 
-            time.sleep(0.1)
+            assert _wait_until(lambda: mock_spawn.called)
             controller.running = False  # Signal to stop
 
             mock_spawn.assert_called()
@@ -187,7 +196,7 @@ class TestInteractiveCallbacks:
         ):
             t = threading.Thread(target=controller.run_interactive)
             t.start()
-            time.sleep(0.1)
+            assert _wait_until(lambda: mock_spawn.called)
 
             # Get the read_callback passed to spawn
             args, _ = mock_spawn.call_args
@@ -214,7 +223,7 @@ class TestInteractiveCallbacks:
         ):
             t = threading.Thread(target=controller.run_interactive)
             t.start()
-            time.sleep(0.1)
+            assert _wait_until(lambda: mock_spawn.called)
 
             # Get input_callback (3rd arg if present)
             args, _ = mock_spawn.call_args

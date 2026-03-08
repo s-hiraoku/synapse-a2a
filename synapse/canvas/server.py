@@ -99,13 +99,17 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def system_panel() -> dict[str, Any]:
         """Return system panel data (agents, tasks, file locks)."""
         agents: list[dict[str, Any]] = []
+        registry_errors: list[dict[str, str]] = []
         worktrees: list[dict[str, str]] = []
         registry_dir = os.path.expanduser("~/.a2a/registry")
         if os.path.isdir(registry_dir):
             for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
                 try:
                     data = json.loads(Path(file_path).read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
+                except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+                    registry_errors.append(
+                        {"source": os.path.basename(file_path), "message": str(e)}
+                    )
                     continue
 
                 working_dir = data.get("working_dir", "")
@@ -287,6 +291,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "worktrees": worktrees,
             "history": history,
             "agent_profiles": agent_profiles,
+            "registry_errors": registry_errors,
         }
 
     # ----------------------------------------------------------------

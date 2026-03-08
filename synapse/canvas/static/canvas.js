@@ -940,9 +940,13 @@
     const worktreeCount = Array.isArray(data.worktrees) ? data.worktrees.length : 0;
     const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
-    toggle.appendChild(document.createTextNode(
-      `System  \u2014  ${agentCount} agents \u00B7 ${profileCount} profiles \u00B7 ${taskCount} tasks \u00B7 ${memoryCount} memories \u00B7 ${historyCount} history`
-    ));
+    const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
+    
+    let systemText = `System  \u2014  ${agentCount} agents \u00B7 ${profileCount} profiles \u00B7 ${taskCount} tasks \u00B7 ${memoryCount} memories \u00B7 ${historyCount} history`;
+    if (errorCount > 0) {
+      systemText += ` \u00B7 \u26A0\uFE0F ${errorCount} errors`;
+    }
+    toggle.appendChild(document.createTextNode(systemText));
     systemPanel.appendChild(toggle);
 
     // Content wrapper
@@ -959,6 +963,15 @@
       );
     });
 
+    if (errorCount > 0) {
+      content.appendChild(
+        createSystemSection(
+          "errors",
+          "Registry Errors (" + errorCount + ")",
+          renderRegistryErrors(data.registry_errors)
+        )
+      );
+    }
     content.appendChild(
       createSystemSection(
         "agents",
@@ -1138,6 +1151,37 @@
     }
     table.appendChild(tbody);
 
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderRegistryErrors(errors) {
+    const wrap = document.createElement("div");
+    const table = document.createElement("table");
+    table.className = "system-agents-table";
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["FILE", "ERROR"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const err of errors) {
+      const tr = document.createElement("tr");
+      tr.style.color = "var(--color-danger)";
+      const tdFile = document.createElement("td");
+      tdFile.textContent = err.source;
+      tr.appendChild(tdFile);
+      const tdMsg = document.createElement("td");
+      tdMsg.textContent = err.message;
+      tr.appendChild(tdMsg);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
     wrap.appendChild(table);
     return wrap;
   }

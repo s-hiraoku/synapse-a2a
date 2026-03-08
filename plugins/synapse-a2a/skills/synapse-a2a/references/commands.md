@@ -1157,8 +1157,8 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (approval-skip should be the default)
-# Keep teams homogeneous when forwarding CLI-specific flags to all agents.
+# Pass tool-specific arguments after '--' (automation args: unattended/permission-skip args such as --dangerously-skip-permissions, --approval-mode=yolo, --full-auto)
+# Keep teams homogeneous when forwarding CLI-specific args to all agents.
 synapse team start claude claude -- --dangerously-skip-permissions
 synapse team start gemini gemini -- --approval-mode=yolo
 synapse team start codex codex -- --full-auto
@@ -1180,11 +1180,11 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "codex"], "layout": "split"}'
 
-# With tool_args (passed through to the underlying CLI tool; approval-skip is recommended by default)
+# With tool_args (passed through to the underlying CLI tool; automation args are recommended for unattended agents)
 curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'
-# Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific flags:
+# Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific args:
 # Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
 ```
 

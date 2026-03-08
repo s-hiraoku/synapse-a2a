@@ -71,13 +71,13 @@ class CanvasStore:
                 conn.close()
 
     def _now_utc(self) -> str:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def _expires_at(self, pinned: bool) -> str | None:
         if pinned:
             return None
         dt = datetime.now(timezone.utc) + timedelta(seconds=self.card_ttl)
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict:
         d = dict(row)

@@ -12,6 +12,16 @@ from synapse.registry import AgentRegistry
 from tests.helpers import read_stored_instruction
 
 
+def _wait_until(predicate, timeout: float = 1.0, interval: float = 0.01) -> bool:
+    """Poll until predicate() is truthy or timeout expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return bool(predicate())
+
+
 class TestIdentityInstruction:
     """Tests for identity instruction sending on first IDLE."""
 
@@ -95,8 +105,7 @@ class TestIdentityInstruction:
         # Trigger idle detection
         controller._check_idle_state(b"$")
 
-        # Wait for thread
-        time.sleep(0.1)
+        assert _wait_until(send_called.is_set)
 
         # Flag should be set and _send_identity_instruction should be called
         assert controller._identity_sent is True
@@ -121,7 +130,7 @@ class TestIdentityInstruction:
 
         # First IDLE - should call _send_identity_instruction
         controller._check_idle_state(b"$")
-        time.sleep(0.1)
+        assert _wait_until(lambda: call_count[0] == 1)
         assert controller._identity_sent is True
         assert call_count[0] == 1
 
@@ -131,7 +140,7 @@ class TestIdentityInstruction:
 
         # Second IDLE - should NOT call again
         controller._check_idle_state(b"$")
-        time.sleep(0.1)
+        assert _wait_until(lambda: controller.status == "READY")
         assert controller._identity_sent is True
         assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
@@ -217,7 +226,7 @@ class TestIdentityInstruction:
         ctrl.write = Mock()  # type: ignore[method-assign]
         ctrl._check_idle_state(b"$")
 
-        time.sleep(0.2)
+        assert _wait_until(lambda: ctrl.status == "READY")
 
         # write should not have been called
         ctrl.write.assert_not_called()

@@ -225,6 +225,69 @@ class TestTaskBoardCompleteTask:
         assert t3 in unblocked
 
 
+class TestTaskBoardFindTasksByPrefix:
+    """Tests for task ID prefix lookup."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_find_tasks_by_prefix_treats_like_metacharacters_as_literals(self, board):
+        """LIKE wildcards in user prefixes should not broaden matches."""
+        percent_id = board.create_task(
+            subject="Percent literal",
+            description="",
+            created_by="claude",
+        )
+        underscore_id = board.create_task(
+            subject="Underscore literal",
+            description="",
+            created_by="claude",
+        )
+        backslash_id = board.create_task(
+            subject="Backslash literal",
+            description="",
+            created_by="claude",
+        )
+        wildcard_match = board.create_task(
+            subject="Would match if not escaped",
+            description="",
+            created_by="claude",
+        )
+
+        conn = sqlite3.connect(board.db_path)
+        try:
+            conn.execute(
+                "UPDATE board_tasks SET id = ? WHERE id = ?",
+                ("task%literal-1", percent_id),
+            )
+            conn.execute(
+                "UPDATE board_tasks SET id = ? WHERE id = ?",
+                ("task_literal-1", underscore_id),
+            )
+            conn.execute(
+                "UPDATE board_tasks SET id = ? WHERE id = ?",
+                (r"task\literal-1", backslash_id),
+            )
+            conn.execute(
+                "UPDATE board_tasks SET id = ? WHERE id = ?",
+                ("taskXliteral-1", wildcard_match),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        percent_matches = board.find_tasks_by_prefix("task%")
+        underscore_matches = board.find_tasks_by_prefix("task_")
+        backslash_matches = board.find_tasks_by_prefix("task\\")
+
+        assert [task["id"] for task in percent_matches] == ["task%literal-1"]
+        assert [task["id"] for task in underscore_matches] == ["task_literal-1"]
+        assert [task["id"] for task in backslash_matches] == [r"task\literal-1"]
+
+
 # ============================================================
 # TestTaskBoardListTasks - Task listing and filtering
 # ============================================================

@@ -12,7 +12,7 @@ Fix: Initialize _last_output_time to None until first actual output occurs.
 """
 
 import shutil
-import time
+import threading
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -42,6 +42,12 @@ def temp_registry(temp_registry_dir):
 class TestGeminiInitInstructionTiming:
     """Tests for Gemini initial instruction delivery timing fix."""
 
+    @staticmethod
+    def _install_fake_time(monkeypatch: pytest.MonkeyPatch, start: float = 100.0):
+        now = {"value": start}
+        monkeypatch.setattr("synapse.controller.time.time", lambda: now["value"])
+        return now
+
     def test_last_output_time_none_until_first_output(self, temp_registry):
         """_last_output_time should be None in interactive mode until first output."""
         agent_id = "test-gemini-init-timing-1"
@@ -70,9 +76,10 @@ class TestGeminiInitInstructionTiming:
         # Should NOT transition to READY (no output yet, so timeout detection doesn't trigger)
         assert controller.status == "PROCESSING"
 
-    def test_timeout_detection_after_first_output(self, temp_registry):
+    def test_timeout_detection_after_first_output(self, temp_registry, monkeypatch):
         """Timeout detection should work correctly after first output."""
         agent_id = "test-gemini-init-timing-2"
+        now = self._install_fake_time(monkeypatch)
 
         controller = TerminalController(
             command="gemini",
@@ -98,22 +105,25 @@ class TestGeminiInitInstructionTiming:
 
         # Simulate first output (as if from read_callback)
         with controller.lock:
-            controller._last_output_time = time.time()
+            controller._last_output_time = now["value"]
 
         # Immediately after output, should still be PROCESSING
         controller._check_idle_state(b"some output")
         assert controller.status == "PROCESSING"
 
         # After 0.2s of no output, should transition to READY
-        time.sleep(0.25)
+        now["value"] += 0.25
         controller._check_idle_state(b"")
 
         # Should now be READY (and identity sent flag should be set)
         assert controller.status == "READY"
 
-    def test_slow_startup_doesnt_trigger_premature_ready(self, temp_registry):
+    def test_slow_startup_doesnt_trigger_premature_ready(
+        self, temp_registry, monkeypatch
+    ):
         """Slow startup agent (like Gemini) shouldn't transition to READY before first output."""
         agent_id = "test-gemini-init-timing-slow"
+        now = self._install_fake_time(monkeypatch)
 
         controller = TerminalController(
             command="gemini",
@@ -136,7 +146,7 @@ class TestGeminiInitInstructionTiming:
         # (simulating first 1.5s of Gemini startup)
         for _ in range(15):
             controller._check_idle_state(b"")
-            time.sleep(0.1)
+            now["value"] += 0.1
 
         # Should still be PROCESSING because no actual output has occurred
         assert controller.status == "PROCESSING"
@@ -144,20 +154,21 @@ class TestGeminiInitInstructionTiming:
 
         # Now simulate first output at time ~1.5s
         with controller.lock:
-            controller._last_output_time = time.time()
+            controller._last_output_time = now["value"]
 
         # Immediately after first output, still PROCESSING
         controller._check_idle_state(b"first output from gemini")
         assert controller.status == "PROCESSING"
 
         # After 1.0s of idle (timeout threshold), should transition to READY
-        time.sleep(1.1)
+        now["value"] += 1.1
         controller._check_idle_state(b"")
         assert controller.status == "READY"
 
-    def test_identity_instruction_sent_on_ready(self, temp_registry):
+    def test_identity_instruction_sent_on_ready(self, temp_registry, monkeypatch):
         """Initial identity instruction should be sent when READY is reached."""
         agent_id = "test-gemini-init-timing-identity"
+        now = self._install_fake_time(monkeypatch)
 
         controller = TerminalController(
             command="gemini",
@@ -179,13 +190,25 @@ class TestGeminiInitInstructionTiming:
         # Mock the master_fd and write method
         controller.master_fd = 5
         controller.write = Mock()
+        controller._wait_for_input_ready = Mock(return_value="ready")
+        monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
+        started_threads: list[threading.Thread] = []
+
+        real_thread = threading.Thread
+
+        def _capture_thread(*args, **kwargs):
+            thread = real_thread(*args, **kwargs)
+            started_threads.append(thread)
+            return thread
+
+        monkeypatch.setattr("synapse.controller.threading.Thread", _capture_thread)
 
         # Simulate first output
         with controller.lock:
-            controller._last_output_time = time.time()
+            controller._last_output_time = now["value"]
 
         # Wait for timeout
-        time.sleep(0.15)
+        now["value"] += 0.15
 
         # Trigger idle check (simulating periodic checker)
         controller._check_idle_state(b"")
@@ -194,15 +217,16 @@ class TestGeminiInitInstructionTiming:
         assert controller.status == "READY"
         assert controller._identity_sending is True
 
-        # wait for the identity instruction thread to complete
-        time.sleep(2.2)  # POST_WRITE_IDLE_DELAY + send time
+        assert started_threads, "identity send thread should have been started"
+        started_threads[-1].join(timeout=1.0)
 
         # write should have been called with the initial instructions
         assert controller.write.called
         assert controller._identity_sent is True
 
-    def test_multiple_agents_independent_timing(self, temp_registry):
+    def test_multiple_agents_independent_timing(self, temp_registry, monkeypatch):
         """Multiple agents should have independent idle detection timing."""
+        now = self._install_fake_time(monkeypatch)
         # Create multiple controllers with different timeouts
         agents = [
             ("claude-test", "claude", 0.5, 8100),
@@ -237,16 +261,16 @@ class TestGeminiInitInstructionTiming:
 
         # Simulate output for each agent at different times
         for _i, (controller, _timeout) in enumerate(controllers):
-            time.sleep(0.3)
+            now["value"] += 0.3
             with controller.lock:
-                controller._last_output_time = time.time()
+                controller._last_output_time = now["value"]
 
             # After output, should still be PROCESSING
             controller._check_idle_state(b"output")
             assert controller.status == "PROCESSING"
 
         # Wait for all to reach their timeout
-        time.sleep(2.0)
+        now["value"] += 2.0
 
         # Trigger idle check for each
         for controller, _timeout in controllers:
@@ -256,9 +280,10 @@ class TestGeminiInitInstructionTiming:
         for controller, _ in controllers:
             assert controller.status == "READY"
 
-    def test_output_resets_idle_detection(self, temp_registry):
+    def test_output_resets_idle_detection(self, temp_registry, monkeypatch):
         """New output should reset idle detection timer."""
         agent_id = "test-gemini-init-timing-reset"
+        now = self._install_fake_time(monkeypatch)
 
         controller = TerminalController(
             command="gemini",
@@ -279,25 +304,25 @@ class TestGeminiInitInstructionTiming:
 
         # Simulate first output
         with controller.lock:
-            controller._last_output_time = time.time()
+            controller._last_output_time = now["value"]
 
         # Wait 0.15s (less than timeout)
-        time.sleep(0.15)
+        now["value"] += 0.15
 
         # More output should reset the timer
         with controller.lock:
-            controller._last_output_time = time.time()
+            controller._last_output_time = now["value"]
 
         # Immediately check - should still be PROCESSING
         controller._check_idle_state(b"more output")
         assert controller.status == "PROCESSING"
 
         # Wait another 0.15s (still less than timeout from the second output)
-        time.sleep(0.15)
+        now["value"] += 0.15
         controller._check_idle_state(b"")
         assert controller.status == "PROCESSING"
 
         # Finally wait for timeout to expire
-        time.sleep(0.1)
+        now["value"] += 0.1
         controller._check_idle_state(b"")
         assert controller.status == "READY"

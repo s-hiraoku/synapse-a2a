@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-03-08
+
+### Changed
+
+- Task board lifecycle commands now accept unique short task ID prefixes for assign, complete, fail, and reopen operations
+- Synapse skill guidance now uses tool-specific automation args wording and clarifies that OpenCode `--agent build` selects the build agent profile rather than acting as a universal skip-approval flag
+
+### Fixed
+
+- Canvas raw JSON posts now autofill `agent_name` from the registry when only `agent_id` is provided
+- Canvas system panel now surfaces registry read and JSON parse errors instead of silently dropping broken entries
+
 ## [0.11.1] - 2026-03-08
 
 ### Added
@@ -2054,3 +2066,4 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/s-hiraoku/synapse-a2a/releases/tag/v0.1.0
+[0.11.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.1...v0.11.2

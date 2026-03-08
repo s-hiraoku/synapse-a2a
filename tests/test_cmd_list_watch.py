@@ -392,6 +392,7 @@ class TestRegistryRaceConditions:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
         read_started = threading.Event()
+        writer_can_continue = threading.Event()
         update_complete = threading.Event()
         status_reads = []
 
@@ -406,7 +407,8 @@ class TestRegistryRaceConditions:
                 if agent_id in agents:
                     status_reads.append(agents[agent_id]["status"])
 
-                time.sleep(0.01)
+                if not writer_can_continue.is_set():
+                    writer_can_continue.set()
 
             # Final read to ensure we catch the update
             agents = temp_registry.list_agents()
@@ -417,14 +419,12 @@ class TestRegistryRaceConditions:
             """Simulates controller updating status."""
             # Wait for first read to start
             read_started.wait()
-            time.sleep(0.005)
+            writer_can_continue.wait()
 
             # Do update (read-modify-write)
             file_path = temp_registry.registry_dir / f"{agent_id}.json"
             with open(file_path) as f:
                 data = json.load(f)
-
-            time.sleep(0.01)  # Window where watch might read
 
             data["status"] = "READY"
             with open(file_path, "w") as f:
@@ -485,6 +485,7 @@ class TestPartialJSONRead:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
         write_started = threading.Event()
+        reader_attempted = threading.Event()
         read_results = []
 
         full_json_data = {
@@ -512,8 +513,8 @@ class TestPartialJSONRead:
                 # Signal that write started (reader can try now)
                 write_started.set()
 
-                # Wait a bit to let reader try
-                time.sleep(0.05)
+                # Wait until reader attempts a read during the partial write window
+                reader_attempted.wait(timeout=1.0)
 
                 # Write second half
                 f.write(json_str[len(json_str) // 2 :])
@@ -522,7 +523,7 @@ class TestPartialJSONRead:
             """Simulate watch mode reading."""
             # Wait for write to start
             write_started.wait()
-            time.sleep(0.01)  # Read during write window
+            reader_attempted.set()
 
             # Try to read (may get partial JSON)
             agents = temp_registry.list_agents()
@@ -975,9 +976,8 @@ class TestStatusTimestamp:
         temp_registry.register(agent_id, "claude", 8100, status="PROCESSING")
 
         first_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
-        time.sleep(0.01)  # Ensure time passes
-
-        temp_registry.update_status(agent_id, "READY")
+        with patch("synapse.registry.time.time", return_value=float(first_ts) + 1.0):
+            temp_registry.update_status(agent_id, "READY")
         second_ts = temp_registry.get_agent(agent_id).get("status_updated_at")
 
         assert second_ts > first_ts

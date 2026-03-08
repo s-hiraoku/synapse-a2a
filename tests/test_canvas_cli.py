@@ -90,6 +90,49 @@ class TestCanvasPost:
         assert result is not None
         assert result["agent_name"] == "Cody"
 
+    def test_post_card_autofills_agent_name_from_registry_for_http_posts(
+        self, monkeypatch
+    ):
+        """HTTP post path should receive registry-derived agent_name in payload."""
+        from synapse.commands.canvas import post_card
+
+        captured: dict = {}
+
+        class _Registry:
+            def get_agent(self, agent_id):
+                assert agent_id == "synapse-codex-8120"
+                return {"name": "Cody"}
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.AgentRegistry", lambda: _Registry()
+        )
+        monkeypatch.setattr(
+            "synapse.commands.canvas.is_canvas_server_running", lambda port: True
+        )
+
+        def _capture(payload, port):
+            captured["payload"] = payload
+            captured["port"] = port
+            return {"agent_name": payload["agent_name"], "card_id": "test"}
+
+        monkeypatch.setattr("synapse.commands.canvas._post_via_api", _capture)
+
+        msg_json = json.dumps(
+            {
+                "type": "render",
+                "content": {"format": "markdown", "body": "hello"},
+                "agent_id": "synapse-codex-8120",
+                "title": "Raw Auto Name",
+            }
+        )
+
+        result = post_card(msg_json)
+
+        assert result is not None
+        assert result["agent_name"] == "Cody"
+        assert captured["payload"]["agent_name"] == "Cody"
+        assert captured["payload"]["agent_id"] == "synapse-codex-8120"
+
     def test_post_shortcut_prefers_explicit_agent_name_over_registry(
         self, tmp_path, monkeypatch
     ):
