@@ -52,6 +52,13 @@ pytest tests/test_learning_mode.py -v    # Learning mode tests
 pytest tests/test_completion_callback.py -v # Completion callback (--silent history update)
 pytest tests/test_proactive_mode.py -v   # Proactive mode tests
 
+# Canvas feature tests
+pytest tests/test_canvas_store.py -v       # Canvas store CRUD tests
+pytest tests/test_canvas_protocol.py -v    # Canvas protocol validation tests (includes template validation)
+pytest tests/test_canvas_server.py -v      # Canvas API endpoint tests
+pytest tests/test_canvas_cli.py -v         # Canvas CLI integration tests
+pytest tests/test_canvas_markdown_security.py -v  # Canvas markdown sanitization tests
+
 # Agent Teams feature tests
 pytest tests/test_task_board.py -v           # B1: Shared Task Board
 pytest tests/test_task_board_api.py -v       # B1: Task Board API
@@ -174,6 +181,25 @@ synapse workflow list [--project|--user]                        # List saved wor
 synapse workflow show <name> [--project|--user]                 # Show workflow details
 synapse workflow run <name> [--project|--user] [--dry-run] [--continue-on-error]  # Execute workflow steps
 synapse workflow delete <name> [--project|--user] [--force]    # Delete a saved workflow
+
+# Canvas (shared visual output surface)
+synapse canvas serve [--port 3000] [--no-open]                 # Start Canvas server (auto-opens browser)
+synapse canvas mermaid "graph TD; A-->B" --title "Flow"        # Post Mermaid diagram
+synapse canvas markdown "## Design\n..." --title "Doc"         # Post Markdown
+synapse canvas table '{"headers":[...],"rows":[...]}' --title "Results"  # Post table
+synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"    # Post Chart.js chart
+synapse canvas code "def foo(): pass" --lang python --title "Code"       # Post code
+synapse canvas html "<div>...</div>" --title "Custom"          # Post raw HTML (sandboxed)
+synapse canvas diff "--- a/f.py\n+++ b/f.py\n..." --title "Changes"     # Post diff
+synapse canvas image "https://..." --title "Screenshot"        # Post image
+synapse canvas briefing '{"sections":[...],"content":[...]}' --pinned    # Post briefing template
+synapse canvas briefing --file report.json --title "CI Report"           # Briefing from file
+synapse canvas post '<Canvas Message JSON>'                    # Raw protocol JSON (supports all templates)
+synapse canvas list [--mine] [--search "query"] [--type mermaid]         # List cards
+synapse canvas delete <card_id>                                # Delete a card
+synapse canvas clear [--agent claude]                          # Clear cards
+# Templates: briefing, comparison, dashboard, steps, slides
+# Use 'synapse canvas post' with template/template_data fields for comparison/dashboard/steps/slides
 
 # Instructions management (for --resume mode or recovery)
 synapse instructions show                 # Show default instruction
@@ -426,11 +452,20 @@ synapse/
 ├── skills.py        # Skill discovery, deploy, import, skill sets
 ├── reply_target.py  # Reply target file-based persistence (~/.a2a/reply/)
 ├── paths.py         # Centralized path management (env var overrides)
+├── canvas/          # Canvas: shared visual output surface
+│   ├── __init__.py        # Public API exports
+│   ├── protocol.py        # CanvasMessage, ContentBlock, FORMAT_REGISTRY, template validation
+│   ├── store.py           # CanvasStore (SQLite CRUD, template/template_data columns)
+│   ├── server.py          # FastAPI app, SSE, REST endpoints
+│   ├── renderer.py        # Server-side format validation + metadata
+│   ├── templates/         # Jinja2 HTML templates
+│   └── static/            # canvas.js (renderers incl. 5 template renderers), canvas.css
 ├── commands/        # CLI command implementations
 │   ├── instructions.py    # synapse instructions command
 │   ├── list.py            # synapse list command
 │   ├── status.py          # synapse status command (detailed single-agent status)
 │   ├── skill_manager.py   # synapse skills command (TUI + non-interactive)
+│   ├── canvas.py          # synapse canvas command (serve, post, shortcuts, briefing, list, clear, delete)
 │   ├── session.py         # synapse session command
 │   ├── workflow.py        # synapse workflow command
 │   └── start.py           # synapse start command
@@ -721,6 +756,7 @@ idle_detection:
 
 .synapse/agents/     # Saved agent definitions (project scope)
 .synapse/worktrees/  # Synapse-native git worktrees (per-agent isolation)
+.synapse/canvas.db   # Canvas card database (project-local, ephemeral)
 .synapse/memory.db   # Shared memory database (project-local, SQLite WAL)
 .synapse/file_safety.db  # File safety database (project-local)
 .synapse/task_board.db   # Shared task board database (project-local)

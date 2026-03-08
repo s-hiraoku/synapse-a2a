@@ -9,8 +9,9 @@ Synapse Canvas is a shared visual output surface for agents. When an agent needs
 1. **Agent-driven**: Canvas is the agent's drawing board — agents decide what to show.
 2. **Protocol-first**: One unified JSON protocol for all communication. No type-specific CLI commands.
 3. **Expressive**: Agents can render anything — from Mermaid diagrams to raw HTML/CSS.
-4. **Dead simple for agents**: One command, one JSON payload. That's it.
-5. **Zero-config for users**: `synapse canvas` starts the server. No npm, no build step.
+4. **Template-driven**: Five built-in templates (briefing, comparison, dashboard, steps, slides) provide structured layouts for common use cases.
+5. **Dead simple for agents**: One command, one JSON payload. That's it.
+6. **Zero-config for users**: `synapse canvas` starts the server. No npm, no build step.
 
 ## Quick Start
 
@@ -48,6 +49,9 @@ synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"
 
 # Image (URL or base64 data URI)
 synapse canvas image "https://..." --title "Screenshot"
+
+# Briefing (structured report with sections)
+synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}' --title "Sprint Report"
 ```
 
 ### Common Options
@@ -80,9 +84,13 @@ All agent-to-Canvas communication uses a single JSON protocol.
   "title": "Auth Flow Design",
   "card_id": "auth-flow",
   "pinned": false,
-  "tags": ["design", "auth"]
+  "tags": ["design", "auth"],
+  "template": "",
+  "template_data": {}
 }
 ```
+
+The `template` and `template_data` fields are optional. When set, the frontend applies a structured layout on top of the content blocks. See [Templates](#templates) for details.
 
 ### Message Types
 
@@ -170,6 +178,138 @@ A single card can contain multiple content sections for rich layouts:
 ```
 
 This enables agents to compose rich, multi-section cards — like a document with embedded diagrams and tables. Maximum 10 content blocks per card.
+
+## Templates
+
+Templates add structured layouts on top of composite cards. While composite cards let you combine multiple content blocks, templates control **how those blocks are arranged** in the browser.
+
+### Available Templates
+
+| Template | Purpose | Key Fields |
+|---|---|---|
+| `briefing` | Structured report with collapsible sections | `sections` (title, blocks, summary, collapsed) |
+| `comparison` | Side-by-side or stacked N-way comparison (2-4 sides) | `sides` (label, blocks), `layout` |
+| `dashboard` | Grid layout with resizable widgets (1-4 columns) | `widgets` (title, blocks, size), `cols` |
+| `steps` | Linear workflow with completion tracking | `steps` (title, blocks, done, description) |
+| `slides` | Page-by-page navigation with speaker notes | `slides` (title, blocks, notes) |
+
+### How Templates Work
+
+Templates use **block indices** to map content blocks to layout positions. Each template's `template_data` references content blocks by their index in the `content` array.
+
+```json
+{
+  "type": "render",
+  "content": [
+    { "format": "markdown", "body": "## Overview\nProject status..." },
+    { "format": "chart", "body": {"type": "bar", "data": {"labels": ["Q1","Q2"], "datasets": [{"data": [10,20]}]}} },
+    { "format": "table", "body": {"headers": ["Task","Status"], "rows": [["Auth","Done"]]} }
+  ],
+  "template": "briefing",
+  "template_data": {
+    "summary": "All milestones on track.",
+    "sections": [
+      { "title": "Overview", "blocks": [0] },
+      { "title": "Metrics", "blocks": [1] },
+      { "title": "Tasks", "blocks": [2], "collapsed": true }
+    ]
+  },
+  "title": "Sprint Report"
+}
+```
+
+### Template Data Schemas
+
+#### `briefing`
+
+```json
+{
+  "summary": "Optional executive summary text",
+  "sections": [
+    {
+      "title": "Section Title",
+      "blocks": [0, 1],
+      "summary": "Optional section summary",
+      "collapsed": false
+    }
+  ]
+}
+```
+
+Maximum 20 sections.
+
+#### `comparison`
+
+```json
+{
+  "summary": "Optional comparison summary",
+  "sides": [
+    { "label": "Option A", "blocks": [0, 1] },
+    { "label": "Option B", "blocks": [2, 3] }
+  ],
+  "layout": "side-by-side"
+}
+```
+
+Supports 2-4 sides. Layout options: `"side-by-side"` (default) or `"stacked"`.
+
+#### `dashboard`
+
+```json
+{
+  "cols": 2,
+  "widgets": [
+    { "title": "Coverage", "blocks": [0], "size": "1x1" },
+    { "title": "Trend", "blocks": [1], "size": "2x1" }
+  ]
+}
+```
+
+Columns: 1-4 (default 2). Widget sizes: `"1x1"`, `"2x1"`, `"1x2"`, `"2x2"`. Maximum 20 widgets.
+
+#### `steps`
+
+```json
+{
+  "summary": "Optional workflow summary",
+  "steps": [
+    { "title": "Write Tests", "blocks": [0], "done": true, "description": "Unit tests for auth" },
+    { "title": "Implement", "blocks": [1], "done": false }
+  ]
+}
+```
+
+Maximum 30 steps.
+
+#### `slides`
+
+```json
+{
+  "slides": [
+    { "title": "Introduction", "blocks": [0], "notes": "Speaker notes here" },
+    { "title": "Architecture", "blocks": [1, 2] }
+  ]
+}
+```
+
+Maximum 30 slides. Each slide must have a `blocks` array.
+
+### CLI: Briefing Shortcut
+
+The `briefing` template has a dedicated CLI command for convenience:
+
+```bash
+# From inline JSON
+synapse canvas briefing '{"title":"Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"Done."}]}'
+
+# From file
+synapse canvas briefing --file report.json --title "Sprint Report"
+
+# With options
+synapse canvas briefing '...' --title "Report" --summary "Executive summary" --pinned --tags "sprint,review"
+```
+
+Other templates can be posted via the `post-raw` command with the `template` and `template_data` fields in the JSON payload.
 
 ## CLI Commands
 
@@ -296,6 +436,11 @@ Internal limits:
 | Max cards | 200 (auto-cleanup threshold) |
 | Notification TTL | 10 seconds |
 | Card TTL | 3600 seconds (1 hour) |
+| Max briefing sections | 20 |
+| Max comparison sides | 4 |
+| Max dashboard widgets | 20 |
+| Max steps | 30 |
+| Max slides | 30 |
 
 ## Browser UI
 

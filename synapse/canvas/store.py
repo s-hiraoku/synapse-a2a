@@ -57,6 +57,8 @@ class CanvasStore:
                         title       TEXT,
                         pinned      INTEGER DEFAULT 0,
                         tags        TEXT,
+                        template    TEXT DEFAULT '',
+                        template_data TEXT DEFAULT '',
                         expires_at  DATETIME,
                         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -67,6 +69,18 @@ class CanvasStore:
                     """
                 )
                 conn.commit()
+
+                # Migration: add template columns to existing DBs
+                try:
+                    conn.execute(
+                        "ALTER TABLE cards ADD COLUMN template TEXT DEFAULT ''"
+                    )
+                    conn.execute(
+                        "ALTER TABLE cards ADD COLUMN template_data TEXT DEFAULT ''"
+                    )
+                    conn.commit()
+                except sqlite3.OperationalError:
+                    pass  # Columns already exist
             finally:
                 conn.close()
 
@@ -85,6 +99,16 @@ class CanvasStore:
             d["tags"] = json.loads(d["tags"])
         else:
             d["tags"] = []
+        # Template fields
+        d["template"] = d.get("template") or ""
+        td_raw = d.get("template_data") or ""
+        if td_raw:
+            try:
+                d["template_data"] = json.loads(td_raw)
+            except (json.JSONDecodeError, TypeError):
+                d["template_data"] = {}
+        else:
+            d["template_data"] = {}
         return d
 
     def add_card(
@@ -97,6 +121,8 @@ class CanvasStore:
         card_type: str = "render",
         pinned: bool = False,
         tags: list[str] | None = None,
+        template: str = "",
+        template_data: dict | None = None,
     ) -> dict:
         """Add a new card. Returns the created card as dict."""
         internal_id = str(uuid4())[:8]
@@ -105,7 +131,8 @@ class CanvasStore:
 
         now = self._now_utc()
         expires = self._expires_at(pinned)
-        tags_json = json.dumps(tags) if tags else None
+        tags_json = json.dumps(tags, ensure_ascii=False) if tags else None
+        td_json = json.dumps(template_data, ensure_ascii=False) if template_data else ""
 
         with self._lock:
             conn = self._get_connection()
@@ -113,9 +140,10 @@ class CanvasStore:
                 conn.execute(
                     """
                     INSERT INTO cards (id, card_id, agent_id, agent_name, type,
-                                       content, title, pinned, tags, expires_at,
-                                       created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                       content, title, pinned, tags,
+                                       template, template_data,
+                                       expires_at, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         internal_id,
@@ -127,6 +155,8 @@ class CanvasStore:
                         title,
                         1 if pinned else 0,
                         tags_json,
+                        template,
+                        td_json,
                         expires,
                         now,
                         now,
@@ -151,6 +181,8 @@ class CanvasStore:
         card_type: str = "render",
         pinned: bool = False,
         tags: list[str] | None = None,
+        template: str = "",
+        template_data: dict | None = None,
     ) -> dict | None:
         """Create or update a card by card_id. Returns None if ownership check fails."""
         with self._lock:
@@ -167,12 +199,22 @@ class CanvasStore:
 
                     now = self._now_utc()
                     expires = self._expires_at(pinned)
-                    tags_json = json.dumps(tags) if tags else existing["tags"]
+                    tags_json = (
+                        json.dumps(tags, ensure_ascii=False)
+                        if tags
+                        else existing["tags"]
+                    )
+                    td_json = (
+                        json.dumps(template_data, ensure_ascii=False)
+                        if template_data is not None
+                        else existing["template_data"]
+                    )
 
                     conn.execute(
                         """
                         UPDATE cards SET content = ?, title = ?, pinned = ?,
-                               tags = ?, expires_at = ?, updated_at = ?,
+                               tags = ?, template = ?, template_data = ?,
+                               expires_at = ?, updated_at = ?,
                                agent_name = COALESCE(?, agent_name)
                         WHERE card_id = ?
                         """,
@@ -181,6 +223,8 @@ class CanvasStore:
                             title,
                             1 if pinned else 0,
                             tags_json,
+                            template or existing["template"],
+                            td_json,
                             expires,
                             now,
                             agent_name,
@@ -204,6 +248,8 @@ class CanvasStore:
                         card_type=card_type,
                         pinned=pinned,
                         tags=tags,
+                        template=template,
+                        template_data=template_data,
                     )
             finally:
                 conn.close()

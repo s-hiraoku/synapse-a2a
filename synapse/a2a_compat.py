@@ -2223,6 +2223,8 @@ def create_a2a_router(
                 agent_name=msg.agent_name or None,
                 pinned=msg.pinned,
                 tags=msg.tags or None,
+                template=msg.template,
+                template_data=msg.template_data or None,
             )
             if result is None:
                 raise HTTPException(
@@ -2240,6 +2242,8 @@ def create_a2a_router(
                 agent_name=msg.agent_name or None,
                 pinned=msg.pinned,
                 tags=msg.tags or None,
+                template=msg.template,
+                template_data=msg.template_data or None,
             )
 
     @router.get("/canvas/cards")

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-03-08
+
+### Added
+
+- **Canvas Templates**: 5 built-in layout templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`) for structured multi-block card display
+- **`synapse canvas briefing` CLI command**: Post structured reports with sections, TOC, and collapsible content from JSON or file
+- **Canvas cache-busting**: Static files served with `?v=timestamp` query params and `Cache-Control` headers to prevent stale browser cache
+- **Canvas SSE reconnection**: `EventSource.onopen` handler re-syncs cards on reconnect, preventing empty canvas after server restart
+
+### Changed
+
+- **Template validation**: `CanvasMessage` extended with `template` (str) and `template_data` (dict) fields; validators enforce schema per template type (sections, sides, widgets, steps, slides)
+- **Mermaid SVG sizing**: `runMermaid()` helper removes fixed height/width attributes from SVGs, letting diagrams auto-size based on complexity
+
+### Fixed
+
+- **Canvas View empty after server restart**: Browser cached old JS without SSE reconnection handler
+- **Mermaid diagrams overlapping sections**: Template data not returned from API when server ran old code
+
+### Documentation
+
+- Updated `docs/design/canvas.md` with template system, cache-busting strategy, SSE reconnection, and Mermaid sizing
+- Updated CLAUDE.md with Canvas test commands and CLI reference
+- Updated README.md with Canvas feature row and CLI command table
+- Updated plugin skills (`synapse-a2a`) with template documentation
+- Updated GitHub Pages: `site-docs/index.md` (Canvas feature card), `site-docs/reference/cli.md`, `site-docs/reference/cli-cheatsheet.md`
+
 ## [0.11.2] - 2026-03-08
 
 ### Changed

@@ -146,8 +146,12 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 
 ```bash
 synapse canvas post <format> "<body>" --title "<title>" [--pinned] [--tags "t1,t2"]
+synapse canvas briefing '<json>' --title "<title>" [--pinned]
+synapse canvas briefing --file report.json --title "CI Report"
 synapse canvas open                      # Open in browser (auto-starts server)
 synapse canvas list [--agent-id <id>] [--type <format>] [--search "<query>"]
 ```
+
+**Templates (5):** briefing, comparison, dashboard, steps, slides. Templates control how composite content blocks are laid out. Use `synapse canvas briefing` for the briefing template CLI shortcut, or `synapse canvas post-raw` with `template`/`template_data` fields for any template. See `references/commands.md` for full schema details.
 
 **Storage:** `.synapse/canvas.db` (project-local, SQLite).

@@ -86,6 +86,11 @@
       loadSystemPanel();
     });
 
+    es.onopen = () => {
+      // Re-sync cards on (re)connect to pick up any changes during disconnect
+      loadCards();
+    };
+
     es.onerror = () => {
       // EventSource auto-reconnects; just log
       console.warn("SSE connection lost, reconnecting...");
@@ -205,9 +210,7 @@
     }
 
     // Re-run mermaid on any new diagrams
-    if (typeof mermaid !== "undefined") {
-      mermaid.run({ querySelector: ".mermaid-pending" });
-    }
+    runMermaid(".mermaid-pending");
   }
 
   function renderLiveFeed(recentCards) {
@@ -270,9 +273,7 @@
     }
 
     // Re-run mermaid on live feed diagrams
-    if (typeof mermaid !== "undefined") {
-      mermaid.run({ querySelector: "#live-feed-list .mermaid-pending" });
-    }
+    runMermaid("#live-feed-list .mermaid-pending");
   }
 
   function createAgentPanel(group) {
@@ -377,11 +378,27 @@
       el.appendChild(tagBar);
     }
 
-    // Content blocks
+    // Content blocks — delegate to template renderer if applicable
     const content = parseContent(card.content);
     const blocks = Array.isArray(content) ? content : [content];
-    for (const block of blocks) {
-      el.appendChild(renderBlock(block));
+
+    if (card.template && card.template_data) {
+      const td =
+        typeof card.template_data === "string"
+          ? JSON.parse(card.template_data)
+          : card.template_data;
+      const rendered = renderTemplate(card.template, blocks, td, false);
+      if (rendered) {
+        el.appendChild(rendered);
+      } else {
+        for (const block of blocks) {
+          el.appendChild(renderBlock(block));
+        }
+      }
+    } else {
+      for (const block of blocks) {
+        el.appendChild(renderBlock(block));
+      }
     }
 
     // Footer
@@ -469,11 +486,435 @@
     return wrap;
   }
 
+  // ----------------------------------------------------------------
+  // Template renderer dispatcher
+  // ----------------------------------------------------------------
+  function renderTemplate(templateName, blocks, td, compact) {
+    switch (templateName) {
+      case "briefing":
+        return renderBriefing(blocks, td, compact);
+      case "comparison":
+        return renderComparison(blocks, td, compact);
+      case "dashboard":
+        return renderDashboardTemplate(blocks, td, compact);
+      case "steps":
+        return renderStepsTemplate(blocks, td, compact);
+      case "slides":
+        return renderSlidesTemplate(blocks, td, compact);
+      default:
+        return null;
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // Briefing template renderer
+  // ----------------------------------------------------------------
+  function renderBriefing(blocks, templateData, compact) {
+    const container = document.createElement("div");
+    container.className = "briefing-container";
+    if (compact) container.classList.add("briefing-compact");
+
+    const sections = templateData.sections || [];
+    const defaultCollapsed = compact;
+
+    // Summary
+    if (templateData.summary) {
+      const summary = document.createElement("div");
+      summary.className = "briefing-summary";
+      summary.innerHTML = simpleMarkdown(templateData.summary);
+      container.appendChild(summary);
+    }
+
+    // TOC (3+ sections, non-compact only)
+    if (sections.length >= 3 && !compact) {
+      const toc = document.createElement("nav");
+      toc.className = "briefing-toc";
+      const tocTitle = document.createElement("div");
+      tocTitle.className = "briefing-toc-title";
+      tocTitle.textContent = "Contents";
+      toc.appendChild(tocTitle);
+      for (let i = 0; i < sections.length; i++) {
+        const item = document.createElement("a");
+        item.className = "briefing-toc-item";
+        item.textContent = sections[i].title || `Section ${i + 1}`;
+        item.href = "#";
+        item.addEventListener("click", function (e) {
+          e.preventDefault();
+          const target = container.querySelectorAll(".briefing-section")[i];
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        toc.appendChild(item);
+      }
+      container.appendChild(toc);
+    }
+
+    // Expand All / Collapse All
+    if (sections.length > 1) {
+      const toggleAll = document.createElement("button");
+      toggleAll.className = "briefing-toggle-all";
+      toggleAll.textContent = defaultCollapsed ? "Expand All" : "Collapse All";
+      toggleAll.addEventListener("click", function () {
+        const allSections = container.querySelectorAll(".briefing-section-body");
+        const allHeaders = container.querySelectorAll(".briefing-section-header");
+        const expanding = toggleAll.textContent === "Expand All";
+        for (const body of allSections) {
+          body.classList.toggle("collapsed", !expanding);
+        }
+        for (const hdr of allHeaders) {
+          hdr.classList.toggle("collapsed", !expanding);
+        }
+        toggleAll.textContent = expanding ? "Collapse All" : "Expand All";
+      });
+      container.appendChild(toggleAll);
+    }
+
+    // Sections
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      const sectionEl = document.createElement("div");
+      sectionEl.className = "briefing-section";
+
+      // Section header with toggle
+      const header = document.createElement("div");
+      header.className = "briefing-section-header";
+      if (defaultCollapsed) header.classList.add("collapsed");
+
+      const titleEl = document.createElement("h3");
+      titleEl.className = "briefing-section-title";
+      titleEl.textContent = section.title || `Section ${i + 1}`;
+      header.appendChild(titleEl);
+
+      sectionEl.appendChild(header);
+
+      // Section summary
+      if (section.summary) {
+        const sSum = document.createElement("div");
+        sSum.className = "briefing-section-summary";
+        sSum.innerHTML = simpleMarkdown(section.summary);
+        sectionEl.appendChild(sSum);
+      }
+
+      // Section body with blocks
+      const blockIndices = section.blocks || [];
+      if (blockIndices.length > 0) {
+        const body = document.createElement("div");
+        body.className = "briefing-section-body";
+        if (defaultCollapsed) body.classList.add("collapsed");
+
+        for (const idx of blockIndices) {
+          if (idx >= 0 && idx < blocks.length) {
+            body.appendChild(renderBlock(blocks[idx]));
+          }
+        }
+
+        // Toggle on header click
+        header.addEventListener("click", function () {
+          body.classList.toggle("collapsed");
+          header.classList.toggle("collapsed");
+        });
+        header.style.cursor = "pointer";
+
+        sectionEl.appendChild(body);
+      } else {
+        // Title-only section (divider)
+        sectionEl.classList.add("briefing-section-divider");
+      }
+
+      container.appendChild(sectionEl);
+    }
+
+    return container;
+  }
+
+  // ----------------------------------------------------------------
+  // Comparison template renderer
+  // ----------------------------------------------------------------
+  function renderComparison(blocks, templateData, compact) {
+    const container = document.createElement("div");
+    container.className = "comparison-container";
+    const layout = templateData.layout || "side-by-side";
+    container.classList.add(`comparison-${layout}`);
+
+    if (templateData.summary) {
+      const summary = document.createElement("div");
+      summary.className = "comparison-summary";
+      summary.innerHTML = simpleMarkdown(templateData.summary);
+      container.appendChild(summary);
+    }
+
+    const sidesWrap = document.createElement("div");
+    sidesWrap.className = "comparison-sides";
+
+    const sides = templateData.sides || [];
+    for (let i = 0; i < sides.length; i++) {
+      const side = sides[i];
+      const sideEl = document.createElement("div");
+      sideEl.className = "comparison-side";
+
+      const label = document.createElement("div");
+      label.className = "comparison-side-label";
+      label.textContent = side.label || `Side ${i + 1}`;
+      sideEl.appendChild(label);
+
+      const body = document.createElement("div");
+      body.className = "comparison-side-body";
+      const sideBlocks = side.blocks || [];
+      for (const idx of sideBlocks) {
+        if (idx >= 0 && idx < blocks.length) {
+          body.appendChild(renderBlock(blocks[idx]));
+        }
+      }
+      sideEl.appendChild(body);
+      sidesWrap.appendChild(sideEl);
+    }
+
+    container.appendChild(sidesWrap);
+    return container;
+  }
+
+  // ----------------------------------------------------------------
+  // Dashboard template renderer
+  // ----------------------------------------------------------------
+  function renderDashboardTemplate(blocks, templateData, compact) {
+    const container = document.createElement("div");
+    container.className = "dashboard-template";
+    const cols = templateData.cols || 2;
+    container.style.setProperty("--dashboard-cols", cols);
+
+    const widgets = templateData.widgets || [];
+    for (let i = 0; i < widgets.length; i++) {
+      const widget = widgets[i];
+      const cell = document.createElement("div");
+      cell.className = "dashboard-widget";
+      const size = widget.size || "1x1";
+      const [spanCol, spanRow] = size.split("x").map(Number);
+      if (spanCol > 1) cell.style.gridColumn = `span ${spanCol}`;
+      if (spanRow > 1) cell.style.gridRow = `span ${spanRow}`;
+
+      const title = document.createElement("div");
+      title.className = "dashboard-widget-title";
+      title.textContent = widget.title || `Widget ${i + 1}`;
+      cell.appendChild(title);
+
+      const body = document.createElement("div");
+      body.className = "dashboard-widget-body";
+      const widgetBlocks = widget.blocks || [];
+      for (const idx of widgetBlocks) {
+        if (idx >= 0 && idx < blocks.length) {
+          body.appendChild(renderBlock(blocks[idx]));
+        }
+      }
+      cell.appendChild(body);
+      container.appendChild(cell);
+    }
+
+    return container;
+  }
+
+  // ----------------------------------------------------------------
+  // Steps template renderer
+  // ----------------------------------------------------------------
+  function renderStepsTemplate(blocks, templateData, compact) {
+    const container = document.createElement("div");
+    container.className = "steps-container";
+
+    if (templateData.summary) {
+      const summary = document.createElement("div");
+      summary.className = "steps-summary";
+      summary.innerHTML = simpleMarkdown(templateData.summary);
+      container.appendChild(summary);
+    }
+
+    // Progress bar
+    const steps = templateData.steps || [];
+    const doneCount = steps.filter(function (s) { return s.done; }).length;
+    const progressWrap = document.createElement("div");
+    progressWrap.className = "steps-progress";
+    const progressBar = document.createElement("div");
+    progressBar.className = "steps-progress-bar";
+    const pct = steps.length > 0 ? (doneCount / steps.length) * 100 : 0;
+    progressBar.style.width = pct + "%";
+    progressWrap.appendChild(progressBar);
+    const progressLabel = document.createElement("span");
+    progressLabel.className = "steps-progress-label";
+    progressLabel.textContent = doneCount + "/" + steps.length + " complete";
+    progressWrap.appendChild(progressLabel);
+    container.appendChild(progressWrap);
+
+    // Steps
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const stepEl = document.createElement("div");
+      stepEl.className = "steps-step";
+      if (step.done) stepEl.classList.add("steps-step-done");
+
+      const marker = document.createElement("div");
+      marker.className = "steps-step-marker";
+      marker.textContent = step.done ? "\u2713" : String(i + 1);
+      stepEl.appendChild(marker);
+
+      const content = document.createElement("div");
+      content.className = "steps-step-content";
+
+      const title = document.createElement("div");
+      title.className = "steps-step-title";
+      title.textContent = step.title || "Step " + (i + 1);
+      content.appendChild(title);
+
+      if (step.description) {
+        const desc = document.createElement("div");
+        desc.className = "steps-step-description";
+        desc.innerHTML = simpleMarkdown(step.description);
+        content.appendChild(desc);
+      }
+
+      const stepBlocks = step.blocks || [];
+      if (stepBlocks.length > 0) {
+        const body = document.createElement("div");
+        body.className = "steps-step-body";
+        for (const idx of stepBlocks) {
+          if (idx >= 0 && idx < blocks.length) {
+            body.appendChild(renderBlock(blocks[idx]));
+          }
+        }
+        content.appendChild(body);
+      }
+
+      stepEl.appendChild(content);
+
+      // Connector line (except last)
+      if (i < steps.length - 1) {
+        const connector = document.createElement("div");
+        connector.className = "steps-connector";
+        stepEl.appendChild(connector);
+      }
+
+      container.appendChild(stepEl);
+    }
+
+    return container;
+  }
+
+  // ----------------------------------------------------------------
+  // Slides template renderer
+  // ----------------------------------------------------------------
+  function renderSlidesTemplate(blocks, templateData, compact) {
+    const container = document.createElement("div");
+    container.className = "slides-container";
+
+    const slides = templateData.slides || [];
+    if (slides.length === 0) return container;
+
+    let currentSlide = 0;
+
+    const viewport = document.createElement("div");
+    viewport.className = "slides-viewport";
+
+    // Build all slide elements
+    const slideEls = [];
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+      const slideEl = document.createElement("div");
+      slideEl.className = "slides-slide";
+      if (i !== 0) slideEl.classList.add("slides-slide-hidden");
+
+      if (slide.title) {
+        const title = document.createElement("div");
+        title.className = "slides-slide-title";
+        title.textContent = slide.title;
+        slideEl.appendChild(title);
+      }
+
+      const body = document.createElement("div");
+      body.className = "slides-slide-body";
+      const slideBlocks = slide.blocks || [];
+      for (const idx of slideBlocks) {
+        if (idx >= 0 && idx < blocks.length) {
+          body.appendChild(renderBlock(blocks[idx]));
+        }
+      }
+      slideEl.appendChild(body);
+
+      if (slide.notes) {
+        const notes = document.createElement("div");
+        notes.className = "slides-slide-notes";
+        notes.innerHTML = simpleMarkdown(slide.notes);
+        slideEl.appendChild(notes);
+      }
+
+      viewport.appendChild(slideEl);
+      slideEls.push(slideEl);
+    }
+
+    container.appendChild(viewport);
+
+    // Navigation
+    if (slides.length > 1) {
+      const nav = document.createElement("div");
+      nav.className = "slides-nav";
+
+      const prevBtn = document.createElement("button");
+      prevBtn.className = "slides-nav-btn";
+      prevBtn.textContent = "\u25C0 Prev";
+      prevBtn.disabled = true;
+
+      const indicator = document.createElement("span");
+      indicator.className = "slides-nav-indicator";
+      indicator.textContent = "1 / " + slides.length;
+
+      const nextBtn = document.createElement("button");
+      nextBtn.className = "slides-nav-btn";
+      nextBtn.textContent = "Next \u25B6";
+
+      function showSlide(idx) {
+        slideEls[currentSlide].classList.add("slides-slide-hidden");
+        currentSlide = idx;
+        slideEls[currentSlide].classList.remove("slides-slide-hidden");
+        indicator.textContent = (currentSlide + 1) + " / " + slides.length;
+        prevBtn.disabled = currentSlide === 0;
+        nextBtn.disabled = currentSlide === slides.length - 1;
+      }
+
+      prevBtn.addEventListener("click", function () {
+        if (currentSlide > 0) showSlide(currentSlide - 1);
+      });
+      nextBtn.addEventListener("click", function () {
+        if (currentSlide < slides.length - 1) showSlide(currentSlide + 1);
+      });
+
+      nav.appendChild(prevBtn);
+      nav.appendChild(indicator);
+      nav.appendChild(nextBtn);
+      container.appendChild(nav);
+    }
+
+    return container;
+  }
+
   function renderMermaid(el, body) {
     const pre = document.createElement("pre");
     pre.className = "mermaid-pending mermaid";
     pre.textContent = body;
     el.appendChild(pre);
+  }
+
+  /** Run mermaid on pending diagrams and fix SVG heights afterward. */
+  function runMermaid(selector) {
+    if (typeof mermaid === "undefined") return;
+    const target = selector || ".mermaid-pending";
+    mermaid.run({ querySelector: target }).then(function () {
+      // After mermaid replaces <pre> with <svg>, remove fixed height attributes
+      // so the SVG flows naturally within its container.
+      document.querySelectorAll(".format-mermaid svg").forEach(function (svg) {
+        // Mermaid sets inline style="max-width: XXXpx" based on diagram complexity.
+        // Preserve it but cap at container width. Only override height.
+        svg.removeAttribute("height");
+        svg.removeAttribute("width");
+        svg.style.height = "auto";
+        svg.style.display = "block";
+        svg.style.margin = "0 auto";
+      });
+    }).catch(function () { /* mermaid parse errors are non-fatal */ });
   }
 
   function renderMarkdown(el, body) {
@@ -1718,8 +2159,24 @@
     content.className = "canvas-content";
     const parsed = parseContent(card.content);
     const blocks = Array.isArray(parsed) ? parsed : [parsed];
-    for (const block of blocks) {
-      content.appendChild(renderBlock(block));
+
+    if (card.template && card.template_data) {
+      const td =
+        typeof card.template_data === "string"
+          ? JSON.parse(card.template_data)
+          : card.template_data;
+      const rendered = renderTemplate(card.template, blocks, td, false);
+      if (rendered) {
+        content.appendChild(rendered);
+      } else {
+        for (const block of blocks) {
+          content.appendChild(renderBlock(block));
+        }
+      }
+    } else {
+      for (const block of blocks) {
+        content.appendChild(renderBlock(block));
+      }
     }
     canvasSpotlight.appendChild(content);
 
@@ -1783,9 +2240,7 @@
     canvasSpotlight.appendChild(infoBar);
 
     // Re-run mermaid
-    if (typeof mermaid !== "undefined") {
-      mermaid.run({ querySelector: "#canvas-spotlight .mermaid-pending" });
-    }
+    runMermaid("#canvas-spotlight .mermaid-pending");
   }
 
   // ----------------------------------------------------------------

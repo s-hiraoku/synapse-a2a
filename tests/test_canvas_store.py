@@ -458,3 +458,75 @@ class TestTTLExpiry:
         count = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
         conn.close()
         assert count == 0
+
+
+# ============================================================
+# TestTemplateStorage — Template fields in store
+# ============================================================
+
+
+class TestTemplateStorage:
+    """Tests for storing/retrieving template and template_data."""
+
+    @pytest.fixture
+    def store(self, tmp_path):
+        from synapse.canvas.store import CanvasStore
+
+        return CanvasStore(db_path=str(tmp_path / "canvas.db"))
+
+    def test_add_card_with_template(self, store):
+        """Should store and retrieve template/template_data."""
+
+        template_data = {
+            "summary": "Sprint review",
+            "sections": [{"title": "Tests", "blocks": [0]}],
+        }
+        card = store.add_card(
+            agent_id="synapse-claude-8103",
+            content='[{"format":"markdown","body":"## Tests"}]',
+            title="Sprint 42",
+            template="briefing",
+            template_data=template_data,
+        )
+        assert card["template"] == "briefing"
+        assert card["template_data"] == template_data
+
+        # Verify round-trip via get_card
+        retrieved = store.get_card(card["card_id"])
+        assert retrieved["template"] == "briefing"
+        assert retrieved["template_data"]["summary"] == "Sprint review"
+
+    def test_upsert_card_with_template(self, store):
+        """Upsert should preserve template fields."""
+
+        template_data = {"sections": [{"title": "A", "blocks": [0]}]}
+        store.upsert_card(
+            card_id="briefing-1",
+            agent_id="synapse-claude-8103",
+            content='[{"format":"markdown","body":"v1"}]',
+            title="Report v1",
+            template="briefing",
+            template_data=template_data,
+        )
+
+        updated_data = {"sections": [{"title": "B", "blocks": [0]}]}
+        card = store.upsert_card(
+            card_id="briefing-1",
+            agent_id="synapse-claude-8103",
+            content='[{"format":"markdown","body":"v2"}]',
+            title="Report v2",
+            template="briefing",
+            template_data=updated_data,
+        )
+        assert card["template"] == "briefing"
+        assert card["template_data"]["sections"][0]["title"] == "B"
+
+    def test_card_without_template_backward_compat(self, store):
+        """Cards without template should return empty defaults."""
+        card = store.add_card(
+            agent_id="synapse-claude-8103",
+            content='{"format":"mermaid","body":"graph TD; A-->B"}',
+            title="Legacy Card",
+        )
+        assert card["template"] == ""
+        assert card["template_data"] == {}

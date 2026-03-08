@@ -45,6 +45,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
 | Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
 | Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
+| Post template | `synapse canvas briefing '<json>' --title "<title>"` |
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 
 ## Collaboration Decision Framework
@@ -78,7 +79,7 @@ Evaluate collaboration opportunities before starting work:
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
-| **Canvas** | Visual dashboard for sharing rich cards (code, charts, diffs, diagrams) | `synapse canvas post/open/list` |
+| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/briefing/open/list` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 
 ## Spawning Decision Table

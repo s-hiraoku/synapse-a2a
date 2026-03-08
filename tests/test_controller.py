@@ -786,9 +786,16 @@ class TestInterAgentMessageWrite:
         call_log: list[tuple[str, ...]] = []
         log_lock = threading.Lock()
 
+        # Track the current thread IDs performing test writes so we
+        # only record calls from the test's own ThreadPoolExecutor,
+        # ignoring stray calls from daemon threads left by other tests.
+        test_threads: set[int] = set()
+        test_threads_lock = threading.Lock()
+
         def mock_write(fd, data):
-            with log_lock:
-                call_log.append(("write", data))
+            if threading.current_thread().ident in test_threads:
+                with log_lock:
+                    call_log.append(("write", data))
             return len(data)
 
         with (
@@ -797,12 +804,15 @@ class TestInterAgentMessageWrite:
         ):
 
             def sleep_side_effect(delay):
-                with log_lock:
-                    call_log.append(("sleep",))
+                if threading.current_thread().ident in test_threads:
+                    with log_lock:
+                        call_log.append(("sleep",))
 
             mock_sleep.side_effect = sleep_side_effect
 
             def call_write(label: str):
+                with test_threads_lock:
+                    test_threads.add(threading.current_thread().ident)
                 ctrl.write(label, submit_seq="\r")
 
             with ThreadPoolExecutor(max_workers=2) as pool:

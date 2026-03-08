@@ -85,6 +85,22 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse workflow run <name>` | Execute workflow steps |
 | `synapse workflow delete <name>` | Delete a workflow |
 
+### Canvas
+
+| Command | Description |
+|---------|-------------|
+| `synapse canvas serve` | Start Canvas server + open browser |
+| `synapse canvas mermaid "..." --title T` | Post Mermaid diagram |
+| `synapse canvas markdown "..." --title T` | Post Markdown document |
+| `synapse canvas table '{...}' --title T` | Post data table |
+| `synapse canvas code "..." --lang py` | Post syntax-highlighted code |
+| `synapse canvas chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas briefing '{...}'` | Post structured briefing report |
+| `synapse canvas post '{...}'` | Post raw Canvas Message JSON |
+| `synapse canvas list` | List all cards |
+| `synapse canvas delete <id>` | Delete a card |
+| `synapse canvas clear` | Clear all cards |
+
 ### Configuration
 
 | Command | Description |
@@ -401,6 +417,44 @@ synapse workflow run deploy-pipeline --continue-on-error
 # Delete
 synapse workflow delete deploy-pipeline --force
 ```
+
+---
+
+## Canvas
+
+```bash
+# Start Canvas server (auto-starts on first post, so usually optional)
+synapse canvas serve
+synapse canvas serve --port 3001 --no-open
+
+# Post content with format shortcuts
+synapse canvas mermaid "graph TD; A-->B; B-->C" --title "Auth Flow"
+synapse canvas markdown "## Design\nThis system uses..." --title "Design Doc"
+synapse canvas table '{"headers":["a","b"],"rows":[["1","2"]]}' --title "Results"
+synapse canvas code "def foo(): pass" --lang python --title "Impl"
+synapse canvas chart '{"type":"bar","data":{"labels":["Q1","Q2"],"datasets":[{"data":[10,20]}]}}' --title "Coverage"
+synapse canvas image "https://example.com/screenshot.png" --title "Screenshot"
+
+# Post a briefing (structured report with sections)
+synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}'
+synapse canvas briefing --file report.json --title "Sprint Report" --summary "Executive summary"
+
+# Post raw Canvas Message JSON (composite cards, templates)
+synapse canvas post '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
+
+# Common options (all posting commands)
+synapse canvas mermaid "..." --title "T" --id my-card --pin --tag design --tag auth
+
+# List and manage cards
+synapse canvas list
+synapse canvas list --mine --search "auth" --type mermaid
+synapse canvas delete <card_id>
+synapse canvas clear
+synapse canvas clear --agent claude
+```
+
+!!! tip "Templates"
+    Five built-in templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`) add structured layouts on top of composite cards. The `briefing` template has a dedicated CLI shortcut; other templates are posted via `synapse canvas post` with `template` and `template_data` in the JSON payload. See the [Canvas Guide](../guide/canvas.md#templates) for template data schemas.
 
 ---
 

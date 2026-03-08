@@ -377,3 +377,655 @@ class TestMessageSerialization:
         }
         msg = CanvasMessage.from_dict(data)
         assert msg.tags == ["design", "auth"]
+
+
+# ============================================================
+# TestTemplateField — Template field on CanvasMessage
+# ============================================================
+
+
+class TestTemplateField:
+    """Tests for the template and template_data fields on CanvasMessage."""
+
+    def test_template_field_default_empty(self):
+        """Default template should be empty string."""
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(format="markdown", body="hello"),
+            agent_id="synapse-claude-8103",
+        )
+        assert msg.template == ""
+        assert msg.template_data == {}
+
+    def test_template_field_serialization(self):
+        """to_dict/from_dict should round-trip template and template_data."""
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        msg = CanvasMessage(
+            type="render",
+            content=[
+                ContentBlock(format="markdown", body="## Overview"),
+                ContentBlock(format="table", body={"headers": ["a"], "rows": [["1"]]}),
+            ],
+            agent_id="synapse-claude-8103",
+            template="briefing",
+            template_data={
+                "summary": "Test summary",
+                "sections": [{"title": "Results", "blocks": [0, 1]}],
+            },
+        )
+        d = msg.to_dict()
+        assert d["template"] == "briefing"
+        assert d["template_data"]["summary"] == "Test summary"
+
+        restored = CanvasMessage.from_dict(d)
+        assert restored.template == "briefing"
+        assert restored.template_data["sections"][0]["title"] == "Results"
+
+    def test_invalid_template_name(self):
+        """Unknown template name should fail validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=[ContentBlock(format="markdown", body="hello")],
+            agent_id="synapse-claude-8103",
+            template="unknown_template",
+            template_data={"sections": [{"title": "A"}]},
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("template" in e.lower() for e in errors)
+
+    def test_template_without_data(self):
+        """template set but template_data empty should fail validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=[ContentBlock(format="markdown", body="hello")],
+            agent_id="synapse-claude-8103",
+            template="briefing",
+            template_data={},
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+
+# ============================================================
+# TestBriefingValidation — Briefing template validation
+# ============================================================
+
+
+class TestBriefingValidation:
+    """Tests for briefing template validation rules."""
+
+    def _make_briefing(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": [
+                ContentBlock(format="markdown", body="## Overview"),
+                ContentBlock(format="table", body={"headers": ["a"], "rows": [["1"]]}),
+            ],
+            "agent_id": "synapse-claude-8103",
+            "template": "briefing",
+            "template_data": {
+                "sections": [{"title": "Results", "blocks": [0, 1]}],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_briefing_valid(self):
+        """Valid briefing should pass validation."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing()
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_briefing_missing_sections(self):
+        """Briefing without sections key should fail."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(template_data={"summary": "no sections"})
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("sections" in e.lower() for e in errors)
+
+    def test_briefing_sections_not_list(self):
+        """sections must be a list."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(template_data={"sections": "not a list"})
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+    def test_briefing_empty_sections(self):
+        """Empty sections list should fail."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(template_data={"sections": []})
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+    def test_briefing_section_missing_title(self):
+        """Section without title should fail."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(template_data={"sections": [{"blocks": [0]}]})
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("title" in e.lower() for e in errors)
+
+    def test_briefing_blocks_out_of_range(self):
+        """Block index out of content range should fail."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Bad", "blocks": [0, 5]}]}
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+    def test_briefing_content_must_be_list(self):
+        """Briefing requires composite content (list), not single block."""
+        from synapse.canvas.protocol import ContentBlock, validate_message
+
+        msg = self._make_briefing(
+            content=ContentBlock(format="markdown", body="single"),
+            template_data={"sections": [{"title": "A", "blocks": [0]}]},
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("composite" in e.lower() or "list" in e.lower() for e in errors)
+
+    def test_briefing_too_many_sections(self):
+        """Exceeding MAX_SECTIONS should fail."""
+        from synapse.canvas.protocol import MAX_SECTIONS, validate_message
+
+        sections = [{"title": f"Section {i}"} for i in range(MAX_SECTIONS + 1)]
+        msg = self._make_briefing(template_data={"sections": sections})
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("section" in e.lower() for e in errors)
+
+    def test_briefing_with_summary(self):
+        """Briefing with summary field should pass."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={
+                "summary": "Executive summary here",
+                "sections": [{"title": "Details", "blocks": [0]}],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_briefing_section_without_blocks(self):
+        """Section without blocks (title-only divider) should pass."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={
+                "sections": [
+                    {"title": "Divider Section"},
+                    {"title": "Content", "blocks": [0]},
+                ],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+
+# ============================================================
+# TestComparisonValidation — Comparison template validation
+# ============================================================
+
+
+class TestComparisonValidation:
+    """Tests for comparison template validation rules."""
+
+    def _make_comparison(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": [
+                ContentBlock(format="markdown", body="## Before"),
+                ContentBlock(format="markdown", body="## After"),
+            ],
+            "agent_id": "synapse-claude-8103",
+            "template": "comparison",
+            "template_data": {
+                "sides": [
+                    {"label": "Before", "blocks": [0]},
+                    {"label": "After", "blocks": [1]},
+                ],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_comparison_valid(self):
+        from synapse.canvas.protocol import validate_message
+
+        errors = validate_message(self._make_comparison())
+        assert errors == []
+
+    def test_comparison_missing_sides(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(template_data={})
+        errors = validate_message(msg)
+        assert any("sides" in e.lower() for e in errors)
+
+    def test_comparison_too_few_sides(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={"sides": [{"label": "Only", "blocks": [0]}]}
+        )
+        errors = validate_message(msg)
+        assert any("2" in e for e in errors)
+
+    def test_comparison_too_many_sides(self):
+        from synapse.canvas.protocol import MAX_SIDES, validate_message
+
+        sides = [{"label": f"S{i}", "blocks": [0]} for i in range(MAX_SIDES + 1)]
+        msg = self._make_comparison(template_data={"sides": sides})
+        errors = validate_message(msg)
+        assert any("side" in e.lower() for e in errors)
+
+    def test_comparison_side_missing_label(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={"sides": [{"blocks": [0]}, {"label": "B", "blocks": [1]}]}
+        )
+        errors = validate_message(msg)
+        assert any("label" in e.lower() for e in errors)
+
+    def test_comparison_side_missing_blocks(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={"sides": [{"label": "A"}, {"label": "B", "blocks": [1]}]}
+        )
+        errors = validate_message(msg)
+        assert any("blocks" in e.lower() for e in errors)
+
+    def test_comparison_blocks_out_of_range(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={
+                "sides": [
+                    {"label": "A", "blocks": [0]},
+                    {"label": "B", "blocks": [99]},
+                ]
+            }
+        )
+        errors = validate_message(msg)
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+    def test_comparison_invalid_layout(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={
+                "sides": [
+                    {"label": "A", "blocks": [0]},
+                    {"label": "B", "blocks": [1]},
+                ],
+                "layout": "diagonal",
+            }
+        )
+        errors = validate_message(msg)
+        assert any("layout" in e.lower() for e in errors)
+
+    def test_comparison_valid_stacked_layout(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_comparison(
+            template_data={
+                "sides": [
+                    {"label": "A", "blocks": [0]},
+                    {"label": "B", "blocks": [1]},
+                ],
+                "layout": "stacked",
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_comparison_content_must_be_list(self):
+        from synapse.canvas.protocol import ContentBlock, validate_message
+
+        msg = self._make_comparison(
+            content=ContentBlock(format="markdown", body="single"),
+        )
+        errors = validate_message(msg)
+        assert any("composite" in e.lower() or "list" in e.lower() for e in errors)
+
+
+# ============================================================
+# TestDashboardValidation — Dashboard template validation
+# ============================================================
+
+
+class TestDashboardValidation:
+    """Tests for dashboard template validation rules."""
+
+    def _make_dashboard(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": [
+                ContentBlock(format="metric", body={"value": 42, "label": "Users"}),
+                ContentBlock(format="metric", body={"value": 99, "label": "Uptime"}),
+            ],
+            "agent_id": "synapse-claude-8103",
+            "template": "dashboard",
+            "template_data": {
+                "cols": 2,
+                "widgets": [
+                    {"title": "Users", "blocks": [0]},
+                    {"title": "Uptime", "blocks": [1]},
+                ],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_dashboard_valid(self):
+        from synapse.canvas.protocol import validate_message
+
+        errors = validate_message(self._make_dashboard())
+        assert errors == []
+
+    def test_dashboard_missing_widgets(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(template_data={"cols": 2})
+        errors = validate_message(msg)
+        assert any("widgets" in e.lower() for e in errors)
+
+    def test_dashboard_empty_widgets(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(template_data={"widgets": []})
+        errors = validate_message(msg)
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_dashboard_too_many_widgets(self):
+        from synapse.canvas.protocol import MAX_WIDGETS, validate_message
+
+        widgets = [{"title": f"W{i}", "blocks": [0]} for i in range(MAX_WIDGETS + 1)]
+        msg = self._make_dashboard(template_data={"widgets": widgets})
+        errors = validate_message(msg)
+        assert any("widget" in e.lower() for e in errors)
+
+    def test_dashboard_invalid_cols(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(
+            template_data={
+                "cols": 5,
+                "widgets": [{"title": "A", "blocks": [0]}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("cols" in e.lower() for e in errors)
+
+    def test_dashboard_widget_missing_title(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(template_data={"widgets": [{"blocks": [0]}]})
+        errors = validate_message(msg)
+        assert any("title" in e.lower() for e in errors)
+
+    def test_dashboard_invalid_widget_size(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(
+            template_data={
+                "widgets": [{"title": "Big", "blocks": [0], "size": "3x3"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("size" in e.lower() for e in errors)
+
+    def test_dashboard_valid_sizes(self):
+        from synapse.canvas.protocol import validate_message
+
+        for size in ("1x1", "2x1", "1x2", "2x2"):
+            msg = self._make_dashboard(
+                template_data={
+                    "widgets": [{"title": "W", "blocks": [0], "size": size}],
+                }
+            )
+            errors = validate_message(msg)
+            assert errors == [], f"Size {size} should be valid"
+
+    def test_dashboard_blocks_out_of_range(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_dashboard(
+            template_data={"widgets": [{"title": "A", "blocks": [99]}]}
+        )
+        errors = validate_message(msg)
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+
+# ============================================================
+# TestStepsValidation — Steps template validation
+# ============================================================
+
+
+class TestStepsValidation:
+    """Tests for steps template validation rules."""
+
+    def _make_steps(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": [
+                ContentBlock(format="markdown", body="## Step 1 details"),
+                ContentBlock(format="markdown", body="## Step 2 details"),
+            ],
+            "agent_id": "synapse-claude-8103",
+            "template": "steps",
+            "template_data": {
+                "steps": [
+                    {"title": "Setup", "blocks": [0], "done": True},
+                    {"title": "Deploy", "blocks": [1], "done": False},
+                ],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_steps_valid(self):
+        from synapse.canvas.protocol import validate_message
+
+        errors = validate_message(self._make_steps())
+        assert errors == []
+
+    def test_steps_missing_steps(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(template_data={"summary": "no steps"})
+        errors = validate_message(msg)
+        assert any("steps" in e.lower() for e in errors)
+
+    def test_steps_empty(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(template_data={"steps": []})
+        errors = validate_message(msg)
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_steps_too_many(self):
+        from synapse.canvas.protocol import MAX_STEPS, validate_message
+
+        steps = [{"title": f"Step {i}"} for i in range(MAX_STEPS + 1)]
+        msg = self._make_steps(template_data={"steps": steps})
+        errors = validate_message(msg)
+        assert any("step" in e.lower() for e in errors)
+
+    def test_steps_missing_title(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(template_data={"steps": [{"blocks": [0]}]})
+        errors = validate_message(msg)
+        assert any("title" in e.lower() for e in errors)
+
+    def test_steps_blocks_out_of_range(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(
+            template_data={"steps": [{"title": "Bad", "blocks": [99]}]}
+        )
+        errors = validate_message(msg)
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+    def test_steps_without_blocks(self):
+        """Step without blocks (description only) should pass."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(
+            template_data={
+                "steps": [
+                    {"title": "Plan", "description": "Think about it"},
+                    {"title": "Execute", "blocks": [0]},
+                ],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_steps_with_summary(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_steps(
+            template_data={
+                "summary": "Deployment workflow",
+                "steps": [{"title": "Deploy", "blocks": [0]}],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+
+# ============================================================
+# TestSlidesValidation — Slides template validation
+# ============================================================
+
+
+class TestSlidesValidation:
+    """Tests for slides template validation rules."""
+
+    def _make_slides(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": [
+                ContentBlock(format="markdown", body="# Slide 1"),
+                ContentBlock(format="mermaid", body="graph TD; A-->B"),
+                ContentBlock(format="markdown", body="# Slide 3"),
+            ],
+            "agent_id": "synapse-claude-8103",
+            "template": "slides",
+            "template_data": {
+                "slides": [
+                    {"title": "Intro", "blocks": [0]},
+                    {"blocks": [1]},
+                    {"title": "Summary", "blocks": [2], "notes": "Wrap up"},
+                ],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_slides_valid(self):
+        from synapse.canvas.protocol import validate_message
+
+        errors = validate_message(self._make_slides())
+        assert errors == []
+
+    def test_slides_missing_slides(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(template_data={})
+        errors = validate_message(msg)
+        assert any("slides" in e.lower() for e in errors)
+
+    def test_slides_empty(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(template_data={"slides": []})
+        errors = validate_message(msg)
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_slides_too_many(self):
+        from synapse.canvas.protocol import MAX_SLIDES, validate_message
+
+        slides = [{"blocks": [0]} for _ in range(MAX_SLIDES + 1)]
+        msg = self._make_slides(template_data={"slides": slides})
+        errors = validate_message(msg)
+        assert any("slide" in e.lower() for e in errors)
+
+    def test_slides_missing_blocks(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(template_data={"slides": [{"title": "No blocks"}]})
+        errors = validate_message(msg)
+        assert any("blocks" in e.lower() for e in errors)
+
+    def test_slides_blocks_out_of_range(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(template_data={"slides": [{"blocks": [99]}]})
+        errors = validate_message(msg)
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+    def test_slides_without_title(self):
+        """Slide without title should pass (title is optional)."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(
+            template_data={"slides": [{"blocks": [0]}, {"blocks": [1]}]}
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_slides_with_notes(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_slides(
+            template_data={
+                "slides": [
+                    {"blocks": [0], "notes": "Speaker notes here"},
+                ],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []

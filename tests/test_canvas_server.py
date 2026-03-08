@@ -752,6 +752,228 @@ class TestSystemPanel:
 # ============================================================
 
 
+# ============================================================
+# TestBriefingAPI — Briefing template via API
+# ============================================================
+
+
+class TestBriefingAPI:
+    """Tests for briefing template cards via the Canvas API."""
+
+    def test_post_briefing_card_201(self, client):
+        """POST a valid briefing card should return 201."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [
+                    {"format": "markdown", "body": "## Overview"},
+                    {"format": "table", "body": {"headers": ["a"], "rows": [["1"]]}},
+                ],
+                "agent_id": "synapse-claude-8103",
+                "title": "Sprint Report",
+                "template": "briefing",
+                "template_data": {
+                    "summary": "All green",
+                    "sections": [
+                        {"title": "Tests", "blocks": [0]},
+                        {"title": "Metrics", "blocks": [1]},
+                    ],
+                },
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["template"] == "briefing"
+
+    def test_post_briefing_invalid_422(self, client):
+        """POST a briefing with missing sections should return 422."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [{"format": "markdown", "body": "## Hello"}],
+                "agent_id": "synapse-claude-8103",
+                "title": "Bad Briefing",
+                "template": "briefing",
+                "template_data": {"summary": "no sections"},
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_get_briefing_card_has_template(self, client):
+        """GET should return template and template_data fields."""
+        client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [{"format": "markdown", "body": "## Hello"}],
+                "agent_id": "synapse-claude-8103",
+                "title": "Briefing",
+                "card_id": "briefing-get",
+                "template": "briefing",
+                "template_data": {
+                    "sections": [{"title": "Section 1", "blocks": [0]}],
+                },
+            },
+        )
+        resp = client.get("/api/cards/briefing-get")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["template"] == "briefing"
+        assert isinstance(data["template_data"], dict)
+        assert data["template_data"]["sections"][0]["title"] == "Section 1"
+
+
+class TestComparisonAPI:
+    """Tests for comparison template cards via the Canvas API."""
+
+    def test_post_comparison_card_201(self, client):
+        """POST a valid comparison card should return 201."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [
+                    {"format": "markdown", "body": "## Before"},
+                    {"format": "markdown", "body": "## After"},
+                ],
+                "agent_id": "synapse-claude-8103",
+                "title": "Code Review",
+                "template": "comparison",
+                "template_data": {
+                    "sides": [
+                        {"label": "Before", "blocks": [0]},
+                        {"label": "After", "blocks": [1]},
+                    ],
+                },
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["template"] == "comparison"
+
+    def test_post_comparison_invalid_422(self, client):
+        """POST comparison with only 1 side should return 422."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [{"format": "markdown", "body": "only one"}],
+                "agent_id": "synapse-claude-8103",
+                "title": "Bad Comparison",
+                "template": "comparison",
+                "template_data": {
+                    "sides": [{"label": "Only", "blocks": [0]}],
+                },
+            },
+        )
+        assert resp.status_code == 422
+
+
+class TestDashboardAPI:
+    """Tests for dashboard template cards via the Canvas API."""
+
+    def test_post_dashboard_card_201(self, client):
+        """POST a valid dashboard card should return 201."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [
+                    {"format": "metric", "body": {"value": 42, "label": "Users"}},
+                    {"format": "metric", "body": {"value": 99, "label": "Uptime"}},
+                ],
+                "agent_id": "synapse-claude-8103",
+                "title": "KPIs",
+                "template": "dashboard",
+                "template_data": {
+                    "cols": 2,
+                    "widgets": [
+                        {"title": "Users", "blocks": [0]},
+                        {"title": "Uptime", "blocks": [1]},
+                    ],
+                },
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["template"] == "dashboard"
+
+
+class TestStepsAPI:
+    """Tests for steps template cards via the Canvas API."""
+
+    def test_post_steps_card_201(self, client):
+        """POST a valid steps card should return 201."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [
+                    {"format": "markdown", "body": "Install deps"},
+                    {"format": "markdown", "body": "Run tests"},
+                ],
+                "agent_id": "synapse-claude-8103",
+                "title": "Deploy Guide",
+                "template": "steps",
+                "template_data": {
+                    "steps": [
+                        {"title": "Install", "blocks": [0], "done": True},
+                        {"title": "Test", "blocks": [1]},
+                    ],
+                },
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["template"] == "steps"
+
+
+class TestSlidesAPI:
+    """Tests for slides template cards via the Canvas API."""
+
+    def test_post_slides_card_201(self, client):
+        """POST a valid slides card should return 201."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [
+                    {"format": "markdown", "body": "# Welcome"},
+                    {"format": "mermaid", "body": "graph TD; A-->B"},
+                    {"format": "markdown", "body": "# Thanks"},
+                ],
+                "agent_id": "synapse-claude-8103",
+                "title": "Sprint Review",
+                "template": "slides",
+                "template_data": {
+                    "slides": [
+                        {"title": "Intro", "blocks": [0]},
+                        {"blocks": [1]},
+                        {"title": "Closing", "blocks": [2], "notes": "Q&A"},
+                    ],
+                },
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["template"] == "slides"
+
+    def test_post_slides_missing_blocks_422(self, client):
+        """POST slides without blocks should return 422."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "content": [{"format": "markdown", "body": "hello"}],
+                "agent_id": "synapse-claude-8103",
+                "title": "Bad Slides",
+                "template": "slides",
+                "template_data": {
+                    "slides": [{"title": "No blocks"}],
+                },
+            },
+        )
+        assert resp.status_code == 422
+
+
 class TestSSE:
     """Tests for GET /api/stream (SSE)."""
 
