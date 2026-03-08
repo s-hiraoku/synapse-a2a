@@ -283,6 +283,38 @@ The delegate mode instruction template can be customized in [settings](settings.
 !!! warning "Ghostty Limitation: Focus-dependent targeting"
     Ghostty uses AppleScript to target the **currently focused window/tab**. If you switch tabs while `spawn` or `team start` is running, agents may be created in the wrong tab. Wait for the command to complete before interacting with the terminal.
 
+## Spawn Zone Tiling
+
+When using `synapse spawn` to add agents one at a time, panes are organized using a **spawn zone** concept:
+
+1. **First spawn** — splits the current pane horizontally to create a dedicated spawn zone
+2. **Subsequent spawns** — tile within the spawn zone only, leaving your working pane untouched
+
+The largest pane in the spawn zone is selected for splitting, with direction determined by aspect ratio:
+
+- **Wide pane** (width ≥ height × 2) → horizontal split (side-by-side)
+- **Tall pane** → vertical split (stacked)
+
+```
+After 1 spawn:           After 3 spawns:
+┌────────┬────────┐      ┌────────┬───┬────┐
+│  You   │ Agent1 │      │  You   │A1 │ A3 │
+│        │        │      │        ├───┴────┤
+└────────┴────────┘      │        │ Agent2 │
+                         └────────┴────────┘
+```
+
+!!! info "SYNAPSE_SPAWN_PANES"
+    Synapse tracks spawn zone pane IDs in the `SYNAPSE_SPAWN_PANES` environment variable (comma-separated). This is managed automatically by `spawn_agent()` — no manual configuration needed.
+
+!!! note "Terminal-specific behavior"
+    | Terminal | Tiling Strategy |
+    |----------|----------------|
+    | **tmux** | Largest-pane detection within spawn zone via `SYNAPSE_SPAWN_PANES` |
+    | **iTerm2** | Alternating vertical/horizontal splits based on session count |
+    | **Ghostty** | Alternating `Cmd+D` / `Cmd+Shift+D` |
+    | **zellij** | Alternating right/down splits based on pane count |
+
 ## Team Start via API
 
 ```bash

@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.2
+
+- **Added**: Spawn Zone Tiling — `synapse spawn` now uses intelligent pane placement: first spawn creates a dedicated spawn zone, subsequent spawns tile within it based on aspect ratio (wide panes split horizontally, tall panes split vertically)
+- **Added**: `SYNAPSE_SPAWN_PANES` environment variable for automatic spawn zone pane tracking (tmux)
+- **Changed**: Default `layout` for `synapse spawn` is now `"auto"` (spawn zone tiling); `team start` retains `"horizontal"` default
+- **Added**: Alternating split direction support for iTerm2, Ghostty, and Zellij spawn tiling
+
 ### v0.11.1
 
 - **Added**: Completion callback for `--silent` sends — sender-side history is updated (`sent` -> `completed`/`failed`/`canceled`) via best-effort callback when the receiver finishes processing

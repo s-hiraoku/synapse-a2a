@@ -85,6 +85,13 @@ For user guides, see the [`/guides`](../guides/) directory.
   - テスト覆率: 56 個のテストケース（全て合格）
   - PR #34 で実装済み
 
+### ターミナル・ペイン管理
+
+- `spawn-zone-tiling.md` - **スポーンゾーンタイリング仕様**
+  - `synapse spawn` のペイン自動タイル配置
+  - スポーンゾーンの概念と `SYNAPSE_SPAWN_PANES` 環境変数
+  - tmux / iTerm2 / Ghostty / zellij 各ターミナルの実装詳細
+
 ### 開発ツール
 
 - `claude-code-worktree.md` - **Claude Code ワークツリー機能の仕組み**

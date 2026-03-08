@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -557,6 +558,153 @@ def can_jump() -> bool:
 # ============================================================
 
 
+@dataclass
+class _TmuxAutoSplit:
+    """Result of auto-split analysis for tmux."""
+
+    target_pane: str  # pane ID to split (e.g. "%0")
+    flag: str  # "-h" or "-v"
+
+
+def _get_tmux_spawn_panes() -> str:
+    """Read SYNAPSE_SPAWN_PANES from the tmux session environment.
+
+    Falls back to os.environ for testing / non-tmux contexts.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "show-environment", "SYNAPSE_SPAWN_PANES"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            line = result.stdout.strip()
+            if "=" in line:
+                return line.split("=", 1)[1]
+    except Exception:
+        pass
+    # Fallback to process env (for tests)
+    return os.environ.get("SYNAPSE_SPAWN_PANES", "")
+
+
+def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
+    """Determine the best pane to split and the direction for tiling.
+
+    Finds the largest pane by area and splits it along its longer axis:
+    - Wider than tall → "-h" (split horizontally, side-by-side)
+    - Taller than wide → "-v" (split vertically, stacked)
+
+    Returns None if detection fails.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "list-panes", "-F", "#{pane_id} #{pane_width} #{pane_height}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+
+        # Filter by spawn zone if set
+        spawn_panes_str = _get_tmux_spawn_panes()
+        spawn_panes = set(spawn_panes_str.split(",")) if spawn_panes_str else None
+
+        best_pane = None
+        best_area = -1
+        best_w = 0
+        best_h = 0
+        for line in result.stdout.strip().splitlines():
+            parts = line.split()
+            if len(parts) != 3:
+                continue
+            pane_id, w_str, h_str = parts
+            # Only consider spawn zone panes when zone exists
+            if spawn_panes and pane_id not in spawn_panes:
+                continue
+            w, h = int(w_str), int(h_str)
+            area = w * h
+            if area > best_area:
+                best_area = area
+                best_pane = pane_id
+                best_w = w
+                best_h = h
+
+        if best_pane is None:
+            return None
+
+        # Split along the longer axis for balanced tiling
+        # tmux cells are roughly 2:1 (width:height), so adjust
+        flag = "-h" if best_w >= best_h * 2 else "-v"
+        return _TmuxAutoSplit(target_pane=best_pane, flag=flag)
+    except Exception:
+        return None
+
+
+def _get_iterm2_session_count() -> int | None:
+    """Return the number of sessions (panes) in the current iTerm2 tab.
+
+    Returns None if not inside iTerm2 or if the command fails.
+    """
+    script = (
+        'tell application "iTerm2" to tell current window to '
+        "return count of sessions of current tab"
+    )
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return int(result.stdout.strip())
+    except Exception:
+        pass
+    return None
+
+
+def _get_ghostty_split_direction(layout: str = "auto") -> str:
+    """Return the split direction for the next Ghostty pane.
+
+    For layout="auto", alternates between "right" and "down" based on
+    the number of existing panes (tracked via SYNAPSE_GHOSTTY_PANE_COUNT
+    env var, since Ghostty has no pane query API).
+
+    Returns "right" or "down".
+    """
+    if layout != "auto":
+        return "right"
+    # Ghostty has no CLI to query pane count; use env counter.
+    try:
+        count = int(os.environ.get("SYNAPSE_GHOSTTY_PANE_COUNT", "1"))
+    except (ValueError, TypeError):
+        count = 1
+    # Update counter for next spawn in same shell session
+    os.environ["SYNAPSE_GHOSTTY_PANE_COUNT"] = str(count + 1)
+    return "right" if count % 2 == 1 else "down"
+
+
+def _get_zellij_pane_count() -> int | None:
+    """Return the number of panes in the current zellij tab.
+
+    Returns None if not inside zellij or if the command fails.
+    """
+    try:
+        result = subprocess.run(
+            ["zellij", "action", "query-tab-names"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return len(result.stdout.strip().splitlines())
+    except Exception:
+        pass
+    return None
+
+
 def create_tmux_panes(
     agents: list[str],
     layout: str = "split",
@@ -570,7 +718,7 @@ def create_tmux_panes(
 
     Args:
         agents: List of agent specs.
-        layout: Layout style ("split", "horizontal", "vertical").
+        layout: Layout style ("split", "horizontal", "vertical", "auto").
         all_new: If True, even the first agent gets a new pane.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
@@ -586,14 +734,33 @@ def create_tmux_panes(
     safe_cwd = shlex.quote(cwd)
 
     commands: list[str] = []
-    split_flag = "-h" if layout == "horizontal" else "-v"
+
+    # For "auto" layout, use spawn zone tiling:
+    # - First spawn (no SYNAPSE_SPAWN_PANES): split current pane with -h
+    # - Subsequent spawns: find largest pane in spawn zone and split it
+    auto_split: _TmuxAutoSplit | None = None
+    if layout == "auto":
+        spawn_panes = _get_tmux_spawn_panes()
+        if spawn_panes:
+            auto_split = _get_tmux_auto_split()
+            split_flag = auto_split.flag if auto_split else "-h"
+        else:
+            split_flag = "-h"
+    elif layout == "horizontal":
+        split_flag = "-h"
+    else:
+        split_flag = "-v"
+
     effective_count = len(agents) + (1 if all_new else 0)
 
-    # Resolve the current pane ID so splits stay scoped to the source pane.
-    # Commands are executed via subprocess without a shell, so env vars
-    # must be resolved here rather than relying on shell expansion.
-    pane_target = os.environ.get("TMUX_PANE", "")
-    target_flag = f"-t {pane_target} " if pane_target else ""
+    # Resolve the pane to split into.
+    # For "auto" layout, target the largest pane (for balanced tiling).
+    # For other layouts, target the current pane (TMUX_PANE).
+    if auto_split:
+        target_flag = f"-t {auto_split.target_pane} "
+    else:
+        pane_target = os.environ.get("TMUX_PANE", "")
+        target_flag = f"-t {pane_target} " if pane_target else ""
 
     if all_new:
         # Everyone gets a new pane
@@ -651,6 +818,7 @@ def create_iterm2_panes(
     cwd: str | None = None,
     extra_env: dict[str, str] | None = None,
     fallback_tool_args: list[str] | None = None,
+    layout: str = "vertical",
 ) -> str:
     """Generate AppleScript to create iTerm2 panes for each agent.
 
@@ -660,12 +828,26 @@ def create_iterm2_panes(
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
         extra_env: Additional environment variables for spawned agents.
+        layout: Layout style. "auto" alternates split direction based on
+            existing session count. "vertical"/"horizontal" force direction.
 
     Returns:
         AppleScript string.
     """
     if not agents:
         return ""
+
+    # Determine split direction
+    if layout == "auto":
+        session_count = _get_iterm2_session_count()
+        if session_count is not None and session_count % 2 == 0:
+            split_direction = "horizontally"
+        else:
+            split_direction = "vertically"
+    elif layout == "horizontal":
+        split_direction = "horizontally"
+    else:
+        split_direction = "vertically"
 
     cwd = cwd or os.getcwd()
     quoted_cwd = shlex.quote(cwd)
@@ -690,7 +872,7 @@ def create_iterm2_panes(
             escaped = _escape_applescript_string(_cd_prefix(full_cmd))
             lines.extend(
                 [
-                    "      set newSession to (split vertically with default profile)",
+                    f"      set newSession to (split {split_direction} with default profile)",
                     "      tell newSession",
                     f'        write text "{escaped}"',
                     "      end tell",
@@ -726,7 +908,7 @@ def create_iterm2_panes(
             lines.extend(
                 [
                     "    end tell",
-                    "    set newSession to (split vertically with default profile)",
+                    f"    set newSession to (split {split_direction} with default profile)",
                     "    tell newSession",
                     f'      write text "{escaped}"',
                 ]
@@ -799,7 +981,7 @@ def create_zellij_panes(
 
     Args:
         agents: List of agent specs.
-        layout: Layout style ("split", "horizontal", "vertical").
+        layout: Layout style ("split", "horizontal", "vertical", "auto").
         all_new: Ignored for zellij as it always opens new panes.
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
@@ -816,7 +998,16 @@ def create_zellij_panes(
 
     commands: list[str] = []
 
+    # For "auto" layout, query existing pane count for direction
+    auto_pane_count = None
+    if layout == "auto":
+        auto_pane_count = _get_zellij_pane_count()
+
     def _direction_for(index: int) -> str:
+        if layout == "auto":
+            # Use existing pane count + index offset for alternation
+            effective = (auto_pane_count or 1) + index
+            return "right" if effective % 2 == 1 else "down"
         if layout == "horizontal":
             return "right"
         if layout == "vertical":
@@ -833,7 +1024,7 @@ def create_zellij_panes(
             fallback_tool_args=fallback_tool_args,
         )
 
-        if i == 0:
+        if i == 0 and layout != "auto":
             commands.append(
                 f"zellij run --close-on-exit --cwd {safe_cwd} --name synapse-{profile} -- {full_cmd}"
             )
@@ -853,12 +1044,12 @@ def create_ghostty_window(
     cwd: str | None = None,
     extra_env: dict[str, str] | None = None,
     fallback_tool_args: list[str] | None = None,
+    layout: str = "right",
 ) -> list[str]:
     """Generate commands to create Ghostty split panes for each agent.
 
     Uses AppleScript to trigger Ghostty's ``Cmd+D`` keybinding
-    (``new_split:right``) which creates a new split pane inside the
-    current window.  This preserves all existing panes.
+    (``new_split:right``) or ``Cmd+Shift+D`` (``new_split:down``).
 
     Note:
         ``open -na Ghostty`` must NOT be used — it spawns a separate
@@ -869,11 +1060,25 @@ def create_ghostty_window(
         tool_args: Extra arguments passed through to underlying CLI tools.
         cwd: Working directory for new panes. Defaults to os.getcwd().
         extra_env: Additional environment variables for spawned agents.
+        layout: "auto" alternates right/down based on pane count.
+            "right" always splits right, anything else splits down.
 
     Returns:
         List of osascript command strings to execute.
     """
     cwd = cwd or os.getcwd()
+
+    # Determine split direction
+    if layout == "auto":
+        direction = _get_ghostty_split_direction(layout)
+    else:
+        direction = "right" if layout in ("right", "horizontal") else "down"
+
+    # Build keystroke for the split direction
+    if direction == "-h" or direction == "right":
+        split_keystroke = '    keystroke "d" using {command down}'
+    else:
+        split_keystroke = '    keystroke "d" using {command down, shift down}'
 
     commands: list[str] = []
 
@@ -889,15 +1094,14 @@ def create_ghostty_window(
         )
         cd_cmd = f"cd {shlex.quote(cwd)} && {full_cmd}; exit"
         escaped = _escape_applescript_string(cd_cmd)
-        # Trigger Ghostty's Cmd+D (new_split:right) to create a split
-        # pane, then paste the command via clipboard and press return.
+        # Trigger Ghostty split, then paste command via clipboard.
         # Using clipboard + Cmd+V instead of keystroke for the command
         # because keystroke can mangle characters (e.g. hyphens in
         # --no-setup) when typing long strings.
         script = (
             'tell application "Ghostty" to activate\n'
             'tell application "System Events" to tell process "Ghostty"\n'
-            '    keystroke "d" using {command down}\n'
+            f"{split_keystroke}\n"
             "end tell\n"
             "delay 0.5\n"
             f'set the clipboard to "{escaped}"\n'
@@ -960,6 +1164,7 @@ def create_panes(
             cwd=cwd,
             extra_env=extra_env,
             fallback_tool_args=fallback_tool_args,
+            layout=layout,
         )
         if not script:
             return []
@@ -984,13 +1189,13 @@ def create_panes(
             fallback_tool_args=fallback_tool_args,
         )
     elif terminal_app == "Ghostty":
-        # Ghostty only supports window-level ops; layout/all_new not applicable
         return create_ghostty_window(
             agents,
             tool_args=tool_args,
             cwd=cwd,
             extra_env=extra_env,
             fallback_tool_args=fallback_tool_args,
+            layout=layout,
         )
 
     # Unsupported terminal - return empty list

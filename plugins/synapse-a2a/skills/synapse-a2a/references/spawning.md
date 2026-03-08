@@ -231,6 +231,20 @@ Environment variables set automatically for worktree agents:
 - `synapse kill` also handles worktree cleanup for killed agents.
 - Consider adding `.synapse/worktrees/` to your `.gitignore` to prevent untracked worktree files from cluttering `git status`.
 
+## Spawn Zone Tiling (tmux)
+
+`synapse spawn` uses `layout="auto"` by default. In tmux this enables **spawn zone tiling** — spawned panes are tracked and subsequent splits target the largest pane in the zone, producing balanced layouts automatically.
+
+**How it works:**
+
+1. **First spawn** (no existing spawn zone): splits the current pane horizontally (`-h`), creating a side-by-side layout.
+2. **Subsequent spawns**: Synapse queries all panes in the spawn zone, finds the largest one (by area = width x height), and splits it. The split direction is chosen automatically (horizontal if the pane is wider than tall, vertical otherwise).
+3. **Tracking**: Spawned pane IDs are stored in `SYNAPSE_SPAWN_PANES` (comma-separated) in the **tmux session environment** (`tmux set-environment` / `tmux show-environment`). This persists across CLI invocations within the same tmux session.
+
+**Result:** Spawning 1, 2, or 4 agents produces evenly tiled layouts without manual `--layout` flags.
+
+Other terminals (iTerm2, Ghostty, zellij) have their own auto-alternation logic but do not use the spawn zone mechanism.
+
 ## Technical Notes
 
 - **Headless mode:** `synapse spawn` and `synapse team start` always add `--no-setup --headless`, skipping interactive setup while keeping the A2A server and initial instructions active.

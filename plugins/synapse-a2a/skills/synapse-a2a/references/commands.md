@@ -170,6 +170,8 @@ When an agent is started via `synapse spawn` or `synapse team start`, `--no-setu
 
 **Note:** The spawning agent is responsible for the lifecycle of the spawned agent. Ensure you terminate spawned agents using `synapse kill <target> -f` when their task is complete.
 
+**Spawn Zone Tiling (tmux):** `synapse spawn` uses `layout="auto"` by default. In tmux, spawned pane IDs are tracked via `SYNAPSE_SPAWN_PANES` in the tmux session environment. The first spawn splits the current pane horizontally; subsequent spawns find the largest pane in the spawn zone and split it, producing balanced tiled layouts automatically. See `references/spawning.md` for details.
+
 **Pane Auto-Close:** Spawned panes close automatically when the agent process terminates in all supported terminals (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 
 **Known Limitation:** Spawned agents cannot use `synapse reply` because PTY-injected messages don't register sender info. Use `synapse send <target> "message"` instead (`--from` is auto-detected) ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)).
