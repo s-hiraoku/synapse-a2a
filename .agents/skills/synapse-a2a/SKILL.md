@@ -103,6 +103,21 @@ synapse tasks fail <id> --reason "<blocker or failure>"
 
 If none of the triggers apply and the work is a small single-agent change, you can skip the task board.
 
+### Canvas Template Default Triggers
+
+Use Canvas templates by default when the output should be read by another
+agent or a human later, not just glanced at once in the terminal.
+
+- `briefing` for structured reports, status updates, and release summaries
+- `comparison` for before/after, option trade-offs, and review diffs
+- `steps` for plans, migration sequences, and execution checklists
+- `slides` for walkthroughs, demos, and page-by-page narratives
+- `dashboard` for multi-widget operational snapshots and compact status boards
+
+Prefer raw `synapse canvas post <format>` only when a single block is enough.
+If the message has multiple sections or needs stronger information hierarchy,
+use a template.
+
 ## Spawning Decision Table
 
 **Default spawn policy:** When using `synapse spawn`, pass the underlying CLI's

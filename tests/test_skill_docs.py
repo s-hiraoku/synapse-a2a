@@ -144,3 +144,31 @@ def test_synapse_manager_skill_makes_task_board_part_of_default_flow() -> None:
     assert "synapse tasks assign" in text or "synapse tasks claim" in text
     assert "synapse tasks complete" in text
     assert "synapse tasks fail" in text
+
+
+def test_synapse_a2a_skill_defines_canvas_template_triggers() -> None:
+    text = _read("plugins/synapse-a2a/skills/synapse-a2a/SKILL.md")
+    assert "Use Canvas templates by default when" in text
+    assert "briefing" in text
+    assert "comparison" in text
+    assert "steps" in text
+    assert "slides" in text
+    assert "dashboard" in text
+
+
+def test_canvas_commands_doc_includes_template_selection_guide() -> None:
+    text = _read("plugins/synapse-a2a/skills/synapse-a2a/references/commands.md")
+    assert "Template Selection Guide" in text
+    assert "`briefing`" in text
+    assert "`comparison`" in text
+    assert "`steps`" in text
+    assert "`slides`" in text
+    assert "`dashboard`" in text
+
+
+def test_canvas_examples_doc_includes_template_workflows() -> None:
+    text = _read("plugins/synapse-a2a/skills/synapse-a2a/references/examples.md")
+    assert "Canvas Template Workflows" in text
+    assert "synapse canvas briefing" in text
+    assert '"template":"comparison"' in text or '"template": "comparison"' in text
+    assert '"template":"steps"' in text or '"template": "steps"' in text

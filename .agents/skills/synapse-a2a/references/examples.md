@@ -450,6 +450,26 @@ git push
   → CI passes, review clean
 ```
 
+## Canvas Template Workflows
+
+### Briefing for Structured Status Reports
+
+```bash
+synapse canvas briefing '{"title":"Sprint Review","sections":[{"title":"Summary","blocks":[0]},{"title":"Risks","blocks":[1]}],"content":[{"format":"markdown","body":"## Summary\nAuth fixes merged."},{"format":"alert","body":{"severity":"warning","message":"Visual QA still pending","source":"Release"}}]}' --title "Sprint Review"
+```
+
+### Comparison for Before/After Reviews
+
+```bash
+synapse canvas post-raw '{"type":"render","agent_id":"cli","title":"Dashboard Cleanup","template":"comparison","template_data":{"layout":"side-by-side","sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"markdown","body":"Old dashboard with dense multi-column layout."},{"format":"markdown","body":"New dashboard with vertical widgets and summary task board."}]}'
+```
+
+### Steps for Execution Plans
+
+```bash
+synapse canvas post-raw '{"type":"render","agent_id":"cli","title":"Release Plan","template":"steps","template_data":{"steps":[{"title":"Write tests","blocks":[0],"done":true},{"title":"Implement fix","blocks":[1],"done":true},{"title":"Run visual QA","blocks":[2],"done":false}]},"content":[{"format":"markdown","body":"Regression tests added."},{"format":"markdown","body":"Canvas bug fixes applied."},{"format":"markdown","body":"Pending final browser review."}]}'
+```
+
 ## Troubleshooting
 
 ### Agent Not Responding
