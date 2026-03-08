@@ -82,6 +82,27 @@ Evaluate collaboration opportunities before starting work:
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/briefing/open/list` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 
+### Task Board Default Triggers
+
+Use the Task Board by default when any of these are true:
+
+- `2+ agents` will work on the task
+- The work is likely to run longer than `30 minutes`
+- The task spans `3+ files`, multiple phases, or distinct subtasks
+- A handoff, manager review, or resume later workflow is likely
+- You need the team to see `pending / in_progress / completed / failed` state at a glance
+
+Minimum pattern:
+
+```bash
+synapse tasks create "<subject>" -d "<shared scope and done criteria>"
+synapse tasks assign <id> <agent>
+synapse tasks complete <id>
+synapse tasks fail <id> --reason "<blocker or failure>"
+```
+
+If none of the triggers apply and the work is a small single-agent change, you can skip the task board.
+
 ## Spawning Decision Table
 
 **Default spawn policy:** When using `synapse spawn`, pass the underlying CLI's

@@ -30,6 +30,10 @@ New tests first. Follow this order for every implementation task: create tests -
 
 Edit `plugins/synapse-a2a/skills/` first, then sync generated copies with `sync-plugin-skills`.
 
+Task board is the default coordination surface for manager-led work.
+Create or refresh task board entries before delegation starts so ownership,
+blocking, and completion state are visible to the whole team.
+
 **Check existing agents before spawning** — reuse is faster (avoids startup overhead,
 instruction injection, and readiness wait):
 ```bash
@@ -87,6 +91,12 @@ synapse send Tester "Write the tests first and confirm the spec for task #1.
 
 Use `--attach` to send reference files the agent should study.
 Use `--wait` while confirming tests/spec, then `--silent` or `--notify` once execution is unblocked.
+
+Default expectation:
+- `synapse tasks create` for each meaningful work unit
+- `synapse tasks assign` or `synapse tasks claim` when ownership changes
+- `synapse tasks complete` when verification passes
+- `synapse tasks fail` when blocked or broken, with a reason the next agent can act on
 
 ### Step 3: Delegate Implementation and Monitor
 
