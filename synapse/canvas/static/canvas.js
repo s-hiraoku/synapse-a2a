@@ -1373,11 +1373,21 @@
     const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
     const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
+    const skillCount = Array.isArray(data.skills) ? data.skills.length : 0;
+    const skillSetCount = Array.isArray(data.skill_sets) ? data.skill_sets.length : 0;
+    const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : 0;
+    const workflowCount = Array.isArray(data.workflows) ? data.workflows.length : 0;
 
     // Content wrapper
     const content = document.createElement("div");
     content.id = "system-panel-content";
 
+    // ── Information / Tips ──
+    if (Array.isArray(data.tips) && data.tips.length > 0) {
+      content.appendChild(renderSystemTips(data.tips));
+    }
+
+    // ── Errors (if any) ──
     if (errorCount > 0) {
       content.appendChild(
         createSystemSection(
@@ -1387,6 +1397,8 @@
         )
       );
     }
+
+    // ── Agents (full-width, wide tables) ──
     content.appendChild(
       createSystemSection(
         "agents",
@@ -1403,6 +1415,8 @@
         )
       );
     }
+
+    // ── Tasks (full-width) ──
     content.appendChild(
       createSystemSection(
         "tasks",
@@ -1410,14 +1424,32 @@
         renderSystemTasks(data.tasks || {})
       )
     );
-    content.appendChild(
+
+    // ── Work group (file locks, history) ──
+    const workGroup = document.createElement("div");
+    workGroup.className = "system-group";
+
+    workGroup.appendChild(
       createSystemSection(
         "file-locks",
         "File Locks (" + lockCount + ")",
         renderSystemFileLocks(Array.isArray(data.file_locks) ? data.file_locks : [])
       )
     );
-    content.appendChild(
+    workGroup.appendChild(
+      createSystemSection(
+        "history",
+        "Recent History (" + historyCount + ")",
+        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
+      )
+    );
+    content.appendChild(workGroup);
+
+    // ── Knowledge group (memory, worktrees) ──
+    const knowledgeGroup = document.createElement("div");
+    knowledgeGroup.className = "system-group";
+
+    knowledgeGroup.appendChild(
       createSystemSection(
         "memories",
         "Shared Memory (" + memoryCount + ")",
@@ -1425,7 +1457,7 @@
       )
     );
     if (worktreeCount > 0) {
-      content.appendChild(
+      knowledgeGroup.appendChild(
         createSystemSection(
           "worktrees",
           "Worktrees (" + worktreeCount + ")",
@@ -1433,13 +1465,61 @@
         )
       );
     }
+    content.appendChild(knowledgeGroup);
+
+    // ── Skills (full-width, wide tables) ──
     content.appendChild(
       createSystemSection(
-        "history",
-        "Recent History (" + historyCount + ")",
-        renderSystemHistory(Array.isArray(data.history) ? data.history : [])
+        "skills",
+        "Skills (" + skillCount + ")",
+        renderSystemSkills(Array.isArray(data.skills) ? data.skills : [])
       )
     );
+    if (skillSetCount > 0) {
+      content.appendChild(
+        createSystemSection(
+          "skill-sets",
+          "Skill Sets (" + skillSetCount + ")",
+          renderSystemSkillSets(data.skill_sets)
+        )
+      );
+    }
+
+    // ── Configuration group (sessions, workflows, environment) ──
+    const configGroup = document.createElement("div");
+    configGroup.className = "system-group";
+
+    if (sessionCount > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "sessions",
+          "Sessions (" + sessionCount + ")",
+          renderSystemSessions(data.sessions)
+        )
+      );
+    }
+    if (workflowCount > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "workflows",
+          "Workflows (" + workflowCount + ")",
+          renderSystemWorkflows(data.workflows)
+        )
+      );
+    }
+    if (data.environment && Object.keys(data.environment).length > 0) {
+      configGroup.appendChild(
+        createSystemSection(
+          "environment",
+          "Environment",
+          renderSystemEnvironment(data.environment)
+        )
+      );
+    }
+    if (configGroup.children.length > 0) {
+      content.appendChild(configGroup);
+    }
+
     systemPanel.appendChild(content);
   }
 
@@ -1460,10 +1540,25 @@
     return section;
   }
 
+  function emptyState(message) {
+    const el = document.createElement("div");
+    el.className = "system-empty";
+    el.textContent = message;
+    return el;
+  }
+
+  function scopeBadge(scope) {
+    const el = document.createElement("span");
+    el.className = "scope-badge";
+    el.dataset.scope = scope;
+    el.textContent = scope;
+    return el;
+  }
+
   function renderSystemAgents(agents) {
     const wrap = document.createElement("div");
     if (agents.length === 0) {
-      wrap.textContent = "No agents";
+      wrap.appendChild(emptyState("No agents running"));
       return wrap;
     }
 
@@ -1595,15 +1690,23 @@
     const board = document.createElement("div");
     board.className = "task-board";
     for (const name of ["pending", "in_progress", "completed"]) {
+      const items = tasks[name] || [];
       const column = document.createElement("div");
       column.className = "task-column";
+      column.dataset.status = name;
 
       const header = document.createElement("div");
       header.className = "task-column-header";
-      header.textContent = name.replace("_", " ");
+      const label = document.createElement("span");
+      label.textContent = name.replace("_", " ");
+      header.appendChild(label);
+      const countEl = document.createElement("span");
+      countEl.className = "task-column-count";
+      countEl.textContent = items.length;
+      header.appendChild(countEl);
       column.appendChild(header);
 
-      for (const item of tasks[name] || []) {
+      for (const item of items) {
         const card = document.createElement("div");
         card.className = "task-item";
         card.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
@@ -1624,7 +1727,7 @@
   function renderSystemFileLocks(locks) {
     const wrap = document.createElement("div");
     if (locks.length === 0) {
-      wrap.textContent = "No active locks";
+      wrap.appendChild(emptyState("No active file locks"));
       return wrap;
     }
 
@@ -1660,7 +1763,7 @@
   function renderSystemMemories(memories) {
     const wrap = document.createElement("div");
     if (memories.length === 0) {
-      wrap.textContent = "No shared memories";
+      wrap.appendChild(emptyState("No shared memories"));
       return wrap;
     }
 
@@ -1719,7 +1822,7 @@
   function renderSystemWorktrees(worktrees) {
     const wrap = document.createElement("div");
     if (!worktrees || worktrees.length === 0) {
-      wrap.textContent = "No active worktrees";
+      wrap.appendChild(emptyState("No active worktrees"));
       return wrap;
     }
 
@@ -1769,7 +1872,7 @@
   function renderSystemHistory(history) {
     const wrap = document.createElement("div");
     if (history.length === 0) {
-      wrap.textContent = "No history";
+      wrap.appendChild(emptyState("No task history"));
       return wrap;
     }
 
@@ -1829,7 +1932,7 @@
   function renderSystemProfiles(profiles) {
     const wrap = document.createElement("div");
     if (!profiles || profiles.length === 0) {
-      wrap.textContent = "No saved agents";
+      wrap.appendChild(emptyState("No saved agent definitions"));
       return wrap;
     }
 
@@ -1874,8 +1977,7 @@
       tr.appendChild(tdSkill);
 
       const tdScope = document.createElement("td");
-      tdScope.className = "agent-port-cell";
-      tdScope.textContent = p.scope;
+      tdScope.appendChild(scopeBadge(p.scope));
       tr.appendChild(tdScope);
 
       tbody.appendChild(tr);
@@ -1883,6 +1985,330 @@
     table.appendChild(tbody);
     wrap.appendChild(table);
     return wrap;
+  }
+
+  function renderSystemSkills(skills) {
+    const wrap = document.createElement("div");
+    if (skills.length === 0) {
+      wrap.appendChild(emptyState("No skills discovered"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "50%", "10%", "25%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SCOPE", "TARGETS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const sk of skills) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = sk.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = sk.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(sk.scope));
+      tr.appendChild(tdScope);
+
+      const tdDirs = document.createElement("td");
+      tdDirs.className = "agent-dir-cell";
+      tdDirs.textContent = (sk.agent_dirs || []).join(", ") || "-";
+      tr.appendChild(tdDirs);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemSkillSets(sets) {
+    const wrap = document.createElement("div");
+    if (!sets || sets.length === 0) {
+      wrap.appendChild(emptyState("No skill sets defined"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "45%", "40%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SKILLS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const ss of sets) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = ss.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = ss.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdSkills = document.createElement("td");
+      tdSkills.className = "skill-list-cell";
+      for (const sk of (ss.skills || [])) {
+        const tag = document.createElement("span");
+        tag.className = "skill-tag";
+        tag.textContent = sk;
+        tdSkills.appendChild(tag);
+      }
+      tr.appendChild(tdSkills);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemSessions(sessions) {
+    const wrap = document.createElement("div");
+    if (!sessions || sessions.length === 0) {
+      wrap.appendChild(emptyState("No saved sessions"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table";
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "SCOPE", "AGENTS", "DIRECTORY", "CREATED"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const s of sessions) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = s.name;
+      tr.appendChild(tdName);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(s.scope));
+      tr.appendChild(tdScope);
+
+      const tdCount = document.createElement("td");
+      tdCount.className = "agent-port-cell";
+      tdCount.textContent = s.agent_count;
+      tr.appendChild(tdCount);
+
+      const tdDir = document.createElement("td");
+      tdDir.className = "agent-dir-cell";
+      tdDir.textContent = s.working_dir ? s.working_dir.split("/").pop() : "-";
+      tr.appendChild(tdDir);
+
+      const tdCreated = document.createElement("td");
+      tdCreated.textContent = formatTimeShort(s.created_at);
+      tr.appendChild(tdCreated);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemWorkflows(workflows) {
+    const wrap = document.createElement("div");
+    if (!workflows || workflows.length === 0) {
+      wrap.appendChild(emptyState("No saved workflows"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["15%", "55%", "15%", "15%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["NAME", "DESCRIPTION", "SCOPE", "STEPS"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const wf of workflows) {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "agent-name-cell";
+      tdName.textContent = wf.name;
+      tr.appendChild(tdName);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = wf.description || "-";
+      tr.appendChild(tdDesc);
+
+      const tdScope = document.createElement("td");
+      tdScope.appendChild(scopeBadge(wf.scope));
+      tr.appendChild(tdScope);
+
+      const tdSteps = document.createElement("td");
+      tdSteps.className = "agent-port-cell";
+      tdSteps.textContent = wf.step_count;
+      tr.appendChild(tdSteps);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemEnvironment(env) {
+    const wrap = document.createElement("div");
+    if (!env || Object.keys(env).length === 0) {
+      wrap.appendChild(emptyState("No environment variables"));
+      return wrap;
+    }
+
+    const table = document.createElement("table");
+    table.className = "system-agents-table system-env-table has-desc";
+    const colgroup = document.createElement("colgroup");
+    for (const w of ["30%", "25%", "45%"]) {
+      const col = document.createElement("col");
+      col.style.width = w;
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+    const thead = document.createElement("thead");
+    const hrow = document.createElement("tr");
+    for (const col of ["VARIABLE", "VALUE", "DESCRIPTION"]) {
+      const th = document.createElement("th");
+      th.textContent = col;
+      hrow.appendChild(th);
+    }
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const [key, entry] of Object.entries(env)) {
+      const tr = document.createElement("tr");
+      // Support both old format (string) and new format ({value, description})
+      const value = typeof entry === "string" ? entry : (entry.value || "");
+      const description = typeof entry === "object" ? (entry.description || "") : "";
+
+      const tdKey = document.createElement("td");
+      tdKey.className = "env-key-cell";
+      tdKey.textContent = key;
+      tr.appendChild(tdKey);
+
+      const tdVal = document.createElement("td");
+      tdVal.className = "env-val-cell";
+      const isDefault = value.startsWith("(default:");
+      if (isDefault) {
+        tdVal.style.color = "var(--color-text-muted)";
+      } else if (value === "true") {
+        tdVal.style.color = "var(--color-success)";
+      } else if (value === "false") {
+        tdVal.style.color = "var(--color-text-muted)";
+      }
+      // Mask sensitive values
+      if (key.includes("KEY") || key.includes("SECRET")) {
+        tdVal.textContent = value && !isDefault ? "\u2022\u2022\u2022\u2022\u2022\u2022" : value;
+      } else {
+        tdVal.textContent = value;
+      }
+      tr.appendChild(tdVal);
+
+      const tdDesc = document.createElement("td");
+      tdDesc.className = "desc-cell";
+      tdDesc.textContent = description;
+      tr.appendChild(tdDesc);
+
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderSystemTips(tips) {
+    const banner = document.createElement("div");
+    banner.className = "system-tips";
+
+    const icon = document.createElement("span");
+    icon.className = "system-tips-icon";
+    icon.textContent = "\uD83D\uDCA1";
+    banner.appendChild(icon);
+
+    // Pick a random tip
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+
+    const text = document.createElement("span");
+    text.className = "system-tips-text";
+    text.textContent = tip.text || tip;
+    banner.appendChild(text);
+
+    const count = document.createElement("span");
+    count.className = "system-tips-count";
+    count.textContent = tips.length + " tips";
+    banner.appendChild(count);
+
+    // Consume the displayed tip
+    if (tip.card_id) {
+      fetch("/api/tips/consume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_id: tip.card_id }),
+      }).catch(() => {});
+    }
+
+    return banner;
   }
 
   function historyStatusColor(status) {

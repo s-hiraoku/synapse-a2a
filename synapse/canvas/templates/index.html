@@ -21,32 +21,6 @@
     <a href="#/dashboard" class="nav-link" data-route="dashboard">Dashboard</a>
     <a href="#/system" class="nav-link" data-route="system">System</a>
   </nav>
-  <div id="filter-bar">
-    <select id="filter-type">
-      <option value="">All types</option>
-      <option value="mermaid">mermaid</option>
-      <option value="markdown">markdown</option>
-      <option value="table">table</option>
-      <option value="html">html</option>
-      <option value="json">json</option>
-      <option value="code">code</option>
-      <option value="diff">diff</option>
-      <option value="chart">chart</option>
-      <option value="log">log</option>
-      <option value="status">status</option>
-      <option value="metric">metric</option>
-      <option value="checklist">checklist</option>
-      <option value="timeline">timeline</option>
-      <option value="alert">alert</option>
-      <option value="file-preview">file-preview</option>
-      <option value="trace">trace</option>
-      <option value="task-board">task-board</option>
-    </select>
-    <select id="filter-agent">
-      <option value="">All agents</option>
-    </select>
-    <span id="card-count" style="display:none">0 cards</span>
-  </div>
   <button id="theme-toggle" title="Toggle light/dark theme">Light</button>
 </header>
 <div id="toast-container"></div>
@@ -62,13 +36,40 @@
     <div id="live-feed">
       <div class="live-feed-header">
         <span class="live-feed-dot"></span>
-        <span class="live-feed-label">Live Feed</span>
+        <span class="live-feed-label">Latest Posts</span>
       </div>
       <div id="live-feed-list" class="live-feed-list"></div>
     </div>
     <div id="cards-area">
       <div id="cards-area-header">
         <h2>Agent Messages</h2>
+        <div id="filter-bar">
+          <select id="filter-type">
+            <option value="">All types</option>
+            <option value="mermaid">mermaid</option>
+            <option value="markdown">markdown</option>
+            <option value="table">table</option>
+            <option value="html">html</option>
+            <option value="json">json</option>
+            <option value="code">code</option>
+            <option value="diff">diff</option>
+            <option value="chart">chart</option>
+            <option value="log">log</option>
+            <option value="status">status</option>
+            <option value="metric">metric</option>
+            <option value="checklist">checklist</option>
+            <option value="timeline">timeline</option>
+            <option value="alert">alert</option>
+            <option value="file-preview">file-preview</option>
+            <option value="trace">trace</option>
+            <option value="task-board">task-board</option>
+            <option value="tip">tip</option>
+          </select>
+          <select id="filter-agent">
+            <option value="">All agents</option>
+          </select>
+          <span id="card-count" style="display:none">0 cards</span>
+        </div>
       </div>
       <main id="canvas-grid"></main>
     </div>

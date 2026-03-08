@@ -152,6 +152,18 @@ function buildHarness() {
     let document = globalThis.__env.document;
     function statusColor() { return "#999"; }
     function renderAll() {}
+    function emptyState(msg) {
+      const el = document.createElement("div");
+      el.className = "system-empty";
+      el.textContent = msg;
+      return el;
+    }
+    function scopeBadge(scope) {
+      const el = document.createElement("span");
+      el.className = "scope-badge";
+      el.textContent = scope;
+      return el;
+    }
     function renderSystemAgents(agents) {
       const el = document.createElement("div");
       el.textContent = "agents:" + agents.length;
@@ -187,6 +199,37 @@ function buildHarness() {
       el.textContent = "history:" + history.length;
       return el;
     }
+    function renderSystemSkills(skills) {
+      const el = document.createElement("div");
+      el.textContent = "skills:" + skills.length;
+      return el;
+    }
+    function renderSystemSkillSets(sets) {
+      const el = document.createElement("div");
+      el.textContent = "sets:" + (sets ? sets.length : 0);
+      return el;
+    }
+    function renderSystemSessions(sessions) {
+      const el = document.createElement("div");
+      el.textContent = "sessions:" + (sessions ? sessions.length : 0);
+      return el;
+    }
+    function renderSystemWorkflows(workflows) {
+      const el = document.createElement("div");
+      el.textContent = "workflows:" + (workflows ? workflows.length : 0);
+      return el;
+    }
+    function renderSystemEnvironment(env) {
+      const el = document.createElement("div");
+      el.textContent = "env:" + Object.keys(env).length;
+      return el;
+    }
+    function renderSystemTips(tips) {
+      const el = document.createElement("div");
+      el.textContent = "tips:" + tips.length;
+      return el;
+    }
+    function fetch() { return Promise.resolve(); }
     function createSystemSection(key, title, bodyContent) {
       globalThis.__headerCalls.push(title);
       globalThis.__bodyCalls.push(bodyContent && bodyContent.fullText ? bodyContent.fullText : bodyContent.textContent || "");

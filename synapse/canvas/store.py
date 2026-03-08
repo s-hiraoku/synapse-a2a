@@ -341,6 +341,37 @@ class CanvasStore:
             finally:
                 conn.close()
 
+    def list_tips(self) -> list[dict]:
+        """List cards tagged with 'tip'. Returns list of card dicts."""
+        now = self._now_utc()
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                rows = conn.execute(
+                    "SELECT * FROM cards "
+                    "WHERE tags LIKE '%\"tip\"%' "
+                    "AND (expires_at IS NULL OR expires_at > ?) "
+                    "ORDER BY updated_at DESC",
+                    (now,),
+                ).fetchall()
+                return [self._row_to_dict(row) for row in rows]
+            finally:
+                conn.close()
+
+    def consume_tip(self, card_id: str) -> bool:
+        """Delete a tip card by ID (no ownership check). Returns True if deleted."""
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    "DELETE FROM cards WHERE card_id = ? AND tags LIKE '%\"tip\"%'",
+                    (card_id,),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+
     def cleanup_expired(self) -> int:
         """Remove expired cards from the database. Returns count removed."""
         now = self._now_utc()

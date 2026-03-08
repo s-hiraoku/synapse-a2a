@@ -114,6 +114,32 @@ class TestCanvasRouting:
         assert 'data-route="canvas"' in resp.text
         assert 'data-route="dashboard"' in resp.text
 
+    def test_root_dashboard_uses_latest_posts_label(self, client):
+        """GET / should label the dashboard feed as Latest Posts."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert "Latest Posts" in resp.text
+        assert "Live Feed" not in resp.text
+
+    def test_root_header_no_longer_contains_filter_bar(self, client):
+        """GET / should not render the filter bar inside the global header."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        header_block = resp.text.split("</header>", 1)[0]
+        assert 'id="filter-bar"' not in header_block
+
+    def test_root_places_filter_bar_inside_agent_messages_area(self, client):
+        """GET / should render the filter bar in the Agent Messages section."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert '<div id="cards-area-header">' in resp.text
+        assert resp.text.index('<div id="live-feed">') < resp.text.index(
+            '<div id="filter-bar">'
+        )
+        assert resp.text.index("Agent Messages") < resp.text.index(
+            '<div id="filter-bar">'
+        )
+
 
 # ============================================================
 # TestCreateCard

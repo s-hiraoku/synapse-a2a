@@ -308,6 +308,143 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 except OSError:
                     continue
 
+        # Skills
+        skills: list[dict[str, Any]] = []
+        try:
+            from synapse.skills import discover_skills
+
+            for sk in discover_skills(
+                project_dir=Path.cwd(),
+                user_dir=Path.home(),
+                synapse_dir=Path.home() / ".synapse" / "skills",
+            ):
+                skills.append(
+                    {
+                        "name": sk.name,
+                        "description": sk.description,
+                        "scope": sk.scope.value
+                        if hasattr(sk.scope, "value")
+                        else str(sk.scope),
+                        "agent_dirs": sk.agent_dirs,
+                    }
+                )
+        except Exception:
+            pass
+
+        # Skill Sets
+        skill_sets: list[dict[str, Any]] = []
+        try:
+            from synapse.skills import load_skill_sets
+
+            for name, ss in load_skill_sets().items():
+                skill_sets.append(
+                    {
+                        "name": name,
+                        "description": ss.description,
+                        "skills": ss.skills,
+                    }
+                )
+        except Exception:
+            pass
+
+        # Sessions
+        sessions: list[dict[str, Any]] = []
+        try:
+            from synapse.session import SessionStore
+
+            sess_store = SessionStore()
+            for s in sess_store.list_sessions():
+                sessions.append(
+                    {
+                        "name": s.session_name,
+                        "scope": s.scope,
+                        "agent_count": s.agent_count,
+                        "working_dir": s.working_dir or "",
+                        "created_at": s.created_at or "",
+                    }
+                )
+        except Exception:
+            pass
+
+        # Workflows
+        workflows: list[dict[str, Any]] = []
+        try:
+            from synapse.workflow import WorkflowStore
+
+            wf_store = WorkflowStore()
+            for wf in wf_store.list_workflows():
+                workflows.append(
+                    {
+                        "name": wf.name,
+                        "description": wf.description,
+                        "scope": wf.scope,
+                        "step_count": wf.step_count,
+                    }
+                )
+        except Exception:
+            pass
+
+        # Environment (SYNAPSE_* env vars)
+        _env_descriptions: dict[str, str] = {
+            "SYNAPSE_HISTORY_ENABLED": "Enable task history persistence",
+            "SYNAPSE_FILE_SAFETY_ENABLED": "Enable file lock coordination for multi-agent editing",
+            "SYNAPSE_FILE_SAFETY_DB_PATH": "Path to file safety SQLite database",
+            "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "Days to retain file safety records",
+            "SYNAPSE_AUTH_ENABLED": "Require API key authentication for A2A endpoints",
+            "SYNAPSE_API_KEYS": "Comma-separated list of valid API keys",
+            "SYNAPSE_ADMIN_KEY": "Admin API key for privileged operations",
+            "SYNAPSE_ALLOW_LOCALHOST": "Allow unauthenticated access from localhost",
+            "SYNAPSE_USE_HTTPS": "Use HTTPS for agent endpoints",
+            "SYNAPSE_WEBHOOK_SECRET": "Shared secret for webhook signature verification",
+            "SYNAPSE_WEBHOOK_TIMEOUT": "Webhook request timeout in seconds",
+            "SYNAPSE_WEBHOOK_MAX_RETRIES": "Maximum webhook delivery retry attempts",
+            "SYNAPSE_LONG_MESSAGE_THRESHOLD": "Character limit before message is stored as file",
+            "SYNAPSE_LONG_MESSAGE_TTL": "File-based message retention in seconds",
+            "SYNAPSE_LONG_MESSAGE_DIR": "Directory for temporary message files",
+            "SYNAPSE_TASK_BOARD_ENABLED": "Enable shared task board for team coordination",
+            "SYNAPSE_TASK_BOARD_DB_PATH": "Path to task board SQLite database",
+            "SYNAPSE_SHARED_MEMORY_ENABLED": "Enable cross-agent shared memory",
+            "SYNAPSE_SHARED_MEMORY_DB_PATH": "Path to shared memory SQLite database",
+            "SYNAPSE_LEARNING_MODE_ENABLED": "Enable learning mode instructions for agents",
+            "SYNAPSE_LEARNING_MODE_TRANSLATION": "Enable translation in learning mode",
+            "SYNAPSE_PROACTIVE_MODE_ENABLED": "Enable proactive collaboration mode",
+        }
+        environment: dict[str, dict[str, str]] = {}
+        try:
+            from synapse.settings import DEFAULT_SETTINGS
+
+            default_env = DEFAULT_SETTINGS.get("env", {})
+            for key in sorted(default_env.keys()):
+                value = os.environ.get(key, "")
+                default_val = default_env.get(key, "")
+                environment[key] = {
+                    "value": value
+                    if value
+                    else f"(default: {default_val})"
+                    if default_val
+                    else "(not set)",
+                    "description": _env_descriptions.get(key, ""),
+                }
+        except Exception:
+            pass
+
+        # Tips (from Canvas cards tagged "tip")
+        tips: list[dict[str, str]] = []
+        try:
+            tip_cards = store.list_tips()
+            for tc in tip_cards:
+                content = tc.get("content")
+                tip_text = ""
+                if isinstance(content, list) and content:
+                    body = content[0].get("body", "")
+                    tip_text = body if isinstance(body, str) else str(body)
+                elif isinstance(content, str):
+                    tip_text = content
+                if tip_text:
+                    tips.append({"card_id": tc["card_id"], "text": tip_text})
+        except Exception:
+            pass
+
         return {
             "agents": agents,
             "tasks": tasks,
@@ -317,7 +454,26 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "history": history,
             "agent_profiles": agent_profiles,
             "registry_errors": registry_errors,
+            "skills": skills,
+            "skill_sets": skill_sets,
+            "sessions": sessions,
+            "workflows": workflows,
+            "environment": environment,
+            "tips": tips,
         }
+
+    # ----------------------------------------------------------------
+    # POST /api/tips/consume — Consume (delete) a displayed tip
+    # ----------------------------------------------------------------
+    @app.post("/api/tips/consume")
+    async def consume_tip(request: Request) -> dict[str, Any]:
+        """Delete a tip card after it has been displayed."""
+        body = await request.json()
+        card_id = body.get("card_id", "")
+        if not card_id:
+            raise HTTPException(status_code=400, detail="card_id is required")
+        deleted = store.consume_tip(card_id)
+        return {"consumed": deleted, "card_id": card_id}
 
     # ----------------------------------------------------------------
     # POST /api/cards — Create or update card
