@@ -19,6 +19,7 @@
   <nav id="nav-menu">
     <a href="#/" class="nav-link active" data-route="canvas">Canvas</a>
     <a href="#/dashboard" class="nav-link" data-route="dashboard">Dashboard</a>
+    <a href="#/system" class="nav-link" data-route="system">System</a>
   </nav>
   <div id="filter-bar">
     <select id="filter-type">
@@ -57,9 +58,6 @@
 
 <!-- Dashboard View -->
 <section id="dashboard-view" class="view-hidden">
-  <div id="system-area">
-    <div id="system-panel"></div>
-  </div>
   <div id="dashboard-scroll">
     <div id="live-feed">
       <div class="live-feed-header">
@@ -75,6 +73,11 @@
       <main id="canvas-grid"></main>
     </div>
   </div>
+</section>
+
+<!-- System View -->
+<section id="system-view" class="view-hidden">
+  <div id="system-panel"></div>
 </section>
 <script src="/static/canvas.js"></script>
 </body>

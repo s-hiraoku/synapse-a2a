@@ -243,7 +243,6 @@ const zero = runCase({
   registry_errors: [],
 });
 
-assert(!zero.text.includes("⚠️"), "zero-error header should not include warning count");
 assert(!zero.headerCalls.some((value) => value.includes("Registry Errors")), "zero-error render should not create registry errors section");
 assert(zero.contentNode, "system-panel-content should be created");
 
@@ -261,6 +260,5 @@ const nonZero = runCase({
   ],
 });
 
-assert(nonZero.text.includes("⚠️ 2 errors"), "non-zero header should include warning count");
 assert(nonZero.headerCalls.includes("Registry Errors (2)"), "non-zero render should create registry errors section");
 assert(nonZero.bodyCalls.some((value) => value.includes("bad.json") && value.includes("decode failed")), "registry errors body should include rendered error items");

@@ -15,6 +15,7 @@
   const canvasView = document.getElementById("canvas-view");
   const canvasSpotlight = document.getElementById("canvas-spotlight");
   const dashboardView = document.getElementById("dashboard-view");
+  const systemView = document.getElementById("system-view");
   const navLinks = document.querySelectorAll(".nav-link");
 
   // Current route
@@ -29,6 +30,8 @@
   const knownAgents = new Set();
   // System agents cache for panel rendering
   let systemAgents = [];
+  // Cached system data for instant rendering on route change
+  let _lastSystemData = null;
 
   // ----------------------------------------------------------------
   // Initial load
@@ -149,6 +152,8 @@
     _renderRAF = requestAnimationFrame(() => {
       if (currentRoute === "canvas") {
         renderSpotlight();
+      } else if (currentRoute === "system") {
+        // rendered by loadSystemPanel; no-op here
       } else {
         renderAll();
       }
@@ -1344,8 +1349,13 @@
       if (!resp.ok) return;
       const data = await resp.json();
       systemAgents = Array.isArray(data.agents) ? data.agents : [];
-      renderSystemPanel(data);
-      renderAll();
+      _lastSystemData = data;
+      if (currentRoute === "system") {
+        renderSystemPanel(data);
+      }
+      if (currentRoute === "dashboard") {
+        renderAll();
+      }
     } catch (e) {
       console.error("Failed to load system panel:", e);
     }
@@ -1355,25 +1365,6 @@
     if (!systemPanel) return;
     systemPanel.innerHTML = "";
 
-    // Panel toggle header
-    const toggle = document.createElement("button");
-    toggle.id = "system-panel-toggle";
-    const arrow = document.createElement("span");
-    arrow.className = "toggle-arrow";
-    // One-time reset of all collapsed states after redesign
-    if (!localStorage.getItem("canvas-layout-v3")) {
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("system-panel") || key.startsWith("agent-panel")) {
-          localStorage.removeItem(key);
-        }
-      }
-      localStorage.setItem("canvas-layout-v3", "1");
-    }
-    const isCollapsedPanel = localStorage.getItem("system-panel-main") === "collapsed";
-    if (isCollapsedPanel) arrow.classList.add("collapsed");
-    arrow.textContent = "\u25BC";
-    toggle.appendChild(arrow);
-
     const agentCount = Array.isArray(data.agents) ? data.agents.length : 0;
     const taskCount = Object.values(data.tasks || {}).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0);
     const lockCount = Array.isArray(data.file_locks) ? data.file_locks.length : 0;
@@ -1382,27 +1373,10 @@
     const historyCount = Array.isArray(data.history) ? data.history.length : 0;
     const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
     const errorCount = Array.isArray(data.registry_errors) ? data.registry_errors.length : 0;
-    
-    let systemText = `System  \u2014  ${agentCount} agents \u00B7 ${profileCount} profiles \u00B7 ${taskCount} tasks \u00B7 ${memoryCount} memories \u00B7 ${historyCount} history`;
-    if (errorCount > 0) {
-      systemText += ` \u00B7 \u26A0\uFE0F ${errorCount} errors`;
-    }
-    toggle.appendChild(document.createTextNode(systemText));
-    systemPanel.appendChild(toggle);
 
     // Content wrapper
     const content = document.createElement("div");
     content.id = "system-panel-content";
-    if (isCollapsedPanel) content.classList.add("collapsed");
-
-    toggle.addEventListener("click", () => {
-      content.classList.toggle("collapsed");
-      arrow.classList.toggle("collapsed");
-      localStorage.setItem(
-        "system-panel-main",
-        content.classList.contains("collapsed") ? "collapsed" : "expanded"
-      );
-    });
 
     if (errorCount > 0) {
       content.appendChild(
@@ -1479,17 +1453,7 @@
 
     const body = document.createElement("div");
     body.className = "system-section-body";
-    const collapsed = localStorage.getItem(`system-panel-${key}`) === "collapsed";
-    if (collapsed) body.classList.add("collapsed");
     body.appendChild(bodyContent);
-
-    header.addEventListener("click", () => {
-      body.classList.toggle("collapsed");
-      localStorage.setItem(
-        `system-panel-${key}`,
-        body.classList.contains("collapsed") ? "collapsed" : "expanded"
-      );
-    });
 
     section.appendChild(header);
     section.appendChild(body);
@@ -2073,6 +2037,7 @@
   function getRoute() {
     const hash = location.hash || "#/";
     if (hash === "#/dashboard") return "dashboard";
+    if (hash === "#/system") return "system";
     return "canvas";
   }
 
@@ -2084,14 +2049,20 @@
       link.classList.toggle("active", link.dataset.route === currentRoute);
     });
 
-    // Toggle views
+    // Hide all views, then show active
+    canvasView.classList.add("view-hidden");
+    dashboardView.classList.add("view-hidden");
+    systemView.classList.add("view-hidden");
+
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
-      dashboardView.classList.add("view-hidden");
       filterBar.style.display = "none";
       renderSpotlight();
+    } else if (currentRoute === "system") {
+      systemView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (_lastSystemData) renderSystemPanel(_lastSystemData);
     } else {
-      canvasView.classList.add("view-hidden");
       dashboardView.classList.remove("view-hidden");
       filterBar.style.display = "";
       renderAll();
