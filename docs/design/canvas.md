@@ -331,7 +331,7 @@ Mermaid.js sets fixed `height` attributes on generated SVGs, which can cause cli
 
 Mermaid diagrams automatically synchronize with the Canvas dark/light theme toggle:
 
-- **`MERMAID_THEMES`** config defines custom palettes for each theme: a Catppuccin-inspired dark palette and an Indigo-accented light palette, both using the brand color `#4051b5`.
+- **`MERMAID_THEMES`** config defines custom palettes for each theme: a GitHub Dark-inspired dark palette (`#0d1117` base) and an Indigo-accented light palette, both using the brand color `#4051b5`.
 - **`initMermaidTheme(theme)`** initializes Mermaid with the active Canvas theme, applying the corresponding palette from `MERMAID_THEMES`.
 - **`reRenderMermaid()`** rebuilds all Mermaid diagrams from their stored source (preserved in `data-mermaid-source` attributes) when the theme changes, ensuring colors update without a page reload.
 - The theme toggle click handler calls `initMermaidTheme(next)` + `reRenderMermaid()` so diagrams reflect the new theme immediately.
@@ -345,7 +345,7 @@ Markdown cards are rendered client-side by a built-in `simpleMarkdown()` line-ba
 - Fenced code blocks (``` with language hint)
 - Tables (`|` syntax with column alignment via `:---`, `:---:`, `---:`)
 - Blockquotes (`>` lines, rendered with accent stripe)
-- Ordered lists (`1. 2.`) and unordered lists (`- *`)
+- Ordered lists (`1. 2.`), unordered lists (`- *`), and nested lists (indent-aware)
 - Horizontal rules (`---`)
 - Paragraph wrapping (`<p>`)
 - Inline: bold, italic, inline code, links, strikethrough (`~~`)
@@ -708,7 +708,7 @@ Other templates (`comparison`, `dashboard`, `steps`, `slides`) can be posted via
 ```python
 FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "mermaid":  FormatSpec(body_type="string", cdn="mermaid/11.4.1/mermaid.min.js"),
-    "markdown": FormatSpec(body_type="string", cdn="marked/15.0.0/marked.min.js"),  # Rendered by built-in parser (cdn for reference only)
+    "markdown": FormatSpec(body_type="string", cdn=None),  # Rendered by built-in simpleMarkdown() + inlineMarkdown() — no external library
     "html":     FormatSpec(body_type="string", cdn=None, sandboxed=True),
     "table":    FormatSpec(body_type="object", cdn=None),  # {headers, rows}
     "json":     FormatSpec(body_type="any",    cdn=None),

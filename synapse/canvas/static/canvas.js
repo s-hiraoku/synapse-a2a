@@ -329,8 +329,9 @@
       const existingItem = existingItems.get(card.card_id);
       const item = existingItem || document.createElement("div");
       const previousUpdatedAt = item.dataset.updatedAt || "";
-      populateLiveFeedItem(item, card);
-      if (!existingItem || previousUpdatedAt !== (card.updated_at || "")) {
+      const changed = !existingItem || previousUpdatedAt !== (card.updated_at || "");
+      if (changed) {
+        populateLiveFeedItem(item, card);
         markAsNew(item);
       }
       nextItems.push(item);
@@ -437,8 +438,9 @@
       const existingCard = existingCards.get(card.card_id);
       const cardEl = existingCard || createCardElement(card);
       const previousUpdatedAt = cardEl.dataset.updatedAt || "";
-      updateCardElement(cardEl, card);
-      if (!existingCard || previousUpdatedAt !== (card.updated_at || "")) {
+      const cardChanged = !existingCard || previousUpdatedAt !== (card.updated_at || "");
+      if (cardChanged) {
+        updateCardElement(cardEl, card);
         markAsNew(cardEl);
       }
       nextCards.push(cardEl);
@@ -3266,16 +3268,24 @@
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
 
   // Sidebar collapse/expand (desktop only)
+  function syncCollapseLabel(collapsed) {
+    if (!sidebarCollapseBtn) return;
+    var label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    sidebarCollapseBtn.title = label;
+    sidebarCollapseBtn.setAttribute("aria-label", label);
+  }
   function toggleSidebarCollapse() {
     if (window.innerWidth <= 768) return;
     document.body.classList.toggle("sidebar-collapsed");
     var collapsed = document.body.classList.contains("sidebar-collapsed");
+    syncCollapseLabel(collapsed);
     try { localStorage.setItem("canvas-sidebar", collapsed ? "collapsed" : "expanded"); } catch (e) { /* ignore */ }
   }
   // Restore saved sidebar state (desktop only)
   try {
     if (localStorage.getItem("canvas-sidebar") === "collapsed" && window.innerWidth > 768) {
       document.body.classList.add("sidebar-collapsed");
+      syncCollapseLabel(true);
     }
   } catch (e) { /* ignore */ }
   if (sidebarCollapseBtn) sidebarCollapseBtn.addEventListener("click", toggleSidebarCollapse);
