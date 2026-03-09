@@ -1692,7 +1692,7 @@ synapse canvas serve [--port 3000]       # Start server foreground
 synapse canvas open                      # Open in browser (auto-starts server)
 synapse canvas status                    # Show server status
 synapse canvas logs [-n 50] [-f]         # View server logs
-synapse canvas stop                      # Stop server
+synapse canvas stop [--port/-p 3000]     # Stop server (verifies via /api/health)
 ```
 
 **Auto-start:** The server starts automatically when you post the first card. Cards are auto-cleaned after 1 hour (pinned cards are exempt).

@@ -184,6 +184,7 @@ synapse workflow delete <name> [--project|--user] [--force]    # Delete a saved 
 
 # Canvas (shared visual output surface)
 synapse canvas serve [--port 3000] [--no-open]                 # Start Canvas server (auto-opens browser)
+synapse canvas stop [--port 3000]                              # Stop Canvas server (health-check + PID fallback)
 synapse canvas mermaid "graph TD; A-->B" --title "Flow"        # Post Mermaid diagram
 synapse canvas markdown "## Design\n..." --title "Doc"         # Post Markdown
 synapse canvas table '{"headers":[...],"rows":[...]}' --title "Results"  # Post table

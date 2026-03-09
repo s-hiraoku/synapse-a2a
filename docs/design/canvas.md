@@ -150,6 +150,7 @@ synapse canvas mermaid "..."
 - 自動起動: バックグラウンドプロセス + ブラウザは開かない
 - PID ファイル (`.synapse/canvas.pid`) で多重起動を防止
 - `synapse canvas serve` 実行時も PID ファイルをチェックし、既に起動中ならポートを表示して終了
+- `synapse canvas stop` は `/api/health` エンドポイントでサービス識別（`"service": "synapse-canvas"`）を確認後に停止。PID ファイルにフォールバック
 
 **Health endpoint**:
 ```
@@ -597,7 +598,7 @@ class CanvasMessage:
 - `content.format` must be a registered format (extensible registry)
 - `content.body` max size: 2MB per block
 - `card_id` must be globally unique (schema: `card_id TEXT UNIQUE`). If a different agent reuses an existing `card_id`, the server returns 403
-- Composite cards: max 10 content blocks per card
+- Composite cards: max 30 content blocks per card
 - `template` must be one of: `briefing`, `comparison`, `dashboard`, `steps`, `slides` (or empty for no template)
 - Template cards require composite content (list of blocks); `template_data` defines how blocks are grouped
 
@@ -760,7 +761,7 @@ dependencies = [
 # config.py
 CANVAS_DEFAULT_PORT: int = 3000
 CANVAS_MAX_CONTENT_SIZE: int = 2_000_000    # 2MB per content block
-CANVAS_MAX_BLOCKS_PER_CARD: int = 10        # Max sections in composite card
+CANVAS_MAX_BLOCKS_PER_CARD: int = 30        # Max sections in composite card
 CANVAS_MAX_CARDS: int = 200                 # Auto-cleanup threshold
 CANVAS_NOTIFICATION_TTL: int = 10           # Seconds for toast notifications
 CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)

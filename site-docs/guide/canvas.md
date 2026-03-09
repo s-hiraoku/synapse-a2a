@@ -187,7 +187,7 @@ A single card can contain multiple content sections for rich layouts:
 }
 ```
 
-This enables agents to compose rich, multi-section cards — like a document with embedded diagrams and tables. Maximum 10 content blocks per card.
+This enables agents to compose rich, multi-section cards — like a document with embedded diagrams and tables. Maximum 30 content blocks per card.
 
 ## Templates
 
@@ -367,7 +367,7 @@ Canvas commands automatically start the server if it is not running. The flow fo
 2. If `200 OK` — server is running, proceed to post
 3. If connection refused — start server in background, retry health check (max 3s, 500ms interval), then post
 
-A PID file (`.synapse/canvas.pid`) prevents multiple server instances.
+The server is detected via the `/api/health` endpoint (which returns `"service": "synapse-canvas"` for identity verification). A PID file (`.synapse/canvas.pid`) serves as a fallback when the health endpoint is unreachable.
 
 ## HTTP API
 
@@ -380,7 +380,7 @@ A PID file (`.synapse/canvas.pid`) prevents multiple server instances.
 | `DELETE` | `/api/cards` | Clear all cards (optional `?agent_id=` filter) |
 | `GET` | `/api/stream` | SSE stream (card events) |
 | `GET` | `/api/formats` | List supported formats |
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/health` | Health check (returns `service`, `status`, `pid`, `cards`) |
 | `GET` | `/api/system` | System panel data (agents, tasks, file locks) |
 
 ## System Panel
@@ -446,7 +446,7 @@ Internal limits:
 | Setting | Value |
 |---|---|
 | Max content size | 2MB per content block |
-| Max blocks per card | 10 |
+| Max blocks per card | 30 |
 | Max cards | 200 (auto-cleanup threshold) |
 | Notification TTL | 10 seconds |
 | Card TTL | 3600 seconds (1 hour) |

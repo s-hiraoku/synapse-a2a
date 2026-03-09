@@ -720,6 +720,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000) |
+| `synapse canvas stop` | Stop Canvas server (health-check with service identity verification, PID fallback). `--port`/`-p` to specify port |
 | `synapse canvas mermaid <body>` | Post Mermaid diagram card |
 | `synapse canvas markdown <body>` | Post Markdown card |
 | `synapse canvas table <json>` | Post table card |
