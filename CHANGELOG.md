@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.6] - 2026-03-09
+
+### Changed
+
+- Increase MAX_BLOCKS_PER_CARD from 10 to 30 for richer composite cards
+
+### Documentation
+
+- add canvas card gallery page
+
+### Fixed
+
+- refresh dashboard file locks
+- update markdown security test regex for rewritten simpleMarkdown
+- address CodeRabbit review comments across canvas system
+- address remaining review comments (docs accuracy, CSS, JS guards)
+- dep-graph SVG responsive, inline markdown safety, ANSI span tracking
+- sidebar layout, DOM update skip, docs accuracy, accessibility
+
 ## [0.11.5] - 2026-03-08
 
 ### Added
@@ -2130,4 +2149,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/s-hiraoku/synapse-a2a/releases/tag/v0.1.0
+[0.11.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.5...v0.11.6
+[0.11.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.4...v0.11.5
+[0.11.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.3...v0.11.4
+[0.11.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.1...v0.11.2

@@ -14,7 +14,7 @@ from typing import Any
 
 VALID_MESSAGE_TYPES = {"render", "update", "clear", "notify"}
 MAX_CONTENT_SIZE = 2_000_000  # 2MB per content block
-MAX_BLOCKS_PER_CARD = 10
+MAX_BLOCKS_PER_CARD = 30
 
 VALID_TEMPLATES = {"briefing", "comparison", "dashboard", "steps", "slides"}
 MAX_SECTIONS = 20
