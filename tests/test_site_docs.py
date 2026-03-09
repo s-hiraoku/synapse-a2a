@@ -61,3 +61,23 @@ def test_canvas_guide_links_to_card_gallery() -> None:
 
     assert "../assets/card-gallery.html" in text
     assert "Card Gallery" in text
+
+
+def test_mcp_bootstrap_design_doc_covers_key_decisions() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "# MCP Bootstrap Design for Synapse" in text
+    assert "## なぜ MCP を使うのか" in text
+    assert "## 推奨アーキテクチャ" in text
+    assert "## MCP サーバ構成" in text
+    assert "## 段階的な導入計画" in text
+    assert "CLI 主体" in text
+    assert "resources" in text
+    assert "tools" in text
+
+
+def test_overview_links_to_mcp_bootstrap_design_doc() -> None:
+    text = _read("guides/overview.md")
+
+    assert "docs/design/mcp-bootstrap.md" in text
+    assert "MCP Bootstrap Design" in text
