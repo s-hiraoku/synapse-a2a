@@ -2,34 +2,35 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
-
-import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = ROOT / "pyproject.toml"
 
 
-def _load_package_data_globs() -> list[str]:
-    """Return the list of package-data glob patterns from pyproject.toml."""
-    with PYPROJECT.open("rb") as f:
-        data = tomllib.load(f)
-    return data["tool"]["setuptools"]["package-data"]["synapse"]
+def _read_package_data_line() -> str:
+    """Return the raw package-data line from pyproject.toml."""
+    text = PYPROJECT.read_text(encoding="utf-8")
+    # Match the synapse = [...] line under [tool.setuptools.package-data]
+    m = re.search(r"synapse\s*=\s*\[([^\]]+)\]", text)
+    assert m, "Could not find synapse package-data in pyproject.toml"
+    return m.group(1)
 
 
 class TestCanvasPackageData:
     """Canvas templates and static files must be included in the package."""
 
     def test_canvas_templates_glob_present(self):
-        globs = _load_package_data_globs()
-        assert any("canvas/templates" in g for g in globs), (
-            "pyproject.toml package-data must include canvas/templates/**"
+        line = _read_package_data_line()
+        assert "canvas/templates" in line, (
+            "pyproject.toml package-data must include canvas/templates/*"
         )
 
     def test_canvas_static_glob_present(self):
-        globs = _load_package_data_globs()
-        assert any("canvas/static" in g for g in globs), (
-            "pyproject.toml package-data must include canvas/static/**"
+        line = _read_package_data_line()
+        assert "canvas/static" in line, (
+            "pyproject.toml package-data must include canvas/static/*"
         )
 
     def test_canvas_template_files_exist(self):
