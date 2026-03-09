@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.6
+
+- **Changed**: Increase `MAX_BLOCKS_PER_CARD` from 10 to 30 for richer composite cards
+
 ### v0.11.5
 
 - **Added**: Dashboard view with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)

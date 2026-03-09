@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.6] - 2026-03-09
+
+### Changed
+
+- Increase MAX_BLOCKS_PER_CARD from 10 to 30 for richer composite cards
+
+### Documentation
+
+- add canvas card gallery page
+
+### Fixed
+
+- refresh dashboard file locks
+- update markdown security test regex for rewritten simpleMarkdown
+- address CodeRabbit review comments across canvas system
+- address remaining review comments (docs accuracy, CSS, JS guards)
+- dep-graph SVG responsive, inline markdown safety, ANSI span tracking
+- sidebar layout, DOM update skip, docs accuracy, accessibility
+
 ## [0.11.5] - 2026-03-08
 
 ### Added
