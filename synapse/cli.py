@@ -2623,8 +2623,10 @@ def cmd_canvas_stop(args: argparse.Namespace) -> None:
     try:
         resp = httpx.get(f"http://localhost:{port}/api/health", timeout=2.0)
         if resp.status_code == 200:
-            pid = resp.json().get("pid")
-    except (httpx.ConnectError, httpx.TimeoutException):
+            data = resp.json()
+            if data.get("service") == "synapse-canvas":
+                pid = data.get("pid")
+    except (httpx.ConnectError, httpx.TimeoutException, ValueError):
         pass
 
     # 2) Fall back to PID file
@@ -5989,6 +5991,9 @@ Scopes:
 
     # canvas stop
     p_canvas_stop = canvas_subparsers.add_parser("stop", help="Stop Canvas server")
+    p_canvas_stop.add_argument(
+        "--port", "-p", type=int, default=None, help="Canvas server port"
+    )
     p_canvas_stop.set_defaults(func=cmd_canvas_stop)
 
     # Pre-extract tool_args from sys.argv for commands that support '--'.
