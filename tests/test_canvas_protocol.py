@@ -292,6 +292,41 @@ class TestFormatRegistry:
         }
         assert new_formats.issubset(set(FORMAT_REGISTRY.keys()))
 
+    def test_phase6_formats_registered(self):
+        """Phase 6 formats (progress, terminal, dependency-graph, cost) should be in the registry."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        phase6 = {"progress", "terminal", "dependency-graph", "cost"}
+        assert phase6.issubset(set(FORMAT_REGISTRY.keys()))
+
+    def test_progress_format_spec(self):
+        """Progress format should accept object body."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        spec = FORMAT_REGISTRY["progress"]
+        assert spec.body_type == "object"
+
+    def test_terminal_format_spec(self):
+        """Terminal format should accept string body."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        spec = FORMAT_REGISTRY["terminal"]
+        assert spec.body_type == "string"
+
+    def test_dependency_graph_format_spec(self):
+        """Dependency-graph format should accept object body."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        spec = FORMAT_REGISTRY["dependency-graph"]
+        assert spec.body_type == "object"
+
+    def test_cost_format_spec(self):
+        """Cost format should accept object body."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        spec = FORMAT_REGISTRY["cost"]
+        assert spec.body_type == "object"
+
     def test_format_spec_has_body_type(self):
         """Each format spec should declare a body_type."""
         from synapse.canvas.protocol import FORMAT_REGISTRY
@@ -1026,6 +1061,171 @@ class TestSlidesValidation:
                     {"blocks": [0], "notes": "Speaker notes here"},
                 ],
             }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+
+# ============================================================
+# TestPhase6Formats — Progress, Terminal, DependencyGraph, Cost
+# ============================================================
+
+
+class TestPhase6Formats:
+    """Tests for phase 6 card format validation."""
+
+    def test_progress_valid(self):
+        """Valid progress card should pass validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="progress",
+                body={
+                    "current": 3,
+                    "total": 7,
+                    "label": "Running tests",
+                    "steps": [
+                        "Parse",
+                        "Build",
+                        "Lint",
+                        "Test",
+                        "Deploy",
+                        "Verify",
+                        "Done",
+                    ],
+                    "status": "in_progress",
+                },
+            ),
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_progress_minimal(self):
+        """Progress card with only current/total should pass."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="progress",
+                body={"current": 1, "total": 5},
+            ),
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_terminal_valid(self):
+        """Valid terminal card should pass validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="terminal",
+                body="$ pytest tests/\n\x1b[32mPASSED\x1b[0m 42 tests in 3.2s",
+            ),
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_dependency_graph_valid(self):
+        """Valid dependency-graph card should pass validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="dependency-graph",
+                body={
+                    "nodes": [
+                        {"id": "synapse.cli", "group": "core"},
+                        {"id": "synapse.server", "group": "core"},
+                    ],
+                    "edges": [
+                        {"from": "synapse.cli", "to": "synapse.server"},
+                    ],
+                },
+            ),
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_cost_valid(self):
+        """Valid cost card should pass validation."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="cost",
+                body={
+                    "agents": [
+                        {
+                            "name": "claude",
+                            "input_tokens": 50000,
+                            "output_tokens": 12000,
+                            "cost": 0.45,
+                        },
+                        {
+                            "name": "gemini",
+                            "input_tokens": 30000,
+                            "output_tokens": 8000,
+                            "cost": 0.12,
+                        },
+                    ],
+                    "total_cost": 0.57,
+                    "currency": "USD",
+                },
+            ),
+            agent_id="synapse-claude-8103",
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_cost_minimal(self):
+        """Cost card with only agents and total should pass."""
+        from synapse.canvas.protocol import (
+            CanvasMessage,
+            ContentBlock,
+            validate_message,
+        )
+
+        msg = CanvasMessage(
+            type="render",
+            content=ContentBlock(
+                format="cost",
+                body={
+                    "agents": [{"name": "claude", "cost": 0.45}],
+                    "total_cost": 0.45,
+                },
+            ),
+            agent_id="synapse-claude-8103",
         )
         errors = validate_message(msg)
         assert errors == []

@@ -5855,7 +5855,7 @@ Scopes:
     p_canvas_post = canvas_subparsers.add_parser("post", help="Post a card to Canvas")
     p_canvas_post.add_argument(
         "format",
-        help="Content format (mermaid, markdown, html, table, json, diff, code, chart, image)",
+        help="Content format (mermaid, markdown, html, table, json, diff, code, chart, image, progress, terminal, dependency-graph, cost, ...)",
     )
     p_canvas_post.add_argument("body", help="Content body (or '-' to read from stdin)")
     p_canvas_post.add_argument("--title", default="", help="Card title")

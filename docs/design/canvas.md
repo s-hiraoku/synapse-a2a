@@ -57,7 +57,7 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | Format | Body | Renderer | Use Case |
 |---|---|---|---|
 | `mermaid` | Mermaid source | mermaid.js | Flowcharts, sequence diagrams, ER diagrams, Gantt |
-| `markdown` | Markdown text | marked.js + highlight.js | Design docs, explanations, formatted text |
+| `markdown` | Markdown text | Built-in `simpleMarkdown` parser | Design docs, explanations, formatted text (tables, blockquotes, ordered/unordered lists, headings, code blocks, horizontal rules, inline formatting) |
 | `html` | Raw HTML string | Sandboxed iframe | Full freedom — any visual expression |
 | `table` | `{headers: [...], rows: [[...]]}` | Native HTML | Structured data, test results, comparisons |
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
@@ -74,6 +74,11 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
 | `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
 | `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
+| `progress` | `{current, total, label, steps, status}` | Progress bar + steps | Task/build progress tracking |
+| `terminal` | Raw string (ANSI escapes) | Terminal emulator | Command output with color support |
+| `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
+| `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation |
+| `tip` | String | Styled tip card | System tips and suggestions |
 
 **Key: `html` format** — This is the escape hatch. When no predefined format fits, agents can send raw HTML. This makes expression essentially unlimited.
 
@@ -244,7 +249,7 @@ Agents don't see the browser. This is the only human-exclusive interface.
 | Canvas view | `#/` — full-viewport latest card |
 | History view | `#/history` — system panel + live feed + agent messages |
 | Filter | By format type and by agent (History view only) |
-| Theme toggle | Dark/light switch |
+| Theme toggle | Dark/light switch (Mermaid diagrams re-render with theme-matched palettes) |
 
 ### HTTP API (programmatic)
 
@@ -321,6 +326,33 @@ Mermaid.js sets fixed `height` attributes on generated SVGs, which can cause cli
 - Removes the `height` attribute from all `.format-mermaid svg` elements
 - Sets `display: block` via CSS so SVGs flow naturally within their container
 - Preserves Mermaid's inline `max-width` style to respect diagram complexity
+
+### Mermaid Theme Sync
+
+Mermaid diagrams automatically synchronize with the Canvas dark/light theme toggle:
+
+- **`MERMAID_THEMES`** config defines custom palettes for each theme: a GitHub Dark-inspired dark palette (`#0d1117` base) and an Indigo-accented light palette, both using the brand color `#4051b5`.
+- **`initMermaidTheme(theme)`** initializes Mermaid with the active Canvas theme, applying the corresponding palette from `MERMAID_THEMES`.
+- **`reRenderMermaid()`** rebuilds all Mermaid diagrams from their stored source (preserved in `data-mermaid-source` attributes) when the theme changes, ensuring colors update without a page reload.
+- The theme toggle click handler calls `initMermaidTheme(next)` + `reRenderMermaid()` so diagrams reflect the new theme immediately.
+
+### Markdown Rendering
+
+Markdown cards are rendered client-side by a built-in `simpleMarkdown()` line-based state machine (no external library). An `inlineMarkdown()` helper handles inline formatting within each line.
+
+**Supported elements**:
+- Headings (`#`, `##`, `###`)
+- Fenced code blocks (``` with language hint)
+- Tables (`|` syntax with column alignment via `:---`, `:---:`, `---:`)
+- Blockquotes (`>` lines, rendered with accent stripe)
+- Ordered lists (`1. 2.`), unordered lists (`- *`), and nested lists (indent-aware)
+- Horizontal rules (`---`)
+- Paragraph wrapping (`<p>`)
+- Inline: bold, italic, inline code, links, strikethrough (`~~`)
+
+**Typography**: Markdown card content uses Source Sans 3 (body) and Source Code Pro (code), loaded via Google Fonts alongside the UI fonts (Inter, JetBrains Mono). The UI itself continues to use Inter.
+
+**CSS highlights**: Heading hierarchy with `border-bottom` on `h2`, blockquote with accent left stripe, table styling with uppercase headers and hover rows, `del`/strikethrough support, proper `<p>` margins.
 
 ---
 
@@ -501,7 +533,7 @@ The UI adheres to a strict design system for consistency and accessibility:
 - **Icons**: Phosphor Icons v2 used throughout the UI.
 - **Spacing**: 4px base scale using variables `--sp-1` (4px) through `--sp-8` (32px).
 - **Colors**: Semantic tokens including `--color-bg`, `--color-bg-raised`, `--color-bg-inset`, and `--color-accent-subtle`.
-- **Fonts**: Inter for display/headings, system sans-serif for body text, and SF Mono for code.
+- **Fonts**: Inter for UI display/headings; Source Sans 3 for markdown card body text; Source Code Pro / JetBrains Mono for code. Loaded via Google Fonts.
 - **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states.
 
 ---
@@ -541,8 +573,8 @@ tests/
 ```python
 @dataclass
 class ContentBlock:
-    format: str                 # mermaid | markdown | html | table | json | diff | chart | image | code
-    body: str | dict | list     # Content (string for most, dict for table/chart)
+    format: str                 # mermaid | markdown | html | table | json | diff | chart | image | code | progress | terminal | dependency-graph | cost | ...
+    body: str | dict | list     # Content (string for most, dict for table/chart/progress/cost)
     lang: str | None = None     # Language hint for code format
 
 @dataclass
@@ -676,7 +708,7 @@ Other templates (`comparison`, `dashboard`, `steps`, `slides`) can be posted via
 ```python
 FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "mermaid":  FormatSpec(body_type="string", cdn="mermaid/11.4.1/mermaid.min.js"),
-    "markdown": FormatSpec(body_type="string", cdn="marked/15.0.0/marked.min.js"),
+    "markdown": FormatSpec(body_type="string", cdn=None),  # Rendered by built-in simpleMarkdown() + inlineMarkdown() — no external library
     "html":     FormatSpec(body_type="string", cdn=None, sandboxed=True),
     "table":    FormatSpec(body_type="object", cdn=None),  # {headers, rows}
     "json":     FormatSpec(body_type="any",    cdn=None),
@@ -693,6 +725,10 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "file-preview": FormatSpec(body_type="object", cdn=None),
     "trace":    FormatSpec(body_type="any",    cdn=None),
     "task-board":FormatSpec(body_type="object", cdn=None),
+    "progress": FormatSpec(body_type="object", cdn=None),
+    "terminal": FormatSpec(body_type="string", cdn=None),
+    "dependency-graph": FormatSpec(body_type="object", cdn=None),
+    "cost":     FormatSpec(body_type="object", cdn=None),
 }
 ```
 
@@ -755,13 +791,13 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] highlight.js integration for `code` format syntax highlighting
 - [x] Side-by-side diff renderer (replaces unified diff)
 - [x] HTML iframe fills Canvas view content area
-- [x] All 18 card formats verified on Canvas view
+- [x] All 23 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
 - [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
 - [ ] Toast notifications (`notify` type)
-- [x] Dark/light theme toggle
+- [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
 - [ ] Card animations (insert/update/delete)
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
@@ -773,7 +809,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Skill update (add Canvas commands to synapse-a2a skill)
 
 ### Phase 5: New Card Formats
-Documented 9 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, and `task-board`.
+Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, `task-board`, `progress`, `terminal`, `dependency-graph`, and `cost`.
 
 ### Phase 6: Template System
 - [x] `template` and `template_data` fields added to `CanvasMessage`

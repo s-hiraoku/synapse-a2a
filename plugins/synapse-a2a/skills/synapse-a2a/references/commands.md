@@ -1603,11 +1603,23 @@ synapse canvas post markdown "Notes" --title "Review" --tags "review,auth"
 # Override agent display name
 synapse canvas post markdown "Hello" --title "Greeting" --agent-name "Reviewer"
 
+# Post a progress tracker
+synapse canvas post progress '{"current": 3, "total": 7, "label": "Migration", "steps": ["Schema", "Data", "Indexes", "Views", "Triggers", "Constraints", "Verify"], "status": "in_progress"}' --title "Migration Progress"
+
+# Post terminal output (preserves ANSI escape codes)
+synapse canvas post terminal "$(cat build.log)" --title "Build Output"
+
+# Post a dependency graph (nodes + edges)
+synapse canvas post dependency-graph '{"nodes": [{"id": "auth", "group": "core"}, {"id": "api", "group": "core"}, {"id": "ui", "group": "frontend"}], "edges": [{"from": "ui", "to": "api"}, {"from": "api", "to": "auth"}]}' --title "Module Dependencies"
+
+# Post a cost summary
+synapse canvas post cost '{"agents": [{"name": "claude", "input_tokens": 50000, "output_tokens": 12000, "cost": 0.45}, {"name": "gemini", "input_tokens": 30000, "output_tokens": 8000, "cost": 0.12}], "total_cost": 0.57, "currency": "USD"}' --title "Session Cost"
+
 # Post raw JSON (composite cards with multiple content blocks)
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
 
-**Supported formats (18):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board
+**Supported formats (22):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost
 
 ### Templates
 
@@ -1655,7 +1667,11 @@ Rule of thumb:
 | diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
 | html | Sandboxed iframe | `allow-scripts`; auto-resizes to content height |
 | image | `<img>` tag | PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB) |
-| mermaid | Mermaid 11.x | Diagrams rendered client-side |
+| mermaid | Mermaid 11.x | Diagrams rendered client-side; theme-synced with light/dark toggle (Catppuccin dark / Indigo light palettes, brand accent `#4051b5`) |
+| progress | Progress bar + steps | `status`: in_progress, completed, failed, paused |
+| terminal | ANSI terminal | Renders raw terminal output with ANSI escape codes |
+| dependency-graph | Force-directed graph | Nodes with optional `group` colouring; directed edges |
+| cost | Cost summary table | Per-agent token counts and costs with total row |
 
 ### Manage Cards
 

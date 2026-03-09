@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,650;0,700;1,400;1,500&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <link rel="stylesheet" href="/static/palette.css">
 <link rel="stylesheet" href="/static/canvas.css">
@@ -20,6 +20,7 @@
 <aside id="sidebar">
   <div class="sidebar-header">
     <h1><svg class="brand-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 7.5c.8.8.8 2.1 0 2.8l-2.8 2.8-7.8-7.8 2.8-2.8c.8-.8 2.1-.8 2.8 0l1.8 1.8 3-3 1.4 1.4-3 3zm-5.8 5.8-1.4-1.4-2.8 2.8-2.1-2.1 2.8-2.8-1.4-1.4-2.8 2.8-1.5-1.4-2.8 2.8c-.8.8-.8 2.1 0 2.8l1.8 1.8-4 4 1.4 1.4 4-4 1.8 1.8c.8.8 2.1.8 2.8 0l2.8-2.8-1.4-1.4z"/></svg> Synapse Canvas</h1>
+    <button id="sidebar-collapse" title="Collapse sidebar"><i class="ph ph-caret-left"></i></button>
   </div>
   <nav id="nav-menu">
     <a href="#/" class="nav-link active" data-route="canvas"><i class="ph ph-monitor"></i><span>Canvas</span></a>
@@ -82,6 +83,7 @@
               <option value="code">code</option>
               <option value="diff">diff</option>
               <option value="chart">chart</option>
+              <option value="image">image</option>
               <option value="log">log</option>
               <option value="status">status</option>
               <option value="metric">metric</option>
@@ -91,6 +93,10 @@
               <option value="file-preview">file-preview</option>
               <option value="trace">trace</option>
               <option value="task-board">task-board</option>
+              <option value="progress">progress</option>
+              <option value="terminal">terminal</option>
+              <option value="dependency-graph">dependency-graph</option>
+              <option value="cost">cost</option>
               <option value="tip">tip</option>
             </select>
             <select id="filter-agent">

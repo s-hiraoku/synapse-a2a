@@ -32,6 +32,35 @@ class Element {
     this.className = "";
     this.textContent = "";
     this.style = {};
+    this.dataset = {};
+    this._innerHTML = "";
+    this.offsetWidth = 0;
+    this.classList = {
+      add: (...names) => {
+        const set = new Set(this.className.split(/\s+/).filter(Boolean));
+        for (const name of names) set.add(name);
+        this.className = Array.from(set).join(" ");
+      },
+      remove: (...names) => {
+        const set = new Set(this.className.split(/\s+/).filter(Boolean));
+        for (const name of names) set.delete(name);
+        this.className = Array.from(set).join(" ");
+      },
+      toggle: (name, force) => {
+        const set = new Set(this.className.split(/\s+/).filter(Boolean));
+        const shouldAdd = force === undefined ? !set.has(name) : force;
+        if (shouldAdd) set.add(name);
+        else set.delete(name);
+        this.className = Array.from(set).join(" ");
+      },
+      contains: (name) => this.className.split(/\s+/).includes(name),
+    };
+    this._listeners = {};
+  }
+
+  addEventListener(event, handler) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(handler);
   }
 
   appendChild(child) {
@@ -44,6 +73,45 @@ class Element {
   set innerHTML(value) {
     this.children = [];
     this.textContent = value;
+    this._innerHTML = value;
+  }
+
+  get innerHTML() {
+    return this._innerHTML;
+  }
+
+  get firstChild() {
+    return this.children[0] || null;
+  }
+
+  removeChild(child) {
+    const index = this.children.indexOf(child);
+    if (index >= 0) {
+      this.children.splice(index, 1);
+      child.parentNode = null;
+    }
+    return child;
+  }
+
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] || null;
+  }
+
+  querySelectorAll(selector) {
+    const results = [];
+    const matcher = (node) => {
+      if (!selector.startsWith(".")) return false;
+      const target = selector.slice(1);
+      return node.className.split(/\s+/).includes(target);
+    };
+    const walk = (node) => {
+      for (const child of node.children) {
+        if (matcher(child)) results.push(child);
+        walk(child);
+      }
+    };
+    walk(this);
+    return results;
   }
 
   get fullText() {
@@ -82,17 +150,15 @@ function buildHarness(allCards, filteredCards) {
     let filterAgent = globalThis.__env.filterAgent;
     let cards = new Map(globalThis.__allCards.map((card) => [card.card_id, card]));
     let systemAgents = globalThis.__systemAgents;
+    let localStorage = { getItem() { return null; }, setItem() {} };
+    const FORMAT_ICONS = {};
     function getFilteredCards() { return globalThis.__filteredCards; }
-    function createAgentPanel(group) {
-      const panel = document.createElement("div");
-      panel.className = "agent-panel";
-      panel.textContent = group.label;
-      return panel;
-    }
     function runMermaid() {}
     function statusColor() { return "#999"; }
     function formatTimeShort(value) { return value; }
+    function formatTime(value) { return value; }
     function parseContent(raw) { return JSON.parse(raw); }
+    function renderTemplate() { return null; }
     function renderBlock(block) {
       const el = document.createElement("div");
       el.className = "content-block";
@@ -103,7 +169,14 @@ function buildHarness(allCards, filteredCards) {
 
   const script = `
     ${helpers}
+    ${extractFunction("markAsNew")}
+    ${extractFunction("syncChildren")}
+    ${extractFunction("populateLiveFeedItem")}
     ${extractFunction("renderLiveFeed")}
+    ${extractFunction("updateCardElement")}
+    ${extractFunction("createCardElement")}
+    ${extractFunction("updateAgentPanel")}
+    ${extractFunction("createAgentPanel")}
     ${extractFunction("renderAll")}
     globalThis.__renderAll = renderAll;
   `;
@@ -178,9 +251,14 @@ const cards = [
 const filteredCards = cards.filter((card) => card.agent_name === "Agent Two");
 const { env, renderAll } = buildHarness(cards, filteredCards);
 renderAll();
+const firstLiveFeedNode = env.liveFeedList.children[0];
+const firstPanelNode = env.grid.children[0];
+renderAll();
 
 assert(env.cardCount.textContent === "1 card", "card count should reflect filtered agent messages");
 assert(env.liveFeedList.children.length === 3, "live feed should render only the latest three cards");
+assert(env.liveFeedList.children[0] === firstLiveFeedNode, "existing live feed nodes should be reused");
+assert(env.grid.children[0] === firstPanelNode, "existing agent panels should be reused");
 
 const titles = env.liveFeedList.children.map((item) => {
   const titleNode = item.children[0].children.find((child) => child.className === "live-feed-title");
@@ -192,7 +270,10 @@ assert(titles[1] === "Second", "second latest card should render second");
 assert(titles[2] === "Third", "third latest card should render third");
 assert(!titles.includes("Oldest"), "oldest card should be excluded from the live feed");
 
-const panelLabels = env.grid.children.map((panel) => panel.textContent);
+const panelLabels = env.grid.children.map((panel) => {
+  const nameNode = panel.querySelector(".agent-panel-name");
+  return nameNode ? nameNode.textContent : panel.textContent;
+});
 assert(panelLabels.length === 1, "agent messages should render only one filtered agent panel");
 assert(panelLabels[0] === "Agent Two", "filtered agent panel should match the selected agent");
 assert(!panelLabels.includes("Agent One"), "filtered-out agent panels should be hidden");

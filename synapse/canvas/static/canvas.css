@@ -110,6 +110,9 @@ body {
 .sidebar-header {
   padding: var(--sp-4) var(--sp-4) var(--sp-3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .sidebar-header h1 {
@@ -130,6 +133,87 @@ body {
   height: 1.3em;
   flex-shrink: 0;
   opacity: 0.9;
+}
+
+/* ── Sidebar Collapse Toggle ───────────── */
+
+#sidebar-collapse {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+#sidebar-collapse:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+#sidebar-collapse i {
+  font-size: var(--text-base);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+/* Collapsed state: rotate chevron */
+.sidebar-collapsed #sidebar-collapse i {
+  transform: rotate(180deg);
+}
+
+/* ── Sidebar Collapsed State ────────────── */
+/* .sidebar-collapsed is applied to <body> */
+
+body.sidebar-collapsed #sidebar {
+  width: 56px;
+}
+
+body.sidebar-collapsed .sidebar-header {
+  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+}
+
+body.sidebar-collapsed .sidebar-header h1 {
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Hide text next to brand icon; keep icon + collapse button */
+body.sidebar-collapsed .sidebar-header h1 {
+  font-size: 0;
+}
+
+body.sidebar-collapsed .sidebar-header h1 .brand-icon {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-lg);
+}
+
+body.sidebar-collapsed .nav-link span {
+  display: none;
+}
+
+body.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding: var(--sp-2);
+}
+
+body.sidebar-collapsed #theme-toggle span {
+  display: none;
+}
+
+body.sidebar-collapsed #theme-toggle {
+  justify-content: center;
+  padding: var(--sp-2);
+}
+
+body.sidebar-collapsed #main-content {
+  margin-left: 56px;
 }
 
 /* ── Nav Menu (sidebar) ──────────────────── */
@@ -1585,10 +1669,15 @@ body {
   border-radius: var(--radius-md);
   box-shadow: var(--glass-inner-shadow);
   overflow: hidden;
-  animation: feedIn 0.35s var(--ease-out);
   transition: all var(--duration-normal) var(--ease-out);
   backdrop-filter: blur(var(--glass-blur-subtle));
   -webkit-backdrop-filter: blur(var(--glass-blur-subtle));
+}
+
+.live-feed-item.is-new {
+  animation: feedIn 0.28s var(--ease-out);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--glass-inner-shadow), 0 0 0 1px var(--color-accent-subtle);
 }
 
 [data-theme="light"] .live-feed-item {
@@ -1677,7 +1766,10 @@ body {
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   transition: all var(--duration-normal) var(--ease-out);
-  animation: scaleIn 0.4s var(--ease-out) both;
+}
+
+.agent-panel.is-new {
+  animation: scaleIn 0.32s var(--ease-out) both;
 }
 
 .agent-panel:hover {
@@ -1685,12 +1777,6 @@ body {
   box-shadow: var(--glass-inner-shadow), var(--shadow-md), var(--shadow-glow);
   transform: translateY(-2px);
 }
-
-/* Stagger agent panel animations */
-.agent-panel:nth-child(1) { animation-delay: 0s; }
-.agent-panel:nth-child(2) { animation-delay: 0.05s; }
-.agent-panel:nth-child(3) { animation-delay: 0.1s; }
-.agent-panel:nth-child(4) { animation-delay: 0.15s; }
 
 .agent-panel-header {
   display: flex;
@@ -1776,7 +1862,10 @@ body {
   background: var(--color-bg-raised);
   border-bottom: 1px solid var(--glass-stroke);
   transition: all var(--duration-fast) var(--ease-out);
-  animation: cardIn 0.35s var(--ease-out);
+}
+
+.canvas-card.is-new {
+  animation: cardIn 0.28s var(--ease-out);
 }
 
 .canvas-card:last-child {
@@ -1869,48 +1958,224 @@ body {
   border-top: 1px solid var(--glass-stroke);
 }
 
-/* Markdown */
-.format-markdown h2,
-.format-markdown h3,
-.format-markdown h4 {
-  margin: var(--sp-2) 0 var(--sp-1);
+/* ── Markdown ─────────────────────────────── */
+
+/* Markdown-specific font stack — optimized for document readability */
+.format-markdown {
+  --md-font: "Source Sans 3", var(--font-body);
+  --md-mono: "Source Code Pro", var(--font-mono);
+  font-family: var(--md-font);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Headings — tight leading, weight hierarchy with subtle color shift */
+.format-markdown h2 {
+  font-family: var(--md-font);
+  font-size: var(--text-xl);
+  font-weight: 650;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  margin: var(--sp-5) 0 var(--sp-2);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.format-markdown h2:first-child {
+  margin-top: 0;
+}
+
+.format-markdown h3 {
+  font-family: var(--md-font);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+
+.format-markdown h4 {
+  font-family: var(--md-font);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-normal);
+  color: var(--color-text-secondary);
+  margin: var(--sp-3) 0 var(--sp-1);
+}
+
+/* Paragraphs */
+.format-markdown p {
+  margin: var(--sp-2) 0;
+}
+
+.format-markdown p:first-child {
+  margin-top: 0;
+}
+
+/* Bold & italic */
+.format-markdown strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.format-markdown em {
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+/* Strikethrough */
+.format-markdown del {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+/* Inline code — pill-shaped accent badge */
 .format-markdown code {
   background: var(--color-accent-subtle);
-  padding: 2px var(--sp-1);
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: 85%;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-family: var(--md-mono);
+  font-size: 84%;
   color: var(--color-accent);
+  font-weight: 500;
+  border: 1px solid var(--color-accent-border);
+  white-space: nowrap;
 }
 
 [data-theme="light"] .format-markdown code {
-  background: var(--color-accent-subtle);
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent-border);
 }
 
+/* Code blocks — inset panel with refined mono type */
 .format-markdown pre {
   background: var(--color-bg-inset);
   padding: var(--sp-4);
   border-radius: var(--radius-md);
   overflow-x: auto;
-  margin: var(--sp-2) 0;
+  margin: var(--sp-3) 0;
   border: 1px solid var(--glass-stroke);
+  box-shadow: var(--glass-inner-shadow);
+}
+
+.format-markdown pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  font-family: var(--md-mono);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-text);
+  line-height: var(--leading-relaxed);
+  white-space: pre;
+}
+
+/* Lists — clean indentation with subtle markers */
+.format-markdown ul,
+.format-markdown ol {
+  padding-left: var(--sp-5);
+  margin: var(--sp-2) 0;
 }
 
 .format-markdown li {
-  margin-left: var(--sp-5);
+  margin: var(--sp-1) 0;
+  line-height: var(--leading-normal);
+  color: var(--color-text);
 }
 
+.format-markdown li::marker {
+  color: var(--color-text-muted);
+}
+
+/* Links — brand accent with subtle underline */
 .format-markdown a {
   color: var(--color-accent);
   text-decoration: none;
-  transition: opacity var(--duration-fast);
+  border-bottom: 1px solid var(--color-accent-border);
+  transition: border-color var(--duration-fast), opacity var(--duration-fast);
 }
 
 .format-markdown a:hover {
-  text-decoration: underline;
-  opacity: 0.85;
+  border-bottom-color: var(--color-accent);
+  opacity: 0.9;
+}
+
+/* Blockquote — left border accent stripe */
+.format-markdown blockquote {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-left: 3px solid var(--color-accent-border-strong);
+  background: var(--color-accent-tint);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.format-markdown blockquote code {
+  font-style: normal;
+}
+
+/* Horizontal rule — subtle divider */
+.format-markdown hr {
+  border: none;
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--sp-5) 0;
+}
+
+/* Tables inside markdown — clean minimal style */
+.format-markdown table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: var(--sp-3) 0;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-stroke);
+}
+
+.format-markdown th {
+  background: var(--color-accent-bg);
+  font-family: var(--md-font);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-secondary);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  border-bottom: 1px solid var(--glass-stroke);
+}
+
+.format-markdown td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--color-border-faint);
+  color: var(--color-text);
+}
+
+.format-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.format-markdown tr:hover td {
+  background: var(--color-tint-light);
+}
+
+/* Images */
+.format-markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: var(--sp-2) 0;
 }
 
 /* Mermaid */
@@ -1930,11 +2195,119 @@ body {
   height: auto;
 }
 
-.format-mermaid svg {
+.format-mermaid svg,
+.dep-graph svg {
   display: block;
   max-width: 100%;
   height: auto !important;
   margin: 0 auto;
+}
+
+/* Mermaid SVG node styling — refined typography and subtle depth */
+.format-mermaid .node rect,
+.format-mermaid .node circle,
+.format-mermaid .node polygon,
+.dep-graph .node rect,
+.dep-graph .node circle,
+.dep-graph .node polygon {
+  rx: 8;
+  ry: 8;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+}
+
+.format-mermaid .node .label,
+.dep-graph .node .label {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Refined edge lines */
+.format-mermaid .edgePath path.path,
+.dep-graph .edgePath path.path {
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+}
+
+/* Edge labels — small, clean, monospaced */
+.format-mermaid .edgeLabel,
+.dep-graph .edgeLabel {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Arrowheads */
+.format-mermaid marker path,
+.dep-graph marker path {
+  stroke-width: 0;
+}
+
+/* Cluster / subgraph — subtle grouped look */
+.format-mermaid .cluster rect,
+.dep-graph .cluster rect {
+  rx: 10;
+  ry: 10;
+  stroke-width: 1px;
+  stroke-dasharray: 4 2;
+}
+
+.format-mermaid .cluster .nodeLabel,
+.dep-graph .cluster .nodeLabel {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Sequence diagram actors */
+.format-mermaid .actor {
+  rx: 6;
+  ry: 6;
+  stroke-width: 1.5px;
+}
+
+.format-mermaid .actor-man text,
+.format-mermaid .messageText {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Note boxes */
+.format-mermaid .note rect {
+  rx: 6;
+  ry: 6;
+  stroke-width: 1px;
+}
+
+.format-mermaid .noteText {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 11px;
+}
+
+/* Dark mode refinements */
+[data-theme="dark"] .format-mermaid .node rect,
+[data-theme="dark"] .format-mermaid .node circle,
+[data-theme="dark"] .format-mermaid .node polygon,
+[data-theme="dark"] .dep-graph .node rect,
+[data-theme="dark"] .dep-graph .node circle,
+[data-theme="dark"] .dep-graph .node polygon {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+}
+
+/* Light mode — softer shadows */
+[data-theme="light"] .format-mermaid .node rect,
+[data-theme="light"] .format-mermaid .node circle,
+[data-theme="light"] .format-mermaid .node polygon,
+[data-theme="light"] .dep-graph .node rect,
+[data-theme="light"] .dep-graph .node circle,
+[data-theme="light"] .dep-graph .node polygon {
+  filter: drop-shadow(0 1px 2px rgba(64, 81, 181, 0.1));
 }
 
 /* Table */
@@ -2965,6 +3338,152 @@ body {
   font-weight: 600;
   min-width: 60px;
   text-align: center;
+}
+
+/* ── Progress card ──────────────────────────── */
+
+.progress-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text);
+}
+
+.progress-bar {
+  position: relative;
+  height: 24px;
+  background: var(--glass-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--glass-stroke);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.4s ease;
+}
+
+.progress-fill.progress-in_progress { background: var(--color-accent); }
+.progress-fill.progress-completed { background: var(--color-success); }
+.progress-fill.progress-failed { background: var(--color-danger); }
+.progress-fill.progress-paused { background: var(--color-warning); }
+
+.progress-pct {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.progress-counter {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.progress-steps {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-step {
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+}
+
+.progress-step.done { color: var(--color-success); text-decoration: line-through; opacity: 0.7; }
+.progress-step.active { color: var(--color-accent); font-weight: 600; background: var(--glass-bg); }
+
+/* ── Terminal card ─────────────────────────── */
+
+.terminal-output {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 16px;
+  border-radius: 8px;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ANSI color classes */
+.ansi-bold { font-weight: bold; }
+.ansi-black { color: #555; }
+.ansi-red { color: #ff5555; }
+.ansi-green { color: #50fa7b; }
+.ansi-yellow { color: #f1fa8c; }
+.ansi-blue { color: #6272a4; }
+.ansi-magenta { color: #ff79c6; }
+.ansi-cyan { color: #8be9fd; }
+.ansi-white { color: #f8f8f2; }
+.ansi-bright-black { color: #6272a4; }
+.ansi-bright-red { color: #ff6e6e; }
+.ansi-bright-green { color: #69ff94; }
+.ansi-bright-yellow { color: #ffffa5; }
+.ansi-bright-blue { color: #d6acff; }
+.ansi-bright-magenta { color: #ff92df; }
+.ansi-bright-cyan { color: #a4ffff; }
+.ansi-bright-white { color: #ffffff; }
+
+/* ── Dependency graph card ─────────────────── */
+
+.dep-graph {
+  padding: 8px;
+}
+
+.dep-graph .mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Cost card ─────────────────────────────── */
+
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.cost-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--glass-stroke);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.cost-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--glass-stroke);
+  color: var(--color-text-secondary);
+}
+
+.cost-table td:nth-child(n+2),
+.cost-table th:nth-child(n+2) {
+  text-align: right;
+}
+
+.cost-table tbody tr:hover {
+  background: var(--glass-bg);
+}
+
+.cost-table tfoot td {
+  border-top: 2px solid var(--glass-stroke);
+  border-bottom: none;
+  padding-top: 8px;
+  color: var(--color-text);
+  font-weight: bold;
 }
 
 /* ── Responsive — template adjustments ──────── */

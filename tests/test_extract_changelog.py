@@ -53,6 +53,18 @@ class TestExtractChangelog:
         result = extract_changelog(latest)
         assert result.startswith(f"## [{latest}]")
 
+    def test_latest_version_has_reference_link_definition(self):
+        """The latest changelog heading should have a matching reference definition."""
+        content = CHANGELOG_PATH.read_text(encoding="utf-8")
+        match = re.search(r"^## \[(\d+\.\d+\.\d+)\]", content, re.MULTILINE)
+        assert match, "No version heading found in CHANGELOG.md"
+        latest = match.group(1)
+        assert re.search(
+            rf"^\[{re.escape(latest)}\]: https://github\.com/s-hiraoku/synapse-a2a/compare/v",
+            content,
+            re.MULTILINE,
+        )
+
     def test_extract_oldest_version(self):
         """The last (oldest) version in the file can be extracted (no trailing ## [)."""
         result = extract_changelog("0.1.0")

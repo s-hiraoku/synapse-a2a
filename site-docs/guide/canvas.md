@@ -108,7 +108,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | Format | Body | Renderer | Use Case |
 |---|---|---|---|
 | `mermaid` | Mermaid source | mermaid.js | Flowcharts, sequence diagrams, ER diagrams |
-| `markdown` | Markdown text | marked.js + Highlight.js | Design docs, explanations, formatted text |
+| `markdown` | Markdown text | Built-in markdown parser | Design docs, explanations, formatted text |
 | `html` | Raw HTML string | Sandboxed iframe (fills Canvas view) | Full freedom — any visual expression |
 | `table` | `{headers, rows}` | Native HTML | Structured data, test results, comparisons |
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
@@ -125,6 +125,16 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
 | `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
 | `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
+| `progress` | `{current, total, label, steps, status}` | Progress bar | Progress bar with steps (status: in_progress, completed, failed, paused) |
+| `terminal` | Plain text (ANSI supported) | Terminal output | Terminal output with ANSI color support |
+| `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
+| `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation table |
+
+!!! tip "Mermaid Theme Integration"
+    Mermaid diagrams automatically sync with the Canvas dark/light theme toggle. When the theme changes, diagrams re-render using a custom color palette — Catppuccin-inspired tones for dark mode and Indigo tones for light mode, with the brand accent color (`#4051b5`). The original Mermaid source is preserved in a `data-mermaid-source` attribute on each diagram element, enabling seamless re-rendering without re-posting the card.
+
+!!! tip "Enhanced Markdown Rendering"
+    The `markdown` format uses the built-in `simpleMarkdown()` parser with support for tables, blockquotes (`>` lines), horizontal rules (`---`), nested ordered and unordered lists, headings (`#` → h2, `##` → h3, `###` → h4), inline code, fenced code blocks, bold, italic, strikethrough, links, and proper paragraph wrapping. Markdown card content is rendered with **Source Sans 3** for body text and **Source Code Pro** for code, with styled heading hierarchy, blockquote accent stripes, and table styling.
 
 !!! tip "The `html` Escape Hatch"
     When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the History view (`#/history`), the iframe auto-resizes to fit its content.
@@ -343,6 +353,10 @@ synapse canvas post alert '{"severity":"error","message":"CI failed","source":"g
 synapse canvas post file-preview '{"path":"server.py","lang":"python","snippet":"def run():","start_line":42}' --title "Preview"
 synapse canvas post trace '[{"name":"send","duration_ms":150,"status":"ok"}]' --title "Trace"
 synapse canvas post task-board '{"columns":[{"name":"Todo","items":[{"id":"1","subject":"Review"}]}]}' --title "Board"
+synapse canvas post progress '{"current":3,"total":7,"label":"Migration","steps":["Schema","Data","Indexes","Views","Procs","Test","Deploy"],"status":"in_progress"}' --title "Progress"
+synapse canvas post terminal 'Building project...\n\033[32m✓ Compiled 42 files\033[0m\n\033[31m✗ 2 errors found\033[0m' --title "Build Output"
+synapse canvas post dependency-graph '{"nodes":[{"id":"auth","group":"core"},{"id":"api","group":"core"},{"id":"ui","group":"frontend"}],"edges":[{"from":"ui","to":"api"},{"from":"api","to":"auth"}]}' --title "Dependencies"
+synapse canvas post cost '{"agents":[{"name":"claude","input_tokens":15000,"output_tokens":8000,"cost":0.12},{"name":"gemini","input_tokens":20000,"output_tokens":5000,"cost":0.05}],"total_cost":0.17,"currency":"USD"}' --title "Token Costs"
 ```
 
 ## Server Auto-Start
@@ -448,6 +462,8 @@ Open `http://localhost:3000` to view the Canvas.
 
 The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
+For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 22 card types plus the 5 built-in templates with hardcoded sample data under `site-docs/assets/`.
+
 The UI uses **SPA hash routing** with four views:
 
 | Route | View | Purpose |
@@ -494,6 +510,6 @@ The History view shows the traditional card grid with live feed and agent messag
 - **Live Feed**: Chronological event stream with pulsing dot indicator
 - **Card Grid**: All cards in a responsive grid layout
 - **Filter bar**: Filter by format type and by agent
-- **Dark/light theme**: Follows `prefers-color-scheme` with manual toggle
+- **Dark/light theme**: Manual toggle via sidebar button, persisted in `localStorage("canvas-theme")` (defaults to dark). Mermaid diagrams re-render automatically when the theme changes, using palette-matched colors for each mode.
 - **Toast notifications**: `notify` type shows ephemeral messages
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp

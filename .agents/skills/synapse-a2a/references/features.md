@@ -135,13 +135,15 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 
 **Views:** Hash-routed SPA with four views — `#/` (Canvas spotlight), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/history` (grid + live feed + agent messages), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); view state preserved across SSE reconnects.
 
-**18 card formats:** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board.
+**22 card formats:** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost.
 
 **Rendering highlights:**
+- **Markdown cards**: Enhanced parser supports headings, paragraphs, bold/italic, inline code, code blocks, unordered and ordered lists, tables, blockquotes, horizontal rules, and links. Document content uses Source Sans 3 body font and Source Code Pro monospace font for a polished typographic appearance
 - **Code cards**: Syntax highlighted via highlight.js (set `--lang` for best results)
 - **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
 - **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with auto-resize to content height
+- **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 
 ```bash

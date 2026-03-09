@@ -536,6 +536,10 @@ synapse canvas <format> "<body>" [OPTIONS]
 | `diff` | Unified diff | Side-by-side diff view |
 | `chart` | Chart.js config JSON | All chart types |
 | `image` | URL or base64 data URI | Screenshots, SVG diagrams |
+| `progress` | `{current, total, label, steps, status}` JSON | Progress bar with steps |
+| `terminal` | Plain text (ANSI supported) | Terminal output with ANSI colors |
+| `dependency-graph` | `{nodes, edges}` JSON | Dependency graph (rendered as Mermaid subgraph) |
+| `cost` | `{agents, total_cost, currency}` JSON | Token/cost aggregation table |
 
 **Common options** (all posting commands):
 

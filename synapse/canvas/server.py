@@ -15,6 +15,7 @@ import os
 import sqlite3
 import time
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -393,8 +394,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
             try:
                 conn = sqlite3.connect(lock_db)
                 conn.row_factory = sqlite3.Row
+                now = datetime.now(timezone.utc).isoformat()
                 rows = conn.execute(
-                    "SELECT file_path, agent_id FROM file_locks WHERE released_at IS NULL"
+                    "SELECT file_path, agent_id FROM file_locks "
+                    "WHERE expires_at > ? ORDER BY locked_at DESC",
+                    (now,),
                 ).fetchall()
                 conn.close()
                 for row in rows:
