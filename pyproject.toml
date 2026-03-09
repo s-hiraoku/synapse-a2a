@@ -55,7 +55,7 @@ synapse-hook = "synapse.shell_hook:main"
 include = ["synapse*"]
 
 [tool.setuptools.package-data]
-synapse = ["templates/.synapse/*", "profiles/*.yaml", "profiles/**/*"]
+synapse = ["templates/.synapse/*", "profiles/*.yaml", "profiles/**/*", "canvas/templates/*", "canvas/static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
