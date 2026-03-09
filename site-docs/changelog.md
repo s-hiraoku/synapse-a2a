@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.7
+
+- **Fixed**: Include canvas templates and static files in package data (fixes "template not found" on pip install)
+
 ### v0.11.6
 
 - **Changed**: Increase `MAX_BLOCKS_PER_CARD` from 10 to 30 for richer composite cards
