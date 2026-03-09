@@ -154,7 +154,7 @@ synapse canvas mermaid "..."
 
 **Health endpoint**:
 ```
-GET /api/health → 200 {"status": "ok", "port": 3000, "cards": 5}
+GET /api/health → 200 {"service": "synapse-canvas", "status": "ok", "pid": 12345, "cards": 5}
 ```
 
 ### Card Posting (Shortcuts)

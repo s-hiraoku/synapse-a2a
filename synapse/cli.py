@@ -2629,9 +2629,11 @@ def cmd_canvas_stop(args: argparse.Namespace) -> None:
     except (httpx.ConnectError, httpx.TimeoutException, ValueError):
         pass
 
-    # 2) Fall back to PID file
+    # 2) Fall back to PID file (only if stored port matches requested port)
     if not pid:
-        pid, _ = read_pid_file(PID_FILE)
+        stored_pid, stored_port = read_pid_file(PID_FILE)
+        if stored_pid and (stored_port is None or stored_port == port):
+            pid = stored_pid
 
     if not pid or not is_pid_alive(pid):
         print("Canvas server is not running.")
