@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.8
+
+- **Fixed**: `synapse canvas stop` now detects server via health endpoint (works with foreground `serve`)
+- **Fixed**: Verify `synapse-canvas` service identity before killing process
+- **Fixed**: `canvas stop` accepts `--port` for non-default ports
+
 ### v0.11.7
 
 - **Fixed**: Include canvas templates and static files in package data (fixes "template not found" on pip install)

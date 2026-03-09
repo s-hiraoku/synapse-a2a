@@ -598,6 +598,18 @@ synapse canvas clear                       # Clear all cards
 synapse canvas clear --agent <agent_id>    # Clear specific agent's cards
 ```
 
+### Stop
+
+```bash
+synapse canvas stop [--port PORT]
+```
+
+Stops the Canvas server. Detection uses the `/api/health` endpoint first (verifying `"service": "synapse-canvas"` identity), falling back to the PID file (`.synapse/canvas.pid`) if the health endpoint is unreachable.
+
+| Flag | Description |
+|------|-------------|
+| `--port PORT`, `-p PORT` | Canvas server port to stop (default: 3000) |
+
 ## Logs
 
 ```bash
