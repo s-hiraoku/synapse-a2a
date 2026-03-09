@@ -2608,16 +2608,32 @@ def cmd_canvas_logs(args: argparse.Namespace) -> None:
 
 def cmd_canvas_stop(args: argparse.Namespace) -> None:
     """Stop Canvas server."""
+    import contextlib
     import signal as sig
 
-    from synapse.commands.canvas import PID_FILE, is_pid_alive, read_pid_file
+    import httpx
 
-    pid, _ = read_pid_file(PID_FILE)
+    from synapse.commands.canvas import PID_FILE, is_pid_alive, read_pid_file
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = getattr(args, "port", None) or CANVAS_DEFAULT_PORT
+    pid: int | None = None
+
+    # 1) Try health endpoint — works regardless of PID file
+    try:
+        resp = httpx.get(f"http://localhost:{port}/api/health", timeout=2.0)
+        if resp.status_code == 200:
+            pid = resp.json().get("pid")
+    except (httpx.ConnectError, httpx.TimeoutException):
+        pass
+
+    # 2) Fall back to PID file
+    if not pid:
+        pid, _ = read_pid_file(PID_FILE)
+
     if not pid or not is_pid_alive(pid):
         print("Canvas server is not running.")
         return
-
-    import contextlib
 
     os.kill(pid, sig.SIGTERM)
     print(f"Stopped Canvas server (PID: {pid})")
