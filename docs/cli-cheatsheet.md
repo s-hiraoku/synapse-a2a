@@ -314,7 +314,9 @@ synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
 Typical client config targets:
 
 - Claude Code: `.claude/mcp.json`
+- Gemini CLI: `~/.gemini/settings.json`
 - Codex CLI: `~/.codex/config.toml`
+- Copilot CLI: `~/.copilot/mcp-config.json`
 
 ## Pipe Integration
 

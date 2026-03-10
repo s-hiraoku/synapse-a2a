@@ -15,3 +15,4 @@
 | **Response Modes** | `--wait / --notify / --silent` | Blocking, async notification, or fire-and-forget |
 | **Reply Routing** | `synapse reply` | Auto-routed responses to original sender |
 | **Message Files** | `--message-file / --stdin` | Send large messages without shell limits |
+| **MCP Bootstrap** | `synapse mcp serve` / `python -m synapse.mcp` | Distribute instructions via MCP resources (opt-in) |

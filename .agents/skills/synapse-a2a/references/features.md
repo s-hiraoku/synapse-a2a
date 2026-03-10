@@ -129,6 +129,36 @@ When enabled, the `.synapse/proactive.md` instruction file is injected at startu
 
 **Configuration:** Toggle via `synapse config` TUI or set the environment variable directly.
 
+## MCP Bootstrap Server
+
+Distribute Synapse initial instructions via MCP (Model Context Protocol) resources and tools. MCP-compatible clients (Claude Code, Codex, Gemini CLI, OpenCode) can read instructions as structured resources instead of relying solely on PTY injection.
+
+**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool. PTY injection remains the primary bootstrap method; MCP is an opt-in alternative for supported clients.
+
+**Resources:**
+
+| URI | Description |
+|-----|-------------|
+| `synapse://instructions/default` | Base Synapse bootstrap instructions |
+| `synapse://instructions/file-safety` | File locking rules (if enabled) |
+| `synapse://instructions/shared-memory` | Shared memory conventions (if enabled) |
+| `synapse://instructions/learning` | Learning mode guidance (if enabled) |
+| `synapse://instructions/proactive` | Proactive mode instructions (if enabled) |
+
+**Tool:** `bootstrap_agent` returns runtime context (agent_id, agent_type, port, working_dir, instruction_resources, available_features).
+
+```bash
+# Start MCP server (stdio transport)
+synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
+
+# Module entrypoint (recommended for MCP client configs)
+python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+```
+
+**Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.
+
+**Settings caching:** The MCP server caches `SynapseSettings` as a lazy singleton for the lifetime of the process, avoiding repeated file reads.
+
 ## Canvas Board
 
 Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.

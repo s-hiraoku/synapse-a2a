@@ -81,6 +81,10 @@ synapse config
 synapse init
 synapse reset
 
+# MCP Bootstrap
+synapse mcp serve                          # Start MCP server over stdio
+synapse mcp serve --agent-id synapse-claude-8100 --agent-type claude --port 8100
+
 # Auth
 synapse auth setup
 ```
@@ -155,6 +159,7 @@ See test files in `tests/` directory. Key test groups:
 - Agent Teams: `test_task_board.py`, `test_hooks.py`, `test_plan_approval.py`, `test_delegate_mode.py`
 - Spawn: `test_spawn.py`, `test_auto_spawn.py`, `test_auto_layout.py`
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
+- MCP: `test_mcp_bootstrap.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
 
 ## Priority Levels

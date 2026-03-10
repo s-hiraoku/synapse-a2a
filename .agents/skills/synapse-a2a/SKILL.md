@@ -81,6 +81,7 @@ Evaluate collaboration opportunities before starting work:
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/briefing/open/list` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
+| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in) | `synapse mcp serve` / `python -m synapse.mcp` |
 
 ### Task Board Default Triggers
 
