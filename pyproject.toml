@@ -68,6 +68,8 @@ exclude = [
     "synapse/proto/a2a_pb2.py",
     "synapse/proto/a2a_pb2_grpc.py",
     "synapse/shell_hook.py",  # Contains embedded shell scripts
+    "plugins/synapse-a2a/skills/skill-creator/**",  # Vendored from anthropics/claude-plugins-official
+    ".agents/skills/skill-creator/**",
 ]
 
 [tool.ruff.lint]
@@ -96,6 +98,8 @@ ignore_missing_imports = true
 exclude = [
     "synapse/proto/a2a_pb2.py",
     "synapse/proto/a2a_pb2_grpc.py",
+    "plugins/synapse-a2a/skills/skill-creator/",
+    ".agents/skills/skill-creator/",
 ]
 
 [[tool.mypy.overrides]]
