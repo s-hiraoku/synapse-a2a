@@ -43,3 +43,5 @@ class TestClaudeSharedMemoryDocs:
         text = _read_docs()
 
         assert "memory.db" in text
+        # Verify it appears in the .synapse/ storage context
+        assert ".synapse/" in text
