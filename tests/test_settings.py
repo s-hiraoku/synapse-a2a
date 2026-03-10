@@ -891,6 +891,22 @@ args = ["run", "--directory", "/repo", "python", "-m", "synapse.mcp", "--agent-t
         with patch("synapse.settings.Path.home", return_value=tmp_path):
             assert settings.has_mcp_bootstrap_config("codex") is True
 
+    def test_rejects_codex_toml_without_synapse_section(self, tmp_path):
+        """Codex TOML should ignore non-synapse MCP sections."""
+        codex_dir = tmp_path / ".config" / "codex"
+        codex_dir.mkdir(parents=True)
+        (codex_dir / "config.toml").write_text(
+            """
+[mcp_servers.other]
+command = "/path/to/uv"
+args = ["run", "--directory", "/repo", "python", "-m", "synapse.mcp", "--agent-type", "codex"]
+""".strip()
+        )
+
+        settings = SynapseSettings.from_defaults()
+        with patch("synapse.settings.Path.home", return_value=tmp_path):
+            assert settings.has_mcp_bootstrap_config("codex") is False
+
     def test_detects_gemini_user_settings(self, tmp_path):
         """Gemini settings.json with synapse entry should be detected."""
         gemini_dir = tmp_path / ".gemini"
@@ -1014,6 +1030,18 @@ args = ["run", "--directory", "/repo", "python", "-m", "synapse.mcp", "--agent-t
             patch("synapse.settings.Path.home", return_value=tmp_path / "home"),
         ):
             assert settings.has_mcp_bootstrap_config("copilot") is False
+
+    def test_ignores_json_config_with_non_object_root(self, tmp_path):
+        """Malformed JSON root types should not raise during detection."""
+        project_file = tmp_path / ".mcp.json"
+        project_file.write_text(json.dumps(["not", "an", "object"]))
+
+        settings = SynapseSettings.from_defaults()
+        with (
+            patch("synapse.settings.Path.cwd", return_value=tmp_path),
+            patch("synapse.settings.Path.home", return_value=tmp_path / "home"),
+        ):
+            assert settings.has_mcp_bootstrap_config("claude") is False
 
 
 class TestInstructionFilePaths:

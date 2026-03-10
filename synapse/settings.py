@@ -946,6 +946,8 @@ class SynapseSettings:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return False
+        if not isinstance(data, dict):
+            return False
 
         if agent_type == "opencode":
             section = data.get("mcp", {})
@@ -977,8 +979,16 @@ class SynapseSettings:
         if section_match:
             return self._looks_like_synapse_mcp_text(section_match.group(1))
 
-        # No [mcp_servers.synapse] header — scan for non-standard naming
-        return self._looks_like_synapse_mcp_text(text)
+        for candidate in re.finditer(
+            r"(?ms)^\[mcp_servers\.(.*?)\]\s*(.*?)(?=^\[|\Z)",
+            text,
+        ):
+            if candidate.group(1) != "synapse":
+                continue
+            if self._looks_like_synapse_mcp_text(candidate.group(2)):
+                return True
+
+        return False
 
     @staticmethod
     def _looks_like_synapse_mcp_entry(name: str, entry: dict[str, Any]) -> bool:

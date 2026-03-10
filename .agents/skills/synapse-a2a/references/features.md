@@ -133,7 +133,7 @@ When enabled, the `.synapse/proactive.md` instruction file is injected at startu
 
 Distribute Synapse initial instructions via MCP (Model Context Protocol) resources and tools. MCP-compatible clients (Claude Code, Codex, Gemini CLI, OpenCode) can read instructions as structured resources instead of relying solely on PTY injection.
 
-**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + automatic PTY skip. When MCP bootstrap config is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse automatically skips PTY startup instruction injection. Copilot continues to use PTY bootstrap.
+**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + automatic PTY skip. `bootstrap_agent` returns runtime context and instruction resource URIs for the current agent. When a Synapse MCP server config entry is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse automatically skips PTY startup instruction injection. Non-Synapse MCP entries do not trigger the skip. Copilot continues to use PTY bootstrap.
 
 **Resources:**
 
