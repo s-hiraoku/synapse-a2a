@@ -5,6 +5,9 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
 !!! warning "Experimental"
     MCP bootstrap is Phase 1 (experimental). PTY-based instruction injection remains the primary method and continues to work for all agents.
 
+!!! note "Startup behavior"
+    When Claude Code, Codex, Gemini CLI, or OpenCode has a Synapse MCP server configured, Synapse now skips PTY startup instruction injection automatically. GitHub Copilot is unchanged and continues to use PTY bootstrap.
+
 ## Overview
 
 The MCP server exposes:
@@ -146,6 +149,7 @@ After configuring, restart the agent and check that the MCP server connects:
 
 1. The agent should show `synapse` as a connected MCP server
 2. Run `synapse mcp serve --agent-type <type> --port <port>` manually to debug if connection fails
+3. On the next `synapse <agent>` launch, Synapse should not paste the long initial instruction block into the PTY
 
 ## Troubleshooting
 

@@ -248,7 +248,6 @@ synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
 
 この段階ではまだやらないこと:
 
-- PTY bootstrap の自動切り替え
 - peers / tasks / memory / locks の MCP tool 化
 
 #### 現時点の実装状態
@@ -264,14 +263,14 @@ synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
 実装済みのもの:
 
 - `bootstrap_agent()` tool
+- PTY bootstrap の自動切り替え — `has_mcp_bootstrap_config()` により Claude Code, Codex, Gemini CLI, OpenCode で MCP 設定検出時に PTY instruction injection を自動スキップ (Copilot は PTY のまま)
 
 まだ未実装のもの:
 
-- Claude / Codex 起動時の自動 MCP 接続
 - bootstrap prompt の自動短縮
 - project 固有 context や peers/tasks の動的取得
 
-つまり、現時点の実装は「instruction resources の配布」と「bootstrap_agent による runtime context 取得」までである。
+つまり、現時点の実装は「instruction resources の配布」「bootstrap_agent による runtime context 取得」「MCP 検出時の PTY 自動スキップ」までである。
 
 #### MCP client から見た最小フロー
 

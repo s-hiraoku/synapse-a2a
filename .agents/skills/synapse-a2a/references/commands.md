@@ -1715,6 +1715,8 @@ uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse
 
 **MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent`).
 
+**Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, or OpenCode, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot is unchanged and continues to use PTY bootstrap.
+
 ## Storage Locations
 
 ```text

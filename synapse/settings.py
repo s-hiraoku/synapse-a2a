@@ -904,6 +904,118 @@ class SynapseSettings:
 
         return any(matches_flag(arg, flag) for arg in tool_args for flag in flags)
 
+    def has_mcp_bootstrap_config(self, agent_type: str) -> bool:
+        """Return True when Synapse MCP bootstrap is configured for *agent_type*."""
+        normalized = agent_type.strip().lower()
+
+        for path in self._mcp_config_paths(normalized):
+            if path.suffix == ".toml":
+                if self._has_synapse_mcp_toml(path):
+                    return True
+                continue
+            if self._has_synapse_mcp_json(path, normalized):
+                return True
+        return False
+
+    def _mcp_config_paths(self, agent_type: str) -> list[Path]:
+        """Return candidate MCP configuration files for the given agent type."""
+        home = Path.home()
+        cwd = Path.cwd()
+        if agent_type == "claude":
+            return [cwd / ".mcp.json", home / ".claude.json"]
+        if agent_type == "codex":
+            return [
+                home / ".codex" / "config.toml",
+                home / ".config" / "codex" / "config.toml",
+            ]
+        if agent_type == "gemini":
+            return [
+                cwd / ".gemini" / "settings.json",
+                home / ".gemini" / "settings.json",
+            ]
+        if agent_type == "opencode":
+            return [
+                cwd / "opencode.json",
+                home / ".config" / "opencode" / "opencode.json",
+            ]
+        return []
+
+    def _has_synapse_mcp_json(self, path: Path, agent_type: str) -> bool:
+        """Check JSON config files used by Claude, Gemini, and OpenCode."""
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(data, dict):
+            return False
+
+        if agent_type == "opencode":
+            section = data.get("mcp", {})
+        else:
+            section = data.get("mcpServers", {})
+        if not isinstance(section, dict):
+            return False
+
+        for name, entry in section.items():
+            if not isinstance(entry, dict):
+                continue
+            if agent_type == "opencode" and entry.get("enabled") is not True:
+                continue
+            if self._looks_like_synapse_mcp_entry(name, entry):
+                return True
+        return False
+
+    def _has_synapse_mcp_toml(self, path: Path) -> bool:
+        """Check Codex TOML MCP config using a lightweight text scan."""
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+
+        section_match = re.search(
+            r"(?ms)^\[mcp_servers\.synapse\]\s*(.*?)(?=^\[|\Z)",
+            text,
+        )
+        if section_match:
+            return self._looks_like_synapse_mcp_text(section_match.group(1))
+
+        for candidate in re.finditer(
+            r"(?ms)^\[mcp_servers\.(.*?)\]\s*(.*?)(?=^\[|\Z)",
+            text,
+        ):
+            if candidate.group(1) != "synapse":
+                continue
+            if self._looks_like_synapse_mcp_text(candidate.group(2)):
+                return True
+
+        return False
+
+    @staticmethod
+    def _looks_like_synapse_mcp_entry(name: str, entry: dict[str, Any]) -> bool:
+        """Return True when a structured MCP config entry points at Synapse."""
+        if name == "synapse":
+            return True
+
+        command = entry.get("command")
+        args = entry.get("args")
+        command_text = (
+            " ".join(command) if isinstance(command, list) else str(command or "")
+        )
+        args_text = (
+            " ".join(str(arg) for arg in args)
+            if isinstance(args, list)
+            else str(args or "")
+        )
+        return SynapseSettings._looks_like_synapse_mcp_text(
+            f"{command_text} {args_text}"
+        )
+
+    @staticmethod
+    def _looks_like_synapse_mcp_text(text: str) -> bool:
+        """Return True when text contains a Synapse MCP launcher signature."""
+        normalized = text.lower()
+        return "synapse.mcp" in normalized or "synapse mcp serve" in normalized
+
     def get_approval_mode(self) -> str:
         """
         Get the approval mode setting.
