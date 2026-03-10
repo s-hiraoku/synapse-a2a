@@ -7,6 +7,7 @@ verification, and asset version tracking.
 from __future__ import annotations
 
 import os
+import signal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -294,3 +295,84 @@ class TestEnsureServerRunning:
 
         with patch("httpx.get", side_effect=httpx.ConnectError("refused")):
             assert is_canvas_server_running(port=3000) is False
+
+    def test_replaces_running_server_when_health_pid_mismatches_pid_file(self):
+        from synapse.commands.canvas import ensure_server_running
+
+        proc = MagicMock()
+        proc.pid = 33333
+
+        # After killing PID 22222, is_pid_alive should return False for it
+        killed = set()
+
+        def kill_side_effect(pid, sig_num):
+            killed.add(pid)
+
+        def alive_side_effect(pid):
+            return pid not in killed
+
+        with (
+            patch(
+                "synapse.commands.canvas._get_health",
+                side_effect=[
+                    {"service": "synapse-canvas", "pid": 22222},
+                    None,
+                ],
+            ),
+            patch(
+                "synapse.commands.canvas.read_pid_file",
+                side_effect=[(11111, 3000), (None, None)],
+            ),
+            patch(
+                "synapse.commands.canvas.is_pid_alive",
+                side_effect=alive_side_effect,
+            ),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch("synapse.commands.canvas._poll", return_value=True),
+            patch("os.kill", side_effect=kill_side_effect) as mock_kill,
+            patch("subprocess.Popen", return_value=proc) as mock_popen,
+            patch("synapse.commands.canvas.write_pid_file") as mock_write_pid,
+        ):
+            assert ensure_server_running(port=3000) is True
+
+        mock_kill.assert_called_once_with(22222, signal.SIGTERM)
+        mock_popen.assert_called_once()
+        mock_write_pid.assert_called_once_with(
+            mock_write_pid.call_args.args[0],
+            pid=33333,
+            port=3000,
+        )
+
+    def test_starts_new_server_when_pid_file_points_to_live_non_canvas_process(self):
+        from synapse.commands.canvas import ensure_server_running
+
+        proc = MagicMock()
+        proc.pid = 44444
+
+        with (
+            patch("synapse.commands.canvas._get_health", return_value=None),
+            patch(
+                "synapse.commands.canvas.read_pid_file",
+                return_value=(99999, 3000),
+            ),
+            patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=False,
+            ),
+            patch("synapse.commands.canvas._detect_stale_canvas", return_value=None),
+            patch("synapse.commands.canvas._poll", return_value=True),
+            patch("subprocess.Popen", return_value=proc) as mock_popen,
+            patch("synapse.commands.canvas.write_pid_file") as mock_write_pid,
+        ):
+            assert ensure_server_running(port=3000) is True
+
+        mock_popen.assert_called_once()
+        mock_write_pid.assert_called_once_with(
+            mock_write_pid.call_args.args[0],
+            pid=44444,
+            port=3000,
+        )

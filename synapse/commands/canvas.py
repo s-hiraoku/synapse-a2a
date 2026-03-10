@@ -123,14 +123,42 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
                 health_pid,
                 pid_file_pid,
             )
-        return True
+            if is_pid_alive(health_pid) and _is_synapse_canvas_process(health_pid):
+                logger.info("Replacing stale Canvas process (PID: %d)", health_pid)
+                os.kill(health_pid, sig.SIGTERM)
+                _poll(lambda: not is_pid_alive(health_pid))
+                with contextlib.suppress(OSError):
+                    os.remove(PID_FILE)
+                health = None
+            else:
+                logger.warning(
+                    "Health PID %s could not be verified as a Canvas process",
+                    health_pid,
+                )
+        if health is not None:
+            return True
 
     # Check PID file for stale process
     pid_path = PID_FILE
     pid, _ = read_pid_file(pid_path)
     if pid and is_pid_alive(pid):
-        # Server process exists but health check failed — give it a moment
-        return _poll(lambda: is_canvas_server_running(port))
+        if _is_synapse_canvas_process(pid):
+            # Server process exists but health check failed — give it a moment
+            if _poll(lambda: is_canvas_server_running(port)):
+                return True
+            logger.warning(
+                "Canvas process %d remained unhealthy; replacing it",
+                pid,
+            )
+            os.kill(pid, sig.SIGTERM)
+            _poll(lambda: not is_pid_alive(pid))
+        else:
+            logger.warning(
+                "PID file points to live non-Canvas process %d; ignoring stale PID file",
+                pid,
+            )
+        with contextlib.suppress(OSError):
+            os.remove(pid_path)
 
     # Check for stale process on port before starting
     stale = _detect_stale_canvas(port)
