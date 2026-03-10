@@ -297,11 +297,14 @@ def create_app(db_path: str | None = None) -> FastAPI:
     # ----------------------------------------------------------------
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
+        from synapse import __version__
+
         return {
             "service": "synapse-canvas",
             "status": "ok",
             "pid": os.getpid(),
             "cards": store.count(),
+            "version": __version__,
         }
 
     # ----------------------------------------------------------------

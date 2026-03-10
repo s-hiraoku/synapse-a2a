@@ -29,6 +29,15 @@ class TestCanvasStopViaHealth:
         with (
             patch("httpx.get", return_value=mock_resp),
             patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas.is_canvas_server_running",
+                return_value=False,
+            ),
+            patch("synapse.commands.canvas.time.sleep"),
             patch("os.kill") as mock_kill,
         ):
             args = argparse.Namespace(port=None)
@@ -97,6 +106,15 @@ class TestCanvasStopViaHealth:
             patch("httpx.get", return_value=mock_resp),
             patch("synapse.commands.canvas.PID_FILE", str(pid_file)),
             patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas.is_canvas_server_running",
+                return_value=False,
+            ),
+            patch("synapse.commands.canvas.time.sleep"),
             patch("os.kill") as mock_kill,
         ):
             args = argparse.Namespace(port=None)
