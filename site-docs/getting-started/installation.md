@@ -103,7 +103,7 @@ synapse skills list --scope project
 
 ## Configure MCP Server (Recommended)
 
-Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Each agent needs a one-time configuration to connect to the Synapse MCP server.
+Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Agents that use the MCP bootstrap require a one-time configuration to connect to the Synapse MCP server.
 
 === "Claude Code"
 
@@ -205,14 +205,14 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
 !!! tip "Path Replacement"
     The examples above assume a **source checkout** with `uv`. Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.
 
-    If you installed via **pipx** or **pip**, use `python -m synapse.mcp` directly instead:
+    If you installed via **pipx**, use the `synapse` entrypoint (pipx isolates the virtualenv, so `python -m` won't find the package):
 
-    ```bash
-    # pipx/pip install — use the installed Python module
-    python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+    ```json
+    "command": "synapse",
+    "args": ["mcp", "serve", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]
     ```
 
-    In your MCP config, replace the `command`/`args` with:
+    If you installed via **pip** (system or venv), you can use either the entrypoint or the module directly:
 
     ```json
     "command": "python",
