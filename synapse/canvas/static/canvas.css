@@ -48,6 +48,8 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 56px;
 
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -97,7 +99,7 @@ body {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 220px;
+  width: var(--sidebar-width);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -110,9 +112,10 @@ body {
 .sidebar-header {
   padding: var(--sp-4) var(--sp-4) var(--sp-3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-2);
 }
 
 .sidebar-header h1 {
@@ -121,11 +124,15 @@ body {
   font-weight: 700;
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
-  white-space: nowrap;
   color: #fff;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .sidebar-header h1 .brand-icon {
@@ -149,6 +156,7 @@ body {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  align-self: start;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
@@ -171,7 +179,7 @@ body {
 /* .sidebar-collapsed is applied to <body> */
 
 body.sidebar-collapsed #sidebar {
-  width: 56px;
+  width: var(--sidebar-collapsed-width);
 }
 
 body.sidebar-collapsed .sidebar-header {
@@ -181,17 +189,16 @@ body.sidebar-collapsed .sidebar-header {
 body.sidebar-collapsed .sidebar-header h1 {
   justify-content: center;
   overflow: hidden;
-}
-
-/* Hide text next to brand icon; keep icon + collapse button */
-body.sidebar-collapsed .sidebar-header h1 {
   font-size: 0;
+  line-height: 0;
 }
 
 body.sidebar-collapsed .sidebar-header h1 .brand-icon {
-  width: 24px;
-  height: 24px;
-  font-size: var(--text-lg);
+  display: none;
+}
+
+body.sidebar-collapsed #sidebar-collapse {
+  margin-left: 0;
 }
 
 body.sidebar-collapsed .nav-link span {
@@ -213,7 +220,7 @@ body.sidebar-collapsed #theme-toggle {
 }
 
 body.sidebar-collapsed #main-content {
-  margin-left: 56px;
+  margin-left: var(--sidebar-collapsed-width);
 }
 
 /* ── Nav Menu (sidebar) ──────────────────── */
@@ -372,7 +379,7 @@ body.sidebar-collapsed #main-content {
 /* ── Main Content Layout ─────────────────── */
 
 #main-content {
-  margin-left: 220px;
+  margin-left: var(--sidebar-width);
   min-height: 100vh;
   transition: margin-left var(--duration-normal) var(--ease-out);
 }
