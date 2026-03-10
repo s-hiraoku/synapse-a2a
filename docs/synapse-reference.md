@@ -56,10 +56,13 @@ synapse memory search <query>
 
 # Canvas
 synapse canvas serve [--port 3000]
+synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
+synapse canvas post markdown "## Doc" --title "Doc"
+synapse canvas briefing '{"content":[...],"sections":[...]}'
+synapse canvas list [--mine] [--search TERM]
+synapse canvas open [--port 3000]
 synapse canvas status [--port 3000]
 synapse canvas stop [--port 3000]
-synapse canvas mermaid "graph TD; A-->B" --title "Flow"
-synapse canvas markdown "## Doc" --title "Doc"
 
 # Session/Workflow
 synapse session save <name>

@@ -140,6 +140,15 @@ class TestCanvasStopViaHealth:
         with (
             patch("httpx.get", return_value=mock_resp) as mock_get,
             patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas.is_canvas_server_running",
+                return_value=False,
+            ),
+            patch("synapse.commands.canvas.time.sleep"),
             patch("os.kill"),
         ):
             args = argparse.Namespace(port=4000)

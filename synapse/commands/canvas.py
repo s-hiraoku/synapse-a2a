@@ -165,8 +165,21 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
     if stale:
         stale_pid = stale["pid"]
         logger.info("Replacing stale Canvas process (PID: %d)", stale_pid)
-        os.kill(stale_pid, sig.SIGTERM)
-        _poll(lambda: not is_pid_alive(stale_pid))
+        try:
+            os.kill(stale_pid, sig.SIGTERM)
+        except (OSError, ProcessLookupError):
+            logger.debug("Stale PID %d already gone before SIGTERM", stale_pid)
+        if not _poll(lambda: not is_pid_alive(stale_pid)):
+            logger.warning(
+                "Stale PID %d did not exit after SIGTERM; sending SIGKILL",
+                stale_pid,
+            )
+            try:
+                os.kill(stale_pid, sig.SIGKILL)
+            except (OSError, ProcessLookupError):
+                logger.debug("Stale PID %d gone before SIGKILL", stale_pid)
+            if not _poll(lambda: not is_pid_alive(stale_pid), timeout=2.0):
+                logger.warning("Stale PID %d still alive after SIGKILL", stale_pid)
 
     # Auto-start server in background
     logger.info("Canvas server not running. Starting on port %d...", port)
@@ -286,8 +299,8 @@ def canvas_stop(port: int = DEFAULT_PORT) -> None:
     os.kill(pid, sig.SIGTERM)
     _poll(lambda: not is_pid_alive(pid))
 
-    # Verify port is released
-    if is_canvas_server_running(port):
+    # Verify port is released (allow TIME_WAIT to clear)
+    if not _poll(lambda: not is_canvas_server_running(port)):
         print(
             f"Warning: port {port} still in use after stopping PID {pid}",
             file=sys.stderr,

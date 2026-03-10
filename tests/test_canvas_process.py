@@ -264,10 +264,11 @@ class TestProcessIdentity:
             assert _is_synapse_canvas_process(12345) is False
 
     def test_handles_missing_pid(self):
-        """Should return False for non-existent PIDs."""
+        """Should return False when subprocess.run raises OSError."""
         from synapse.commands.canvas import _is_synapse_canvas_process
 
-        assert _is_synapse_canvas_process(999999999) is False
+        with patch("subprocess.run", side_effect=OSError("No such process")):
+            assert _is_synapse_canvas_process(12345) is False
 
 
 # ============================================================

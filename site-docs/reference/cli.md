@@ -608,7 +608,7 @@ Shows Canvas server status including URL, running state, PID (with alive/dead in
 
 | Flag | Description |
 |------|-------------|
-| `--port PORT`, `-p PORT` | Canvas server port to check (default: 3000) |
+| `--port PORT` | Canvas server port to check (default: 3000) |
 
 ### Stop
 

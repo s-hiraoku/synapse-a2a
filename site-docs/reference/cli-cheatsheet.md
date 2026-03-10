@@ -89,18 +89,19 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 
 | Command | Description |
 |---------|-------------|
-| `synapse canvas serve` | Start Canvas server + open browser |
-| `synapse canvas mermaid "..." --title T` | Post Mermaid diagram |
-| `synapse canvas markdown "..." --title T` | Post Markdown document |
-| `synapse canvas table '{...}' --title T` | Post data table |
-| `synapse canvas code "..." --lang py` | Post syntax-highlighted code |
-| `synapse canvas chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas serve` | Start Canvas server |
+| `synapse canvas post mermaid "..." --title T` | Post Mermaid diagram |
+| `synapse canvas post markdown "..." --title T` | Post Markdown document |
+| `synapse canvas post table '{...}' --title T` | Post data table |
+| `synapse canvas post code "..." --lang py` | Post syntax-highlighted code |
+| `synapse canvas post chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas post '{raw JSON}'` | Post raw Canvas Message JSON |
 | `synapse canvas briefing '{...}'` | Post structured briefing report |
-| `synapse canvas post '{...}'` | Post raw Canvas Message JSON |
 | `synapse canvas list` | List all cards |
 | `synapse canvas delete <id>` | Delete a card |
 | `synapse canvas clear` | Clear all cards |
-| `synapse canvas status` | Show Canvas server status (PID, version, cards) |
+| `synapse canvas open` | Open Canvas in browser |
+| `synapse canvas status` | Show server status (PID, version, cards) |
 | `synapse canvas stop` | Stop Canvas server |
 
 ### Configuration
