@@ -101,6 +101,105 @@ Verify installation:
 synapse skills list --scope project
 ```
 
+## Configure MCP Server (Recommended)
+
+Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Each agent needs a one-time configuration to connect to the Synapse MCP server.
+
+=== "Claude Code"
+
+    Add to `~/.claude.json` or `.mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "synapse": {
+          "type": "stdio",
+          "command": "/path/to/uv",
+          "args": [
+            "run", "--directory", "/path/to/synapse-a2a",
+            "python", "-m", "synapse.mcp",
+            "--agent-id", "synapse-claude-8100",
+            "--agent-type", "claude",
+            "--port", "8100"
+          ]
+        }
+      }
+    }
+    ```
+
+    Or via CLI: `claude mcp add --scope user synapse /path/to/uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-type claude --port 8100`
+
+=== "Gemini CLI"
+
+    Add to `~/.gemini/settings.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "synapse": {
+          "command": "/path/to/uv",
+          "args": [
+            "run", "--directory", "/path/to/synapse-a2a",
+            "python", "-m", "synapse.mcp",
+            "--agent-id", "synapse-gemini-8110",
+            "--agent-type", "gemini",
+            "--port", "8110"
+          ],
+          "timeout": 5000,
+          "trust": true
+        }
+      }
+    }
+    ```
+
+=== "Codex CLI"
+
+    Add to `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.synapse]
+    command = "/path/to/uv"
+    args = [
+      "run", "--directory", "/path/to/synapse-a2a",
+      "python", "-m", "synapse.mcp",
+      "--agent-id", "synapse-codex-8120",
+      "--agent-type", "codex",
+      "--port", "8120",
+    ]
+    ```
+
+=== "OpenCode"
+
+    Add to `~/.config/opencode/opencode.json`:
+
+    ```json
+    {
+      "mcp": {
+        "synapse": {
+          "type": "local",
+          "command": [
+            "/path/to/uv",
+            "run", "--directory", "/path/to/synapse-a2a",
+            "python", "-m", "synapse.mcp",
+            "--agent-id", "synapse-opencode-8130",
+            "--agent-type", "opencode",
+            "--port", "8130"
+          ],
+          "enabled": true,
+          "timeout": 5000
+        }
+      }
+    }
+    ```
+
+    !!! note
+        OpenCode uses `"mcp"` (not `"mcpServers"`) and `command` is an **array**.
+
+!!! tip "Path Replacement"
+    Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.
+
+For detailed configuration, troubleshooting, and verification steps, see [MCP Bootstrap Setup](../guide/mcp-setup.md).
+
 ## Terminal Requirements
 
 For multi-agent features like `synapse team start` and `synapse spawn`, you need a supported terminal multiplexer or application:
@@ -121,5 +220,6 @@ For multi-agent features like `synapse team start` and `synapse spawn`, you need
 
 - [Quick Start](quickstart.md) — Launch your first agent and send a message
 - [Interactive Setup](setup.md) — Configure agent names, roles, and skill sets
+- [MCP Bootstrap Setup](../guide/mcp-setup.md) — Detailed MCP server configuration and troubleshooting
 - [Skills](../guide/skills.md) — Manage skills, skill sets, and deployment
 - [Architecture](../concepts/architecture.md) — Understand how Synapse A2A works

@@ -157,4 +157,4 @@ After configuring, restart the agent and check that the MCP server connects:
 
 ## Design Reference
 
-For architectural details, see [MCP Bootstrap Design](../../docs/design/mcp-bootstrap.md).
+For architectural details, see [MCP Bootstrap Design](https://github.com/s-hiraoku/synapse-a2a/blob/main/docs/design/mcp-bootstrap.md) on GitHub.
