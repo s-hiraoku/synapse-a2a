@@ -52,6 +52,7 @@ class Element {
     this.children = [];
     this.parentNode = null;
     this.classList = new ClassList();
+    this.dataset = {};
     this.textContent = "";
     this.id = "";
     this.className = "";
@@ -158,12 +159,6 @@ function buildHarness() {
       el.textContent = msg;
       return el;
     }
-    function scopeBadge(scope) {
-      const el = document.createElement("span");
-      el.className = "scope-badge";
-      el.textContent = scope;
-      return el;
-    }
     function renderSystemAgents(agents) {
       const el = document.createElement("div");
       el.textContent = "agents:" + agents.length;
@@ -246,7 +241,9 @@ function buildHarness() {
 
   const script = `
     ${helpers}
+    ${extractFunction("scopeBadge")}
     ${extractFunction("renderSystemPanel")}
+    globalThis.__scopeBadge = scopeBadge;
     globalThis.__renderSystemPanel = renderSystemPanel;
   `;
 
@@ -256,7 +253,13 @@ function buildHarness() {
   // eslint-disable-next-line no-eval -- test harness executes extracted local canvas.js functions in isolation.
   eval(script);
 
-  return { env, headerCalls, bodyCalls, renderSystemPanel: global.__renderSystemPanel };
+  return {
+    env,
+    headerCalls,
+    bodyCalls,
+    renderSystemPanel: global.__renderSystemPanel,
+    scopeBadge: global.__scopeBadge,
+  };
 }
 
 function assert(condition, message) {
@@ -281,7 +284,8 @@ const zero = runCase({
   memories: [],
   worktrees: [],
   history: [],
-  agent_profiles: [],
+  user_agent_profiles: [],
+  active_project_agent_profiles: [],
   registry_errors: [],
 });
 
@@ -296,7 +300,8 @@ const nonZero = runCase({
   memories: [],
   worktrees: [],
   history: [],
-  agent_profiles: [],
+  user_agent_profiles: [{ id: "global-checker" }],
+  active_project_agent_profiles: [{ id: "repo-reviewer" }],
   registry_errors: [
     { source: "bad.json", message: "decode failed" },
     { source: "bad2.json", message: "parse failed" },
@@ -304,3 +309,9 @@ const nonZero = runCase({
 });
 
 assert(!nonZero.headerCalls.some((value) => value.includes("Registry Errors")), "registry errors should not appear in System view (moved to Dashboard)");
+assert(nonZero.headerCalls.includes("User Scope Saved Agents (1)"), "system view should render a user-scope saved agents section");
+assert(nonZero.headerCalls.includes("Active-Project Saved Agents (1)"), "system view should render an active-project saved agents section");
+
+const { scopeBadge } = buildHarness();
+assert(scopeBadge("user").textContent === "User Scope", "user scope badge should use a readable label");
+assert(scopeBadge("active-project").textContent === "Active Project", "active-project scope badge should use a readable label");

@@ -1736,7 +1736,8 @@
     if (!systemPanel) return;
     systemPanel.innerHTML = "";
 
-    const profileCount = Array.isArray(data.agent_profiles) ? data.agent_profiles.length : 0;
+    const userProfileCount = Array.isArray(data.user_agent_profiles) ? data.user_agent_profiles.length : 0;
+    const activeProjectProfileCount = Array.isArray(data.active_project_agent_profiles) ? data.active_project_agent_profiles.length : 0;
     const skillCount = Array.isArray(data.skills) ? data.skills.length : 0;
     const skillSetCount = Array.isArray(data.skill_sets) ? data.skill_sets.length : 0;
     const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : 0;
@@ -1752,12 +1753,22 @@
     }
 
     // ── Saved Agent Profiles ──
-    if (profileCount > 0) {
+    if (userProfileCount > 0) {
       content.appendChild(
         createSystemSection(
-          "agent-profiles",
-          "Saved Agents (" + profileCount + ")",
-          renderSystemProfiles(data.agent_profiles)
+          "user-agent-profiles",
+          "User Scope Saved Agents (" + userProfileCount + ")",
+          renderSystemProfiles(data.user_agent_profiles)
+        )
+      );
+    }
+
+    if (activeProjectProfileCount > 0) {
+      content.appendChild(
+        createSystemSection(
+          "active-project-agent-profiles",
+          "Active-Project Saved Agents (" + activeProjectProfileCount + ")",
+          renderSystemProfiles(data.active_project_agent_profiles)
         )
       );
     }
@@ -2154,7 +2165,13 @@
     const el = document.createElement("span");
     el.className = "scope-badge";
     el.dataset.scope = scope;
-    el.textContent = scope;
+    if (scope === "user") {
+      el.textContent = "User Scope";
+    } else if (scope === "active-project") {
+      el.textContent = "Active Project";
+    } else {
+      el.textContent = scope;
+    }
     return el;
   }
 

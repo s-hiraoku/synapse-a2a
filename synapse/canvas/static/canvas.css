@@ -1391,6 +1391,12 @@ body.sidebar-collapsed #main-content {
   background: var(--color-purple-subtle);
 }
 
+.scope-badge[data-scope="active-project"] {
+  color: var(--color-info);
+  border-color: var(--color-info-border);
+  background: var(--color-info-subtle);
+}
+
 .system-agent {
   padding: var(--sp-1) 0;
   display: flex;
