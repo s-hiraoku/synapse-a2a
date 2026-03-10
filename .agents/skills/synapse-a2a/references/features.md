@@ -157,6 +157,8 @@ python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.
 
+**Copilot limitation:** GitHub Copilot's coding agent supports MCP tools only and cannot consume MCP resources/prompts. Copilot agents must use the `bootstrap_agent` tool to retrieve runtime context; the `synapse://instructions/*` resources are not available to Copilot.
+
 **Settings caching:** The MCP server caches `SynapseSettings` as a lazy singleton for the lifetime of the process, avoiding repeated file reads.
 
 ## Canvas Board

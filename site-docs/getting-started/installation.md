@@ -195,8 +195,29 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
     !!! note
         OpenCode uses `"mcp"` (not `"mcpServers"`) and `command` is an **array**.
 
+=== "GitHub Copilot"
+
+    !!! warning "Tools-only support"
+        GitHub Copilot's coding agent supports MCP **tools only** and cannot consume MCP resources/prompts. The `synapse://instructions/*` resources are not available to Copilot. Instead, Copilot uses the `bootstrap_agent` tool to retrieve runtime context.
+
+    No MCP configuration is needed for Copilot — it receives Synapse instructions via PTY injection at startup, which is the default bootstrap method for all agents.
+
 !!! tip "Path Replacement"
-    Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.
+    The examples above assume a **source checkout** with `uv`. Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.
+
+    If you installed via **pipx** or **pip**, use `python -m synapse.mcp` directly instead:
+
+    ```bash
+    # pipx/pip install — use the installed Python module
+    python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+    ```
+
+    In your MCP config, replace the `command`/`args` with:
+
+    ```json
+    "command": "python",
+    "args": ["-m", "synapse.mcp", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]
+    ```
 
 For detailed configuration, troubleshooting, and verification steps, see [MCP Bootstrap Setup](../guide/mcp-setup.md).
 
