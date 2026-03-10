@@ -282,9 +282,46 @@ def test_mcp_module_ignores_initialized_notification_over_stdio() -> None:
 
 
 def test_stdio_helpers_use_json_line_protocol() -> None:
-    source = Path("synapse/mcp/server.py").read_text(encoding="utf-8")
+    """Verify MCP server uses JSON-line protocol, not HTTP-style Content-Length framing."""
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "synapse.mcp",
+            "--agent-id",
+            "synapse-codex-8120",
+            "--agent-type",
+            "codex",
+            "--port",
+            "8120",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
 
-    assert "Content-Length:" not in source
+    try:
+        assert proc.stdin is not None
+        proc.stdin.write(
+            json.dumps(
+                {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+            )
+            + "\n"
+        )
+        proc.stdin.flush()
+
+        assert proc.stdout is not None
+        first_line = proc.stdout.readline()
+
+        # Must NOT use HTTP-style Content-Length framing
+        assert not first_line.startswith("Content-Length:")
+        # Must be valid JSON (JSON-line protocol)
+        payload = json.loads(first_line)
+        assert payload.get("jsonrpc") == "2.0"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)
 
 
 def test_module_entrypoint_uses_env_defaults_for_agent_context() -> None:
