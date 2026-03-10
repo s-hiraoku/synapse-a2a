@@ -1,16 +1,12 @@
 ---
 name: pr-guardian
 description: >-
-  Continuously monitor a GitHub PR for merge conflicts, CI failures, and
-  CodeRabbit review comments, then automatically fix any issues found.
-  Polls every 5 minutes and loops until every check is green. Use this
-  skill whenever a PR has just been created or code has been pushed to a
-  PR branch — it should be the default follow-up action after any PR
-  creation or push. Also trigger on: "watch this PR", "guard this PR",
-  "monitor CI", "keep fixing until green", "PRを監視して", "CIが通るまで
-  直して", /pr-guardian. When a PostToolUse hook reports that a push or
-  PR creation just happened, proactively invoke this skill to start
-  monitoring without waiting for the user to ask.
+  Monitor a GitHub PR for merge conflicts, CI failures, and CodeRabbit
+  review comments, automatically fixing issues until all checks pass.
+  Polls every 5 minutes. Use after PR creation or push, or when asked
+  to "watch this PR", "guard PR", "monitor CI", "keep fixing until
+  green", "PRを監視して". Auto-invoked by PostToolUse hook on push/PR
+  create — proactively start without waiting for user to ask.
 ---
 
 # PR Guardian
