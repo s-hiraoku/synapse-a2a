@@ -385,6 +385,36 @@ class SynapseSettings:
         name: str | None = None,
         role: str | None = None,
     ) -> str | None:
+        """Get the full instruction for a specific agent type."""
+        return self._resolve_instruction(
+            agent_type=agent_type,
+            agent_id=agent_id,
+            port=port,
+            name=name,
+            role=role,
+            include_optional=True,
+        )
+
+    def get_static_instruction_resource(self, agent_type: str) -> str | None:
+        """Get a static instruction document suitable for MCP resources."""
+        return self._resolve_instruction(
+            agent_type=agent_type,
+            agent_id="current-agent",
+            port=0,
+            name="current agent",
+            role=None,
+            include_optional=False,
+        )
+
+    def _resolve_instruction(
+        self,
+        agent_type: str,
+        agent_id: str,
+        port: int,
+        name: str | None = None,
+        role: str | None = None,
+        include_optional: bool = True,
+    ) -> str | None:
         """
         Get the instruction for a specific agent type.
 
@@ -434,8 +464,8 @@ class SynapseSettings:
         if not instruction:
             return None
 
-        # Append file-safety instructions if enabled
-        instruction = self._append_optional_instructions(instruction)
+        if include_optional:
+            instruction = self._append_optional_instructions(instruction)
 
         # Replace placeholders
         # agent_name defaults to agent_id if not set (for display purposes)
@@ -469,6 +499,10 @@ class SynapseSettings:
         instruction = instruction.replace("{{port}}", str(port))
 
         return instruction
+
+    def get_instruction_file_content(self, filename: str) -> str:
+        """Load a specific instruction file from project or user scope."""
+        return self._load_instruction_file(filename)
 
     def get_instruction_files(self, agent_type: str) -> list[str]:
         """

@@ -130,6 +130,18 @@ class TestCliMain:
         args = mock_cmd_list.call_args[0][0]
         assert args.command == "list"
 
+    @patch("synapse.cli.cmd_mcp_serve")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_mcp_serve(self, mock_install, mock_cmd_mcp_serve):
+        """synapse mcp serve should call cmd_mcp_serve."""
+        with patch.object(sys, "argv", ["synapse", "mcp", "serve"]):
+            main()
+
+        mock_cmd_mcp_serve.assert_called_once()
+        args = mock_cmd_mcp_serve.call_args[0][0]
+        assert args.command == "mcp"
+        assert args.mcp_command == "serve"
+
     @patch("synapse.cli.cmd_agents_list")
     @patch("synapse.cli.install_skills")
     def test_main_command_agents_list(self, mock_install, mock_cmd_agents_list):

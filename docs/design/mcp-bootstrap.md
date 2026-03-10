@@ -226,6 +226,431 @@ Follow safety rules before any file or task operations.
 - 長文 prompt 注入の削減
 - resource 配布モデルの検証
 
+#### Phase 1 の実装メモ
+
+Phase 1 はあくまで暫定であり、既存の PTY 初期注入を置き換えない。
+
+- `synapse mcp serve` を追加する
+- `synapse://instructions/default` を返す
+- optional instruction files が存在する場合のみ
+  - `synapse://instructions/file-safety`
+  - `synapse://instructions/shared-memory`
+  - `synapse://instructions/learning`
+  - `synapse://instructions/proactive`
+  を列挙する
+- `default` resource は base instruction のみを返し、optional files は別 resource に分ける
+
+起動例:
+
+```bash
+synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
+```
+
+この段階ではまだやらないこと:
+
+- PTY bootstrap の自動切り替え
+- `bootstrap_agent()` tool
+- peers / tasks / memory / locks の MCP tool 化
+
+#### 現時点の実装状態
+
+この設計メモに対応する最初の実装では、次だけを追加する。
+
+- `synapse mcp serve`
+- MCP stdio transport 上の `initialize`
+- `resources/list`
+- `resources/read`
+- instruction resources の読み出し
+
+まだ未実装のもの:
+
+- Claude / Codex 起動時の自動 MCP 接続
+- bootstrap prompt の自動短縮
+- `bootstrap_agent()` tool
+- project 固有 context や peers/tasks の動的取得
+
+つまり、現時点の実装は「MCP で instruction resources を配布できる土台」までである。
+
+#### MCP client から見た最小フロー
+
+MCP client 側の最小フローは次の通り。
+
+1. `initialize`
+2. `resources/list`
+3. `resources/read` で `synapse://instructions/default` を取得
+4. 必要に応じて `file-safety` や `shared-memory` を追加で取得
+
+この段階では、agent が自動的にどの resources を読むかまでは Synapse 側で強制しない。まずは「読める状態」を作り、その後に client integration を追加する。
+
+#### 参考: `resources/read` の返り値イメージ
+
+```json
+{
+  "contents": [
+    {
+      "uri": "synapse://instructions/default",
+      "mimeType": "text/markdown",
+      "text": "[SYNAPSE INSTRUCTIONS - DO NOT EXECUTE - READ ONLY]\n..."
+    }
+  ]
+}
+```
+
+#### Claude Code / Codex での設定例
+
+Phase 2 の検証では、MCP client 側が `synapse mcp serve` を subprocess として起動する想定で試す。
+
+Claude Code の例 (`.mcp.json` or `~/.claude.json`):
+
+```json
+{
+  "mcpServers": {
+    "synapse": {
+      "command": "synapse",
+      "args": ["mcp", "serve", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]
+    }
+  }
+}
+```
+
+最小形は `"args": ["mcp", "serve"]` で、追加の `--agent-id` や `--agent-type` は検証時に上乗せする。
+
+Codex CLI の例 (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.synapse]
+command = "/Users/hiraoku.shinichi/.local/bin/uv"
+args = ["run", "--directory", "/repo/path/to/synapse-a2a", "python", "-m", "synapse.mcp", "--agent-id", "synapse-codex-8120", "--agent-type", "codex", "--port", "8120"]
+```
+
+最小形は `args = ["mcp", "serve"]`。
+
+この設定は最終形ではない。現状は `bootstrap_agent()` が導入されたとはいえ、接続時の agent context を明示した方が試験しやすいため、設定例では `agent-id` と `agent-type` を渡している。
+
+#### 手動試験手順
+
+最低限の疎通確認は次の順で行う。
+
+1. `initialize`
+2. `resources/list`
+3. `resources/read` for `synapse://instructions/default`
+4. `tools/list`
+5. `tools/call` for `bootstrap_agent`
+
+期待する確認点:
+
+- `default` resource は静的 instruction を返す
+- `bootstrap_agent` は `agent_id`, `working_dir`, `instruction_resources` を返す
+- optional resource (`file-safety`, `shared-memory` など) が必要に応じて列挙される
+
+テスト実行:
+
+```bash
+pytest tests/test_mcp_bootstrap.py -q
+```
+
+---
+
+## エージェント別の MCP 設定
+
+ここでは、Synapse MCP を各クライアントから利用できる状態にするための設定場所、書式、実運用上の注意点をまとめる。
+
+### 共通方針
+
+今回の Synapse MCP は、古いグローバル synapse バイナリではなく、現在の repo checkout を直接使う方が安全である。
+
+理由:
+
+- グローバル `synapse` が古い version を指すことがある
+- `synapse.cli` 経由より `python -m synapse.mcp` の方が stdio 汚染を避けやすい
+- `uv run --directory <repo>` にすると、今の checkout の実装で MCP server を起動できる
+
+推奨の起動形は次の 1 つに揃える。
+
+```bash
+/Users/hiraoku.shinichi/.local/bin/uv run --directory /Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a python -m synapse.mcp --agent-id <agent-id> --agent-type <agent-type> --port <port>
+```
+
+### Claude Code
+
+公式ドキュメント:
+
+- Claude Code MCP docs: https://code.claude.com/docs/en/mcp
+
+設定場所:
+
+- local scope: `~/.claude.json`
+- user scope: `~/.claude.json`
+- project scope: `.mcp.json`
+
+Claude Code の project scope は `.mcp.json` が正であり、`.claude/mcp.json` ではない。project scope を使う場合は approval が必要になる。
+
+公式 docs では次のように整理されている。
+
+- `~/.claude.json` に local/user scope を保存
+- project-scoped server は project root の `.mcp.json`
+
+今回のローカル実効設定:
+
+- `~/.claude.json` の `mcpServers.synapse-user`
+- `command: "/usr/local/bin/python"`
+- `args: ["-m", "synapse.mcp", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]`
+- `env.PYTHONPATH=/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a`
+
+推奨設定例:
+
+```json
+{
+  "mcpServers": {
+    "synapse-user": {
+      "type": "stdio",
+      "command": "/Users/hiraoku.shinichi/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a",
+        "python",
+        "-m",
+        "synapse.mcp",
+        "--agent-id",
+        "synapse-claude-8100",
+        "--agent-type",
+        "claude",
+        "--port",
+        "8100"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+注意点:
+
+- `claude mcp add --scope user` で user config に入れられる
+- project scope は `.mcp.json`
+- Claude Code は newline-delimited JSON-RPC を使うので、server 側もそれに合わせる必要がある
+
+### Codex
+
+参考:
+
+- OpenAI MCP docs: https://developers.openai.com/resources/docs-mcp
+
+設定場所:
+
+- `~/.codex/config.toml`
+
+Codex の MCP server は `[mcp_servers.<name>]` で定義する。今回の環境でもその形で稼働している。
+
+今回のローカル実効設定:
+
+- `~/.codex/config.toml`
+- `[mcp_servers.synapse]`
+- `command = "/Users/hiraoku.shinichi/.local/bin/uv"`
+- `args = ["run", "--directory", "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a", "python", "-m", "synapse.mcp", "--agent-id", "synapse-codex-8120", "--agent-type", "codex", "--port", "8120"]`
+
+推奨設定例:
+
+```toml
+[mcp_servers.synapse]
+command = "/Users/hiraoku.shinichi/.local/bin/uv"
+args = [
+  "run",
+  "--directory",
+  "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a",
+  "python",
+  "-m",
+  "synapse.mcp",
+  "--agent-id",
+  "synapse-codex-8120",
+  "--agent-type",
+  "codex",
+  "--port",
+  "8120",
+]
+```
+
+注意点:
+
+- `command = "synapse"` だと古いグローバル `synapse` を掴むことがある
+- そのため Codex では `uv run --directory ... python -m synapse.mcp` に寄せる方が安全
+
+### Gemini CLI
+
+公式ドキュメント:
+
+- Gemini CLI MCP docs: https://geminicli.com/docs/tools/mcp-server
+
+設定場所:
+
+- user scope: `~/.gemini/settings.json`
+- project scope: `.gemini/settings.json`
+
+Gemini CLI docs では、`settings.json` の `mcpServers` に server を定義するとされている。
+
+公式の基本構造:
+
+```json
+{
+  "mcpServers": {
+    "serverName": {
+      "command": "path/to/server",
+      "args": ["--arg1", "value1"],
+      "env": {},
+      "cwd": "./server-directory",
+      "timeout": 30000,
+      "trust": false
+    }
+  }
+}
+```
+
+今回のローカル設定:
+
+- もともと `~/.gemini/antigravity/mcp_config.json` は空だった
+- Synapse 用に local config を追加した
+
+現在のローカル設定ファイル:
+
+- `~/.gemini/antigravity/mcp_config.json`
+
+現在の内容:
+
+```json
+{
+  "mcp": {
+    "synapse": {
+      "type": "local",
+      "command": [
+        "/Users/hiraoku.shinichi/.local/bin/uv",
+        "run",
+        "--directory",
+        "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a",
+        "python",
+        "-m",
+        "synapse.mcp",
+        "--agent-id",
+        "synapse-gemini-8110",
+        "--agent-type",
+        "gemini",
+        "--port",
+        "8110"
+      ],
+      "enabled": true,
+      "timeout": 5000
+    }
+  }
+}
+```
+
+ただし、Gemini CLI の公式 docs に合わせるなら、最終的には `~/.gemini/settings.json` の `mcpServers` 形式へ寄せる方がよい。
+
+現時点の結論:
+
+- Gemini のために Synapse MCP server 側へ追加実装を入れる必要はない
+- 課題は server ではなく Gemini 側の設定場所・設定形式の整理である
+- したがって、まずは Gemini の公式本線である `~/.gemini/settings.json` / `.gemini/settings.json` に寄せて接続確認するのが次の作業になる
+
+公式準拠の推奨設定例:
+
+```json
+{
+  "mcpServers": {
+    "synapse": {
+      "command": "/Users/hiraoku.shinichi/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a",
+        "python",
+        "-m",
+        "synapse.mcp",
+        "--agent-id",
+        "synapse-gemini-8110",
+        "--agent-type",
+        "gemini",
+        "--port",
+        "8110"
+      ],
+      "timeout": 5000,
+      "trust": true
+    }
+  }
+}
+```
+
+### OpenCode
+
+公式ドキュメント:
+
+- OpenCode config docs: https://opencode.ai/docs/config
+- OpenCode MCP docs: https://opencode.ai/docs/mcp-servers
+
+設定場所:
+
+- global: `~/.config/opencode/opencode.json`
+- project: `opencode.json`
+
+OpenCode docs では global config を `~/.config/opencode/opencode.json` としている。MCP server は `mcp` オブジェクトで管理する。
+
+今回のローカル実効設定:
+
+- `~/.config/opencode/opencode.json`
+- `mcp.synapse`
+- `type = "local"`
+- `command = ["/Users/hiraoku.shinichi/.local/bin/uv", "run", "--directory", "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a", "python", "-m", "synapse.mcp", "--agent-id", "synapse-opencode-8130", "--agent-type", "opencode", "--port", "8130"]`
+
+推奨設定例:
+
+```json
+{
+  "mcp": {
+    "synapse": {
+      "type": "local",
+      "command": [
+        "/Users/hiraoku.shinichi/.local/bin/uv",
+        "run",
+        "--directory",
+        "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a",
+        "python",
+        "-m",
+        "synapse.mcp",
+        "--agent-id",
+        "synapse-opencode-8130",
+        "--agent-type",
+        "opencode",
+        "--port",
+        "8130"
+      ],
+      "enabled": true,
+      "timeout": 5000
+    }
+  }
+}
+```
+
+### 現在の設定状況まとめ
+
+2026-03-10 時点のローカル環境では、設定状況は次のとおり。
+
+| Agent | 設定場所 | 状態 | 備考 |
+| --- | --- | --- | --- |
+| Claude Code | `~/.claude.json` | 有効 | `synapse-user` で user scope |
+| Codex | `~/.codex/config.toml` | 有効 | repo checkout を直接参照するよう修正済み |
+| Gemini CLI | `~/.gemini/antigravity/mcp_config.json` | 暫定有効 | 公式 docs 上は `~/.gemini/settings.json` が本線 |
+| OpenCode | `~/.config/opencode/opencode.json` | 有効 | repo checkout を直接参照するよう修正済み |
+
+---
+
+## 参考リンク
+
+- Claude Code MCP docs: https://code.claude.com/docs/en/mcp
+- OpenAI MCP docs: https://developers.openai.com/resources/docs-mcp
+- Gemini CLI MCP docs: https://geminicli.com/docs/tools/mcp-server
+- OpenCode config docs: https://opencode.ai/docs/config
+- OpenCode MCP docs: https://opencode.ai/docs/mcp-servers
+
 ### Phase 2: bootstrap tool
 
 次に、動的な runtime context 取得を導入する。
@@ -237,6 +662,15 @@ Follow safety rules before any file or task operations.
 
 - role / agent / working_dir / available features を構造化して返す
 - `/clear` や resume 後の復旧を明確にする
+
+Phase 2 では、resource は静的、agent 固有値は tool に寄せる。
+
+- `synapse://instructions/default` は静的な instruction document にする
+- agent ID や port や working directory は `bootstrap_agent()` で返す
+- `tools/list` で bootstrap tool を列挙する
+- `tools/call` で runtime context を返す
+
+この切り分けにより、MCP resource がテンプレート展開 API になるのを避けられる。次の実装では `default resource を静的に` し、agent 固有値は tool へ移す。
 
 ### Phase 3: optional state tools
 

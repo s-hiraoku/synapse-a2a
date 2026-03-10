@@ -301,6 +301,21 @@ All 4 tools support MCP server connections.
 - Gemini CLI: **Google Search grounding** built-in
 - Claude Code: **claude.ai MCP connector** integration
 
+### Synapse MCP bootstrap server
+
+Use `synapse mcp serve` to expose Synapse bootstrap resources and the
+`bootstrap_agent` tool over stdio MCP transport.
+
+```bash
+# Start manually for local testing
+synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
+```
+
+Typical client config targets:
+
+- Claude Code: `.claude/mcp.json`
+- Codex CLI: `~/.codex/config.toml`
+
 ## Pipe Integration
 
 ```bash
