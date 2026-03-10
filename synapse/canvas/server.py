@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from synapse import __version__
 from synapse.canvas.protocol import (
     FORMAT_REGISTRY,
     CanvasMessage,
@@ -297,8 +298,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
     # ----------------------------------------------------------------
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
-        from synapse import __version__
-
         return {
             "service": "synapse-canvas",
             "status": "ok",
