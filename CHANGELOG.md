@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.10] - 2026-03-10
+
+### Fixed
+
+- Resolve test failures from CLAUDE.md slimdown and `LongMessageStore` singleton pollution across test files
+- Add missing `user_dir` parameter to `SynapseSettings._load_instruction_file()`
+- Tighten test assertions: storage doc check and MCP stdio protocol verification
+
+### Documentation
+
+- Add per-agent MCP configuration to Getting Started guides (installation, quickstart, multi-agent-setup)
+- Fix broken design doc link in MCP setup guide
+- Slim down MCP bootstrap design doc
+
 ## [0.11.9] - 2026-03-10
 
 ### Added
@@ -2086,6 +2100,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.9...v0.11.10
 [0.11.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.8...v0.11.9
 [0.11.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.7...v0.11.8
 [0.11.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.6...v0.11.7

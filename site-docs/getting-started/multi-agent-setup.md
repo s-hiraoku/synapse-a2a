@@ -15,6 +15,7 @@ Before setting up a multi-agent workflow, make sure you have:
 
 - **Synapse A2A installed** — See [Installation](installation.md)
 - **At least 2 CLI tools installed** — For example, [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google/gemini-cli)
+- **MCP server configured** for each agent — See [MCP Bootstrap Setup](../guide/mcp-setup.md)
 - **A terminal with pane support** — tmux, iTerm2, Terminal.app, Ghostty, or Zellij (required for `synapse team start` and `synapse spawn`)
 
 ## Starting Multiple Agents
