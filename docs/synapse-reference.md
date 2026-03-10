@@ -56,9 +56,13 @@ synapse memory search <query>
 
 # Canvas
 synapse canvas serve [--port 3000]
-synapse canvas stop
-synapse canvas mermaid "graph TD; A-->B" --title "Flow"
-synapse canvas markdown "## Doc" --title "Doc"
+synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
+synapse canvas post markdown "## Doc" --title "Doc"
+synapse canvas briefing '{"content":[...],"sections":[...]}'
+synapse canvas list [--mine] [--search TERM]
+synapse canvas open [--port 3000]
+synapse canvas status [--port 3000]
+synapse canvas stop [--port 3000]
 
 # Session/Workflow
 synapse session save <name>
@@ -147,6 +151,7 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/agents/       # Saved agent definitions (user)
 ~/.synapse/sessions/     # Sessions (user)
 ~/.synapse/workflows/    # Workflows (user)
+~/.synapse/canvas.pid    # Canvas server PID file (stale process detection)
 .synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, etc.)
 ```
 

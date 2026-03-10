@@ -148,13 +148,14 @@ synapse canvas mermaid "..."
 **ルール**:
 - `synapse canvas serve` (明示起動): フォアグラウンド実行 + ブラウザ自動オープン
 - 自動起動: バックグラウンドプロセス + ブラウザは開かない
-- PID ファイル (`.synapse/canvas.pid`) で多重起動を防止
+- PID ファイル (`~/.synapse/canvas.pid`) で多重起動を防止（絶対パス — CWD に依存しない）
 - `synapse canvas serve` 実行時も PID ファイルをチェックし、既に起動中ならポートを表示して終了
-- `synapse canvas stop` は `/api/health` エンドポイントでサービス識別（`"service": "synapse-canvas"`）を確認後に停止。PID ファイルにフォールバック
+- `ensure_server_running()` は stale プロセスを自動検出・置換（PID 不一致やプロセス消失を検知）
+- `synapse canvas stop` は `/api/health` エンドポイントでサービス識別（`"service": "synapse-canvas"`）を確認し、プロセス identity を検証してから停止。ポート解放も確認。PID ファイルにフォールバック
 
 **Health endpoint**:
 ```
-GET /api/health → 200 {"service": "synapse-canvas", "status": "ok", "pid": 12345, "cards": 5}
+GET /api/health → 200 {"service": "synapse-canvas", "status": "ok", "pid": 12345, "cards": 5, "version": "0.1.0"}
 ```
 
 ### Card Posting (Shortcuts)

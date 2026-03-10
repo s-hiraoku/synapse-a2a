@@ -1690,12 +1690,14 @@ synapse canvas clear --agent-id <id>     # Clear agent's cards
 ```bash
 synapse canvas serve [--port 3000]       # Start server foreground
 synapse canvas open                      # Open in browser (auto-starts server)
-synapse canvas status                    # Show server status
+synapse canvas status                    # Show server status (version, PID, mismatch detection)
 synapse canvas logs [-n 50] [-f]         # View server logs
-synapse canvas stop [--port/-p 3000]     # Stop server (verifies via /api/health)
+synapse canvas stop [--port/-p 3000]     # Stop server (verifies process identity before kill)
 ```
 
-**Auto-start:** The server starts automatically when you post the first card. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
+**Auto-start:** The server starts automatically when you post the first card or run `canvas open`. Stale Canvas processes (e.g., leftover from a previous session) are detected and auto-replaced. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
+
+**Process management:** PID file is stored at `~/.synapse/canvas.pid`. `canvas status` cross-checks the PID file against `/api/health` to detect mismatches. `canvas stop` verifies the target PID is actually a Canvas process before sending SIGTERM.
 
 **Canvas proxy:** Each agent's A2A server exposes `/canvas/cards` endpoints, so agents can post cards through their own port without knowing the Canvas server port.
 
@@ -1723,6 +1725,7 @@ uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse
 ~/.synapse/sessions/ # Saved sessions (user scope)
 ~/.synapse/workflows/ # Saved workflows (user scope)
 ~/.synapse/agents/   # Saved agent definitions (user scope)
+~/.synapse/canvas.pid # Canvas server PID file (stale process detection)
 ~/.synapse/          # User-level settings and logs
 .synapse/            # Project-level settings
 .synapse/sessions/   # Saved sessions (project scope)

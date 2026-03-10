@@ -5,13 +5,17 @@ All commands work for both agents and humans.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
+import signal as sig
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -21,7 +25,8 @@ from synapse.registry import AgentRegistry
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 3000
-PID_FILE = ".synapse/canvas.pid"
+CANVAS_SERVICE_ID = "synapse-canvas"
+PID_FILE = os.path.expanduser("~/.synapse/canvas.pid")
 LOG_FILE = os.path.expanduser("~/.synapse/logs/canvas.log")
 
 
@@ -70,33 +75,111 @@ def is_pid_alive(pid: int) -> bool:
 # ============================================================
 
 
-def is_canvas_server_running(port: int = DEFAULT_PORT) -> bool:
-    """Check if Canvas server is running by hitting health endpoint."""
+def _poll(
+    predicate: Callable[[], bool],
+    timeout: float = 3.0,
+    interval: float = 0.5,
+) -> bool:
+    """Poll until predicate returns True or timeout expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return False
+
+
+def _get_health(port: int) -> dict[str, Any] | None:
+    """Get /api/health response or None if unreachable."""
     try:
         resp = httpx.get(f"http://localhost:{port}/api/health", timeout=2.0)
-        return bool(resp.status_code == 200)
-    except (httpx.ConnectError, httpx.TimeoutException):
-        return False
+        if resp.status_code == 200:
+            data: dict[str, Any] = resp.json()
+            return data
+    except (httpx.ConnectError, httpx.TimeoutException, ValueError):
+        pass
+    return None
+
+
+def is_canvas_server_running(port: int = DEFAULT_PORT) -> bool:
+    """Check if Canvas server is running by hitting health endpoint."""
+    return _get_health(port) is not None
 
 
 def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
     """Ensure Canvas server is running. Auto-start if needed.
 
     Returns True if server is running (or was started successfully).
+    Detects and replaces stale Canvas processes automatically.
     """
-    if is_canvas_server_running(port):
-        return True
+    health = _get_health(port)
+    if health is not None:
+        # Server is responding — check for PID mismatch
+        pid_file_pid, _ = read_pid_file(PID_FILE)
+        health_pid = health.get("pid")
+        if pid_file_pid and health_pid and health_pid != pid_file_pid:
+            logger.warning(
+                "Stale Canvas detected: health PID %d != PID file %d",
+                health_pid,
+                pid_file_pid,
+            )
+            if is_pid_alive(health_pid) and _is_synapse_canvas_process(health_pid):
+                logger.info("Replacing stale Canvas process (PID: %d)", health_pid)
+                os.kill(health_pid, sig.SIGTERM)
+                _poll(lambda: not is_pid_alive(health_pid))
+                with contextlib.suppress(OSError):
+                    os.remove(PID_FILE)
+                health = None
+            else:
+                logger.warning(
+                    "Health PID %s could not be verified as a Canvas process",
+                    health_pid,
+                )
+        if health is not None:
+            return True
 
     # Check PID file for stale process
     pid_path = PID_FILE
     pid, _ = read_pid_file(pid_path)
     if pid and is_pid_alive(pid):
-        # Server process exists but health check failed — give it a moment
-        for _ in range(6):
-            time.sleep(0.5)
-            if is_canvas_server_running(port):
+        if _is_synapse_canvas_process(pid):
+            # Server process exists but health check failed — give it a moment
+            if _poll(lambda: is_canvas_server_running(port)):
                 return True
-        return False
+            logger.warning(
+                "Canvas process %d remained unhealthy; replacing it",
+                pid,
+            )
+            os.kill(pid, sig.SIGTERM)
+            _poll(lambda: not is_pid_alive(pid))
+        else:
+            logger.warning(
+                "PID file points to live non-Canvas process %d; ignoring stale PID file",
+                pid,
+            )
+        with contextlib.suppress(OSError):
+            os.remove(pid_path)
+
+    # Check for stale process on port before starting
+    stale = _detect_stale_canvas(port)
+    if stale:
+        stale_pid = stale["pid"]
+        logger.info("Replacing stale Canvas process (PID: %d)", stale_pid)
+        try:
+            os.kill(stale_pid, sig.SIGTERM)
+        except (OSError, ProcessLookupError):
+            logger.debug("Stale PID %d already gone before SIGTERM", stale_pid)
+        if not _poll(lambda: not is_pid_alive(stale_pid)):
+            logger.warning(
+                "Stale PID %d did not exit after SIGTERM; sending SIGKILL",
+                stale_pid,
+            )
+            try:
+                os.kill(stale_pid, sig.SIGKILL)
+            except (OSError, ProcessLookupError):
+                logger.debug("Stale PID %d gone before SIGKILL", stale_pid)
+            if not _poll(lambda: not is_pid_alive(stale_pid), timeout=2.0):
+                logger.warning("Stale PID %d still alive after SIGKILL", stale_pid)
 
     # Auto-start server in background
     logger.info("Canvas server not running. Starting on port %d...", port)
@@ -112,17 +195,122 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
     write_pid_file(pid_path, pid=proc.pid, port=port)
 
     # Wait for server to become ready
-    for _ in range(6):  # 3 seconds max
-        time.sleep(0.5)
-        if is_canvas_server_running(port):
-            print(f"Canvas server started on http://localhost:{port}")
-            return True
+    if _poll(lambda: is_canvas_server_running(port)):
+        print(f"Canvas server started on http://localhost:{port}")
+        return True
 
     print(
         f"Warning: Canvas server failed to start. Check logs: {LOG_FILE}",
         file=sys.stderr,
     )
     return False
+
+
+def _is_synapse_canvas_process(pid: int) -> bool:
+    """Check if a PID belongs to a synapse canvas serve process."""
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            capture_output=True,
+            text=True,
+        )
+        cmdline = result.stdout.strip()
+        return "synapse.canvas" in cmdline or "synapse canvas" in cmdline
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _detect_stale_canvas(port: int = DEFAULT_PORT) -> dict[str, Any] | None:
+    """Detect a stale Canvas process on the given port.
+
+    Returns dict with stale process info (pid, version) or None if port is free.
+    """
+    health = _get_health(port)
+    if health is None:
+        return None
+
+    pid = health.get("pid")
+    if pid and is_pid_alive(pid) and _is_synapse_canvas_process(pid):
+        return {"pid": pid, "version": health.get("version")}
+    return None
+
+
+def canvas_status(port: int = DEFAULT_PORT) -> None:
+    """Show Canvas server status with PID mismatch detection."""
+    pid_file_pid, stored_port = read_pid_file(PID_FILE)
+    health_data = _get_health(port)
+    running = health_data is not None
+
+    print("Canvas Server Status")
+    print(f"  URL:      http://localhost:{port}")
+    print(f"  Running:  {'yes' if running else 'no'}")
+
+    health_pid: int | None = None
+
+    if health_data:
+        health_pid = health_data.get("pid")
+
+    if pid_file_pid:
+        alive = is_pid_alive(pid_file_pid)
+        print(f"  PID:      {pid_file_pid} ({'alive' if alive else 'dead'})")
+        if stored_port:
+            print(f"  Port:     {stored_port}")
+    else:
+        print("  PID:      (no PID file)")
+
+    if health_pid and pid_file_pid and health_pid != pid_file_pid:
+        print(f"  Health PID: {health_pid}")
+        print("  ⚠ MISMATCH: health PID does not match PID file")
+
+    if health_data:
+        version = health_data.get("version", "?")
+        cards = health_data.get("cards", "?")
+        print(f"  Version:  {version}")
+        print(f"  Cards:    {cards}")
+
+    print(f"  Log:      {LOG_FILE}")
+
+
+def canvas_stop(port: int = DEFAULT_PORT) -> None:
+    """Stop Canvas server with verification."""
+    pid: int | None = None
+
+    # 1) Try health endpoint
+    health = _get_health(port)
+    if health and health.get("service") == CANVAS_SERVICE_ID:
+        pid = health.get("pid")
+
+    # 2) Fall back to PID file
+    if not pid:
+        stored_pid, stored_port = read_pid_file(PID_FILE)
+        if stored_pid and (stored_port is None or stored_port == port):
+            pid = stored_pid
+
+    if not pid or not is_pid_alive(pid):
+        print("Canvas server is not running.")
+        return
+
+    # Verify it's actually a canvas process
+    if not _is_synapse_canvas_process(pid):
+        print(f"PID {pid} is not a Canvas process. Skipping.")
+        return
+
+    # Send SIGTERM and wait for exit
+    os.kill(pid, sig.SIGTERM)
+    _poll(lambda: not is_pid_alive(pid))
+
+    # Verify port is released (allow TIME_WAIT to clear)
+    if not _poll(lambda: not is_canvas_server_running(port)):
+        print(
+            f"Warning: port {port} still in use after stopping PID {pid}",
+            file=sys.stderr,
+        )
+    else:
+        print(f"Stopped Canvas server (PID: {pid})")
+
+    # Clean up PID file
+    with contextlib.suppress(OSError):
+        os.remove(PID_FILE)
 
 
 # ============================================================

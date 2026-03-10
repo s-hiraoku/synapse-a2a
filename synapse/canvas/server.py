@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from synapse import __version__
 from synapse.canvas.protocol import (
     FORMAT_REGISTRY,
     CanvasMessage,
@@ -302,6 +303,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "status": "ok",
             "pid": os.getpid(),
             "cards": store.count(),
+            "version": __version__,
         }
 
     # ----------------------------------------------------------------

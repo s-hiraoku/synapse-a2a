@@ -367,7 +367,9 @@ Canvas commands automatically start the server if it is not running. The flow fo
 2. If `200 OK` — server is running, proceed to post
 3. If connection refused — start server in background, retry health check (max 3s, 500ms interval), then post
 
-The server is detected via the `/api/health` endpoint (which returns `"service": "synapse-canvas"` for identity verification). A PID file (`.synapse/canvas.pid`) serves as a fallback when the health endpoint is unreachable.
+The server is detected via the `/api/health` endpoint (which returns `"service": "synapse-canvas"` for identity verification). A PID file (`~/.synapse/canvas.pid`) serves as a fallback when the health endpoint is unreachable.
+
+If a stale Canvas process is detected on the port during startup (e.g., from a previous session that was not properly stopped), it is automatically terminated and replaced with a fresh server instance.
 
 ## HTTP API
 
@@ -380,7 +382,7 @@ The server is detected via the `/api/health` endpoint (which returns `"service":
 | `DELETE` | `/api/cards` | Clear all cards (optional `?agent_id=` filter) |
 | `GET` | `/api/stream` | SSE stream (card events) |
 | `GET` | `/api/formats` | List supported formats |
-| `GET` | `/api/health` | Health check (returns `service`, `status`, `pid`, `cards`) |
+| `GET` | `/api/health` | Health check (returns `service`, `status`, `pid`, `cards`, `version`) |
 | `GET` | `/api/system` | System panel data (agents, tasks, file locks) |
 
 ## System Panel

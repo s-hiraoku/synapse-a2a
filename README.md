@@ -723,7 +723,8 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow delete <name>` | Delete a saved workflow |
 | `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`) |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000) |
-| `synapse canvas stop` | Stop Canvas server (health-check with service identity verification, PID fallback). `--port`/`-p` to specify port |
+| `synapse canvas status` | Show Canvas server status (version, PID, health, stale process detection) |
+| `synapse canvas stop` | Stop Canvas server (health-check with identity + process verification, PID fallback). `--port`/`-p` to specify port |
 | `synapse canvas mermaid <body>` | Post Mermaid diagram card |
 | `synapse canvas markdown <body>` | Post Markdown card |
 | `synapse canvas table <json>` | Post table card |
