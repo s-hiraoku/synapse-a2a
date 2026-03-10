@@ -9,7 +9,6 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Fixed**: Test failures from CLAUDE.md slimdown and `LongMessageStore` singleton pollution
 - **Fixed**: Missing `user_dir` parameter in `SynapseSettings._load_instruction_file()`
 - **Fixed**: Tighten test assertions for storage doc and MCP stdio protocol verification
-- **Changed**: Cache `SynapseSettings` in MCP server, deduplicate `agent_type` parsing
 - **Documentation**: Add per-agent MCP configuration to Getting Started guides
 
 ### v0.11.9

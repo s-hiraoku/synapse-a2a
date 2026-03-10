@@ -13,10 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add missing `user_dir` parameter to `SynapseSettings._load_instruction_file()`
 - Tighten test assertions: storage doc check and MCP stdio protocol verification
 
-### Changed
-
-- Cache `SynapseSettings` in MCP server, deduplicate `agent_type` parsing
-
 ### Documentation
 
 - Add per-agent MCP configuration to Getting Started guides (installation, quickstart, multi-agent-setup)

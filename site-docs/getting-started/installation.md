@@ -107,7 +107,7 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
 
 === "Claude Code"
 
-    Add to `~/.claude.json` or `.mcp.json`:
+    Add to your MCP configuration file. Use project-local `.mcp.json` for repo-specific settings, or user-global `~/.claude.json` for machine-wide defaults. If both exist, `.mcp.json` takes precedence:
 
     ```json
     {
@@ -127,7 +127,7 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
     }
     ```
 
-    Or via CLI: `claude mcp add --scope user synapse /path/to/uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-type claude --port 8100`
+    Or via CLI: `claude mcp add --scope user synapse /path/to/uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100`
 
 === "Gemini CLI"
 
