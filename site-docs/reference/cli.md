@@ -23,7 +23,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--skill-set SET` | Activate skill set |
 | `--agent ID_OR_NAME`, `-A` | Use a [saved agent definition](#saved-agent-definitions) (resolves name, role, skill set) |
 | `--no-setup` | Skip interactive setup |
-| `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions) |
+| `-- --resume` / `-- --continue` | Pass resume flag to CLI tool (skips initial instructions). Also skipped automatically when MCP bootstrap is configured (except Copilot) |
 | `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work (optional name) |

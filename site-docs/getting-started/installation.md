@@ -105,6 +105,8 @@ synapse skills list --scope project
 
 Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Agents that use the MCP bootstrap require a one-time configuration to connect to the Synapse MCP server.
 
+Once this Synapse MCP configuration is present, Synapse skips PTY startup instruction injection automatically for Claude Code, Codex, Gemini CLI, and OpenCode. GitHub Copilot still uses PTY bootstrap because it does not consume the `synapse://instructions/*` resources.
+
 === "Claude Code"
 
     Add to your MCP configuration file. Use project-local `.mcp.json` for repo-specific settings, or user-global `~/.claude.json` for machine-wide defaults. If both exist, `.mcp.json` takes precedence:

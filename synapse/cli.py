@@ -3840,6 +3840,15 @@ def cmd_run_interactive(
             "skipping initial instructions"
         )
 
+    has_mcp_bootstrap = not is_resume and synapse_settings.has_mcp_bootstrap_config(
+        profile
+    )
+    if has_mcp_bootstrap:
+        print(
+            "\x1b[32m[Synapse]\x1b[0m MCP bootstrap detected, "
+            "skipping initial instructions"
+        )
+
     # Create registry and register this agent
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
@@ -3901,8 +3910,12 @@ def cmd_run_interactive(
             print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
 
     # Check if approval is required for initial instructions (skip in headless mode)
-    skip_initial_instructions = is_resume
-    if not headless and not is_resume and synapse_settings.should_require_approval():
+    skip_initial_instructions = is_resume or has_mcp_bootstrap
+    if (
+        not headless
+        and not skip_initial_instructions
+        and synapse_settings.should_require_approval()
+    ):
         from synapse.approval import prompt_for_approval
 
         response = prompt_for_approval(
