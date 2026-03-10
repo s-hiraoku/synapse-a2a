@@ -49,7 +49,7 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --sidebar-width: 220px;
-  --sidebar-collapsed-width: 176px;
+  --sidebar-collapsed-width: 56px;
 
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -183,18 +183,19 @@ body.sidebar-collapsed #sidebar {
 }
 
 body.sidebar-collapsed .sidebar-header {
-  padding: var(--sp-3);
-  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-2) var(--sp-2);
 }
 
 body.sidebar-collapsed .sidebar-header h1 {
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
+  justify-content: center;
+  overflow: hidden;
+  font-size: 0;
+  line-height: 0;
 }
 
 body.sidebar-collapsed .sidebar-header h1 .brand-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 body.sidebar-collapsed #sidebar-collapse {
