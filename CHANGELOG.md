@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.9] - 2026-03-10
+
+### Added
+
+- MCP bootstrap server (`synapse mcp serve`) for stdio-based instruction distribution to MCP-capable clients
+- MCP resources: default instructions + optional file-safety, shared-memory, learning, proactive instructions
+- `bootstrap_agent()` MCP tool returning runtime context (agent_id, port, features)
+- MCP client configuration for Gemini CLI and OpenCode
+
+### Changed
+
+- Cache `SynapseSettings` in MCP server to avoid re-reading config files per request
+- Reuse `_extract_agent_type_from_id()` utility in `cmd_mcp_serve` (deduplicate inline parsing)
+- Remove unused `get_base_instruction()` from `SynapseSettings`
+
+### Documentation
+
+- Slim down `AGENTS.md` from 127 to 53 lines (defer details to `CLAUDE.md`)
+- Improve `code-simplifier` skill: better triggering, skill relationship table, prioritized checklist
+- Add MCP bootstrap design doc (`docs/design/mcp-bootstrap.md`)
+
 ## [0.11.8] - 2026-03-09
 
 ### Fixed
@@ -2065,6 +2086,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.8...v0.11.9
 [0.11.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.7...v0.11.8
 [0.11.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.6...v0.11.7
 [0.11.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.5...v0.11.6

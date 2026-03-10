@@ -3,7 +3,7 @@ site_url: https://s-hiraoku.github.io/synapse-a2a/
 site_description: Multi-agent collaboration framework using Google A2A Protocol
 site_author: s-hiraoku
 repo_url: https://github.com/s-hiraoku/synapse-a2a
-repo_name: s-hiraoku/synapse-a2a v0.11.8
+repo_name: s-hiraoku/synapse-a2a v0.11.9
 docs_dir: site-docs
 
 theme:
@@ -130,6 +130,7 @@ nav:
     - Workflows: guide/workflow.md
     - Canvas: guide/canvas.md
     - Proactive Mode: guide/proactive-mode.md
+    - MCP Bootstrap Setup: guide/mcp-setup.md
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md

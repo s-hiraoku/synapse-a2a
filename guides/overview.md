@@ -563,5 +563,6 @@ synapse
 | [settings.md](settings.md) | 設定詳細 |
 | [architecture.md](architecture.md) | アーキテクチャ詳細 |
 | [a2a-communication.md](a2a-communication.md) | A2A通信と応答制御 |
+| [../docs/design/mcp-bootstrap.md](../docs/design/mcp-bootstrap.md) | MCP Bootstrap Design |
 | [../docs/file-safety.md](../docs/file-safety.md) | File Safety 詳細 |
 | [troubleshooting.md](troubleshooting.md) | トラブルシューティング |

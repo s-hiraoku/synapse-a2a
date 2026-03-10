@@ -616,6 +616,23 @@ Stops the Canvas server. Detection uses the `/api/health` endpoint first (verify
 synapse logs <agent> [-f] [-n LINES]
 ```
 
+## MCP Server (Experimental)
+
+```bash
+synapse mcp serve [OPTIONS]
+```
+
+Serves Synapse bootstrap resources (instructions, skills) over MCP stdio transport. Intended for MCP-aware clients that can consume Synapse context as MCP resources.
+
+| Flag | Description |
+|------|-------------|
+| `--agent-id ID` | Agent ID for instruction resolution (default: `$SYNAPSE_AGENT_ID` or `synapse-mcp`) |
+| `--agent-type TYPE` | Agent type for instruction resolution (inferred from agent ID if omitted) |
+| `--port PORT` | Port for instruction placeholder resolution |
+
+!!! warning "Experimental"
+    This command is in early development (Phase 1). The interface may change in future releases.
+
 ## Low-Level A2A Tool
 
 ```bash

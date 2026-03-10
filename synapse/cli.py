@@ -1332,6 +1332,22 @@ def cmd_instructions_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_mcp_serve(args: argparse.Namespace) -> None:
+    """Serve Synapse MCP resources over stdio."""
+    from synapse.mcp.server import SynapseMCPServer, serve_stdio
+    from synapse.tools.a2a import _extract_agent_type_from_id
+
+    agent_id = args.agent_id
+    agent_type = args.agent_type or _extract_agent_type_from_id(agent_id)
+
+    server = SynapseMCPServer(
+        agent_type=agent_type or "default",
+        agent_id=agent_id,
+        port=args.port,
+    )
+    serve_stdio(server)
+
+
 # ============================================================
 # File Safety Commands
 # ============================================================
@@ -4076,8 +4092,12 @@ def main() -> None:
     if "PYTEST_CURRENT_TEST" not in os.environ:
         setup_logging()
 
-    # Install A2A skills if not present
-    install_skills()
+    skip_install_skills = (
+        len(sys.argv) >= 3 and sys.argv[1] == "mcp" and sys.argv[2] == "serve"
+    )
+    if not skip_install_skills:
+        # Install A2A skills if not present
+        install_skills()
 
     # Check for shortcut: synapse claude [--port PORT] [--name NAME] [--role ROLE]
     #                     [--no-setup] [-- TOOL_ARGS...]
@@ -4717,6 +4737,35 @@ re-sent manually using this command (useful for --resume mode or recovery).""",
         help="Preview instruction without sending",
     )
     p_inst_send.set_defaults(func=cmd_instructions_send)
+
+    # mcp - Minimal MCP server for bootstrap resources
+    p_mcp = subparsers.add_parser(
+        "mcp",
+        help="Serve Synapse MCP resources",
+        description="Serve Synapse bootstrap resources over MCP stdio transport.",
+    )
+    mcp_subparsers = p_mcp.add_subparsers(dest="mcp_command", metavar="SUBCOMMAND")
+
+    p_mcp_serve = mcp_subparsers.add_parser(
+        "serve", help="Serve MCP resources over stdio"
+    )
+    p_mcp_serve.add_argument(
+        "--agent-id",
+        default=os.environ.get("SYNAPSE_AGENT_ID", "synapse-mcp"),
+        help="Agent ID used for instruction placeholder resolution",
+    )
+    p_mcp_serve.add_argument(
+        "--agent-type",
+        default=None,
+        help="Agent type used for instruction resolution (defaults to type inferred from agent ID)",
+    )
+    p_mcp_serve.add_argument(
+        "--port",
+        type=int,
+        default=0,
+        help="Port value used for instruction placeholder resolution",
+    )
+    p_mcp_serve.set_defaults(func=cmd_mcp_serve)
 
     # history - Task history management
     p_history = subparsers.add_parser(
@@ -6029,6 +6078,7 @@ Scopes:
         "external": ("external_command", p_external),
         "auth": ("auth_command", p_auth),
         "instructions": ("instructions_command", p_instructions),
+        "mcp": ("mcp_command", p_mcp),
         "tasks": ("tasks_command", p_tasks),
         "team": ("team_command", p_team),
         "session": ("session_command", p_session),

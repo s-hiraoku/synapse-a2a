@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.9
+
+- **Added**: MCP bootstrap server (`synapse mcp serve`) for stdio-based instruction distribution
+- **Added**: MCP client configuration for Gemini CLI and OpenCode
+- **Changed**: Cache `SynapseSettings` in MCP server, deduplicate agent_type parsing, remove dead code
+- **Documentation**: Slim down `AGENTS.md`, improve `code-simplifier` skill, add MCP design doc
+
 ### v0.11.8
 
 - **Fixed**: `synapse canvas stop` now detects server via health endpoint (works with foreground `serve`)

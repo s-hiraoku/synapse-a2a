@@ -61,3 +61,115 @@ def test_canvas_guide_links_to_card_gallery() -> None:
 
     assert "../assets/card-gallery.html" in text
     assert "Card Gallery" in text
+
+
+def test_mcp_bootstrap_design_doc_covers_key_decisions() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "# MCP Bootstrap Design for Synapse" in text
+    assert "## なぜ MCP を使うのか" in text
+    assert "## 推奨アーキテクチャ" in text
+    assert "## MCP サーバ構成" in text
+    assert "## 段階的な導入計画" in text
+    assert "CLI 主体" in text
+    assert "resources" in text
+    assert "tools" in text
+
+
+def test_overview_links_to_mcp_bootstrap_design_doc() -> None:
+    text = _read("guides/overview.md")
+
+    assert "docs/design/mcp-bootstrap.md" in text
+    assert "MCP Bootstrap Design" in text
+
+
+def test_mcp_bootstrap_design_doc_covers_phase2_bootstrap_tool() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "### Phase 2: bootstrap tool" in text
+    assert "`bootstrap_agent()`" in text
+    assert "resource は静的" in text
+    assert "agent 固有値は tool" in text
+
+
+def test_mcp_bootstrap_design_doc_marks_phase1_as_transitional() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "Phase 1" in text
+    assert "暫定" in text
+    assert "bootstrap_agent" in text
+    assert "tools/list" in text
+
+
+def test_mcp_bootstrap_doc_includes_claude_and_codex_config_examples() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert ".mcp.json" in text
+    assert "~/.codex/config.toml" in text
+    assert '"command": "/path/to/uv"' in text
+    assert '"/path/to/repo"' in text
+
+
+def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "initialize" in text
+    assert "resources/list" in text
+    assert "resources/read" in text
+    assert "tools/list" in text
+    assert "tools/call" in text
+    assert "pytest tests/test_mcp_bootstrap.py -q" in text
+
+
+def test_cli_cheatsheet_mentions_synapse_mcp_serve() -> None:
+    text = _read("docs/cli-cheatsheet.md")
+
+    assert "synapse mcp serve" in text
+    assert "Claude Code" in text
+    assert "Codex CLI" in text
+
+
+def test_mcp_bootstrap_doc_covers_agent_specific_config_locations() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "Claude Code" in text
+    assert "~/.claude.json" in text
+    assert ".mcp.json" in text
+    assert "Codex" in text
+    assert "~/.codex/config.toml" in text
+    assert "Gemini CLI" in text
+    assert "~/.gemini/settings.json" in text
+    assert "OpenCode" in text
+    assert "~/.config/opencode/opencode.json" in text
+
+
+def test_mcp_bootstrap_doc_includes_synapse_examples_for_all_supported_clients() -> (
+    None
+):
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "python -m synapse.mcp" in text
+    assert "/path/to/uv" in text
+    assert "synapse-user" in text
+    assert "synapse-codex-8120" in text
+    assert "synapse-gemini-8110" in text
+    assert "synapse-opencode-8130" in text
+
+
+def test_mcp_bootstrap_doc_links_primary_sources_and_notes_runtime_caveats() -> None:
+    text = _read("docs/design/mcp-bootstrap.md")
+
+    assert "https://code.claude.com/docs/en/mcp" in text
+    assert "https://developers.openai.com/resources/docs-mcp" in text
+    assert "https://geminicli.com/docs/tools/mcp-server" in text
+    assert "https://opencode.ai/docs/config" in text
+    assert "古いグローバル synapse" in text
+    assert "repo checkout を直接使う" in text
+    assert "/Users/hiraoku.shinichi" not in text
+    assert "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a" not in text
+
+
+def test_readme_marks_mcp_bootstrap_doc_as_japanese() -> None:
+    text = _read("README.md")
+
+    assert "MCP Bootstrap Design (Japanese)" in text

@@ -114,6 +114,7 @@ flowchart LR
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
 | **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 5 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides` for structured multi-block cards. CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/...`. Server: `synapse canvas serve` (port 3000). See [Canvas Design](docs/design/canvas.md) |
 | **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes MUST go through an Agent Assignment Plan before coding begins. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
+| **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context without PTY injection. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
 
 ---
 
@@ -524,6 +525,7 @@ Each agent is:
 | SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
 | AgentProfileStore | `synapse/agent_profiles.py` | Saved agent definitions (reusable templates for spawn) |
+| MCP Server | `synapse/mcp/` | MCP bootstrap resource server (instructions, settings, agent card) |
 
 ### Startup Sequence
 
@@ -719,6 +721,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
+| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`) |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000) |
 | `synapse canvas stop` | Stop Canvas server (health-check with service identity verification, PID fallback). `--port`/`-p` to specify port |
 | `synapse canvas mermaid <body>` | Post Mermaid diagram card |
