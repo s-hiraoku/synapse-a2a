@@ -4092,8 +4092,12 @@ def main() -> None:
     if "PYTEST_CURRENT_TEST" not in os.environ:
         setup_logging()
 
-    # Install A2A skills if not present
-    install_skills()
+    skip_install_skills = (
+        len(sys.argv) >= 3 and sys.argv[1] == "mcp" and sys.argv[2] == "serve"
+    )
+    if not skip_install_skills:
+        # Install A2A skills if not present
+        install_skills()
 
     # Check for shortcut: synapse claude [--port PORT] [--name NAME] [--role ROLE]
     #                     [--no-setup] [-- TOOL_ARGS...]

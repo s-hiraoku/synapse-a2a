@@ -65,6 +65,9 @@ def test_client(
         app.include_router(router)
         yield TestClient(app)
 
+    # Reset singleton so stale tmp_path doesn't leak to other tests
+    synapse.long_message._store_instance = None
+
 
 class TestShortMessageBypass:
     """Tests for short message direct PTY send."""

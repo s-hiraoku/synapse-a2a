@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 from synapse.mcp.server import SynapseMCPServer, serve_stdio
+from synapse.tools.a2a import _extract_agent_type_from_id
 
 
 def main() -> None:
@@ -14,12 +16,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--agent-id",
-        default="synapse-mcp",
+        default=os.environ.get("SYNAPSE_AGENT_ID", "synapse-mcp"),
         help="Agent ID used for bootstrap tool context.",
     )
     parser.add_argument(
         "--agent-type",
-        default="default",
+        default=None,
         help="Agent type used for instruction resolution.",
     )
     parser.add_argument(
@@ -29,9 +31,10 @@ def main() -> None:
         help="Port value used for bootstrap context.",
     )
     args = parser.parse_args()
+    agent_type = args.agent_type or _extract_agent_type_from_id(args.agent_id)
 
     server = SynapseMCPServer(
-        agent_type=args.agent_type,
+        agent_type=agent_type or "default",
         agent_id=args.agent_id,
         port=args.port,
     )

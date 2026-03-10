@@ -66,7 +66,11 @@ class TestTasksCLI:
             created_by="claude",
         )
 
-        with patch("synapse.task_board.TaskBoard.from_env", return_value=board):
+        with (
+            patch("synapse.task_board.TaskBoard.from_env", return_value=board),
+            patch("synapse.cli.AgentRegistry") as mock_reg,
+        ):
+            mock_reg.return_value.resolve_agent.return_value = None
             from synapse.cli import cmd_tasks_assign
 
             args = argparse.Namespace(task_id=task_id[:8], agent="gemini")

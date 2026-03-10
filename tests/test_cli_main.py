@@ -138,6 +138,7 @@ class TestCliMain:
             main()
 
         mock_cmd_mcp_serve.assert_called_once()
+        mock_install.assert_not_called()
         args = mock_cmd_mcp_serve.call_args[0][0]
         assert args.command == "mcp"
         assert args.mcp_command == "serve"

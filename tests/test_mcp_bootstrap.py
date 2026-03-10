@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -76,10 +77,30 @@ def test_read_default_instruction_resource_uses_settings_resolution(
     with patch("synapse.settings.Path.cwd", return_value=tmp_path):
         text = server.read_resource("synapse://instructions/default")
 
-    assert "synapse-codex-8120" not in text
+    assert "synapse-codex-8120" in text
+    assert "8120" in text
     assert "{{agent_id}}" not in text
     assert "{{port}}" not in text
     assert "HOW TO SEND MESSAGES TO OTHER AGENTS" in text
+
+
+def test_read_optional_resource_uses_same_user_dir_resolution(tmp_path: Path) -> None:
+    user_dir = tmp_path / "user-home"
+    settings = _create_settings(user_dir)
+    server = SynapseMCPServer(
+        settings_factory=lambda: settings,
+        agent_type="codex",
+        agent_id="synapse-codex-8120",
+        port=8120,
+        user_dir=user_dir,
+    )
+
+    with patch("synapse.settings.Path.cwd", return_value=tmp_path / "project"):
+        resources = server.list_resources()
+        text = server.read_resource("synapse://instructions/file-safety")
+
+    assert any(item.uri == "synapse://instructions/file-safety" for item in resources)
+    assert text == "Lock before edit."
 
 
 def test_read_resource_rejects_unknown_uri(tmp_path: Path) -> None:
@@ -264,3 +285,40 @@ def test_stdio_helpers_use_json_line_protocol() -> None:
     source = Path("synapse/mcp/server.py").read_text(encoding="utf-8")
 
     assert "Content-Length:" not in source
+
+
+def test_module_entrypoint_uses_env_defaults_for_agent_context() -> None:
+    env = dict(os.environ)
+    env["SYNAPSE_AGENT_ID"] = "synapse-claude-8100"
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "synapse.mcp"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+
+    try:
+        assert proc.stdin is not None
+        proc.stdin.write(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "bootstrap_agent", "arguments": {}},
+                }
+            )
+            + "\n"
+        )
+        proc.stdin.flush()
+
+        assert proc.stdout is not None
+        payload = json.loads(proc.stdout.readline())
+        result = json.loads(payload["result"]["content"][0]["text"])
+        assert result["agent_id"] == "synapse-claude-8100"
+        assert result["agent_type"] == "claude"
+    finally:
+        proc.terminate()
+        proc.wait(timeout=5)

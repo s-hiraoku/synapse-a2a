@@ -123,7 +123,12 @@ class SynapseMCPServer:
         settings = self._settings()
 
         if uri == "synapse://instructions/default":
-            text = settings.get_static_instruction_resource(self.agent_type)
+            text = settings.get_static_instruction_resource(
+                self.agent_type,
+                agent_id=self.agent_id,
+                port=self.port,
+                name=self.agent_id,
+            )
             if text:
                 return text
             raise UnknownMCPResourceError(uri)
@@ -138,7 +143,12 @@ class SynapseMCPServer:
         if filename is None:
             raise UnknownMCPResourceError(uri)
 
-        text = settings.get_instruction_file_content(filename)
+        text = settings.get_instruction_file_content(
+            filename,
+            user_dir=self.user_dir,
+            agent_id=self.agent_id,
+            port=self.port,
+        )
         if text:
             return text
         raise UnknownMCPResourceError(uri)

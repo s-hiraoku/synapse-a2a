@@ -97,17 +97,17 @@ def test_mcp_bootstrap_design_doc_marks_phase1_as_transitional() -> None:
 
     assert "Phase 1" in text
     assert "暫定" in text
-    assert "default resource を静的に" in text
+    assert "bootstrap_agent" in text
     assert "tools/list" in text
 
 
 def test_mcp_bootstrap_doc_includes_claude_and_codex_config_examples() -> None:
     text = _read("docs/design/mcp-bootstrap.md")
 
-    assert ".claude/mcp.json" in text
+    assert ".mcp.json" in text
     assert "~/.codex/config.toml" in text
-    assert '"command": "synapse"' in text
-    assert 'args = ["mcp", "serve"]' in text or '"args": ["mcp", "serve"]' in text
+    assert '"command": "/path/to/uv"' in text
+    assert '"/path/to/repo"' in text
 
 
 def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
@@ -149,7 +149,7 @@ def test_mcp_bootstrap_doc_includes_synapse_examples_for_all_supported_clients()
     text = _read("docs/design/mcp-bootstrap.md")
 
     assert "python -m synapse.mcp" in text
-    assert "/Users/hiraoku.shinichi/.local/bin/uv" in text
+    assert "/path/to/uv" in text
     assert "synapse-user" in text
     assert "synapse-codex-8120" in text
     assert "synapse-gemini-8110" in text
@@ -165,3 +165,11 @@ def test_mcp_bootstrap_doc_links_primary_sources_and_notes_runtime_caveats() -> 
     assert "https://opencode.ai/docs/config" in text
     assert "古いグローバル synapse" in text
     assert "repo checkout を直接使う" in text
+    assert "/Users/hiraoku.shinichi" not in text
+    assert "/Volumes/SSD/ghq/github.com/s-hiraoku/synapse-a2a" not in text
+
+
+def test_readme_marks_mcp_bootstrap_doc_as_japanese() -> None:
+    text = _read("README.md")
+
+    assert "MCP Bootstrap Design (Japanese)" in text

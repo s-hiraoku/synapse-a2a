@@ -145,7 +145,7 @@ class TestIdentityInstruction:
         assert controller.status == "READY"
         assert call_count[0] == 1  # Still 1, not 2
 
-    def _send_identity_and_capture(self, controller, monkeypatch):
+    def _send_identity_and_capture(self, controller, monkeypatch, tmp_path=None):
         """Send identity instruction and return the raw PTY message written."""
         monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
         controller.running = True
@@ -158,7 +158,21 @@ class TestIdentityInstruction:
 
         controller.write = mock_write
 
-        with patch("synapse.controller.get_settings") as mock_get_settings:
+        # Reset singleton and use a fresh store with a reliable temp directory
+        # to avoid test pollution from other tests' stale singletons.
+        import synapse.long_message
+
+        synapse.long_message._store_instance = None
+
+        store_patch = {}
+        if tmp_path is not None:
+            msg_dir = tmp_path / "messages"
+            store_patch["SYNAPSE_LONG_MESSAGE_DIR"] = str(msg_dir)
+
+        with (
+            patch("synapse.controller.get_settings") as mock_get_settings,
+            patch.dict("os.environ", store_patch),
+        ):
             mock_settings = Mock()
             mock_settings.get_instruction_file_paths.return_value = [
                 ".synapse/default.md",
@@ -167,17 +181,22 @@ class TestIdentityInstruction:
 
             controller._send_identity_instruction()
 
+        # Clean up singleton so it doesn't leak to other tests
+        synapse.long_message._store_instance = None
+
         assert len(written_data) == 1
         return written_data[0]
 
-    def test_identity_instruction_content(self, controller, mock_registry, monkeypatch):
+    def test_identity_instruction_content(
+        self, controller, mock_registry, monkeypatch, tmp_path
+    ):
         """Identity instruction should use file storage and send short reference.
 
         The identity message body always exceeds the LongMessageStore threshold
         (200 chars), so it should be stored in a file and only a short reference
         sent to the PTY.  The full content is readable from the stored file.
         """
-        pty_message = self._send_identity_and_capture(controller, monkeypatch)
+        pty_message = self._send_identity_and_capture(controller, monkeypatch, tmp_path)
 
         # PTY message should be a file reference wrapped in A2A prefix
         assert pty_message.startswith("A2A: ")
@@ -193,14 +212,14 @@ class TestIdentityInstruction:
         assert "--from" in stored_content
 
     def test_identity_pty_message_is_short(
-        self, controller, mock_registry, monkeypatch
+        self, controller, mock_registry, monkeypatch, tmp_path
     ):
         """PTY message for identity should be short enough for TUI paste.
 
         The file reference message sent to the PTY must stay well under the
         200-char threshold that Ink TUI uses for its shortcut display.
         """
-        pty_message = self._send_identity_and_capture(controller, monkeypatch)
+        pty_message = self._send_identity_and_capture(controller, monkeypatch, tmp_path)
 
         # The file reference (A2A prefix + path + instructions) is typically
         # ~200-250 chars depending on the temp directory path length.
