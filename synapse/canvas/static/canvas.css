@@ -48,6 +48,8 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 184px;
 
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -97,7 +99,7 @@ body {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 220px;
+  width: var(--sidebar-width);
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -126,6 +128,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .sidebar-header h1 .brand-icon {
@@ -171,27 +175,25 @@ body {
 /* .sidebar-collapsed is applied to <body> */
 
 body.sidebar-collapsed #sidebar {
-  width: 56px;
+  width: var(--sidebar-collapsed-width);
 }
 
 body.sidebar-collapsed .sidebar-header {
-  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+  padding: var(--sp-3);
+  gap: var(--sp-2);
 }
 
 body.sidebar-collapsed .sidebar-header h1 {
-  justify-content: center;
-  overflow: hidden;
-}
-
-/* Hide text next to brand icon; keep icon + collapse button */
-body.sidebar-collapsed .sidebar-header h1 {
-  font-size: 0;
+  font-size: var(--text-sm);
 }
 
 body.sidebar-collapsed .sidebar-header h1 .brand-icon {
-  width: 24px;
-  height: 24px;
-  font-size: var(--text-lg);
+  width: 20px;
+  height: 20px;
+}
+
+body.sidebar-collapsed #sidebar-collapse {
+  margin-left: 0;
 }
 
 body.sidebar-collapsed .nav-link span {
@@ -213,7 +215,7 @@ body.sidebar-collapsed #theme-toggle {
 }
 
 body.sidebar-collapsed #main-content {
-  margin-left: 56px;
+  margin-left: var(--sidebar-collapsed-width);
 }
 
 /* ── Nav Menu (sidebar) ──────────────────── */
@@ -372,7 +374,7 @@ body.sidebar-collapsed #main-content {
 /* ── Main Content Layout ─────────────────── */
 
 #main-content {
-  margin-left: 220px;
+  margin-left: var(--sidebar-width);
   min-height: 100vh;
   transition: margin-left var(--duration-normal) var(--ease-out);
 }

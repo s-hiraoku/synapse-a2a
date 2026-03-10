@@ -499,6 +499,34 @@ def test_sidebar_collapse_toggle() -> None:
     assert "canvas-sidebar" in source, "JS should persist sidebar state to localStorage"
 
 
+def test_collapsed_sidebar_keeps_full_title_visible() -> None:
+    """Collapsed sidebar should stay wide enough to show the full Canvas title."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert "body.sidebar-collapsed #sidebar {" in css
+    assert "width: 56px;" not in css
+
+
+def test_collapsed_sidebar_header_keeps_title_and_button_inside() -> None:
+    """Collapsed sidebar should keep the title visible without pushing out the button."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    collapsed_heading_block = css.split(
+        "body.sidebar-collapsed .sidebar-header h1 {", 1
+    )[1].split("}", 1)[0]
+
+    assert "body.sidebar-collapsed .sidebar-header h1 {" in css
+    assert "font-size: 0;" not in collapsed_heading_block
+    assert "overflow: hidden;" not in collapsed_heading_block
+    assert "body.sidebar-collapsed #sidebar-collapse {" in css
+
+
+def test_collapsed_main_content_margin_matches_sidebar_width() -> None:
+    """Collapsed layout should still shift the main content by the sidebar width."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert "body.sidebar-collapsed #main-content {" in css
+
+
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
     """canvas.js should ignore legacy pin state in the frontend."""
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
