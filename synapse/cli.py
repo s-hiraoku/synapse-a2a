@@ -22,7 +22,11 @@ if TYPE_CHECKING:
     from synapse.history import HistoryManager
 
 from synapse.a2a_client import A2AClient, get_client
-from synapse.agent_profiles import AgentProfileError, AgentProfileStore
+from synapse.agent_profiles import (
+    AgentProfileError,
+    AgentProfileStore,
+    suggest_petname_ids,
+)
 from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.session import (
@@ -685,10 +689,20 @@ def _maybe_prompt_save_agent_profile(
     if save not in {"y", "yes"}:
         return
 
-    profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
-    if not profile_id:
-        print_func("Skipped: no saved agent ID provided.")
-        return
+    while True:
+        profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
+        if not profile_id:
+            print_func("Skipped: no saved agent ID provided.")
+            return
+        try:
+            AgentProfileStore._validate_profile_id(profile_id)
+        except AgentProfileError as e:
+            print_func(f"Invalid saved agent ID: {e}")
+            suggestions = suggest_petname_ids(name, role, skill_set, profile)
+            if suggestions:
+                print_func("Try one of: " + ", ".join(suggestions))
+            continue
+        break
 
     raw_scope = input_func("Scope [project/user] (default: project): ").strip().lower()
     if not raw_scope:
