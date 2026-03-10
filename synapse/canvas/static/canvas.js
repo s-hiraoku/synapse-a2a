@@ -3381,10 +3381,50 @@
       return;
     }
 
-    // Find the most recently updated card (O(n) instead of sorting)
-    const card = allCards.reduce((latest, c) =>
-      (c.updated_at || "") > (latest.updated_at || "") ? c : latest
-    );
+    const candidates = allCards
+      .slice()
+      .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+
+    let card = null;
+    let content = null;
+    for (const candidate of candidates) {
+      try {
+        const nextContent = document.createElement("div");
+        nextContent.className = "canvas-content";
+        const parsed = parseContent(candidate.content);
+        const blocks = Array.isArray(parsed) ? parsed : [parsed];
+
+        if (candidate.template && candidate.template_data) {
+          const td =
+            typeof candidate.template_data === "string"
+              ? JSON.parse(candidate.template_data)
+              : candidate.template_data;
+          const rendered = renderTemplate(candidate.template, blocks, td, false);
+          if (rendered) {
+            nextContent.appendChild(rendered);
+          } else {
+            for (const block of blocks) {
+              nextContent.appendChild(renderBlock(block));
+            }
+          }
+        } else {
+          for (const block of blocks) {
+            nextContent.appendChild(renderBlock(block));
+          }
+        }
+
+        card = candidate;
+        content = nextContent;
+        break;
+      } catch (e) {
+        console.error("Failed to render spotlight card:", candidate.card_id, e);
+      }
+    }
+
+    if (!card || !content) {
+      canvasView.style.removeProperty("--canvas-glow");
+      return;
+    }
 
     // Skip rebuild if the same card version is already displayed
     if (card.card_id === _spotlightCardId && card.updated_at === _spotlightUpdatedAt) {
@@ -3409,29 +3449,6 @@
     canvasSpotlight.appendChild(titleBar);
 
     // Content — fills the viewport
-    const content = document.createElement("div");
-    content.className = "canvas-content";
-    const parsed = parseContent(card.content);
-    const blocks = Array.isArray(parsed) ? parsed : [parsed];
-
-    if (card.template && card.template_data) {
-      const td =
-        typeof card.template_data === "string"
-          ? JSON.parse(card.template_data)
-          : card.template_data;
-      const rendered = renderTemplate(card.template, blocks, td, false);
-      if (rendered) {
-        content.appendChild(rendered);
-      } else {
-        for (const block of blocks) {
-          content.appendChild(renderBlock(block));
-        }
-      }
-    } else {
-      for (const block of blocks) {
-        content.appendChild(renderBlock(block));
-      }
-    }
     canvasSpotlight.appendChild(content);
 
     // Info bar — floating at bottom
