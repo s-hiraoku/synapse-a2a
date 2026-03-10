@@ -100,6 +100,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas list` | List all cards |
 | `synapse canvas delete <id>` | Delete a card |
 | `synapse canvas clear` | Clear all cards |
+| `synapse canvas status` | Show Canvas server status (PID, version, cards) |
+| `synapse canvas stop` | Stop Canvas server |
 
 ### Configuration
 
@@ -451,6 +453,10 @@ synapse canvas list --mine --search "auth" --type mermaid
 synapse canvas delete <card_id>
 synapse canvas clear
 synapse canvas clear --agent claude
+
+# Server management
+synapse canvas status                     # Show server status (PID, version, cards)
+synapse canvas stop                       # Stop the Canvas server
 ```
 
 !!! tip "Templates"

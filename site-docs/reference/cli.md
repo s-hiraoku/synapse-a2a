@@ -598,13 +598,25 @@ synapse canvas clear                       # Clear all cards
 synapse canvas clear --agent <agent_id>    # Clear specific agent's cards
 ```
 
+### Status
+
+```bash
+synapse canvas status [--port PORT]
+```
+
+Shows Canvas server status including URL, running state, PID (with alive/dead indicator), port, version, card count, and log file path. Detects PID mismatches between the PID file (`~/.synapse/canvas.pid`) and the `/api/health` endpoint.
+
+| Flag | Description |
+|------|-------------|
+| `--port PORT`, `-p PORT` | Canvas server port to check (default: 3000) |
+
 ### Stop
 
 ```bash
 synapse canvas stop [--port PORT]
 ```
 
-Stops the Canvas server. Detection uses the `/api/health` endpoint first (verifying `"service": "synapse-canvas"` identity), falling back to the PID file (`.synapse/canvas.pid`) if the health endpoint is unreachable.
+Stops the Canvas server. Detection uses the `/api/health` endpoint first (verifying `"service": "synapse-canvas"` identity), falling back to the PID file (`~/.synapse/canvas.pid`) if the health endpoint is unreachable. Before sending SIGTERM, the command verifies that the target PID is actually a Canvas process to avoid killing unrelated processes.
 
 | Flag | Description |
 |------|-------------|
