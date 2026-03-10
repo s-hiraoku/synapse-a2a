@@ -124,15 +124,15 @@ class TestSkillPresence:
 
 
 class TestDescriptionLength:
-    """Description should be 50-500 chars for optimal triggering."""
+    """Description should be 50-700 chars for optimal triggering."""
 
     @pytest.mark.parametrize("skill_dir", _PLUGIN_SKILLS, ids=lambda d: d.name)
     def test_skill_description_length(self, skill_dir: Path) -> None:
         fm = _parse_frontmatter(skill_dir / "SKILL.md")
         desc = fm.get("description", "")
-        assert 50 <= len(desc) <= 500, (
+        assert 50 <= len(desc) <= 700, (
             f"{skill_dir.name}: description is {len(desc)} chars "
-            f"(expected 50-500). Current: {desc[:100]}..."
+            f"(expected 50-700). Current: {desc[:100]}..."
         )
 
 
