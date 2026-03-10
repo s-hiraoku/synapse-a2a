@@ -86,7 +86,8 @@
       "Skill(fix-ci)",
       "Skill(check-ci)",
       "Skill(fix-conflict)",
-      "Skill(fix-review)"
+      "Skill(fix-review)",
+      "Skill(pr-guardian)"
     ]
   },
   "outputStyle": "Learning",
@@ -99,6 +100,11 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-ci-trigger.sh",
             "timeout": 660
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pr-guardian-trigger.sh",
+            "timeout": 30
           }
         ]
       }
