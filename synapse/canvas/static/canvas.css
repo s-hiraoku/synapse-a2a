@@ -49,7 +49,7 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --sidebar-width: 220px;
-  --sidebar-collapsed-width: 184px;
+  --sidebar-collapsed-width: 176px;
 
   /* Transitions */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -112,9 +112,10 @@ body {
 .sidebar-header {
   padding: var(--sp-4) var(--sp-4) var(--sp-3);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-2);
 }
 
 .sidebar-header h1 {
@@ -123,13 +124,15 @@ body {
   font-weight: 700;
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
-  white-space: nowrap;
   color: #fff;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-2);
   min-width: 0;
   flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .sidebar-header h1 .brand-icon {
@@ -153,6 +156,7 @@ body {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  align-self: start;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
@@ -185,6 +189,7 @@ body.sidebar-collapsed .sidebar-header {
 
 body.sidebar-collapsed .sidebar-header h1 {
   font-size: var(--text-sm);
+  line-height: var(--leading-snug);
 }
 
 body.sidebar-collapsed .sidebar-header h1 .brand-icon {

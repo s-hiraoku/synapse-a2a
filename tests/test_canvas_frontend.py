@@ -499,6 +499,16 @@ def test_sidebar_collapse_toggle() -> None:
     assert "canvas-sidebar" in source, "JS should persist sidebar state to localStorage"
 
 
+def test_sidebar_header_allows_title_to_wrap_inside_panel() -> None:
+    """Sidebar header should wrap the title instead of overflowing the toggle button."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    heading_block = css.split(".sidebar-header h1 {", 1)[1].split("}", 1)[0]
+
+    assert ".sidebar-header {" in css
+    assert "grid-template-columns: minmax(0, 1fr) auto;" in css
+    assert "white-space: nowrap;" not in heading_block
+
+
 def test_collapsed_sidebar_keeps_full_title_visible() -> None:
     """Collapsed sidebar should stay wide enough to show the full Canvas title."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
