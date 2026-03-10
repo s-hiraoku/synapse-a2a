@@ -530,6 +530,10 @@ def test_collapsed_sidebar_header_hides_title_and_keeps_button_inside() -> None:
     assert "overflow: hidden;" in collapsed_heading_block
     assert "justify-content: center;" in collapsed_heading_block
     assert "body.sidebar-collapsed #sidebar-collapse {" in css
+    collapsed_icon_block = css.split(
+        "body.sidebar-collapsed .sidebar-header h1 .brand-icon {", 1
+    )[1].split("}", 1)[0]
+    assert "display: none;" in collapsed_icon_block
 
 
 def test_collapsed_main_content_margin_matches_sidebar_width() -> None:

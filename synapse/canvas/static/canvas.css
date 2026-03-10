@@ -194,8 +194,7 @@ body.sidebar-collapsed .sidebar-header h1 {
 }
 
 body.sidebar-collapsed .sidebar-header h1 .brand-icon {
-  width: 24px;
-  height: 24px;
+  display: none;
 }
 
 body.sidebar-collapsed #sidebar-collapse {
