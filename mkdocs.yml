@@ -130,6 +130,7 @@ nav:
     - Workflows: guide/workflow.md
     - Canvas: guide/canvas.md
     - Proactive Mode: guide/proactive-mode.md
+    - MCP Bootstrap Setup: guide/mcp-setup.md
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md
