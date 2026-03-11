@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import logging
 import os
 import shutil
@@ -4198,7 +4199,7 @@ def main() -> None:
                 )
                 break
             except OSError as e:
-                if explicit_port or e.errno != 48:
+                if explicit_port or e.errno != errno.EADDRINUSE:
                     raise
 
                 registry = AgentRegistry()
