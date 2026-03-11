@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.14] - 2026-03-12
+
+### Fixed
+
+- improve pr-guardian CodeRabbit detection — separate CodeRabbit check from CI, add `coderabbit_check` status field
+- fix `poll_pr_status.sh` to use `state` field instead of nonexistent `conclusion` in `gh pr checks --json`
+- block `/fix-review` dispatch until CodeRabbit review is complete (not pending)
+- strengthen `/fix-review` with mandatory code verification step before applying fixes
+
 ## [0.11.13] - 2026-03-12
 
 ### Added
@@ -2182,6 +2191,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.11...v0.11.12
 [0.11.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.10...v0.11.11
