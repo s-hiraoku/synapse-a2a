@@ -56,17 +56,26 @@ bash <skill-path>/scripts/poll_pr_status.sh
 
 This returns a JSON object with these fields:
 
-| Field               | Type    | Meaning                            |
-|---------------------|---------|------------------------------------|
-| `branch`            | string  | Current branch name                |
-| `pr_number`         | int     | PR number                          |
-| `checks_total`      | int     | Total CI checks                    |
-| `checks_passed`     | int     | Checks that passed                 |
-| `checks_failed`     | int     | Checks that failed                 |
-| `checks_running`    | int     | Checks still in progress           |
-| `has_conflict`      | bool    | Merge conflicts detected           |
-| `coderabbit_comments` | int   | Unresolved CodeRabbit inline comments |
-| `all_green`         | bool    | True when everything passes        |
+| Field               | Type    | Meaning                                       |
+|---------------------|---------|-----------------------------------------------|
+| `branch`            | string  | Current branch name                           |
+| `pr_number`         | int     | PR number                                     |
+| `checks_total`      | int     | Total CI checks (excludes CodeRabbit)         |
+| `checks_passed`     | int     | CI checks that passed                         |
+| `checks_failed`     | int     | CI checks that failed                         |
+| `checks_running`    | int     | CI checks still in progress                   |
+| `has_conflict`      | bool    | Merge conflicts detected                      |
+| `coderabbit_check`  | string  | CodeRabbit check status: `none`/`pending`/`pass`/`fail` |
+| `coderabbit_comments` | int   | Number of CodeRabbit inline comments          |
+| `all_green`         | bool    | True when everything passes (including CodeRabbit) |
+
+**Important**: `all_green` is only true when ALL of these hold:
+- No merge conflicts
+- No CI failures
+- No CI checks still running
+- CodeRabbit check is NOT pending (review must be complete)
+- No unresolved CodeRabbit inline comments
+- At least one CI check exists
 
 ### Step 2: Evaluate and report
 
@@ -76,8 +85,8 @@ Print a concise status line each cycle:
 [PR Guardian] Cycle 3/20 — PR #42
   CI: 4 passed, 1 failed, 0 running
   Conflicts: none
-  CodeRabbit: 2 comments
-  → Action: fixing CI
+  CodeRabbit: review completed, 2 inline comments
+  → Action: fixing CodeRabbit comments
 ```
 
 ### Step 3: Dispatch fixes (priority order)
@@ -104,17 +113,30 @@ checks to finish before diagnosing failures):
 
 **Priority 3 — CodeRabbit review comments**
 
-When `coderabbit_comments > 0` and CI is passing:
+When `coderabbit_check == "pass"` and `coderabbit_comments > 0` and CI
+is passing:
 
 1. Invoke `/fix-review`
-2. After the fix commit is pushed, go back to Step 1
+2. `/fix-review` will verify each finding against current code before fixing
+3. After the fix commit is pushed, go back to Step 1
 
-### Step 4: Handle running checks
+**IMPORTANT**: Only dispatch `/fix-review` when `coderabbit_check` is
+`"pass"` (review completed). If it is `"pending"`, wait — the review is
+still in progress and comments may not be final yet.
 
-If `checks_running > 0` and no conflicts or failures exist yet, the
-correct action is to **wait** rather than fix. Sleep for the poll
-interval and re-check. Do not invoke any fix skill while checks are
-still running — you would be fixing based on incomplete information.
+### Step 4: Handle pending states
+
+The correct action is to **wait** (not fix) when:
+
+- `checks_running > 0`: CI is still running — do not diagnose yet
+- `coderabbit_check == "pending"`: CodeRabbit review is in progress —
+  wait for it to finish before looking at comments
+- `checks_total == 0` and it's the first cycle: checks haven't started
+  yet — wait for GitHub Actions to pick up the push
+
+Sleep for the poll interval and re-check. Do not invoke any fix skill
+while checks are still running or reviews are pending — you would be
+fixing based on incomplete information.
 
 ### Step 5: Check exit conditions
 
@@ -149,7 +171,7 @@ time to run after a fix push before the next poll.
 **Success:**
 ```
 [PR Guardian] All checks green! PR #42 is ready.
-  CI: 6/6 passed | Conflicts: none | CodeRabbit: 0 comments
+  CI: 6/6 passed | Conflicts: none | CodeRabbit: pass, 0 comments
   Completed in 3 cycles over 15 minutes.
 ```
 
@@ -158,6 +180,7 @@ time to run after a fix push before the next poll.
 [PR Guardian] Reached 20 cycles without all-green.
   Remaining issues:
     - CI: tests failing (pytest assertion error in test_auth.py)
+    - CodeRabbit: 2 unresolved inline comments
   Manual intervention needed.
 ```
 
@@ -175,7 +198,13 @@ time to run after a fix push before the next poll.
   It does not reimplement their logic — it orchestrates them.
 - Only one fix category is attempted per cycle to avoid cascading
   changes that confuse the state.
-- The skill respects CI timing: it waits for running checks to finish
-  before attempting fixes.
+- The skill respects both CI timing AND CodeRabbit timing: it waits
+  for running checks AND pending reviews to finish before attempting
+  fixes.
+- CodeRabbit check status (`pending`/`pass`/`fail`) is tracked
+  separately from inline comment count. A `pending` check means
+  the review is still running — do NOT dispatch `/fix-review` yet.
 - Each fix skill handles its own commit and push. PR Guardian only
   handles the polling loop and dispatch.
+- `/fix-review` verifies each CodeRabbit finding against the current
+  code before applying fixes — it does not blindly apply suggestions.
