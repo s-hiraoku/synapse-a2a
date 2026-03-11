@@ -12,6 +12,18 @@ description: >-
 
 Orchestrate multi-agent work with structured delegation, monitoring, and quality gates.
 
+## Task Board Rule
+
+**Every delegation MUST have a matching task board entry.**
+
+Before sending work to any agent via `synapse send`, you must:
+1. `synapse tasks create "<task>" -d "<description>"` — register the work unit
+2. `synapse tasks assign <id> <agent>` — record ownership
+3. Only then `synapse send <agent> "..." --force`
+
+Task board is the **team contract** — it makes ownership, blocking, and completion
+state visible to every agent. TodoList is for your personal micro-step tracking only.
+
 ## When to Use
 
 - Coordinating 2+ agents on related subtasks
@@ -131,6 +143,15 @@ synapse approve <task_id>
 synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs."
 ```
 
+**Update task board after decision:**
+```bash
+# After approve — unblock dependent tasks
+synapse tasks update <task_id> --status in-progress
+
+# After reject — mark for rework
+synapse tasks reopen <task_id>
+```
+
 ### Step 5: Verify
 
 Testing is the critical quality gate — start with the new tests/spec that were created
@@ -181,7 +202,10 @@ synapse memory save auth-middleware-pattern \
   --tags auth,middleware --notify
 ```
 
-After sending feedback, return to Step 3 (Monitor).
+After sending feedback, reopen the task and return to Step 3 (Monitor):
+```bash
+synapse tasks reopen <task_id>
+```
 
 ### Step 7: Review & Wrap-up
 
@@ -216,6 +240,7 @@ may accidentally accept future tasks intended for other agents.
 | Agent submits a plan | `synapse approve` or `synapse reject --reason "..."` |
 | Discovered a reusable pattern | `synapse memory save <key> "<pattern>" --notify` |
 | Cross-review finds issue | Send fix request with `--attach`, re-verify |
+| Delegating work to an agent | `synapse tasks create` + `synapse tasks assign` before `synapse send` |
 | All tests pass, reviews clean | Complete tasks, kill agents, report done |
 
 ## References

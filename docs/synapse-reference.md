@@ -36,7 +36,7 @@ synapse reply "Result here"                    # Auto-route to sender
 synapse broadcast "Status check"               # All agents in CWD
 synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)
 
-# Task Board
+# Task Board (mandatory for delegations — create+assign before synapse send)
 synapse tasks list
 synapse tasks create "Subject" -d "description" --priority 4
 synapse tasks assign <task_id> claude

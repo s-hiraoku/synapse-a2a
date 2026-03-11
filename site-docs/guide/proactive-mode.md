@@ -31,7 +31,10 @@ Or configure it in `.synapse/settings.json`:
 
 ## What Changes
 
-When Proactive Mode is enabled, agents follow a mandatory checklist for **every** task:
+!!! info "Task Board is Always Mandatory for Delegation"
+    Even without Proactive Mode, every delegation **must** have a matching task board entry (create + assign before send). The task board is the team contract. Proactive Mode extends this to require task board entries for **all** work, including solo tasks. See [Task Board](task-board.md#mandatory-delegation-rule) for details.
+
+When Proactive Mode is enabled, agents follow a mandatory checklist for **every** task (not just delegations):
 
 ### Before Starting
 

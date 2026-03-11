@@ -96,11 +96,11 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
-| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle (`synapse tasks`) |
+| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle (`synapse tasks`). **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
-| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
+| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files. Delegations require a task board entry (`synapse tasks create` + `assign`) before `synapse send` |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
@@ -113,7 +113,7 @@ flowchart LR
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
 | **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 5 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides` for structured multi-block cards. CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/...`. Server: `synapse canvas serve` (port 3000). See [Canvas Design](docs/design/canvas.md) |
-| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes MUST go through an Agent Assignment Plan before coding begins. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
+| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes OR any delegation MUST have a task board entry (`synapse tasks create` + `assign`) before `synapse send`. Task board = team contract; TodoList = personal micro-steps. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 | **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context without PTY injection. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
 
 ---
@@ -334,7 +334,11 @@ Agents proactively assess when to delegate, spawn helpers, or share knowledge. T
 # Manager spawns a different model type for a subtask (cross-model preference)
 synapse spawn gemini --worktree --name Tester --role "test writer"
 
-# Worker agent discovers work outside its scope and delegates
+# MANDATORY: Create task board entry before delegating
+synapse tasks create "Write auth integration tests" -d "Cover JWT refresh flow" --priority 4
+synapse tasks assign <task_id> Tester
+
+# Now delegate (task board entry must exist first)
 synapse send Tester "Write integration tests for auth module" --silent
 
 # Share discoveries via shared memory for all agents to use
@@ -345,6 +349,7 @@ synapse kill Tester -f
 ```
 
 Key principles:
+- **Task board before delegation**: Every `synapse send` for delegation MUST be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract (visible to all); TodoList = personal micro-step tracking (only you)
 - **Mandatory Collaboration Gate**: Tasks with 3+ phases or 10+ file changes MUST build an Agent Assignment Plan (Phase / Agent / Rationale) and register phases on the task board before writing any code
 - **Cross-model preference**: Spawn different model types (Claude, Gemini, Codex) to leverage diverse strengths and distribute rate limit pressure
 - **Worker autonomy**: Any agent can spawn helpers and delegate, not just managers
