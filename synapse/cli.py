@@ -2424,7 +2424,9 @@ def cmd_canvas_serve(args: argparse.Namespace) -> None:
         import threading
 
         url = f"http://localhost:{port}"
-        threading.Timer(1.0, _open_canvas_browser, [url]).start()
+        threading.Thread(
+            target=_wait_and_open_browser, args=(url,), daemon=True
+        ).start()
     print(f"Starting Canvas server on http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
@@ -2570,6 +2572,21 @@ def cmd_canvas_briefing(args: argparse.Namespace) -> None:
         print(f"Briefing posted: {result['card_id']}")
     else:
         sys.exit(1)
+
+
+def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
+    """Poll *url* until healthy, then open in browser."""
+    import time
+    import urllib.request
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            urllib.request.urlopen(url, timeout=1)
+            _open_canvas_browser(url)
+            return
+        except Exception:
+            time.sleep(0.3)
 
 
 def _open_canvas_browser(url: str) -> None:

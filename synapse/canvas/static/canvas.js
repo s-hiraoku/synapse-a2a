@@ -596,6 +596,25 @@
   };
 
   function renderBlock(block, options) {
+    // Normalize legacy envelope shapes where metadata was embedded in body
+    if (block.body && typeof block.body === "object" && !Array.isArray(block.body)) {
+      var b = block.body;
+      if (b.source !== undefined) {
+        block.x_title = block.x_title || b.title;
+        block.x_filename = block.x_filename || b.filename;
+        block.body = b.source;
+      } else if (b.data !== undefined && block.format === "json") {
+        block.x_title = block.x_title || b.title;
+        block.x_filename = block.x_filename || b.filename;
+        block.body = b.data;
+      } else if (b.code !== undefined) {
+        block.x_title = block.x_title || b.title;
+        block.x_filename = block.x_filename || b.filename;
+        block.lang = block.lang || b.lang;
+        block.body = b.code;
+      }
+    }
+
     const wrap = document.createElement("div");
     wrap.className = `content-block format-${block.format}`;
 

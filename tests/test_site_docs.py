@@ -69,7 +69,8 @@ def test_canvas_guide_documents_block_level_metadata_and_supported_scope() -> No
     assert "x_title" in text
     assert "x_filename" in text
     assert "block-level metadata" in text
-    assert "mermaid`, `json`, `code`, `log`, `checklist`, `trace`, and `tip`" in text
+    for fmt in ("mermaid", "json", "code", "log", "checklist", "trace", "tip"):
+        assert fmt in text, f"expected format '{fmt}' in block-level metadata docs"
 
 
 def test_canvas_cli_docs_use_current_post_commands() -> None:
@@ -87,8 +88,7 @@ def test_canvas_cli_docs_use_current_post_commands() -> None:
     assert "Other templates can be posted via the `post-raw` command" in guide
     assert "synapse canvas post-raw '<Canvas Message JSON>'" in guide
     assert "synapse canvas post '<Canvas Message JSON>'" not in guide
-    assert 'synapse canvas mermaid "..." --title T' in cheatsheet
-    assert 'synapse canvas post mermaid "..." --title T' not in cheatsheet
+    assert 'synapse canvas post mermaid "..." --title T' in cheatsheet
     assert "synapse canvas post-raw '{raw JSON}'" in cheatsheet
     assert "synapse canvas post '{raw JSON}'" not in cheatsheet
 

@@ -2620,6 +2620,7 @@ body.sidebar-collapsed #main-content {
   padding: var(--sp-4);
   font-size: var(--text-sm);
   color: var(--color-text);
+  white-space: pre-wrap;
 }
 
 /* ── Status ──────────────────────────────────── */

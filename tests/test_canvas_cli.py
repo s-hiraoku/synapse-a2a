@@ -418,6 +418,48 @@ class TestCanvasServe:
         }
         assert "opened_url" not in calls
 
+    def test_cmd_canvas_serve_opens_browser_when_no_open_false(self, monkeypatch):
+        """cmd_canvas_serve should schedule browser open when no_open is False."""
+        import argparse
+        import types
+
+        from synapse import cli
+
+        calls: dict[str, object] = {}
+        thread_calls: list[dict] = []
+
+        def fake_create_app():
+            calls["app_created"] = True
+            return "app"
+
+        def fake_run(app, host, port, log_level):
+            calls["run"] = {
+                "app": app,
+                "host": host,
+                "port": port,
+                "log_level": log_level,
+            }
+
+        class FakeThread:
+            def __init__(self, *, target, args, daemon):
+                thread_calls.append({"target": target, "args": args, "daemon": daemon})
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr("synapse.canvas.server.create_app", fake_create_app)
+        monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace(run=fake_run))
+        monkeypatch.setattr("threading.Thread", FakeThread)
+
+        args = argparse.Namespace(port=4310, no_open=False)
+        cli.cmd_canvas_serve(args)
+
+        assert len(thread_calls) == 1
+        assert thread_calls[0]["target"] is cli._wait_and_open_browser
+        assert thread_calls[0]["args"] == ("http://localhost:4310",)
+        assert thread_calls[0]["daemon"] is True
+        assert calls["run"]["port"] == 4310
+
 
 # ============================================================
 # TestCanvasBriefing — synapse canvas briefing

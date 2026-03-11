@@ -90,11 +90,11 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | Command | Description |
 |---------|-------------|
 | `synapse canvas serve` | Start Canvas server |
-| `synapse canvas mermaid "..." --title T` | Post Mermaid diagram |
-| `synapse canvas markdown "..." --title T` | Post Markdown document |
-| `synapse canvas table '{...}' --title T` | Post data table |
-| `synapse canvas code "..." --lang py` | Post syntax-highlighted code |
-| `synapse canvas chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas post mermaid "..." --title T` | Post Mermaid diagram |
+| `synapse canvas post markdown "..." --title T` | Post Markdown document |
+| `synapse canvas post table '{...}' --title T` | Post data table |
+| `synapse canvas post code "..." --lang py` | Post syntax-highlighted code |
+| `synapse canvas post chart '{...}' --title T` | Post Chart.js chart |
 | `synapse canvas post-raw '{raw JSON}'` | Post raw Canvas Message JSON |
 | `synapse canvas briefing '{...}'` | Post structured briefing report |
 | `synapse canvas list` | List all cards |
@@ -431,12 +431,12 @@ synapse canvas serve
 synapse canvas serve --port 3001 --no-open
 
 # Post content with format shortcuts
-synapse canvas mermaid "graph TD; A-->B; B-->C" --title "Auth Flow"
-synapse canvas markdown "## Design\nThis system uses..." --title "Design Doc"
-synapse canvas table '{"headers":["a","b"],"rows":[["1","2"]]}' --title "Results"
-synapse canvas code "def foo(): pass" --lang python --title "Impl"
-synapse canvas chart '{"type":"bar","data":{"labels":["Q1","Q2"],"datasets":[{"data":[10,20]}]}}' --title "Coverage"
-synapse canvas image "https://example.com/screenshot.png" --title "Screenshot"
+synapse canvas post mermaid "graph TD; A-->B; B-->C" --title "Auth Flow"
+synapse canvas post markdown "## Design\nThis system uses..." --title "Design Doc"
+synapse canvas post table '{"headers":["a","b"],"rows":[["1","2"]]}' --title "Results"
+synapse canvas post code "def foo(): pass" --lang python --title "Impl"
+synapse canvas post chart '{"type":"bar","data":{"labels":["Q1","Q2"],"datasets":[{"data":[10,20]}]}}' --title "Coverage"
+synapse canvas post image "https://example.com/screenshot.png" --title "Screenshot"
 
 # Post a briefing (structured report with sections)
 synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}'
@@ -446,7 +446,7 @@ synapse canvas briefing --file report.json --title "Sprint Report" --summary "Ex
 synapse canvas post-raw '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
 
 # Common options (all posting commands)
-synapse canvas mermaid "..." --title "T" --id my-card --pin --tag design --tag auth
+synapse canvas post mermaid "..." --title "T" --id my-card --pin --tag design --tag auth
 
 # List and manage cards
 synapse canvas list
