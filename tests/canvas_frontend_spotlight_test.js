@@ -21,6 +21,7 @@ function buildHarness(initialCards, systemAgents) {
     let _spotlightCardId = "";
     let _spotlightUpdatedAt = "";
     let _spotlightSwapTimer = 0;
+    const SPOTLIGHT_SWAP_DELAY = 420;
     function parseContent(raw) { return JSON.parse(raw); }
     function renderTemplate() { return null; }
     function renderBlock(block) {

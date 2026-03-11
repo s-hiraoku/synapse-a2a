@@ -1,3 +1,4 @@
+const vm = require("node:vm");
 const { extractFunction, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
@@ -135,13 +136,23 @@ function buildHarness() {
     globalThis.__renderSystemPanel = renderSystemPanel;
   `;
 
-  global.__env = env;
-  global.__headerCalls = headerCalls;
-  global.__bodyCalls = bodyCalls;
-  // eslint-disable-next-line no-eval -- test harness executes extracted local canvas.js functions in isolation.
-  eval(script);
+  const sandbox = {
+    console,
+    Map,
+    Set,
+    Array,
+    Object,
+    Promise,
+    __env: env,
+    __headerCalls: headerCalls,
+    __bodyCalls: bodyCalls,
+  };
+  sandbox.globalThis = sandbox;
 
-  return { env, headerCalls, bodyCalls, renderSystemPanel: global.__renderSystemPanel };
+  const compiled = new vm.Script(script, { filename: "canvas.js" });
+  compiled.runInNewContext(sandbox, { timeout: 1000 });
+
+  return { env, headerCalls, bodyCalls, renderSystemPanel: sandbox.__renderSystemPanel };
 }
 
 function runCase(data) {

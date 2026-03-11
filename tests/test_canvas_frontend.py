@@ -285,6 +285,45 @@ def test_spotlight_harness_uses_vm_instead_of_eval() -> None:
     assert "eval(script)" not in source
 
 
+def test_system_panel_harness_uses_vm_instead_of_eval() -> None:
+    """The system panel harness should execute extracted code in a vm sandbox."""
+    source = Path("tests/canvas_frontend_system_panel_test.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'require("node:vm")' in source
+    assert "new vm.Script(" in source
+    assert "runInNewContext(" in source or "runInContext(" in source
+    assert "eval(script)" not in source
+
+
+def test_spotlight_swap_delay_uses_named_constant() -> None:
+    """Spotlight swap timing should use a named constant instead of a bare literal."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function markSpotlightSwap()")
+    end = js.index(
+        "\n\n  // ----------------------------------------------------------------",
+        start,
+    )
+    body = js[start:end]
+
+    assert "const SPOTLIGHT_SWAP_DELAY = 420;" in js
+    assert "SPOTLIGHT_SWAP_DELAY" in body
+    assert "}, 420);" not in body
+
+
+def test_extract_function_documents_brace_counting_limitations() -> None:
+    """The helper should document where the brace-counting extractor can fail."""
+    source = Path("tests/canvas_test_helpers.js").read_text(encoding="utf-8")
+
+    assert (
+        "This simple brace-counting extractor assumes the target function body"
+        in source
+    )
+    assert "braces inside strings, template literals, or comments" in source
+    assert "A robust fix would require a real parser or tokenizer." in source
+
+
 def test_render_live_feed_reuses_existing_items() -> None:
     """History live feed should preserve existing DOM nodes instead of rebuilding all rows."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")

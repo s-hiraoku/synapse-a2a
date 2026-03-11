@@ -3,6 +3,11 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync("synapse/canvas/static/canvas.js", "utf8");
 
+// This simple brace-counting extractor assumes the target function body does not
+// contain unmatched braces inside strings, template literals, or comments.
+// That is acceptable for the current canvas.js helpers, but it may fail on other
+// inputs with braces in single-line or multi-line comments or embedded strings.
+// A robust fix would require a real parser or tokenizer.
 function extractFunction(name) {
   const start = source.indexOf(`function ${name}(`);
   if (start === -1) {

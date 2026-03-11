@@ -23,6 +23,7 @@
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarCollapseBtn = document.getElementById("sidebar-collapse");
   const topbarTitle = document.getElementById("topbar-title");
+  const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
   var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
@@ -3523,7 +3524,7 @@
     _spotlightSwapTimer = window.setTimeout(() => {
       canvasSpotlight.classList.remove("spotlight-swap");
       _spotlightSwapTimer = 0;
-    }, 420);
+    }, SPOTLIGHT_SWAP_DELAY);
   }
 
   // ----------------------------------------------------------------
