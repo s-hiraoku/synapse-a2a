@@ -5,13 +5,13 @@ How to operate as a worker agent in a multi-agent team.
 ## On Task Receipt
 
 1. **Start immediately** — `[REPLY EXPECTED]` messages require a response; others are fire-and-forget
-2. **Check the task board** (skip for simple fire-and-forget messages) — verify a task board
-   entry exists for your work. If the delegator forgot to create one, create it yourself:
+2. **Check the task board** — verify a task board entry exists for your work. If the
+   delegator forgot to create and assign one, stop and ask for the `<task_id>` before continuing:
    ```bash
    synapse tasks list
-   # If no entry exists for your assignment:
-   synapse tasks create "<task subject>" -d "<what was delegated>"
-   synapse tasks claim <id>
+   # If no entry exists for your assignment, ask the delegator to run:
+   # synapse tasks create "<task subject>" -d "<what was delegated>"
+   # synapse tasks assign <task_id> $SYNAPSE_AGENT_ID
    ```
 3. **Check shared knowledge first** — other agents may have already solved similar problems:
    ```bash
@@ -25,7 +25,8 @@ How to operate as a worker agent in a multi-agent team.
 ## During Work
 
 Progress reporting prevents managers from sending unnecessary interrupts:
-- **Update task board** as work progresses: `synapse tasks update <id> --status in-progress`
+- **Keep task board lifecycle current**: use `synapse tasks complete <task_id>` when done or
+  `synapse tasks fail <task_id> --reason "<reason>"` when blocked
 - Report progress on long tasks (>5 min): `synapse send <manager> "Progress: task #<id> — <update>" --silent`
 - Report blockers immediately: `synapse send <manager> "<specific question>" --wait`
 - Save discoveries for the team: `synapse memory save <key> "<finding>" --tags <topic>`

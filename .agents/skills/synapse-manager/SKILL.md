@@ -86,17 +86,19 @@ implementation is blocked on confirmed tests/spec:
 synapse tasks create "Write auth tests" \
   -d "Create tests/spec for valid login, invalid credentials, token expiry, refresh flow" \
   --priority 5
+# Returns: task-tests-001
 
 synapse tasks create "Implement auth module" \
   -d "Add OAuth2 with JWT in synapse/auth.py after tests/spec are confirmed. Follow patterns in synapse/server.py." \
   --priority 4 \
-  --blocked-by 1
+  --blocked-by task-tests-001
+# Returns: task-impl-002
 ```
 
 **Assign the test/spec task and confirm scope before implementation starts:**
 ```bash
-synapse tasks assign 1 Tester
-synapse send Tester "Write the tests first and confirm the spec for task #1.
+synapse tasks assign task-tests-001 Tester
+synapse send Tester "Write the tests first and confirm the spec for task task-tests-001.
 - Cover valid login, invalid credentials, token expiry, refresh flow
 - Report any scope gaps before implementation starts" --attach synapse/server.py --force --wait
 ```
@@ -106,7 +108,7 @@ Use `--wait` while confirming tests/spec, then `--silent` or `--notify` once exe
 
 Default expectation:
 - `synapse tasks create` for each meaningful work unit
-- `synapse tasks assign` or `synapse tasks claim` when ownership changes
+- `synapse tasks assign` when ownership changes
 - `synapse tasks complete` when verification passes
 - `synapse tasks fail` when blocked or broken, with a reason the next agent can act on
 
@@ -114,8 +116,8 @@ Default expectation:
 
 After tests/spec are confirmed, assign the implementation task:
 ```bash
-synapse tasks assign 2 Impl
-synapse send Impl "Implement auth module — tests/spec are confirmed in task #1.
+synapse tasks assign task-impl-002 Impl
+synapse send Impl "Implement auth module — tests/spec are confirmed in task task-tests-001.
 - Add OAuth2 flow in synapse/auth.py
 - Follow existing patterns" --attach synapse/server.py --force --silent
 ```
@@ -145,8 +147,8 @@ synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs
 
 **Update task board after decision:**
 ```bash
-# After approve — unblock dependent tasks
-synapse tasks update <task_id> --status in-progress
+# After approve — keep the approved plan moving via assignment/delegation.
+# The task board changes at lifecycle checkpoints (assign, complete, fail, reopen).
 
 # After reject — mark for rework
 synapse tasks reopen <task_id>

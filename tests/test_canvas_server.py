@@ -1072,6 +1072,40 @@ class TestSystemPanel:
             for item in data["active_project_agent_profiles"]
         )
 
+    def test_system_saved_agents_skip_invalid_utf8_agent_files(
+        self, client, tmp_path, monkeypatch
+    ):
+        """Invalid UTF-8 .agent files should be skipped without failing GET /api/system."""
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+
+        user_home = tmp_path / "home"
+        user_agents_dir = user_home / ".synapse" / "agents"
+        user_agents_dir.mkdir(parents=True)
+        (user_agents_dir / "good.agent").write_text(
+            "id=good\nname=Good Agent\nprofile=codex\n",
+            encoding="utf-8",
+        )
+        (user_agents_dir / "bad.agent").write_bytes(b"\xff\xfe\xfa")
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            "synapse.canvas.server.os.path.expanduser",
+            lambda path: (
+                str(registry_dir)
+                if path == "~/.a2a/registry"
+                else str(user_agents_dir)
+                if path == "~/.synapse/agents"
+                else path
+            ),
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert {item["id"] for item in data["user_agent_profiles"]} == {"good"}
+
 
 # ============================================================
 # TestSSE — Server-Sent Events

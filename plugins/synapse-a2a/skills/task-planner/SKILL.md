@@ -68,21 +68,24 @@ Decomposition results go to the **task board** — the team-visible contract:
 synapse tasks create "Write auth tests" \
   -d "Cover valid login, invalid credentials, token expiry" \
   --priority 5
+# Returns: task-tests-001
 
 synapse tasks create "Implement auth module" \
   -d "Add OAuth2 with JWT in synapse/auth.py" \
   --priority 4 \
-  --blocked-by 1
+  --blocked-by task-tests-001
+# Returns: task-impl-002
 
 synapse tasks create "Integration test" \
   -d "End-to-end auth flow verification" \
   --priority 3 \
-  --blocked-by 2
+  --blocked-by task-impl-002
+# Returns: task-int-003
 
 # Assign ownership
-synapse tasks assign 1 Tester
-synapse tasks assign 2 Impl
-synapse tasks assign 3 Tester
+synapse tasks assign task-tests-001 Tester
+synapse tasks assign task-impl-002 Impl
+synapse tasks assign task-int-003 Tester
 ```
 
 Use `--blocked-by` to express dependency chains. Blocked tasks cannot start
@@ -104,7 +107,6 @@ are fine-grained (one per coding step):
 
 Reference task board IDs in all status updates:
 
-- **Done:** "Task #1 complete — 4 tests passing" + `synapse tasks complete 1`
-- **Next:** "Starting task #2 (was blocked by #1)"
-- **Blocked:** "Task #3 blocked — #2 not yet complete" + `synapse tasks fail 3 --reason "..."`
-
+- **Done:** `"Task task-tests-001 complete — 4 tests passing"` + `synapse tasks complete task-tests-001`
+- **Next:** `"Starting task task-impl-002 (was blocked by task-tests-001)"`
+- **Blocked:** `"Task task-int-003 blocked — task-impl-002 not yet complete"` + `synapse tasks fail task-int-003 --reason "..."`
