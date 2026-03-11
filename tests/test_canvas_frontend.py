@@ -155,6 +155,71 @@ def test_dashboard_route_in_js() -> None:
     assert "renderDashboard" in js
 
 
+def test_canvas_view_image_block_can_expand_to_available_height() -> None:
+    """Canvas view image blocks should be allowed to fill the spotlight body."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".canvas-content > .content-block {")
+    end = css.index("}", start)
+    base_block = css[start:end]
+
+    assert "display: flex;" in base_block
+    assert "flex-direction: column;" in base_block
+
+    start = css.index(".canvas-content > .content-block.format-image {")
+    end = css.index("}", start)
+    image_block = css[start:end]
+
+    assert "flex: 1;" in image_block
+    assert "min-height: 0;" in image_block
+
+
+def test_canvas_view_images_use_contained_full_size_scaling() -> None:
+    """Canvas view images should use the full content area without introducing scrollbars."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".canvas-content .format-image img {")
+    end = css.index("}", start)
+    image_rule = css[start:end]
+
+    assert "width: 100%;" in image_rule
+    assert "height: 100%;" in image_rule
+    assert "max-width: 100%;" in image_rule
+    assert "max-height: 100%;" in image_rule
+    assert "object-fit: contain;" in image_rule
+
+
+def test_canvas_view_html_block_can_expand_to_available_height() -> None:
+    """Canvas view HTML blocks should be allowed to fill the spotlight body."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".canvas-content > .content-block.format-html {")
+    end = css.index("}", start)
+    html_block = css[start:end]
+
+    assert "flex: 1;" in html_block
+    assert "min-height: 0;" in html_block
+
+    start = css.index(".canvas-content .format-html iframe {")
+    end = css.index("}", start)
+    iframe_rule = css[start:end]
+
+    assert "width: 100%;" in iframe_rule
+    assert "height: 100%;" in iframe_rule
+    assert "min-height: 0;" in iframe_rule
+
+
+def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
+    """Canvas view charts should not be clamped to viewport or pixel max-heights."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    start = css.index(".canvas-content .format-chart canvas {")
+    end = css.index("}", start)
+    chart_rule = css[start:end]
+
+    assert "max-height: 60vh;" not in chart_rule
+    assert "height: 100%;" in chart_rule
+    assert 'canvas.style.maxHeight = "400px";' not in js
+
+
 def test_dashboard_agent_widget_uses_agents_label() -> None:
     """Dashboard agent widget should use the simpler 'Agents' label."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")

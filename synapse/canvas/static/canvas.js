@@ -1295,7 +1295,6 @@
     }
 
     const canvas = document.createElement("canvas");
-    canvas.style.maxHeight = "400px";
     el.appendChild(canvas);
     new Chart(canvas, config);
   }
