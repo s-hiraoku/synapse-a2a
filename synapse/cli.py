@@ -22,7 +22,11 @@ if TYPE_CHECKING:
     from synapse.history import HistoryManager
 
 from synapse.a2a_client import A2AClient, get_client
-from synapse.agent_profiles import AgentProfileError, AgentProfileStore
+from synapse.agent_profiles import (
+    AgentProfileError,
+    AgentProfileStore,
+    suggest_petname_ids,
+)
 from synapse.auth import generate_api_key
 from synapse.commands.list import ListCommand
 from synapse.commands.session import (
@@ -685,10 +689,20 @@ def _maybe_prompt_save_agent_profile(
     if save not in {"y", "yes"}:
         return
 
-    profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
-    if not profile_id:
-        print_func("Skipped: no saved agent ID provided.")
-        return
+    while True:
+        profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
+        if not profile_id:
+            print_func("Skipped: no saved agent ID provided.")
+            return
+        try:
+            AgentProfileStore._validate_profile_id(profile_id)
+        except AgentProfileError as e:
+            print_func(f"Invalid saved agent ID: {e}")
+            suggestions = suggest_petname_ids(name, role, skill_set, profile)
+            if suggestions:
+                print_func("Try one of: " + ", ".join(suggestions))
+            continue
+        break
 
     raw_scope = input_func("Scope [project/user] (default: project): ").strip().lower()
     if not raw_scope:
@@ -3781,6 +3795,15 @@ def cmd_run_interactive(
             "skipping initial instructions"
         )
 
+    has_mcp_bootstrap = not is_resume and synapse_settings.has_mcp_bootstrap_config(
+        profile
+    )
+    if has_mcp_bootstrap:
+        print(
+            "\x1b[32m[Synapse]\x1b[0m MCP bootstrap detected, "
+            "skipping initial instructions"
+        )
+
     # Create registry and register this agent
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
@@ -3842,8 +3865,12 @@ def cmd_run_interactive(
             print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
 
     # Check if approval is required for initial instructions (skip in headless mode)
-    skip_initial_instructions = is_resume
-    if not headless and not is_resume and synapse_settings.should_require_approval():
+    skip_initial_instructions = is_resume or has_mcp_bootstrap
+    if (
+        not headless
+        and not skip_initial_instructions
+        and synapse_settings.should_require_approval()
+    ):
         from synapse.approval import prompt_for_approval
 
         response = prompt_for_approval(

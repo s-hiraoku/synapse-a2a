@@ -499,6 +499,50 @@ def test_sidebar_collapse_toggle() -> None:
     assert "canvas-sidebar" in source, "JS should persist sidebar state to localStorage"
 
 
+def test_sidebar_header_allows_title_to_wrap_inside_panel() -> None:
+    """Sidebar header should wrap the title instead of overflowing the toggle button."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    heading_block = css.split(".sidebar-header h1 {", 1)[1].split("}", 1)[0]
+
+    assert ".sidebar-header {" in css
+    assert "grid-template-columns: minmax(0, 1fr) auto;" in css
+    assert "white-space: nowrap;" not in heading_block
+
+
+def test_collapsed_sidebar_uses_compact_width() -> None:
+    """Collapsed sidebar should return to a compact width when labels are hidden."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert "body.sidebar-collapsed #sidebar {" in css
+    assert "width: var(--sidebar-collapsed-width);" in css
+    assert "--sidebar-collapsed-width: 56px;" in css
+
+
+def test_collapsed_sidebar_header_hides_title_and_keeps_button_inside() -> None:
+    """Collapsed sidebar should hide the title and keep the toggle inside the panel."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    collapsed_heading_block = css.split(
+        "body.sidebar-collapsed .sidebar-header h1 {", 1
+    )[1].split("}", 1)[0]
+
+    assert "body.sidebar-collapsed .sidebar-header h1 {" in css
+    assert "font-size: 0;" in collapsed_heading_block
+    assert "overflow: hidden;" in collapsed_heading_block
+    assert "justify-content: center;" in collapsed_heading_block
+    assert "body.sidebar-collapsed #sidebar-collapse {" in css
+    collapsed_icon_block = css.split(
+        "body.sidebar-collapsed .sidebar-header h1 .brand-icon {", 1
+    )[1].split("}", 1)[0]
+    assert "display: none;" in collapsed_icon_block
+
+
+def test_collapsed_main_content_margin_matches_sidebar_width() -> None:
+    """Collapsed layout should still shift the main content by the sidebar width."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert "body.sidebar-collapsed #main-content {" in css
+
+
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
     """canvas.js should ignore legacy pin state in the frontend."""
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")

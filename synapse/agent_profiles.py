@@ -188,3 +188,56 @@ class AgentProfileStore:
     def _validate_required(value: str, field_name: str) -> None:
         if not value.strip():
             raise AgentProfileError(f"{field_name} is required")
+
+
+def suggest_petname_ids(*values: str | None, limit: int = 3) -> list[str]:
+    """Suggest a few valid petname-style IDs from user-facing labels."""
+    tokens: list[str] = []
+    seen: set[str] = set()
+
+    for value in values:
+        if not value:
+            continue
+        for token in re.findall(r"[a-z]+", value.lower()):
+            if token in seen:
+                continue
+            seen.add(token)
+            tokens.append(token)
+
+    candidates: list[str] = []
+    used: set[str] = set()
+
+    for i, left in enumerate(tokens):
+        for right in tokens[i + 1 :]:
+            if left == right:
+                continue
+            candidate = f"{left}-{right}"
+            if candidate in used:
+                continue
+            used.add(candidate)
+            candidates.append(candidate)
+            if len(candidates) >= limit:
+                return candidates
+
+    fallbacks = ["agent", "helper", "worker", "guide"]
+    for left in tokens:
+        for right in fallbacks:
+            if left == right:
+                continue
+            candidate = f"{left}-{right}"
+            if candidate in used:
+                continue
+            used.add(candidate)
+            candidates.append(candidate)
+            if len(candidates) >= limit:
+                return candidates
+
+    generic = ["silent-snake", "calm-lead", "steady-builder"]
+    for candidate in generic:
+        if candidate in used:
+            continue
+        candidates.append(candidate)
+        if len(candidates) >= limit:
+            break
+
+    return candidates

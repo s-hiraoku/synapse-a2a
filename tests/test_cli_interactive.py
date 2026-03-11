@@ -175,6 +175,56 @@ class TestCmdRunInteractive:
         assert "not installed" in captured.out
         mock_dependencies["ctrl_cls"].assert_not_called()
 
+    def test_run_interactive_skips_initial_instructions_when_mcp_detected(
+        self, mock_dependencies, capsys
+    ):
+        """MCP bootstrap config should suppress PTY identity injection."""
+        mock_settings = mock_dependencies["settings"].return_value
+        mock_settings.is_resume_mode.return_value = False
+        mock_settings.has_mcp_bootstrap_config.return_value = True
+        mock_settings.should_require_approval.return_value = False
+
+        with patch("synapse.cli.time.sleep"):
+            cmd_run_interactive("test_profile", 8100)
+
+        kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
+        assert kwargs["skip_initial_instructions"] is True
+        captured = capsys.readouterr()
+        assert "MCP bootstrap detected" in captured.out
+
+    def test_run_interactive_keeps_initial_instructions_without_mcp_or_resume(
+        self, mock_dependencies
+    ):
+        """Without resume or MCP bootstrap, PTY identity injection remains on."""
+        mock_settings = mock_dependencies["settings"].return_value
+        mock_settings.is_resume_mode.return_value = False
+        mock_settings.has_mcp_bootstrap_config.return_value = False
+        mock_settings.should_require_approval.return_value = False
+
+        with patch("synapse.cli.time.sleep"):
+            cmd_run_interactive("test_profile", 8100)
+
+        kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
+        assert kwargs["skip_initial_instructions"] is False
+
+    def test_run_interactive_skips_mcp_detection_when_resume(
+        self, mock_dependencies, capsys
+    ):
+        """Resume mode should short-circuit MCP detection and banner output."""
+        mock_settings = mock_dependencies["settings"].return_value
+        mock_settings.is_resume_mode.return_value = True
+        mock_settings.has_mcp_bootstrap_config.return_value = True
+        mock_settings.should_require_approval.return_value = False
+
+        with patch("synapse.cli.time.sleep"):
+            cmd_run_interactive("test_profile", 8100)
+
+        mock_settings.has_mcp_bootstrap_config.assert_not_called()
+        kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
+        assert kwargs["skip_initial_instructions"] is True
+        captured = capsys.readouterr()
+        assert "MCP bootstrap detected" not in captured.out
+
 
 # ============================================================
 # ListCommand._get_agent_data Tests

@@ -192,3 +192,34 @@ def test_save_prompt_asks_when_no_saved_profiles() -> None:
     )
 
     store.add.assert_not_called()  # user declined, but prompt was shown
+
+
+def test_save_prompt_suggests_petname_and_retries_on_invalid_id() -> None:
+    """Invalid IDs should show suggestions and allow retrying with a petname."""
+    store = MagicMock(spec=AgentProfileStore)
+    store.list_all.return_value = []
+    answers = iter(["y", "Alice", "alice-reviewer", "project"])
+    printed: list[str] = []
+
+    _maybe_prompt_save_agent_profile(
+        profile="claude",
+        name="Alice",
+        role="reviewer",
+        skill_set="review-set",
+        headless=False,
+        is_tty=True,
+        input_func=lambda _p: next(answers),
+        print_func=printed.append,
+        store=store,
+    )
+
+    store.add.assert_called_once_with(
+        profile_id="alice-reviewer",
+        name="Alice",
+        profile="claude",
+        role="reviewer",
+        skill_set="review-set",
+        scope="project",
+    )
+    assert any("petname format" in msg for msg in printed)
+    assert any("alice-reviewer" in msg for msg in printed)
