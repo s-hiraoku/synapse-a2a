@@ -1,119 +1,5 @@
-const fs = require("fs");
-
-const source = fs.readFileSync("synapse/canvas/static/canvas.js", "utf8");
-
-function extractFunction(name) {
-  const start = source.indexOf(`function ${name}(`);
-  if (start === -1) {
-    throw new Error(`Function not found: ${name}`);
-  }
-  let braceIndex = source.indexOf("{", start);
-  let depth = 0;
-  for (let i = braceIndex; i < source.length; i += 1) {
-    const ch = source[i];
-    if (ch === "{") depth += 1;
-    if (ch === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(start, i + 1);
-      }
-    }
-  }
-  throw new Error(`Unbalanced function: ${name}`);
-}
-
-class ClassList {
-  constructor() {
-    this.values = new Set();
-  }
-  add(...names) {
-    names.forEach((name) => {
-      this.values.add(name);
-      return undefined;
-    });
-  }
-  toggle(name) {
-    if (this.values.has(name)) {
-      this.values.delete(name);
-      return false;
-    }
-    this.values.add(name);
-    return true;
-  }
-  contains(name) {
-    return this.values.has(name);
-  }
-}
-
-class Element {
-  constructor(tagName, document) {
-    this.tagName = tagName.toUpperCase();
-    this.document = document;
-    this.children = [];
-    this.parentNode = null;
-    this.classList = new ClassList();
-    this.textContent = "";
-    this.id = "";
-    this.className = "";
-    this.style = {};
-    this.listeners = {};
-  }
-
-  appendChild(child) {
-    if (child == null) return child;
-    child.parentNode = this;
-    this.children.push(child);
-    if (child.id) this.document.elementsById.set(child.id, child);
-    return child;
-  }
-
-  addEventListener(type, handler) {
-    this.listeners[type] = handler;
-  }
-
-  set innerHTML(value) {
-    this.children = [];
-    this.textContent = value;
-  }
-
-  get innerHTML() {
-    return this.textContent;
-  }
-
-  get fullText() {
-    let text = this.textContent || "";
-    for (const child of this.children) {
-      text += child.fullText || "";
-    }
-    return text;
-  }
-}
-
-class TextNode {
-  constructor(text) {
-    this.textContent = text;
-    this.fullText = text;
-    this.id = "";
-  }
-}
-
-class Document {
-  constructor() {
-    this.elementsById = new Map();
-  }
-
-  createElement(tag) {
-    return new Element(tag, this);
-  }
-
-  createTextNode(text) {
-    return new TextNode(text);
-  }
-
-  getElementById(id) {
-    return this.elementsById.get(id) || null;
-  }
-}
+const vm = require("node:vm");
+const { extractFunction, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
   const document = new Document();
@@ -250,17 +136,23 @@ function buildHarness() {
     globalThis.__renderSystemPanel = renderSystemPanel;
   `;
 
-  global.__env = env;
-  global.__headerCalls = headerCalls;
-  global.__bodyCalls = bodyCalls;
-  // eslint-disable-next-line no-eval -- test harness executes extracted local canvas.js functions in isolation.
-  eval(script);
+  const sandbox = {
+    console,
+    Map,
+    Set,
+    Array,
+    Object,
+    Promise,
+    __env: env,
+    __headerCalls: headerCalls,
+    __bodyCalls: bodyCalls,
+  };
+  sandbox.globalThis = sandbox;
 
-  return { env, headerCalls, bodyCalls, renderSystemPanel: global.__renderSystemPanel };
-}
+  const compiled = new vm.Script(script, { filename: "canvas.js" });
+  compiled.runInNewContext(sandbox, { timeout: 1000 });
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
+  return { env, headerCalls, bodyCalls, renderSystemPanel: sandbox.__renderSystemPanel };
 }
 
 function runCase(data) {
