@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.14
+
+- **Fixed**: PR Guardian now separates CodeRabbit check from CI checks and waits for review completion before dispatching `/fix-review`
+- **Fixed**: `poll_pr_status.sh` uses `state` field (not `conclusion` which doesn't exist in `gh` CLI)
+- **Fixed**: `/fix-review` skill now verifies each finding against current code before applying fixes
+
 ### v0.11.13
 
 - **Added**: Block-level `x_title` / `x_filename` metadata fields on `ContentBlock` — styled header above any content block (replaces body-embedded metadata envelopes)
