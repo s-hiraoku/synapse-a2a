@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.13
+
+- **Fixed**: Expand canvas image cards to available height
+- **Fixed**: Remove canvas card height caps for image, HTML, and chart spotlight rendering
+- **Tests**: Tighten canvas chart height assertion
+
 ### v0.11.12
 
 - **Fixed**: Use returned task IDs instead of numeric indices in skill docs and guides
