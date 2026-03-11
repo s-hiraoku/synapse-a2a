@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import logging
 import os
 import shutil
@@ -4150,6 +4151,8 @@ def main() -> None:
             role = role or saved.role
             skill_set_arg = skill_set_arg or saved.skill_set
 
+        explicit_port = port is not None
+
         # Auto-select available port if not specified
         if port is None:
             registry = AgentRegistry()
@@ -4180,18 +4183,31 @@ def main() -> None:
                 f"\x1b[32m[Synapse]\x1b[0m Worktree: {wt_info.path} ({wt_info.branch})"
             )
 
-        cmd_run_interactive(
-            profile,
-            port,
-            tool_args,
-            name=name,
-            role=role,
-            no_setup=no_setup,
-            delegate_mode=delegate_mode,
-            skill_set=skill_set_arg,
-            headless=headless,
-            profile_store=startup_store,
-        )
+        while True:
+            try:
+                cmd_run_interactive(
+                    profile,
+                    port,
+                    tool_args,
+                    name=name,
+                    role=role,
+                    no_setup=no_setup,
+                    delegate_mode=delegate_mode,
+                    skill_set=skill_set_arg,
+                    headless=headless,
+                    profile_store=startup_store,
+                )
+                break
+            except OSError as e:
+                if explicit_port or e.errno != errno.EADDRINUSE:
+                    raise
+
+                registry = AgentRegistry()
+                port_manager = PortManager(registry)
+                next_port = port_manager.get_available_port(profile)
+                if next_port is None or next_port == port:
+                    raise
+                port = next_port
         return
 
     from importlib.metadata import version

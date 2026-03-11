@@ -135,7 +135,8 @@ synapse tasks assign task-impl-001 Cody
 
 # Create and assign task #2
 synapse tasks create "Write OAuth2 integration tests" \
-  -d "Cover token exchange, refresh, and error paths"
+  -d "Cover token exchange, refresh, and error paths" \
+  --blocked-by task-impl-001
 # Returns: task-test-002
 synapse tasks assign task-test-002 Gem
 ```

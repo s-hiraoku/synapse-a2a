@@ -123,7 +123,10 @@ def _read_agent_profiles_from_dir(
                     "scope": scope,
                 }
             )
-        except OSError:
+        except (OSError, UnicodeDecodeError) as exc:
+            logger.warning(
+                "Skipping unreadable saved agent file %s: %s", file_path, exc
+            )
             continue
     return profiles
 

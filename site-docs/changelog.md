@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.12
+
+- **Fixed**: Use returned task IDs instead of numeric indices in skill docs and guides
+- **Fixed**: Handle invalid UTF-8 `.agent` files in canvas saved agent reader
+
 ### v0.11.11
 
 - **Added**: Anthropic official skill-creator plugin, pr-guardian skill with auto-trigger hook

@@ -35,6 +35,8 @@ This ensures that all delegated work is tracked, ownership is clear, and no task
     ```bash
     synapse tasks list                        # Check for existing entry
     synapse tasks create "Received task" -d "..." # Create if missing
+    # Returns: <new_task_id>
+    synapse tasks assign <new_task_id> <agent>    # Assign to yourself immediately
     ```
 
 ## Creating Tasks
