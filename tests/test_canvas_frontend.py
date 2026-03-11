@@ -216,7 +216,7 @@ def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
     chart_rule = css[start:end]
 
     assert "max-height: 60vh;" not in chart_rule
-    assert "height: 100%;" in chart_rule or "max-height: 100%;" in chart_rule
+    assert "height: 100%;" in chart_rule
     assert 'canvas.style.maxHeight = "400px";' not in js
 
 
