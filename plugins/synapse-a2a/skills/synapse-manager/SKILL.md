@@ -98,6 +98,10 @@ synapse tasks create "Implement auth module" \
 `synapse tasks create` stores a full UUID and prints its first 8 characters.
 Use that prefix (or the full UUID) for `--blocked-by`, `synapse tasks assign`,
 and `synapse tasks complete`.
+In practice that means the implementation task should use a dependency like
+`--blocked-by 3f2a1b4c`, where `3f2a1b4c` is the created test task's UUID prefix.
+Conceptually this is still "implementation --blocked-by tests"; the concrete
+value just needs to be the created test task's UUID prefix.
 
 **Assign the test/spec task and confirm scope before implementation starts:**
 ```bash
