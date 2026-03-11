@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -136,3 +137,68 @@ def test_resolve_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     _, kwargs = mock_run.call_args
     assert kwargs["name"] == "Strategist"
     assert kwargs["role"] == "code reviewer"
+
+
+def test_auto_selected_port_retries_on_bind_conflict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Auto-selected ports should retry on EADDRINUSE and advance to next port."""
+    _setup_store(tmp_path, monkeypatch)
+    import sys
+
+    monkeypatch.setattr(
+        sys, "argv", ["synapse", "claude", "--agent", "wise-strategist"]
+    )
+
+    mock_run = MagicMock(
+        side_effect=[
+            OSError(errno.EADDRINUSE, "address already in use"),
+            None,
+        ]
+    )
+    mock_port_mgr = MagicMock()
+    mock_port_mgr.get_available_port.side_effect = [8100, 8101]
+
+    with (
+        patch("synapse.cli.cmd_run_interactive", mock_run),
+        patch("synapse.cli.PortManager", return_value=mock_port_mgr),
+        patch("synapse.cli.AgentRegistry"),
+        patch("synapse.cli.install_skills"),
+    ):
+        from synapse.cli import main
+
+        main()
+
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].args[1] == 8100
+    assert mock_run.call_args_list[1].args[1] == 8101
+
+
+def test_explicit_port_does_not_retry_on_bind_conflict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Explicit --port should surface the bind error instead of silently moving."""
+    _setup_store(tmp_path, monkeypatch)
+    import sys
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["synapse", "claude", "--agent", "wise-strategist", "--port", "8105"],
+    )
+
+    err = OSError(errno.EADDRINUSE, "address already in use")
+    mock_run = MagicMock(side_effect=err)
+
+    with (
+        patch("synapse.cli.cmd_run_interactive", mock_run),
+        patch("synapse.cli.PortManager"),
+        patch("synapse.cli.AgentRegistry"),
+        patch("synapse.cli.install_skills"),
+        pytest.raises(OSError, match="address already in use"),
+    ):
+        from synapse.cli import main
+
+        main()
+
+    mock_run.assert_called_once()
