@@ -5,14 +5,14 @@ description: Automatically address CodeRabbit review comments on the current PR.
 
 # Fix CodeRabbit Review Comments
 
-This skill automatically addresses CodeRabbit review comments by fetching inline comments, classifying their severity, applying targeted fixes, and pushing the result.
+This skill automatically addresses CodeRabbit review comments by fetching inline comments, classifying their severity, **verifying each finding against the current code**, applying targeted fixes, and pushing the result.
 
 ## Usage
 
 ```
 /fix-review           # Auto-fix actionable CodeRabbit comments
 /fix-review --dry-run # Show what would be fixed without applying
-/fix-review --all     # Also attempt to fix suggestions (not just bugs/style)
+/fix-review --all     # Also attempt to fix suggestions and nitpicks (not just bugs/style)
 ```
 
 ## Workflow
@@ -42,26 +42,73 @@ gh api "repos/<owner>/<repo>/pulls/<pr_number>/reviews" \
   --jq '[.[] | select(.user.login == "coderabbitai[bot]")]'
 ```
 
-Fetch inline comments:
+Fetch inline comments (including outside-diff and nitpick comments):
 
 ```bash
 gh api "repos/<owner>/<repo>/pulls/<pr_number>/comments" \
-  --jq '[.[] | select(.user.login == "coderabbitai[bot]") | {id, path, line, original_line, diff_hunk, body, created_at}]'
+  --jq '[.[] | select(.user.login == "coderabbitai[bot]") | {id, path, line, original_line, diff_hunk, body, created_at, subject_type}]'
+```
+
+Also fetch PR-level review body comments (CodeRabbit often posts a summary review with actionable items in the review body itself):
+
+```bash
+gh api "repos/<owner>/<repo>/pulls/<pr_number>/reviews" \
+  --jq '[.[] | select(.user.login == "coderabbitai[bot]" and .body != "") | {id, body, state}]'
 ```
 
 If no CodeRabbit reviews or comments exist, report "No CodeRabbit review comments found on this PR." and stop.
 
-### Step 3: Classify Comments
+### Step 3: Parse Comment Sections
 
-For each inline comment, classify it into one of three categories based on the comment body.
+CodeRabbit structures its review body into distinct sections. Parse each section:
 
-**Priority rule**: If a comment contains a ````suggestion` code block, it is always auto-fixable regardless of category — apply the suggestion directly. Classification then only affects reporting priority.
+- **Inline comments** (`In \`@file\`:` blocks): These reference specific files and line ranges
+- **Outside diff comments**: Comments about code not in the current diff but affected by changes
+- **Nitpick comments**: Low-priority style/improvement suggestions
+- **Duplicate comments**: Comments that repeat across review rounds (may already be fixed)
+
+For each comment, extract:
+- **File path** (from `@file` reference or inline comment path)
+- **Line range** (approximate — verify against current code)
+- **Referenced symbols** (function names, class names, CSS selectors mentioned)
+- **The specific ask** (what change is requested)
+
+### Step 4: Verify Each Finding Against Current Code
+
+**CRITICAL STEP — Do not skip this.** For each comment:
+
+1. **Read the referenced file** at the specified path
+2. **Locate the exact code** referenced by the comment using:
+   - Line numbers (may have shifted — use symbol names as anchors)
+   - Function/class/variable names mentioned in the comment
+   - Code snippets quoted in the comment body
+3. **Confirm the issue still exists** in the current code:
+   - If the code has already been fixed (e.g., by a previous commit), mark as "already resolved" and skip
+   - If the referenced code no longer exists (refactored away), mark as "no longer applicable" and skip
+   - If the issue exists as described, proceed to classification
+4. **Check for consistency with implementation** — when a comment says "option X should be Y", verify by reading the actual argparse/CLI definition, not just the referenced doc line. Cross-reference:
+   - CLI option names: check `synapse/cli.py` argparse definitions
+   - Function signatures: check the actual function definition
+   - API endpoints: check the server route definitions
+   - CSS classes: check both `.css` and `.js` files that reference them
+
+### Step 5: Classify Comments
+
+For each **verified** comment, classify into categories:
+
+**Priority rule**: If a comment contains a ` ```suggestion ` code block, it is always auto-fixable regardless of category — apply the suggestion directly. Classification then only affects reporting priority.
 
 **Bug/Security** (auto-fix):
 - CodeRabbit header markers: `⚠️ Potential issue`, `🐛 Bug`, `🔒 Security`
 - Keywords in body (case-insensitive): `bug`, `error`, `security`, `vulnerability`, `incorrect`, `wrong`, `crash`, `leak`, `null`, `undefined`, `race condition`, `injection`, `xss`, `overflow`, `missing check`, `unhandled`, `exception`, `type error`, `not defined`
 - Pattern: comment describes *what is broken*, not what could be improved
 - Edge case: if body contains both a bug keyword AND `consider`/`might want to`, classify as Bug (err on side of safety)
+
+**Inconsistency** (auto-fix):
+- Comments about documentation/code mismatch (e.g., docs say `--id` but CLI uses `--card-id`)
+- Comments about DOM structure inconsistency (e.g., meta inside `<pre>` in one renderer but outside in another)
+- Comments about naming differences between files
+- **Always verify both sides**: read both the doc AND the implementation to determine which is correct
 
 **Style** (auto-fix):
 - CodeRabbit header markers: `🧹 Nitpick`, `📝 Style`
@@ -75,16 +122,17 @@ For each inline comment, classify it into one of three categories based on the c
 - Default: any comment that does not match Bug/Security or Style patterns falls here
 - Edge case: `suggest` alone is NOT a Style keyword — it goes to Suggestion unless a `suggestion` code block is present (which makes it auto-fixable)
 
-### Step 4: Apply Fixes
+### Step 6: Apply Fixes
 
-For each actionable comment (Bug/Security and Style categories):
+For each actionable comment (Bug/Security, Inconsistency, and Style categories):
 
 1. Read the file at the specified path
-2. Navigate to the specified line number
+2. Locate the exact code using symbol names (not just line numbers, which shift)
 3. Analyze the comment body for:
-   - **Code suggestion blocks** (````suggestion` markers in the comment): Apply the suggested code directly
+   - **Code suggestion blocks** (` ```suggestion ` markers): Apply the suggested code directly
    - **Descriptive feedback**: Understand the issue and implement an appropriate fix
 4. Apply the fix to the file
+5. **After each fix, verify the change is correct** — re-read the modified code to confirm it matches the intent
 
 For Style issues that ruff can handle:
 
@@ -95,7 +143,7 @@ ruff format synapse/ tests/
 
 If `--dry-run` flag is provided: show each comment with its classification and proposed fix, but do NOT modify files, commit, or push.
 
-### Step 5: Local Verification
+### Step 7: Local Verification
 
 After applying all fixes:
 
@@ -115,7 +163,7 @@ If any check fails after fixing:
 - Attempt one targeted correction
 - If it still fails, revert the problematic fix and report it as unresolvable
 
-### Step 6: Commit and Push
+### Step 8: Commit and Push
 
 Stage and commit the changes:
 
@@ -137,10 +185,11 @@ Reported (not auto-fixed):
 git push
 ```
 
-### Step 7: Report Summary
+### Step 9: Report Summary
 
 Report what was done:
-- Number of comments addressed (by category)
+- Number of comments addressed (by category: bug, inconsistency, style, suggestion)
+- Number of comments verified as already resolved or not applicable
 - Files modified
 - Comments left as suggestions (not auto-fixed)
 - Whether all local checks pass
@@ -157,8 +206,10 @@ Report what was done:
 
 ## Safety
 
-- Only fixes Bug/Security and Style categories by default
+- Only fixes Bug/Security, Inconsistency, and Style categories by default
 - Suggestions are reported but not auto-fixed (unless `--all`)
+- **Every finding is verified against current code before fixing**
+- Cross-references implementation (argparse, routes, etc.) when fixing doc/code mismatches
 - Local verification before pushing
 - One retry per failed fix, then revert
 - CodeRabbit's `profile: "chill"` means suggestions are advisory, not blocking
