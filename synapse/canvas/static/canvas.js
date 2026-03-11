@@ -3357,11 +3357,11 @@
   // ----------------------------------------------------------------
   function renderSpotlight() {
     if (!canvasSpotlight) return;
-    canvasSpotlight.innerHTML = "";
 
     const allCards = [...cards.values()];
     if (allCards.length === 0) {
-      // Empty state
+      // Empty state — clear now since we know there is nothing to render
+      canvasSpotlight.innerHTML = "";
       const empty = document.createElement("div");
       empty.className = "canvas-empty";
       const icon = document.createElement("div");
@@ -3430,6 +3430,9 @@
     if (card.card_id === _spotlightCardId && card.updated_at === _spotlightUpdatedAt) {
       return;
     }
+
+    // Clear DOM only after determining the final card to display
+    canvasSpotlight.innerHTML = "";
     _spotlightCardId = card.card_id;
     _spotlightUpdatedAt = card.updated_at;
 
