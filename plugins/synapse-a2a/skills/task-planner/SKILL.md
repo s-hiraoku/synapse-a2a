@@ -109,4 +109,4 @@ Reference task board IDs in all status updates:
 
 - **Done:** `"Task task-tests-001 complete — 4 tests passing"` + `synapse tasks complete task-tests-001`
 - **Next:** `"Starting task task-impl-002 (was blocked by task-tests-001)"`
-- **Blocked:** `"Task task-int-003 blocked — task-impl-002 not yet complete"` + `synapse tasks fail task-int-003 --reason "..."`
+- **Blocked:** `"Task task-int-003 waiting — blocked by task-impl-002 (dependency will auto-unblock on completion)"`

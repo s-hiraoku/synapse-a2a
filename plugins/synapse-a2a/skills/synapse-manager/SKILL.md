@@ -222,7 +222,7 @@ synapse send Impl "Review test coverage. Focus on: missing cases, assertion qual
 **Final verification and cleanup:**
 ```bash
 pytest --tb=short -q                      # All tests pass
-synapse tasks complete 1 && synapse tasks complete 2
+synapse tasks complete task-tests-001 && synapse tasks complete task-impl-002
 synapse kill Impl -f && synapse kill Tester -f
 synapse list                              # Verify cleanup
 ```

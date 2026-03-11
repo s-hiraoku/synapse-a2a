@@ -320,7 +320,7 @@ Beyond explicit messaging, the synapse-a2a skill teaches agents structured colla
 
 1. If the message contains `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
 2. **Verify the task board** -- check that a task board entry exists for your work. If the delegator forgot to create one, use the safety-net flow and keep the returned task ID for completion reporting:
-   `synapse tasks list` then, if missing, `synapse tasks create "..." -d "..."`, note the returned `<new_task_id>`, and immediately `synapse tasks assign <new_task_id> <your_user>`. Use that same `<new_task_id>` in Step 5 for `synapse tasks complete <task_id>` and the completion `synapse send`.
+   `synapse tasks list` then, if missing, `synapse tasks create "..." -d "..."`, note the returned `<new_task_id>`, and immediately `synapse tasks assign <new_task_id> $SYNAPSE_AGENT_ID`. Use that same `<new_task_id>` in Step 5 for `synapse tasks complete <task_id>` and the completion `synapse send`.
 3. Identify independent work units and delegate them via `synapse spawn` + `synapse send --silent` to reduce your context and parallelize
 4. Execute the remaining work yourself
 5. Report completion: `synapse tasks complete <task_id>` then `synapse send <sender> "Done: <summary>" --silent`
