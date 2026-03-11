@@ -2420,6 +2420,13 @@ def cmd_canvas_serve(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     app = create_app()
+    if not args.no_open:
+        import threading
+
+        url = f"http://localhost:{port}"
+        threading.Thread(
+            target=_wait_and_open_browser, args=(url,), daemon=True
+        ).start()
     print(f"Starting Canvas server on http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
 
@@ -2567,6 +2574,32 @@ def cmd_canvas_briefing(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
+    """Poll Canvas health endpoint until ready, then open in browser."""
+    import time
+    import urllib.request
+
+    health_url = url.rstrip("/") + "/api/health"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            resp = urllib.request.urlopen(health_url, timeout=1)
+            if resp.status == 200:
+                _open_canvas_browser(url)
+                return
+        except Exception:
+            pass
+        time.sleep(0.3)
+
+
+def _open_canvas_browser(url: str) -> None:
+    """Open *url* in the default browser and log the action."""
+    import webbrowser
+
+    webbrowser.open(url)
+    print(f"Opened {url} in browser")
+
+
 def cmd_canvas_open(args: argparse.Namespace) -> None:
     """Open Canvas in browser."""
     from synapse.commands.canvas import ensure_server_running
@@ -2575,11 +2608,7 @@ def cmd_canvas_open(args: argparse.Namespace) -> None:
     port = args.port or CANVAS_DEFAULT_PORT
     ensure_server_running(port=port)
 
-    import webbrowser
-
-    url = f"http://localhost:{port}"
-    webbrowser.open(url)
-    print(f"Opened {url} in browser")
+    _open_canvas_browser(f"http://localhost:{port}")
 
 
 def cmd_canvas_status(args: argparse.Namespace) -> None:
@@ -5901,6 +5930,11 @@ Scopes:
     p_canvas_serve = canvas_subparsers.add_parser("serve", help="Start Canvas server")
     p_canvas_serve.add_argument(
         "--port", type=int, default=None, help="Server port (default: 3000)"
+    )
+    p_canvas_serve.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open Canvas in the browser after starting the server",
     )
     p_canvas_serve.set_defaults(func=cmd_canvas_serve)
 

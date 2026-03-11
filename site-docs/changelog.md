@@ -6,9 +6,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.11.13
 
-- **Fixed**: Expand canvas image cards to available height
-- **Fixed**: Remove canvas card height caps for image, HTML, and chart spotlight rendering
-- **Tests**: Tighten canvas chart height assertion
+- **Added**: Block-level `x_title` / `x_filename` metadata fields on `ContentBlock` — styled header above any content block (replaces body-embedded metadata envelopes)
+- **Added**: Toast batching for burst SSE updates — multiple card events within 300ms are collapsed into a single summary toast (e.g., "3 cards updated")
+- **Added**: SSE initial-connect dedup — `loadCards()` is no longer called redundantly on the first SSE open, only on reconnect
+- **Added**: `tip` card format for rendering helpful hints and tips
+- **Added**: Browser auto-open on `synapse canvas serve` (suppress with `--no-open`)
+- **Fixed**: Remove canvas card height caps — chart cards now expand to fill available space instead of being capped at 400px
+- **Fixed**: Expand canvas image cards to available height — images use full viewport area in Canvas view
+- **Fixed**: HTML iframe rendering in Canvas view uses full-document structure for consistent height
 
 ### v0.11.12
 

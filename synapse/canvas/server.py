@@ -635,21 +635,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
         # Serialize content to JSON string for storage
         if isinstance(msg.content, list):
             content_json = json.dumps(
-                [
-                    {
-                        "format": b.format,
-                        "body": b.body,
-                        **({"lang": b.lang} if b.lang else {}),
-                    }
-                    for b in msg.content
-                ],
+                [b.to_dict() for b in msg.content],
                 ensure_ascii=False,
             )
         else:
-            d: dict[str, Any] = {"format": msg.content.format, "body": msg.content.body}
-            if msg.content.lang:
-                d["lang"] = msg.content.lang
-            content_json = json.dumps(d, ensure_ascii=False)
+            content_json = json.dumps(msg.content.to_dict(), ensure_ascii=False)
 
         if msg.card_id:
             # Check if card already exists (for status code decision)

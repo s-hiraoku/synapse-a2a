@@ -63,6 +63,68 @@ def test_canvas_guide_links_to_card_gallery() -> None:
     assert "Card Gallery" in text
 
 
+def test_canvas_guide_documents_block_level_metadata_and_supported_scope() -> None:
+    text = _read("site-docs/guide/canvas.md")
+
+    assert "x_title" in text
+    assert "x_filename" in text
+    assert "block-level metadata" in text
+    for fmt in ("mermaid", "json", "code", "log", "checklist", "trace", "tip"):
+        assert fmt in text, f"expected format '{fmt}' in block-level metadata docs"
+
+
+def test_canvas_cli_docs_use_current_post_commands() -> None:
+    readme = _read("README.md")
+    cli_ref = _read("site-docs/reference/cli.md")
+    guide = _read("site-docs/guide/canvas.md")
+    cheatsheet = _read("site-docs/reference/cli-cheatsheet.md")
+
+    assert "--no-open" in readme
+    assert "--no-open" in cli_ref
+    assert 'synapse canvas post <format> "<body>"' in cli_ref
+    assert 'synapse canvas <format> "<body>"' not in cli_ref
+    assert "synapse canvas post-raw '<Canvas Message JSON>'" in cli_ref
+    assert "synapse canvas post '<Canvas Message JSON>'" not in cli_ref
+    assert "Other templates can be posted via the `post-raw` command" in guide
+    assert "synapse canvas post-raw '<Canvas Message JSON>'" in guide
+    assert "synapse canvas post '<Canvas Message JSON>'" not in guide
+    assert 'synapse canvas post mermaid "..." --title T' in cheatsheet
+    assert "synapse canvas post-raw '{raw JSON}'" in cheatsheet
+    assert "synapse canvas post '{raw JSON}'" not in cheatsheet
+
+
+def test_canvas_guide_documents_block_level_metadata_instead_of_body_envelopes() -> (
+    None
+):
+    text = _read("site-docs/guide/canvas.md")
+
+    assert "x_title" in text
+    assert "x_filename" in text
+    assert "block-level metadata" in text
+    assert "{source, title?, filename?}" not in text
+    assert "{data, title?, filename?}" not in text
+    assert "{code, title?, filename?, lang?}" not in text
+
+
+def test_canvas_design_doc_describes_metadata_for_supported_formats() -> None:
+    text = _read("docs/design/canvas.md")
+
+    assert "x_title" in text
+    assert "x_filename" in text
+    assert "mermaid, json, code, log, checklist, trace, tip" in text
+    assert "body-embedded metadata pattern" in text
+
+
+def test_canvas_cli_docs_note_no_open_and_post_raw_for_structured_cards() -> None:
+    readme = _read("README.md")
+    cli_ref = _read("site-docs/reference/cli.md")
+
+    assert "--no-open" in readme
+    assert "--no-open" in cli_ref
+    assert "post-raw" in cli_ref
+    assert "structured cards" in cli_ref or "structured card" in cli_ref
+
+
 def test_mcp_bootstrap_design_doc_covers_key_decisions() -> None:
     text = _read("docs/design/mcp-bootstrap.md")
 

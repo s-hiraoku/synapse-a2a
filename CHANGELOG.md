@@ -5,16 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.13] - 2026-03-11
+## [0.11.13] - 2026-03-12
+
+### Added
+
+- block-level `x_title` / `x_filename` metadata fields on ContentBlock for styled headers
+- toast batching for burst SSE updates (300ms debounce window)
+- SSE initial-connect dedup to prevent redundant `loadCards()` on first open
+- `--no-open` flag for `synapse canvas serve` to suppress browser auto-open
+- browser auto-open on `synapse canvas serve` via `threading.Timer`
+
+### Changed
+
+- consolidate `_block_dict` into `ContentBlock.to_dict()` (DRY across server/commands/protocol)
+- use `const`/`let` instead of `var` in toast batching code
 
 ### Fixed
 
+- mermaid rendering broken by metadata embedded in body — moved to block-level fields
+- HTML iframe rendering in Canvas view uses full-document structure for consistent height
+- remove canvas card height caps — charts expand to fill available space
 - expand canvas image cards to available height
-- remove canvas card height caps
+
+### Documentation
+
+- update `docs/design/canvas.md` for metadata fields, toast batching, mermaid panel
+- update site-docs guide and changelog for v0.11.13
 
 ### Tests
 
 - tighten canvas chart height assertion
+- add `TestCanvasServe` for `--port` and `--no-open` flags
+- update frontend tests for `buildMetaRow`, mermaid-panel, options-based HTML detection
 
 ## [0.11.12] - 2026-03-11
 

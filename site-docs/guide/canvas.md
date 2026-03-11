@@ -128,6 +128,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `progress` | `{current, total, label, steps, status}` | Progress bar | Progress bar with steps (status: in_progress, completed, failed, paused) |
 | `terminal` | Plain text (ANSI supported) | Terminal output | Terminal output with ANSI color support |
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
+| `tip` | Plain text | Tip callout | Helpful hints and tips |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation table |
 
 !!! tip "Mermaid Theme Integration"
@@ -138,6 +139,30 @@ The `content.format` field determines how `content.body` is rendered. New format
 
 !!! tip "The `html` Escape Hatch"
     When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the History view (`#/history`), the iframe auto-resizes to fit its content.
+
+!!! tip "Block-Level Metadata (`x_title` / `x_filename`)"
+    Supported renderers (`mermaid`, `json`, `code`, `log`, `checklist`, `trace`, and `tip`) accept optional `x_title` and `x_filename` fields that render a styled header above the content. This block-level metadata keeps decorative labels out of the base `body` schema and follows the A2A `x-` extension convention.
+
+    ```json
+    {
+      "format": "mermaid",
+      "body": "graph TD; A-->B",
+      "x_title": "Auth Flow",
+      "x_filename": "docs/auth.mmd"
+    }
+    ```
+
+    ```json
+    {
+      "format": "code",
+      "body": "def foo(): pass",
+      "lang": "python",
+      "x_title": "Implementation",
+      "x_filename": "src/foo.py"
+    }
+    ```
+
+    When either field is set, a metadata row appears above the rendered content showing the title and/or filename. Both fields are optional and independent.
 
 !!! tip "Images: PNG, JPEG, SVG, and more"
     The `image` format accepts any image the browser can render via `<img src>`. Use a URL for large images, or Base64 data URIs for inline embedding (up to 2MB).
@@ -326,7 +351,7 @@ Other templates can be posted via the `post-raw` command with the `template` and
 ### Posting (Full Control)
 
 ```bash
-synapse canvas post '<Canvas Message JSON>'
+synapse canvas post-raw '<Canvas Message JSON>'
 ```
 
 ### Search and Management
@@ -356,6 +381,7 @@ synapse canvas post task-board '{"columns":[{"name":"Todo","items":[{"id":"1","s
 synapse canvas post progress '{"current":3,"total":7,"label":"Migration","steps":["Schema","Data","Indexes","Views","Procs","Test","Deploy"],"status":"in_progress"}' --title "Progress"
 synapse canvas post terminal 'Building project...\n\033[32m✓ Compiled 42 files\033[0m\n\033[31m✗ 2 errors found\033[0m' --title "Build Output"
 synapse canvas post dependency-graph '{"nodes":[{"id":"auth","group":"core"},{"id":"api","group":"core"},{"id":"ui","group":"frontend"}],"edges":[{"from":"ui","to":"api"},{"from":"api","to":"auth"}]}' --title "Dependencies"
+synapse canvas post tip 'Remember to run tests before pushing' --title "Reminder"
 synapse canvas post cost '{"agents":[{"name":"claude","input_tokens":15000,"output_tokens":8000,"cost":0.12},{"name":"gemini","input_tokens":20000,"output_tokens":5000,"cost":0.05}],"total_cost":0.17,"currency":"USD"}' --title "Token Costs"
 ```
 
@@ -513,5 +539,5 @@ The History view shows the traditional card grid with live feed and agent messag
 - **Card Grid**: All cards in a responsive grid layout
 - **Filter bar**: Filter by format type and by agent
 - **Dark/light theme**: Manual toggle via sidebar button, persisted in `localStorage("canvas-theme")` (defaults to dark). Mermaid diagrams re-render automatically when the theme changes, using palette-matched colors for each mode.
-- **Toast notifications**: `notify` type shows ephemeral messages
+- **Toast notifications**: `notify` type shows ephemeral messages. Toasts are **batched** within a 300ms window -- when multiple SSE events arrive in a burst, a single summary toast (e.g., "3 cards updated") is shown instead of individual toasts for each event.
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp

@@ -98,6 +98,19 @@ class ContentBlock:
     format: str
     body: str | dict | list
     lang: str | None = None
+    x_title: str | None = None
+    x_filename: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict for JSON transport / DB storage."""
+        d: dict[str, Any] = {"format": self.format, "body": self.body}
+        if self.lang is not None:
+            d["lang"] = self.lang
+        if self.x_title is not None:
+            d["x_title"] = self.x_title
+        if self.x_filename is not None:
+            d["x_filename"] = self.x_filename
+        return d
 
 
 @dataclass
@@ -117,17 +130,10 @@ class CanvasMessage:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for JSON transport."""
-
-        def _block_to_dict(block: ContentBlock) -> dict[str, Any]:
-            d: dict[str, Any] = {"format": block.format, "body": block.body}
-            if block.lang is not None:
-                d["lang"] = block.lang
-            return d
-
         if isinstance(self.content, list):
-            content_val: Any = [_block_to_dict(b) for b in self.content]
+            content_val: Any = [b.to_dict() for b in self.content]
         else:
-            content_val = _block_to_dict(self.content)
+            content_val = self.content.to_dict()
 
         d = {
             "type": self.type,
@@ -155,6 +161,8 @@ class CanvasMessage:
                     format=b.get("format", ""),
                     body=b.get("body", ""),
                     lang=b.get("lang"),
+                    x_title=b.get("x_title"),
+                    x_filename=b.get("x_filename"),
                 )
                 for b in raw_content
                 if isinstance(b, dict)
@@ -164,6 +172,8 @@ class CanvasMessage:
                 format=raw_content.get("format", ""),
                 body=raw_content.get("body", ""),
                 lang=raw_content.get("lang"),
+                x_title=raw_content.get("x_title"),
+                x_filename=raw_content.get("x_filename"),
             )
         else:
             content = ContentBlock(format="", body="")

@@ -56,7 +56,7 @@ The `content.format` field determines how `content.body` is rendered. This is th
 
 | Format | Body | Renderer | Use Case |
 |---|---|---|---|
-| `mermaid` | Mermaid source | mermaid.js | Flowcharts, sequence diagrams, ER diagrams, Gantt |
+| `mermaid` | Mermaid source string | mermaid.js | Flowcharts, sequence diagrams, ER diagrams, Gantt |
 | `markdown` | Markdown text | Built-in `simpleMarkdown` parser | Design docs, explanations, formatted text (tables, blockquotes, ordered/unordered lists, headings, code blocks, horizontal rules, inline formatting) |
 | `html` | Raw HTML string | Sandboxed iframe | Full freedom — any visual expression |
 | `table` | `{headers: [...], rows: [[...]]}` | Native HTML | Structured data, test results, comparisons |
@@ -79,6 +79,8 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation |
 | `tip` | String | Styled tip card | System tips and suggestions |
+
+**Block-level metadata**: Any content block can carry optional `x_title` and `x_filename` fields. Renderers (mermaid, json, code, log, checklist, trace, tip) use `buildMetaRow()` to display this metadata above the rendered content. This replaces the earlier body-embedded metadata pattern (`{source, title?, filename?}`) and `parseBodyWithKey()` helper, which have been removed.
 
 **Key: `html` format** — This is the escape hatch. When no predefined format fits, agents can send raw HTML. This makes expression essentially unlimited.
 
@@ -124,6 +126,8 @@ All commands are available to both agents and humans. No distinction.
 ```bash
 synapse canvas serve [--port 3000] [--no-open]    # Start Canvas server (auto-opens browser)
 ```
+
+When `--no-open` is **not** set, the CLI schedules browser auto-open via `_open_canvas_browser()` on a 1-second `threading.Timer`, giving the server time to bind the port before launching the browser.
 
 ### Server Auto-Start
 
@@ -419,11 +423,19 @@ data: {"timestamp": "..."} // Triggers /api/system refetch
 
 #### SSE Reconnection
 
-When the SSE connection drops (e.g., server restart, network interruption), `EventSource` auto-reconnects. On reconnection, `es.onopen` triggers a full card re-sync via `loadCards()` to pick up any changes that occurred during the disconnect. This ensures the browser UI never shows stale data after a reconnection.
+When the SSE connection drops (e.g., server restart, network interruption), `EventSource` auto-reconnects. A `_sseHasConnected` guard ensures that `es.onopen` only triggers `loadCards()` on **re**-connections, not on the initial connect (which already loads cards during page init). This prevents a redundant double-load on first page open while still ensuring the browser UI never shows stale data after a reconnection.
 
 #### SSE-Only Updates (No Polling)
 
 All real-time updates are delivered exclusively via SSE events. There is no periodic `setInterval` polling. The `system_update` event triggers a `/api/system` refetch in the Dashboard view, keeping all widgets current without any client-side timer.
+
+#### Toast Batching
+
+Toast notifications are batched within a 300ms window (`TOAST_BATCH_MS`) to prevent burst flooding when multiple cards arrive in quick succession. `showToast()` enqueues messages and resets the batch timer; `_flushToasts()` fires after the window closes. A single-message batch shows the card title and agent label. A multi-message batch shows a summary count (e.g., "3 cards updated").
+
+### Mermaid Panel Wrapper
+
+When a mermaid block carries `x_title` or `x_filename` metadata, the renderer wraps the `<pre class="mermaid">` element inside a `<div class="mermaid-panel">` container. The metadata row (built by `buildMetaRow("mermaid", block)`) is placed above the diagram inside this panel. The same `buildMetaRow()` pattern is used by json, code, log, checklist, trace, and tip renderers with their own CSS class prefixes.
 
 ### SPA Routing
 
@@ -578,6 +590,8 @@ class ContentBlock:
     format: str                 # mermaid | markdown | html | table | json | diff | chart | image | code | progress | terminal | dependency-graph | cost | ...
     body: str | dict | list     # Content (string for most, dict for table/chart/progress/cost)
     lang: str | None = None     # Language hint for code format
+    x_title: str | None = None      # Block-level title (shown by buildMetaRow in renderers)
+    x_filename: str | None = None   # Block-level filename (shown by buildMetaRow in renderers)
 
 @dataclass
 class CanvasMessage:
@@ -798,7 +812,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 ### Phase 3: UX Polish
 - [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
-- [ ] Toast notifications (`notify` type)
+- [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
 - [ ] Card animations (insert/update/delete)
 - [ ] Auto-cleanup of old cards

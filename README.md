@@ -727,7 +727,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
 | `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`) |
-| `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000) |
+| `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000). `--no-open` to suppress browser open |
 | `synapse canvas status` | Show Canvas server status (version, PID, health, stale process detection) |
 | `synapse canvas stop` | Stop Canvas server (health-check with identity + process verification, PID fallback). `--port`/`-p` to specify port |
 | `synapse canvas mermaid <body>` | Post Mermaid diagram card |
@@ -739,7 +739,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse canvas diff <body>` | Post side-by-side diff card |
 | `synapse canvas image <url>` | Post image card |
 | `synapse canvas briefing <json>` | Post briefing template card (structured report with sections). Supports `--file` |
-| `synapse canvas post <json>` | Post raw Canvas Message Protocol JSON (supports all templates via `template`/`template_data` fields) |
+| `synapse canvas post-raw <json>` | Post raw Canvas Message Protocol JSON (supports all templates, typed bodies, and block-level metadata such as `x_title` / `x_filename`) |
 | `synapse canvas post progress <json>` | Post progress bar card (`{current, total, label, steps, status}`) |
 | `synapse canvas post terminal <string>` | Post terminal output card (supports ANSI escape codes) |
 | `synapse canvas post dependency-graph <json>` | Post dependency graph card (`{nodes, edges}`, rendered via Mermaid) |
