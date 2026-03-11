@@ -132,7 +132,9 @@ function buildHarness() {
 
   const script = `
     ${helpers}
+    ${extractFunction("scopeBadge")}
     ${extractFunction("renderSystemPanel")}
+    globalThis.__scopeBadge = scopeBadge;
     globalThis.__renderSystemPanel = renderSystemPanel;
   `;
 
@@ -152,7 +154,7 @@ function buildHarness() {
   const compiled = new vm.Script(script, { filename: "canvas.js" });
   compiled.runInNewContext(sandbox, { timeout: 1000 });
 
-  return { env, headerCalls, bodyCalls, renderSystemPanel: sandbox.__renderSystemPanel };
+  return { env, headerCalls, bodyCalls, renderSystemPanel: sandbox.__renderSystemPanel, scopeBadge: sandbox.__scopeBadge };
 }
 
 function runCase(data) {
@@ -173,7 +175,8 @@ const zero = runCase({
   memories: [],
   worktrees: [],
   history: [],
-  agent_profiles: [],
+  user_agent_profiles: [],
+  active_project_agent_profiles: [],
   registry_errors: [],
 });
 
@@ -188,7 +191,8 @@ const nonZero = runCase({
   memories: [],
   worktrees: [],
   history: [],
-  agent_profiles: [],
+  user_agent_profiles: [{ id: "global-checker" }],
+  active_project_agent_profiles: [{ id: "repo-reviewer" }],
   registry_errors: [
     { source: "bad.json", message: "decode failed" },
     { source: "bad2.json", message: "parse failed" },
@@ -196,3 +200,9 @@ const nonZero = runCase({
 });
 
 assert(!nonZero.headerCalls.some((value) => value.includes("Registry Errors")), "registry errors should not appear in System view (moved to Dashboard)");
+assert(nonZero.headerCalls.includes("User Scope Saved Agents (1)"), "system view should render a user-scope saved agents section");
+assert(nonZero.headerCalls.includes("Active-Project Saved Agents (1)"), "system view should render an active-project saved agents section");
+
+const { scopeBadge } = buildHarness();
+assert(scopeBadge("user").textContent === "User Scope", "user scope badge should use a readable label");
+assert(scopeBadge("active-project").textContent === "Active Project", "active-project scope badge should use a readable label");

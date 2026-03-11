@@ -122,17 +122,25 @@ synapse team start \
   --layout split
 ```
 
-**2. Create tasks with dependencies:**
+**2. Create task board entries and assign before delegating:**
+
+Every delegation must have a matching task board entry (create + assign + send):
 
 ```bash
+# Create and assign task #1
 synapse tasks create "Implement OAuth2 with PKCE" \
   -d "Add OAuth2 authorization code flow with PKCE to /api/auth" --priority 4
+# Returns: task-impl-001
+synapse tasks assign task-impl-001 Cody
 
+# Create and assign task #2
 synapse tasks create "Write OAuth2 integration tests" \
   -d "Cover token exchange, refresh, and error paths"
+# Returns: task-test-002
+synapse tasks assign task-test-002 Gem
 ```
 
-**3. Delegate to specialists:**
+**3. Delegate to specialists (after task board entries exist):**
 
 ```bash
 synapse send Cody "Implement the OAuth2 task. See task board for details." --silent
@@ -647,6 +655,9 @@ For tasks with **3+ phases** or **10+ file changes**, agents MUST follow this ga
 !!! warning "Do NOT skip this step"
     Single-agent execution of multi-phase plans leads to slower delivery, no parallel work, and missed review opportunities.
 
+!!! important "Task Board = Team Contract"
+    Every delegation **must** have a matching task board entry -- create and assign before sending. The task board is the team-wide contract that makes ownership visible. Use TodoList only for personal micro-step tracking within your own work.
+
 #### Agent Assignment Plan Template
 
 Before starting multi-phase work, create a table mapping phases to agents:
@@ -710,7 +721,7 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 
 | Feature | When to Use | Command |
 |---------|-------------|---------|
-| **Task Board** | Track structured work | `synapse tasks create/assign/complete/fail` |
+| **Task Board** | **Mandatory** for every delegation (team contract) | `synapse tasks create/assign/complete/fail` |
 | **Shared Memory** | Save discoveries for the team | `synapse memory save <key> "..." --notify` |
 | **File Safety** | Lock files before editing | `synapse file-safety lock <file> $SYNAPSE_AGENT_ID` |
 | **Worktrees** | Parallel edits without conflicts | `synapse spawn <profile> --worktree` |

@@ -78,6 +78,7 @@ def test_synapse_manager_skill_emphasizes_tests_before_implementation() -> None:
         "--blocked-by tests" in text
         or "--blocked-by 2" in text
         or "--blocked-by 1" in text
+        or "--blocked-by task-tests-001" in text
     )
     assert "scripts/wait_ready.sh" in text
     assert "working directory" in text.lower()

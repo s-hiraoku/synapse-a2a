@@ -1,9 +1,9 @@
 ---
 name: task-planner
 description: >-
-  Guide for decomposing large tasks into executable steps, managing
-  dependencies and priorities, and distributing work across agents. Includes
-  TodoList integration patterns.
+  Guide for decomposing large tasks into a task board plan with dependency
+  chains, managing priorities, and distributing work across agents. Outputs
+  task board entries as the team contract; TodoList for personal micro-steps.
 ---
 
 # Task Planner
@@ -59,15 +59,40 @@ Acceptance:
 - Tests cover edge cases: <...>
 ```
 
-## TodoList Integration
+## Task Board Output
 
-Use a TodoList to track execution:
+Decomposition results go to the **task board** — the team-visible contract:
 
-- Keep items small, phrased as outcomes
-- Include "verify" tasks (tests, manual checks)
-- Mark completed immediately to prevent drift
+```bash
+# Create tasks with dependency chains
+synapse tasks create "Write auth tests" \
+  -d "Cover valid login, invalid credentials, token expiry" \
+  --priority 5
 
-Example TodoList:
+synapse tasks create "Implement auth module" \
+  -d "Add OAuth2 with JWT in synapse/auth.py" \
+  --priority 4 \
+  --blocked-by 1
+
+synapse tasks create "Integration test" \
+  -d "End-to-end auth flow verification" \
+  --priority 3 \
+  --blocked-by 2
+
+# Assign ownership
+synapse tasks assign 1 Tester
+synapse tasks assign 2 Impl
+synapse tasks assign 3 Tester
+```
+
+Use `--blocked-by` to express dependency chains. Blocked tasks cannot start
+until their blockers are completed, making execution order explicit.
+
+### TodoList for Personal Micro-Steps
+
+Use a TodoList for your **own** micro-step tracking within a single task.
+Task board entries are coarse-grained (one per delegation); TodoList items
+are fine-grained (one per coding step):
 
 - Add failing tests for <behavior>
 - Implement <behavior> behind tests
@@ -77,9 +102,9 @@ Example TodoList:
 
 ## Progress Reporting
 
-For status updates, report:
+Reference task board IDs in all status updates:
 
-- What is done (with tests run)
-- What is next
-- What is blocked and by what
+- **Done:** "Task #1 complete — 4 tests passing" + `synapse tasks complete 1`
+- **Next:** "Starting task #2 (was blocked by #1)"
+- **Blocked:** "Task #3 blocked — #2 not yet complete" + `synapse tasks fail 3 --reason "..."`
 

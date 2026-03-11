@@ -1393,9 +1393,15 @@ body.sidebar-collapsed #main-content {
 }
 
 .scope-badge[data-scope="user"] {
-  color: var(--color-purple);
-  border-color: var(--color-purple-border);
-  background: var(--color-purple-subtle);
+  color: var(--color-accent);
+  border-color: var(--color-accent-border-strong);
+  background: var(--color-accent-subtle);
+}
+
+.scope-badge[data-scope="active-project"] {
+  color: var(--color-signal);
+  border-color: var(--color-signal-border);
+  background: var(--color-signal-subtle);
 }
 
 .system-agent {

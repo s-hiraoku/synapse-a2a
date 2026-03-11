@@ -53,7 +53,7 @@ Follows the **learning_mode pattern** exactly: environment variable activation +
 
 Mandatory actions for EVERY task:
 - **BEFORE**: `synapse tasks create`, `synapse memory search`, `synapse list`
-- **DURING**: `synapse file-safety lock/unlock`, `synapse canvas post`, `synapse memory save`, delegation via `synapse spawn/send`
+- **DURING**: `synapse file-safety lock/unlock`, `synapse canvas post`, `synapse memory save`, delegation via `synapse spawn/send` (delegation requires task board entry: `synapse tasks create` + `assign` before `synapse send`)
 - **AFTER**: `synapse tasks complete`, `synapse broadcast`, `synapse canvas post` summary
 - Behavioral rules (never skip task board, always lock files, always post canvas artifacts)
 - Per-task checklist

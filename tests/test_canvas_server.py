@@ -985,6 +985,93 @@ class TestSystemPanel:
         assert "completed" in tasks
         assert "failed" in tasks
 
+    def test_system_saved_agents_split_user_and_active_project_scopes(
+        self, client, tmp_path, monkeypatch
+    ):
+        """GET /api/system should split saved agents into user and active-project payloads."""
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+
+        user_home = tmp_path / "home"
+        user_agents_dir = user_home / ".synapse" / "agents"
+        user_agents_dir.mkdir(parents=True)
+        (user_agents_dir / "global-checker.agent").write_text(
+            "id=global-checker\nname=Global Checker\nprofile=codex\n",
+            encoding="utf-8",
+        )
+
+        active_repo = tmp_path / "active-repo"
+        active_agents_dir = active_repo / ".synapse" / "agents"
+        active_agents_dir.mkdir(parents=True)
+        (active_agents_dir / "repo-reviewer.agent").write_text(
+            "id=repo-reviewer\nname=Repo Reviewer\nprofile=claude\n",
+            encoding="utf-8",
+        )
+
+        inactive_repo = tmp_path / "inactive-repo"
+        inactive_agents_dir = inactive_repo / ".synapse" / "agents"
+        inactive_agents_dir.mkdir(parents=True)
+        (inactive_agents_dir / "inactive-helper.agent").write_text(
+            "id=inactive-helper\nname=Inactive Helper\nprofile=gemini\n",
+            encoding="utf-8",
+        )
+
+        worktree_dir = active_repo / ".synapse" / "worktrees" / "feature-x"
+        worktree_dir.mkdir(parents=True)
+        for idx, payload in enumerate(
+            [
+                {
+                    "agent_id": "synapse-codex-8120",
+                    "name": "Rex",
+                    "agent_type": "codex",
+                    "status": "READY",
+                    "working_dir": str(active_repo),
+                },
+                {
+                    "agent_id": "synapse-claude-8101",
+                    "name": "Claud",
+                    "agent_type": "claude",
+                    "status": "READY",
+                    "working_dir": str(worktree_dir),
+                    "worktree_path": str(worktree_dir),
+                    "worktree_branch": "feature-x",
+                },
+            ],
+            start=1,
+        ):
+            (registry_dir / f"agent-{idx}.json").write_text(
+                json.dumps(payload),
+                encoding="utf-8",
+            )
+
+        monkeypatch.chdir(active_repo)
+        monkeypatch.setattr(
+            "synapse.canvas.server.os.path.expanduser",
+            lambda path: (
+                str(registry_dir)
+                if path == "~/.a2a/registry"
+                else str(user_agents_dir)
+                if path == "~/.synapse/agents"
+                else path
+            ),
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert {item["id"] for item in data["user_agent_profiles"]} == {
+            "global-checker"
+        }
+        assert all(item["scope"] == "user" for item in data["user_agent_profiles"])
+        assert {item["id"] for item in data["active_project_agent_profiles"]} == {
+            "repo-reviewer"
+        }
+        assert all(
+            item["scope"] == "active-project"
+            for item in data["active_project_agent_profiles"]
+        )
+
 
 # ============================================================
 # TestSSE — Server-Sent Events
