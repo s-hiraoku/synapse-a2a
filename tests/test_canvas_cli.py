@@ -7,6 +7,8 @@ for the synapse canvas CLI subcommands.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 
 import pytest
 
@@ -357,6 +359,64 @@ class TestAutoStart:
         write_pid_file(pid_path, pid=999999, port=3000)  # Non-existent PID
 
         assert is_pid_alive(999999) is False
+
+
+class TestCanvasServe:
+    """Tests for the canvas serve CLI command."""
+
+    def test_serve_help_includes_port_and_no_open(self):
+        """serve parser should advertise --port and --no-open."""
+        result = subprocess.run(
+            [sys.executable, "-m", "synapse.cli", "canvas", "serve", "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "--port" in result.stdout
+        assert "--no-open" in result.stdout
+
+    def test_cmd_canvas_serve_respects_port_and_no_open(self, monkeypatch):
+        """cmd_canvas_serve should pass the requested port and skip opening the browser."""
+        import argparse
+        import types
+
+        from synapse import cli
+
+        calls: dict[str, object] = {}
+
+        def fake_create_app():
+            calls["app_created"] = True
+            return "app"
+
+        def fake_run(app, host, port, log_level):
+            calls["run"] = {
+                "app": app,
+                "host": host,
+                "port": port,
+                "log_level": log_level,
+            }
+
+        def fake_open(url):
+            calls["opened_url"] = url
+            return True
+
+        monkeypatch.setattr("synapse.canvas.server.create_app", fake_create_app)
+        monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace(run=fake_run))
+        monkeypatch.setattr("webbrowser.open", fake_open)
+
+        args = argparse.Namespace(port=4310, no_open=True)
+        cli.cmd_canvas_serve(args)
+
+        assert calls["app_created"] is True
+        assert calls["run"] == {
+            "app": "app",
+            "host": "0.0.0.0",
+            "port": 4310,
+            "log_level": "warning",
+        }
+        assert "opened_url" not in calls
 
 
 # ============================================================

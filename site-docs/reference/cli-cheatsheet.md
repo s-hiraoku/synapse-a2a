@@ -90,12 +90,12 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | Command | Description |
 |---------|-------------|
 | `synapse canvas serve` | Start Canvas server |
-| `synapse canvas post mermaid "..." --title T` | Post Mermaid diagram |
-| `synapse canvas post markdown "..." --title T` | Post Markdown document |
-| `synapse canvas post table '{...}' --title T` | Post data table |
-| `synapse canvas post code "..." --lang py` | Post syntax-highlighted code |
-| `synapse canvas post chart '{...}' --title T` | Post Chart.js chart |
-| `synapse canvas post '{raw JSON}'` | Post raw Canvas Message JSON |
+| `synapse canvas mermaid "..." --title T` | Post Mermaid diagram |
+| `synapse canvas markdown "..." --title T` | Post Markdown document |
+| `synapse canvas table '{...}' --title T` | Post data table |
+| `synapse canvas code "..." --lang py` | Post syntax-highlighted code |
+| `synapse canvas chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas post-raw '{raw JSON}'` | Post raw Canvas Message JSON |
 | `synapse canvas briefing '{...}'` | Post structured briefing report |
 | `synapse canvas list` | List all cards |
 | `synapse canvas delete <id>` | Delete a card |
@@ -443,7 +443,7 @@ synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"
 synapse canvas briefing --file report.json --title "Sprint Report" --summary "Executive summary"
 
 # Post raw Canvas Message JSON (composite cards, templates)
-synapse canvas post '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
+synapse canvas post-raw '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
 
 # Common options (all posting commands)
 synapse canvas mermaid "..." --title "T" --id my-card --pin --tag design --tag auth

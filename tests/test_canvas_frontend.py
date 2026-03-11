@@ -190,6 +190,7 @@ def test_canvas_view_images_use_contained_full_size_scaling() -> None:
 def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     """Canvas view HTML blocks should be allowed to fill the spotlight body."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
     start = css.index(".canvas-content > .content-block.format-html {")
     end = css.index("}", start)
     html_block = css[start:end]
@@ -204,6 +205,13 @@ def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     assert "width: 100%;" in iframe_rule
     assert "height: 100%;" in iframe_rule
     assert "min-height: 0;" in iframe_rule
+    assert "min-height: 200px;" not in iframe_rule
+    assert "formatCanvasHTMLDocument" in js
+    assert "html, body { height: 100%;" in js
+    assert "body { margin: 0;" in js
+    assert "overflow: hidden;" in js
+    assert "options && options.inCanvasView === true" in js
+    assert 'el.closest(".canvas-content")' not in js
 
 
 def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
@@ -534,7 +542,7 @@ def test_phase6_renderers_exist_in_js() -> None:
 def test_phase6_formats_in_render_block_switch() -> None:
     """renderBlock switch should dispatch to the 4 new renderers."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    start = js.index("function renderBlock(block)")
+    start = js.index("function renderBlock(block, options)")
     end = js.index("\n  // ------", start)
     body = js[start:end]
 
@@ -581,6 +589,20 @@ def test_terminal_renderer_handles_ansi() -> None:
     assert "\\x1b" in body or "\\u001b" in body or "ansi" in body.lower()
 
 
+def test_code_renderer_supports_inline_meta_row() -> None:
+    """renderCode should support title/filename metadata via block-level x_title/x_filename."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderCode(el, body, lang, block)")
+    end = js.index("\n  function renderImage(", start)
+    body = js[start:end]
+
+    assert 'buildMetaRow("code", block)' in body
+    assert ".code-view-meta" in css
+    assert ".code-title" in css
+    assert ".code-filename" in css
+
+
 def test_dependency_graph_renderer_has_nodes_and_edges() -> None:
     """renderDependencyGraph should render nodes and edges."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
@@ -605,6 +627,29 @@ def test_cost_renderer_has_table_and_total() -> None:
     assert "agents" in body
 
 
+def test_json_renderer_supports_optional_inner_title() -> None:
+    """renderJSON should render a subtle single-line meta row via shared helpers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderJSON(el, body, block)")
+    end = js.index("\n  function buildDiffPane(", start)
+    body = js[start:end]
+
+    assert 'buildMetaRow("json", block)' in body
+    assert ".json-view-meta" in css
+    assert ".json-title" in css
+    assert ".json-filename" in css
+    meta_block = css.split(".json-view-meta", 1)[1].split("}", 1)[0]
+    assert "display: flex;" in meta_block
+    assert "justify-content: space-between;" in meta_block
+    assert "flex-wrap: nowrap;" in meta_block
+    assert "background:" not in meta_block
+    title_block = css.split(".json-title", 1)[1].split("}", 1)[0]
+    filename_block = css.split(".json-filename", 1)[1].split("}", 1)[0]
+    assert "font-size: var(--text-xs);" in title_block
+    assert "font-size: var(--text-xs);" in filename_block
+
+
 def test_mermaid_theme_syncs_with_canvas_theme() -> None:
     """Mermaid should use custom theme variables that change with light/dark toggle."""
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
@@ -625,6 +670,94 @@ def test_mermaid_theme_syncs_with_canvas_theme() -> None:
 
     # Theme toggle triggers Mermaid re-render
     assert "initMermaidTheme(next)" in source
+
+
+def test_mermaid_renderer_supports_inline_meta_row() -> None:
+    """renderMermaid should support title/filename metadata via shared helpers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderMermaid(el, body, block)")
+    end = js.index(
+        "\n  /** Run mermaid on pending diagrams and fix SVG heights afterward. */",
+        start,
+    )
+    body = js[start:end]
+
+    assert 'buildMetaRow("mermaid", block)' in body
+    assert "mermaid-panel" in body
+    assert ".mermaid-view-meta" in css
+    assert ".mermaid-title" in css
+    assert ".mermaid-filename" in css
+
+
+def test_tip_renderer_supports_string_body_with_meta_row() -> None:
+    """renderTip should keep string body semantics and render block-level metadata separately."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert 'case "tip":' in js
+    start = js.index('case "tip":')
+    end = js.index('case "progress":', start)
+    switch_body = js[start:end]
+    assert "renderTip(wrap, block.body, block)" in switch_body
+
+    start = js.index("function renderTip(el, body, block)")
+    end = js.index("\n  function renderProgress(", start)
+    body = js[start:end]
+
+    assert 'buildMetaRow("tip", block)' in body
+    assert 'typeof body === "string"' in body
+    assert ".tip-view-meta" in css
+    assert ".tip-title" in css
+    assert ".tip-filename" in css
+
+
+def test_log_renderer_parses_json_strings_and_supports_meta_row() -> None:
+    """renderLog should preserve structured entries while accepting JSON-string bodies."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderLog(el, body, block)")
+    end = js.index("\n  function renderStatus(", start)
+    body = js[start:end]
+
+    assert "parseBody(body)" in body
+    assert 'buildMetaRow("log", block)' in body
+    assert "Array.isArray(data)" in body
+    assert ".log-view-meta" in css
+    assert ".log-title" in css
+    assert ".log-filename" in css
+
+
+def test_checklist_renderer_parses_json_strings_and_supports_meta_row() -> None:
+    """renderChecklist should keep list semantics while accepting JSON-string bodies."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderChecklist(el, body, block)")
+    end = js.index("\n  function renderTimeline(", start)
+    body = js[start:end]
+
+    assert "parseBody(body)" in body
+    assert 'buildMetaRow("checklist", block)' in body
+    assert "Array.isArray(data)" in body
+    assert ".checklist-view-meta" in css
+    assert ".checklist-title" in css
+    assert ".checklist-filename" in css
+
+
+def test_trace_renderer_parses_json_strings_and_supports_meta_row() -> None:
+    """renderTrace should keep list semantics while accepting JSON-string bodies."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = js.index("function renderTrace(el, body, block)")
+    end = js.index("\n  function renderTraceSpan(", start)
+    body = js[start:end]
+
+    assert "parseBody(body)" in body
+    assert 'buildMetaRow("trace", block)' in body
+    assert "Array.isArray(data)" in body
+    assert ".trace-view-meta" in css
+    assert ".trace-title" in css
+    assert ".trace-filename" in css
 
 
 def test_sidebar_collapse_toggle() -> None:

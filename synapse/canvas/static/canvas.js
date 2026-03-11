@@ -100,9 +100,13 @@
       loadSystemPanel();
     });
 
+    var _sseHasConnected = false;
     es.onopen = () => {
-      // Re-sync cards on (re)connect to pick up any changes during disconnect
-      loadCards();
+      if (_sseHasConnected) {
+        // Re-sync only on RE-connect (not initial connect, which already has loadCards)
+        loadCards();
+      }
+      _sseHasConnected = true;
     };
 
     es.onerror = () => {
@@ -535,17 +539,17 @@
         typeof card.template_data === "string"
           ? JSON.parse(card.template_data)
           : card.template_data;
-      const rendered = renderTemplate(card.template, blocks, td, false);
+      const rendered = renderTemplate(card.template, blocks, td, false, null);
       if (rendered) {
         el.appendChild(rendered);
       } else {
         for (const block of blocks) {
-          el.appendChild(renderBlock(block));
+          el.appendChild(renderBlock(block, null));
         }
       }
     } else {
       for (const block of blocks) {
-        el.appendChild(renderBlock(block));
+        el.appendChild(renderBlock(block, null));
       }
     }
 
@@ -591,31 +595,31 @@
     "97": '<span class="ansi-bright-white">',
   };
 
-  function renderBlock(block) {
+  function renderBlock(block, options) {
     const wrap = document.createElement("div");
     wrap.className = `content-block format-${block.format}`;
 
     switch (block.format) {
       case "mermaid":
-        renderMermaid(wrap, block.body);
+        renderMermaid(wrap, block.body, block);
         break;
       case "markdown":
         renderMarkdown(wrap, block.body);
         break;
       case "html":
-        renderHTML(wrap, block.body);
+        renderHTML(wrap, block.body, options);
         break;
       case "table":
         renderTable(wrap, block.body);
         break;
       case "json":
-        renderJSON(wrap, block.body);
+        renderJSON(wrap, block.body, block);
         break;
       case "diff":
         renderDiff(wrap, block.body);
         break;
       case "code":
-        renderCode(wrap, block.body, block.lang);
+        renderCode(wrap, block.body, block.lang, block);
         break;
       case "image":
         renderImage(wrap, block.body);
@@ -624,7 +628,7 @@
         renderChart(wrap, block.body);
         break;
       case "log":
-        renderLog(wrap, block.body);
+        renderLog(wrap, block.body, block);
         break;
       case "status":
         renderStatus(wrap, block.body);
@@ -633,7 +637,7 @@
         renderMetric(wrap, block.body);
         break;
       case "checklist":
-        renderChecklist(wrap, block.body);
+        renderChecklist(wrap, block.body, block);
         break;
       case "timeline":
         renderTimeline(wrap, block.body);
@@ -645,10 +649,13 @@
         renderFilePreview(wrap, block.body);
         break;
       case "trace":
-        renderTrace(wrap, block.body);
+        renderTrace(wrap, block.body, block);
         break;
       case "task-board":
         renderTaskBoard(wrap, block.body);
+        break;
+      case "tip":
+        renderTip(wrap, block.body, block);
         break;
       case "progress":
         renderProgress(wrap, block.body);
@@ -672,18 +679,18 @@
   // ----------------------------------------------------------------
   // Template renderer dispatcher
   // ----------------------------------------------------------------
-  function renderTemplate(templateName, blocks, td, compact) {
+  function renderTemplate(templateName, blocks, td, compact, renderOptions) {
     switch (templateName) {
       case "briefing":
-        return renderBriefing(blocks, td, compact);
+        return renderBriefing(blocks, td, compact, renderOptions);
       case "comparison":
-        return renderComparison(blocks, td, compact);
+        return renderComparison(blocks, td, compact, renderOptions);
       case "dashboard":
-        return renderDashboardTemplate(blocks, td, compact);
+        return renderDashboardTemplate(blocks, td, compact, renderOptions);
       case "steps":
-        return renderStepsTemplate(blocks, td, compact);
+        return renderStepsTemplate(blocks, td, compact, renderOptions);
       case "slides":
-        return renderSlidesTemplate(blocks, td, compact);
+        return renderSlidesTemplate(blocks, td, compact, renderOptions);
       default:
         return null;
     }
@@ -692,7 +699,7 @@
   // ----------------------------------------------------------------
   // Briefing template renderer
   // ----------------------------------------------------------------
-  function renderBriefing(blocks, templateData, compact) {
+  function renderBriefing(blocks, templateData, compact, renderOptions) {
     const container = document.createElement("div");
     container.className = "briefing-container";
     if (compact) container.classList.add("briefing-compact");
@@ -786,7 +793,7 @@
 
         for (const idx of blockIndices) {
           if (idx >= 0 && idx < blocks.length) {
-            body.appendChild(renderBlock(blocks[idx]));
+            body.appendChild(renderBlock(blocks[idx], renderOptions));
           }
         }
 
@@ -812,7 +819,7 @@
   // ----------------------------------------------------------------
   // Comparison template renderer
   // ----------------------------------------------------------------
-  function renderComparison(blocks, templateData, compact) {
+  function renderComparison(blocks, templateData, compact, renderOptions) {
     const container = document.createElement("div");
     container.className = "comparison-container";
     const layout = templateData.layout || "side-by-side";
@@ -844,7 +851,7 @@
       const sideBlocks = side.blocks || [];
       for (const idx of sideBlocks) {
         if (idx >= 0 && idx < blocks.length) {
-          body.appendChild(renderBlock(blocks[idx]));
+          body.appendChild(renderBlock(blocks[idx], renderOptions));
         }
       }
       sideEl.appendChild(body);
@@ -858,7 +865,7 @@
   // ----------------------------------------------------------------
   // Dashboard template renderer
   // ----------------------------------------------------------------
-  function renderDashboardTemplate(blocks, templateData, compact) {
+  function renderDashboardTemplate(blocks, templateData, compact, renderOptions) {
     const container = document.createElement("div");
     container.className = "dashboard-template";
     const cols = templateData.cols || 2;
@@ -884,7 +891,7 @@
       const widgetBlocks = widget.blocks || [];
       for (const idx of widgetBlocks) {
         if (idx >= 0 && idx < blocks.length) {
-          body.appendChild(renderBlock(blocks[idx]));
+          body.appendChild(renderBlock(blocks[idx], renderOptions));
         }
       }
       cell.appendChild(body);
@@ -897,7 +904,7 @@
   // ----------------------------------------------------------------
   // Steps template renderer
   // ----------------------------------------------------------------
-  function renderStepsTemplate(blocks, templateData, compact) {
+  function renderStepsTemplate(blocks, templateData, compact, renderOptions) {
     const container = document.createElement("div");
     container.className = "steps-container";
 
@@ -957,7 +964,7 @@
         body.className = "steps-step-body";
         for (const idx of stepBlocks) {
           if (idx >= 0 && idx < blocks.length) {
-            body.appendChild(renderBlock(blocks[idx]));
+            body.appendChild(renderBlock(blocks[idx], renderOptions));
           }
         }
         content.appendChild(body);
@@ -981,7 +988,7 @@
   // ----------------------------------------------------------------
   // Slides template renderer
   // ----------------------------------------------------------------
-  function renderSlidesTemplate(blocks, templateData, compact) {
+  function renderSlidesTemplate(blocks, templateData, compact, renderOptions) {
     const container = document.createElement("div");
     container.className = "slides-container";
 
@@ -1013,7 +1020,7 @@
       const slideBlocks = slide.blocks || [];
       for (const idx of slideBlocks) {
         if (idx >= 0 && idx < blocks.length) {
-          body.appendChild(renderBlock(blocks[idx]));
+          body.appendChild(renderBlock(blocks[idx], renderOptions));
         }
       }
       slideEl.appendChild(body);
@@ -1074,12 +1081,44 @@
     return container;
   }
 
-  function renderMermaid(el, body) {
+  function buildMetaRow(prefix, block) {
+    var t = block.x_title;
+    var f = block.x_filename;
+    if (!t && !f) return null;
+    const meta = document.createElement("div");
+    meta.className = prefix + "-view-meta";
+    if (t) {
+      const title = document.createElement("div");
+      title.className = prefix + "-title";
+      title.textContent = String(t);
+      meta.appendChild(title);
+    }
+    if (f) {
+      const filename = document.createElement("div");
+      filename.className = prefix + "-filename";
+      filename.textContent = String(f);
+      meta.appendChild(filename);
+    }
+    return meta;
+  }
+
+  function renderMermaid(el, body, block) {
+    const meta = buildMetaRow("mermaid", block);
+
     const pre = document.createElement("pre");
     pre.className = "mermaid-pending mermaid";
     pre.textContent = body;
     pre.dataset.mermaidSource = body;
-    el.appendChild(pre);
+
+    if (meta) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "mermaid-panel";
+      wrapper.appendChild(meta);
+      wrapper.appendChild(pre);
+      el.appendChild(wrapper);
+    } else {
+      el.appendChild(pre);
+    }
   }
 
   /** Run mermaid on pending diagrams and fix SVG heights afterward. */
@@ -1107,21 +1146,48 @@
     el.innerHTML = html;
   }
 
-  function renderHTML(el, body) {
+  function formatCanvasHTMLDocument(body) {
+    const documentStyle = [
+      "<style>",
+      "html, body { height: 100%; }",
+      "body { margin: 0; overflow: hidden; }",
+      "body > :first-child { min-height: 100%; }",
+      "</style>",
+    ].join("");
+
+    if (/<html[\s>]/i.test(body) || /<!doctype/i.test(body)) {
+      if (/<head[\s>]/i.test(body)) {
+        return body.replace(/<\/head>/i, documentStyle + "</head>");
+      }
+      return body.replace(/<html([^>]*)>/i, "<html$1><head>" + documentStyle + "</head>");
+    }
+
+    return [
+      "<!doctype html>",
+      "<html>",
+      "<head>",
+      documentStyle,
+      "</head>",
+      "<body>",
+      body,
+      "</body>",
+      "</html>",
+    ].join("");
+  }
+
+  function renderHTML(el, body, options) {
     // Sandboxed iframe for raw HTML
     const iframe = document.createElement("iframe");
     iframe.sandbox = "allow-scripts";
     iframe.style.width = "100%";
-    iframe.style.minHeight = "200px";
     iframe.style.border = "1px solid var(--color-border)";
     iframe.style.borderRadius = "4px";
     // In canvas view, fill the available content area
-    const isCanvasView = el.closest(".canvas-content") !== null;
-    if (isCanvasView) {
-      iframe.style.height = "100%";
-      iframe.style.minHeight = "0";
+    const isCanvasView = options && options.inCanvasView === true;
+    if (!isCanvasView) {
+      iframe.style.minHeight = "200px";
     }
-    iframe.srcdoc = body;
+    iframe.srcdoc = isCanvasView ? formatCanvasHTMLDocument(body) : body;
     // Auto-resize (dashboard only — canvas uses CSS flex)
     iframe.onload = function () {
       if (isCanvasView) return;
@@ -1172,15 +1238,29 @@
     el.appendChild(table);
   }
 
-  function renderJSON(el, body) {
+  function renderJSON(el, body, block) {
+    let obj;
+    try {
+      obj = typeof body === "string" ? JSON.parse(body) : body;
+    } catch {
+      obj = body;
+    }
+
+    const meta = buildMetaRow("json", block);
+
     const pre = document.createElement("pre");
     pre.className = "json-view";
-    try {
-      const obj = typeof body === "string" ? JSON.parse(body) : body;
-      pre.textContent = JSON.stringify(obj, null, 2);
-    } catch {
-      pre.textContent = body;
+    if (meta) {
+      pre.appendChild(meta);
+      pre.appendChild(document.createTextNode("\n"));
     }
+    const content = document.createElement("code");
+    try {
+      content.textContent = JSON.stringify(obj, null, 2);
+    } catch {
+      content.textContent = body;
+    }
+    pre.appendChild(content);
     el.appendChild(pre);
   }
 
@@ -1250,8 +1330,12 @@
     el.appendChild(container);
   }
 
-  function renderCode(el, body, lang) {
+  function renderCode(el, body, lang, block) {
+    const meta = buildMetaRow("code", block);
+
     const pre = document.createElement("pre");
+    if (meta) pre.appendChild(meta);
+
     const code = document.createElement("code");
     if (lang) code.className = `language-${lang}`;
     code.textContent = body;
@@ -1299,10 +1383,16 @@
     new Chart(canvas, config);
   }
 
-  function renderLog(el, body) {
-    const entries = Array.isArray(body) ? body : [];
+  function renderLog(el, body, block) {
+    const data = parseBody(body);
+    const entries = Array.isArray(data) ? data : [];
     const pre = document.createElement("pre");
     pre.className = "log-view";
+    const meta = buildMetaRow("log", block);
+    if (meta) {
+      pre.appendChild(meta);
+      pre.appendChild(document.createTextNode("\n"));
+    }
     for (const entry of entries) {
       const line = document.createElement("div");
       const level = String(entry.level || "info").toLowerCase();
@@ -1363,8 +1453,11 @@
     }
   }
 
-  function renderChecklist(el, body) {
-    const items = Array.isArray(body) ? body : [];
+  function renderChecklist(el, body, block) {
+    const data = parseBody(body);
+    const items = Array.isArray(data) ? data : [];
+    const meta = buildMetaRow("checklist", block);
+    if (meta) el.appendChild(meta);
     for (const item of items) {
       const row = document.createElement("div");
       row.className = "checklist-item";
@@ -1449,8 +1542,11 @@
     }
   }
 
-  function renderTrace(el, body) {
-    const spans = Array.isArray(body) ? body : [];
+  function renderTrace(el, body, block) {
+    const data = parseBody(body);
+    const spans = Array.isArray(data) ? data : [];
+    const meta = buildMetaRow("trace", block);
+    if (meta) el.appendChild(meta);
     const tree = document.createElement("div");
     for (const span of spans) {
       tree.appendChild(renderTraceSpan(span));
@@ -1516,6 +1612,16 @@
     }
 
     el.appendChild(board);
+  }
+
+  function renderTip(el, body, block) {
+    const meta = buildMetaRow("tip", block);
+    if (meta) el.appendChild(meta);
+
+    const text = document.createElement("div");
+    text.className = "tip-view";
+    text.textContent = typeof body === "string" ? body : String(body || "");
+    el.appendChild(text);
   }
 
   function renderProgress(el, body) {
@@ -3166,19 +3272,49 @@
   // ----------------------------------------------------------------
   // Toast Notifications
   // ----------------------------------------------------------------
+  // Toast batching — collect messages within a short window and show one summary
+  const _toastQueue = [];
+  let _toastTimer = 0;
+  const TOAST_BATCH_MS = 300;
+
   function showToast(title, agentLabel) {
+    _toastQueue.push({ title: title || "Card updated", agent: agentLabel });
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(_flushToasts, TOAST_BATCH_MS);
+  }
+
+  function _flushToasts() {
+    const batch = _toastQueue.splice(0);
+    if (batch.length === 0) return;
+
     const toast = document.createElement("div");
     toast.className = "toast";
-    const titleEl = document.createElement("div");
-    titleEl.className = "toast-title";
-    titleEl.textContent = title || "Card updated";
-    toast.appendChild(titleEl);
-    if (agentLabel) {
-      const agentEl = document.createElement("div");
-      agentEl.className = "toast-agent";
-      agentEl.textContent = agentLabel;
-      toast.appendChild(agentEl);
+
+    if (batch.length === 1) {
+      const titleEl = document.createElement("div");
+      titleEl.className = "toast-title";
+      titleEl.textContent = batch[0].title;
+      toast.appendChild(titleEl);
+      if (batch[0].agent) {
+        const agentEl = document.createElement("div");
+        agentEl.className = "toast-agent";
+        agentEl.textContent = batch[0].agent;
+        toast.appendChild(agentEl);
+      }
+    } else {
+      const titleEl = document.createElement("div");
+      titleEl.className = "toast-title";
+      titleEl.textContent = batch.length + " cards updated";
+      toast.appendChild(titleEl);
+      const agents = new Set(batch.map((b) => b.agent).filter(Boolean));
+      if (agents.size > 0) {
+        const agentEl = document.createElement("div");
+        agentEl.className = "toast-agent";
+        agentEl.textContent = Array.from(agents).join(", ");
+        toast.appendChild(agentEl);
+      }
     }
+
     toastContainer.appendChild(toast);
     setTimeout(() => toast.remove(), 5000);
   }
@@ -3464,17 +3600,23 @@
         typeof card.template_data === "string"
           ? JSON.parse(card.template_data)
           : card.template_data;
-      const rendered = renderTemplate(card.template, blocks, td, false);
+      const rendered = renderTemplate(
+        card.template,
+        blocks,
+        td,
+        false,
+        { inCanvasView: true }
+      );
       if (rendered) {
         content.appendChild(rendered);
       } else {
         for (const block of blocks) {
-          content.appendChild(renderBlock(block));
+          content.appendChild(renderBlock(block, { inCanvasView: true }));
         }
       }
     } else {
       for (const block of blocks) {
-        content.appendChild(renderBlock(block));
+        content.appendChild(renderBlock(block, { inCanvasView: true }));
       }
     }
   }
