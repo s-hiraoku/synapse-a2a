@@ -1,90 +1,16 @@
-const fs = require("fs");
 const vm = require("node:vm");
-
-const source = fs.readFileSync("synapse/canvas/static/canvas.js", "utf8");
-
-function extractFunction(name) {
-  const start = source.indexOf(`function ${name}(`);
-  if (start === -1) {
-    throw new Error(`Function not found: ${name}`);
-  }
-  let braceIndex = source.indexOf("{", start);
-  let depth = 0;
-  for (let i = braceIndex; i < source.length; i += 1) {
-    const ch = source[i];
-    if (ch === "{") depth += 1;
-    if (ch === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(start, i + 1);
-      }
-    }
-  }
-  throw new Error(`Unbalanced function: ${name}`);
-}
-
-class Style {
-  constructor() {
-    this.values = {};
-  }
-
-  setProperty(name, value) {
-    this.values[name] = value;
-  }
-
-  removeProperty(name) {
-    delete this.values[name];
-  }
-}
-
-class Element {
-  constructor(tagName, document) {
-    this.tagName = tagName.toUpperCase();
-    this.document = document;
-    this.children = [];
-    this.parentNode = null;
-    this.className = "";
-    this.textContent = "";
-    this.style = new Style();
-  }
-
-  appendChild(child) {
-    if (child == null) return child;
-    child.parentNode = this;
-    this.children.push(child);
-    return child;
-  }
-
-  set innerHTML(value) {
-    this.children = [];
-    this.textContent = value;
-  }
-
-  get fullText() {
-    let text = this.textContent || "";
-    for (const child of this.children) {
-      text += child.fullText || child.textContent || "";
-    }
-    return text;
-  }
-}
-
-class Document {
-  createElement(tag) {
-    return new Element(tag, this);
-  }
-}
+const { extractFunction, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
   const document = new Document();
   return {
     document,
     canvasSpotlight: document.createElement("section"),
-    canvasView: { style: new Style() },
+    canvasView: document.createElement("main"),
   };
 }
 
-function buildHarness(allCards) {
+function buildHarness(initialCards, systemAgents) {
   const env = createEnvironment();
   const helpers = `
     let document = globalThis.__env.document;
@@ -94,73 +20,124 @@ function buildHarness(allCards) {
     let systemAgents = globalThis.__systemAgents;
     let _spotlightCardId = "";
     let _spotlightUpdatedAt = "";
-    function statusColor() { return "#999"; }
-    function formatTime(value) { return value; }
-    function runMermaid() {}
+    let _spotlightSwapTimer = 0;
+    const SPOTLIGHT_SWAP_DELAY = 420;
+    function parseContent(raw) { return JSON.parse(raw); }
+    function renderTemplate() { return null; }
     function renderBlock(block) {
       const el = document.createElement("div");
       el.className = "content-block";
       el.textContent = block.body;
       return el;
     }
-    function renderTemplate(templateName, blocks) {
-      const el = document.createElement("div");
-      el.className = "template-render";
-      el.textContent = templateName + ":" + blocks.map((block) => block.body).join(" ");
-      return el;
-    }
+    function formatTime(value) { return value; }
+    function statusColor(status) { return status || "#999"; }
+    function runMermaid() {}
   `;
 
   const script = `
     ${helpers}
-    ${extractFunction("parseContent")}
+    ${extractFunction("syncChildren")}
+    ${extractFunction("ensureSpotlightFrame")}
+    ${extractFunction("renderSpotlightContent")}
+    ${extractFunction("renderSpotlightInfo")}
+    ${extractFunction("markSpotlightSwap")}
     ${extractFunction("renderSpotlight")}
     globalThis.__renderSpotlight = renderSpotlight;
+    globalThis.__setCards = function (nextCards) {
+      cards = new Map(nextCards.map((card) => [card.card_id, card]));
+    };
   `;
 
   const sandbox = {
+    console,
+    JSON,
+    Map,
+    Set,
+    Array,
+    Object,
     __env: env,
-    __cards: allCards,
-    __systemAgents: allCards.map((card) => ({
-      agent_id: card.agent_id,
-      status: "ready",
-    })),
+    __cards: initialCards,
+    __systemAgents: systemAgents,
+    window: {
+      setTimeout(fn) {
+        return fn();
+      },
+      clearTimeout() {},
+    },
   };
-  vm.createContext(sandbox);
+  sandbox.globalThis = sandbox;
+
   const compiled = new vm.Script(script, { filename: "canvas.js" });
-  compiled.runInContext(sandbox, { timeout: 1000 });
+  compiled.runInNewContext(sandbox, { timeout: 1000 });
 
-  return { env, renderSpotlight: sandbox.__renderSpotlight };
+  return {
+    env,
+    renderSpotlight: sandbox.__renderSpotlight,
+    setCards: sandbox.__setCards,
+  };
 }
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
+const initialCard = {
+  card_id: "card-1",
+  title: "Initial title",
+  agent_id: "agent-1",
+  agent_name: "Agent One",
+  updated_at: "2026-03-08T10:00:00Z",
+  tags: ["alpha"],
+  content: JSON.stringify({ format: "markdown", body: "Initial body" }),
+};
 
-const cards = [
-  {
-    card_id: "stable",
-    title: "Stable Card",
-    agent_id: "agent-1",
-    agent_name: "Agent One",
-    updated_at: "2026-03-10T10:01:00Z",
-    content: JSON.stringify({ format: "markdown", body: "stable body" }),
-  },
-  {
-    card_id: "broken",
-    title: "Broken Card",
-    agent_id: "agent-2",
-    agent_name: "Agent Two",
-    updated_at: "2026-03-10T10:02:00Z",
-    template: "briefing",
-    template_data: "{broken-json",
-    content: JSON.stringify({ format: "markdown", body: "broken body" }),
-  },
+const updatedSameCard = {
+  ...initialCard,
+  title: "Updated title",
+  updated_at: "2026-03-08T10:05:00Z",
+  tags: ["beta"],
+  content: JSON.stringify({ format: "markdown", body: "Updated body" }),
+};
+
+const replacementCard = {
+  card_id: "card-2",
+  title: "Replacement title",
+  agent_id: "agent-2",
+  agent_name: "Agent Two",
+  updated_at: "2026-03-08T10:06:00Z",
+  tags: ["gamma"],
+  content: JSON.stringify({ format: "markdown", body: "Replacement body" }),
+};
+
+const agents = [
+  { agent_id: "agent-1", status: "ready" },
+  { agent_id: "agent-2", status: "processing" },
 ];
 
-const { env, renderSpotlight } = buildHarness(cards);
+const { env, renderSpotlight, setCards } = buildHarness([initialCard], agents);
+
+renderSpotlight();
+const initialShell = env.canvasSpotlight;
+const initialTitleBar = env.canvasSpotlight.querySelector(".canvas-title-bar");
+const initialContent = env.canvasSpotlight.querySelector(".canvas-content");
+const initialInfo = env.canvasSpotlight.querySelector(".canvas-info-bar");
+
+setCards([updatedSameCard]);
 renderSpotlight();
 
-assert(env.canvasSpotlight.children.length > 0, "spotlight should not become empty when the latest card is malformed");
-assert(env.canvasSpotlight.fullText.includes("Stable Card"), "spotlight should fall back to the latest renderable card");
-assert(!env.canvasSpotlight.fullText.includes("Broken Card"), "spotlight should skip the malformed latest card");
+const updatedTitleBar = env.canvasSpotlight.querySelector(".canvas-title-bar");
+const updatedContent = env.canvasSpotlight.querySelector(".canvas-content");
+const updatedInfo = env.canvasSpotlight.querySelector(".canvas-info-bar");
+
+assert(env.canvasSpotlight === initialShell, "spotlight root should be preserved");
+assert(updatedTitleBar === initialTitleBar, "same-card updates should reuse the title bar");
+assert(updatedContent === initialContent, "same-card updates should reuse the content container");
+assert(updatedInfo === initialInfo, "same-card updates should reuse the info bar");
+assert(updatedTitleBar.querySelector(".canvas-title-text").textContent === "Updated title", "title text should update in place");
+assert(updatedContent.children[0].textContent === "Updated body", "content body should update in place");
+assert(updatedInfo.querySelector(".canvas-info-agent").textContent === "Agent One", "agent label should remain available after in-place update");
+
+setCards([replacementCard]);
+renderSpotlight();
+
+assert(
+  env.canvasSpotlight.querySelector(".canvas-title-text").textContent === "Replacement title",
+  "replacement card should render its title"
+);

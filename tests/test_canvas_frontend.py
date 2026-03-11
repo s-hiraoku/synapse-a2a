@@ -39,6 +39,21 @@ def test_render_live_feed_shows_latest_three_posts() -> None:
     assert result.returncode == 0, result.stderr or result.stdout
 
 
+def test_render_spotlight_reuses_existing_shell_for_same_card_updates() -> None:
+    """renderSpotlight should update the active card in place during periodic refreshes."""
+    script = Path("tests/canvas_frontend_spotlight_test.js")
+    if shutil.which("node") is None:
+        pytest.skip("node is required for tests/canvas_frontend_spotlight_test.js")
+    result = subprocess.run(
+        ["node", str(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
 def test_canvas_css_uses_signal_room_design_tokens() -> None:
     """canvas.css + palette.css should define design tokens and glass surfaces."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
@@ -260,6 +275,55 @@ def test_live_feed_harness_uses_vm_instead_of_eval() -> None:
     assert "eval(script)" not in source
 
 
+def test_spotlight_harness_uses_vm_instead_of_eval() -> None:
+    """The spotlight harness should execute extracted code in a vm sandbox."""
+    source = Path("tests/canvas_frontend_spotlight_test.js").read_text(encoding="utf-8")
+
+    assert 'require("node:vm")' in source
+    assert "new vm.Script(" in source
+    assert "runInNewContext(" in source or "runInContext(" in source
+    assert "eval(script)" not in source
+
+
+def test_system_panel_harness_uses_vm_instead_of_eval() -> None:
+    """The system panel harness should execute extracted code in a vm sandbox."""
+    source = Path("tests/canvas_frontend_system_panel_test.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'require("node:vm")' in source
+    assert "new vm.Script(" in source
+    assert "runInNewContext(" in source or "runInContext(" in source
+    assert "eval(script)" not in source
+
+
+def test_spotlight_swap_delay_uses_named_constant() -> None:
+    """Spotlight swap timing should use a named constant instead of a bare literal."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function markSpotlightSwap()")
+    end = js.index(
+        "\n\n  // ----------------------------------------------------------------",
+        start,
+    )
+    body = js[start:end]
+
+    assert "const SPOTLIGHT_SWAP_DELAY = 420;" in js
+    assert "SPOTLIGHT_SWAP_DELAY" in body
+    assert "}, 420);" not in body
+
+
+def test_extract_function_documents_brace_counting_limitations() -> None:
+    """The helper should document where the brace-counting extractor can fail."""
+    source = Path("tests/canvas_test_helpers.js").read_text(encoding="utf-8")
+
+    assert (
+        "This simple brace-counting extractor assumes the target function body"
+        in source
+    )
+    assert "braces inside strings, template literals, or comments" in source
+    assert "A robust fix would require a real parser or tokenizer." in source
+
+
 def test_render_live_feed_reuses_existing_items() -> None:
     """History live feed should preserve existing DOM nodes instead of rebuilding all rows."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
@@ -287,6 +351,22 @@ def test_history_rendering_uses_keyed_updates_instead_of_wholesale_clear() -> No
     assert 'grid.innerHTML = "";' not in body
     assert "existingPanels" in body
     assert "existingCards" in update_body
+
+
+def test_spotlight_rendering_avoids_wholesale_rebuild_for_same_card_updates() -> None:
+    """Spotlight rendering should preserve the shell and update only card content when possible."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    start = js.index("function renderSpotlight()")
+    end = js.index(
+        "\n  // ----------------------------------------------------------------\n  // Init",
+        start,
+    )
+    body = js[start:end]
+
+    assert "ensureSpotlightFrame()" in body
+    assert "renderSpotlightContent(" in body
+    assert "renderSpotlightInfo(" in body
+    assert 'canvasSpotlight.innerHTML = "";' not in body
 
 
 def test_history_css_limits_entry_animations_to_new_items() -> None:

@@ -23,6 +23,7 @@
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarCollapseBtn = document.getElementById("sidebar-collapse");
   const topbarTitle = document.getElementById("topbar-title");
+  const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
   var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
@@ -32,6 +33,7 @@
   // Track displayed card to skip redundant rebuilds
   let _spotlightCardId = "";
   let _spotlightUpdatedAt = "";
+  let _spotlightSwapTimer = 0;
 
   // Card cache: card_id -> card data
   const cards = new Map();
@@ -169,11 +171,18 @@
   }
 
   function syncChildren(parent, nodes) {
-    while (parent.firstChild) {
-      parent.removeChild(parent.firstChild);
+    const desired = new Set(nodes);
+    for (const child of Array.from(parent.children)) {
+      if (!desired.has(child)) {
+        parent.removeChild(child);
+      }
     }
-    for (const node of nodes) {
-      parent.appendChild(node);
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i];
+      const current = parent.children[i];
+      if (current !== node) {
+        parent.insertBefore(node, current || null);
+      }
     }
   }
 
@@ -3360,8 +3369,7 @@
 
     const allCards = [...cards.values()];
     if (allCards.length === 0) {
-      // Empty state — clear now since we know there is nothing to render
-      canvasSpotlight.innerHTML = "";
+      // Empty state
       const empty = document.createElement("div");
       empty.className = "canvas-empty";
       const icon = document.createElement("div");
@@ -3376,65 +3384,25 @@
       sub.className = "canvas-empty-sub";
       sub.textContent = "Waiting for agent messages\u2026";
       empty.appendChild(sub);
-      canvasSpotlight.appendChild(empty);
+      syncChildren(canvasSpotlight, [empty]);
       canvasView.style.removeProperty("--canvas-glow");
+      _spotlightCardId = "";
+      _spotlightUpdatedAt = "";
       return;
     }
 
-    const candidates = allCards
-      .slice()
-      .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    // Find the most recently updated card (O(n) instead of sorting)
+    const card = allCards.reduce((latest, c) =>
+      (c.updated_at || "") > (latest.updated_at || "") ? c : latest
+    );
 
-    let card = null;
-    let content = null;
-    for (const candidate of candidates) {
-      try {
-        const nextContent = document.createElement("div");
-        nextContent.className = "canvas-content";
-        const parsed = parseContent(candidate.content);
-        const blocks = Array.isArray(parsed) ? parsed : [parsed];
-
-        if (candidate.template && candidate.template_data) {
-          const td =
-            typeof candidate.template_data === "string"
-              ? JSON.parse(candidate.template_data)
-              : candidate.template_data;
-          const rendered = renderTemplate(candidate.template, blocks, td, false);
-          if (rendered) {
-            nextContent.appendChild(rendered);
-          } else {
-            for (const block of blocks) {
-              nextContent.appendChild(renderBlock(block));
-            }
-          }
-        } else {
-          for (const block of blocks) {
-            nextContent.appendChild(renderBlock(block));
-          }
-        }
-
-        card = candidate;
-        content = nextContent;
-        break;
-      } catch (e) {
-        console.error("Failed to render spotlight card:", candidate.card_id, e);
-      }
-    }
-
-    if (!card || !content) {
-      canvasView.style.removeProperty("--canvas-glow");
-      return;
-    }
+    const previousCardId = _spotlightCardId;
+    const isSameCard = card.card_id === previousCardId;
 
     // Skip rebuild if the same card version is already displayed
-    if (card.card_id === _spotlightCardId && card.updated_at === _spotlightUpdatedAt) {
+    if (isSameCard && card.updated_at === _spotlightUpdatedAt) {
       return;
     }
-
-    // Clear DOM only after determining the final card to display
-    canvasSpotlight.innerHTML = "";
-    _spotlightCardId = card.card_id;
-    _spotlightUpdatedAt = card.updated_at;
 
     const agentInfo = systemAgents.find(a => a.agent_id === card.agent_id);
     const agentStatus = agentInfo ? agentInfo.status : "";
@@ -3442,23 +3410,79 @@
     // Set ambient glow color based on agent status
     canvasView.style.setProperty("--canvas-glow", statusColor(agentStatus));
 
-    // Title bar
-    const titleBar = document.createElement("div");
-    titleBar.className = "canvas-title-bar";
-    const titleText = document.createElement("h2");
-    titleText.className = "canvas-title-text";
-    titleText.textContent = card.title || "Untitled";
-    titleBar.appendChild(titleText);
-    canvasSpotlight.appendChild(titleBar);
+    const frame = ensureSpotlightFrame();
+    frame.titleText.textContent = card.title || "Untitled";
+    renderSpotlightContent(frame.content, card);
+    renderSpotlightInfo(frame.infoBar, card, agentStatus);
 
-    // Content — fills the viewport
-    canvasSpotlight.appendChild(content);
+    if (previousCardId && !isSameCard) {
+      markSpotlightSwap();
+    }
 
-    // Info bar — floating at bottom
-    const infoBar = document.createElement("div");
-    infoBar.className = "canvas-info-bar";
+    _spotlightCardId = card.card_id;
+    _spotlightUpdatedAt = card.updated_at;
 
-    // Status dot with glow
+    // Re-run mermaid
+    runMermaid("#canvas-spotlight .mermaid-pending");
+  }
+
+  function ensureSpotlightFrame() {
+    let titleBar = canvasSpotlight.querySelector(".canvas-title-bar");
+    let titleText = titleBar ? titleBar.querySelector(".canvas-title-text") : null;
+    if (!titleBar) {
+      titleBar = document.createElement("div");
+      titleBar.className = "canvas-title-bar";
+    }
+    if (!titleText) {
+      titleText = document.createElement("h2");
+      titleText.className = "canvas-title-text";
+      syncChildren(titleBar, [titleText]);
+    }
+
+    let content = canvasSpotlight.querySelector(".canvas-content");
+    if (!content) {
+      content = document.createElement("div");
+      content.className = "canvas-content";
+    }
+
+    let infoBar = canvasSpotlight.querySelector(".canvas-info-bar");
+    if (!infoBar) {
+      infoBar = document.createElement("div");
+      infoBar.className = "canvas-info-bar";
+    }
+
+    syncChildren(canvasSpotlight, [titleBar, content, infoBar]);
+    return { titleBar, titleText, content, infoBar };
+  }
+
+  function renderSpotlightContent(content, card) {
+    content.innerHTML = "";
+    const parsed = parseContent(card.content);
+    const blocks = Array.isArray(parsed) ? parsed : [parsed];
+
+    if (card.template && card.template_data) {
+      const td =
+        typeof card.template_data === "string"
+          ? JSON.parse(card.template_data)
+          : card.template_data;
+      const rendered = renderTemplate(card.template, blocks, td, false);
+      if (rendered) {
+        content.appendChild(rendered);
+      } else {
+        for (const block of blocks) {
+          content.appendChild(renderBlock(block));
+        }
+      }
+    } else {
+      for (const block of blocks) {
+        content.appendChild(renderBlock(block));
+      }
+    }
+  }
+
+  function renderSpotlightInfo(infoBar, card, agentStatus) {
+    infoBar.innerHTML = "";
+
     const dot = document.createElement("span");
     dot.className = "canvas-info-dot";
     const dotColor = statusColor(agentStatus);
@@ -3466,19 +3490,16 @@
     dot.style.color = dotColor;
     infoBar.appendChild(dot);
 
-    // Agent name
     const agentName = document.createElement("span");
     agentName.className = "canvas-info-agent";
     agentName.textContent = card.agent_name || card.agent_id;
     infoBar.appendChild(agentName);
 
-    // Agent ID
     const idEl = document.createElement("span");
     idEl.className = "canvas-info-id";
     idEl.textContent = card.agent_id;
     infoBar.appendChild(idEl);
 
-    // Tags
     if (card.tags) {
       try {
         const tags = typeof card.tags === "string" ? JSON.parse(card.tags) : card.tags;
@@ -3499,22 +3520,28 @@
       } catch { /* ignore */ }
     }
 
-    // Time
     const time = document.createElement("span");
     time.className = "canvas-info-time";
     time.textContent = formatTime(card.updated_at);
     infoBar.appendChild(time);
 
-    // Card ID
     const cardId = document.createElement("span");
     cardId.className = "canvas-info-card-id";
     cardId.textContent = card.card_id;
     infoBar.appendChild(cardId);
+  }
 
-    canvasSpotlight.appendChild(infoBar);
-
-    // Re-run mermaid
-    runMermaid("#canvas-spotlight .mermaid-pending");
+  function markSpotlightSwap() {
+    canvasSpotlight.classList.remove("spotlight-swap");
+    void canvasSpotlight.offsetWidth;
+    canvasSpotlight.classList.add("spotlight-swap");
+    if (_spotlightSwapTimer) {
+      window.clearTimeout(_spotlightSwapTimer);
+    }
+    _spotlightSwapTimer = window.setTimeout(() => {
+      canvasSpotlight.classList.remove("spotlight-swap");
+      _spotlightSwapTimer = 0;
+    }, SPOTLIGHT_SWAP_DELAY);
   }
 
   // ----------------------------------------------------------------
