@@ -2575,18 +2575,21 @@ def cmd_canvas_briefing(args: argparse.Namespace) -> None:
 
 
 def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
-    """Poll *url* until healthy, then open in browser."""
+    """Poll Canvas health endpoint until ready, then open in browser."""
     import time
     import urllib.request
 
+    health_url = url.rstrip("/") + "/api/health"
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            urllib.request.urlopen(url, timeout=1)
-            _open_canvas_browser(url)
-            return
+            resp = urllib.request.urlopen(health_url, timeout=1)
+            if resp.status == 200:
+                _open_canvas_browser(url)
+                return
         except Exception:
-            time.sleep(0.3)
+            pass
+        time.sleep(0.3)
 
 
 def _open_canvas_browser(url: str) -> None:

@@ -598,6 +598,7 @@
   function renderBlock(block, options) {
     // Normalize legacy envelope shapes where metadata was embedded in body
     if (block.body && typeof block.body === "object" && !Array.isArray(block.body)) {
+      block = Object.assign({}, block);
       var b = block.body;
       if (b.source !== undefined) {
         block.x_title = block.x_title || b.title;
@@ -1266,13 +1267,10 @@
     }
 
     const meta = buildMetaRow("json", block);
+    if (meta) el.appendChild(meta);
 
     const pre = document.createElement("pre");
     pre.className = "json-view";
-    if (meta) {
-      pre.appendChild(meta);
-      pre.appendChild(document.createTextNode("\n"));
-    }
     const content = document.createElement("code");
     try {
       content.textContent = JSON.stringify(obj, null, 2);
@@ -1405,13 +1403,10 @@
   function renderLog(el, body, block) {
     const data = parseBody(body);
     const entries = Array.isArray(data) ? data : [];
+    const meta = buildMetaRow("log", block);
+    if (meta) el.appendChild(meta);
     const pre = document.createElement("pre");
     pre.className = "log-view";
-    const meta = buildMetaRow("log", block);
-    if (meta) {
-      pre.appendChild(meta);
-      pre.appendChild(document.createTextNode("\n"));
-    }
     for (const entry of entries) {
       const line = document.createElement("div");
       const level = String(entry.level || "info").toLowerCase();

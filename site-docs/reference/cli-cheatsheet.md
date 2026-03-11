@@ -446,7 +446,7 @@ synapse canvas briefing --file report.json --title "Sprint Report" --summary "Ex
 synapse canvas post-raw '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
 
 # Common options (all posting commands)
-synapse canvas post mermaid "..." --title "T" --id my-card --pin --tag design --tag auth
+synapse canvas post mermaid "..." --title "T" --card-id my-card --pinned --tags design,auth
 
 # List and manage cards
 synapse canvas list
