@@ -11,8 +11,8 @@ How to operate as a worker agent in a multi-agent team.
    synapse tasks list
    # If no entry exists for your assignment, create and self-assign:
    synapse tasks create "<task subject>" -d "<what was delegated>"
-   # Returns: task-abc-001
-   synapse tasks assign task-abc-001 $SYNAPSE_AGENT_ID
+   # Returns: 3f2a1b4c (displayed prefix of a UUID)
+   synapse tasks assign 3f2a1b4c $SYNAPSE_AGENT_ID
    ```
    Use that task ID in all subsequent status updates and completion reports.
 3. **Check shared knowledge first** — other agents may have already solved similar problems:
@@ -29,7 +29,7 @@ How to operate as a worker agent in a multi-agent team.
 Progress reporting prevents managers from sending unnecessary interrupts:
 - **Keep task board lifecycle current**: use `synapse tasks complete <task_id>` when done or
   `synapse tasks fail <task_id> --reason "<reason>"` when blocked
-- Report progress on long tasks (>5 min): `synapse send <manager> "Progress: task task-abc-001 — <update>" --silent`
+- Report progress on long tasks (>5 min): `synapse send <manager> "Progress on 3f2a1b4c — <update>" --silent`
 - Report blockers immediately: `synapse send <manager> "<specific question>" --wait`
 - Save discoveries for the team: `synapse memory save <key> "<finding>" --tags <topic>`
 

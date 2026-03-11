@@ -86,19 +86,26 @@ implementation is blocked on confirmed tests/spec:
 synapse tasks create "Write auth tests" \
   -d "Create tests/spec for valid login, invalid credentials, token expiry, refresh flow" \
   --priority 5
-# Returns: task-tests-001
+# Returns: 3f2a1b4c (displayed prefix of a UUID such as 3f2a1b4c-1111-2222-3333-444444444444)
 
 synapse tasks create "Implement auth module" \
   -d "Add OAuth2 with JWT in synapse/auth.py after tests/spec are confirmed. Follow patterns in synapse/server.py." \
   --priority 4 \
-  --blocked-by task-tests-001
-# Returns: task-impl-002
+  --blocked-by 3f2a1b4c
+# Returns: 7a9d2e10 (displayed prefix of a UUID such as 7a9d2e10-5555-6666-7777-888888888888)
 ```
+
+`synapse tasks create` stores a full UUID and prints its first 8 characters.
+Use that prefix (or the full UUID) for `--blocked-by`, `synapse tasks assign`,
+and `synapse tasks complete`.
 
 **Assign the test/spec task and confirm scope before implementation starts:**
 ```bash
-synapse tasks assign task-tests-001 Tester
-synapse send Tester "Write the tests first and confirm the spec for task task-tests-001.
+TESTS_ID=3f2a1b4c
+IMPL_ID=7a9d2e10
+
+synapse tasks assign "$TESTS_ID" Tester
+synapse send Tester "Write the tests first and confirm the spec for task $TESTS_ID (Write auth tests).
 - Cover valid login, invalid credentials, token expiry, refresh flow
 - Report any scope gaps before implementation starts" --attach synapse/server.py --force --wait
 ```
@@ -116,8 +123,8 @@ Default expectation:
 
 After tests/spec are confirmed, assign the implementation task:
 ```bash
-synapse tasks assign task-impl-002 Impl
-synapse send Impl "Implement auth module — tests/spec are confirmed in task task-tests-001.
+synapse tasks assign "$IMPL_ID" Impl
+synapse send Impl "Implement auth module — tests/spec are confirmed in task $TESTS_ID (Write auth tests).
 - Add OAuth2 flow in synapse/auth.py
 - Follow existing patterns" --attach synapse/server.py --force --silent
 ```
@@ -222,7 +229,9 @@ synapse send Impl "Review test coverage. Focus on: missing cases, assertion qual
 **Final verification and cleanup:**
 ```bash
 pytest --tb=short -q                      # All tests pass
-synapse tasks complete task-tests-001 && synapse tasks complete task-impl-002
+synapse tasks list                        # Confirm the UUID prefixes before completion
+synapse tasks complete "$TESTS_ID"
+synapse tasks complete "$IMPL_ID"
 synapse kill Impl -f && synapse kill Tester -f
 synapse list                              # Verify cleanup
 ```

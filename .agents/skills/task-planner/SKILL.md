@@ -68,28 +68,43 @@ Decomposition results go to the **task board** — the team-visible contract:
 synapse tasks create "Write auth tests" \
   -d "Cover valid login, invalid credentials, token expiry" \
   --priority 5
-# Returns: task-tests-001
+# Returns: 3f2a1b4c (displayed prefix of a UUID such as 3f2a1b4c-1111-2222-3333-444444444444)
 
 synapse tasks create "Implement auth module" \
   -d "Add OAuth2 with JWT in synapse/auth.py" \
   --priority 4 \
-  --blocked-by task-tests-001
-# Returns: task-impl-002
+  --blocked-by 3f2a1b4c
+# Returns: 7a9d2e10 (displayed prefix of a UUID such as 7a9d2e10-5555-6666-7777-888888888888)
 
 synapse tasks create "Integration test" \
   -d "End-to-end auth flow verification" \
   --priority 3 \
-  --blocked-by task-impl-002
-# Returns: task-int-003
+  --blocked-by 7a9d2e10
+# Returns: c84ef901 (displayed prefix of a UUID such as c84ef901-9999-aaaa-bbbb-cccccccccccc)
 
-# Assign ownership
-synapse tasks assign task-tests-001 Tester
-synapse tasks assign task-impl-002 Impl
-synapse tasks assign task-int-003 Tester
+# Capture the created IDs, then assign ownership using the UUID prefix
+TESTS_ID=$(synapse tasks create "Write auth tests" \
+  -d "Cover valid login, invalid credentials, token expiry" \
+  --priority 5 | awk '{print $3}')
+IMPL_ID=$(synapse tasks create "Implement auth module" \
+  -d "Add OAuth2 with JWT in synapse/auth.py" \
+  --priority 4 \
+  --blocked-by "$TESTS_ID" | awk '{print $3}')
+INT_ID=$(synapse tasks create "Integration test" \
+  -d "End-to-end auth flow verification" \
+  --priority 3 \
+  --blocked-by "$IMPL_ID" | awk '{print $3}')
+
+synapse tasks assign "$TESTS_ID" Tester
+synapse tasks assign "$IMPL_ID" Impl
+synapse tasks assign "$INT_ID" Tester
 ```
 
 Use `--blocked-by` to express dependency chains. Blocked tasks cannot start
 until their blockers are completed, making execution order explicit.
+`synapse tasks create` generates full UUIDs, while the CLI prints the first
+8 characters. `synapse tasks assign`, `synapse tasks complete`, and
+`--blocked-by` accept either the full UUID or a unique prefix.
 
 ### TodoList for Personal Micro-Steps
 
@@ -107,6 +122,6 @@ are fine-grained (one per coding step):
 
 Reference task board IDs in all status updates:
 
-- **Done:** `"Task task-tests-001 complete — 4 tests passing"` + `synapse tasks complete task-tests-001`
-- **Next:** `"Starting task task-impl-002 (was blocked by task-tests-001)"`
-- **Blocked:** `"Task task-int-003 waiting — blocked by task-impl-002 (dependency will auto-unblock on completion)"`
+- **Done:** `"Task 3f2a1b4c (Write auth tests) complete — 4 tests passing"` + `synapse tasks complete "$TESTS_ID"`
+- **Next:** `"Starting task 7a9d2e10 (Implement auth module); previously blocked by 3f2a1b4c"`
+- **Blocked:** `"Task c84ef901 (Integration test) waiting — blocked by 7a9d2e10 (dependency will auto-unblock on completion)"`
