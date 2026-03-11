@@ -5,11 +5,19 @@ How to operate as a worker agent in a multi-agent team.
 ## On Task Receipt
 
 1. **Start immediately** — `[REPLY EXPECTED]` messages require a response; others are fire-and-forget
-2. **Check shared knowledge first** — other agents may have already solved similar problems:
+2. **Check the task board** (skip for simple fire-and-forget messages) — verify a task board
+   entry exists for your work. If the delegator forgot to create one, create it yourself:
+   ```bash
+   synapse tasks list
+   # If no entry exists for your assignment:
+   synapse tasks create "<task subject>" -d "<what was delegated>"
+   synapse tasks claim <id>
+   ```
+3. **Check shared knowledge first** — other agents may have already solved similar problems:
    ```bash
    synapse memory search "<task topic>"
    ```
-3. **Lock files before editing** — without locks, concurrent edits silently overwrite each other:
+4. **Lock files before editing** — without locks, concurrent edits silently overwrite each other:
    ```bash
    synapse file-safety lock <file> $SYNAPSE_AGENT_ID --intent "description"
    ```
@@ -17,7 +25,8 @@ How to operate as a worker agent in a multi-agent team.
 ## During Work
 
 Progress reporting prevents managers from sending unnecessary interrupts:
-- Report progress on long tasks (>5 min): `synapse send <manager> "Progress: <update>" --silent`
+- **Update task board** as work progresses: `synapse tasks update <id> --status in-progress`
+- Report progress on long tasks (>5 min): `synapse send <manager> "Progress: task #<id> — <update>" --silent`
 - Report blockers immediately: `synapse send <manager> "<specific question>" --wait`
 - Save discoveries for the team: `synapse memory save <key> "<finding>" --tags <topic>`
 
@@ -53,9 +62,15 @@ Transparency prevents wasted effort — the manager needs to reassign or adjust 
 2. `synapse send <manager> "Failed: <error details>" --silent`
 3. Do NOT silently move on
 
-## Proactive Mode
+## Default vs Proactive Mode
 
-When `SYNAPSE_PROACTIVE_MODE_ENABLED=true`, every task requires mandatory use of task board, shared memory, file safety, canvas, and broadcast — even 1-line fixes. Follow the injected checklist strictly: register on task board before work, lock files before editing, save findings to memory, post artifacts to canvas, and broadcast completion. See `synapse-a2a/references/features.md` for the full checklist.
+In **default mode**, the task board checkpoints described above (On Task Receipt step 2,
+On Completion, On Failure) apply as written.
+
+In **proactive mode** (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`), those same checkpoints apply
+**plus** mandatory use of shared memory, file safety, canvas, and broadcast — even for
+1-line fixes. Follow the injected checklist strictly. See `synapse-a2a/references/features.md`
+for the full checklist.
 
 ## When No Manager Exists
 

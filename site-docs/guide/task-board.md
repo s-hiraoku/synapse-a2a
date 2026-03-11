@@ -2,12 +2,40 @@
 
 ## Overview
 
-The Shared Task Board is a SQLite-based coordination system that lets agents create, assign, track, and complete tasks with dependency management. It forms the foundation of Synapse's structured multi-agent collaboration, replacing ad-hoc message-based task delegation with a persistent, queryable task store.
+The Shared Task Board is a SQLite-based coordination system that lets agents create, assign, track, and complete tasks with dependency management. It serves as the **team contract** for all multi-agent collaboration -- making ownership, blocking, and completion state visible to every agent.
 
 Storage: `.synapse/task_board.db` (project-local, SQLite WAL mode for concurrent access)
 
 !!! note "Enabled by Default"
     The Task Board is enabled by default. To disable it, set `SYNAPSE_TASK_BOARD_ENABLED=false` in your environment or `.synapse/settings.json`.
+
+## Task Board vs TodoList
+
+The Task Board and TodoList serve different purposes:
+
+| Tool | Scope | Purpose | Granularity |
+|------|-------|---------|-------------|
+| **Task Board** | Team-wide | Team contract -- tracks delegated work visible to all agents | One entry per delegation |
+| **TodoList** | Personal | Private micro-step tracking within a single task | One item per coding step |
+
+The Task Board is **mandatory for every delegation**. TodoList is optional and used by individual agents to track their own fine-grained progress (e.g., "add failing test", "implement handler", "update docs").
+
+## Mandatory Delegation Rule
+
+**Every delegation MUST have a matching task board entry.** Before sending work to any agent via `synapse send`, you must:
+
+1. `synapse tasks create "<task>" -d "<description>"` -- register the work unit
+2. `synapse tasks assign <id> <agent>` -- record ownership
+3. Only then `synapse send <agent> "..." --silent`
+
+This ensures that all delegated work is tracked, ownership is clear, and no task falls through the cracks.
+
+!!! tip "Worker Safety Net"
+    Workers should verify that a task board entry exists when they receive a delegation. If the delegator forgot to create one, the worker creates it as a safety net:
+    ```bash
+    synapse tasks list                        # Check for existing entry
+    synapse tasks create "Received task" -d "..." # Create if missing
+    ```
 
 ## Creating Tasks
 

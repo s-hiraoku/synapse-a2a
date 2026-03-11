@@ -1323,6 +1323,8 @@ synapse auth generate-key -n 3 -e    # 3つのキーをexport形式で生成
 
 共有タスクボード（B1: Shared Task Board）を管理します。SQLite ベースのタスク協調基盤です。
 
+**委任ルール**: すべての委任（`synapse send` による委任）は、事前にタスクボードへの登録が必須です（`synapse tasks create` + `synapse tasks assign`）。タスクボード = チーム契約（全員に可視）、TodoList = 個人のマイクロステップ管理（自分のみ）。
+
 ```bash
 synapse tasks <subcommand>
 ```

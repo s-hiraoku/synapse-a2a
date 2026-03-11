@@ -37,6 +37,11 @@ STEP 2: Collaboration Decision Framework
   - Requires your current context (files already read, state already understood)
 
   [DELEGATE] synapse send <target> "..." --notify or --silent
+  - **MANDATORY: Create task board entry before sending:**
+    ```
+    synapse tasks create "<task>" -d "<description>" --priority <N>
+    synapse tasks assign <id> <target>
+    ```
   - Outside your role (check ROLE column in synapse list)
   - Can run in parallel with your own work
   - A READY agent with a matching role exists in the same WORKING_DIR
@@ -61,7 +66,7 @@ STEP 2: Collaboration Decision Framework
   - When you find bugs or pitfalls others should avoid
 
 STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
-  For tasks with 3+ phases OR 10+ file changes, you MUST:
+  For delegation OR tasks with 3+ phases OR 10+ file changes, you MUST:
   1. Run `synapse list` to check available agents
   2. Run `synapse memory search "<topic>"` to check shared knowledge
   3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
@@ -123,6 +128,10 @@ TASK BOARD — Track all work transparently:
   synapse tasks assign <id> <agent>
   synapse tasks complete <id>
   synapse tasks fail <id> --reason "..."
+
+  RULE: Every delegation MUST have a matching task board entry.
+  Task board = team contract (visible to all). TodoList = personal notes (only you).
+  Before `synapse send` for delegation, always `synapse tasks create` + `synapse tasks assign`.
 
 SHARED MEMORY — Build collective knowledge:
   synapse memory save <key> "<content>" --tags <topic> --notify

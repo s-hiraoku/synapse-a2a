@@ -178,6 +178,8 @@ When `--delegate-mode` is enabled, Synapse applies two constraints:
 
 ### Delegate Workflow
 
+Every delegation must have a matching task board entry -- create and assign before sending:
+
 ```bash
 # Terminal 1: Manager (cannot edit files)
 synapse claude --delegate-mode --name manager
@@ -186,7 +188,16 @@ synapse claude --delegate-mode --name manager
 synapse codex --name Cody
 synapse codex --name Rex
 
-# Manager delegates (fire-and-forget — no reply needed)
+# Create task board entries and assign before delegating
+synapse tasks create "Implement OAuth2 authentication" -d "Add OAuth2 to API layer"
+# Returns: task-aaa
+synapse tasks assign task-aaa Cody
+
+synapse tasks create "Write tests for auth module" -d "Unit + integration tests"
+# Returns: task-bbb
+synapse tasks assign task-bbb Rex
+
+# Now delegate (fire-and-forget — no reply needed)
 synapse send Cody "Implement OAuth2 authentication" --silent
 synapse send Rex "Write tests for auth module" --silent
 
@@ -473,6 +484,12 @@ When an interactive agent exits (with a name set), Synapse prompts whether to sa
 ```bash
 synapse spawn codex --name Rex --role "test writer"
 # Wait for READY...
+
+# Create task board entry before delegating (mandatory)
+synapse tasks create "Write unit tests for auth.py" -d "Cover all auth flows"
+# Returns: task-aaa
+synapse tasks assign task-aaa Rex
+
 synapse send Rex "Write unit tests for auth.py" --wait
 # Evaluate result
 synapse kill Rex -f
