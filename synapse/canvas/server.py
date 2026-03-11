@@ -88,6 +88,61 @@ _ENV_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+def _read_agent_profiles_from_dir(
+    profiles_dir: Path,
+    *,
+    scope: str,
+    seen_ids: set[str] | None = None,
+) -> list[dict[str, str]]:
+    """Read saved agent definitions from a directory."""
+    profiles: list[dict[str, str]] = []
+    if not profiles_dir.is_dir():
+        return profiles
+
+    seen = seen_ids if seen_ids is not None else set()
+    for file_path in sorted(profiles_dir.glob("*.agent")):
+        try:
+            profile_data: dict[str, str] = {}
+            for raw_line in file_path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                profile_data[key.strip()] = value.strip()
+            profile_id = profile_data.get("id", "")
+            if not profile_id or profile_id in seen:
+                continue
+            seen.add(profile_id)
+            profiles.append(
+                {
+                    "id": profile_id,
+                    "name": profile_data.get("name", ""),
+                    "profile": profile_data.get("profile", ""),
+                    "role": profile_data.get("role", ""),
+                    "skill_set": profile_data.get("skill_set", ""),
+                    "scope": scope,
+                }
+            )
+        except OSError:
+            continue
+    return profiles
+
+
+def _active_project_root(agent_data: dict[str, Any]) -> Path | None:
+    """Resolve the project root for a live agent, collapsing worktrees to base repo."""
+    worktree_path = agent_data.get("worktree_path")
+    if worktree_path:
+        worktree = Path(str(worktree_path))
+        parts = worktree.parts
+        if len(parts) >= 3 and parts[-3:-1] == (".synapse", "worktrees"):
+            return worktree.parents[2]
+
+    working_dir = agent_data.get("working_dir")
+    if working_dir:
+        return Path(str(working_dir))
+    return None
+
+
 def _collect_static_sections() -> dict[str, Any]:
     """Collect slow-changing system data (skills, sessions, etc.)."""
     result: dict[str, Any] = {}
@@ -472,37 +527,30 @@ def create_app(db_path: str | None = None) -> FastAPI:
             except (sqlite3.Error, OSError):
                 pass
 
-        # Saved Agent Profiles
-        agent_profiles: list[dict[str, str]] = []
-        for scope, profiles_dir in [
-            ("user", os.path.expanduser("~/.synapse/agents")),
-            ("project", ".synapse/agents"),
-        ]:
-            if not os.path.isdir(profiles_dir):
+        user_agent_profiles = _read_agent_profiles_from_dir(
+            Path(os.path.expanduser("~/.synapse/agents")),
+            scope="user",
+        )
+
+        active_project_agent_profiles: list[dict[str, str]] = []
+        active_project_roots: set[Path] = set()
+        seen_active_project_profile_ids: set[str] = set()
+        for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
+            try:
+                data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                 continue
-            for file_path in sorted(glob.glob(os.path.join(profiles_dir, "*.agent"))):
-                try:
-                    profile_data: dict[str, str] = {}
-                    for raw_line in (
-                        Path(file_path).read_text(encoding="utf-8").splitlines()
-                    ):
-                        line = raw_line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        key, value = line.split("=", 1)
-                        profile_data[key.strip()] = value.strip()
-                    agent_profiles.append(
-                        {
-                            "id": profile_data.get("id", ""),
-                            "name": profile_data.get("name", ""),
-                            "profile": profile_data.get("profile", ""),
-                            "role": profile_data.get("role", ""),
-                            "skill_set": profile_data.get("skill_set", ""),
-                            "scope": scope,
-                        }
-                    )
-                except OSError:
-                    continue
+            project_root = _active_project_root(data)
+            if project_root is None or project_root in active_project_roots:
+                continue
+            active_project_roots.add(project_root)
+            active_project_agent_profiles.extend(
+                _read_agent_profiles_from_dir(
+                    project_root / ".synapse" / "agents",
+                    scope="active-project",
+                    seen_ids=seen_active_project_profile_ids,
+                )
+            )
 
         # Slow-changing sections: use TTL cache to avoid repeated I/O
         now_mono = time.monotonic()
@@ -545,7 +593,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "memories": memories,
             "worktrees": worktrees,
             "history": history,
-            "agent_profiles": agent_profiles,
+            "user_agent_profiles": user_agent_profiles,
+            "active_project_agent_profiles": active_project_agent_profiles,
             "registry_errors": registry_errors,
             "skills": skills,
             "skill_sets": skill_sets,

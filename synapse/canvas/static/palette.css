@@ -31,6 +31,10 @@
   --color-success-subtle: rgba(63, 185, 80, 0.12);
   --color-success-border: rgba(63, 185, 80, 0.30);
 
+  /* ── Signal Usage ───────────────────────── */
+  --color-signal-subtle: rgba(78, 205, 196, 0.12);
+  --color-signal-border: rgba(78, 205, 196, 0.28);
+
   /* ── Danger Usage ───────────────────────── */
   --color-danger-subtle: rgba(248, 81, 73, 0.10);
 
@@ -112,6 +116,10 @@
   /* Success */
   --color-success-subtle: rgba(26, 127, 55, 0.08);
   --color-success-border: rgba(26, 127, 55, 0.25);
+
+  /* Signal */
+  --color-signal-subtle: rgba(13, 148, 136, 0.10);
+  --color-signal-border: rgba(13, 148, 136, 0.24);
 
   /* Danger */
   --color-danger-subtle: rgba(207, 34, 46, 0.08);
