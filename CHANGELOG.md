@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.11] - 2026-03-11
+
+### Added
+
+- add Anthropic official skill-creator plugin
+- add pr-guardian skill with auto-trigger hook
+- refine canvas saved agent scope badges
+- auto-skip PTY bootstrap when MCP config is detected
+- make task board mandatory for all delegations
+
+### Changed
+
+- simplify canvas process management after code review
+
+### Documentation
+
+- update Canvas documentation for stale process management
+
+### Fixed
+
+- resolve Canvas stale process problem with robust PID management
+- ensure_server_running replaces stale Canvas on PID mismatch
+- address PR review findings on docs accuracy and edge cases
+- add PID_FILE/LOG_FILE patches and integration test for stale detection
+- trim pr-guardian description to 500 chars and chmod utils.py
+- relax description length limit to 700 chars
+- align canvas saved agent payload and badge palette
+- tighten synapse MCP bootstrap detection
+- improve saved agent id prompt
+- keep canvas sidebar collapse control inside panel
+- keep canvas sidebar header contents inside panel
+- restore compact canvas sidebar collapse state
+- hide brand icon in compact canvas sidebar
+- defer spotlight DOM clear to prevent blank fallback rendering
+- resolve merge conflicts with main (canvas refactor + split profiles)
+- reuse spotlight DOM frame instead of rebuilding on every render
+- address canvas frontend review feedback
+- resolve remaining merge conflict in system panel test
+
+### Tests
+
+- cover canvas spotlight fallback for malformed cards
+
 ## [0.11.10] - 2026-03-10
 
 ### Fixed

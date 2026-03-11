@@ -4,6 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.11
+
+- **Added**: Anthropic official skill-creator plugin, pr-guardian skill with auto-trigger hook
+- **Added**: Auto-skip PTY bootstrap when MCP config detected, task board mandatory for delegations
+- **Fixed**: Canvas stale process problem with robust PID management
+- **Fixed**: Defer spotlight DOM clear to prevent blank fallback rendering
+- **Changed**: Simplify canvas process management after code review
+- **Documentation**: Update Canvas docs for stale process management
+
 ### v0.11.10
 
 - **Fixed**: Test failures from CLAUDE.md slimdown and `LongMessageStore` singleton pollution
