@@ -190,7 +190,7 @@ class TestTasksCLI:
         with patch("synapse.task_board.TaskBoard.from_env", return_value=board):
             from synapse.cli import cmd_tasks_purge
 
-            args = argparse.Namespace(status=None)
+            args = argparse.Namespace(status=None, force=True)
             cmd_tasks_purge(args)
 
         out = capsys.readouterr().out
@@ -210,7 +210,7 @@ class TestTasksCLI:
         with patch("synapse.task_board.TaskBoard.from_env", return_value=board):
             from synapse.cli import cmd_tasks_purge
 
-            args = argparse.Namespace(status="completed")
+            args = argparse.Namespace(status="completed", force=True)
             cmd_tasks_purge(args)
 
         out = capsys.readouterr().out
