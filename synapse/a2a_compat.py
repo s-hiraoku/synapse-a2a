@@ -956,7 +956,13 @@ def create_a2a_router(
 
                     board = TaskBoard.from_env()
                     unblocked = board.complete_task(board_task_id, agent_id)
-                    logger.info("Auto-completed board task %s", board_task_id[:8])
+                    if unblocked is None:
+                        logger.warning(
+                            "Board task %s was not auto-completed (state/assignee mismatch)",
+                            board_task_id[:8],
+                        )
+                    else:
+                        logger.info("Auto-completed board task %s", board_task_id[:8])
                     if unblocked:
                         logger.info(
                             "Unblocked board tasks: %s",
@@ -1149,12 +1155,18 @@ def create_a2a_router(
                     from synapse.task_board import TaskBoard
 
                     board = TaskBoard.from_env()
-                    board.claim_task(board_task_id, agent_id)
-                    logger.info(
-                        "Auto-claimed board task %s for %s",
-                        board_task_id[:8],
-                        agent_id,
-                    )
+                    claimed = board.claim_task(board_task_id, agent_id)
+                    if claimed:
+                        logger.info(
+                            "Auto-claimed board task %s for %s",
+                            board_task_id[:8],
+                            agent_id,
+                        )
+                    else:
+                        logger.warning(
+                            "Board task %s was not auto-claimed (already claimed/blocked?)",
+                            board_task_id[:8],
+                        )
                 except Exception as e:
                     logger.warning(
                         "Failed to auto-claim board task %s: %s",

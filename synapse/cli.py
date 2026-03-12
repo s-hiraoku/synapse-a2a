@@ -1266,15 +1266,19 @@ def cmd_send(args: argparse.Namespace) -> None:
     if getattr(args, "task", False):
         from synapse.task_board import TaskBoard
 
-        board = TaskBoard.from_env()
-        sender_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-        board_task_id = board.create_task(
-            subject=message[:80],
-            description=message,
-            created_by=sender_id,
-        )
-        board.set_assignee_hint(board_task_id, args.target)
-        print(f"Board task created: {board_task_id[:8]}")
+        try:
+            board = TaskBoard.from_env()
+            sender_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+            board_task_id = board.create_task(
+                subject=message[:80],
+                description=message,
+                created_by=sender_id,
+            )
+            board.set_assignee_hint(board_task_id, args.target)
+            print(f"Board task created: {board_task_id[:8]}")
+        except Exception as e:
+            print(f"Error: failed to create linked board task: {e}", file=sys.stderr)
+            sys.exit(1)
 
     cmd = _build_a2a_cmd(
         "send",
@@ -2969,6 +2973,13 @@ def cmd_tasks_purge(args: argparse.Namespace) -> None:
 
     board = TaskBoard.from_env()
     status_filter = getattr(args, "status", None)
+    force = getattr(args, "force", False)
+    if not force:
+        scope = f" status='{status_filter}'" if status_filter else " all tasks"
+        answer = input(f"About to purge{scope}. Continue? [y/N]: ").strip().lower()
+        if answer != "y":
+            print("Aborted.")
+            return
     deleted = board.purge(status=status_filter)
     qualifier = f" {status_filter}" if status_filter else ""
     print(f"Purged {deleted}{qualifier} task(s).")
@@ -5364,6 +5375,12 @@ Integration with synapse list:
     p_tasks_purge.add_argument(
         "--status",
         help="Only purge tasks with this status (pending, in_progress, completed, failed)",
+    )
+    p_tasks_purge.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Purge without confirmation prompt",
     )
     p_tasks_purge.set_defaults(func=cmd_tasks_purge)
 

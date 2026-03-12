@@ -188,7 +188,7 @@ Lists all running Synapse agents with status and connection info. This is the MC
       "pid": 12345,
       "working_dir": "/path/to/project",
       "endpoint": "http://localhost:8100",
-      "transport": "http",
+      "transport": "-",
       "current_task_preview": null,
       "task_received_at": null
     }

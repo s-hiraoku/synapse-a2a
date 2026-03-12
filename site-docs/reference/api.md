@@ -1178,7 +1178,7 @@ List all running Synapse agents with status and connection info. This is the MCP
       "pid": 12345,
       "working_dir": "/path/to/project",
       "endpoint": "http://localhost:8100",
-      "transport": "http",
+      "transport": "-",
       "current_task_preview": null,
       "task_received_at": null
     }
@@ -1200,9 +1200,9 @@ List all running Synapse agents with status and connection info. This is the MCP
 | `pid` | integer | Process ID |
 | `working_dir` | string | Agent's working directory |
 | `endpoint` | string | HTTP endpoint URL |
-| `transport` | string | Transport protocol (`http`) |
-| `current_task_preview` | string | Preview of the current task (if processing) |
-| `task_received_at` | string | Timestamp when the current task was received |
+| `transport` | string | Transport display value (`UDS→`, `TCP→`, or `-`) |
+| `current_task_preview` | string\|null | Preview of the current task (if processing) |
+| `task_received_at` | number\|null | Unix epoch timestamp when the current task was received |
 
 ---
 
