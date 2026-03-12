@@ -90,6 +90,48 @@ synapse tasks reopen <task_id>
 
 Reopened tasks return to `pending` status.
 
+## Purging Tasks
+
+```bash
+synapse tasks purge                      # Delete completed + failed tasks
+synapse tasks purge --status completed   # Delete only completed tasks
+synapse tasks purge --status failed      # Delete only failed tasks
+```
+
+By default, `synapse tasks purge` removes `completed` and `failed` tasks from the Task Board. Use the `--status` filter to target a specific status.
+
+!!! warning "Irreversible"
+    Purged tasks cannot be recovered. Use this to reset the board between sprints or after experiments.
+
+## Task-Linked Messaging
+
+The `--task` (or `-T`) flag on `synapse send` auto-creates a board task and links it to the A2A transport task:
+
+```bash
+synapse send gemini "Implement the OAuth module" --task
+synapse send gemini "Implement the OAuth module" -T
+```
+
+When a task-linked message is sent:
+
+1. **Auto-create on send** — a new board task is created with the message as the subject, and linked to the A2A task via the `a2a_task_id` column.
+2. **Auto-claim on receive** — the receiving agent automatically claims the board task (status transitions from `pending` to `in_progress`). The `assignee_hint` column is used to identify the target agent.
+3. **Auto-complete on finalize** — when the A2A task completes, the linked board task is automatically marked as `completed`.
+
+This eliminates the need for separate `synapse tasks create`, `synapse tasks assign`, and `synapse tasks complete` commands when coordinating work via messages.
+
+Internally, the `link_a2a_task()` method bridges board tasks and A2A transport tasks, while `find_by_a2a_task_id()` enables lookup of board tasks from A2A task IDs.
+
+### PTY Display for Task-Linked Messages
+
+When a task-linked message arrives, the PTY shows the task ID prefix:
+
+```
+A2A: [Task: a1b2c3d4] [From: Claud (synapse-claude-8100)] Implement the OAuth module
+```
+
+The `[Task: XXXXXXXX]` prefix (first 8 characters of the task ID) gives the receiving agent immediate visibility into which Task Board entry the message relates to.
+
 ## Task Dependencies
 
 Create tasks that depend on other tasks:
@@ -478,6 +520,8 @@ Every task is returned as a dictionary with the following keys:
 | `completed_at` | `str` or `None` | ISO timestamp of completion |
 | `priority` | `int` | Priority level (1-5) |
 | `fail_reason` | `str` | Reason for failure (if failed) |
+| `a2a_task_id` | `str` or `None` | Linked A2A task ID (set when created via `--task` / `-T`) |
+| `assignee_hint` | `str` or `None` | Suggested assignee agent (used by auto-claim) |
 
 ### Integration Example: Auto-Assign Available Tasks
 

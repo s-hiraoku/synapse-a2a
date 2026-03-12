@@ -120,10 +120,11 @@ synapse send claude "Review these" --attach src/a.py --attach src/b.py --wait
 Incoming A2A messages appear with the `A2A:` prefix:
 
 ```
-A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
+A2A: [From: NAME (SENDER_ID)] [Task: XXXXXXXX] [REPLY EXPECTED] <message content>
 ```
 
 - **From**: The sender's display name and Runtime ID.
+- **Task: XXXXXXXX**: The linked board task ID (first 8 chars). Present when the sender used `--task` / `-T`. The board task is auto-claimed for you on receipt and auto-completed when the A2A task finalizes.
 - **REPLY EXPECTED**: The sender is blocking, waiting for your response.
 
 Fallback formats when sender info is unavailable:
@@ -131,6 +132,23 @@ Fallback formats when sender info is unavailable:
 - `A2A: <message content>` (backward-compatible)
 
 When `[REPLY EXPECTED]` is present, reply with `synapse reply` so the sender can unblock. Do not manually include `[REPLY EXPECTED]` in outgoing messages -- Synapse adds it automatically when `--wait` is used.
+
+### Task-Linked Messaging
+
+Use `--task` / `-T` with `synapse send` to combine task board management with messaging:
+
+```bash
+synapse send gemini "Write tests for auth module" --task --silent
+```
+
+This single command:
+1. Creates a board task (subject = first 80 chars of message, `assignee_hint` = target)
+2. Sends the message with `x-board-task-id` metadata
+3. PTY displays `[Task: XXXXXXXX]` tag in the delivered message
+4. Receiver auto-claims the board task on receipt
+5. Board task auto-completes when the A2A task finalizes
+
+This eliminates the need for separate `synapse tasks create` + `synapse tasks assign` + `synapse send` sequences for simple delegations.
 
 ### Replying
 

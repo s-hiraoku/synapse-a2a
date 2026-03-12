@@ -481,7 +481,10 @@ def cmd_list(args: argparse.Namespace) -> None:
         time,
         print,
     )
-    list_command.run(args)
+    if getattr(args, "json_output", False) is True:
+        list_command.run_json(args)
+    else:
+        list_command.run(args)
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -1162,6 +1165,7 @@ def _build_a2a_cmd(
     response_mode: str | None = None,
     attachments: list[str] | None = None,
     force: bool = False,
+    board_task_id: str | None = None,
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand.
 
@@ -1201,6 +1205,8 @@ def _build_a2a_cmd(
         cmd.append(f"--{response_mode}")
     if force:
         cmd.append("--force")
+    if board_task_id:
+        cmd.extend(["--board-task-id", board_task_id])
 
     return cmd
 
@@ -1253,6 +1259,22 @@ def _resolve_cli_message(args: argparse.Namespace) -> str:
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     message = _resolve_cli_message(args)
+
+    # --task flag: create a board task linked to this send
+    board_task_id: str | None = None
+    if getattr(args, "task", False):
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard.from_env()
+        sender_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
+        board_task_id = board.create_task(
+            subject=message[:80],
+            description=message,
+            created_by=sender_id,
+        )
+        board.set_assignee_hint(board_task_id, args.target)
+        print(f"Board task created: {board_task_id[:8]}")
+
     cmd = _build_a2a_cmd(
         "send",
         message,
@@ -1262,6 +1284,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         response_mode=getattr(args, "response_mode", None),
         attachments=getattr(args, "attach", None),
         force=getattr(args, "force", False),
+        board_task_id=board_task_id,
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -2939,6 +2962,17 @@ def cmd_tasks_reopen(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_tasks_purge(args: argparse.Namespace) -> None:
+    """Purge tasks from the task board."""
+    from synapse.task_board import TaskBoard
+
+    board = TaskBoard.from_env()
+    status_filter = getattr(args, "status", None)
+    deleted = board.purge(status=status_filter)
+    qualifier = f" {status_filter}" if status_filter else ""
+    print(f"Purged {deleted}{qualifier} task(s).")
+
+
 # ============================================================
 # Shared Memory Commands
 # ============================================================
@@ -4466,6 +4500,7 @@ Target resolution priority:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse list              Show running agents (Rich TUI with auto-update)
+  synapse list --json       Output agent list as JSON (for AI/scripts)
 
 Columns:
   ID            Agent identifier
@@ -4493,6 +4528,12 @@ Status meanings:
   WAITING     Agent is showing selection UI
   PROCESSING  Agent is actively processing a task
   DONE        Task completed (auto-transitions to READY)""",
+    )
+    p_list.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output agent list as JSON (for programmatic use)",
     )
     p_list.set_defaults(func=cmd_list)
 
@@ -4584,6 +4625,13 @@ Priority levels:
         action="store_true",
         default=False,
         help="Send even if target is in a different working directory",
+    )
+    p_send.add_argument(
+        "--task",
+        "-T",
+        action="store_true",
+        default=False,
+        help="Auto-create a board task linked to this message",
     )
     p_send.set_defaults(func=cmd_send)
 
@@ -5308,6 +5356,15 @@ Integration with synapse list:
     )
     p_tasks_reopen.add_argument("task_id", help="Task ID to reopen")
     p_tasks_reopen.set_defaults(func=cmd_tasks_reopen)
+
+    p_tasks_purge = tasks_subparsers.add_parser(
+        "purge", help="Delete tasks from the board"
+    )
+    p_tasks_purge.add_argument(
+        "--status",
+        help="Only purge tasks with this status (pending, in_progress, completed, failed)",
+    )
+    p_tasks_purge.set_defaults(func=cmd_tasks_purge)
 
     # memory - Shared Memory
     p_memory = subparsers.add_parser(

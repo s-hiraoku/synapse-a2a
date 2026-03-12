@@ -19,10 +19,16 @@ def reset_global_state() -> Generator[None, None, None]:
 
     a2a_client._client = None
 
+    # Reset task_store singleton to prevent cross-test contamination
+    from synapse.a2a_compat import task_store
+
+    task_store._tasks.clear()
+
     yield
 
     # Cleanup after test
     a2a_client._client = None
+    task_store._tasks.clear()
 
     # Clean up event loop created by asyncio.run() in tests
     # This is critical for preventing event loop accumulation

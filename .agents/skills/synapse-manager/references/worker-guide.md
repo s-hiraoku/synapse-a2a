@@ -6,6 +6,7 @@ How to operate as a worker agent in a multi-agent team.
 
 1. **Start immediately** — `[REPLY EXPECTED]` messages require a response; others are fire-and-forget
 2. **Check the task board** — verify a task board entry exists for your work.
+   If the message contains `[Task: XXXXXXXX]`, the board task was auto-claimed for you (no manual `tasks assign` needed); it will auto-complete when you finalize the A2A task.
    If the delegator forgot to create one, create it yourself as a safety net:
    ```bash
    synapse tasks list

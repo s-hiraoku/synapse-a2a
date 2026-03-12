@@ -242,6 +242,7 @@ class A2AClient:
         registry: AgentRegistry | None = None,
         sender_agent_id: str | None = None,
         target_agent_id: str | None = None,
+        board_task_id: str | None = None,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -299,6 +300,10 @@ class A2AClient:
                 metadata["sender"] = sender_info
             if in_reply_to:
                 metadata["in_reply_to"] = in_reply_to
+            if board_task_id:
+                from synapse.config import BOARD_TASK_METADATA_KEY
+
+                metadata[BOARD_TASK_METADATA_KEY] = board_task_id
 
             # Generate sender_task_id when response is expected (wait or notify)
             # The sender owns this task and will use it to receive the reply

@@ -96,7 +96,7 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
-| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle (`synapse tasks`). **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
+| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle, A2A task linking (`--task` flag), auto-claim/auto-complete, and purge (`synapse tasks`). **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
@@ -666,7 +666,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse status <target>` | Show detailed agent status (info, current task, history, file locks, task board). Supports `--json` |
 | `synapse logs <profile>` | Show logs |
-| `synapse send <target> <message>` | Send message |
+| `synapse send <target> <message>` | Send message. `--task` / `-T` auto-creates a linked board task |
 | `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
 | `synapse reply <message>` | Reply to the last received A2A message |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
@@ -708,6 +708,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse tasks complete` | Mark task completed |
 | `synapse tasks fail` | Mark task failed (with `--reason`) |
 | `synapse tasks reopen` | Reopen completed/failed task to pending |
+| `synapse tasks purge` | Delete tasks from board (optional `--status` filter) |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
@@ -1048,6 +1049,7 @@ python -m synapse.tools.a2a reply "Here is my response"
 | `/tasks/board/{id}/complete` | POST | Complete task |
 | `/tasks/board/{id}/fail` | POST | Mark task as failed (with optional `reason`) |
 | `/tasks/board/{id}/reopen` | POST | Reopen completed/failed task to pending |
+| `/tasks/board/purge` | POST | Delete tasks from board (optional `status` filter) |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (A2A-initiated) |

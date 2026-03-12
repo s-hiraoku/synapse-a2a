@@ -32,6 +32,8 @@ synapse send gemini "Fix this" --silent        # Fire-and-forget
 synapse send claude "Update" --notify          # Async notification (default)
 synapse send claude --message-file /tmp/msg.txt --silent  # From file
 synapse send claude "Review" --attach src/main.py --wait  # With file
+synapse send claude "Implement auth" --task    # Auto-create linked board task
+synapse send claude "Fix bug" -T               # Short form of --task
 synapse reply "Result here"                    # Auto-route to sender
 synapse broadcast "Status check"               # All agents in CWD
 synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)
@@ -41,6 +43,8 @@ synapse tasks list
 synapse tasks create "Subject" -d "description" --priority 4
 synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
+synapse tasks purge                            # Delete all completed/failed tasks
+synapse tasks purge --status completed         # Delete only completed tasks
 synapse approve <task_id>
 synapse reject <task_id> --reason "reason"
 

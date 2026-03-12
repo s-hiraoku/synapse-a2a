@@ -58,6 +58,7 @@ synapse send <target> "<message>" \
 | `--message-file <path>` | Read message from file |
 | `--stdin` | Read message from stdin |
 | `--attach <file>` | Attach file(s) — repeatable |
+| `--task <id>` / `-T <id>` | Link message to a Task Board entry (auto-claim on receive, auto-complete on finalize) |
 | `--force` | Bypass working_dir mismatch check |
 
 !!! info "Sender Auto-Detection"
@@ -104,12 +105,31 @@ synapse send Claud "Write the tests" --silent
 Target resolution priority: (1) Custom name → (2) Runtime ID → (3) Type-port → (4) Type only.
 See [Agent Management](agent-management.md#target-resolution-priority) for details.
 
+## Task-Linked Messaging
+
+Link a message to a Task Board entry using `--task` / `-T`:
+
+```bash
+synapse send gemini "Implement the OAuth module" --task <task_id>
+synapse send gemini "Implement the OAuth module" -T <task_id>
+```
+
+When the receiver accepts the message, the referenced task is **auto-claimed** (status moves to `in_progress`). When the receiver finalizes, the task is **auto-completed**. This removes the need for separate `synapse tasks assign` and `synapse tasks complete` calls.
+
+See [Task Board -- Task-Linked Messaging](task-board.md#task-linked-messaging) for details on PTY display and schema integration.
+
 ## Receiving Messages
 
 When a message arrives at an agent, it appears in the PTY with a prefix that includes optional sender identification and reply expectations:
 
 ```
 A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
+```
+
+For task-linked messages, a task ID prefix is also shown:
+
+```
+A2A: [Task: a1b2c3d4] [From: NAME (SENDER_ID)] <message content>
 ```
 
 - **From**: Identifies the sender's display name and unique agent ID. This helps you know who you are talking to.

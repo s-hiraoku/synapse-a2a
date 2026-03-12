@@ -46,5 +46,8 @@ venv/
 .DS_Store
 ci_log.txt
 
+# Stray SQLite :memory: files
+:memory:
+
 # Gemini skills (unified into .agents/skills/)
 .gemini/skills/

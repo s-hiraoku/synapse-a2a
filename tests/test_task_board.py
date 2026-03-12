@@ -788,3 +788,147 @@ class TestTaskBoardGetTask:
     def test_get_missing_task(self, board):
         """get_task should return None for a non-existent task."""
         assert board.get_task("nonexistent-id") is None
+
+
+# ============================================================
+# TestTaskBoardPurge - Purge tasks
+# ============================================================
+
+
+class TestTaskBoardPurge:
+    """Tests for purge functionality."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_purge_all(self, board):
+        """purge() with no args should delete all tasks."""
+        board.create_task(subject="T1", description="", created_by="claude")
+        board.create_task(subject="T2", description="", created_by="claude")
+        deleted = board.purge()
+        assert deleted == 2
+        assert board.list_tasks() == []
+
+    def test_purge_by_status(self, board):
+        """purge(status=...) should only delete matching tasks."""
+        t1 = board.create_task(subject="T1", description="", created_by="claude")
+        board.create_task(subject="T2", description="", created_by="claude")
+        board.claim_task(t1, "synapse-claude-8100")
+        board.complete_task(t1, "synapse-claude-8100")
+
+        deleted = board.purge(status="completed")
+        assert deleted == 1
+        remaining = board.list_tasks()
+        assert len(remaining) == 1
+        assert remaining[0]["subject"] == "T2"
+
+    def test_purge_empty_board(self, board):
+        """purge() on empty board should return 0."""
+        assert board.purge() == 0
+
+    def test_purge_nonexistent_status(self, board):
+        """purge(status='nonexistent') should return 0."""
+        board.create_task(subject="T1", description="", created_by="claude")
+        assert board.purge(status="nonexistent") == 0
+
+
+# ============================================================
+# TestTaskBoardLinkA2ATask - A2A task linking
+# ============================================================
+
+
+class TestTaskBoardLinkA2ATask:
+    """Tests for A2A task linking."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_link_a2a_task(self, board):
+        """link_a2a_task should store the A2A task ID."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        result = board.link_a2a_task(task_id, "a2a-task-123")
+        assert result is True
+        task = board.get_task(task_id)
+        assert task["a2a_task_id"] == "a2a-task-123"
+
+    def test_link_a2a_task_nonexistent(self, board):
+        """link_a2a_task on missing task should return False."""
+        assert board.link_a2a_task("nonexistent", "a2a-task-123") is False
+
+    def test_find_by_a2a_task_id(self, board):
+        """find_by_a2a_task_id should find linked task."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        board.link_a2a_task(task_id, "a2a-task-456")
+        found = board.find_by_a2a_task_id("a2a-task-456")
+        assert found is not None
+        assert found["id"] == task_id
+
+    def test_find_by_a2a_task_id_missing(self, board):
+        """find_by_a2a_task_id should return None for unknown ID."""
+        assert board.find_by_a2a_task_id("unknown") is None
+
+    def test_new_columns_default_values(self, board):
+        """New tasks should have None for a2a_task_id and assignee_hint."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        task = board.get_task(task_id)
+        assert task["a2a_task_id"] is None
+        assert task["assignee_hint"] is None
+
+
+# ============================================================
+# TestTaskBoardMigrationNewColumns - Schema migration for new columns
+# ============================================================
+
+
+class TestTaskBoardMigrationNewColumns:
+    """Tests for schema migration adding a2a_task_id and assignee_hint."""
+
+    def test_migration_adds_new_columns(self, tmp_path):
+        """Opening an old DB should add a2a_task_id and assignee_hint columns."""
+        db_path = str(tmp_path / "old.db")
+
+        # Create DB with schema missing new columns
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE board_tasks (
+                id TEXT PRIMARY KEY,
+                subject TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                assignee TEXT,
+                created_by TEXT NOT NULL,
+                blocked_by TEXT DEFAULT '[]',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME,
+                priority INTEGER DEFAULT 3,
+                fail_reason TEXT DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO board_tasks (id, subject, created_by) "
+            "VALUES ('t1', 'Old task', 'claude')"
+        )
+        conn.commit()
+        conn.close()
+
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard(db_path=db_path)
+        tasks = board.list_tasks()
+        assert len(tasks) == 1
+        assert tasks[0]["a2a_task_id"] is None
+        assert tasks[0]["assignee_hint"] is None
+
+        # Should be able to link A2A task
+        assert board.link_a2a_task("t1", "a2a-123") is True
+        task = board.get_task("t1")
+        assert task["a2a_task_id"] == "a2a-123"

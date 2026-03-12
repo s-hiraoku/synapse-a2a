@@ -689,6 +689,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         registry=reg,
         sender_agent_id=sender_info.get("sender_id") if sender_info else None,
         target_agent_id=agent_id,
+        board_task_id=getattr(args, "board_task_id", None),
     )
 
     if not task:
@@ -698,6 +699,18 @@ def cmd_send(args: argparse.Namespace) -> None:
     task_id = task.id or str(uuid.uuid4())
     agent_type = target_agent["agent_type"]
     agent_short = target_agent["agent_id"][:8]
+
+    # Link board task to A2A transport task
+    board_task_id = getattr(args, "board_task_id", None)
+    if board_task_id:
+        try:
+            from synapse.task_board import TaskBoard
+
+            board = TaskBoard.from_env()
+            board.link_a2a_task(board_task_id, task_id)
+        except Exception as e:
+            logger.warning("Failed to link board task %s: %s", board_task_id, e)
+
     print(f"Success: Task created for {agent_type} ({agent_short}...)")
     print(f"  Task ID: {task_id}")
     print(f"  Status: {task.status}")
@@ -1061,6 +1074,11 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Send even if target is in a different working directory",
+    )
+    p_send.add_argument(
+        "--board-task-id",
+        dest="board_task_id",
+        help="Board task ID to link with this message (set by --task flag)",
     )
 
     # broadcast command

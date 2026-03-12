@@ -178,3 +178,41 @@ class TestTasksCLI:
             in captured.err
         )
         assert f"Completed task: {task_id[:8]}" not in captured.out
+
+    def test_tasks_purge_all(self, tmp_path, capsys):
+        """synapse tasks purge should delete all tasks."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard(db_path=str(tmp_path / "board.db"))
+        board.create_task(subject="T1", description="", created_by="claude")
+        board.create_task(subject="T2", description="", created_by="claude")
+
+        with patch("synapse.task_board.TaskBoard.from_env", return_value=board):
+            from synapse.cli import cmd_tasks_purge
+
+            args = argparse.Namespace(status=None)
+            cmd_tasks_purge(args)
+
+        out = capsys.readouterr().out
+        assert "Purged 2 task(s)" in out
+        assert board.list_tasks() == []
+
+    def test_tasks_purge_by_status(self, tmp_path, capsys):
+        """synapse tasks purge --status should only delete matching tasks."""
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard(db_path=str(tmp_path / "board.db"))
+        t1 = board.create_task(subject="T1", description="", created_by="claude")
+        board.create_task(subject="T2", description="", created_by="claude")
+        board.claim_task(t1, "synapse-claude-8100")
+        board.complete_task(t1, "synapse-claude-8100")
+
+        with patch("synapse.task_board.TaskBoard.from_env", return_value=board):
+            from synapse.cli import cmd_tasks_purge
+
+            args = argparse.Namespace(status="completed")
+            cmd_tasks_purge(args)
+
+        out = capsys.readouterr().out
+        assert "Purged 1 completed task(s)" in out
+        assert len(board.list_tasks()) == 1

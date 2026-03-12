@@ -499,7 +499,7 @@ The UI uses **SPA hash routing** with four views:
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
 | `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
 | `#/history` | **History** | Card grid with live feed, agent messages, and filters |
-| `#/system` | **System** | Configuration and setup information (tips, saved agents, skills, skill sets, sessions, workflows, environment) |
+| `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
 
 ### Canvas View (`#/`)
 

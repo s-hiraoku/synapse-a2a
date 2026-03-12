@@ -468,7 +468,7 @@ skill_set=developer
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent]
+synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent] [--task]
 ```
 
 **ターゲット指定方法**:
@@ -493,11 +493,13 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--notify` | No | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
 | `--silent` | No | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--silent時のみ） |
+| `--task`, `-T` | No | ボードタスクを自動作成し、送信メッセージと紐付ける。受信側は自動 claim、A2A タスク完了時に自動 complete |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
 **Note**: `--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
+**Note**: `--task` / `-T` を指定すると、送信時にボードタスクを自動作成し、A2A タスクと紐付けます。受信側は自動 claim し、A2A タスク完了時にボードタスクも自動 complete されます。PTY 表示には `[Task: XXXXXXXX]` タグが付与されます。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 **レスポンスモードの使い分け**:
@@ -532,6 +534,8 @@ echo "from stdin" | synapse send codex --stdin --silent
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --silent
 synapse send codex "設計して" --force                           # 作業ディレクトリ不一致でも送信
 synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
+synapse send codex "認証を実装して" --task                     # ボードタスク自動作成＆紐付け
+synapse send codex "バグ修正して" -T --silent                  # -T は --task の短縮形
 ```
 
 ---
@@ -1440,6 +1444,39 @@ synapse tasks reopen <task_id>
 ```bash
 synapse tasks reopen task-1
 ```
+
+#### 1.20.7 synapse tasks purge
+
+タスクボードからタスクを削除します。デフォルトでは `completed` および `failed` のタスクを削除します。
+
+```bash
+synapse tasks purge [--status STATUS]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--status` | No | 削除対象のステータスでフィルタ（`pending`, `in_progress`, `completed`, `failed`） |
+
+**例**:
+
+```bash
+synapse tasks purge                      # completed + failed を削除
+synapse tasks purge --status completed   # completed のみ削除
+synapse tasks purge --status failed      # failed のみ削除
+```
+
+#### A2A タスク連携
+
+`synapse send --task` で送信すると、ボードタスクと A2A トランスポートタスクが自動的に紐付けられます。
+
+- **送信時**: ボードタスクが自動作成され、`a2a_task_id` カラムで A2A タスクとリンク
+- **受信時**: 受信エージェントがボードタスクを自動 claim（`assignee_hint` で特定）
+- **完了時**: A2A タスクが `completed` に遷移すると、紐付いたボードタスクも自動 complete
+- **PTY 表示**: メッセージに `[Task: XXXXXXXX]` タグが表示され、どのボードタスクに関連するか確認可能
+
+内部メソッド:
+- `link_a2a_task(board_task_id, a2a_task_id)` — ボードタスクと A2A タスクを紐付け
+- `find_by_a2a_task_id(a2a_task_id)` — A2A タスク ID からボードタスクを検索
 
 #### タスクライフサイクル
 

@@ -2,7 +2,8 @@
 
 | Feature | Command | Purpose |
 |---------|---------|---------|
-| **Task Board** | `synapse tasks create/assign/complete/fail/reopen/list` | Structured task tracking with priorities and dependencies |
+| **Task Board** | `synapse tasks create/assign/complete/fail/reopen/purge/list` | Structured task tracking with priorities, dependencies, and purge cleanup |
+| **Task-Linked Send** | `synapse send --task` / `-T` | Auto-create board task, auto-claim on receive, auto-complete on finalize |
 | **Plan Approval** | `synapse approve/reject` | Gate execution with review feedback |
 | **Shared Memory** | `synapse memory save/search/list/show` | Cross-agent knowledge sharing and pattern retention |
 | **History & Tracing** | `synapse history list/show/stats` + `synapse trace` | Audit trail and token/cost tracking |

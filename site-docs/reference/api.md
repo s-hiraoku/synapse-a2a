@@ -307,6 +307,7 @@ The shared task board provides SQLite-based task coordination for multi-agent te
 | POST | `/tasks/board/{id}/complete` | Complete task + unblock dependents |
 | POST | `/tasks/board/{id}/fail` | Mark task failed |
 | POST | `/tasks/board/{id}/reopen` | Reopen to pending |
+| DELETE | `/tasks/board` | Purge all tasks |
 
 ### GET /tasks/board -- List Tasks
 
@@ -333,7 +334,9 @@ curl http://localhost:8100/tasks/board
       "updated_at": "2026-03-05T10:00:00",
       "completed_at": null,
       "priority": 4,
-      "fail_reason": ""
+      "fail_reason": "",
+      "a2a_task_id": null,
+      "assignee_hint": null
     }
   ]
 }
@@ -486,6 +489,23 @@ curl -X POST http://localhost:8100/tasks/board/a1b2c3d4-.../reopen \
 
 !!! warning "Conflict (409)"
     Returns HTTP 409 if the task is in `pending` or `in_progress` status (only `completed` or `failed` tasks can be reopened).
+
+### DELETE /tasks/board -- Purge All Tasks
+
+Remove all tasks from the Task Board. This is a destructive, irreversible operation.
+
+```bash
+curl -X DELETE http://localhost:8100/tasks/board
+```
+
+**Response:**
+
+```json
+{
+  "purged": true,
+  "count": 12
+}
+```
 
 ---
 

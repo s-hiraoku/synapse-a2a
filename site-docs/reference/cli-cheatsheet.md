@@ -26,6 +26,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse send <target> "msg"` | Send message (default `--notify`) |
 | `synapse send <target> "msg" --wait` | Send and wait for reply |
 | `synapse send <target> "msg" --silent` | Fire-and-forget |
+| `synapse send <target> "msg" --task <id>` | Send with Task Board link (auto-claim/complete) |
 | `synapse reply "msg"` | Reply to sender |
 | `synapse broadcast "msg"` | Send to all agents in current directory |
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
@@ -39,6 +40,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse tasks assign <id> <agent>` | Assign task to agent |
 | `synapse tasks complete <id>` | Mark task completed |
 | `synapse tasks fail <id>` | Mark task failed |
+| `synapse tasks purge` | Remove all tasks from the board |
 | `synapse approve <id>` | Approve a plan |
 | `synapse reject <id> --reason "..."` | Reject with reason |
 
@@ -294,6 +296,11 @@ synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 synapse tasks fail <task_id> --reason "dependency missing"
 synapse tasks reopen <task_id>
+synapse tasks purge --force
+
+# Task-linked messaging (auto-claim on receive, auto-complete on finalize)
+synapse send gemini "Implement feature" --task <task_id>
+synapse send gemini "Implement feature" -T <task_id>
 
 # Plan approval
 synapse approve <task_id>

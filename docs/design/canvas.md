@@ -267,13 +267,14 @@ DELETE /api/cards/{id}      Delete card (own cards only, matched by agent_id)
 DELETE /api/cards           Clear all cards (optional ?agent_id= filter)
 GET    /api/stream          SSE stream (card_created, card_updated, card_deleted events)
 GET    /api/formats         List supported formats (format registry)
-GET    /api/system          System state summary (Agents, Saved Agents, Tasks, File Locks, Shared Memory, Worktrees, Recent History)
+GET    /api/system          System state summary (Agents, User/Active-Project Saved Agents, Tasks, File Locks, Shared Memory, Worktrees, Recent History)
 ```
 
 #### `/api/system` Response Details
 The `/api/system` endpoint aggregates state from across the project:
 - `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
-- `agent_profiles`: Saved agent definitions from `.synapse/agents/` or `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
+- `user_agent_profiles`: User-scope saved agent definitions from `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
+- `active_project_agent_profiles`: Saved agent definitions from active projects only, derived from running agents' `working_dir` values and normalized so worktrees resolve to the base repo. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
 - `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`, `failed`).
 - `file_locks`: Active file locks.
 - `memories`: Latest 20 shared memory entries.
@@ -446,7 +447,7 @@ The browser UI uses hash-based SPA routing with four views:
 | `#/` | **Canvas view** | `ph-projector-screen` | Full-viewport projection of the latest card. Designed for immersive content display. |
 | `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, file locks, worktrees, shared memory, and registry errors. Each widget uses a summary+detail expand/collapse pattern. |
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
-| `#/system` | **System view** | `ph-gear` | Configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, and environment. |
+| `#/system` | **System view** | `ph-gear` | Configuration panel: tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, and environment. |
 
 Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. The URL hash updates accordingly and the browser back/forward buttons work as expected.
 
@@ -470,7 +471,7 @@ The History view is divided into three sections: the **System Panel** (top), **L
 |                                                                                               |
 |  [System Panel (Control Panel)]                                                               |
 |  +-----------------------------------------------------------------------------------------+  |
-|  | [Agents] [Saved Agents] [Tasks] [File Locks] [Shared Memory] [Worktrees] [History]      |  |
+|  | [Agents] [User Scope Saved Agents] [Active-Project Saved Agents] [Tasks] [File Locks] [Shared Memory] [Worktrees] [History]      |  |
 |  +-----------------------------------------------------------------------------------------+  |
 |                                                                                               |
 |  [Live Feed]                                                                                  |
@@ -532,12 +533,13 @@ Widget IDs:
 The System view shows configuration and environment information (no operational data):
 
 1. **Tips**: Contextual usage tips.
-2. **Saved Agents**: Displays ID, NAME, PROFILE, ROLE, SKILL SET, and SCOPE for configurations in `.synapse/agents/` or `~/.synapse/agents/`.
-3. **Skills**: Discovered skills from all scopes.
-4. **Skill Sets**: Defined skill set configurations.
-5. **Sessions**: Saved session configurations.
-6. **Workflows**: Saved workflow definitions.
-7. **Environment**: Environment variables and runtime configuration.
+2. **User Scope Saved Agents**: Displays ID, NAME, PROFILE, ROLE, SKILL SET, and SCOPE for configurations in `~/.synapse/agents/`.
+3. **Active-Project Saved Agents**: Displays saved agent definitions from projects that currently have running agents. Worktree agents are attributed to their base repository.
+4. **Skills**: Discovered skills from all scopes.
+5. **Skill Sets**: Defined skill set configurations.
+6. **Sessions**: Saved session configurations.
+7. **Workflows**: Saved workflow definitions.
+8. **Environment**: Environment variables and runtime configuration.
 
 ### CSS Design System
 The UI adheres to a strict design system for consistency and accessibility:

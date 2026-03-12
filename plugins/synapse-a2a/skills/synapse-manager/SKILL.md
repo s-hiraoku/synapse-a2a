@@ -133,6 +133,12 @@ synapse send Impl "Implement auth module — tests/spec are confirmed in task $T
 - Follow existing patterns" --attach synapse/server.py --force --silent
 ```
 
+**Shortcut — task-linked send:** For simple delegations, use `--task` / `-T` to create,
+assign, and send in one step (auto-claim on receive, auto-complete on finalize):
+```bash
+synapse send Impl "Implement auth module" --task --attach synapse/server.py --force --silent
+```
+
 ```bash
 synapse list                              # Live status (auto-updates)
 synapse tasks list                        # Task board progress and dependencies
@@ -238,6 +244,7 @@ synapse tasks complete "$TESTS_ID"
 synapse tasks complete "$IMPL_ID"
 synapse kill Impl -f && synapse kill Tester -f
 synapse list                              # Verify cleanup
+synapse tasks purge --status completed    # Clean up finished tasks
 ```
 
 Killing spawned agents frees ports, memory, and PTY sessions. Orphaned agents
