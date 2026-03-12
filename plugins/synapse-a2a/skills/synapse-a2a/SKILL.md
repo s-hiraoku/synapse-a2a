@@ -19,7 +19,7 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents | `synapse list` (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter) |
+| List agents | `synapse list` (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter; `--json` for machine-readable output). MCP alternative: `list_agents` tool (via `tools/call`) |
 | Agent detail | `synapse status <target> [--json]` |
 | Send message | `synapse send <target> "<msg>"` (default: `--notify`; `--from` auto-detected) |
 | Send with task | `synapse send <target> "<msg>" --task` / `-T` (auto-creates board task, auto-claim on receive, auto-complete on finalize) |
@@ -83,7 +83,7 @@ Evaluate collaboration opportunities before starting work:
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/briefing/open/list` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
-| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in) | `synapse mcp serve` / `python -m synapse.mcp` |
+| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in). MCP tools: `bootstrap_agent`, `list_agents` | `synapse mcp serve` / `python -m synapse.mcp` |
 
 ### Task Board Default Triggers
 

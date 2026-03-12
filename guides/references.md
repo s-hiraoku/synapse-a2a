@@ -242,8 +242,11 @@ synapse stop <profile|id>
 実行中のエージェント一覧を Rich TUI で表示します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます。
 
 ```bash
-synapse list
+synapse list              # Rich TUI（デフォルト）
+synapse list --json       # JSON 配列出力（AI/スクリプト向け）
 ```
+
+**`--json` フラグ**: JSON 配列としてエージェント一覧を出力します。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`、および任意で `editing_file` が含まれます。
 
 **出力形式（Rich TUI）**:
 
@@ -1701,6 +1704,60 @@ synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
 | `--user` | No | ユーザースコープ |
 | `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 | `--force` | No | 確認なしで削除 |
+
+---
+
+### 1.23 MCP ツール
+
+MCP サーバー (`synapse mcp serve` / `python -m synapse.mcp`) が提供するツール一覧です。JSON-RPC `tools/call` で呼び出します。
+
+#### bootstrap_agent
+
+エージェントのランタイムコンテキスト（agent_id、ポート、利用可能な機能）を返します。
+
+#### list_agents
+
+実行中のすべての Synapse エージェントをステータスと接続情報付きで一覧表示します。
+
+```json
+// リクエスト (tools/call)
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+| 引数 | 型 | 必須 | 説明 |
+|------|------|------|------|
+| `status` | string | No | ステータスでフィルタ（READY, PROCESSING, WAITING, DONE など） |
+
+**レスポンス:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "agent_type": "claude",
+      "name": "my-claude",
+      "role": "code reviewer",
+      "skill_set": null,
+      "port": 8100,
+      "status": "READY",
+      "pid": 12345,
+      "working_dir": "/path/to/project",
+      "endpoint": "http://localhost:8100",
+      "transport": "http",
+      "current_task_preview": null,
+      "task_received_at": null
+    }
+  ]
+}
+```
+
+> **Tip**: `list_agents` は `synapse list --json` の MCP 版です。シェルコマンドを実行する代わりに、MCP プロトコル経由でエージェントレジストリを直接クエリできます。
 
 ---
 

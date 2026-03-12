@@ -2,7 +2,7 @@
 
 | Command | Purpose |
 |---------|---------|
-| `synapse list` | Check agent status (auto-updates) |
+| `synapse list` | Check agent status (auto-updates; `--json` for JSON array) |
 | `synapse spawn <type\|id> --name <n> --role "<r>"` | Start agent (ad-hoc or from saved definition) |
 | `synapse send <name> "<msg>" --silent` | Delegate task (fire-and-forget) |
 | `synapse send <name> "<msg>" --task --silent` | Delegate with auto-created board task (`-T` shorthand) |

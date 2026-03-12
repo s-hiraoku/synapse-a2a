@@ -664,6 +664,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse --version` | Show version |
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
+| `synapse list --json` | Output agent list as JSON array (for AI/programmatic consumption) |
 | `synapse status <target>` | Show detailed agent status (info, current task, history, file locks, task board). Supports `--json` |
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message. `--task` / `-T` auto-creates a linked board task |
@@ -727,7 +728,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
-| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`) |
+| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`). Exposes `bootstrap_agent` and `list_agents` tools |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000). `--no-open` to suppress browser open |
 | `synapse canvas status` | Show Canvas server status (version, PID, health, stale process detection) |
 | `synapse canvas stop` | Stop Canvas server (health-check with identity + process verification, PID fallback). `--port`/`-p` to specify port |
@@ -1472,9 +1473,16 @@ Real-time monitoring of agent status with terminal jump capability.
 ```bash
 # Start Rich TUI with auto-refresh (default)
 synapse list
+
+# JSON output for AI/programmatic consumption
+synapse list --json
 ```
 
 The display automatically updates when agent status changes (via file watcher) with a 10-second fallback polling interval.
+
+### JSON Output
+
+`synapse list --json` outputs a JSON array of agent objects for AI and scripting use. Each object includes: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, and optionally `editing_file`.
 
 ### Display Columns
 

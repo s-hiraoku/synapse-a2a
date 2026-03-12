@@ -20,6 +20,7 @@ synapse claude --no-setup                      # Skip interactive setup
 
 # Agent management
 synapse list                                   # Rich TUI with auto-refresh
+synapse list --json                            # JSON array output for AI/scripts
 synapse status my-claude                       # Detailed single-agent status
 synapse kill my-claude                         # Graceful shutdown
 synapse kill my-claude -f                      # Force kill
@@ -93,6 +94,11 @@ synapse reset
 # MCP Bootstrap
 synapse mcp serve                          # Start MCP server over stdio
 synapse mcp serve --agent-id synapse-claude-8100 --agent-type claude --port 8100
+
+# MCP Tools (available via JSON-RPC tools/call)
+# bootstrap_agent    — Returns runtime context (agent_id, port, features)
+# list_agents        — List all running Synapse agents with status and connection info
+#                      Optional input: {"status": "READY"}  (filter by status)
 
 # Auth
 synapse auth setup
@@ -169,7 +175,7 @@ See test files in `tests/` directory. Key test groups:
 - Agent Teams: `test_task_board.py`, `test_hooks.py`, `test_plan_approval.py`, `test_delegate_mode.py`
 - Spawn: `test_spawn.py`, `test_auto_spawn.py`, `test_auto_layout.py`
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
-- MCP: `test_mcp_bootstrap.py`
+- MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
 
 ## Priority Levels

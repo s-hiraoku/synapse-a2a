@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<<<<<<< Updated upstream
+## [0.11.15] - 2026-03-13
+
+### Added
+
+- `synapse list --json` flag for AI/script-friendly JSON output of agent list
+- MCP `list_agents` tool for querying agent registry via MCP protocol
+- Optional `status` filter parameter for MCP `list_agents` tool
+- `registry_factory` dependency injection on `SynapseMCPServer` for testability
+
+### Changed
+
+- Refactor `SynapseMCPServer.call_tool()` from single-tool to dispatch pattern
+
+### Documentation
+
+- Update docs, guides, site-docs, and plugin skills for `--json` and MCP `list_agents`
+
+### Tests
+
+- Add `tests/test_cmd_list_json.py` — 5 tests for CLI JSON output
+- Add `tests/test_mcp_list_agents.py` — 5 tests for MCP list_agents tool
+
 ## [0.11.14] - 2026-03-12
 
 ### Fixed
@@ -2210,12 +2231,10 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-<<<<<<< Updated upstream
+[0.11.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.14...v0.11.15
 [0.11.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.11...v0.11.12
-=======
->>>>>>> Stashed changes
 [0.11.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.10...v0.11.11
 [0.11.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.9...v0.11.10
 [0.11.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.8...v0.11.9

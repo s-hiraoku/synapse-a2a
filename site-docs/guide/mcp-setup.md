@@ -13,7 +13,9 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
 The MCP server exposes:
 
 - **Resources**: Instruction documents (`synapse://instructions/default`, plus optional file-safety, shared-memory, learning, proactive instructions)
-- **Tools**: `bootstrap_agent()` returning runtime context (agent_id, port, available features)
+- **Tools**:
+    - `bootstrap_agent()` — returns runtime context (agent_id, port, available features)
+    - `list_agents()` — lists all running Synapse agents with status and connection info
 
 ## Prerequisites
 
@@ -142,6 +144,60 @@ args = [
     OpenCode's `command` is an **array** (not a string), and the root key is `"mcp"` (not `"mcpServers"`).
 
 **Docs**: <https://opencode.ai/docs/mcp-servers>
+
+## MCP Tools
+
+### bootstrap_agent
+
+Returns the agent's runtime context (agent_id, port, available features). Called automatically during agent initialization.
+
+### list_agents
+
+Lists all running Synapse agents with status and connection info. This is the MCP equivalent of `synapse list --json`, allowing agents to discover peers without running shell commands.
+
+**Input schema:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `status` | string | No | Filter by agent status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+
+**Example call** (JSON-RPC `tools/call`):
+
+```json
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "agent_type": "claude",
+      "name": "my-claude",
+      "role": "code reviewer",
+      "skill_set": null,
+      "port": 8100,
+      "status": "READY",
+      "pid": 12345,
+      "working_dir": "/path/to/project",
+      "endpoint": "http://localhost:8100",
+      "transport": "http",
+      "current_task_preview": null,
+      "task_received_at": null
+    }
+  ]
+}
+```
+
+!!! tip "Agent discovery without shell access"
+    `list_agents` is especially useful for agents running in sandboxed environments (e.g., Codex) where shell command execution may be restricted. It provides the same information as `synapse list --json` but through the MCP protocol.
 
 ## Verification
 

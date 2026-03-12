@@ -69,10 +69,15 @@ synapse stop <target> -a     # Stop all instances of that profile
 ### List
 
 ```bash
-synapse list
+synapse list                 # Interactive TUI with real-time updates
+synapse list --json          # Output agent list as JSON array
 ```
 
 Interactive TUI with real-time updates. See [Agent Management](../guide/agent-management.md) for controls.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
 
 ### Status
 

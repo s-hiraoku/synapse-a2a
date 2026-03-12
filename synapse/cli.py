@@ -481,6 +481,7 @@ def cmd_list(args: argparse.Namespace) -> None:
         time,
         print,
     )
+    # "is True" guards against MagicMock truthiness in tests
     if getattr(args, "json_output", False) is True:
         list_command.run_json(args)
     else:

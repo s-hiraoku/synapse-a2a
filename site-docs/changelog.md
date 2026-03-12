@@ -4,7 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-<<<<<<< Updated upstream
+### v0.11.15
+
+- **Added**: `synapse list --json` flag for AI/script-friendly JSON output of agent list
+- **Added**: MCP `list_agents` tool for querying agent registry via MCP protocol
+- **Changed**: Refactor `SynapseMCPServer.call_tool()` to dispatch pattern for extensibility
+- **Documentation**: Update docs, guides, site-docs, and plugin skills for new features
+
 ### v0.11.14
 
 - **Fixed**: PR Guardian now separates CodeRabbit check from CI checks and waits for review completion before dispatching `/fix-review`

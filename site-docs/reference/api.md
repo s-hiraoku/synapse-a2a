@@ -1132,6 +1132,80 @@ Please read this file to get the complete message.
 
 ---
 
+## MCP Tools
+
+The Synapse MCP server (`synapse mcp serve` / `python -m synapse.mcp`) exposes tools via the Model Context Protocol. These tools are called using JSON-RPC `tools/call`.
+
+| Tool | Description |
+|------|-------------|
+| `bootstrap_agent` | Returns runtime context (agent_id, port, available features) |
+| `list_agents` | Lists all running Synapse agents with status and connection info |
+
+### list_agents
+
+List all running Synapse agents with status and connection info. This is the MCP equivalent of `synapse list --json`.
+
+**Input schema:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `status` | string | No | Filter by agent status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+
+**Example call:**
+
+```json
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "agent_type": "claude",
+      "name": "my-claude",
+      "role": "code reviewer",
+      "skill_set": null,
+      "port": 8100,
+      "status": "READY",
+      "pid": 12345,
+      "working_dir": "/path/to/project",
+      "endpoint": "http://localhost:8100",
+      "transport": "http",
+      "current_task_preview": null,
+      "task_received_at": null
+    }
+  ]
+}
+```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | string | Runtime agent identifier (e.g., `synapse-claude-8100`) |
+| `agent_type` | string | Agent profile type (`claude`, `gemini`, `codex`, etc.) |
+| `name` | string | Custom agent name (if assigned) |
+| `role` | string | Agent role description |
+| `skill_set` | string | Active skill set (if any) |
+| `port` | integer | HTTP server port |
+| `status` | string | Current status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+| `pid` | integer | Process ID |
+| `working_dir` | string | Agent's working directory |
+| `endpoint` | string | HTTP endpoint URL |
+| `transport` | string | Transport protocol (`http`) |
+| `current_task_preview` | string | Preview of the current task (if processing) |
+| `task_received_at` | string | Timestamp when the current task was received |
+
+---
+
 ## Error Responses
 
 All endpoints use standard HTTP status codes with JSON error details.

@@ -631,7 +631,8 @@ class ListCommand:
         result = []
         for agent in agents:
             entry = {k: agent.get(k) for k in self._JSON_FIELDS}
-            if show_file_safety or "editing_file" in agent:
+            # editing_file is only present when file safety is enabled
+            if show_file_safety:
                 entry["editing_file"] = agent.get("editing_file")
             result.append(entry)
 
