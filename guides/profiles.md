@@ -378,6 +378,8 @@ command: "copilot"
 args: []
 submit_sequence: "\r"
 write_delay: 0.5                 # 500ms delay — lets TUI finish rendering before CR
+submit_retry_delay: 0.15         # Retry Enter after 150ms (one React render cycle)
+bracketed_paste: true            # Wrap input in ESC[200~ ... ESC[201~ for Ink usePaste
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
@@ -396,7 +398,9 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
+- **`bracketed_paste: true`**: 入力をブラケテッドペーストシーケンスで包み、Ink の `usePaste` フックがテキスト全体をアトミックに受信
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
+- **`submit_retry_delay: 0.15`**: 150ms 後に Enter を再送信。React レンダリングタイミングのセーフティネット
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
 - **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア

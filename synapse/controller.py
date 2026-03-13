@@ -227,11 +227,7 @@ class TerminalController:
                 )
             self._submit_retry_delay = submit_retry_delay
 
-        # Bracketed paste mode: wrap data in ESC[200~ ... ESC[201~ so that
-        # Ink-based TUIs (e.g. Copilot CLI) route the text through usePaste
-        # as a single paste event instead of processing characters one-by-one
-        # through useInput.  The submit_seq is written *after* the closing
-        # bracket so it arrives as a normal keypress (Enter).
+        # Wrap data in bracketed paste markers for Ink-based TUIs (Copilot CLI).
         self._bracketed_paste = bracketed_paste
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
@@ -874,19 +870,13 @@ class TerminalController:
         """Write data to the controlled process PTY with optional submit sequence.
 
         Data and submit_seq are written as separate os.write() calls with a
-        delay between them.  This is required for TUI apps that enable
-        bracketed paste mode (``ESC[?2004h``).  When bracketed paste mode is
-        active, a single write is wrapped in paste boundaries and the CR
-        inside the boundary is treated as a literal newline — not as a submit
-        action.  Splitting the writes ensures the submit sequence arrives
-        *outside* the paste boundary so the terminal processes it as a
-        keypress.
+        delay between them so the submit sequence arrives *outside* any
+        bracketed paste boundary and is treated as a keypress, not literal
+        text.
 
-        When ``_bracketed_paste`` is enabled, the data is explicitly wrapped
-        in ``ESC[200~`` ... ``ESC[201~`` bracketed paste markers.  This tells
-        Ink-based TUIs (e.g. Copilot CLI) to route the text through the
-        ``usePaste`` hook as a single atomic paste event rather than
-        processing characters one-by-one through ``useInput``.
+        When ``_bracketed_paste`` is enabled, data is explicitly wrapped in
+        ``ESC[200~`` ... ``ESC[201~`` markers so Ink-based TUIs (e.g.
+        Copilot CLI) route it through ``usePaste`` as a single event.
 
         Args:
             data: The data to write.
@@ -908,14 +898,8 @@ class TerminalController:
             try:
                 data_bytes = data.encode("utf-8")
                 if self._bracketed_paste:
-                    # Wrap data in bracketed paste sequences so Ink-based
-                    # TUIs (Copilot CLI) route the text through usePaste as
-                    # a single atomic paste event.  Without these markers,
-                    # Ink processes each byte via useInput which races with
-                    # React state updates and drops the subsequent CR.
-                    self._write_all(b"\x1b[200~" + data_bytes + b"\x1b[201~")
-                else:
-                    self._write_all(data_bytes)
+                    data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
+                self._write_all(data_bytes)
                 if submit_seq:
                     if self._write_delay > 0:
                         time.sleep(self._write_delay)
