@@ -864,6 +864,15 @@ class TestInterAgentMessageWrite:
                 submit_retry_delay="fast",
             )
 
+    def test_submit_retry_delay_string_numeric_accepts(self):
+        """Numeric string submit_retry_delay should be coerced to float."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            submit_retry_delay="0.05",
+        )
+        assert ctrl._submit_retry_delay == 0.05
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):
