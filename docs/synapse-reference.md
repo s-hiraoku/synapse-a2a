@@ -141,7 +141,7 @@ waiting_detection:
 - **Gemini**: Hybrid strategy with 3.0s timeout fallback.
 - **Codex**: Timeout strategy, 3.0s.
 - **OpenCode**: Timeout strategy, 1.0s (Bubble Tea TUI).
-- **Copilot**: Timeout strategy, 0.5s. `write_delay: 0.5` for Ink TUI rendering. `bracketed_paste: true` for Ink's `usePaste` hook. `submit_retry_delay: 0.15` as Enter-key safety net.
+- **Copilot**: Timeout strategy, 0.5s. `write_delay: 0.5` for Ink TUI rendering. `bracketed_paste: true` for Ink's `usePaste` hook. `submit_retry_delay: 0.15` as the first Enter safety net, plus bounded submit confirmation (`submit_confirm_timeout`, `submit_confirm_poll_interval`, `submit_confirm_retries`) when injected text appears to remain pending.
 
 ## Agent Status System
 
