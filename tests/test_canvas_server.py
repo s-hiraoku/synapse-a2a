@@ -79,7 +79,13 @@ class TestSystemPanelRegistryErrors:
 
         monkeypatch.setattr(
             "synapse.canvas.server.os.path.expanduser",
-            lambda path: str(registry_dir) if path == "~/.a2a/registry" else path,
+            lambda path: (
+                str(registry_dir)
+                if path == "~/.a2a/registry"
+                else str(tmp_path / "home" / ".synapse" / "agents")
+                if path == "~/.synapse/agents"
+                else path
+            ),
         )
 
         resp = client.get("/api/system")
@@ -988,7 +994,7 @@ class TestSystemPanel:
     def test_system_saved_agents_split_user_and_active_project_scopes(
         self, client, tmp_path, monkeypatch
     ):
-        """GET /api/system should split saved agents into user and active-project payloads."""
+        """Saved agents should be split into user scope and active-project scope."""
         registry_dir = tmp_path / "registry"
         registry_dir.mkdir()
 
@@ -1001,9 +1007,9 @@ class TestSystemPanel:
         )
 
         active_repo = tmp_path / "active-repo"
-        active_agents_dir = active_repo / ".synapse" / "agents"
-        active_agents_dir.mkdir(parents=True)
-        (active_agents_dir / "repo-reviewer.agent").write_text(
+        active_project_agents_dir = active_repo / ".synapse" / "agents"
+        active_project_agents_dir.mkdir(parents=True)
+        (active_project_agents_dir / "repo-reviewer.agent").write_text(
             "id=repo-reviewer\nname=Repo Reviewer\nprofile=claude\n",
             encoding="utf-8",
         )
@@ -1018,33 +1024,32 @@ class TestSystemPanel:
 
         worktree_dir = active_repo / ".synapse" / "worktrees" / "feature-x"
         worktree_dir.mkdir(parents=True)
-        for idx, payload in enumerate(
-            [
-                {
-                    "agent_id": "synapse-codex-8120",
-                    "name": "Rex",
-                    "agent_type": "codex",
-                    "status": "READY",
-                    "working_dir": str(active_repo),
-                },
-                {
-                    "agent_id": "synapse-claude-8101",
-                    "name": "Claud",
-                    "agent_type": "claude",
-                    "status": "READY",
-                    "working_dir": str(worktree_dir),
-                    "worktree_path": str(worktree_dir),
-                    "worktree_branch": "feature-x",
-                },
-            ],
-            start=1,
-        ):
+        registry_entries = [
+            {
+                "agent_id": "synapse-codex-8120",
+                "name": "Rex",
+                "agent_type": "codex",
+                "status": "READY",
+                "working_dir": str(active_repo),
+            },
+            {
+                "agent_id": "synapse-claude-8101",
+                "name": "Claud",
+                "agent_type": "claude",
+                "status": "READY",
+                "working_dir": str(worktree_dir),
+                "worktree_path": str(worktree_dir),
+                "worktree_branch": "feature-x",
+            },
+        ]
+        for idx, payload in enumerate(registry_entries, start=1):
             (registry_dir / f"agent-{idx}.json").write_text(
                 json.dumps(payload),
                 encoding="utf-8",
             )
 
         monkeypatch.chdir(active_repo)
+        monkeypatch.setattr("synapse.canvas.server.Path.home", lambda: user_home)
         monkeypatch.setattr(
             "synapse.canvas.server.os.path.expanduser",
             lambda path: (
@@ -1060,10 +1065,12 @@ class TestSystemPanel:
 
         assert resp.status_code == 200
         data = resp.json()
+
         assert {item["id"] for item in data["user_agent_profiles"]} == {
             "global-checker"
         }
         assert all(item["scope"] == "user" for item in data["user_agent_profiles"])
+
         assert {item["id"] for item in data["active_project_agent_profiles"]} == {
             "repo-reviewer"
         }

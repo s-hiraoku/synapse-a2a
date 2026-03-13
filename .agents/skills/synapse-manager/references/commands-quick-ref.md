@@ -2,9 +2,10 @@
 
 | Command | Purpose |
 |---------|---------|
-| `synapse list` | Check agent status (auto-updates) |
+| `synapse list` | Check agent status (auto-updates; `--json` for JSON array) |
 | `synapse spawn <type\|id> --name <n> --role "<r>"` | Start agent (ad-hoc or from saved definition) |
 | `synapse send <name> "<msg>" --silent` | Delegate task (fire-and-forget) |
+| `synapse send <name> "<msg>" --task --silent` | Delegate with auto-created board task (`-T` shorthand) |
 | `synapse send <name> "<msg>" --wait` | Request reply (blocking) |
 | `synapse send <name> "<msg>" --attach <file>` | Send with reference files |
 | `synapse broadcast "<msg>" --priority <n>` | Message all agents |
@@ -14,6 +15,7 @@
 | `synapse tasks complete <id>` | Mark task done |
 | `synapse tasks fail <id> --reason "<why>"` | Mark task failed |
 | `synapse tasks reopen <id>` | Reopen a completed or failed task |
+| `synapse tasks purge [--status STATUS]` | Delete tasks (all or by status) |
 | `synapse approve <id>` | Approve agent plan |
 | `synapse reject <id> --reason "<feedback>"` | Reject with guidance |
 | `synapse memory save <key> "<content>" --tags <t> --notify` | Share knowledge |

@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.15
+
+- **Added**: `synapse list --json` flag for AI/script-friendly JSON output of agent list
+- **Added**: MCP `list_agents` tool for querying agent registry via MCP protocol
+- **Changed**: Refactor `SynapseMCPServer.call_tool()` to dispatch pattern for extensibility
+- **Documentation**: Update docs, guides, site-docs, and plugin skills for new features
+
 ### v0.11.14
 
 - **Fixed**: PR Guardian now separates CodeRabbit check from CI checks and waits for review completion before dispatching `/fix-review`
@@ -25,15 +32,20 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Fixed**: Use returned task IDs instead of numeric indices in skill docs and guides
 - **Fixed**: Handle invalid UTF-8 `.agent` files in canvas saved agent reader
-
 ### v0.11.11
 
 - **Added**: Anthropic official skill-creator plugin, pr-guardian skill with auto-trigger hook
+- **Added**: `synapse tasks purge` command to remove all tasks from the Task Board
+- **Added**: `--task` / `-T` flag for `synapse send` — link messages to Task Board entries
+- **Added**: Auto-claim on receive and auto-complete on finalize for task-linked messages
+- **Added**: TaskBoard schema columns `a2a_task_id` and `assignee_hint` for task-message linking
+- **Added**: `[Task: XXXXXXXX]` PTY display prefix for task-linked messages
 - **Added**: Auto-skip PTY bootstrap when MCP config detected, task board mandatory for delegations
 - **Fixed**: Canvas stale process problem with robust PID management
 - **Fixed**: Defer spotlight DOM clear to prevent blank fallback rendering
 - **Changed**: Simplify canvas process management after code review
 - **Documentation**: Update Canvas docs for stale process management
+
 
 ### v0.11.10
 

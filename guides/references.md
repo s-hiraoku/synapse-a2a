@@ -242,8 +242,11 @@ synapse stop <profile|id>
 実行中のエージェント一覧を Rich TUI で表示します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます。
 
 ```bash
-synapse list
+synapse list              # Rich TUI（デフォルト）
+synapse list --json       # JSON 配列出力（AI/スクリプト向け）
 ```
+
+**`--json` フラグ**: JSON 配列としてエージェント一覧を出力します。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`、および任意で `editing_file` が含まれます。
 
 **出力形式（Rich TUI）**:
 
@@ -468,7 +471,7 @@ skill_set=developer
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent]
+synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent] [--task]
 ```
 
 **ターゲット指定方法**:
@@ -493,11 +496,13 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--notify` | No | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
 | `--silent` | No | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--silent時のみ） |
+| `--task`, `-T` | No | ボードタスクを自動作成し、送信メッセージと紐付ける。受信側は自動 claim、A2A タスク完了時に自動 complete |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
 **Note**: `--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
+**Note**: `--task` / `-T` を指定すると、送信時にボードタスクを自動作成し、A2A タスクと紐付けます。受信側は自動 claim し、A2A タスク完了時にボードタスクも自動 complete されます。PTY 表示には `[Task: XXXXXXXX]` タグが付与されます。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 **レスポンスモードの使い分け**:
@@ -532,6 +537,8 @@ echo "from stdin" | synapse send codex --stdin --silent
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --silent
 synapse send codex "設計して" --force                           # 作業ディレクトリ不一致でも送信
 synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
+synapse send codex "認証を実装して" --task                     # ボードタスク自動作成＆紐付け
+synapse send codex "バグ修正して" -T --silent                  # -T は --task の短縮形
 ```
 
 ---
@@ -1441,6 +1448,39 @@ synapse tasks reopen <task_id>
 synapse tasks reopen task-1
 ```
 
+#### 1.20.7 synapse tasks purge
+
+タスクボードからタスクを削除します。デフォルトでは `completed` および `failed` のタスクを削除します。
+
+```bash
+synapse tasks purge [--status STATUS]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--status` | No | 削除対象のステータスでフィルタ（`pending`, `in_progress`, `completed`, `failed`） |
+
+**例**:
+
+```bash
+synapse tasks purge                      # completed + failed を削除
+synapse tasks purge --status completed   # completed のみ削除
+synapse tasks purge --status failed      # failed のみ削除
+```
+
+#### A2A タスク連携
+
+`synapse send --task` で送信すると、ボードタスクと A2A トランスポートタスクが自動的に紐付けられます。
+
+- **送信時**: ボードタスクが自動作成され、`a2a_task_id` カラムで A2A タスクとリンク
+- **受信時**: 受信エージェントがボードタスクを自動 claim（`assignee_hint` で特定）
+- **完了時**: A2A タスクが `completed` に遷移すると、紐付いたボードタスクも自動 complete
+- **PTY 表示**: メッセージに `[Task: XXXXXXXX]` タグが表示され、どのボードタスクに関連するか確認可能
+
+内部メソッド:
+- `link_a2a_task(board_task_id, a2a_task_id)` — ボードタスクと A2A タスクを紐付け
+- `find_by_a2a_task_id(a2a_task_id)` — A2A タスク ID からボードタスクを検索
+
 #### タスクライフサイクル
 
 ```
@@ -1664,6 +1704,60 @@ synapse session delete <name> [--project|--user|--workdir <dir>] [--force]
 | `--user` | No | ユーザースコープ |
 | `--workdir DIR` | No | 指定ディレクトリの `DIR/.synapse/sessions/` を使用 |
 | `--force` | No | 確認なしで削除 |
+
+---
+
+### 1.23 MCP ツール
+
+MCP サーバー (`synapse mcp serve` / `python -m synapse.mcp`) が提供するツール一覧です。JSON-RPC `tools/call` で呼び出します。
+
+#### bootstrap_agent
+
+エージェントのランタイムコンテキスト（agent_id、ポート、利用可能な機能）を返します。
+
+#### list_agents
+
+実行中のすべての Synapse エージェントをステータスと接続情報付きで一覧表示します。
+
+```json
+// リクエスト (tools/call)
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+| 引数 | 型 | 必須 | 説明 |
+|------|------|------|------|
+| `status` | string | No | ステータスでフィルタ（READY, PROCESSING, WAITING, DONE など） |
+
+**レスポンス:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "agent_type": "claude",
+      "name": "my-claude",
+      "role": "code reviewer",
+      "skill_set": null,
+      "port": 8100,
+      "status": "READY",
+      "pid": 12345,
+      "working_dir": "/path/to/project",
+      "endpoint": "http://localhost:8100",
+      "transport": "http",
+      "current_task_preview": null,
+      "task_received_at": null
+    }
+  ]
+}
+```
+
+> **Tip**: `list_agents` は `synapse list --json` の MCP 版です。シェルコマンドを実行する代わりに、MCP プロトコル経由でエージェントレジストリを直接クエリできます。
 
 ---
 

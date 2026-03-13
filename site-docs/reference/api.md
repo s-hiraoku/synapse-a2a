@@ -307,6 +307,7 @@ The shared task board provides SQLite-based task coordination for multi-agent te
 | POST | `/tasks/board/{id}/complete` | Complete task + unblock dependents |
 | POST | `/tasks/board/{id}/fail` | Mark task failed |
 | POST | `/tasks/board/{id}/reopen` | Reopen to pending |
+| DELETE | `/tasks/board` | Purge all tasks |
 
 ### GET /tasks/board -- List Tasks
 
@@ -333,7 +334,9 @@ curl http://localhost:8100/tasks/board
       "updated_at": "2026-03-05T10:00:00",
       "completed_at": null,
       "priority": 4,
-      "fail_reason": ""
+      "fail_reason": "",
+      "a2a_task_id": null,
+      "assignee_hint": null
     }
   ]
 }
@@ -486,6 +489,23 @@ curl -X POST http://localhost:8100/tasks/board/a1b2c3d4-.../reopen \
 
 !!! warning "Conflict (409)"
     Returns HTTP 409 if the task is in `pending` or `in_progress` status (only `completed` or `failed` tasks can be reopened).
+
+### DELETE /tasks/board -- Purge All Tasks
+
+Remove all tasks from the Task Board. This is a destructive, irreversible operation.
+
+```bash
+curl -X DELETE http://localhost:8100/tasks/board
+```
+
+**Response:**
+
+```json
+{
+  "purged": true,
+  "count": 12
+}
+```
 
 ---
 
@@ -1109,6 +1129,80 @@ Please read this file to get the complete message.
 
 !!! note "CLI-only feature"
     File Safety is a CLI-only feature with no HTTP API endpoints. It tracks file modifications made by agents in a project-local SQLite database (`.synapse/file_safety.db`) and is accessed exclusively through `synapse trace` and internal controller hooks. There are no REST endpoints to query or manage file safety records directly.
+
+---
+
+## MCP Tools
+
+The Synapse MCP server (`synapse mcp serve` / `python -m synapse.mcp`) exposes tools via the Model Context Protocol. These tools are called using JSON-RPC `tools/call`.
+
+| Tool | Description |
+|------|-------------|
+| `bootstrap_agent` | Returns runtime context (agent_id, port, available features) |
+| `list_agents` | Lists all running Synapse agents with status and connection info |
+
+### list_agents
+
+List all running Synapse agents with status and connection info. This is the MCP equivalent of `synapse list --json`.
+
+**Input schema:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `status` | string | No | Filter by agent status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+
+**Example call:**
+
+```json
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "agent_type": "claude",
+      "name": "my-claude",
+      "role": "code reviewer",
+      "skill_set": null,
+      "port": 8100,
+      "status": "READY",
+      "pid": 12345,
+      "working_dir": "/path/to/project",
+      "endpoint": "http://localhost:8100",
+      "transport": "-",
+      "current_task_preview": null,
+      "task_received_at": null
+    }
+  ]
+}
+```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | string | Runtime agent identifier (e.g., `synapse-claude-8100`) |
+| `agent_type` | string | Agent profile type (`claude`, `gemini`, `codex`, etc.) |
+| `name` | string | Custom agent name (if assigned) |
+| `role` | string | Agent role description |
+| `skill_set` | string | Active skill set (if any) |
+| `port` | integer | HTTP server port |
+| `status` | string | Current status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+| `pid` | integer | Process ID |
+| `working_dir` | string | Agent's working directory |
+| `endpoint` | string | HTTP endpoint URL |
+| `transport` | string | Transport display value (`UDS→`, `TCP→`, or `-`) |
+| `current_task_preview` | string\|null | Preview of the current task (if processing) |
+| `task_received_at` | number\|null | Unix epoch timestamp when the current task was received |
 
 ---
 

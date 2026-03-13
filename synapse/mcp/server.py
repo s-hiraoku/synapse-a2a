@@ -12,6 +12,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TextIO, cast
 
+from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,22 @@ class MCPTool:
 class SynapseMCPServer:
     """Expose Synapse bootstrap documents as MCP resources."""
 
+    _AGENT_JSON_FIELDS = (
+        "agent_id",
+        "agent_type",
+        "name",
+        "role",
+        "skill_set",
+        "port",
+        "status",
+        "pid",
+        "working_dir",
+        "endpoint",
+        "transport",
+        "current_task_preview",
+        "task_received_at",
+    )
+
     def __init__(
         self,
         settings_factory: Callable[[], SynapseSettings] | None = None,
@@ -51,8 +68,10 @@ class SynapseMCPServer:
         agent_id: str = "synapse-mcp",
         port: int = 0,
         user_dir: Path | None = None,
+        registry_factory: Callable[[], AgentRegistry] | None = None,
     ) -> None:
         self._settings_factory = settings_factory or get_settings
+        self._registry_factory = registry_factory or AgentRegistry
         self.agent_type = agent_type
         self.agent_id = agent_id
         self.port = port
@@ -115,7 +134,20 @@ class SynapseMCPServer:
                 name="bootstrap_agent",
                 description="Return runtime context and instruction resource URIs for the current agent.",
                 inputSchema={"type": "object", "properties": {}},
-            )
+            ),
+            MCPTool(
+                name="list_agents",
+                description="List all running Synapse agents with status and connection info.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by status (READY, PROCESSING, etc.)",
+                        },
+                    },
+                },
+            ),
         ]
 
     def read_resource(self, uri: str) -> str:
@@ -155,10 +187,14 @@ class SynapseMCPServer:
 
     def call_tool(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
         """Call a supported MCP tool."""
-        if name != "bootstrap_agent":
-            raise ValueError(f"Unsupported MCP tool: {name}")
+        if name == "bootstrap_agent":
+            return self._tool_bootstrap_agent()
+        if name == "list_agents":
+            return self._tool_list_agents(arguments)
+        raise ValueError(f"Unsupported MCP tool: {name}")
 
-        _ = arguments
+    def _tool_bootstrap_agent(self) -> dict[str, object]:
+        """Return runtime context and instruction resource URIs."""
         resources = [resource.uri for resource in self.list_resources()]
         return {
             "agent_id": self.agent_id,
@@ -174,6 +210,25 @@ class SynapseMCPServer:
                 "file_safety",
             ],
         }
+
+    def _tool_list_agents(self, arguments: dict[str, object]) -> dict[str, object]:
+        """List all running agents from the registry."""
+        registry = self._registry_factory()
+        agents = registry.list_agents()
+
+        result = []
+        for agent_id, info in agents.items():
+            entry: dict[str, object] = {k: info.get(k) for k in self._AGENT_JSON_FIELDS}
+            entry["agent_id"] = agent_id
+            transport = registry.get_transport_display(agent_id)
+            entry["transport"] = transport or "-"
+            result.append(entry)
+
+        status_filter = arguments.get("status")
+        if isinstance(status_filter, str) and status_filter:
+            result = [a for a in result if a.get("status") == status_filter]
+
+        return {"agents": result}
 
     def handle_request(self, request: dict[str, object]) -> dict[str, object] | None:
         """Handle a single JSON-RPC MCP request."""

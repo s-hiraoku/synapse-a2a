@@ -777,6 +777,7 @@ synapse list
 
 ```bash
 synapse list                      # 自動更新 Rich TUI
+synapse list --json               # JSON 配列出力（AI/スクリプト向け）
 ```
 
 **Rich TUI モードの機能**:
@@ -817,6 +818,10 @@ synapse list                      # 自動更新 Rich TUI
 | WORKING_DIR | 作業ディレクトリ |
 | SKILL_SET | 適用されているスキルセット名（任意） |
 | EDITING_FILE | 編集中のファイル（File Safety有効時のみ表示） |
+
+**JSON 出力モード**:
+
+`synapse list --json` は、エージェント一覧を JSON 配列として出力します。AI やスクリプトからのプログラム的な消費に適しています。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`、および任意で `editing_file` が含まれます。
 
 **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
 - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中

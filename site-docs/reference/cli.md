@@ -69,10 +69,15 @@ synapse stop <target> -a     # Stop all instances of that profile
 ### List
 
 ```bash
-synapse list
+synapse list                 # Interactive TUI with real-time updates
+synapse list --json          # Output agent list as JSON array
 ```
 
 Interactive TUI with real-time updates. See [Agent Management](../guide/agent-management.md) for controls.
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
 
 ### Status
 
@@ -183,6 +188,7 @@ synapse send <target> "<message>" [OPTIONS]
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
+| `--task` / `-T` | Auto-create a board task linked to the A2A message (auto-claim on receive, auto-complete on finalize) |
 | `--force` | Bypass working_dir mismatch check |
 
 !!! tip "Choosing response mode"
@@ -343,6 +349,14 @@ synapse tasks complete <task_id>
 synapse tasks fail <task_id> [--reason "reason"]
 synapse tasks reopen <task_id>
 ```
+
+### Purge
+
+```bash
+synapse tasks purge [--status STATUS]
+```
+
+Delete tasks from the Task Board. By default, removes `completed` and `failed` tasks. Use `--status` to target a specific status (e.g., `--status completed`).
 
 ### Plan Approval
 

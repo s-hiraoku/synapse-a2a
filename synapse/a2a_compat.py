@@ -26,7 +26,11 @@ from pydantic import BaseModel, Field
 
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
-from synapse.config import AGENT_READY_TIMEOUT, CONTEXT_RECENT_SIZE
+from synapse.config import (
+    AGENT_READY_TIMEOUT,
+    BOARD_TASK_METADATA_KEY,
+    CONTEXT_RECENT_SIZE,
+)
 from synapse.controller import TerminalController
 from synapse.error_detector import detect_task_status, is_input_required
 from synapse.history import HistoryManager
@@ -939,6 +943,44 @@ def create_a2a_router(
                 agent_name=agent_type or "unknown",
                 task_status=updated.status,
             )
+
+        # Auto-complete linked board task when A2A task completes
+        # complete_task is atomic (WHERE status='in_progress' AND assignee=?)
+        # so no pre-check needed — it's a no-op if conditions don't match.
+        if updated and agent_id:
+            a2a_metadata = updated.metadata or {}
+            raw_btid = a2a_metadata.get(BOARD_TASK_METADATA_KEY)
+            board_task_id = (
+                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
+            )
+            if board_task_id:
+                try:
+                    from synapse.task_board import TaskBoard
+
+                    board = TaskBoard.from_env()
+                    unblocked = board.complete_task(board_task_id, agent_id)
+                    # complete_task returns list[str]: empty list means
+                    # state/assignee mismatch (rowcount == 0), non-empty
+                    # list contains IDs of tasks unblocked by completion.
+                    if not unblocked:
+                        logger.warning(
+                            "Board task %s was not auto-completed (state/assignee mismatch)",
+                            board_task_id[:8],
+                        )
+                    else:
+                        logger.info("Auto-completed board task %s", board_task_id[:8])
+                    if unblocked:
+                        logger.info(
+                            "Unblocked board tasks: %s",
+                            ", ".join(t[:8] for t in unblocked),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to auto-complete board task %s: %s",
+                        board_task_id[:8] if board_task_id else "?",
+                        e,
+                    )
+
         return updated
 
     # Register controller callback for notify/wait completion detection.
@@ -1112,6 +1154,35 @@ def create_a2a_router(
                             "Failed to persist reply target for %s: %s", agent_id, e
                         )
 
+            # Auto-claim board task on receive
+            raw_btid = metadata.get(BOARD_TASK_METADATA_KEY)
+            board_task_id = (
+                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
+            )
+            if board_task_id and agent_id:
+                try:
+                    from synapse.task_board import TaskBoard
+
+                    board = TaskBoard.from_env()
+                    claimed = board.claim_task(board_task_id, agent_id)
+                    if claimed:
+                        logger.info(
+                            "Auto-claimed board task %s for %s",
+                            board_task_id[:8],
+                            agent_id,
+                        )
+                    else:
+                        logger.warning(
+                            "Board task %s was not auto-claimed (already claimed/blocked?)",
+                            board_task_id[:8],
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to auto-claim board task %s: %s",
+                        board_task_id[:8] if board_task_id else "?",
+                        e,
+                    )
+
             # Prepare message for PTY (may store to file if too long)
             pty_text, used_file = _prepare_pty_message(
                 get_long_message_store(),
@@ -1129,6 +1200,7 @@ def create_a2a_router(
                 response_mode=response_mode if not used_file else "silent",
                 sender_id=sender_info.sender_id if not used_file else None,
                 sender_name=sender_info.sender_name if not used_file else None,
+                board_task_id=board_task_id if not used_file else None,
             )
             written = controller.write(prefixed_content, submit_seq=submit_seq)
             if not written:

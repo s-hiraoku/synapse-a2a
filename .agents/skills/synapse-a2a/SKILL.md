@@ -19,9 +19,10 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents | `synapse list` (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter) |
+| List agents | `synapse list` (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter; `--json` for machine-readable output). MCP alternative: `list_agents` tool (via `tools/call`) |
 | Agent detail | `synapse status <target> [--json]` |
 | Send message | `synapse send <target> "<msg>"` (default: `--notify`; `--from` auto-detected) |
+| Send with task | `synapse send <target> "<msg>" --task` / `-T` (auto-creates board task, auto-claim on receive, auto-complete on finalize) |
 | Broadcast | `synapse broadcast "<msg>"` |
 | Wait for reply | `synapse send <target> "<msg>" --wait` |
 | Fire-and-forget | `synapse send <target> "<msg>" --silent` |
@@ -34,6 +35,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n>` |
 | Assign task | `synapse tasks assign <id> <agent>` |
 | Complete task | `synapse tasks complete <id>` |
+| Purge tasks | `synapse tasks purge [--status STATUS]` (delete all or by status: pending, in_progress, completed, failed) |
 | Approve plan | `synapse approve <id>` |
 | Reject plan | `synapse reject <id> --reason "<feedback>"` |
 | Save knowledge | `synapse memory save <key> "<content>" --tags <t> --notify` |
@@ -72,7 +74,7 @@ Evaluate collaboration opportunities before starting work:
 
 | Feature | Why It Matters | Commands |
 |---------|---------------|----------|
-| **Task Board** | Transparent work tracking prevents duplication | `synapse tasks create/assign/complete/fail/reopen` |
+| **Task Board** | Transparent work tracking prevents duplication | `synapse tasks create/assign/complete/fail/reopen/purge` |
 | **Shared Memory** | Collective knowledge survives agent restarts | `synapse memory save/search/list` |
 | **File Safety** | Locking prevents data loss when two agents edit the same file | `synapse file-safety lock/unlock/locks` |
 | **Worktree** | File isolation eliminates merge conflicts in parallel editing | `synapse spawn --worktree` |
@@ -81,7 +83,7 @@ Evaluate collaboration opportunities before starting work:
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/briefing/open/list` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
-| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in) | `synapse mcp serve` / `python -m synapse.mcp` |
+| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in). MCP tools: `bootstrap_agent`, `list_agents` | `synapse mcp serve` / `python -m synapse.mcp` |
 
 ### Task Board Default Triggers
 
@@ -100,6 +102,21 @@ synapse tasks create "<subject>" -d "<shared scope and done criteria>"
 synapse tasks assign <id> <agent>
 synapse tasks complete <id>
 synapse tasks fail <id> --reason "<blocker or failure>"
+```
+
+**Shortcut — task-linked send:** Use `--task` / `-T` to create a board task and link it to the message in one step. The receiver auto-claims the task on receipt, and it auto-completes when the A2A task finalizes. The PTY displays a `[Task: XXXXXXXX]` tag so both agents can see the link.
+
+```bash
+synapse send Impl "Implement auth module" --task --silent
+# Equivalent to: tasks create + tasks assign + send with board_task_id
+```
+
+**Cleanup:** Use `synapse tasks purge` to remove stale tasks from the board.
+
+```bash
+synapse tasks purge                    # Delete all tasks
+synapse tasks purge --status completed # Delete only completed tasks
+synapse tasks purge --status failed    # Delete only failed tasks
 ```
 
 If none of the triggers apply and the work is a small single-agent change, you can skip the task board.
@@ -188,8 +205,9 @@ When you receive a task from a manager or pick one from the task board:
 
 ### On Task Receipt
 1. Start work immediately (`[REPLY EXPECTED]` requires a reply; otherwise no reply needed)
-2. Check shared knowledge: `synapse memory search "<task topic>"`
-3. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
+2. If the message contains `[Task: XXXXXXXX]`, the board task was auto-claimed for you — no manual `tasks assign` needed
+3. Check shared knowledge: `synapse memory search "<task topic>"`
+4. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
 
 ### During Work
 - Report progress if task takes >5 minutes: `synapse send <manager> "Progress: <update>" --silent`

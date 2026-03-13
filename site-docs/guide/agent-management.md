@@ -80,6 +80,14 @@ The Rich TUI agent monitor with real-time updates:
 synapse list
 ```
 
+For machine-readable output (JSON array of all running agents):
+
+```bash
+synapse list --json
+```
+
+The `--json` flag skips the TUI and prints a JSON array with fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at` (plus `editing_file` when File Safety is enabled).
+
 Displays a live table with:
 
 | Column | Description |

@@ -84,6 +84,8 @@ class TaskBoard:
             "completed_at": row["completed_at"],
             "priority": row["priority"],
             "fail_reason": row["fail_reason"],
+            "a2a_task_id": row["a2a_task_id"],
+            "assignee_hint": row["assignee_hint"],
         }
 
     @classmethod
@@ -124,7 +126,9 @@ class TaskBoard:
                         updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
                         completed_at DATETIME,
                         priority    INTEGER DEFAULT 3,
-                        fail_reason TEXT DEFAULT ''
+                        fail_reason TEXT DEFAULT '',
+                        a2a_task_id TEXT,
+                        assignee_hint TEXT
                     )
                     """
                 )
@@ -147,8 +151,19 @@ class TaskBoard:
                     conn.execute(
                         "ALTER TABLE board_tasks ADD COLUMN fail_reason TEXT DEFAULT ''"
                     )
+                if "a2a_task_id" not in columns:
+                    conn.execute("ALTER TABLE board_tasks ADD COLUMN a2a_task_id TEXT")
+                if "assignee_hint" not in columns:
+                    conn.execute(
+                        "ALTER TABLE board_tasks ADD COLUMN assignee_hint TEXT"
+                    )
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_board_priority ON board_tasks(priority)"
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_board_a2a_task_unique "
+                    "ON board_tasks(a2a_task_id) "
+                    "WHERE a2a_task_id IS NOT NULL"
                 )
                 conn.commit()
             finally:
@@ -462,5 +477,118 @@ class TaskBoard:
                     if not self._has_incomplete_blockers(conn, blocked_by):
                         available.append(self._row_to_dict(row))
                 return available
+            finally:
+                conn.close()
+
+    _VALID_STATUSES = frozenset({"pending", "in_progress", "completed", "failed"})
+
+    def purge(self, status: str | None = None) -> int:
+        """Delete tasks from the board.
+
+        Args:
+            status: If given, only delete tasks with this status.
+                    If None, delete all tasks.
+
+        Returns:
+            Number of deleted tasks.
+
+        Raises:
+            ValueError: If status is not a valid task status.
+        """
+        if status is not None and status not in self._VALID_STATUSES:
+            raise ValueError(
+                f"Invalid status '{status}'. "
+                f"Must be one of: {', '.join(sorted(self._VALID_STATUSES))}"
+            )
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                if status:
+                    cursor = conn.execute(
+                        "DELETE FROM board_tasks WHERE status = ?", (status,)
+                    )
+                else:
+                    cursor = conn.execute("DELETE FROM board_tasks")
+                conn.commit()
+                return cursor.rowcount
+            finally:
+                conn.close()
+
+    def set_assignee_hint(self, task_id: str, hint: str) -> bool:
+        """Set the assignee hint for a task.
+
+        Args:
+            task_id: The board task ID.
+            hint: The target agent name or ID (pre-claim suggestion).
+
+        Returns:
+            True if the hint was set, False if no matching task found.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    """
+                    UPDATE board_tasks
+                    SET assignee_hint = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (hint, task_id),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+
+    def link_a2a_task(self, board_task_id: str, a2a_task_id: str) -> bool:
+        """Link a board task to an A2A transport task.
+
+        Args:
+            board_task_id: The board task ID.
+            a2a_task_id: The A2A transport task ID.
+
+        Returns:
+            True if the link was set, False if no matching board task found
+            or if the a2a_task_id is already linked to another board task.
+        """
+        import sqlite3
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                try:
+                    cursor = conn.execute(
+                        """
+                        UPDATE board_tasks
+                        SET a2a_task_id = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (a2a_task_id, board_task_id),
+                    )
+                    conn.commit()
+                    return cursor.rowcount > 0
+                except sqlite3.IntegrityError:
+                    conn.rollback()
+                    return False
+            finally:
+                conn.close()
+
+    def find_by_a2a_task_id(self, a2a_task_id: str) -> dict[str, Any] | None:
+        """Find a board task linked to an A2A transport task ID.
+
+        Args:
+            a2a_task_id: The A2A transport task ID.
+
+        Returns:
+            Task dict or None if not found.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                row = conn.execute(
+                    "SELECT * FROM board_tasks WHERE a2a_task_id = ?",
+                    (a2a_task_id,),
+                ).fetchone()
+                return self._row_to_dict(row) if row else None
             finally:
                 conn.close()

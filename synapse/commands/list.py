@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import os
 import sys
 from collections.abc import Callable
@@ -604,6 +605,42 @@ class ListCommand:
             self._restore_terminal(saved_terminal)
             console.print("\n[dim]Exiting...[/dim]")
             raise SystemExit(0)
+
+    # Fields exposed in JSON output (excludes internal-only keys)
+    _JSON_FIELDS = (
+        "agent_id",
+        "agent_type",
+        "name",
+        "role",
+        "skill_set",
+        "port",
+        "status",
+        "pid",
+        "working_dir",
+        "endpoint",
+        "transport",
+        "current_task_preview",
+        "task_received_at",
+    )
+
+    def run_json(self, args: argparse.Namespace) -> None:
+        """Output agent list as JSON array for programmatic consumption."""
+        registry = self._registry_factory()
+        agents, _stale_locks, show_file_safety = self._get_agent_data(registry)
+
+        result = []
+        for agent in agents:
+            entry = {k: agent.get(k) for k in self._JSON_FIELDS}
+            # Use full path for working_dir in JSON (short name is for TUI only)
+            entry["working_dir"] = agent.get("working_dir_full") or agent.get(
+                "working_dir"
+            )
+            # editing_file is only present when file safety is enabled
+            if show_file_safety:
+                entry["editing_file"] = agent.get("editing_file")
+            result.append(entry)
+
+        self._print(json.dumps(result))
 
     def run(self, args: argparse.Namespace) -> None:
         """List running agents with Rich TUI."""

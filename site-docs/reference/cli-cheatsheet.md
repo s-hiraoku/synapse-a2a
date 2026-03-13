@@ -14,6 +14,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse opencode` | Start OpenCode interactively |
 | `synapse copilot` | Start GitHub Copilot CLI interactively |
 | `synapse list` | Live TUI showing all running agents |
+| `synapse list --json` | Output agent list as JSON array |
 | `synapse status <target>` | Detailed status for a single agent |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
@@ -26,6 +27,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse send <target> "msg"` | Send message (default `--notify`) |
 | `synapse send <target> "msg" --wait` | Send and wait for reply |
 | `synapse send <target> "msg" --silent` | Fire-and-forget |
+| `synapse send <target> "msg" --task` | Send and auto-create a linked board task (auto-claim/complete) |
 | `synapse reply "msg"` | Reply to sender |
 | `synapse broadcast "msg"` | Send to all agents in current directory |
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
@@ -39,6 +41,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse tasks assign <id> <agent>` | Assign task to agent |
 | `synapse tasks complete <id>` | Mark task completed |
 | `synapse tasks fail <id>` | Mark task failed |
+| `synapse tasks purge [--status STATUS] [--force]` | Remove tasks (prompts for confirmation; `--force` to skip) |
 | `synapse approve <id>` | Approve a plan |
 | `synapse reject <id> --reason "..."` | Reject with reason |
 
@@ -154,6 +157,9 @@ synapse claude --delegate-mode --name manager --role "coordinator"
 ```bash
 # Live agent dashboard (auto-refreshes)
 synapse list
+
+# JSON output for AI/scripts
+synapse list --json
 
 # Detailed status for a single agent (uptime, current task, history, locks)
 synapse status my-claude
@@ -294,6 +300,11 @@ synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 synapse tasks fail <task_id> --reason "dependency missing"
 synapse tasks reopen <task_id>
+synapse tasks purge --force
+
+# Task-linked messaging (creates board task, auto-claim on receive, auto-complete on finalize)
+synapse send gemini "Implement feature" --task
+synapse send gemini "Implement feature" -T
 
 # Plan approval
 synapse approve <task_id>

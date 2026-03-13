@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.15] - 2026-03-13
+
+### Added
+
+- `synapse list --json` flag for AI/script-friendly JSON output of agent list
+- MCP `list_agents` tool for querying agent registry via MCP protocol
+- Optional `status` filter parameter for MCP `list_agents` tool
+- `registry_factory` dependency injection on `SynapseMCPServer` for testability
+
+### Changed
+
+- Refactor `SynapseMCPServer.call_tool()` from single-tool to dispatch pattern
+
+### Documentation
+
+- Update docs, guides, site-docs, and plugin skills for `--json` and MCP `list_agents`
+
+### Tests
+
+- Add `tests/test_cmd_list_json.py` — 5 tests for CLI JSON output
+- Add `tests/test_mcp_list_agents.py` — 5 tests for MCP list_agents tool
+
 ## [0.11.14] - 2026-03-12
 
 ### Fixed
@@ -57,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Task Board coordination: `synapse tasks purge` command to delete tasks with optional `--status` filter
+- Task-linked messaging: `synapse send --task` / `-T` flag auto-creates a board task and links it to the A2A message
+- Auto-claim on receive: agents automatically claim board tasks when receiving `--task`-linked messages
+- Auto-complete on finalize: board tasks are automatically completed when the linked A2A task finishes
+- PTY `[Task: XXXXXXXX]` tag display for task-linked messages so agents can see which board task they're working on
+- TaskBoard schema: `a2a_task_id` column for A2A transport task linking, `assignee_hint` column for pre-claim target hints
+- TaskBoard methods: `purge()`, `set_assignee_hint()`, `link_a2a_task()`, `find_by_a2a_task_id()`
+- `BOARD_TASK_METADATA_KEY` constant in `synapse/config.py` for the `x-board-task-id` metadata key
 - add Anthropic official skill-creator plugin
 - add pr-guardian skill with auto-trigger hook
 - refine canvas saved agent scope badges
@@ -65,10 +95,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `format_a2a_message()` accepts optional `board_task_id` parameter for task tag display
+- `_build_a2a_cmd()` and `send_to_local()` accept `board_task_id` for metadata propagation
+- Use `BOARD_TASK_METADATA_KEY` constant instead of raw `"x-board-task-id"` strings across 3 files
+- Eliminate redundant `task_store.get()` call in `_finalize_working_task`
+- Remove TOCTOU pre-check before `complete_task()` (atomic WHERE clause is sufficient)
 - simplify canvas process management after code review
 
 ### Documentation
 
+- Update README.md, synapse-reference.md, guides/references.md with task board coordination features
+- Update site-docs: task-board guide, CLI reference, cheatsheet, communication guide, API reference
+- Update plugin skills: synapse-a2a and synapse-manager skills with `--task` flag and purge command
 - update Canvas documentation for stale process management
 
 ### Fixed
@@ -91,10 +129,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - reuse spotlight DOM frame instead of rebuilding on every render
 - address canvas frontend review feedback
 - resolve remaining merge conflict in system panel test
+- Clean up `:memory:` artifact file and stale task board data (28 records)
 
 ### Tests
 
 - cover canvas spotlight fallback for malformed cards
+- Test isolation: `task_store._tasks.clear()` in `conftest.py` prevents cross-test contamination
 
 ## [0.11.10] - 2026-03-10
 
@@ -2191,6 +2231,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.14...v0.11.15
 [0.11.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.12...v0.11.13
 [0.11.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.11...v0.11.12

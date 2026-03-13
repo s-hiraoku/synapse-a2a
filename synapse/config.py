@@ -98,3 +98,10 @@ COMPLETED_TASK_STATES: frozenset[str] = frozenset(
         "canceled",
     }
 )
+
+# ============================================================
+# Task Board Constants
+# ============================================================
+
+# Metadata key for linking A2A transport tasks to board tasks
+BOARD_TASK_METADATA_KEY: str = "x-board-task-id"

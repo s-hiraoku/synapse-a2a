@@ -7,6 +7,9 @@
 ```bash
 # Show all running agents (Rich TUI with auto-refresh on changes)
 synapse list
+
+# Output agent list as JSON array (machine-readable, no TUI)
+synapse list --json
 ```
 
 **Rich TUI Features:**
@@ -49,6 +52,8 @@ synapse list
   - `-`: No active communication
 - **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in non-TTY text output for scripting (e.g., `synapse list | grep my-project`).
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
+
+**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`).
 
 **Name vs ID:** Display shows name if set, internal operations use Runtime ID (`synapse-claude-8100`).
 
@@ -388,7 +393,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent] [--callback "<command>"] [--force]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent] [--callback "<command>"] [--force] [--task | -T]
 ```
 
 **Target Formats (in priority order):**
@@ -415,6 +420,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 - `--stdin`: Read message from stdin
 - `--attach`: Attach file(s) to message (repeatable)
 - `--force`: Bypass the working directory mismatch check (send to agents in different directories)
+- `--task, -T`: Auto-create a board task linked to this message. The task subject is the first 80 chars of the message, the target is set as `assignee_hint`. On receive, the board task is auto-claimed by the receiver. On A2A task finalization, the board task is auto-completed. The PTY displays `[Task: XXXXXXXX]` in the delivered message.
 
 **Working Directory Check:** Before sending, `synapse send` verifies that your current working directory matches the target agent's working directory. If they differ, the command prints a warning (listing agents in your current directory or suggesting `synapse spawn`) and exits with code 1. Use `--force` to skip this check.
 
@@ -469,6 +475,10 @@ synapse send claude --message-file - --silent   # '-' reads from stdin
 # Attach files to message
 synapse send claude "Review this" --attach src/main.py --silent
 synapse send claude "Review these" --attach src/a.py --attach src/b.py --silent
+
+# Task-linked send (auto-create board task + auto-claim on receive + auto-complete on finalize)
+synapse send gemini "Write tests for auth module" --task --silent
+synapse send codex "Fix the failing CI pipeline" -T --wait
 ```
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
@@ -1069,6 +1079,18 @@ synapse tasks fail <task_id> --reason "Test suite failed"
 
 # Reopen a completed or failed task (returns to pending, clears assignee)
 synapse tasks reopen <task_id>
+```
+
+### Purge Tasks
+
+```bash
+# Delete all tasks from the board
+synapse tasks purge
+
+# Delete only tasks with a specific status
+synapse tasks purge --status completed
+synapse tasks purge --status failed
+synapse tasks purge --status pending
 ```
 
 ### Task Priority
@@ -1713,7 +1735,27 @@ uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse
 
 **Defaults:** `--agent-id` defaults to `$SYNAPSE_AGENT_ID` or `synapse-mcp`. `--agent-type` is auto-extracted from the agent ID if not specified.
 
-**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent`).
+**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent` and `list_agents`).
+
+### MCP Tool: list_agents
+
+List all running Synapse agents with status and connection info. Equivalent to `synapse list --json` but accessible via MCP protocol.
+
+```json
+// JSON-RPC tools/call request
+{
+  "name": "list_agents",
+  "arguments": {
+    "status": "READY"
+  }
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `status` | string | No | Filter by status (READY, PROCESSING, WAITING, DONE, etc.) |
+
+**Response fields:** `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`.
 
 **Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, or OpenCode, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot is unchanged and continues to use PTY bootstrap.
 
