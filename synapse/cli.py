@@ -4537,9 +4537,9 @@ Columns:
 
 Interactive controls:
   1-9         Select agent by number
-  ↑/↓         Navigate selection
-  Enter/j     Jump to terminal
-  k           Kill agent (with confirmation)
+  ↑/↓/hjkl    Navigate selection
+  Enter       Jump to terminal
+  K           Kill agent (with confirmation)
   /           Filter by TYPE or WORKING_DIR
   ESC         Clear filter/selection
   q           Quit

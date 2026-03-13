@@ -96,3 +96,32 @@ class TestSessionHelp:
             "Run 'synapse session <subcommand> --help' for detailed usage"
             in result.stdout
         )
+
+
+class TestListHelp:
+    """Verify `synapse list --help` matches current interactive bindings."""
+
+    def test_list_help_uses_enter_and_uppercase_k_bindings(self):
+        """List help should document the current jump and kill keys."""
+        result = subprocess.run(
+            [sys.executable, "-m", "synapse.cli", "list", "--help"],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "hjkl" in result.stdout
+        assert "Enter       Jump to terminal" in result.stdout
+        assert "K           Kill agent" in result.stdout
+
+    def test_list_help_does_not_advertise_removed_bindings(self):
+        """List help should not mention stale j/k action bindings."""
+        result = subprocess.run(
+            [sys.executable, "-m", "synapse.cli", "list", "--help"],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Enter/j" not in result.stdout
+        assert "k           Kill agent" not in result.stdout
