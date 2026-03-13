@@ -215,11 +215,16 @@ class TerminalController:
         self._submit_retry_delay: float | None = None
         if submit_retry_delay is not None:
             try:
-                self._submit_retry_delay = float(submit_retry_delay)
+                submit_retry_delay = float(submit_retry_delay)
             except (TypeError, ValueError):
                 raise ValueError(
                     f"submit_retry_delay must be numeric, got {submit_retry_delay!r}"
                 ) from None
+            if submit_retry_delay < 0:
+                raise ValueError(
+                    f"submit_retry_delay must be non-negative, got {submit_retry_delay}"
+                )
+            self._submit_retry_delay = submit_retry_delay
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.

@@ -844,6 +844,26 @@ class TestInterAgentMessageWrite:
 
         assert writes == [b"hello", b"\r"]
 
+    def test_submit_retry_delay_negative_raises(self):
+        """Negative submit_retry_delay should raise ValueError."""
+        with pytest.raises(
+            ValueError, match="submit_retry_delay must be.*non-negative"
+        ):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                submit_retry_delay=-0.1,
+            )
+
+    def test_submit_retry_delay_non_numeric_raises(self):
+        """Non-numeric submit_retry_delay should raise ValueError."""
+        with pytest.raises(ValueError, match="submit_retry_delay must be numeric"):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                submit_retry_delay="fast",
+            )
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):
