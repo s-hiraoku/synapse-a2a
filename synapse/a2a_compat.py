@@ -949,7 +949,10 @@ def create_a2a_router(
         # so no pre-check needed — it's a no-op if conditions don't match.
         if updated and agent_id:
             a2a_metadata = updated.metadata or {}
-            board_task_id = a2a_metadata.get(BOARD_TASK_METADATA_KEY)
+            raw_btid = a2a_metadata.get(BOARD_TASK_METADATA_KEY)
+            board_task_id = (
+                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
+            )
             if board_task_id:
                 try:
                     from synapse.task_board import TaskBoard
@@ -1152,7 +1155,10 @@ def create_a2a_router(
                         )
 
             # Auto-claim board task on receive
-            board_task_id = metadata.get(BOARD_TASK_METADATA_KEY)
+            raw_btid = metadata.get(BOARD_TASK_METADATA_KEY)
+            board_task_id = (
+                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
+            )
             if board_task_id and agent_id:
                 try:
                     from synapse.task_board import TaskBoard

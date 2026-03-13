@@ -27,7 +27,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse send <target> "msg"` | Send message (default `--notify`) |
 | `synapse send <target> "msg" --wait` | Send and wait for reply |
 | `synapse send <target> "msg" --silent` | Fire-and-forget |
-| `synapse send <target> "msg" --task <id>` | Send with Task Board link (auto-claim/complete) |
+| `synapse send <target> "msg" --task` | Send and auto-create a linked board task (auto-claim/complete) |
 | `synapse reply "msg"` | Reply to sender |
 | `synapse broadcast "msg"` | Send to all agents in current directory |
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
@@ -302,9 +302,9 @@ synapse tasks fail <task_id> --reason "dependency missing"
 synapse tasks reopen <task_id>
 synapse tasks purge --force
 
-# Task-linked messaging (auto-claim on receive, auto-complete on finalize)
-synapse send gemini "Implement feature" --task <task_id>
-synapse send gemini "Implement feature" -T <task_id>
+# Task-linked messaging (creates board task, auto-claim on receive, auto-complete on finalize)
+synapse send gemini "Implement feature" --task
+synapse send gemini "Implement feature" -T
 
 # Plan approval
 synapse approve <task_id>

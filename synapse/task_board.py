@@ -161,8 +161,9 @@ class TaskBoard:
                     "CREATE INDEX IF NOT EXISTS idx_board_priority ON board_tasks(priority)"
                 )
                 conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_board_a2a_task "
-                    "ON board_tasks(a2a_task_id)"
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_board_a2a_task_unique "
+                    "ON board_tasks(a2a_task_id) "
+                    "WHERE a2a_task_id IS NOT NULL"
                 )
                 conn.commit()
             finally:
@@ -547,21 +548,28 @@ class TaskBoard:
             a2a_task_id: The A2A transport task ID.
 
         Returns:
-            True if the link was set, False if no matching board task found.
+            True if the link was set, False if no matching board task found
+            or if the a2a_task_id is already linked to another board task.
         """
+        import sqlite3
+
         with self._lock:
             conn = self._get_connection()
             try:
-                cursor = conn.execute(
-                    """
-                    UPDATE board_tasks
-                    SET a2a_task_id = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                    """,
-                    (a2a_task_id, board_task_id),
-                )
-                conn.commit()
-                return cursor.rowcount > 0
+                try:
+                    cursor = conn.execute(
+                        """
+                        UPDATE board_tasks
+                        SET a2a_task_id = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (a2a_task_id, board_task_id),
+                    )
+                    conn.commit()
+                    return cursor.rowcount > 0
+                except sqlite3.IntegrityError:
+                    conn.rollback()
+                    return False
             finally:
                 conn.close()
 
