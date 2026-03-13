@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.18] - 2026-03-13
+
+### Fixed
+
+- Port availability check now binds on `0.0.0.0` matching actual server address (fixes Errno 48)
+- Remove `SO_REUSEADDR` from port check to avoid false positives
+- Tmux pane titles now persist — `allow-rename off` prevents OSC escape overwrite (`python:3.13`)
+
 ## [0.11.17] - 2026-03-13
 
 ### Added
@@ -2249,6 +2257,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.18]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.17...v0.11.18
 [0.11.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.16...v0.11.17
 [0.11.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.15...v0.11.16
 [0.11.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.14...v0.11.15

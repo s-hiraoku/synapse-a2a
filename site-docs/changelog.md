@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.18
+
+- **Fixed**: Port availability check now binds on `0.0.0.0` matching actual server address (fixes Errno 48)
+- **Fixed**: Tmux pane titles now persist — `allow-rename off` prevents OSC escape overwrite
+
 ### v0.11.17
 
 - **Added**: Set tmux pane titles to show agent name (`synapse(claude)` or `synapse(claude:Reviewer)`)
