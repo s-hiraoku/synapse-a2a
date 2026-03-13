@@ -108,9 +108,16 @@ def is_canvas_server_running(port: int = DEFAULT_PORT) -> bool:
 
 
 def _terminate_stale_canvas(pid: int) -> None:
-    """SIGTERM a stale Canvas process and clean up its PID file."""
-    os.kill(pid, sig.SIGTERM)
-    _poll(lambda: not is_pid_alive(pid))
+    """Terminate a stale Canvas process and clean up its PID file."""
+    with contextlib.suppress(OSError, ProcessLookupError):
+        os.kill(pid, sig.SIGTERM)
+
+    if not _poll(lambda: not is_pid_alive(pid)):
+        logger.warning("Stale PID %d did not exit after SIGTERM; sending SIGKILL", pid)
+        with contextlib.suppress(OSError, ProcessLookupError):
+            os.kill(pid, sig.SIGKILL)
+        _poll(lambda: not is_pid_alive(pid), timeout=2.0)
+
     with contextlib.suppress(OSError):
         os.remove(PID_FILE)
 

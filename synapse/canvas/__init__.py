@@ -24,6 +24,7 @@ def compute_asset_hash() -> str:
     h = hashlib.sha256()
     for rel in _ASSET_PATHS:
         p = _CANVAS_DIR / rel
-        if p.exists():
-            h.update(p.read_bytes())
+        if not p.is_file():
+            raise FileNotFoundError(f"Missing Canvas asset: {p}")
+        h.update(p.read_bytes())
     return h.hexdigest()[:12]
