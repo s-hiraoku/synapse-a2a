@@ -37,7 +37,7 @@ class TestCanvasStopViaHealth:
                 "synapse.commands.canvas.is_canvas_server_running",
                 return_value=False,
             ),
-            patch("synapse.commands.canvas.time.sleep"),
+            patch("synapse.commands.canvas._poll", return_value=True),
             patch("os.kill") as mock_kill,
         ):
             args = argparse.Namespace(port=None)
@@ -114,7 +114,7 @@ class TestCanvasStopViaHealth:
                 "synapse.commands.canvas.is_canvas_server_running",
                 return_value=False,
             ),
-            patch("synapse.commands.canvas.time.sleep"),
+            patch("synapse.commands.canvas._poll", return_value=True),
             patch("os.kill") as mock_kill,
         ):
             args = argparse.Namespace(port=None)
@@ -148,7 +148,7 @@ class TestCanvasStopViaHealth:
                 "synapse.commands.canvas.is_canvas_server_running",
                 return_value=False,
             ),
-            patch("synapse.commands.canvas.time.sleep"),
+            patch("synapse.commands.canvas._poll", return_value=True),
             patch("os.kill"),
         ):
             args = argparse.Namespace(port=4000)

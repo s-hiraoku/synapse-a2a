@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.20
+
+- **Fixed**: Canvas stale process detection via `asset_hash` in `/api/health`
+- **Fixed**: Canvas `stop` SIGKILL fallback when SIGTERM fails
+- **Changed**: Canvas `status` shows asset hash match and STALE warning
+
 ### v0.11.19
 
 - **Fixed**: Copilot CLI enter key not submitting — use bracketed paste mode for PTY input

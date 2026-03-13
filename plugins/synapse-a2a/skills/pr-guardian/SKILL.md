@@ -73,8 +73,8 @@ This returns a JSON object with these fields:
 - No merge conflicts
 - No CI failures
 - No CI checks still running
-- CodeRabbit check is NOT pending (review must be complete)
-- No unresolved CodeRabbit inline comments
+- CodeRabbit check is NOT `pending` AND NOT `none` (review must have completed at least once)
+- No unresolved CodeRabbit inline comments (comments marked `✅ Addressed` are excluded)
 - At least one CI check exists
 
 ### Step 2: Evaluate and report
@@ -131,6 +131,8 @@ The correct action is to **wait** (not fix) when:
 - `checks_running > 0`: CI is still running — do not diagnose yet
 - `coderabbit_check == "pending"`: CodeRabbit review is in progress —
   wait for it to finish before looking at comments
+- `coderabbit_check == "none"`: CodeRabbit hasn't started yet (common
+  right after a push) — wait at least one cycle for it to appear
 - `checks_total == 0` and it's the first cycle: checks haven't started
   yet — wait for GitHub Actions to pick up the push
 
