@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.17
+
+- **Added**: Set tmux pane titles to show agent name (`synapse(claude)` or `synapse(claude:Reviewer)`)
+- **Added**: Auto-enable `pane-border-status` so pane titles are visible without manual tmux.conf changes
+- **Fixed**: Align `synapse list` help keybinding display
+
 ### v0.11.16
 
 - **Fixed**: Send submit_seq twice for Copilot CLI paste buffer flush — resolves enter key not executing when sending messages via `synapse send`
