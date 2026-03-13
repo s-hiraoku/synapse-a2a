@@ -84,6 +84,21 @@ class TestCopilotProfile:
         compiled = re.compile(regex)
         assert compiled is not None
 
+    def test_profile_bracketed_paste_enabled(self, profile):
+        """Copilot profile should enable bracketed paste mode.
+
+        Copilot CLI uses Ink's usePaste hook which requires text to be
+        wrapped in ESC[200~ ... ESC[201~ bracketed paste markers for
+        reliable input handling.
+        """
+        assert profile.get("bracketed_paste") is True
+
+    def test_profile_submit_retry_delay(self, profile):
+        """Copilot profile should have submit_retry_delay for React render cycle."""
+        delay = profile.get("submit_retry_delay")
+        assert delay is not None
+        assert delay >= 0.1, "submit_retry_delay should be >= 100ms for React render"
+
     def test_profile_waiting_detection_patterns(self, profile):
         """Profile waiting detection should match expected patterns."""
         regex = profile["waiting_detection"]["regex"]

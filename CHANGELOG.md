@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.19] - 2026-03-13
+
+### Fixed
+
+- Copilot CLI enter key not submitting — use bracketed paste mode for PTY input
+- Increase `submit_retry_delay` from 50ms to 150ms for React render cycle
+- Port availability check binds on `0.0.0.0` matching actual server address (fixes Errno 48)
+- Remove `SO_REUSEADDR` from port check to avoid false positives
+- Tmux pane titles persist with `allow-rename off` (prevents `python:3.13` overwrite)
+
+### Tests
+
+- Add bracketed paste wrapping tests for controller
+- Add copilot profile validation tests
+
 ## [0.11.18] - 2026-03-13
 
 ### Fixed
@@ -2257,6 +2272,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.19]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.18...v0.11.19
 [0.11.18]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.17...v0.11.18
 [0.11.17]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.16...v0.11.17
 [0.11.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.15...v0.11.16

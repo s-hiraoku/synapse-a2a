@@ -873,6 +873,116 @@ class TestInterAgentMessageWrite:
         )
         assert ctrl._submit_retry_delay == 0.05
 
+    # --- Bracketed paste mode tests ---
+
+    def test_bracketed_paste_wraps_data(self):
+        """bracketed_paste=True should wrap data in ESC[200~ ... ESC[201~."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.05,
+            bracketed_paste=True,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # Data should be wrapped: ESC[200~ + data + ESC[201~, then CR
+        assert writes == [b"\x1b[200~hello\x1b[201~", b"\r"]
+
+    def test_bracketed_paste_false_no_wrapping(self):
+        """bracketed_paste=False (default) should not wrap data."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.05,
+            bracketed_paste=False,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"hello", b"\r"]
+
+    def test_bracketed_paste_default_is_false(self):
+        """Default bracketed_paste should be False."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+        )
+        assert ctrl._bracketed_paste is False
+
+    def test_bracketed_paste_with_submit_retry(self):
+        """bracketed_paste should work together with submit_retry_delay."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # Should write: bracketed data, sleep(0.5), CR, sleep(0.15), CR
+        assert writes == [b"\x1b[200~hello\x1b[201~", b"\r", b"\r"]
+        assert sleeps == [0.5, 0.15]
+
+    def test_bracketed_paste_no_submit_seq(self):
+        """bracketed_paste without submit_seq should still wrap data."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            bracketed_paste=True,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello")
+
+        # Data should be wrapped, no CR
+        assert writes == [b"\x1b[200~hello\x1b[201~"]
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):

@@ -4,10 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.19
+
+- **Fixed**: Copilot CLI enter key not submitting — use bracketed paste mode for PTY input
+- **Fixed**: Port availability check on `0.0.0.0` (fixes Errno 48)
+- **Fixed**: Tmux pane titles persist with `allow-rename off`
+
 ### v0.11.18
 
-- **Fixed**: Port availability check now binds on `0.0.0.0` matching actual server address (fixes Errno 48)
-- **Fixed**: Tmux pane titles now persist — `allow-rename off` prevents OSC escape overwrite
+- **Fixed**: Port availability check on `0.0.0.0` (fixes Errno 48)
+- **Fixed**: Tmux pane titles persist with `allow-rename off`
 
 ### v0.11.17
 

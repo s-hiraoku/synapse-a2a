@@ -8,6 +8,8 @@ command: string                    # CLI command to execute (required)
 args: [string]                     # Additional CLI arguments (optional)
 submit_sequence: "\r" | "\n"       # Submit key: CR or LF (default: "\r")
 write_delay: float                 # Delay between data and submit (seconds, default: WRITE_PROCESSING_DELAY=0.5)
+submit_retry_delay: float          # Send submit_seq twice with this gap (seconds, default: 0 = disabled)
+bracketed_paste: boolean           # Wrap PTY data in bracketed paste sequences (default: false)
 
 idle_detection:
   strategy: "pattern" | "timeout" | "hybrid"  # Detection strategy (required)
@@ -63,6 +65,24 @@ Delay in seconds between writing message data and sending the submit sequence.
 ```yaml
 write_delay: 0.5    # Copilot (explicit in profile — Ink TUI needs time)
 # Other profiles omit write_delay; the default (0.5s) is used
+```
+
+### submit_retry_delay
+
+Send the submit sequence a second time after a short gap. This is a safety net for TUI frameworks where the first submit may fire before React state updates complete.
+
+```yaml
+submit_retry_delay: 0.15  # Copilot: retry after 150ms (one React render cycle)
+# Default: 0 (disabled — submit_seq sent only once)
+```
+
+### bracketed_paste
+
+Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~`). Required for agents whose TUI uses a paste hook (e.g., Ink's `usePaste`) to receive multi-character input atomically instead of character-by-character via `useInput`.
+
+```yaml
+bracketed_paste: true   # Copilot CLI (Ink usePaste hook)
+# Default: false
 ```
 
 ### idle_detection.strategy
@@ -148,6 +168,8 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
+submit_retry_delay: 0.15
+bracketed_paste: true
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"

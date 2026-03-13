@@ -187,6 +187,8 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
+submit_retry_delay: 0.15
+bracketed_paste: true
 
 idle_detection:
   strategy: "timeout"
@@ -195,7 +197,9 @@ idle_detection:
 ```
 
 - Interactive TUI without consistent prompt patterns
-- Requires explicit `write_delay: 0.5` — Ink TUI collapses pasted text and needs time to finish rendering before CR
+- Requires explicit `write_delay: 0.5` — Ink TUI needs time to finish rendering before CR
+- `bracketed_paste: true` wraps input in paste escape sequences so Ink's `usePaste` hook receives the full text atomically
+- `submit_retry_delay: 0.15` sends Enter a second time after 150 ms as a safety net for React render timing
 
 ## Custom Profiles
 
