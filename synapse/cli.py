@@ -3975,6 +3975,7 @@ def cmd_run_interactive(
 
     # Per-profile write delay (None = use default WRITE_PROCESSING_DELAY)
     write_delay = config.get("write_delay")
+    submit_retry_delay = config.get("submit_retry_delay")
 
     # Create controller - initial instructions sent on IDLE (unless resume mode)
     controller = TerminalController(
@@ -3999,6 +4000,7 @@ def cmd_run_interactive(
         delegate_mode=delegate_mode,
         skill_set=selected_skill_set,
         write_delay=write_delay,
+        submit_retry_delay=submit_retry_delay,
     )
 
     # Handle Ctrl+C gracefully

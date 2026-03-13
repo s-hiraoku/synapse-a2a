@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.16
+
+- **Fixed**: Send submit_seq twice for Copilot CLI paste buffer flush — resolves enter key not executing when sending messages via `synapse send`
+- **Fixed**: Validate `submit_retry_delay` is non-negative in `TerminalController.__init__`
+
 ### v0.11.15
 
 - **Added**: `synapse list --json` flag for AI/script-friendly JSON output of agent list

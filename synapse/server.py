@@ -133,6 +133,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Per-profile write delay (None = use default WRITE_PROCESSING_DELAY)
     write_delay = profile.get("write_delay")
+    submit_retry_delay = profile.get("submit_retry_delay")
 
     controller = TerminalController(
         command=profile["command"],
@@ -149,6 +150,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         port=agent_port,
         registry=registry,
         write_delay=write_delay,
+        submit_retry_delay=submit_retry_delay,
     )
     controller.start()
 

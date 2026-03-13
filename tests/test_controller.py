@@ -788,6 +788,91 @@ class TestInterAgentMessageWrite:
                 write_delay="fast",
             )
 
+    def test_submit_retry_delay_sends_submit_twice(self):
+        """submit_retry_delay should cause submit_seq to be sent twice.
+
+        Copilot CLI v0.0.300+ needs two CRs: the first flushes the Ink
+        async paste buffer and the second triggers the actual submit
+        after React re-renders.
+        """
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.5,
+            submit_retry_delay=0.05,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # Should write: data, sleep(0.5), CR, sleep(0.05), CR
+        assert writes == [b"hello", b"\r", b"\r"]
+        assert sleeps == [0.5, 0.05]
+
+    def test_submit_retry_delay_none_sends_once(self):
+        """Without submit_retry_delay, submit_seq should be sent once."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            write_delay=0.05,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"hello", b"\r"]
+
+    def test_submit_retry_delay_negative_raises(self):
+        """Negative submit_retry_delay should raise ValueError."""
+        with pytest.raises(
+            ValueError, match="submit_retry_delay must be.*non-negative"
+        ):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                submit_retry_delay=-0.1,
+            )
+
+    def test_submit_retry_delay_non_numeric_raises(self):
+        """Non-numeric submit_retry_delay should raise ValueError."""
+        with pytest.raises(ValueError, match="submit_retry_delay must be numeric"):
+            TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                submit_retry_delay="fast",
+            )
+
+    def test_submit_retry_delay_string_numeric_accepts(self):
+        """Numeric string submit_retry_delay should be coerced to float."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            submit_retry_delay="0.05",
+        )
+        assert ctrl._submit_retry_delay == 0.05
+
     # --- Thread safety test (Bug 4: _write_lock prevents interleaving) ---
 
     def test_write_lock_prevents_interleaving(self):
