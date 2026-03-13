@@ -5,10 +5,16 @@ args: []
 # CR required for interactive TUI to process Enter key
 submit_sequence: "\r"
 # PTY write delay between data and submit_seq (seconds)
-# Copilot's Ink TUI collapses long pasted text into a shortcut display.
-# CR sent during this rendering is ignored.  0.5s gives the TUI time to
-# finish rendering before CR is sent as a submit action.
+# Copilot's Ink TUI buffers pasted text (>=32 chars) into an async paste
+# accumulator.  The first CR triggers an async flush, but React state hasn't
+# updated yet so the submit callback sees empty text.  The second CR fires
+# after the React render cycle completes and actually submits.
 write_delay: 0.5
+# Send submit_sequence twice with a short gap (seconds) between retries.
+# Required for Copilot CLI v0.0.300+: the first CR flushes the Ink paste
+# buffer (async), the second CR triggers the actual submit after the React
+# render cycle.
+submit_retry_delay: 0.05
 env:
   TERM: "xterm-256color"
 

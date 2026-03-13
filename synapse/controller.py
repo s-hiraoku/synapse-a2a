@@ -83,6 +83,7 @@ class TerminalController:
         delegate_mode: bool = False,
         skill_set: str | None = None,
         write_delay: float | None = None,
+        submit_retry_delay: float | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -207,6 +208,18 @@ class TerminalController:
             self._write_delay = write_delay
         else:
             self._write_delay = WRITE_PROCESSING_DELAY
+
+        # Optional retry delay: send submit_seq twice with this gap.
+        # Required for Copilot CLI v0.0.300+ where the first CR flushes
+        # the Ink async paste buffer and the second CR triggers submit.
+        self._submit_retry_delay: float | None = None
+        if submit_retry_delay is not None:
+            try:
+                self._submit_retry_delay = float(submit_retry_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"submit_retry_delay must be numeric, got {submit_retry_delay!r}"
+                ) from None
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.
@@ -878,7 +891,15 @@ class TerminalController:
                 if submit_seq:
                     if self._write_delay > 0:
                         time.sleep(self._write_delay)
-                    self._write_all(submit_seq.encode("utf-8"))
+                    submit_bytes = submit_seq.encode("utf-8")
+                    self._write_all(submit_bytes)
+                    # Retry: send submit_seq again after a short gap.
+                    # Copilot CLI v0.0.300+ needs this because the first
+                    # CR flushes the async paste buffer and the second CR
+                    # triggers the actual submit after React re-renders.
+                    if self._submit_retry_delay is not None:
+                        time.sleep(self._submit_retry_delay)
+                        self._write_all(submit_bytes)
                 return True
             except OSError as e:
                 logger.error(f"Write to PTY failed: {e}")
