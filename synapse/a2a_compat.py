@@ -956,7 +956,10 @@ def create_a2a_router(
 
                     board = TaskBoard.from_env()
                     unblocked = board.complete_task(board_task_id, agent_id)
-                    if unblocked is None:
+                    # complete_task returns list[str]: empty list means
+                    # state/assignee mismatch (rowcount == 0), non-empty
+                    # list contains IDs of tasks unblocked by completion.
+                    if not unblocked:
                         logger.warning(
                             "Board task %s was not auto-completed (state/assignee mismatch)",
                             board_task_id[:8],

@@ -2975,8 +2975,15 @@ def cmd_tasks_purge(args: argparse.Namespace) -> None:
     status_filter = getattr(args, "status", None)
     force = getattr(args, "force", False)
     if not force:
+        if not sys.stdin.isatty():
+            print("Aborted (non-interactive, use --force).")
+            return
         scope = f" status='{status_filter}'" if status_filter else " all tasks"
-        answer = input(f"About to purge{scope}. Continue? [y/N]: ").strip().lower()
+        try:
+            answer = input(f"About to purge{scope}. Continue? [y/N]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            return
         if answer != "y":
             print("Aborted.")
             return
