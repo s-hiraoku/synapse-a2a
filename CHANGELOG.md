@@ -5,13 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [0.11.16] - 2026-03-13
 
 ### Fixed
@@ -2245,6 +2238,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.11.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.15...v0.11.16
 [0.11.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.14...v0.11.15
 [0.11.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.13...v0.11.14
 [0.11.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.12...v0.11.13
