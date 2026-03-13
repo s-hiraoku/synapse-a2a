@@ -319,6 +319,23 @@ synapse send Helper "auth.py のユニットテストを書いて" --silent
 synapse kill Helper -f
 ```
 
+### クロスワークツリー送信
+
+ワークツリー内のエージェントは異なるディレクトリで動作するため、通常の `synapse send` はブロックされます。
+`--force` でディレクトリチェックをバイパスし、バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避します。
+
+```bash
+# ワークツリーのエージェントに指示を送信
+cat > /tmp/instructions.md << 'EOF'
+## 実装手順
+`/release patch` でバージョンをバンプしてください。
+EOF
+
+synapse send Helper --message-file /tmp/instructions.md --force --silent
+```
+
+ディレクトリに依存しない代替手段として `synapse memory save` も使用できます。
+
 ### 必須クリーンアップ
 
 生成したエージェントは、作業完了後に**必ず**終了させてください:

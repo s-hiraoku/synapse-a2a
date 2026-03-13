@@ -313,6 +313,26 @@ legacy_api.js を読んで TypeScript の型定義を作成して
 synapse send claude "作成した型定義を使って legacy_api.js を src/new_api.ts に書き換えて" --from synapse-codex-8121
 ```
 
+### 7. クロスワークツリーのナレッジ転送（上級）
+
+異なるワークツリーで動作するエージェントにスキル、設定、調査結果を共有する。ワークツリーのエージェントは別ディレクトリにいるため `--force` が必要。バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避する。
+
+```bash
+# ワークツリーにワーカーを生成
+synapse spawn codex --worktree feature-api --name Cody --role "API implementation"
+
+# バッククォートのシェル展開を避けてファイルに書き出す
+cat > /tmp/instructions.md << 'EOF'
+## /release skill usage
+`/release patch` でパッチバージョンをバンプ。
+EOF
+
+# ワークツリー境界を越えて送信
+synapse send Cody --message-file /tmp/instructions.md --force --silent
+```
+
+代替手段: `--attach` はファイルを直接送信（`--message-file` 不要）。`synapse memory save` はディレクトリに依存せず `--force` 不要。
+
 ### SSH リモートとの比較
 
 | 操作 | SSH | Synapse |
@@ -876,7 +896,12 @@ synapse send claude "Stop!" --priority 5
 
 # 応答を待つ（同期待機）
 synapse send gemini "これを分析して" --wait
+
+# 作業ディレクトリ不一致チェックをバイパス（ワークツリーのエージェントへの送信等）
+synapse send claude "これをレビューして" --force
 ```
+
+**作業ディレクトリチェック:** `synapse send` は送信元の CWD とターゲットの `working_dir` が一致するか検証します。異なる場合（ワークツリーのエージェント等）は警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
 
 **デフォルトの挙動:** `a2a.flow=auto` (デフォルト) では、`synapse send` は `--notify` モードで動作します — コマンドは即座に返り、受信側の処理完了時にPTY通知を受け取ります。同期待ちには `--wait`、通知不要には `--silent` を使用してください。
 

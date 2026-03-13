@@ -183,6 +183,12 @@ synapse spawn gemini --worktree api --name Gem --role "implement API endpoints"
 | `SYNAPSE_WORKTREE_BRANCH` | Auto | Worktree branch name (set at spawn) |
 | `SYNAPSE_WORKTREE_BASE_BRANCH` | Auto | Base branch used for new-commit detection during cleanup (set at spawn via `get_default_remote_branch()`) |
 
+## Cross-Worktree Communication
+
+Agents in worktrees operate in a different working directory than the main repo. Synapse blocks sends by default to prevent accidental cross-project messages. Use `--force` (or `--message-file` for complex content) to bridge the gap.
+
+See [Scenario 9: Cross-Worktree Knowledge Transfer](../guide/cross-agent-scenarios.md#scenario-9-cross-worktree-knowledge-transfer) for a complete walkthrough.
+
 ## Important Notes
 
 - Files in `.gitignore` are **not copied** to worktrees (e.g., `.env`, `node_modules/`)

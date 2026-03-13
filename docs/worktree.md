@@ -145,7 +145,30 @@ synapse spawn gemini --worktree api --name APIDev --role "implement API endpoint
 # synapse list で [WT] インジケーターにより一目で識別可能
 ```
 
-### 4. Claude Code の --worktree との使い分け
+### 4. クロスワークツリーのナレッジ転送
+
+メインリポジトリのエージェントからワークツリー内のエージェントにスキルや知見を共有する。
+ワークツリーのエージェントは異なるディレクトリで動作するため、`--force` が必要。
+バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避する。
+
+```bash
+# ワークツリーにエージェントを生成
+synapse spawn codex --worktree feature-api --name Cody --role "API implementation"
+
+# メッセージをファイルに書き出し（シェル展開を回避）
+cat > /tmp/instructions.md << 'EOF'
+## /release skill usage
+
+Run `/release patch` to bump the patch version.
+EOF
+
+# --message-file + --force でワークツリー境界を越えて送信
+synapse send Cody --message-file /tmp/instructions.md --force --silent
+```
+
+`synapse memory save` はディレクトリに依存しないため、`--force` なしで全エージェントと知識を共有できる代替手段です。
+
+### 5. Claude Code の --worktree との使い分け
 
 ```bash
 # Synapse worktree: 全エージェント共通、Synapse が管理
