@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.20] - 2026-03-14
+
+### Fixed
+
+- Canvas stale process detection: add `asset_hash` to `/api/health` to detect servers serving outdated HTML/JS/CSS
+- Canvas `ensure_server_running()` auto-replaces servers with mismatched asset hash
+- Canvas `stop` escalates from SIGTERM to SIGKILL when process doesn't exit
+
+### Changed
+
+- Extract shared `compute_asset_hash()` to `synapse/canvas/__init__.py` (deduplicate server/CLI)
+- Extract `_terminate_stale_canvas()` helper to consolidate stale-kill pattern
+- Canvas `status` output now shows asset hash, match indicator, and STALE warning
+
+### Documentation
+
+- Update canvas docs, site-docs, CLI reference, and plugin skills for asset hash and SIGKILL fallback
+
 ## [0.11.19] - 2026-03-13
 
 ### Fixed
