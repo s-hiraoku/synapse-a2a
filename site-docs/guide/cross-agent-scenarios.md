@@ -627,6 +627,102 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 
 ---
 
+## Scenario 9: Cross-Worktree Knowledge Transfer
+
+**An agent in the main repo teaches a skill to an agent working in a different worktree** — knowledge flows across directory boundaries.
+
+### Why different agents?
+
+Agents spawned with `--worktree` operate in isolated directories under `.synapse/worktrees/`. They have their own branch and working copy, which means they're in a **different working directory** than the sender. Synapse detects this mismatch and blocks sends by default to prevent accidental cross-project messages. Using `--force` (or `--message-file` for complex content) bridges the gap safely.
+
+This pattern is common when a manager agent discovers something useful — a workflow, a skill, a debugging technique — and needs to share it with workers in other worktrees.
+
+### Steps
+
+```mermaid
+sequenceDiagram
+    participant Manager as Claude (Claud) — main repo
+    participant Worker as Codex (Cody) — worktree
+
+    Manager->>Manager: Learns a new workflow (e.g., /release skill)
+    Manager->>Manager: Writes instructions to a temp file
+    Manager->>Worker: synapse send Cody --message-file /tmp/instructions.md --force --silent
+    Worker->>Worker: Reads instructions and applies the knowledge
+    Worker-->>Manager: synapse reply "Got it — I'll use /release for version bumps"
+```
+
+### Commands
+
+**1. Spawn a worker in its own worktree:**
+
+```bash
+synapse spawn codex --worktree feature-api --name Cody --role "API implementation"
+```
+
+**2. Confirm the agent is ready and note its directory:**
+
+```bash
+synapse list
+# TYPE    NAME    PORT  STATUS  WORKING_DIR
+# codex   Cody    8120  READY   [WT] feature-api
+# claude  Claud   8100  READY   synapse-a2a
+```
+
+**3. Prepare the message (avoids shell expansion issues with backticks/quotes):**
+
+```bash
+cat > /tmp/release-instructions.md << 'EOF'
+## /release skill usage
+
+Run `/release patch` to bump the patch version. This updates:
+1. pyproject.toml
+2. plugin.json
+3. CHANGELOG.md (with reference link at bottom)
+4. site-docs version references
+5. mkdocs.yml repo_name
+
+Important: always add the reference link definition at the end of CHANGELOG.md.
+EOF
+```
+
+**4. Send across worktree boundaries:**
+
+```bash
+# Direct inline send will be blocked:
+#   Warning: Target agent "Cody" is in a different directory
+#   Use --force to send anyway.
+
+# Use --message-file + --force to send safely:
+synapse send Cody --message-file /tmp/release-instructions.md --force --silent
+```
+
+!!! info "Why `--message-file`?"
+    Messages containing backticks, quotes, or code blocks can be mangled by shell expansion. `--message-file` reads the content as-is, bypassing the shell entirely. You can also pipe via `--stdin`: `echo "message" | synapse send Cody --stdin --force`.
+
+### Expected Result
+
+```
+Success: Task created for codex (synapse-codex-8120)
+  Task ID: e86929e4-...
+  Status: working
+```
+
+The worker receives the instructions in its PTY and can apply the knowledge immediately — even though it's operating in a completely different directory.
+
+### When to use this pattern
+
+| Situation | Example |
+|-----------|---------|
+| Teaching a skill or workflow | Share `/release` usage with a new agent |
+| Sending configuration or context | Pass environment details to a worktree agent |
+| Sharing investigation results | Forward a root cause analysis to the fixer |
+| Distributing templates | Send a code template for the agent to follow |
+
+!!! tip "Alternatives to `--force`"
+    If you frequently send to worktree agents, consider using `--attach` instead — it sends files directly without needing `--message-file`. For structured knowledge, `synapse memory save` is directory-agnostic and doesn't require `--force`.
+
+---
+
 ## Proactive Collaboration Framework
 
 Effective multi-agent work requires more than just sending messages. At the start of every task, each agent should evaluate whether to collaborate or work solo.

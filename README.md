@@ -357,6 +357,26 @@ Key principles:
 - **Mandatory cleanup**: Always `synapse kill <name> -f` agents you spawned after their work completes
 - **Feature usage**: Actively use task board, shared memory, file safety, worktree, broadcast, and history
 
+### 8. Cross-Worktree Knowledge Transfer (Advanced)
+
+Share skills, config, or investigation results with agents running in different worktrees. Because worktree agents operate in a different directory, `--force` is required. Use `--message-file` for messages containing backticks or code blocks to avoid shell expansion issues.
+
+```bash
+# Spawn a worker in its own worktree
+synapse spawn codex --worktree feature-api --name Cody --role "API implementation"
+
+# Write instructions to a file (avoids shell expansion of backticks)
+cat > /tmp/instructions.md << 'EOF'
+## /release skill usage
+Run `/release patch` to bump the patch version.
+EOF
+
+# Send across worktree boundaries
+synapse send Cody --message-file /tmp/instructions.md --force --silent
+```
+
+Alternatives: `--attach` sends files without needing `--message-file`. `synapse memory save` is directory-agnostic and doesn't require `--force`.
+
 ### Comparison with SSH Remote
 
 | Operation | SSH | Synapse |

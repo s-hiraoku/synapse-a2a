@@ -310,6 +310,8 @@ Communicate with agents working in different directories using the `--force` fla
 synapse send worker "Can you check the API compatibility?" --force
 ```
 
+This is especially common with worktree agents. For a detailed example using `--force` and `--message-file` to send instructions across worktree boundaries, see [Scenario 9: Cross-Worktree Knowledge Transfer](cross-agent-scenarios.md#scenario-9-cross-worktree-knowledge-transfer).
+
 ### Response Polling (Agent-to-Agent)
 
 When an agent needs to check if a delegated task is done without blocking:
