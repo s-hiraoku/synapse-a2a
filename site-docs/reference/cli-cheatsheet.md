@@ -41,7 +41,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse tasks assign <id> <agent>` | Assign task to agent |
 | `synapse tasks complete <id>` | Mark task completed |
 | `synapse tasks fail <id>` | Mark task failed |
-| `synapse tasks purge` | Remove all tasks from the board |
+| `synapse tasks purge [--status STATUS] [--force]` | Remove tasks (prompts for confirmation; `--force` to skip) |
 | `synapse approve <id>` | Approve a plan |
 | `synapse reject <id> --reason "..."` | Reject with reason |
 

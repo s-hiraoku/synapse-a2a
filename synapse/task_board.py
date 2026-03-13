@@ -479,6 +479,8 @@ class TaskBoard:
             finally:
                 conn.close()
 
+    _VALID_STATUSES = frozenset({"pending", "in_progress", "completed", "failed"})
+
     def purge(self, status: str | None = None) -> int:
         """Delete tasks from the board.
 
@@ -488,7 +490,15 @@ class TaskBoard:
 
         Returns:
             Number of deleted tasks.
+
+        Raises:
+            ValueError: If status is not a valid task status.
         """
+        if status is not None and status not in self._VALID_STATUSES:
+            raise ValueError(
+                f"Invalid status '{status}'. "
+                f"Must be one of: {', '.join(sorted(self._VALID_STATUSES))}"
+            )
         with self._lock:
             conn = self._get_connection()
             try:

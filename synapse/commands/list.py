@@ -631,6 +631,10 @@ class ListCommand:
         result = []
         for agent in agents:
             entry = {k: agent.get(k) for k in self._JSON_FIELDS}
+            # Use full path for working_dir in JSON (short name is for TUI only)
+            entry["working_dir"] = agent.get("working_dir_full") or agent.get(
+                "working_dir"
+            )
             # editing_file is only present when file safety is enabled
             if show_file_safety:
                 entry["editing_file"] = agent.get("editing_file")

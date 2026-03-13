@@ -829,10 +829,11 @@ class TestTaskBoardPurge:
         """purge() on empty board should return 0."""
         assert board.purge() == 0
 
-    def test_purge_nonexistent_status(self, board):
-        """purge(status='nonexistent') should return 0."""
+    def test_purge_invalid_status_raises(self, board):
+        """purge(status='nonexistent') should raise ValueError."""
         board.create_task(subject="T1", description="", created_by="claude")
-        assert board.purge(status="nonexistent") == 0
+        with pytest.raises(ValueError, match="Invalid status 'nonexistent'"):
+            board.purge(status="nonexistent")
 
 
 # ============================================================
