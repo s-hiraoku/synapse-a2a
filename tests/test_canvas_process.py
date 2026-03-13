@@ -484,7 +484,7 @@ class TestStatusAssetHash:
             patch("httpx.get", return_value=health_resp),
             patch("synapse.commands.canvas.is_pid_alive", return_value=True),
             patch(
-                "synapse.commands.canvas._compute_local_asset_hash",
+                "synapse.commands.canvas.compute_asset_hash",
                 return_value="new_hash_5678",
             ),
         ):
@@ -518,7 +518,7 @@ class TestStatusAssetHash:
             patch("httpx.get", return_value=health_resp),
             patch("synapse.commands.canvas.is_pid_alive", return_value=True),
             patch(
-                "synapse.commands.canvas._compute_local_asset_hash",
+                "synapse.commands.canvas.compute_asset_hash",
                 return_value="abc123def456",
             ),
         ):
@@ -598,12 +598,12 @@ class TestStopSigkillFallback:
 
 
 class TestLocalAssetHash:
-    """_compute_local_asset_hash should produce consistent hashes."""
+    """compute_asset_hash should produce consistent hashes."""
 
     def test_hash_is_12_char_hex(self):
-        from synapse.commands.canvas import _compute_local_asset_hash
+        from synapse.canvas import compute_asset_hash
 
-        h = _compute_local_asset_hash()
+        h = compute_asset_hash()
         assert isinstance(h, str)
         assert len(h) == 12
         # Should be valid hex
@@ -656,7 +656,7 @@ class TestLocalAssetHash:
                 return_value=True,
             ),
             patch(
-                "synapse.commands.canvas._compute_local_asset_hash",
+                "synapse.commands.canvas.compute_asset_hash",
                 return_value="new_hash_5678",
             ),
             patch("synapse.commands.canvas._poll", return_value=True),
@@ -672,12 +672,12 @@ class TestLocalAssetHash:
         """Local and server hash algorithms should produce the same result."""
         from starlette.testclient import TestClient
 
+        from synapse.canvas import compute_asset_hash
         from synapse.canvas.server import create_app
-        from synapse.commands.canvas import _compute_local_asset_hash
 
         app = create_app(db_path=":memory:")
         client = TestClient(app)
         resp = client.get("/api/health")
         server_hash = resp.json()["asset_hash"]
-        local_hash = _compute_local_asset_hash()
+        local_hash = compute_asset_hash()
         assert server_hash == local_hash

@@ -6,7 +6,6 @@ All commands work for both agents and humans.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import logging
 import os
@@ -20,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from synapse.canvas import compute_asset_hash
 from synapse.canvas.store import CanvasStore
 from synapse.registry import AgentRegistry
 
@@ -107,6 +107,14 @@ def is_canvas_server_running(port: int = DEFAULT_PORT) -> bool:
     return _get_health(port) is not None
 
 
+def _terminate_stale_canvas(pid: int) -> None:
+    """SIGTERM a stale Canvas process and clean up its PID file."""
+    os.kill(pid, sig.SIGTERM)
+    _poll(lambda: not is_pid_alive(pid))
+    with contextlib.suppress(OSError):
+        os.remove(PID_FILE)
+
+
 def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
     """Ensure Canvas server is running. Auto-start if needed.
 
@@ -115,9 +123,11 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
     """
     health = _get_health(port)
     if health is not None:
-        # Server is responding — check for PID mismatch
+        # Server is responding — extract PID once for all checks
         pid_file_pid, _ = read_pid_file(PID_FILE)
         health_pid = health.get("pid")
+
+        # Check 1: PID mismatch between health endpoint and PID file
         if pid_file_pid and isinstance(health_pid, int) and health_pid != pid_file_pid:
             logger.warning(
                 "Stale Canvas detected: health PID %d != PID file %d",
@@ -125,25 +135,21 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
                 pid_file_pid,
             )
             if is_pid_alive(health_pid) and _is_synapse_canvas_process(health_pid):
-                stale_pid: int = health_pid
-                logger.info("Replacing stale Canvas process (PID: %d)", stale_pid)
-                os.kill(stale_pid, sig.SIGTERM)
-                _poll(lambda: not is_pid_alive(stale_pid))
-                with contextlib.suppress(OSError):
-                    os.remove(PID_FILE)
+                logger.info("Replacing stale Canvas process (PID: %d)", health_pid)
+                _terminate_stale_canvas(health_pid)
                 health = None
             else:
                 logger.warning(
                     "Health PID %s could not be verified as a Canvas process",
                     health_pid,
                 )
+
+        # Check 2: asset hash mismatch (outdated HTML/JS/CSS)
         if health is not None:
-            # Detect stale assets: server running but serving outdated HTML/JS/CSS
             server_hash = health.get("asset_hash", "")
             if server_hash:
-                local_hash = _compute_local_asset_hash()
+                local_hash = compute_asset_hash()
                 if server_hash != local_hash:
-                    health_pid = health.get("pid")
                     logger.warning(
                         "Stale Canvas assets: server=%s local=%s (PID %s)",
                         server_hash,
@@ -156,12 +162,10 @@ def ensure_server_running(port: int = DEFAULT_PORT) -> bool:
                         and _is_synapse_canvas_process(health_pid)
                     ):
                         logger.info(
-                            "Replacing stale-asset Canvas process (PID: %d)", health_pid
+                            "Replacing stale-asset Canvas process (PID: %d)",
+                            health_pid,
                         )
-                        os.kill(health_pid, sig.SIGTERM)
-                        _poll(lambda: not is_pid_alive(health_pid))
-                        with contextlib.suppress(OSError):
-                            os.remove(PID_FILE)
+                        _terminate_stale_canvas(health_pid)
                         health = None
             if health is not None:
                 return True
@@ -248,25 +252,6 @@ def _is_synapse_canvas_process(pid: int) -> bool:
         return False
 
 
-def _compute_local_asset_hash() -> str:
-    """Compute SHA-256 hash of local Canvas static assets.
-
-    Must match the algorithm in synapse.canvas.server._compute_asset_hash().
-    """
-    h = hashlib.sha256()
-    canvas_dir = Path(__file__).resolve().parent.parent / "canvas"
-    asset_paths = [
-        canvas_dir / "templates" / "index.html",
-        canvas_dir / "static" / "canvas.js",
-        canvas_dir / "static" / "canvas.css",
-        canvas_dir / "static" / "palette.css",
-    ]
-    for p in asset_paths:
-        if p.exists():
-            h.update(p.read_bytes())
-    return h.hexdigest()[:12]
-
-
 def _detect_stale_canvas(port: int = DEFAULT_PORT) -> dict[str, Any] | None:
     """Detect a stale Canvas process on the given port.
 
@@ -320,7 +305,7 @@ def canvas_status(port: int = DEFAULT_PORT) -> None:
 
         # Asset hash comparison
         if server_hash:
-            local_hash = _compute_local_asset_hash()
+            local_hash = compute_asset_hash()
             print(f"  Assets:   {server_hash}")
             asset_match = server_hash == local_hash
             if not asset_match:
