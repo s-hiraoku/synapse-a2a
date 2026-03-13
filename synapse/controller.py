@@ -84,6 +84,7 @@ class TerminalController:
         skill_set: str | None = None,
         write_delay: float | None = None,
         submit_retry_delay: float | None = None,
+        bracketed_paste: bool = False,
     ):
         self.command = command
         self.args = args or []
@@ -225,6 +226,13 @@ class TerminalController:
                     f"submit_retry_delay must be non-negative, got {submit_retry_delay}"
                 )
             self._submit_retry_delay = submit_retry_delay
+
+        # Bracketed paste mode: wrap data in ESC[200~ ... ESC[201~ so that
+        # Ink-based TUIs (e.g. Copilot CLI) route the text through usePaste
+        # as a single paste event instead of processing characters one-by-one
+        # through useInput.  The submit_seq is written *after* the closing
+        # bracket so it arrives as a normal keypress (Enter).
+        self._bracketed_paste = bracketed_paste
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.
@@ -874,6 +882,12 @@ class TerminalController:
         *outside* the paste boundary so the terminal processes it as a
         keypress.
 
+        When ``_bracketed_paste`` is enabled, the data is explicitly wrapped
+        in ``ESC[200~`` ... ``ESC[201~`` bracketed paste markers.  This tells
+        Ink-based TUIs (e.g. Copilot CLI) to route the text through the
+        ``usePaste`` hook as a single atomic paste event rather than
+        processing characters one-by-one through ``useInput``.
+
         Args:
             data: The data to write.
             submit_seq: Optional submit sequence (e.g., Enter key).
@@ -892,7 +906,16 @@ class TerminalController:
 
         with self._write_lock:
             try:
-                self._write_all(data.encode("utf-8"))
+                data_bytes = data.encode("utf-8")
+                if self._bracketed_paste:
+                    # Wrap data in bracketed paste sequences so Ink-based
+                    # TUIs (Copilot CLI) route the text through usePaste as
+                    # a single atomic paste event.  Without these markers,
+                    # Ink processes each byte via useInput which races with
+                    # React state updates and drops the subsequent CR.
+                    self._write_all(b"\x1b[200~" + data_bytes + b"\x1b[201~")
+                else:
+                    self._write_all(data_bytes)
                 if submit_seq:
                     if self._write_delay > 0:
                         time.sleep(self._write_delay)
