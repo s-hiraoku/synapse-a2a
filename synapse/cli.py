@@ -3977,6 +3977,9 @@ def cmd_run_interactive(
     write_delay = config.get("write_delay")
     submit_retry_delay = config.get("submit_retry_delay")
     bracketed_paste = config.get("bracketed_paste", False)
+    submit_confirm_timeout = config.get("submit_confirm_timeout")
+    submit_confirm_poll_interval = config.get("submit_confirm_poll_interval")
+    submit_confirm_retries = config.get("submit_confirm_retries")
 
     # Create controller - initial instructions sent on IDLE (unless resume mode)
     controller = TerminalController(
@@ -4003,6 +4006,9 @@ def cmd_run_interactive(
         write_delay=write_delay,
         submit_retry_delay=submit_retry_delay,
         bracketed_paste=bracketed_paste,
+        submit_confirm_timeout=submit_confirm_timeout,
+        submit_confirm_poll_interval=submit_confirm_poll_interval,
+        submit_confirm_retries=submit_confirm_retries,
     )
 
     # Handle Ctrl+C gracefully

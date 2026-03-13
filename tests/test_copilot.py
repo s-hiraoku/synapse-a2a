@@ -99,6 +99,12 @@ class TestCopilotProfile:
         assert delay is not None
         assert delay >= 0.1, "submit_retry_delay should be >= 100ms for React render"
 
+    def test_profile_submit_confirmation_settings(self, profile):
+        """Copilot profile should define bounded submit confirmation settings."""
+        assert profile["submit_confirm_timeout"] > 0
+        assert profile["submit_confirm_poll_interval"] > 0
+        assert profile["submit_confirm_retries"] >= 1
+
     def test_profile_waiting_detection_patterns(self, profile):
         """Profile waiting detection should match expected patterns."""
         regex = profile["waiting_detection"]["regex"]

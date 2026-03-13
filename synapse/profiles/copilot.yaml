@@ -12,6 +12,9 @@ write_delay: 0.5
 # Safety net: the first CR triggers submit, the second retries if React
 # hadn't finished rendering.  150ms is enough for one React render cycle.
 submit_retry_delay: 0.15
+submit_confirm_timeout: 1.5
+submit_confirm_poll_interval: 0.05
+submit_confirm_retries: 3
 # Wrap PTY data in bracketed paste escape sequences (ESC[200~ ... ESC[201~).
 # Copilot CLI uses Ink's usePaste hook which expects pasted text to arrive
 # inside these markers.  Without them, Ink processes each character through
