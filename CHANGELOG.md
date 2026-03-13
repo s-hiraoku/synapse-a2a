@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Copilot CLI enter key not submitting — use bracketed paste mode for PTY input
 - Increase `submit_retry_delay` from 50ms to 150ms for React render cycle
 - Port availability check binds on `0.0.0.0` matching actual server address (fixes Errno 48)
+- Remove `SO_REUSEADDR` from port check to avoid false positives
 - Tmux pane titles persist with `allow-rename off` (prevents `python:3.13` overwrite)
 
 ### Tests
