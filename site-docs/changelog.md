@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.21
+
+- **Documentation**: Add Scenario 9 — Cross-Worktree Knowledge Transfer (`--force`, `--message-file`)
+
 ### v0.11.20
 
 - **Fixed**: Canvas stale process detection via `asset_hash` in `/api/health`
