@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import glob
+import hashlib
 import json
 import logging
 import os
@@ -326,6 +327,22 @@ def create_app(db_path: str | None = None) -> FastAPI:
         app.add_middleware(_NoCacheStaticMiddleware)
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    # Compute asset hash from static files + template (detect stale processes)
+    def _compute_asset_hash() -> str:
+        h = hashlib.sha256()
+        asset_paths = [
+            Path(__file__).parent / "templates" / "index.html",
+            Path(__file__).parent / "static" / "canvas.js",
+            Path(__file__).parent / "static" / "canvas.css",
+            Path(__file__).parent / "static" / "palette.css",
+        ]
+        for p in asset_paths:
+            if p.exists():
+                h.update(p.read_bytes())
+        return h.hexdigest()[:12]
+
+    _asset_hash = _compute_asset_hash()
+
     # Pre-render HTML with cache-busting (read once at startup, not per-request)
     _cache_version = str(int(time.time()))
     _index_html: str | None = None
@@ -362,6 +379,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "pid": os.getpid(),
             "cards": store.count(),
             "version": __version__,
+            "asset_hash": _asset_hash,
         }
 
     # ----------------------------------------------------------------

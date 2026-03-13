@@ -65,6 +65,19 @@ class TestHealthEndpoint:
         parts = data["version"].split(".")
         assert len(parts) >= 2
 
+    def test_health_returns_asset_hash(self):
+        from starlette.testclient import TestClient
+
+        from synapse.canvas.server import create_app
+
+        app = create_app(db_path=":memory:")
+        client = TestClient(app)
+        resp = client.get("/api/health")
+        data = resp.json()
+        assert "asset_hash" in data
+        assert isinstance(data["asset_hash"], str)
+        assert len(data["asset_hash"]) == 12  # truncated SHA-256
+
 
 # ============================================================
 # Status — PID mismatch detection
@@ -439,3 +452,232 @@ class TestEnsureServerRunning:
             pid=66666,
             port=3000,
         )
+
+
+# ============================================================
+# Status — asset hash mismatch detection
+# ============================================================
+
+
+class TestStatusAssetHash:
+    """canvas status should detect asset hash mismatch between server and local."""
+
+    def test_detect_asset_hash_mismatch(self, tmp_path, capsys):
+        """When server asset_hash != local hash, status should report STALE."""
+        from synapse.commands.canvas import write_pid_file
+
+        pid_path = str(tmp_path / "canvas.pid")
+        write_pid_file(pid_path, pid=11111, port=3000)
+
+        health_resp = MagicMock()
+        health_resp.status_code = 200
+        health_resp.json.return_value = {
+            "status": "ok",
+            "pid": 11111,
+            "version": "0.11.4",
+            "cards": 0,
+            "asset_hash": "old_hash_1234",
+        }
+
+        with (
+            patch("synapse.commands.canvas.PID_FILE", pid_path),
+            patch("httpx.get", return_value=health_resp),
+            patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._compute_local_asset_hash",
+                return_value="new_hash_5678",
+            ),
+        ):
+            from synapse.commands.canvas import canvas_status
+
+            canvas_status(port=3000)
+
+        out = capsys.readouterr().out
+        assert "STALE" in out
+        assert "Match:    no" in out
+
+    def test_matching_asset_hash(self, tmp_path, capsys):
+        """When asset hashes match, status should show Match: yes."""
+        from synapse.commands.canvas import write_pid_file
+
+        pid_path = str(tmp_path / "canvas.pid")
+        write_pid_file(pid_path, pid=11111, port=3000)
+
+        health_resp = MagicMock()
+        health_resp.status_code = 200
+        health_resp.json.return_value = {
+            "status": "ok",
+            "pid": 11111,
+            "version": "0.11.4",
+            "cards": 0,
+            "asset_hash": "abc123def456",
+        }
+
+        with (
+            patch("synapse.commands.canvas.PID_FILE", pid_path),
+            patch("httpx.get", return_value=health_resp),
+            patch("synapse.commands.canvas.is_pid_alive", return_value=True),
+            patch(
+                "synapse.commands.canvas._compute_local_asset_hash",
+                return_value="abc123def456",
+            ),
+        ):
+            from synapse.commands.canvas import canvas_status
+
+            canvas_status(port=3000)
+
+        out = capsys.readouterr().out
+        assert "STALE" not in out
+        assert "Match:    yes" in out
+
+
+# ============================================================
+# Stop — SIGKILL fallback
+# ============================================================
+
+
+class TestStopSigkillFallback:
+    """canvas stop should escalate to SIGKILL if SIGTERM fails."""
+
+    def test_stop_sends_sigkill_when_sigterm_fails(self, tmp_path, capsys):
+        from synapse.commands.canvas import write_pid_file
+
+        pid_path = str(tmp_path / "canvas.pid")
+        write_pid_file(pid_path, pid=77777, port=3000)
+
+        health_resp = MagicMock()
+        health_resp.status_code = 200
+        health_resp.json.return_value = {
+            "pid": 77777,
+            "service": "synapse-canvas",
+        }
+
+        kill_calls: list[tuple[int, int]] = []
+
+        def kill_side_effect(pid, sig_num):
+            kill_calls.append((pid, sig_num))
+
+        # _poll: first call (SIGTERM wait) fails, second call (SIGKILL wait) succeeds,
+        # third call (port release check) succeeds
+        poll_results = iter([False, True, True])
+
+        with (
+            patch("synapse.commands.canvas.PID_FILE", pid_path),
+            patch("os.kill", side_effect=kill_side_effect),
+            patch(
+                "synapse.commands.canvas.is_pid_alive",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas.is_canvas_server_running",
+                return_value=False,
+            ),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas._poll",
+                side_effect=lambda *a, **kw: next(poll_results),
+            ),
+            patch("httpx.get", return_value=health_resp),
+        ):
+            from synapse.commands.canvas import canvas_stop
+
+            canvas_stop(port=3000)
+
+        # Should have sent both SIGTERM and SIGKILL
+        sigs_sent = [s for _, s in kill_calls]
+        assert signal.SIGTERM in sigs_sent
+        assert signal.SIGKILL in sigs_sent
+
+
+# ============================================================
+# Local asset hash computation
+# ============================================================
+
+
+class TestLocalAssetHash:
+    """_compute_local_asset_hash should produce consistent hashes."""
+
+    def test_hash_is_12_char_hex(self):
+        from synapse.commands.canvas import _compute_local_asset_hash
+
+        h = _compute_local_asset_hash()
+        assert isinstance(h, str)
+        assert len(h) == 12
+        # Should be valid hex
+        int(h, 16)
+
+    def test_ensure_replaces_server_with_stale_assets(self, tmp_path):
+        """ensure_server_running should restart server when asset_hash differs."""
+        from synapse.commands.canvas import ensure_server_running
+
+        proc = MagicMock()
+        proc.pid = 88888
+        pid_path = str(tmp_path / "canvas.pid")
+        log_path = str(tmp_path / "logs" / "canvas.log")
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+        killed = set()
+
+        def kill_side_effect(pid, sig_num):
+            killed.add(pid)
+
+        def alive_side_effect(pid):
+            return pid not in killed
+
+        with (
+            patch("synapse.commands.canvas.PID_FILE", pid_path),
+            patch("synapse.commands.canvas.LOG_FILE", log_path),
+            patch(
+                "synapse.commands.canvas._get_health",
+                side_effect=[
+                    # First call: server alive but stale assets
+                    {
+                        "service": "synapse-canvas",
+                        "pid": 77777,
+                        "asset_hash": "old_hash_1234",
+                    },
+                    # Second call after restart attempt: no server
+                    None,
+                ],
+            ),
+            patch(
+                "synapse.commands.canvas.read_pid_file",
+                return_value=(77777, 3000),
+            ),
+            patch(
+                "synapse.commands.canvas.is_pid_alive",
+                side_effect=alive_side_effect,
+            ),
+            patch(
+                "synapse.commands.canvas._is_synapse_canvas_process",
+                return_value=True,
+            ),
+            patch(
+                "synapse.commands.canvas._compute_local_asset_hash",
+                return_value="new_hash_5678",
+            ),
+            patch("synapse.commands.canvas._poll", return_value=True),
+            patch("os.kill", side_effect=kill_side_effect) as mock_kill,
+            patch("subprocess.Popen", return_value=proc),
+            patch("synapse.commands.canvas.write_pid_file"),
+        ):
+            assert ensure_server_running(port=3000) is True
+
+        mock_kill.assert_called_once_with(77777, signal.SIGTERM)
+
+    def test_hash_matches_server_hash(self):
+        """Local and server hash algorithms should produce the same result."""
+        from starlette.testclient import TestClient
+
+        from synapse.canvas.server import create_app
+        from synapse.commands.canvas import _compute_local_asset_hash
+
+        app = create_app(db_path=":memory:")
+        client = TestClient(app)
+        resp = client.get("/api/health")
+        server_hash = resp.json()["asset_hash"]
+        local_hash = _compute_local_asset_hash()
+        assert server_hash == local_hash
