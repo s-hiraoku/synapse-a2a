@@ -43,6 +43,15 @@ def _get_spec_field(parts: list[str], index: int) -> str:
     return ""
 
 
+def _pane_title(agent_spec: str) -> str:
+    """Return a tmux pane title like ``synapse(claude)`` or ``synapse(claude:Reviewer)``."""
+    parts = agent_spec.split(":")
+    profile = parts[0]
+    name = _get_spec_field(parts, 1)
+    label = f"{profile}:{name}" if name else profile
+    return f"synapse({label})"
+
+
 def _build_agent_command(
     agent_spec: str,
     *,
@@ -735,6 +744,15 @@ def create_tmux_panes(
 
     commands: list[str] = []
 
+    def _set_title(agent_spec: str) -> None:
+        """Append a ``select-pane -T`` command that labels the current pane."""
+        commands.append(f"tmux select-pane -T {shlex.quote(_pane_title(agent_spec))}")
+
+    # Enable pane border with title display so pane names are visible.
+    # Use window-level option to avoid affecting other tmux sessions.
+    commands.append("tmux set-option -q pane-border-status top")
+    commands.append('tmux set-option -q pane-border-format "#{pane_title}"')
+
     # For "auto" layout, use spawn zone tiling:
     # - First spawn (no SYNAPSE_SPAWN_PANES): split current pane with -h
     # - Subsequent spawns: find largest pane in spawn zone and split it
@@ -780,6 +798,7 @@ def create_tmux_panes(
             commands.append(
                 f"tmux split-window {flag} {target_flag}-c {safe_cwd} {safe_cmd}"
             )
+            _set_title(agent_spec)
     else:
         # First agent runs in current pane (via terminal input buffer)
         first_cmd = _build_agent_command(
@@ -790,6 +809,7 @@ def create_tmux_panes(
         )
         safe_first = shlex.quote(f"cd {shlex.quote(cwd)} && {first_cmd}")
         commands.append(f"tmux send-keys {safe_first} Enter")
+        _set_title(agents[0])
 
         # Remaining agents get new panes, scoped to source pane
         for i, agent_spec in enumerate(agents[1:]):
@@ -807,6 +827,7 @@ def create_tmux_panes(
             commands.append(
                 f"tmux split-window {flag} {target_flag}-c {safe_cwd} {safe_cmd}"
             )
+            _set_title(agent_spec)
 
     return commands
 

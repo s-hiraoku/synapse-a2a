@@ -40,6 +40,16 @@
      - それ以外 → `-v`（垂直分割）
    - 新規ペインIDを `SYNAPSE_SPAWN_PANES` に追加
 
+#### ペインタイトル
+
+作成された各ペインには `tmux select-pane -T` で自動的にタイトルが設定される。
+`_pane_title()` ヘルパー（`terminal_jump.py`）が以下の形式で生成:
+
+- `synapse(profile)` — 名前なし
+- `synapse(profile:name)` — 名前付き
+
+tmux の `pane-border-format` に `#{pane_title}` を含めることで、ペイン境界にエージェント名が表示される。
+
 #### ペインID追跡
 
 ```python
@@ -81,7 +91,7 @@ os.environ["SYNAPSE_SPAWN_PANES"] += f",{new_pane}"
 
 ## 影響範囲
 
-- `synapse/terminal_jump.py`: `_get_tmux_auto_split()` にスポーンゾーンフィルタ追加、`create_tmux_panes()` に初回/2回目以降の分岐
+- `synapse/terminal_jump.py`: `_get_tmux_auto_split()` にスポーンゾーンフィルタ追加、`create_tmux_panes()` に初回/2回目以降の分岐、`_pane_title()` でペインタイトル自動設定
 - `synapse/spawn.py`: `_get_tmux_pane_ids()`, `_get_new_tmux_pane_id()` 追加、スポーンゾーン追跡ロジック
 - `tests/test_auto_layout.py`: 29テスト（全ターミナル対応）
 

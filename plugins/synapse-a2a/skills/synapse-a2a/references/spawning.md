@@ -254,5 +254,6 @@ Other terminals (iTerm2, Ghostty, zellij) have their own auto-alternation logic 
 
 - **Headless mode:** `synapse spawn` and `synapse team start` always add `--no-setup --headless`, skipping interactive setup while keeping the A2A server and initial instructions active.
 - **Readiness:** After spawning, Synapse waits for the agent to register and warns with concrete `synapse send` examples if not yet ready. At the HTTP level, a Readiness Gate blocks `/tasks/send` until the agent finishes initialization (returns HTTP 503 + `Retry-After: 5` if not ready within 30s).
+- **Pane titles (tmux):** Each spawned tmux pane is labelled with `synapse(<profile>)` or `synapse(<profile>:<name>)` via `tmux select-pane -T`. This makes it easy to identify agents when pane border status is enabled (`tmux set -g pane-border-status top`).
 - **Pane auto-close:** Spawned panes close automatically when the agent process terminates (tmux, zellij, iTerm2, Terminal.app, Ghostty).
 - **Known limitation ([#237](https://github.com/s-hiraoku/synapse-a2a/issues/237)):** Spawned agents cannot use `synapse reply` (PTY injection does not register sender info). Use `synapse send <target> "message"` for bidirectional communication (`--from` is auto-detected).

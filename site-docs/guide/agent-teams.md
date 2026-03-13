@@ -283,6 +283,9 @@ The delegate mode instruction template can be customized in [settings](settings.
 !!! info "tmux Pane Scoping"
     In tmux, `split-window` targets `$TMUX_PANE` so new panes are created adjacent to the source pane. This prevents layout disruption when other panes or windows are open in the same tmux session.
 
+!!! info "tmux Pane Titles"
+    Synapse automatically labels each tmux pane with a title like `synapse(claude)` or `synapse(claude:Reviewer)` and enables `pane-border-status top` so the title is visible in the pane border. This makes it easy to identify which agent is running in each pane at a glance.
+
 !!! info "Ghostty Pane Creation"
     Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
 
