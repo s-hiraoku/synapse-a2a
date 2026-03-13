@@ -104,7 +104,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas delete <id>` | Delete a card |
 | `synapse canvas clear` | Clear all cards |
 | `synapse canvas open` | Open Canvas in browser |
-| `synapse canvas status` | Show server status (PID, version, cards) |
+| `synapse canvas status` | Show server status (PID, version, cards, asset staleness) |
 | `synapse canvas stop` | Stop Canvas server |
 
 ### Configuration
@@ -467,8 +467,8 @@ synapse canvas clear
 synapse canvas clear --agent claude
 
 # Server management
-synapse canvas status                     # Show server status (PID, version, cards)
-synapse canvas stop                       # Stop the Canvas server
+synapse canvas status                     # Show server status (PID, version, cards, asset staleness)
+synapse canvas stop                       # Stop the Canvas server (SIGTERM with SIGKILL fallback)
 ```
 
 !!! tip "Templates"

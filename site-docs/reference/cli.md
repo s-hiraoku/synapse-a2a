@@ -627,7 +627,7 @@ synapse canvas clear --agent <agent_id>    # Clear specific agent's cards
 synapse canvas status [--port PORT]
 ```
 
-Shows Canvas server status including URL, running state, PID (with alive/dead indicator), port, version, card count, and log file path. Detects PID mismatches between the PID file (`~/.synapse/canvas.pid`) and the `/api/health` endpoint.
+Shows Canvas server status including URL, running state, PID (with alive/dead indicator), port, version, card count, asset hash, hash match indicator, and log file path. Detects PID mismatches between the PID file (`~/.synapse/canvas.pid`) and the `/api/health` endpoint. When the server's `asset_hash` differs from the local assets, a **STALE** warning is displayed, indicating the server should be restarted to pick up updated frontend assets.
 
 | Flag | Description |
 |------|-------------|
@@ -639,7 +639,7 @@ Shows Canvas server status including URL, running state, PID (with alive/dead in
 synapse canvas stop [--port PORT]
 ```
 
-Stops the Canvas server. Detection uses the `/api/health` endpoint first (verifying `"service": "synapse-canvas"` identity), falling back to the PID file (`~/.synapse/canvas.pid`) if the health endpoint is unreachable. Before sending SIGTERM, the command verifies that the target PID is actually a Canvas process to avoid killing unrelated processes.
+Stops the Canvas server. Detection uses the `/api/health` endpoint first (verifying `"service": "synapse-canvas"` identity), falling back to the PID file (`~/.synapse/canvas.pid`) if the health endpoint is unreachable. Before sending SIGTERM, the command verifies that the target PID is actually a Canvas process to avoid killing unrelated processes. If the process does not exit within the grace period after SIGTERM, a SIGKILL is sent as a fallback to ensure cleanup.
 
 | Flag | Description |
 |------|-------------|
