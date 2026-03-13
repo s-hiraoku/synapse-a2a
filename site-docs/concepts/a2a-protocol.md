@@ -17,7 +17,7 @@ Every A2A agent publishes a discovery document at `/.well-known/agent.json`:
   "name": "synapse-claude-8100",
   "description": "Claude Code agent managed by Synapse A2A",
   "url": "http://localhost:8100",
-  "version": "0.11.17",
+  "version": "0.11.18",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false
