@@ -10,6 +10,9 @@ submit_sequence: "\r" | "\n"       # Submit key: CR or LF (default: "\r")
 write_delay: float                 # Delay between data and submit (seconds, default: WRITE_PROCESSING_DELAY=0.5)
 submit_retry_delay: float          # Send submit_seq twice with this gap (seconds, default: 0 = disabled)
 bracketed_paste: boolean           # Wrap PTY data in bracketed paste sequences (default: false)
+submit_confirm_timeout: float      # Optional: poll window for post-submit confirmation (seconds)
+submit_confirm_poll_interval: float # Optional: poll interval for submit confirmation (seconds)
+submit_confirm_retries: integer    # Optional: extra submit attempts after confirmation failures
 
 idle_detection:
   strategy: "pattern" | "timeout" | "hybrid"  # Detection strategy (required)
@@ -83,6 +86,16 @@ Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~
 ```yaml
 bracketed_paste: true   # Copilot CLI (Ink usePaste hook)
 # Default: false
+```
+
+### submit_confirm_timeout / submit_confirm_poll_interval / submit_confirm_retries
+
+Bounded post-submit confirmation for TUIs where text may land in the input box without executing. Synapse polls recent context after the normal submit sequence and, if the text still appears pending, sends extra submit keys up to the configured retry limit.
+
+```yaml
+submit_confirm_timeout: 1.5         # Per confirmation round
+submit_confirm_poll_interval: 0.05  # Poll every 50ms
+submit_confirm_retries: 3           # Extra submit attempts after initial retry
 ```
 
 ### idle_detection.strategy
@@ -170,6 +183,9 @@ submit_sequence: "\r"
 write_delay: 0.5
 submit_retry_delay: 0.15
 bracketed_paste: true
+submit_confirm_timeout: 1.5
+submit_confirm_poll_interval: 0.05
+submit_confirm_retries: 3
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"

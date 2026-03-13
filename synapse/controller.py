@@ -3,6 +3,7 @@ from __future__ import annotations
 import codecs
 import fcntl
 import logging
+import math
 import os
 import pty
 import re
@@ -85,6 +86,9 @@ class TerminalController:
         write_delay: float | None = None,
         submit_retry_delay: float | None = None,
         bracketed_paste: bool = False,
+        submit_confirm_timeout: float | None = None,
+        submit_confirm_poll_interval: float | None = None,
+        submit_confirm_retries: int | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -229,6 +233,53 @@ class TerminalController:
 
         # Wrap data in bracketed paste markers for Ink-based TUIs (Copilot CLI).
         self._bracketed_paste = bracketed_paste
+        self._submit_confirm_timeout: float | None = None
+        if submit_confirm_timeout is not None:
+            try:
+                submit_confirm_timeout = float(submit_confirm_timeout)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "submit_confirm_timeout must be numeric, "
+                    f"got {submit_confirm_timeout!r}"
+                ) from None
+            if submit_confirm_timeout <= 0:
+                raise ValueError(
+                    "submit_confirm_timeout must be positive, "
+                    f"got {submit_confirm_timeout}"
+                )
+            self._submit_confirm_timeout = submit_confirm_timeout
+
+        self._submit_confirm_poll_interval: float | None = None
+        if submit_confirm_poll_interval is not None:
+            try:
+                submit_confirm_poll_interval = float(submit_confirm_poll_interval)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "submit_confirm_poll_interval must be numeric, "
+                    f"got {submit_confirm_poll_interval!r}"
+                ) from None
+            if submit_confirm_poll_interval <= 0:
+                raise ValueError(
+                    "submit_confirm_poll_interval must be positive, "
+                    f"got {submit_confirm_poll_interval}"
+                )
+            self._submit_confirm_poll_interval = submit_confirm_poll_interval
+
+        self._submit_confirm_retries: int = 0
+        if submit_confirm_retries is not None:
+            try:
+                submit_confirm_retries = int(submit_confirm_retries)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "submit_confirm_retries must be an integer, "
+                    f"got {submit_confirm_retries!r}"
+                ) from None
+            if submit_confirm_retries < 0:
+                raise ValueError(
+                    "submit_confirm_retries must be non-negative, "
+                    f"got {submit_confirm_retries}"
+                )
+            self._submit_confirm_retries = submit_confirm_retries
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.
@@ -892,6 +943,7 @@ class TerminalController:
             raise ValueError(f"master_fd is None (interactive={self.interactive})")
 
         with self.lock:
+            previous_status = self.status
             self.status = "PROCESSING"
 
         with self._write_lock:
@@ -912,10 +964,74 @@ class TerminalController:
                     if self._submit_retry_delay is not None:
                         time.sleep(self._submit_retry_delay)
                         self._write_all(submit_bytes)
+                    if self._should_confirm_submit(data, submit_bytes):
+                        with self.lock:
+                            self.status = previous_status
+                    self._confirm_submit_if_needed(data, submit_bytes, previous_status)
                 return True
             except OSError as e:
                 logger.error(f"Write to PTY failed: {e}")
                 raise
+
+    def _should_confirm_submit(self, data: str, submit_bytes: bytes) -> bool:
+        """Whether submit confirmation should run for this write."""
+        return bool(
+            data
+            and submit_bytes
+            and self.agent_type == "copilot"
+            and self._submit_confirm_timeout is not None
+            and self._submit_confirm_poll_interval is not None
+            and self._submit_confirm_retries > 0
+        )
+
+    def _submit_confirmed(self, data: str, initial_status: str) -> bool:
+        """Best-effort submit confirmation for Copilot PTY injections."""
+        current_status = self.status
+        if initial_status == "READY" and current_status != "READY":
+            return True
+        if current_status in {"PROCESSING", "WAITING", "DONE"}:
+            return True
+
+        plain = strip_ansi(self.get_context())
+        data_stripped = data.strip()
+        if not data_stripped:
+            return True
+        return data_stripped not in plain[-2000:]
+
+    def _confirm_submit_if_needed(
+        self, data: str, submit_bytes: bytes, initial_status: str
+    ) -> None:
+        """Retry submit for Copilot when injected text appears to remain pending."""
+        if not self._should_confirm_submit(data, submit_bytes):
+            return
+
+        assert self._submit_confirm_timeout is not None
+        assert self._submit_confirm_poll_interval is not None
+
+        poll_limit = max(
+            1,
+            math.ceil(
+                self._submit_confirm_timeout / self._submit_confirm_poll_interval
+            ),
+        )
+        for attempt in range(self._submit_confirm_retries + 1):
+            for _ in range(poll_limit):
+                if self._submit_confirmed(data, initial_status):
+                    return
+                time.sleep(self._submit_confirm_poll_interval)
+
+            if attempt < self._submit_confirm_retries:
+                self._write_all(submit_bytes)
+
+        message = (
+            f"[{self.agent_id}] submit confirmation failed after "
+            f"{self._submit_confirm_retries} retries"
+        )
+        logger.warning(message)
+        self._log_inject(
+            "WARN",
+            f"submit confirmation failed retries={self._submit_confirm_retries}",
+        )
 
     def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""

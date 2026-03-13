@@ -873,6 +873,157 @@ class TestInterAgentMessageWrite:
         )
         assert ctrl._submit_retry_delay == 0.05
 
+    def test_submit_confirmation_retries_for_copilot_when_text_remains(self):
+        """Copilot should send extra CRs when injected text still appears unsubmitted."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.2,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+
+        def fake_get_context() -> str:
+            return "A2A: hello"
+
+        ctrl.get_context = fake_get_context  # type: ignore[method-assign]
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
+        assert sleeps[:2] == [0.5, 0.15]
+        assert sleeps[2:] == [0.05] * 12
+
+    def test_submit_confirmation_stops_when_copilot_status_advances(self):
+        """Copilot should stop retrying once status leaves READY."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.2,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+        poll_count = {"value": 0}
+
+        def fake_get_context() -> str:
+            poll_count["value"] += 1
+            if poll_count["value"] >= 2:
+                ctrl.status = "PROCESSING"
+            return "A2A: hello"
+
+        ctrl.get_context = fake_get_context  # type: ignore[method-assign]
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert writes == [b"hello", b"\r", b"\r"]
+        assert sleeps[:2] == [0.5, 0.15]
+        assert sleeps[2:] == [0.05, 0.05]
+
+    def test_submit_confirmation_disabled_for_non_copilot(self):
+        """Non-Copilot profiles should keep existing write behavior."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="claude",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.2,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert writes == [b"hello", b"\r", b"\r"]
+        assert sleeps == [0.5, 0.15]
+
+    def test_submit_confirmation_warns_after_bounded_retries(self, caplog):
+        """Copilot should log a warning when submit remains unconfirmed."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_id="synapse-copilot-8140",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: len(data),
+            ),
+            patch("synapse.controller.time.sleep"),
+            caplog.at_level("WARNING"),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert "submit confirmation failed" in caplog.text
+
     # --- Bracketed paste mode tests ---
 
     def test_bracketed_paste_wraps_data(self):
