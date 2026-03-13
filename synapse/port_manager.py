@@ -56,8 +56,7 @@ def is_port_available(port: int) -> bool:
     """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(("localhost", port))
+            s.bind(("0.0.0.0", port))
             return True
     except OSError:
         return False

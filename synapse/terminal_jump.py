@@ -752,6 +752,8 @@ def create_tmux_panes(
     # Use window-level option to avoid affecting other tmux sessions.
     commands.append("tmux set-option -q pane-border-status top")
     commands.append('tmux set-option -q pane-border-format "#{pane_title}"')
+    # Prevent spawned processes from overwriting pane titles via OSC escapes.
+    commands.append("tmux set-option -q allow-rename off")
 
     # For "auto" layout, use spawn zone tiling:
     # - First spawn (no SYNAPSE_SPAWN_PANES): split current pane with -h
