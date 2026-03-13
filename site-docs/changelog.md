@@ -9,6 +9,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Fixed**: Copilot PTY injections now perform bounded submit confirmation after the normal Enter retry, reducing cases where text lands in the input box but does not execute.
 - **Added**: Copilot profile settings `submit_confirm_timeout`, `submit_confirm_poll_interval`, and `submit_confirm_retries` for post-submit confirmation tuning.
 
+### v0.11.20
+
+- **Fixed**: Canvas stale process detection via `asset_hash` in `/api/health`
+- **Fixed**: Canvas `stop` SIGKILL fallback when SIGTERM fails
+- **Changed**: Canvas `status` shows asset hash match and STALE warning
+
 ### v0.11.19
 
 - **Fixed**: Copilot CLI enter key not submitting — use bracketed paste mode for PTY input

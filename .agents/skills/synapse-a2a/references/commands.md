@@ -1721,7 +1721,7 @@ synapse canvas stop [--port/-p 3000]     # Stop server (verifies process identit
 
 **Auto-start:** The server starts automatically when you post the first card or run `canvas open`. Stale Canvas processes (e.g., leftover from a previous session) are detected and auto-replaced. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
 
-**Process management:** PID file is stored at `~/.synapse/canvas.pid`. `canvas status` cross-checks the PID file against `/api/health` to detect mismatches. `canvas stop` verifies the target PID is actually a Canvas process before sending SIGTERM.
+**Process management:** PID file is stored at `~/.synapse/canvas.pid`. `canvas status` cross-checks the PID file against `/api/health` to detect mismatches and compares `asset_hash` from `/api/health` against local static assets to flag stale-asset servers. `canvas stop` verifies the target PID is actually a Canvas process before sending SIGTERM, with automatic SIGKILL escalation if the process does not exit within the timeout. Stale process replacement during auto-start also escalates from SIGTERM to SIGKILL when needed.
 
 **Canvas proxy:** Each agent's A2A server exposes `/canvas/cards` endpoints, so agents can post cards through their own port without knowing the Canvas server port.
 

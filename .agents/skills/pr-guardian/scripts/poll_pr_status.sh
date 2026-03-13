@@ -62,21 +62,28 @@ if [[ "$MERGEABLE" == "CONFLICTING" ]] || [[ "$MERGE_STATE" == "DIRTY" ]]; then
 fi
 
 # --- CodeRabbit inline comments -----------------------------------------
+# Only count comments NOT already marked as "✅ Addressed" by CodeRabbit.
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
 CR_COMMENTS=0
 if [[ -n "$REPO" ]]; then
   CR_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
-    --jq '[.[] | select(.user.login == "coderabbitai[bot]")] | length' 2>/dev/null || echo "0")
+    --jq '[.[] | select(.user.login == "coderabbitai[bot]") | select(.body | test("✅ Addressed") | not)] | length' 2>/dev/null || echo "0")
 fi
 
 # --- Output JSON --------------------------------------------------------
+# all_green requires:
+#   - No conflicts, no CI failures, no CI running
+#   - At least one CI check exists
+#   - CodeRabbit check is NOT pending AND NOT "none" (review must have completed)
+#   - No unresolved CodeRabbit inline comments
 ALL_GREEN=false
 if [[ "$HAS_CONFLICT" == "false" ]] && \
    [[ "$FAILED" -eq 0 ]] && \
    [[ "$RUNNING" -eq 0 ]] && \
    [[ "$CR_COMMENTS" -eq 0 ]] && \
    [[ "$TOTAL" -gt 0 ]] && \
-   [[ "$CR_CHECK_STATE" != "pending" ]]; then
+   [[ "$CR_CHECK_STATE" != "pending" ]] && \
+   [[ "$CR_CHECK_STATE" != "none" ]]; then
   ALL_GREEN=true
 fi
 

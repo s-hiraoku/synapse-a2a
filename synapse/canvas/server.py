@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from synapse import __version__
+from synapse.canvas import compute_asset_hash
 from synapse.canvas.protocol import (
     FORMAT_REGISTRY,
     CanvasMessage,
@@ -326,6 +327,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         app.add_middleware(_NoCacheStaticMiddleware)
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    # Compute asset hash from static files + template (detect stale processes)
+    _asset_hash = compute_asset_hash()
+
     # Pre-render HTML with cache-busting (read once at startup, not per-request)
     _cache_version = str(int(time.time()))
     _index_html: str | None = None
@@ -362,6 +366,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "pid": os.getpid(),
             "cards": store.count(),
             "version": __version__,
+            "asset_hash": _asset_hash,
         }
 
     # ----------------------------------------------------------------
