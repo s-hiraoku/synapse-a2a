@@ -993,12 +993,16 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if not endpoint:
             raise HTTPException(status_code=404, detail=f"Agent '{target}' not found")
 
-        # Build A2A SendMessageRequest
+        # Build A2A SendMessageRequest with response_mode=notify
+        # so the agent marks the task as completed when done
         a2a_request = {
             "message": {
                 "role": "user",
                 "parts": [{"type": "text", "text": message}],
-            }
+            },
+            "metadata": {
+                "response_mode": "notify",
+            },
         }
 
         try:
@@ -1013,11 +1017,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 status_code=502, detail=f"Failed to reach agent: {e}"
             ) from e
 
-        task_id = resp_data.get("id", "")
-        return {
-            "task_id": task_id,
-            "status": resp_data.get("status", {}).get("state", "unknown"),
-        }
+        # SendMessageResponse wraps task in {"task": {...}}
+        task_data = resp_data.get("task", resp_data)
+        task_id = task_data.get("id", "")
+        status = task_data.get("status", "unknown")
+        if isinstance(status, dict):
+            status = status.get("state", "unknown")
+        return {"task_id": task_id, "status": status}
 
     @app.get("/api/admin/tasks/{task_id}")
     async def admin_task_proxy(task_id: str, target: str | None = None) -> Any:
@@ -1040,16 +1046,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 status_code=502, detail=f"Failed to reach agent: {e}"
             ) from e
 
-        # Extract status and output text
-        status_obj = resp_data.get("status", {})
-        state = status_obj.get("state", "unknown")
+        # Extract status — A2A Task.status is a plain string, not an object
+        state = resp_data.get("status", "unknown")
+        if isinstance(state, dict):
+            state = state.get("state", "unknown")
 
         # Extract text from artifacts
+        # Format varies: [{parts: [{type, text}]}] or [{type, data: {content}}]
         output = ""
         for artifact in resp_data.get("artifacts", []):
+            # Format 1: {parts: [{type: "text", text: "..."}]}
             for part in artifact.get("parts", []):
                 if part.get("type") == "text":
                     output += part.get("text", "")
+            # Format 2: {type: "text", data: {content: "..."}}
+            if not output and artifact.get("data"):
+                content = artifact["data"].get("content", "")
+                if content:
+                    output += content
 
         # Also check message for output
         msg = resp_data.get("message")
@@ -1060,7 +1074,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         error = None
         if resp_data.get("error"):
-            error = resp_data["error"].get("message", str(resp_data["error"]))
+            err = resp_data["error"]
+            error = err.get("message", str(err)) if isinstance(err, dict) else str(err)
 
         return {"task_id": task_id, "status": state, "output": output, "error": error}
 
