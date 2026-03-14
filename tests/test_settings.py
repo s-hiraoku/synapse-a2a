@@ -1008,16 +1008,28 @@ args = ["run", "--directory", "/repo", "python", "-m", "synapse.mcp", "--agent-t
         ):
             assert settings.has_mcp_bootstrap_config("claude") is False
 
-    def test_copilot_never_uses_mcp_bootstrap_detection(self, tmp_path):
-        """Copilot should stay on PTY bootstrap even with generic MCP config."""
-        project_file = tmp_path / ".mcp.json"
-        project_file.write_text(
+    def test_detects_copilot_mcp_config(self, tmp_path):
+        """Copilot MCP config in ~/.copilot/mcp-config.json should be detected."""
+        copilot_dir = tmp_path / ".copilot"
+        copilot_dir.mkdir(parents=True)
+        (copilot_dir / "mcp-config.json").write_text(
             json.dumps(
                 {
                     "mcpServers": {
                         "synapse": {
                             "command": "/path/to/uv",
-                            "args": ["run", "python", "-m", "synapse.mcp"],
+                            "args": [
+                                "run",
+                                "--directory",
+                                "/repo",
+                                "python",
+                                "-m",
+                                "synapse.mcp",
+                                "--agent-type",
+                                "copilot",
+                                "--port",
+                                "8140",
+                            ],
                         }
                     }
                 }
@@ -1025,10 +1037,34 @@ args = ["run", "--directory", "/repo", "python", "-m", "synapse.mcp", "--agent-t
         )
 
         settings = SynapseSettings.from_defaults()
-        with (
-            patch("synapse.settings.Path.cwd", return_value=tmp_path),
-            patch("synapse.settings.Path.home", return_value=tmp_path / "home"),
-        ):
+        with patch("synapse.settings.Path.home", return_value=tmp_path):
+            assert settings.has_mcp_bootstrap_config("copilot") is True
+
+    def test_copilot_false_without_mcp_config(self, tmp_path):
+        """Copilot without ~/.copilot/mcp-config.json should return False."""
+        settings = SynapseSettings.from_defaults()
+        with patch("synapse.settings.Path.home", return_value=tmp_path):
+            assert settings.has_mcp_bootstrap_config("copilot") is False
+
+    def test_copilot_ignores_non_synapse_mcp_entry(self, tmp_path):
+        """Copilot MCP config without synapse entry should return False."""
+        copilot_dir = tmp_path / ".copilot"
+        copilot_dir.mkdir(parents=True)
+        (copilot_dir / "mcp-config.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "other-tool": {
+                            "command": "/path/to/other",
+                            "args": ["serve"],
+                        }
+                    }
+                }
+            )
+        )
+
+        settings = SynapseSettings.from_defaults()
+        with patch("synapse.settings.Path.home", return_value=tmp_path):
             assert settings.has_mcp_bootstrap_config("copilot") is False
 
     def test_ignores_json_config_with_non_object_root(self, tmp_path):

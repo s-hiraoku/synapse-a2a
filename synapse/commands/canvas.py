@@ -554,6 +554,274 @@ def post_briefing(
     )
 
 
+def post_plan(
+    json_data: str | None = None,
+    file_path: str | None = None,
+    title: str = "",
+    agent_id: str = "",
+    agent_name: str = "",
+    card_id: str | None = None,
+    pinned: bool = True,
+    tags: list[str] | None = None,
+    db_path: str | None = None,
+    port: int = DEFAULT_PORT,
+) -> dict | None:
+    """Post a plan card from JSON data or file. Returns card dict or None.
+
+    Expected JSON structure:
+    {
+        "plan_id": "plan-oauth2",
+        "status": "proposed",
+        "mermaid": "graph TD\\n  A-->B",
+        "steps": [
+            {"id": "s1", "subject": "Design", "agent": "claude", "status": "pending"},
+            {"id": "s2", "subject": "Implement", "agent": "codex", "status": "pending", "blocked_by": ["s1"]}
+        ]
+    }
+    """
+    if file_path:
+        raw = Path(file_path).read_text(encoding="utf-8")
+    elif json_data:
+        raw = json_data
+    else:
+        print("Error: No JSON data or file provided", file=sys.stderr)
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON", file=sys.stderr)
+        return None
+
+    plan_id = data.get("plan_id", "")
+    plan_title = title or data.get("title", f"Plan: {plan_id}")
+    plan_card_id = card_id or plan_id
+
+    template_data: dict = {
+        "plan_id": plan_id,
+        "status": data.get("status", "proposed"),
+        "steps": data.get("steps", []),
+    }
+    if data.get("mermaid"):
+        template_data["mermaid"] = data["mermaid"]
+
+    agent_name = _resolve_agent_name(agent_id, agent_name)
+
+    payload: dict = {
+        "type": "render",
+        "content": {"format": "plan", "body": {}},
+        "agent_id": agent_id,
+        "title": plan_title,
+        "pinned": pinned,
+        "template": "plan",
+        "template_data": template_data,
+    }
+    if agent_name:
+        payload["agent_name"] = agent_name
+    if plan_card_id:
+        payload["card_id"] = plan_card_id
+    if tags:
+        payload["tags"] = tags
+
+    from synapse.canvas.protocol import CanvasMessage, validate_message
+
+    msg = CanvasMessage.from_dict(payload)
+    errors = validate_message(msg)
+    if errors:
+        print(f"Validation errors: {'; '.join(errors)}", file=sys.stderr)
+        return None
+
+    if is_canvas_server_running(port):
+        return _post_via_api(payload, port)
+
+    content_json = json.dumps({"format": "plan", "body": {}}, ensure_ascii=False)
+    store = CanvasStore(db_path=db_path)
+    if plan_card_id:
+        return store.upsert_card(
+            card_id=plan_card_id,
+            agent_id=agent_id,
+            content=content_json,
+            title=plan_title,
+            agent_name=agent_name or None,
+            pinned=pinned,
+            tags=tags,
+            template="plan",
+            template_data=template_data,
+        )
+    return store.add_card(
+        agent_id=agent_id,
+        content=content_json,
+        title=plan_title,
+        agent_name=agent_name or None,
+        pinned=pinned,
+        tags=tags,
+        template="plan",
+        template_data=template_data,
+    )
+
+
+def accept_plan(
+    plan_id: str,
+    canvas_db: str | None = None,
+    board_db: str | None = None,
+    created_by: str = "",
+) -> dict | None:
+    """Accept a plan card and register its steps as Task Board tasks.
+
+    Returns a dict with plan_id, task_ids, and step_to_task mapping,
+    or None if the plan card was not found.
+    """
+    from synapse.task_board import TaskBoard
+
+    store = CanvasStore(db_path=canvas_db)
+    card = store.get_card(plan_id)
+    if card is None:
+        return None
+
+    td_raw = card.get("template_data")
+    td = json.loads(td_raw) if isinstance(td_raw, str) else td_raw or {}
+
+    steps = td.get("steps", [])
+    if not steps:
+        return None
+
+    board = TaskBoard(db_path=board_db)
+    creator = created_by or os.environ.get("SYNAPSE_AGENT_ID", "user")
+
+    # Map step IDs to board task IDs (two passes: create first, then set blocked_by)
+    step_to_task: dict[str, str] = {}
+    task_ids: list[str] = []
+
+    # First pass: create all tasks without blocked_by (need all IDs first)
+    for step in steps:
+        step_id = step.get("id", "")
+        subject = step.get("subject", f"Step {step_id}")
+        priority = step.get("priority", 3)
+        if not isinstance(priority, int) or not (1 <= priority <= 5):
+            priority = 3
+
+        task_id = board.create_task(
+            subject=subject,
+            description=step.get("description", ""),
+            created_by=creator,
+            priority=priority,
+        )
+        step_to_task[step_id] = task_id
+        task_ids.append(task_id)
+
+        agent = step.get("agent")
+        if agent:
+            board.set_assignee_hint(task_id, agent)
+
+    # Second pass: set blocked_by using resolved task IDs
+    for step in steps:
+        step_id = step.get("id", "")
+        blocked_by_steps = step.get("blocked_by", [])
+        if not blocked_by_steps:
+            continue
+
+        task_id = step_to_task[step_id]
+        blocked_by_task_ids = [
+            step_to_task[bid] for bid in blocked_by_steps if bid in step_to_task
+        ]
+        if blocked_by_task_ids:
+            board.set_blocked_by(task_id, blocked_by_task_ids)
+
+    # Persist step_to_task mapping for sync_plan_progress
+    td["status"] = "active"
+    td["step_to_task"] = step_to_task
+    store.upsert_card(
+        card_id=plan_id,
+        agent_id=card.get("agent_id", ""),
+        content=card.get("content", ""),
+        title=card.get("title", ""),
+        pinned=True,
+        template="plan",
+        template_data=td,
+    )
+
+    return {
+        "plan_id": plan_id,
+        "task_ids": task_ids,
+        "step_to_task": step_to_task,
+    }
+
+
+class PlanNotFoundError(ValueError):
+    """Raised when a plan card is not found in the Canvas store."""
+
+
+def sync_plan_progress(
+    plan_id: str,
+    canvas_db: str | None = None,
+    board_db: str | None = None,
+) -> bool:
+    """Sync Task Board task statuses back to Canvas Plan Card.
+
+    Returns True if the card was updated, False if no changes needed.
+
+    Raises:
+        PlanNotFoundError: If the plan card does not exist.
+    """
+    from synapse.task_board import TaskBoard
+
+    store = CanvasStore(db_path=canvas_db)
+    card = store.get_card(plan_id)
+    if card is None:
+        raise PlanNotFoundError(f"Plan '{plan_id}' not found")
+
+    td_raw = card.get("template_data")
+    td = json.loads(td_raw) if isinstance(td_raw, str) else td_raw or {}
+
+    steps = td.get("steps", [])
+    if not steps:
+        return False
+
+    board = TaskBoard(db_path=board_db)
+    step_to_task = td.get("step_to_task", {})
+    board_tasks = {t["id"]: t for t in board.list_tasks()} if step_to_task else {}
+
+    updated = False
+    all_completed = True
+
+    for step in steps:
+        step_id = step.get("id", "")
+        task_id = step_to_task.get(step_id)
+        board_task = board_tasks.get(task_id) if task_id else None
+        if board_task is None:
+            if step.get("status") != "completed":
+                all_completed = False
+            continue
+
+        new_status = board_task.get("status", "pending")
+        if new_status != step.get("status"):
+            step["status"] = new_status
+            updated = True
+
+        if new_status != "completed":
+            all_completed = False
+
+    if all_completed and td.get("status") != "completed":
+        td["status"] = "completed"
+        updated = True
+    elif not all_completed and td.get("status") == "completed":
+        td["status"] = "active"
+        updated = True
+
+    if updated:
+        store.upsert_card(
+            card_id=plan_id,
+            agent_id=card.get("agent_id", ""),
+            content=card.get("content", ""),
+            title=card.get("title", ""),
+            pinned=True,
+            template="plan",
+            template_data=td,
+        )
+
+    return updated
+
+
 def post_shortcut(
     format_name: str,
     body: str | dict,

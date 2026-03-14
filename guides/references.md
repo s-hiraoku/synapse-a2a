@@ -50,6 +50,7 @@ flowchart TB
         init["init"]
         reset["reset"]
         auth["auth"]
+        canvas["canvas"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -111,6 +112,27 @@ flowchart TB
         ts_complete["complete"]
         ts_fail["fail"]
         ts_reopen["reopen"]
+        ts_accept_plan["accept-plan"]
+        ts_sync_plan["sync-plan"]
+    end
+
+    subgraph Canvas["canvas サブコマンド"]
+        cv_serve["serve"]
+        cv_status["status"]
+        cv_stop["stop"]
+        cv_mermaid["mermaid"]
+        cv_markdown["markdown"]
+        cv_table["table"]
+        cv_chart["chart"]
+        cv_code["code"]
+        cv_html["html"]
+        cv_diff["diff"]
+        cv_image["image"]
+        cv_briefing["briefing"]
+        cv_plan["plan"]
+        cv_list["list"]
+        cv_delete["delete"]
+        cv_clear["clear"]
     end
 
     subgraph SessionCmds["session サブコマンド"]
@@ -131,6 +153,7 @@ flowchart TB
     agents --> Agents
     tasks --> Tasks
     session --> SessionCmds
+    canvas --> Canvas
 ```
 
 ---
@@ -1468,6 +1491,51 @@ synapse tasks purge --status completed   # completed のみ削除
 synapse tasks purge --status failed      # failed のみ削除
 ```
 
+#### 1.20.8 synapse tasks accept-plan
+
+Canvas 上の Plan Card を承認し、各ステップを Task Board に自動登録します。
+
+```bash
+synapse tasks accept-plan <plan_id>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `plan_id` | Yes | 承認する Plan Card の ID |
+
+**処理フロー**:
+
+1. Canvas から Plan Card を取得（`plan_id` で検索）
+2. `template_data.steps` を順に Task Board へ登録
+3. `blocked_by` の依存関係を設定
+4. `agent` を `assignee_hint` に設定
+5. Plan Card のステータスを `proposed` → `active` に更新
+6. Canvas Plan Card を再描画
+
+**例**:
+
+```bash
+synapse tasks accept-plan plan-oauth2-migration
+```
+
+#### 1.20.9 synapse tasks sync-plan
+
+Task Board の現在の状態を Canvas Plan Card に同期します。
+
+```bash
+synapse tasks sync-plan <plan_id>
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `plan_id` | Yes | 同期する Plan Card の ID |
+
+**例**:
+
+```bash
+synapse tasks sync-plan plan-oauth2-migration
+```
+
 #### A2A タスク連携
 
 `synapse send --task` で送信すると、ボードタスクと A2A トランスポートタスクが自動的に紐付けられます。
@@ -1758,6 +1826,150 @@ MCP サーバー (`synapse mcp serve` / `python -m synapse.mcp`) が提供する
 ```
 
 > **Tip**: `list_agents` は `synapse list --json` の MCP 版です。シェルコマンドを実行する代わりに、MCP プロトコル経由でエージェントレジストリを直接クエリできます。
+
+#### analyze_task
+
+ユーザーのプロンプトを解析し、チーム/タスク分割が有効な場合に提案を生成します（Smart Suggest）。
+
+```json
+// リクエスト (tools/call)
+{
+  "name": "analyze_task",
+  "arguments": {
+    "prompt": "このプロジェクトの認証をOAuth2に移行して"
+  }
+}
+```
+
+| 引数 | 型 | 必須 | 説明 |
+|------|------|------|------|
+| `prompt` | string | Yes | ユーザーの指示内容 |
+
+**レスポンス（提案あり）:**
+
+```json
+{
+  "suggestion": {
+    "type": "team_split",
+    "summary": "この作業は設計・実装・テストに分割すると効率的です",
+    "tasks": [...],
+    "canvas_plan_card_id": "plan-oauth2-migration",
+    "approve_command": "synapse tasks accept-plan plan-oauth2-migration"
+  },
+  "triggered_by": ["keyword:移行", "multi_directory"]
+}
+```
+
+**レスポンス（提案なし）:**
+
+```json
+{
+  "suggestion": null,
+  "reason": "no_trigger_matched"
+}
+```
+
+トリガー条件は `.synapse/suggest.yaml` で設定可能です。提案が生成されると Canvas に Plan Card が自動投稿されます。
+
+> **参考**: [Smart Suggest & Plan Canvas 設計](docs/design/smart-suggest-plan-canvas.md)
+
+---
+
+### 1.24 synapse canvas
+
+エージェント共有のビジュアル出力面（Canvas）を管理します。ブラウザ UI で各種コンテンツをレンダリングします。
+
+```bash
+synapse canvas <subcommand>
+```
+
+#### 1.24.1 synapse canvas serve
+
+Canvas サーバーを起動します（デフォルトでブラウザが自動オープン）。
+
+```bash
+synapse canvas serve [--port PORT] [--no-open]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--port` | No | サーバーポート（デフォルト: 3000） |
+| `--no-open` | No | ブラウザの自動オープンを抑制 |
+
+#### 1.24.2 synapse canvas status / stop
+
+```bash
+synapse canvas status [--port PORT]   # Canvas サーバーのステータス表示
+synapse canvas stop [--port PORT]     # Canvas サーバーを停止
+```
+
+#### 1.24.3 コンテンツ投稿コマンド
+
+各フォーマットに対応したショートカットコマンドです。
+
+| コマンド | 説明 |
+|---------|------|
+| `synapse canvas mermaid <body>` | Mermaid ダイアグラムカード |
+| `synapse canvas markdown <body>` | Markdown カード |
+| `synapse canvas table <json>` | テーブルカード |
+| `synapse canvas chart <json>` | Chart.js カード |
+| `synapse canvas code <body>` | シンタックスハイライト付きコードカード |
+| `synapse canvas html <body>` | 生 HTML カード（サンドボックス iframe） |
+| `synapse canvas diff <body>` | サイドバイサイド diff カード |
+| `synapse canvas image <url>` | 画像カード |
+| `synapse canvas briefing <json>` | ブリーフィングテンプレートカード。`--file` 対応 |
+| `synapse canvas plan <json>` | **Plan Card** テンプレート（Mermaid DAG + ステップリスト）。`--file` 対応 |
+| `synapse canvas post-raw <json>` | 生 Canvas Message Protocol JSON |
+| `synapse canvas post progress <json>` | プログレスバーカード |
+| `synapse canvas post terminal <string>` | ターミナル出力カード（ANSI エスケープ対応） |
+| `synapse canvas post dependency-graph <json>` | 依存関係グラフカード |
+| `synapse canvas post cost <json>` | トークン/コスト集計テーブル |
+
+#### 1.24.4 synapse canvas plan
+
+Plan Card テンプレートを投稿します。Mermaid DAG とステップリストで計画を可視化し、Task Board との連携をサポートします。
+
+```bash
+synapse canvas plan '<json>' [--file FILE]
+```
+
+**データ構造例**:
+
+```json
+{
+  "title": "OAuth2 移行計画",
+  "plan_id": "plan-oauth2-migration",
+  "status": "proposed",
+  "mermaid": "graph TD\n  A[設計] --> B[実装]\n  B --> C[テスト]",
+  "steps": [
+    {
+      "id": "task-001",
+      "subject": "OAuth2 設計",
+      "agent": "claude",
+      "status": "pending",
+      "blocked_by": []
+    }
+  ],
+  "actions": ["approve", "edit", "cancel"]
+}
+```
+
+**Plan Card ステータス**:
+
+| status | 意味 |
+|--------|------|
+| `proposed` | 提案中（承認待ち） |
+| `active` | 承認済み・実行中 |
+| `completed` | 全タスク完了 |
+| `cancelled` | キャンセル済み |
+
+#### 1.24.5 synapse canvas list / delete / clear
+
+```bash
+synapse canvas list [--mine] [--search TERM] [--type TYPE]   # カード一覧
+synapse canvas delete <card_id>                               # カード削除
+synapse canvas clear [--agent AGENT]                          # 全カードクリア
+```
 
 ---
 

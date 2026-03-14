@@ -263,7 +263,7 @@ synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
 実装済みのもの:
 
 - `bootstrap_agent()` tool
-- PTY bootstrap の自動切り替え — `has_mcp_bootstrap_config()` により Claude Code, Codex, Gemini CLI, OpenCode で MCP 設定検出時に PTY instruction injection を自動スキップ (Copilot は PTY のまま)
+- PTY bootstrap の自動切り替え — `has_mcp_bootstrap_config()` により Claude Code, Codex, Gemini CLI, OpenCode, Copilot で MCP 設定検出時に PTY instruction injection を自動スキップ
 
 まだ未実装のもの:
 
@@ -571,6 +571,45 @@ OpenCode docs では global config を `~/.config/opencode/opencode.json` とし
   }
 }
 ```
+
+### Copilot
+
+設定場所:
+
+- `~/.copilot/mcp-config.json`
+
+Copilot CLI は MCP をサポートしており、`~/.copilot/mcp-config.json` に server を定義する。
+
+推奨設定例:
+
+```json
+{
+  "mcpServers": {
+    "synapse": {
+      "command": "/path/to/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/path/to/repo",
+        "python",
+        "-m",
+        "synapse.mcp",
+        "--agent-id",
+        "synapse-copilot-8140",
+        "--agent-type",
+        "copilot",
+        "--port",
+        "8140"
+      ]
+    }
+  }
+}
+```
+
+注意点:
+
+- MCP 設定が存在する場合、PTY instruction injection は自動スキップされる
+- MCP 設定がない場合は従来通り PTY フォールバックで動作する
 
 ## 参考リンク
 

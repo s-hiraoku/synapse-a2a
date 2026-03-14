@@ -5,21 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
-
-## [0.11.22] - 2026-03-15
 
 ### Added
 
 - `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
 - `synapse canvas link <url>` CLI command for posting rich link preview cards
+
+## [0.12.0] - 2026-03-14
+
+### Added
+
+- add Copilot MCP support, Plan Card template, and smart-suggest design doc
+- complete Plan Card template with step list renderer and CLI command
+- add analyze_task MCP tool for smart task suggestions (Phase 3)
+- add Plan accept and progress sync (Phase 4)
+
+### Changed
+
+- address code review findings from /simplify
+
+### Documentation
+
+- update all documentation for Smart Suggest, Plan Card, and Copilot MCP
 
 ## [0.11.21] - 2026-03-14
 
@@ -2312,6 +2320,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.12.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.21...v0.12.0
 [0.11.21]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.20...v0.11.21
 [0.11.20]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.19...v0.11.20
 [0.11.19]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.18...v0.11.19

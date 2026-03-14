@@ -1095,6 +1095,16 @@ synapse tasks purge --status failed
 synapse tasks purge --status pending
 ```
 
+### Plan Integration
+
+```bash
+# Accept a plan card and register its steps as task board tasks
+synapse tasks accept-plan <plan_id>
+
+# Sync task board progress back to a plan card (updates step statuses)
+synapse tasks sync-plan <plan_id>
+```
+
 ### Task Priority
 
 Tasks have priority 1-5 (default 3). Higher priority tasks are served first by `get_available_tasks()`.
@@ -1652,14 +1662,24 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":
 
 Templates control how composite content blocks are displayed. Each template has its own `template_data` schema. The `CanvasMessage` fields `template` (str) and `template_data` (dict) select and configure the layout.
 
-**5 templates:** briefing, comparison, dashboard, steps, slides
+**6 templates:** briefing, comparison, dashboard, steps, slides, plan
 
 ```bash
 # Post a briefing (structured report with sections referencing content blocks)
 synapse canvas briefing '{"title":"Sprint","sections":[{"title":"Tests","blocks":[0]}],"content":[{"format":"markdown","body":"## Results"}]}' --pinned
 synapse canvas briefing --file report.json --title "CI Report"
 
-# Post via post-raw with template field (works for all 5 templates)
+# Post a plan card (Mermaid DAG + step list with status tracking)
+synapse canvas plan '{"plan_id":"plan-auth","status":"proposed","mermaid":"graph TD; A[Design]-->B[Implement]-->C[Test]","steps":[{"id":"s1","subject":"Design","agent":"claude","status":"pending"},{"id":"s2","subject":"Implement","agent":"codex","status":"pending","blocked_by":["s1"]},{"id":"s3","subject":"Test","agent":"gemini","status":"pending","blocked_by":["s2"]}]}' --title "Auth Plan"
+synapse canvas plan --file plan.json --title "Migration Plan"
+
+# Accept a plan and register its steps as task board tasks
+synapse tasks accept-plan <plan_id>
+
+# Sync task board progress back to a plan card
+synapse tasks sync-plan <plan_id>
+
+# Post via post-raw with template field (works for all 6 templates)
 synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"comparison","template_data":{"sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"code","body":"old","lang":"python"},{"format":"code","body":"new","lang":"python"}],"title":"Diff"}'
 ```
 
@@ -1672,6 +1692,7 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"compariso
 | dashboard | `{"widgets": [{"title": str, "blocks": [int], "size?": "1x1"\|"2x1"\|"1x2"\|"2x2"}], "cols?": int}` | Grid layout with resizable widget cells (1-4 columns) |
 | steps | `{"steps": [{"title": str, "blocks?": [int], "done?": bool, "description?": str}], "summary?": str}` | Linear workflow with completion tracking |
 | slides | `{"slides": [{"title?": str, "blocks": [int], "notes?": str}]}` | Page-by-page navigation |
+| plan | `{"plan_id": str, "status": str, "steps": [{"id": str, "subject": str, "agent?": str, "status": str, "blocked_by?": [str]}], "mermaid?": str}` | Task DAG with Mermaid visualization and step tracking |
 
 ### Template Selection Guide
 
@@ -1680,6 +1701,7 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"compariso
 - `steps`: use for rollout plans, migration procedures, bug-fix sequences, and checklist-driven execution
 - `slides`: use for walkthroughs, demos, and content that should be consumed one page at a time
 - `dashboard`: use for operational snapshots with multiple small widgets, counts, and mixed status blocks
+- `plan`: use for task DAGs with dependency visualization, step-level status tracking, and task board integration via `accept-plan` / `sync-plan`
 
 Rule of thumb:
 - One block, one idea: plain `synapse canvas post`
@@ -1741,7 +1763,7 @@ uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse
 
 **Defaults:** `--agent-id` defaults to `$SYNAPSE_AGENT_ID` or `synapse-mcp`. `--agent-type` is auto-extracted from the agent ID if not specified.
 
-**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent` and `list_agents`).
+**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent`, `list_agents`, and `analyze_task`).
 
 ### MCP Tool: list_agents
 
@@ -1763,7 +1785,31 @@ List all running Synapse agents with status and connection info. Equivalent to `
 
 **Response fields:** `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`.
 
-**Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, or OpenCode, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot is unchanged and continues to use PTY bootstrap.
+### MCP Tool: analyze_task
+
+Analyze a user prompt and suggest team/task splits when the work is large enough to benefit from multi-agent collaboration. Part of the Smart Suggest feature.
+
+```json
+// JSON-RPC tools/call request
+{
+  "name": "analyze_task",
+  "arguments": {
+    "prompt": "Refactor the auth module to use OAuth2 with JWT tokens"
+  }
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `prompt` | string | Yes | User instruction to analyze for team/task split suggestions |
+
+**Triggers:** The tool checks for changed file count, multi-directory changes, missing tests, prompt length, and keyword matches (e.g., "refactor", "migrate", "review"). Configuration is loaded from `.synapse/suggest.yaml` with sensible defaults.
+
+**Response:** Returns `suggestion` (with recommended agents, tasks, and plan) when triggers match, or `null` with a `reason` when no suggestion is warranted.
+
+**Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, OpenCode, or Copilot, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot MCP config is read from `~/.copilot/mcp-config.json`.
+
+**Copilot MCP support:** Copilot agents can use the `bootstrap_agent` and `analyze_task` MCP tools but cannot consume MCP resources/prompts.
 
 ## Storage Locations
 

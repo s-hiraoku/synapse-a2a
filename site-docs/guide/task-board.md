@@ -680,3 +680,84 @@ graph TD
 
 !!! tip "Monitoring Progress"
     Use `synapse list` for real-time agent status and `synapse tasks list` to see the current state of all tasks on the board.
+
+## Plan Card Integration
+
+The Plan Card Integration bridges Canvas Plan Cards with the Task Board, allowing you to turn a visual execution plan into tracked, dependency-aware tasks and then sync progress back to the Canvas card.
+
+### Accepting a Plan
+
+Use `synapse tasks accept-plan` to register all steps from a Canvas Plan Card as Task Board tasks:
+
+```bash
+synapse tasks accept-plan <plan_id>
+```
+
+This command:
+
+1. Reads the Plan Card from Canvas (by `plan_id` / `card_id`).
+2. Creates a Task Board task for each step, preserving `subject`, `priority`, and `description`.
+3. Maps `blocked_by` step references to Task Board dependency chains.
+4. Sets `assignee_hint` on each task when the step specifies an `agent`.
+5. Updates the Plan Card status from `proposed` to `active`.
+
+```bash
+# Example
+synapse canvas plan '{"plan_id":"plan-oauth2","steps":[
+  {"id":"s1","subject":"Design auth","agent":"claude"},
+  {"id":"s2","subject":"Implement auth","agent":"codex","blocked_by":["s1"]},
+  {"id":"s3","subject":"Write tests","agent":"gemini","blocked_by":["s1"]},
+  {"id":"s4","subject":"Review","agent":"claude","blocked_by":["s2","s3"]}
+]}'
+
+synapse tasks accept-plan plan-oauth2
+# Output:
+# Plan 'plan-oauth2' accepted. 4 tasks created:
+#   s1 → a1b2c3d4
+#   s2 → e5f6g7h8
+#   s3 → i9j0k1l2
+#   s4 → m3n4o5p6
+```
+
+### Syncing Progress
+
+Use `synapse tasks sync-plan` to update the Canvas Plan Card with current Task Board statuses:
+
+```bash
+synapse tasks sync-plan <plan_id>
+```
+
+This command:
+
+1. Reads each step's corresponding Task Board task status.
+2. Updates the step statuses in the Plan Card (`pending`, `in_progress`, `completed`, `failed`).
+3. Automatically marks the overall plan as `completed` when all steps are done.
+
+```bash
+# After some tasks have been completed
+synapse tasks sync-plan plan-oauth2
+# Output: Plan 'plan-oauth2' progress synced.
+```
+
+!!! tip "Continuous Sync"
+    Run `synapse tasks sync-plan` periodically (or after task completions) to keep the Canvas Plan Card reflecting current progress. The Plan Card in the browser updates in real time via SSE when the card is modified.
+
+### End-to-End Plan Workflow
+
+```bash
+# 1. Agent suggests a plan (via Smart Suggest or manually)
+synapse canvas plan --file plan.json --title "Feature Plan"
+
+# 2. Coordinator reviews the plan on Canvas, then accepts it
+synapse tasks accept-plan plan-feature
+
+# 3. Assign tasks to agents (or let auto-claim handle it)
+synapse tasks assign <task_id> claude
+
+# 4. Agents work on their tasks...
+
+# 5. Sync progress back to Canvas
+synapse tasks sync-plan plan-feature
+
+# 6. When all steps complete, the plan status becomes 'completed'
+```

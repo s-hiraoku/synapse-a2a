@@ -49,7 +49,10 @@ Inter-agent communication framework via Google A2A Protocol.
 | Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
 | Link preview | `synapse canvas link "<url>" --title "<title>"` |
 | Post template | `synapse canvas briefing '<json>' --title "<title>"` |
+| Post plan card | `synapse canvas plan '<json>' --title "<title>"` (Mermaid DAG + step list with status tracking) |
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
+| Accept plan | `synapse tasks accept-plan <plan_id>` (register plan steps as task board tasks) |
+| Sync plan progress | `synapse tasks sync-plan <plan_id>` (sync task board status back to plan card) |
 
 ## Collaboration Decision Framework
 
@@ -82,9 +85,11 @@ Evaluate collaboration opportunities before starting work:
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
-| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides) | `synapse canvas post/link/briefing/open/list` |
+| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan) | `synapse canvas post/link/briefing/plan/open/list` |
+| **Plan Cards** | Mermaid DAG + step list with accept/sync workflow for task board integration | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` |
+| **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
-| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in). MCP tools: `bootstrap_agent`, `list_agents` | `synapse mcp serve` / `python -m synapse.mcp` |
+| **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in, including Copilot via tools-only). MCP tools: `bootstrap_agent`, `list_agents`, `analyze_task` | `synapse mcp serve` / `python -m synapse.mcp` |
 
 ### Task Board Default Triggers
 
@@ -132,6 +137,7 @@ agent or a human later, not just glanced at once in the terminal.
 - `steps` for plans, migration sequences, and execution checklists
 - `slides` for walkthroughs, demos, and page-by-page narratives
 - `dashboard` for multi-widget operational snapshots and compact status boards
+- `plan` for task DAGs with Mermaid visualization, step tracking, and task board integration (`accept-plan` / `sync-plan`)
 
 Prefer raw `synapse canvas post <format>` only when a single block is enough.
 If the message has multiple sections or needs stronger information hierarchy,

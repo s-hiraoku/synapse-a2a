@@ -6,7 +6,7 @@ Synapse provides an MCP (Model Context Protocol) server that distributes bootstr
     MCP bootstrap is Phase 1 (experimental). PTY-based instruction injection remains the primary method and continues to work for all agents.
 
 !!! note "Startup behavior"
-    When Claude Code, Codex, Gemini CLI, or OpenCode has a Synapse MCP server configured, Synapse now skips PTY startup instruction injection automatically. GitHub Copilot is unchanged and continues to use PTY bootstrap.
+    When Claude Code, Codex, Gemini CLI, OpenCode, or GitHub Copilot has a Synapse MCP server configured, Synapse now skips PTY startup instruction injection automatically.
 
 ## Overview
 
@@ -20,7 +20,7 @@ The MCP server exposes:
 ## Prerequisites
 
 - Synapse A2A installed (`uv sync` or `pip install -e .`)
-- An MCP-capable agent (Claude Code, Codex, Gemini CLI, or OpenCode)
+- An MCP-capable agent (Claude Code, Codex, Gemini CLI, OpenCode, or GitHub Copilot)
 
 ## Quick Start
 
@@ -145,6 +145,27 @@ args = [
 
 **Docs**: <https://opencode.ai/docs/mcp-servers>
 
+### GitHub Copilot
+
+**Config file**: `~/.copilot/mcp-config.json`
+
+```json
+{
+  "mcpServers": {
+    "synapse": {
+      "command": "/path/to/uv",
+      "args": [
+        "run", "--directory", "/path/to/synapse-a2a",
+        "python", "-m", "synapse.mcp",
+        "--agent-id", "synapse-copilot-8140",
+        "--agent-type", "copilot",
+        "--port", "8140"
+      ]
+    }
+  }
+}
+```
+
 ## MCP Tools
 
 ### bootstrap_agent
@@ -199,6 +220,61 @@ Lists all running Synapse agents with status and connection info. This is the MC
 !!! tip "Agent discovery without shell access"
     `list_agents` is especially useful for agents running in sandboxed environments (e.g., Codex) where shell command execution may be restricted. It provides the same information as `synapse list --json` but through the MCP protocol.
 
+### analyze_task
+
+Analyzes a user prompt and suggests team/task splits when the work appears large enough. This is the Smart Suggest feature -- it helps agents decompose complex tasks before implementation begins.
+
+**Input schema:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `prompt` | string | Yes | User instruction to analyze for team/task split suggestions |
+
+**Trigger conditions** (configurable via `.synapse/suggest.yaml`):
+
+| Trigger | Default | Description |
+|---------|---------|-------------|
+| `min_files` | 10 | Minimum number of changed files (from `git status`) |
+| `multi_directory` | true | Changes span 2 or more directories |
+| `missing_tests` | true | Source files lack corresponding test files |
+| `min_prompt_length` | 200 | Prompt exceeds this character count |
+| `keywords` | refactor, migrate, review, redesign, etc. | Prompt contains task-splitting keywords |
+
+When one or more triggers match, the tool returns a suggested task split (design/implement/verify pattern). When no triggers match, it returns `null`, indicating the task can be handled normally.
+
+**Example call** (JSON-RPC `tools/call`):
+
+```json
+{
+  "name": "analyze_task",
+  "arguments": {
+    "prompt": "Refactor the authentication module to use OAuth2 with JWT tokens across all API endpoints"
+  }
+}
+```
+
+**Configuration** (`.synapse/suggest.yaml`):
+
+```yaml
+suggest:
+  enabled: true
+  triggers:
+    min_files: 10
+    multi_directory: true
+    missing_tests: true
+    min_prompt_length: 200
+    keywords:
+      - refactor
+      - migrate
+      - review
+      - redesign
+```
+
+When Smart Suggest is enabled, the default instruction resource automatically includes guidance for agents to call `analyze_task` on new tasks and share suggestions with the user before proceeding.
+
+!!! tip "From Suggestion to Plan Card"
+    When `analyze_task` returns a suggestion, the agent can post it as a Canvas Plan Card (`synapse canvas plan`) and then register the steps as Task Board tasks (`synapse tasks accept-plan`). See [Canvas -- Plan Template](canvas.md#plan) and [Task Board -- Plan Card Integration](task-board.md#plan-card-integration).
+
 ## Verification
 
 After configuring, restart the agent and check that the MCP server connects:
@@ -213,7 +289,7 @@ After configuring, restart the agent and check that the MCP server connects:
 |---------|-------|-----|
 | `failed` status | `uv` or `synapse` not found in PATH | Use absolute path to `uv` binary |
 | Connection timeout | Import takes too long | Check `uv sync` completed, try `python -m synapse.mcp` directly |
-| Server starts but no resources | Wrong `--agent-type` | Verify type matches agent profile (claude, codex, gemini, opencode) |
+| Server starts but no resources | Wrong `--agent-type` | Verify type matches agent profile (claude, codex, gemini, opencode, copilot) |
 
 ## Design Reference
 

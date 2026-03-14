@@ -4,15 +4,19 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.11.22
+### Unreleased
 
 - **Added**: `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
 - **Added**: `synapse canvas link <url>` CLI command for posting rich link preview cards
 
-### Unreleased
+### v0.12.0
 
-- **Fixed**: Copilot PTY injections now perform bounded submit confirmation after the normal Enter retry, reducing cases where text lands in the input box but does not execute.
-- **Added**: Copilot profile settings `submit_confirm_timeout`, `submit_confirm_poll_interval`, and `submit_confirm_retries` for post-submit confirmation tuning.
+- **Added**: Smart Suggest — `analyze_task` MCP tool that analyzes user prompts and suggests team/task splits
+- **Added**: Plan Card Canvas template with Mermaid DAG + step list + status tracking
+- **Added**: `synapse canvas plan` CLI command for posting Plan Cards
+- **Added**: `synapse tasks accept-plan` / `sync-plan` for Plan → Task Board integration
+- **Added**: Copilot MCP bootstrap support (`~/.copilot/mcp-config.json`)
+- **Changed**: Code quality improvements from `/simplify` review (public API usage, ID-based sync)
 
 ### v0.11.21
 

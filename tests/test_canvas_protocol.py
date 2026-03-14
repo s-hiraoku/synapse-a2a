@@ -1075,6 +1075,204 @@ class TestSlidesValidation:
 
 
 # ============================================================
+# TestPlanValidation — Plan template validation
+# ============================================================
+
+
+class TestPlanValidation:
+    """Tests for plan template validation rules."""
+
+    def _make_plan(self, **overrides):
+        from synapse.canvas.protocol import CanvasMessage, ContentBlock
+
+        defaults = {
+            "type": "render",
+            "content": ContentBlock(format="plan", body={}),
+            "agent_id": "synapse-claude-8100",
+            "template": "plan",
+            "template_data": {
+                "plan_id": "plan-oauth2",
+                "status": "proposed",
+                "mermaid": "graph TD\n  A[Design] --> B[Implement]",
+                "steps": [
+                    {
+                        "id": "step-1",
+                        "subject": "OAuth2 Design",
+                        "agent": "claude",
+                        "status": "pending",
+                        "blocked_by": [],
+                    },
+                    {
+                        "id": "step-2",
+                        "subject": "OAuth2 Implement",
+                        "agent": "codex",
+                        "status": "pending",
+                        "blocked_by": ["step-1"],
+                    },
+                ],
+            },
+        }
+        defaults.update(overrides)
+        return CanvasMessage(**defaults)
+
+    def test_plan_valid(self):
+        from synapse.canvas.protocol import validate_message
+
+        errors = validate_message(self._make_plan())
+        assert errors == []
+
+    def test_plan_missing_plan_id(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "steps": [{"id": "s1", "subject": "Do stuff"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("plan_id" in e for e in errors)
+
+    def test_plan_invalid_status(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "status": "invalid_status",
+                "steps": [{"id": "s1", "subject": "Do stuff"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("status" in e.lower() for e in errors)
+
+    def test_plan_missing_steps(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(template_data={"plan_id": "p1"})
+        errors = validate_message(msg)
+        assert any("steps" in e.lower() for e in errors)
+
+    def test_plan_empty_steps(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(template_data={"plan_id": "p1", "steps": []})
+        errors = validate_message(msg)
+        assert any("empty" in e.lower() for e in errors)
+
+    def test_plan_too_many_steps(self):
+        from synapse.canvas.protocol import validate_message
+
+        steps = [{"id": f"s{i}", "subject": f"Step {i}"} for i in range(31)]
+        msg = self._make_plan(template_data={"plan_id": "p1", "steps": steps})
+        errors = validate_message(msg)
+        assert any("too many" in e.lower() for e in errors)
+
+    def test_plan_step_missing_id(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [{"subject": "No ID step"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("id" in e.lower() for e in errors)
+
+    def test_plan_step_missing_subject(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [{"id": "s1"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("subject" in e.lower() for e in errors)
+
+    def test_plan_step_duplicate_id(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [
+                    {"id": "s1", "subject": "First"},
+                    {"id": "s1", "subject": "Duplicate"},
+                ],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("duplicate" in e.lower() for e in errors)
+
+    def test_plan_step_invalid_status(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [{"id": "s1", "subject": "Bad status", "status": "bogus"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("status" in e.lower() for e in errors)
+
+    def test_plan_step_blocked_by_not_list(self):
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [{"id": "s1", "subject": "Step", "blocked_by": "not-a-list"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert any("blocked_by" in e for e in errors)
+
+    def test_plan_without_mermaid(self):
+        """Plan without mermaid field should still be valid."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_plan(
+            template_data={
+                "plan_id": "p1",
+                "steps": [{"id": "s1", "subject": "Step 1"}],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_plan_all_step_statuses(self):
+        """All valid step statuses should pass validation."""
+        from synapse.canvas.protocol import validate_message
+
+        statuses = ["pending", "blocked", "in_progress", "completed", "failed"]
+        steps = [
+            {"id": f"s{i}", "subject": f"Step {i}", "status": s}
+            for i, s in enumerate(statuses)
+        ]
+        msg = self._make_plan(template_data={"plan_id": "p1", "steps": steps})
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_plan_all_plan_statuses(self):
+        """All valid plan statuses should pass validation."""
+        from synapse.canvas.protocol import validate_message
+
+        for status in ["proposed", "active", "completed", "cancelled"]:
+            msg = self._make_plan(
+                template_data={
+                    "plan_id": "p1",
+                    "status": status,
+                    "steps": [{"id": "s1", "subject": "Step"}],
+                }
+            )
+            errors = validate_message(msg)
+            assert errors == [], f"Status '{status}' should be valid"
+
+
+# ============================================================
 # TestPhase6Formats — Progress, Terminal, DependencyGraph, Cost
 # ============================================================
 

@@ -365,6 +365,18 @@ synapse approve <task_id>
 synapse reject <task_id> --reason "reason"
 ```
 
+### Plan Card Integration
+
+```bash
+synapse tasks accept-plan <plan_id>
+synapse tasks sync-plan <plan_id>
+```
+
+| Command | Description |
+|---------|-------------|
+| `accept-plan` | Register all steps from a Canvas Plan Card as Task Board tasks with dependency chains |
+| `sync-plan` | Sync Task Board task statuses back to the Canvas Plan Card |
+
 ## History
 
 ```bash
@@ -599,6 +611,25 @@ Posts a link preview card with OGP metadata. The server fetches Open Graph metad
 | `--pin` | Pin card |
 | `--tag TAG` | Tag for filtering (repeatable) |
 
+### Plan
+
+```bash
+synapse canvas plan '<JSON>' [OPTIONS]
+synapse canvas plan --file plan.json [OPTIONS]
+```
+
+Shortcut for posting a `plan` template card with Mermaid DAG and step list.
+
+| Flag | Description |
+|------|-------------|
+| `--title TITLE` | Card title |
+| `--file PATH` | Read plan JSON from file |
+| `--card-id ID` | Card ID for upsert (defaults to `plan_id`) |
+| `--agent-id ID` | Agent ID |
+| `--agent-name NAME` | Agent display name |
+| `--pin` | Pin card (default: pinned) |
+| `--tag TAG` | Tag for filtering (repeatable) |
+
 ### Briefing
 
 ```bash
@@ -680,6 +711,8 @@ Serves Synapse bootstrap resources (instructions, skills) over MCP stdio transpo
 | `--agent-id ID` | Agent ID for instruction resolution (default: `$SYNAPSE_AGENT_ID` or `synapse-mcp`) |
 | `--agent-type TYPE` | Agent type for instruction resolution (inferred from agent ID if omitted) |
 | `--port PORT` | Port for instruction placeholder resolution |
+
+MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. See [MCP Bootstrap Setup](../guide/mcp-setup.md#mcp-tools) for tool documentation.
 
 !!! warning "Experimental"
     This command is in early development (Phase 1). The interface may change in future releases.

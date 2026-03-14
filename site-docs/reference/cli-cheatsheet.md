@@ -44,6 +44,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse tasks purge [--status STATUS] [--force]` | Remove tasks (prompts for confirmation; `--force` to skip) |
 | `synapse approve <id>` | Approve a plan |
 | `synapse reject <id> --reason "..."` | Reject with reason |
+| `synapse tasks accept-plan <plan_id>` | Accept a Plan Card and create board tasks |
+| `synapse tasks sync-plan <plan_id>` | Sync board progress back to Plan Card |
 
 ### Skills
 
@@ -101,6 +103,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas link "https://..." --title T` | Post link preview with OGP metadata |
 | `synapse canvas post-raw '{raw JSON}'` | Post raw Canvas Message JSON |
 | `synapse canvas briefing '{...}'` | Post structured briefing report |
+| `synapse canvas plan '{...}'` | Post execution plan (Mermaid DAG + steps) |
 | `synapse canvas list` | List all cards |
 | `synapse canvas delete <id>` | Delete a card |
 | `synapse canvas clear` | Clear all cards |
@@ -310,6 +313,10 @@ synapse send gemini "Implement feature" -T
 # Plan approval
 synapse approve <task_id>
 synapse reject <task_id> --reason "Use a different approach"
+
+# Plan Card integration
+synapse tasks accept-plan <plan_id>      # Register plan steps as board tasks
+synapse tasks sync-plan <plan_id>        # Sync board progress back to Canvas
 ```
 
 ---
@@ -457,6 +464,10 @@ synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}'
 synapse canvas briefing --file report.json --title "Sprint Report" --summary "Executive summary"
 
+# Post a plan card (Mermaid DAG + step list with status tracking)
+synapse canvas plan '{"plan_id":"plan-auth","steps":[{"id":"s1","subject":"Design"},{"id":"s2","subject":"Implement","blocked_by":["s1"]}]}'
+synapse canvas plan --file plan.json --title "Auth Plan"
+
 # Post raw Canvas Message JSON (composite cards, templates)
 synapse canvas post-raw '{"type":"render","content":[...],"template":"dashboard","template_data":{...}}'
 
@@ -476,7 +487,7 @@ synapse canvas stop                       # Stop the Canvas server (SIGTERM with
 ```
 
 !!! tip "Templates"
-    Five built-in templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`) add structured layouts on top of composite cards. The `briefing` template has a dedicated CLI shortcut; other templates are posted via `synapse canvas post` with `template` and `template_data` in the JSON payload. See the [Canvas Guide](../guide/canvas.md#templates) for template data schemas.
+    Six built-in templates (`briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan`) add structured layouts on top of composite cards. The `briefing` and `plan` templates have dedicated CLI shortcuts; other templates are posted via `synapse canvas post` with `template` and `template_data` in the JSON payload. See the [Canvas Guide](../guide/canvas.md#templates) for template data schemas.
 
 ---
 

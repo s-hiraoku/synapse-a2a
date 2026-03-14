@@ -112,9 +112,10 @@ flowchart LR
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
-| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 5 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides` for structured multi-block cards. CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/...`. Server: `synapse canvas serve` (port 3000). See [Canvas Design](docs/design/canvas.md) |
+| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled), and Task Board integration (`synapse tasks accept-plan`). CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). See [Canvas Design](docs/design/canvas.md) |
+| **Smart Suggest** | `analyze_task` MCP tool analyzes user prompts and suggests team/task splits when collaboration would be beneficial. Trigger conditions (file count, multi-directory changes, missing tests, prompt complexity, keywords) are configurable via `.synapse/suggest.yaml`. Suggestions are displayed as Plan Cards on Canvas and can be accepted via `synapse tasks accept-plan <plan_id>` to auto-register tasks on the Task Board with dependency tracking. Progress syncs from Task Board back to Canvas Plan Card. See [Smart Suggest Design (Japanese)](docs/design/smart-suggest-plan-canvas.md) |
 | **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes OR any delegation MUST have a task board entry (`synapse tasks create` + `assign`) before `synapse send`. Task board = team contract; TodoList = personal micro-steps. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
-| **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context without PTY injection. When a Synapse MCP server config entry is detected, Synapse automatically skips PTY startup instruction injection for Claude Code, Codex, Gemini CLI, and OpenCode; non-Synapse MCP entries do not trigger the skip, and Copilot continues to use PTY bootstrap. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
+| **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) and tools (`bootstrap_agent`, `list_agents`, `analyze_task`) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context without PTY injection. When a Synapse MCP server config entry is detected, Synapse automatically skips PTY startup instruction injection for Claude Code, Codex, Gemini CLI, OpenCode, and Copilot; non-Synapse MCP entries do not trigger the skip. Copilot MCP config: `~/.copilot/mcp-config.json`. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
 
 ---
 
@@ -730,6 +731,8 @@ Save this agent definition for reuse? [y/N]:
 | `synapse tasks fail` | Mark task failed (with `--reason`) |
 | `synapse tasks reopen` | Reopen completed/failed task to pending |
 | `synapse tasks purge` | Delete tasks from board (optional `--status` filter) |
+| `synapse tasks accept-plan <plan_id>` | Accept a Canvas Plan Card and auto-register its steps as Task Board entries with dependency tracking |
+| `synapse tasks sync-plan <plan_id>` | Sync Task Board progress back to the Canvas Plan Card |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
@@ -748,7 +751,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
-| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`). Exposes `bootstrap_agent` and `list_agents` tools |
+| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`). Exposes `bootstrap_agent`, `list_agents`, and `analyze_task` tools |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000). `--no-open` to suppress browser open |
 | `synapse canvas status` | Show Canvas server status (version, PID, asset hash match, STALE warning) |
 | `synapse canvas stop` | Stop Canvas server (health-check with identity + process verification, SIGKILL escalation, PID fallback). `--port`/`-p` to specify port |
@@ -761,6 +764,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse canvas diff <body>` | Post side-by-side diff card |
 | `synapse canvas image <url>` | Post image card |
 | `synapse canvas briefing <json>` | Post briefing template card (structured report with sections). Supports `--file` |
+| `synapse canvas plan <json>` | Post Plan Card template (Mermaid DAG + step list with status tracking). Supports `--file`. See [Smart Suggest Design](docs/design/smart-suggest-plan-canvas.md) |
 | `synapse canvas post-raw <json>` | Post raw Canvas Message Protocol JSON (supports all templates, typed bodies, and block-level metadata such as `x_title` / `x_filename`) |
 | `synapse canvas post progress <json>` | Post progress bar card (`{current, total, label, steps, status}`) |
 | `synapse canvas post terminal <string>` | Post terminal output card (supports ANSI escape codes) |

@@ -16,14 +16,24 @@ VALID_MESSAGE_TYPES = {"render", "update", "clear", "notify"}
 MAX_CONTENT_SIZE = 2_000_000  # 2MB per content block
 MAX_BLOCKS_PER_CARD = 30
 
-VALID_TEMPLATES = {"briefing", "comparison", "dashboard", "steps", "slides"}
+VALID_TEMPLATES = {"briefing", "comparison", "dashboard", "steps", "slides", "plan"}
 MAX_SECTIONS = 20
 MAX_SIDES = 4  # comparison: max N-way
 MAX_WIDGETS = 20  # dashboard: max grid cells
 MAX_STEPS = 30  # steps: max step count
 MAX_SLIDES = 30  # slides: max page count
+MAX_PLAN_STEPS = 30  # plan: max step count
+
+VALID_PLAN_STATUSES = {"proposed", "active", "completed", "cancelled"}
+VALID_STEP_STATUSES = {"pending", "blocked", "in_progress", "completed", "failed"}
 
 # ── template_data schemas ─────────────────────────────
+#
+# plan:
+#   Execution plan with Mermaid DAG + step list + status tracking.
+#   {"plan_id": str, "status?": str, "mermaid?": str,
+#    "steps": [{"id": str, "subject": str, "agent?": str,
+#               "status?": str, "blocked_by?": [str]}]}
 #
 # briefing:
 #   {"summary?": str, "sections": [{"title": str, "blocks?": [int], "summary?": str, "collapsed?": bool}]}
@@ -84,6 +94,7 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "dependency-graph": FormatSpec(body_type="object"),
     "cost": FormatSpec(body_type="object"),
     "link-preview": FormatSpec(body_type="object"),
+    "plan": FormatSpec(body_type="object"),
 }
 
 
@@ -484,6 +495,79 @@ def _validate_slides(msg: CanvasMessage) -> list[str]:
     return errors
 
 
+def _validate_plan(msg: CanvasMessage) -> list[str]:
+    """Validate plan template_data."""
+    errors: list[str] = []
+    td = msg.template_data
+
+    plan_id = td.get("plan_id")
+    if not plan_id or not isinstance(plan_id, str) or not plan_id.strip():
+        errors.append("Plan template_data must have a non-empty 'plan_id'")
+
+    status = td.get("status")
+    if status is not None and status not in VALID_PLAN_STATUSES:
+        errors.append(
+            f"Invalid plan status '{status}'. "
+            f"Must be one of: {', '.join(sorted(VALID_PLAN_STATUSES))}"
+        )
+
+    steps = td.get("steps")
+    if steps is None:
+        errors.append("Plan template_data must contain 'steps'")
+        return errors
+    if not isinstance(steps, list):
+        errors.append("Plan template_data 'steps' must be a list")
+        return errors
+    if len(steps) == 0:
+        errors.append("Plan template_data 'steps' must not be empty")
+        return errors
+    if len(steps) > MAX_PLAN_STEPS:
+        errors.append(
+            f"Too many plan steps ({len(steps)}). Maximum is {MAX_PLAN_STEPS}."
+        )
+
+    step_ids: set[str] = set()
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            errors.append(f"Plan step {i} must be a dict")
+            continue
+        step_id = step.get("id")
+        if not step_id or not isinstance(step_id, str) or not step_id.strip():
+            errors.append(f"Plan step {i} must have a non-empty 'id'")
+        else:
+            if step_id in step_ids:
+                errors.append(f"Duplicate plan step id '{step_id}'")
+            step_ids.add(step_id)
+
+        subject = step.get("subject")
+        if not subject or not isinstance(subject, str) or not subject.strip():
+            errors.append(f"Plan step {i} must have a non-empty 'subject'")
+
+        step_status = step.get("status")
+        if step_status is not None and step_status not in VALID_STEP_STATUSES:
+            errors.append(
+                f"Plan step {i} has invalid status '{step_status}'. "
+                f"Must be one of: {', '.join(sorted(VALID_STEP_STATUSES))}"
+            )
+
+        blocked_by = step.get("blocked_by")
+        if blocked_by is not None:
+            if not isinstance(blocked_by, list):
+                errors.append(f"Plan step {i} 'blocked_by' must be a list")
+            else:
+                for j, blocker in enumerate(blocked_by):
+                    if not isinstance(blocker, str) or not blocker.strip():
+                        errors.append(
+                            f"Plan step {i} blocked_by[{j}] must be a non-empty string"
+                        )
+                    elif blocker not in step_ids:
+                        errors.append(
+                            f"Plan step {i} blocked_by references unknown step '{blocker}'"
+                        )
+
+    return errors
+
+
 # Module-level validator dispatch (simple dict literal after all functions are defined)
 _TEMPLATE_VALIDATORS: dict[str, Any] = {
     "briefing": _validate_briefing,
@@ -491,4 +575,5 @@ _TEMPLATE_VALIDATORS: dict[str, Any] = {
     "dashboard": _validate_dashboard,
     "steps": _validate_steps,
     "slides": _validate_slides,
+    "plan": _validate_plan,
 }
