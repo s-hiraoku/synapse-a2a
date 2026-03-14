@@ -1178,6 +1178,10 @@ class TerminalController:
         # pty.spawn() inherits current environment, so update os.environ
         # to pass SYNAPSE_* vars to child process for sender identification
         os.environ.update(self.env)
+        # Remove CLAUDECODE from os.environ to prevent nested-session detection.
+        # self.env already has it popped, but os.environ may still carry it
+        # from the parent process.
+        os.environ.pop("CLAUDECODE", None)
 
         if use_input_callback:
             pty.spawn(cmd_list, read_callback, input_callback)
