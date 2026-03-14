@@ -2602,6 +2602,38 @@ def cmd_canvas_briefing(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_canvas_plan(args: argparse.Namespace) -> None:
+    """Post a plan card from JSON data or file."""
+    from synapse.commands.canvas import ensure_server_running, post_plan
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = args.port or CANVAS_DEFAULT_PORT
+    ensure_server_running(port=port)
+
+    json_data = getattr(args, "json_data", None)
+    if json_data == "-":
+        json_data = sys.stdin.read()
+
+    file_path = getattr(args, "file", None)
+    tags = args.tags.split(",") if args.tags else None
+
+    result = post_plan(
+        json_data=json_data,
+        file_path=file_path,
+        title=args.title,
+        agent_id=args.agent_id,
+        agent_name=getattr(args, "agent_name", ""),
+        card_id=args.card_id,
+        pinned=args.pinned,
+        tags=tags,
+        port=port,
+    )
+    if result:
+        print(f"Plan posted: {result['card_id']}")
+    else:
+        sys.exit(1)
+
+
 def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
     """Poll Canvas health endpoint until ready, then open in browser."""
     import time
@@ -6113,6 +6145,35 @@ Scopes:
     p_canvas_briefing.add_argument("--tags", default=None, help="Comma-separated tags")
     p_canvas_briefing.add_argument("--port", type=int, default=None, help="Server port")
     p_canvas_briefing.set_defaults(func=cmd_canvas_briefing)
+
+    # canvas plan [json_data] — Post a plan card
+    p_canvas_plan = canvas_subparsers.add_parser(
+        "plan", help="Post a plan card (Mermaid DAG + step list with status tracking)"
+    )
+    p_canvas_plan.add_argument(
+        "json_data",
+        nargs="?",
+        default=None,
+        help="Plan JSON data (or '-' for stdin)",
+    )
+    p_canvas_plan.add_argument("--file", default=None, help="Read plan from JSON file")
+    p_canvas_plan.add_argument("--title", default="", help="Plan title")
+    p_canvas_plan.add_argument(
+        "--agent-id",
+        default=os.environ.get("SYNAPSE_AGENT_ID", "cli"),
+        help="Agent ID",
+    )
+    p_canvas_plan.add_argument("--agent-name", default="", help="Agent display name")
+    p_canvas_plan.add_argument("--card-id", default=None, help="Card ID for upsert")
+    p_canvas_plan.add_argument(
+        "--pinned",
+        action="store_true",
+        default=True,
+        help="Pin card (default: true for plans)",
+    )
+    p_canvas_plan.add_argument("--tags", default=None, help="Comma-separated tags")
+    p_canvas_plan.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_plan.set_defaults(func=cmd_canvas_plan)
 
     # canvas post-raw <json> — raw JSON (supports composite cards)
     p_canvas_raw = canvas_subparsers.add_parser(

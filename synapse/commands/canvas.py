@@ -554,6 +554,112 @@ def post_briefing(
     )
 
 
+def post_plan(
+    json_data: str | None = None,
+    file_path: str | None = None,
+    title: str = "",
+    agent_id: str = "",
+    agent_name: str = "",
+    card_id: str | None = None,
+    pinned: bool = True,
+    tags: list[str] | None = None,
+    db_path: str | None = None,
+    port: int = DEFAULT_PORT,
+) -> dict | None:
+    """Post a plan card from JSON data or file. Returns card dict or None.
+
+    Expected JSON structure:
+    {
+        "plan_id": "plan-oauth2",
+        "status": "proposed",
+        "mermaid": "graph TD\\n  A-->B",
+        "steps": [
+            {"id": "s1", "subject": "Design", "agent": "claude", "status": "pending"},
+            {"id": "s2", "subject": "Implement", "agent": "codex", "status": "pending", "blocked_by": ["s1"]}
+        ]
+    }
+    """
+    if file_path:
+        raw = Path(file_path).read_text(encoding="utf-8")
+    elif json_data:
+        raw = json_data
+    else:
+        print("Error: No JSON data or file provided", file=sys.stderr)
+        return None
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON", file=sys.stderr)
+        return None
+
+    plan_id = data.get("plan_id", "")
+    plan_title = title or data.get("title", f"Plan: {plan_id}")
+    plan_card_id = card_id or plan_id
+
+    template_data: dict = {
+        "plan_id": plan_id,
+        "status": data.get("status", "proposed"),
+        "steps": data.get("steps", []),
+    }
+    if data.get("mermaid"):
+        template_data["mermaid"] = data["mermaid"]
+
+    agent_name = _resolve_agent_name(agent_id, agent_name)
+
+    payload: dict = {
+        "type": "render",
+        "content": {"format": "plan", "body": {}},
+        "agent_id": agent_id,
+        "title": plan_title,
+        "pinned": pinned,
+        "template": "plan",
+        "template_data": template_data,
+    }
+    if agent_name:
+        payload["agent_name"] = agent_name
+    if plan_card_id:
+        payload["card_id"] = plan_card_id
+    if tags:
+        payload["tags"] = tags
+
+    from synapse.canvas.protocol import CanvasMessage, validate_message
+
+    msg = CanvasMessage.from_dict(payload)
+    errors = validate_message(msg)
+    if errors:
+        print(f"Validation errors: {'; '.join(errors)}", file=sys.stderr)
+        return None
+
+    if is_canvas_server_running(port):
+        return _post_via_api(payload, port)
+
+    content_json = json.dumps({"format": "plan", "body": {}}, ensure_ascii=False)
+    store = CanvasStore(db_path=db_path)
+    if plan_card_id:
+        return store.upsert_card(
+            card_id=plan_card_id,
+            agent_id=agent_id,
+            content=content_json,
+            title=plan_title,
+            agent_name=agent_name or None,
+            pinned=pinned,
+            tags=tags,
+            template="plan",
+            template_data=template_data,
+        )
+    return store.add_card(
+        agent_id=agent_id,
+        content=content_json,
+        title=plan_title,
+        agent_name=agent_name or None,
+        pinned=pinned,
+        tags=tags,
+        template="plan",
+        template_data=template_data,
+    )
+
+
 def post_shortcut(
     format_name: str,
     body: str,

@@ -1071,8 +1071,39 @@
       // Step list
       var stepList = document.createElement("div");
       stepList.className = "plan-step-list";
-      // TODO(human): Implement the step list item rendering logic
-      stepList.appendChild(document.createTextNode(""));
+
+      for (var i = 0; i < steps.length; i++) {
+        var step = steps[i];
+        var stepStatus = step.status || "pending";
+        var item = document.createElement("div");
+        item.className = "plan-step-item";
+        if (stepStatus === "completed") item.classList.add("plan-step-item-completed");
+
+        var icon = document.createElement("span");
+        icon.className = "plan-step-icon";
+        icon.textContent = STEP_STATUS_ICONS[stepStatus] || STEP_STATUS_ICONS.pending;
+        item.appendChild(icon);
+
+        var subject = document.createElement("span");
+        subject.className = "plan-step-subject";
+        subject.textContent = step.subject || "Step " + (i + 1);
+        item.appendChild(subject);
+
+        if (step.agent) {
+          var agent = document.createElement("span");
+          agent.className = "plan-step-agent";
+          agent.textContent = step.agent;
+          item.appendChild(agent);
+        }
+
+        var statusLabel = document.createElement("span");
+        statusLabel.className = "plan-step-status";
+        statusLabel.textContent = stepStatus;
+        item.appendChild(statusLabel);
+
+        stepList.appendChild(item);
+      }
+
       container.appendChild(stepList);
     }
 
