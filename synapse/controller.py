@@ -166,6 +166,9 @@ class TerminalController:
         self._file_safety_manager: FileSafetyManager | None = None
 
         self.env = env or os.environ.copy()
+        # Unset CLAUDECODE to prevent nested-session detection when
+        # launching Claude Code from within a Claude Code session.
+        self.env.pop("CLAUDECODE", None)
         self.master_fd: int | None = None
         self.slave_fd: int | None = None
         self.process: subprocess.Popen[bytes] | None = None
