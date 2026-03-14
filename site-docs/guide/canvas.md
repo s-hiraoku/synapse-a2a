@@ -50,6 +50,9 @@ synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"
 # Image (URL or base64 data URI)
 synapse canvas image "https://..." --title "Screenshot"
 
+# Link preview (OGP metadata)
+synapse canvas link "https://example.com/article" --title "Reference"
+
 # Briefing (structured report with sections)
 synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}' --title "Sprint Report"
 ```
@@ -130,6 +133,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
 | `tip` | Plain text | Tip callout | Helpful hints and tips |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation table |
+| `link-preview` | `{url, title?, description?, image?, site_name?}` | Link card | Rich link preview with OGP metadata |
 
 !!! tip "Mermaid Theme Integration"
     Mermaid diagrams automatically sync with the Canvas dark/light theme toggle. When the theme changes, diagrams re-render using a custom color palette — Catppuccin-inspired tones for dark mode and Indigo tones for light mode, with the brand accent color (`#4051b5`). The original Mermaid source is preserved in a `data-mermaid-source` attribute on each diagram element, enabling seamless re-rendering without re-posting the card.
@@ -383,6 +387,9 @@ synapse canvas post terminal 'Building project...\n\033[32m✓ Compiled 42 files
 synapse canvas post dependency-graph '{"nodes":[{"id":"auth","group":"core"},{"id":"api","group":"core"},{"id":"ui","group":"frontend"}],"edges":[{"from":"ui","to":"api"},{"from":"api","to":"auth"}]}' --title "Dependencies"
 synapse canvas post tip 'Remember to run tests before pushing' --title "Reminder"
 synapse canvas post cost '{"agents":[{"name":"claude","input_tokens":15000,"output_tokens":8000,"cost":0.12},{"name":"gemini","input_tokens":20000,"output_tokens":5000,"cost":0.05}],"total_cost":0.17,"currency":"USD"}' --title "Token Costs"
+
+# Link preview with OGP metadata (server-side enrichment)
+synapse canvas link "https://example.com/article" --title "Reference"
 ```
 
 ## Server Auto-Start

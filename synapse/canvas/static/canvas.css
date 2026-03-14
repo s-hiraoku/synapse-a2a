@@ -3606,6 +3606,110 @@ body.sidebar-collapsed #main-content {
   font-weight: bold;
 }
 
+/* ── Link Preview Card ──────────────────────── */
+
+.link-preview-card {
+  display: flex;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--glass-stroke);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.link-preview-card:hover {
+  background: var(--glass-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.link-preview-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.link-preview-site {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.link-preview-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.link-preview-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-accent);
+  line-height: var(--leading-snug);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-description {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  line-height: var(--leading-normal);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-preview-url {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.link-preview-thumbnail {
+  flex-shrink: 0;
+  width: 120px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.link-preview-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 480px) {
+  .link-preview-card {
+    flex-direction: column;
+  }
+  .link-preview-thumbnail {
+    width: 100%;
+    height: 160px;
+    order: -1;
+  }
+}
+
 /* ── Responsive — template adjustments ──────── */
 
 @media (max-width: 640px) {

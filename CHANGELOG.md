@@ -12,6 +12,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
+- `synapse canvas link <url>` CLI command for posting rich link preview cards
+
 ## [0.11.21] - 2026-03-14
 
 ### Documentation

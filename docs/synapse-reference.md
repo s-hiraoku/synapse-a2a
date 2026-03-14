@@ -65,6 +65,7 @@ synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
 synapse canvas post markdown "## Doc" --title "Doc"
 synapse canvas post-raw '{"content":{"format":"code","body":"print(1)","x_title":"Demo"}}'
 synapse canvas briefing '{"content":[...],"sections":[...]}'
+synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas list [--mine] [--search TERM]
 synapse canvas open [--port 3000]
 synapse canvas status [--port 3000]

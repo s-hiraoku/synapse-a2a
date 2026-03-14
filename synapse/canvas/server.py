@@ -626,6 +626,30 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {"consumed": deleted, "card_id": card_id}
 
     # ----------------------------------------------------------------
+    # Link-preview OGP enrichment
+    # ----------------------------------------------------------------
+    async def _enrich_link_previews(msg: CanvasMessage) -> None:
+        """Enrich link-preview content blocks with OGP metadata."""
+        from synapse.canvas.ogp import fetch_ogp
+
+        blocks = msg.content if isinstance(msg.content, list) else [msg.content]
+        for block in blocks:
+            if block.format != "link-preview":
+                continue
+            body = block.body
+            if not isinstance(body, dict):
+                continue
+            url = body.get("url")
+            if not url or not isinstance(url, str):
+                continue
+            # Skip if already enriched
+            if body.get("fetched"):
+                continue
+            ogp_data = await fetch_ogp(url)
+            body.update(ogp_data)
+            block.body = body
+
+    # ----------------------------------------------------------------
     # POST /api/cards — Create or update card
     # ----------------------------------------------------------------
     @app.post("/api/cards", status_code=201, response_model=None)
@@ -636,6 +660,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         errors = validate_message(msg)
         if errors:
             raise HTTPException(status_code=422, detail=errors)
+
+        # Enrich link-preview blocks with OGP metadata
+        await _enrich_link_previews(msg)
 
         # Serialize content to JSON string for storage
         if isinstance(msg.content, list):
