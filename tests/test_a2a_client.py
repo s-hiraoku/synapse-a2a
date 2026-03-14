@@ -1,6 +1,7 @@
 """Tests for A2A Client - Google A2A protocol compliance."""
 
 import json
+import logging
 import shutil
 from pathlib import Path
 from unittest.mock import patch
@@ -599,3 +600,66 @@ class TestA2ATask:
         assert task.id == "test-id"
         assert task.status == "working"
         assert len(task.artifacts) == 1
+
+
+# ============================================================
+# Logger Usage Tests (print→logger migration)
+# ============================================================
+
+
+class TestA2AClientUsesLogger:
+    """Verify that A2A client uses logger instead of print for warnings."""
+
+    def test_load_all_logs_warning_on_bad_file(self, tmp_path):
+        """_load_all should log warning (not print) when a file fails to load."""
+        registry = ExternalAgentRegistry()
+        registry.registry_dir = tmp_path
+        registry._cache = {}
+
+        # Write invalid JSON to trigger the except branch
+        bad_file = tmp_path / "bad.json"
+        bad_file.write_text("{invalid json")
+
+        with patch("synapse.a2a_client.logger") as mock_logger:
+            registry._load_all()
+            mock_logger.warning.assert_called_once()
+            assert "bad.json" in str(mock_logger.warning.call_args)
+
+    @responses.activate
+    def test_discover_logs_warning_on_failure(self, a2a_client):
+        """discover() should log warning (not print) on request failure."""
+        responses.add(
+            responses.GET,
+            "http://fail.example.com/.well-known/agent.json",
+            status=500,
+        )
+
+        with patch("synapse.a2a_client.logger") as mock_logger:
+            result = a2a_client.discover("http://fail.example.com")
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            assert "fail.example.com" in str(mock_logger.warning.call_args)
+
+    def test_send_message_logs_warning_agent_not_found(self, a2a_client):
+        """send_message() should log warning (not print) when agent not found."""
+        with patch("synapse.a2a_client.logger") as mock_logger:
+            result = a2a_client.send_message("nonexistent", "Hello")
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            assert "nonexistent" in str(mock_logger.warning.call_args)
+
+    @responses.activate
+    def test_send_to_local_logs_warning_on_request_failure(self, a2a_client):
+        """send_to_local() should log warning (not print) on request failure."""
+        responses.add(
+            responses.POST,
+            "http://localhost:9999/tasks/send-priority?priority=1",
+            status=500,
+        )
+
+        with patch("synapse.a2a_client.logger") as mock_logger:
+            result = a2a_client.send_to_local(
+                endpoint="http://localhost:9999", message="Test"
+            )
+            assert result is None
+            mock_logger.warning.assert_called_once()

@@ -126,7 +126,7 @@ class ExternalAgentRegistry:
                         agent = ExternalAgent(**data)
                         self._cache[agent.alias] = agent
                 except Exception as e:
-                    print(f"Warning: Failed to load {file}: {e}")
+                    logger.warning("Failed to load %s: %s", file, e)
 
     def _save(self, agent: ExternalAgent) -> None:
         """Save agent to disk"""
@@ -223,7 +223,7 @@ class A2AClient:
             return agent
 
         except requests.exceptions.RequestException as e:
-            print(f"Failed to discover agent at {url}: {e}")
+            logger.warning("Failed to discover agent at %s: %s", url, e)
             return None
 
     def send_to_local(
@@ -483,7 +483,7 @@ class A2AClient:
         except requests.exceptions.RequestException as e:
             # Clear transport status on error
             _update_transport(None)
-            print(f"Failed to send message to local agent: {e}")
+            logger.warning("Failed to send message to local agent: %s", e)
             return None
 
     def _wait_for_task_completion(
@@ -566,7 +566,7 @@ class A2AClient:
         """
         agent = self.registry.get(alias)
         if not agent:
-            print(f"Agent '{alias}' not found")
+            logger.warning("Agent '%s' not found", alias)
             return None
 
         try:
@@ -595,7 +595,7 @@ class A2AClient:
             return task
 
         except requests.exceptions.RequestException as e:
-            print(f"Failed to send message to {alias}: {e}")
+            logger.warning("Failed to send message to %s: %s", alias, e)
             return None
 
     def get_task(self, alias: str, task_id: str) -> A2ATask | None:
@@ -613,7 +613,7 @@ class A2AClient:
             return A2ATask.from_dict(data, fallback_id=task_id)
 
         except requests.exceptions.RequestException as e:
-            print(f"Failed to get task from {alias}: {e}")
+            logger.warning("Failed to get task from %s: %s", alias, e)
             return None
 
     def cancel_task(self, alias: str, task_id: str) -> bool:

@@ -4,7 +4,12 @@ import re
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
+from synapse.utils import (
+    extract_file_parts,
+    extract_text_from_parts,
+    format_a2a_message,
+    get_iso_timestamp,
+)
 
 
 class TestExtractTextFromParts:
@@ -239,3 +244,66 @@ class TestGetIsoTimestamp:
 
         # Should be between before and after
         assert before <= parsed <= after
+
+
+class TestExtractFilePartsExceptionHandling:
+    """Tests for extract_file_parts exception narrowing."""
+
+    def test_model_dump_type_error_returns_none(self):
+        """Should catch TypeError from model_dump() and skip the part."""
+        obj = MagicMock()
+        obj.model_dump.side_effect = TypeError("bad args")
+        del obj.dict  # Ensure dict fallback is not tried
+        obj.type = "other"
+
+        result = extract_file_parts([obj])
+        assert result == []
+
+    def test_model_dump_value_error_returns_none(self):
+        """Should catch ValueError from model_dump() and skip the part."""
+        obj = MagicMock()
+        obj.model_dump.side_effect = ValueError("invalid")
+        del obj.dict
+        obj.type = "other"
+
+        result = extract_file_parts([obj])
+        assert result == []
+
+    def test_model_dump_attribute_error_returns_none(self):
+        """Should catch AttributeError from model_dump() and skip the part."""
+        obj = MagicMock()
+        obj.model_dump.side_effect = AttributeError("missing")
+        del obj.dict
+        obj.type = "other"
+
+        result = extract_file_parts([obj])
+        assert result == []
+
+    def test_dict_method_type_error_returns_none(self):
+        """Should catch TypeError from dict() and skip the part."""
+        obj = MagicMock(spec=[])
+        obj.dict = MagicMock(side_effect=TypeError("bad"))
+        obj.type = "other"
+
+        result = extract_file_parts([obj])
+        assert result == []
+
+    def test_dict_method_value_error_returns_none(self):
+        """Should catch ValueError from dict() and skip the part."""
+        obj = MagicMock(spec=[])
+        obj.dict = MagicMock(side_effect=ValueError("invalid"))
+        obj.type = "other"
+
+        result = extract_file_parts([obj])
+        assert result == []
+
+    def test_uncaught_exceptions_propagate(self):
+        """Exceptions outside the narrowed set should propagate."""
+        obj = MagicMock()
+        obj.model_dump.side_effect = RuntimeError("unexpected")
+
+        with MagicMock():
+            import pytest
+
+            with pytest.raises(RuntimeError, match="unexpected"):
+                extract_file_parts([obj])

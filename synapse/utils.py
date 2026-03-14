@@ -57,13 +57,13 @@ def extract_file_parts(parts: list[Any]) -> list[dict]:
             try:
                 dumped = obj.model_dump()
                 return dumped if isinstance(dumped, dict) else None
-            except Exception:
+            except (TypeError, ValueError, AttributeError):
                 return None
         if hasattr(obj, "dict"):
             try:
                 dumped = obj.dict()
                 return dumped if isinstance(dumped, dict) else None
-            except Exception:
+            except (TypeError, ValueError, AttributeError):
                 return None
         return None
 

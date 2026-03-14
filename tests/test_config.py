@@ -1,10 +1,14 @@
 """Tests for synapse/config.py constants."""
 
+import inspect
+
 import pytest
 
+from synapse import config
 from synapse.config import (
     AGENT_WAIT_TIMEOUT,
     API_RESPONSE_CONTEXT_SIZE,
+    CANVAS_DEFAULT_PORT,
     COMPLETED_TASK_STATES,
     CONTEXT_RECENT_SIZE,
     IDENTITY_WAIT_TIMEOUT,
@@ -147,3 +151,22 @@ class TestConstantRelationships:
         connect_timeout, read_timeout = REQUEST_TIMEOUT
         assert connect_timeout <= 10  # Connect should be quick
         assert read_timeout <= 60  # Read can be longer
+
+
+class TestConfigStructure:
+    """Tests for config.py module structure and organization."""
+
+    def test_no_duplicate_section_headers(self):
+        """Section comment headers should not be duplicated in config.py."""
+        source = inspect.getsource(config)
+        # Extract section headers (lines matching the pattern)
+        import re
+
+        headers = re.findall(r"^# (\w[\w\s]+\w)\s*$", source, re.MULTILINE)
+        duplicates = [h for h in headers if headers.count(h) > 1]
+        assert duplicates == [], f"Duplicate section headers found: {set(duplicates)}"
+
+    def test_canvas_constants_exist(self):
+        """Canvas constants should be defined."""
+        assert isinstance(CANVAS_DEFAULT_PORT, int)
+        assert CANVAS_DEFAULT_PORT > 0
