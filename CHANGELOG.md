@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.22] - 2026-03-15
+
 ### Added
 
 - `link-preview` Canvas format with OGP metadata fetching and server-side enrichment

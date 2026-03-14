@@ -4,12 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.11.22
+
+- **Added**: `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
+- **Added**: `synapse canvas link <url>` CLI command for posting rich link preview cards
+
 ### Unreleased
 
 - **Fixed**: Copilot PTY injections now perform bounded submit confirmation after the normal Enter retry, reducing cases where text lands in the input box but does not execute.
 - **Added**: Copilot profile settings `submit_confirm_timeout`, `submit_confirm_poll_interval`, and `submit_confirm_retries` for post-submit confirmation tuning.
-- **Added**: `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
-- **Added**: `synapse canvas link <url>` CLI command for posting rich link preview cards
 
 ### v0.11.21
 
