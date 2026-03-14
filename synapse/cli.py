@@ -3043,9 +3043,13 @@ def cmd_tasks_accept_plan(args: argparse.Namespace) -> None:
 
 def cmd_tasks_sync_plan(args: argparse.Namespace) -> None:
     """Sync task board progress back to a plan card."""
-    from synapse.commands.canvas import sync_plan_progress
+    from synapse.commands.canvas import PlanNotFoundError, sync_plan_progress
 
-    updated = sync_plan_progress(plan_id=args.plan_id)
+    try:
+        updated = sync_plan_progress(plan_id=args.plan_id)
+    except PlanNotFoundError:
+        print(f"Error: Plan '{args.plan_id}' not found", file=sys.stderr)
+        sys.exit(1)
     if updated:
         print(f"Plan '{args.plan_id}' progress synced.")
     else:

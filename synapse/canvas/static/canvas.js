@@ -1038,15 +1038,18 @@
     header.appendChild(badge);
     container.appendChild(header);
 
-    // Mermaid DAG section
+    // Mermaid DAG section (uses same wrapper as renderMermaid for runMermaid() compat)
     if (templateData.mermaid) {
       var dagSection = document.createElement("div");
-      dagSection.className = "plan-dag";
+      dagSection.className = "plan-dag format-mermaid";
+      var mermaidPanel = document.createElement("div");
+      mermaidPanel.className = "mermaid-panel";
       var pre = document.createElement("pre");
       pre.className = "mermaid-pending mermaid";
       pre.textContent = templateData.mermaid;
       pre.dataset.mermaidSource = templateData.mermaid;
-      dagSection.appendChild(pre);
+      mermaidPanel.appendChild(pre);
+      dagSection.appendChild(mermaidPanel);
       container.appendChild(dagSection);
     }
 

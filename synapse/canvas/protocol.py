@@ -550,8 +550,19 @@ def _validate_plan(msg: CanvasMessage) -> list[str]:
             )
 
         blocked_by = step.get("blocked_by")
-        if blocked_by is not None and not isinstance(blocked_by, list):
-            errors.append(f"Plan step {i} 'blocked_by' must be a list")
+        if blocked_by is not None:
+            if not isinstance(blocked_by, list):
+                errors.append(f"Plan step {i} 'blocked_by' must be a list")
+            else:
+                for j, blocker in enumerate(blocked_by):
+                    if not isinstance(blocker, str) or not blocker.strip():
+                        errors.append(
+                            f"Plan step {i} blocked_by[{j}] must be a non-empty string"
+                        )
+                    elif blocker not in step_ids:
+                        errors.append(
+                            f"Plan step {i} blocked_by references unknown step '{blocker}'"
+                        )
 
     return errors
 

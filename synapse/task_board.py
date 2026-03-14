@@ -543,6 +543,9 @@ class TaskBoard:
     def set_blocked_by(self, task_id: str, blocked_by: list[str]) -> bool:
         """Set the blocked_by list for a task.
 
+        Sanitizes the list: removes self-references, deduplicates,
+        and drops IDs that do not exist in the board.
+
         Args:
             task_id: The board task ID.
             blocked_by: List of task IDs that block this task.
@@ -553,13 +556,29 @@ class TaskBoard:
         with self._lock:
             conn = self._get_connection()
             try:
+                # Sanitize: remove self-cycle and deduplicate
+                candidates = list(
+                    dict.fromkeys(bid for bid in blocked_by if bid != task_id)
+                )
+                # Keep only IDs that exist in the board
+                if candidates:
+                    placeholders = ",".join("?" for _ in candidates)
+                    existing = {
+                        row["id"]
+                        for row in conn.execute(
+                            f"SELECT id FROM board_tasks WHERE id IN ({placeholders})",
+                            candidates,
+                        ).fetchall()
+                    }
+                    candidates = [bid for bid in candidates if bid in existing]
+
                 cursor = conn.execute(
                     """
                     UPDATE board_tasks
                     SET blocked_by = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
-                    (json.dumps(blocked_by), task_id),
+                    (json.dumps(candidates), task_id),
                 )
                 conn.commit()
                 return cursor.rowcount > 0

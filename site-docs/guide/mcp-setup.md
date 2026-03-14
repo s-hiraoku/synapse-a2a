@@ -256,17 +256,18 @@ When one or more triggers match, the tool returns a suggested task split (design
 **Configuration** (`.synapse/suggest.yaml`):
 
 ```yaml
-enabled: true
-triggers:
-  min_files: 10
-  multi_directory: true
-  missing_tests: true
-  min_prompt_length: 200
-  keywords:
-    - refactor
-    - migrate
-    - review
-    - redesign
+suggest:
+  enabled: true
+  triggers:
+    min_files: 10
+    multi_directory: true
+    missing_tests: true
+    min_prompt_length: 200
+    keywords:
+      - refactor
+      - migrate
+      - review
+      - redesign
 ```
 
 When Smart Suggest is enabled, the default instruction resource automatically includes guidance for agents to call `analyze_task` on new tasks and share suggestions with the user before proceeding.

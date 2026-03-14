@@ -747,6 +747,10 @@ def accept_plan(
     }
 
 
+class PlanNotFoundError(ValueError):
+    """Raised when a plan card is not found in the Canvas store."""
+
+
 def sync_plan_progress(
     plan_id: str,
     canvas_db: str | None = None,
@@ -754,14 +758,17 @@ def sync_plan_progress(
 ) -> bool:
     """Sync Task Board task statuses back to Canvas Plan Card.
 
-    Returns True if the card was updated, False if not found or no changes.
+    Returns True if the card was updated, False if no changes needed.
+
+    Raises:
+        PlanNotFoundError: If the plan card does not exist.
     """
     from synapse.task_board import TaskBoard
 
     store = CanvasStore(db_path=canvas_db)
     card = store.get_card(plan_id)
     if card is None:
-        return False
+        raise PlanNotFoundError(f"Plan '{plan_id}' not found")
 
     td_raw = card.get("template_data")
     td = json.loads(td_raw) if isinstance(td_raw, str) else td_raw or {}
@@ -796,6 +803,9 @@ def sync_plan_progress(
 
     if all_completed and td.get("status") != "completed":
         td["status"] = "completed"
+        updated = True
+    elif not all_completed and td.get("status") == "completed":
+        td["status"] = "active"
         updated = True
 
     if updated:

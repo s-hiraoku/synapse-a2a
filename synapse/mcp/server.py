@@ -374,8 +374,9 @@ class SynapseMCPServer:
                 text=True,
                 check=False,
                 cwd=Path.cwd(),
+                timeout=5,
             )
-        except OSError:
+        except (OSError, subprocess.TimeoutExpired):
             return []
 
         if result.returncode != 0:

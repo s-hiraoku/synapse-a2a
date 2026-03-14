@@ -723,7 +723,7 @@ synapse canvas briefing --file report.json --title "CI Report"
 **plan**:
 ```jsonc
 {
-  "title": "OAuth2 Migration Plan",
+  // Note: title belongs to CanvasMessage.title, not template_data
   "plan_id": "plan-oauth2-migration",    // Unique plan identifier
   "status": "proposed",                  // proposed | active | completed | cancelled
   "mermaid": "graph TD\n  A[Design] --> B[Implement]\n  B --> C[Test]",
@@ -735,8 +735,8 @@ synapse canvas briefing --file report.json --title "CI Report"
       "status": "pending",               // pending | blocked | in_progress | completed | failed
       "blocked_by": []                   // IDs of blocking steps
     }
-  ],
-  "actions": ["approve", "edit", "cancel"]
+  ]
+  // actions (approve, edit, cancel) are rendered by the CanvasMessage layer
 }
 ```
 

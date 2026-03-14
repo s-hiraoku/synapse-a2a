@@ -1508,7 +1508,7 @@ synapse tasks accept-plan <plan_id>
 1. Canvas から Plan Card を取得（`plan_id` で検索）
 2. `template_data.steps` を順に Task Board へ登録
 3. `blocked_by` の依存関係を設定
-4. `suggested_agent` を `assignee_hint` に設定
+4. `agent` を `assignee_hint` に設定
 5. Plan Card のステータスを `proposed` → `active` に更新
 6. Canvas Plan Card を再描画
 
