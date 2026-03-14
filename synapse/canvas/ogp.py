@@ -133,9 +133,9 @@ def _parse_ogp_tags(html: str) -> dict[str, str]:
 
 
 def _domain(url: str) -> str:
-    """Extract the domain portion from a URL."""
+    """Extract the domain portion from a URL (without credentials)."""
     parsed = urlparse(url)
-    return parsed.netloc or parsed.hostname or ""
+    return parsed.hostname or ""
 
 
 def _fallback(url: str) -> dict:

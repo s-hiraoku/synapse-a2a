@@ -60,6 +60,9 @@ synapse = ["templates/.synapse/*", "profiles/*.yaml", "profiles/**/*", "canvas/t
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "no_server_mock: opt out of the autouse _isolate_from_live_server fixture",
+]
 
 [tool.ruff]
 target-version = "py310"

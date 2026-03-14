@@ -1951,11 +1951,13 @@
     var siteName = data.og_site_name || data.site_name || domain;
     var favicon = data.favicon || "";
 
-    var card = document.createElement("a");
+    var card = document.createElement(url ? "a" : "div");
     card.className = "link-preview-card";
-    card.href = url;
-    card.target = "_blank";
-    card.rel = "noopener noreferrer";
+    if (url) {
+      card.href = url;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+    }
 
     // Left text section
     var textSection = document.createElement("div");
