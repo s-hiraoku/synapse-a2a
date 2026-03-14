@@ -770,6 +770,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse canvas post terminal <string>` | Post terminal output card (supports ANSI escape codes) |
 | `synapse canvas post dependency-graph <json>` | Post dependency graph card (`{nodes, edges}`, rendered via Mermaid) |
 | `synapse canvas post cost <json>` | Post token/cost aggregation table (`{agents, total_cost, currency}`) |
+| `synapse canvas link <url>` | Post link preview card (OGP-enriched embed with title, description, image) |
 | `synapse canvas list` | List cards (`--mine`, `--search`, `--type`) |
 | `synapse canvas delete <card_id>` | Delete a card |
 | `synapse canvas clear` | Clear all cards (`--agent` to filter) |

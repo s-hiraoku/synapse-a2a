@@ -573,6 +573,7 @@ synapse canvas post <format> "<body>" [OPTIONS]
 | `terminal` | Plain text (ANSI supported) | Terminal output with ANSI colors |
 | `dependency-graph` | `{nodes, edges}` JSON | Dependency graph (rendered as Mermaid subgraph) |
 | `cost` | `{agents, total_cost, currency}` JSON | Token/cost aggregation table |
+| `link-preview` | URL string | Rich link preview with OGP metadata |
 
 For structured cards or any block metadata such as `x_title` / `x_filename`, use `synapse canvas post-raw` with a full Canvas Message JSON payload. This is the preferred path for structured cards that should preserve typed `body` data instead of sending a plain string.
 
@@ -594,6 +595,23 @@ synapse canvas post-raw '<Canvas Message JSON>'
 ```
 
 Post a full Canvas Message Protocol JSON payload. Supports composite cards (multiple content blocks), templates, and all protocol fields.
+
+### Link Preview
+
+```bash
+synapse canvas link "<url>" [OPTIONS]
+```
+
+Posts a link preview card with OGP metadata. The server fetches Open Graph metadata from the URL using streaming reads and renders a rich link card. Only `http://` and `https://` URLs are accepted; private/loopback addresses are rejected (SSRF protection), and redirect targets are validated at each hop. Multiple link-preview blocks in a composite card are fetched in parallel.
+
+The enriched body uses `og_`-prefixed field names (`og_title`, `og_description`, `og_image`, `og_site_name`). The renderer also accepts plain aliases (`title`, `description`, `image`, `site_name`) for non-OGP payloads.
+
+| Flag | Description |
+|------|-------------|
+| `--title TITLE` | Card title (overrides OGP title) |
+| `--id ID` | Stable card ID for upsert |
+| `--pin` | Pin card |
+| `--tag TAG` | Tag for filtering (repeatable) |
 
 ### Plan
 

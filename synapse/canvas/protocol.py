@@ -93,6 +93,7 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "terminal": FormatSpec(body_type="string"),
     "dependency-graph": FormatSpec(body_type="object"),
     "cost": FormatSpec(body_type="object"),
+    "link-preview": FormatSpec(body_type="object"),
     "plan": FormatSpec(body_type="object"),
 }
 

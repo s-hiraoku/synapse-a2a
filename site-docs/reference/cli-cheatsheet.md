@@ -100,6 +100,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas post table '{...}' --title T` | Post data table |
 | `synapse canvas post code "..." --lang py` | Post syntax-highlighted code |
 | `synapse canvas post chart '{...}' --title T` | Post Chart.js chart |
+| `synapse canvas link "https://..." --title T` | Post link preview with OGP metadata |
 | `synapse canvas post-raw '{raw JSON}'` | Post raw Canvas Message JSON |
 | `synapse canvas briefing '{...}'` | Post structured briefing report |
 | `synapse canvas plan '{...}'` | Post execution plan (Mermaid DAG + steps) |
@@ -455,6 +456,9 @@ synapse canvas post table '{"headers":["a","b"],"rows":[["1","2"]]}' --title "Re
 synapse canvas post code "def foo(): pass" --lang python --title "Impl"
 synapse canvas post chart '{"type":"bar","data":{"labels":["Q1","Q2"],"datasets":[{"data":[10,20]}]}}' --title "Coverage"
 synapse canvas post image "https://example.com/screenshot.png" --title "Screenshot"
+
+# Post link preview (OGP metadata fetched server-side)
+synapse canvas link "https://example.com/article" --title "Reference"
 
 # Post a briefing (structured report with sections)
 synapse canvas briefing '{"title":"Sprint Report","sections":[{"title":"Summary"}],"content":[{"format":"markdown","body":"All tasks done."}]}'

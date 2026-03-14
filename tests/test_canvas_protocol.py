@@ -340,6 +340,14 @@ class TestFormatRegistry:
 
         assert FORMAT_REGISTRY["html"].sandboxed is True
 
+    def test_link_preview_format_registered(self):
+        """link-preview format should be in the registry with object body_type."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+
+        assert "link-preview" in FORMAT_REGISTRY
+        spec = FORMAT_REGISTRY["link-preview"]
+        assert spec.body_type == "object"
+
 
 # ============================================================
 # TestMessageSerialization — JSON serialization

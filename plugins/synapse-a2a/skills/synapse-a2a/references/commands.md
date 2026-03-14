@@ -1649,11 +1649,14 @@ synapse canvas post dependency-graph '{"nodes": [{"id": "auth", "group": "core"}
 # Post a cost summary
 synapse canvas post cost '{"agents": [{"name": "claude", "input_tokens": 50000, "output_tokens": 12000, "cost": 0.45}, {"name": "gemini", "input_tokens": 30000, "output_tokens": 8000, "cost": 0.12}], "total_cost": 0.57, "currency": "USD"}' --title "Session Cost"
 
+# Post a link preview (fetches Open Graph metadata and renders as a rich card)
+synapse canvas link "https://example.com/article" --title "Reference"
+
 # Post raw JSON (composite cards with multiple content blocks)
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
 
-**Supported formats (22):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost
+**Supported formats (23):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost, link-preview
 
 ### Templates
 
@@ -1718,6 +1721,7 @@ Rule of thumb:
 | terminal | ANSI terminal | Renders raw terminal output with ANSI escape codes |
 | dependency-graph | Force-directed graph | Nodes with optional `group` colouring; directed edges |
 | cost | Cost summary table | Per-agent token counts and costs with total row |
+| link-preview | Open Graph card | Fetches OG metadata from URL; renders title, description, and thumbnail |
 
 ### Manage Cards
 

@@ -626,6 +626,41 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {"consumed": deleted, "card_id": card_id}
 
     # ----------------------------------------------------------------
+    # Link-preview OGP enrichment
+    # ----------------------------------------------------------------
+    async def _enrich_link_previews(msg: CanvasMessage) -> None:
+        """Enrich link-preview content blocks with OGP metadata."""
+        from synapse.canvas.ogp import fetch_ogp
+
+        blocks = msg.content if isinstance(msg.content, list) else [msg.content]
+        targets: list[tuple[Any, dict, str]] = []
+        for block in blocks:
+            if block.format != "link-preview":
+                continue
+            body = block.body
+            if not isinstance(body, dict):
+                continue
+            url = body.get("url")
+            if not url or not isinstance(url, str):
+                continue
+            if body.get("fetched"):
+                continue
+            targets.append((block, body, url))
+
+        if not targets:
+            return
+
+        results = await asyncio.gather(
+            *(fetch_ogp(url) for _, _, url in targets),
+            return_exceptions=True,
+        )
+        for (block, body, _), result in zip(targets, results, strict=True):
+            if isinstance(result, BaseException) or not isinstance(result, dict):
+                continue
+            body.update(result)
+            block.body = body
+
+    # ----------------------------------------------------------------
     # POST /api/cards — Create or update card
     # ----------------------------------------------------------------
     @app.post("/api/cards", status_code=201, response_model=None)
@@ -636,6 +671,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         errors = validate_message(msg)
         if errors:
             raise HTTPException(status_code=422, detail=errors)
+
+        # Enrich link-preview blocks with OGP metadata
+        await _enrich_link_previews(msg)
 
         # Serialize content to JSON string for storage
         if isinstance(msg.content, list):

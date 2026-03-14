@@ -79,6 +79,13 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation |
 | `tip` | String | Styled tip card | System tips and suggestions |
+| `link-preview` | `{url}` (enriched with `og_title`, `og_description`, `og_image`, `og_site_name`, `og_type`, `favicon`, `domain`, `fetched`) | Embed card | OGP link previews with title, description, image |
+
+**Link-preview OGP fetch details**:
+- **URL validation**: Only `http` and `https` URLs are accepted; the CLI command exits with a non-zero status on invalid input.
+- **SSRF protection**: HTTP redirects are followed manually with each redirect target validated against the same allowlist, preventing open-redirect SSRF attacks.
+- **Streaming read with size cap**: HTML is read via `aiter_bytes()` with a 64 KB ceiling, avoiding unbounded memory consumption on large pages.
+- **Parallel fetch**: When a card contains multiple `link-preview` blocks, OGP metadata is fetched concurrently via `asyncio.gather`.
 
 **Block-level metadata**: Any content block can carry optional `x_title` and `x_filename` fields. Renderers (mermaid, json, code, log, checklist, trace, tip) use `buildMetaRow()` to display this metadata above the rendered content. This replaces the earlier body-embedded metadata pattern (`{source, title?, filename?}`) and `parseBodyWithKey()` helper, which have been removed.
 
@@ -176,6 +183,7 @@ synapse canvas code "def foo(): pass" --lang python --title "Impl"
 synapse canvas diff "--- a/f.py\n+++ b/f.py\n..." --title "Changes"
 synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"
 synapse canvas image "https://..." --title "Screenshot"
+synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas briefing '{"sections":[...],"content":[...]}' --title "Report"
 synapse canvas briefing --file report.json --title "CI Report"
 ```

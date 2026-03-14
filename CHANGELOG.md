@@ -5,19 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
+## [Unreleased]
 
-All notable changes to this project will be documented in this file.
+## [0.12.1] - 2026-03-15
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
 
-# Changelog
+- `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
+- `synapse canvas link <url>` CLI command for posting rich link preview cards
 
-All notable changes to this project will be documented in this file.
+### Fixed
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- SSRF: validate redirect targets at each hop to prevent private IP bypass via open redirects
+- OGP streaming: use `aiter_bytes()` to enforce 64KB read limit (was `aread()` + truncate)
+- Parallel OGP fetch via `asyncio.gather` for composite cards with multiple link-preview blocks
+- CSS token `--color-muted` → `--color-text-muted` for link-preview card styles
+- CLI `canvas link` exits with non-zero status on failure
+- URL validation in `post_link_preview` rejects empty and non-http(s) URLs
+- Test isolation: prevent Canvas CLI tests from writing to live server DB
 
 ## [0.12.0] - 2026-03-14
 
@@ -318,8 +323,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - show labeled task detail fields on card click
-
-## [Unreleased]
 
 ## [0.11.4] - 2026-03-08
 
@@ -2327,6 +2330,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.12.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.21...v0.12.0
 [0.11.21]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.20...v0.11.21
 [0.11.20]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.11.19...v0.11.20

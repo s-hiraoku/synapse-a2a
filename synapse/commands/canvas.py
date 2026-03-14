@@ -824,7 +824,7 @@ def sync_plan_progress(
 
 def post_shortcut(
     format_name: str,
-    body: str,
+    body: str | dict,
     title: str = "",
     agent_id: str = "",
     agent_name: str = "",
@@ -881,4 +881,38 @@ def post_shortcut(
         agent_name=agent_name or None,
         pinned=pinned,
         tags=tags,
+    )
+
+
+def post_link_preview(
+    url: str,
+    title: str = "",
+    agent_id: str = "",
+    agent_name: str = "",
+    card_id: str | None = None,
+    pinned: bool = False,
+    tags: list[str] | None = None,
+    db_path: str | None = None,
+    port: int = DEFAULT_PORT,
+) -> dict | None:
+    """Post a link-preview card for *url*. Returns card dict or None."""
+    url = url.strip()
+    if not url:
+        print("Error: URL is required", file=sys.stderr)
+        return None
+    if not url.startswith(("http://", "https://")):
+        print("Error: URL must start with http:// or https://", file=sys.stderr)
+        return None
+
+    return post_shortcut(
+        format_name="link-preview",
+        body={"url": url},
+        title=title or url,
+        agent_id=agent_id,
+        agent_name=agent_name,
+        card_id=card_id,
+        pinned=pinned,
+        tags=tags,
+        db_path=db_path,
+        port=port,
     )

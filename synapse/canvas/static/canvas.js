@@ -689,6 +689,9 @@
       case "cost":
         renderCost(wrap, block.body);
         break;
+      case "link-preview":
+        renderLinkPreview(wrap, block.body);
+        break;
       default:
         wrap.textContent = block.body;
     }
@@ -1936,6 +1939,83 @@
     table.appendChild(tfoot);
 
     el.appendChild(table);
+  }
+
+  function renderLinkPreview(el, body) {
+    var data = body && typeof body === "object" ? body : {};
+    var url = data.url || data.og_url || "";
+    var domain = data.domain || "";
+    var title = data.og_title || data.title || domain || url;
+    var description = data.og_description || data.description || "";
+    var image = data.og_image || data.image || "";
+    var siteName = data.og_site_name || data.site_name || domain;
+    var favicon = data.favicon || "";
+
+    var card = document.createElement(url ? "a" : "div");
+    card.className = "link-preview-card";
+    if (url) {
+      card.href = url;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+    }
+
+    // Left text section
+    var textSection = document.createElement("div");
+    textSection.className = "link-preview-text";
+
+    // Site name row (favicon + site name)
+    var siteRow = document.createElement("div");
+    siteRow.className = "link-preview-site";
+    if (favicon) {
+      var favImg = document.createElement("img");
+      favImg.className = "link-preview-favicon";
+      favImg.src = favicon;
+      favImg.alt = "";
+      favImg.width = 16;
+      favImg.height = 16;
+      favImg.onerror = function () { this.style.display = "none"; };
+      siteRow.appendChild(favImg);
+    }
+    var siteSpan = document.createElement("span");
+    siteSpan.textContent = siteName;
+    siteRow.appendChild(siteSpan);
+    textSection.appendChild(siteRow);
+
+    // Title
+    var titleEl = document.createElement("div");
+    titleEl.className = "link-preview-title";
+    titleEl.textContent = title;
+    textSection.appendChild(titleEl);
+
+    // Description
+    if (description) {
+      var descEl = document.createElement("div");
+      descEl.className = "link-preview-description";
+      descEl.textContent = description;
+      textSection.appendChild(descEl);
+    }
+
+    // URL display
+    var urlEl = document.createElement("div");
+    urlEl.className = "link-preview-url";
+    urlEl.textContent = url;
+    textSection.appendChild(urlEl);
+
+    card.appendChild(textSection);
+
+    // Right thumbnail image
+    if (image) {
+      var imgWrap = document.createElement("div");
+      imgWrap.className = "link-preview-thumbnail";
+      var img = document.createElement("img");
+      img.src = image;
+      img.alt = title;
+      img.onerror = function () { imgWrap.style.display = "none"; };
+      imgWrap.appendChild(img);
+      card.appendChild(imgWrap);
+    }
+
+    el.appendChild(card);
   }
 
   function formatNumber(n) {

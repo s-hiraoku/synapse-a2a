@@ -2706,6 +2706,32 @@ def cmd_canvas_stop(args: argparse.Namespace) -> None:
     canvas_stop(port=port)
 
 
+def cmd_canvas_link(args: argparse.Namespace) -> None:
+    """Post a link-preview card with OGP metadata."""
+    from synapse.commands.canvas import ensure_server_running, post_link_preview
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = getattr(args, "port", None) or CANVAS_DEFAULT_PORT
+    ensure_server_running(port)
+
+    tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
+    result = post_link_preview(
+        url=args.url,
+        title=args.title,
+        agent_id=args.agent_id,
+        agent_name=getattr(args, "agent_name", ""),
+        card_id=getattr(args, "card_id", None),
+        pinned=args.pinned,
+        tags=tags,
+        port=port,
+    )
+    if result:
+        print(f"Link preview card created: {result.get('card_id', '')}")
+    else:
+        print("Failed to create link preview card", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_auth_setup(args: argparse.Namespace) -> None:
     """Generate API keys and show setup instructions."""
     api_key = generate_api_key()
@@ -6263,6 +6289,26 @@ Scopes:
         "--port", "-p", type=int, default=None, help="Canvas server port"
     )
     p_canvas_stop.set_defaults(func=cmd_canvas_stop)
+
+    # canvas link <url> — Post a link-preview card
+    p_canvas_link = canvas_subparsers.add_parser(
+        "link", help="Post a link-preview card with OGP metadata"
+    )
+    p_canvas_link.add_argument("url", help="URL to preview")
+    p_canvas_link.add_argument("--title", default="", help="Card title (default: URL)")
+    p_canvas_link.add_argument(
+        "--agent-id",
+        default=os.environ.get("SYNAPSE_AGENT_ID", "cli"),
+        help="Agent ID",
+    )
+    p_canvas_link.add_argument("--agent-name", default="", help="Agent name")
+    p_canvas_link.add_argument("--card-id", default=None, help="Card ID for updates")
+    p_canvas_link.add_argument(
+        "--pinned", action="store_true", default=False, help="Pin card"
+    )
+    p_canvas_link.add_argument("--tags", default=None, help="Comma-separated tags")
+    p_canvas_link.add_argument("--port", type=int, default=None, help="Server port")
+    p_canvas_link.set_defaults(func=cmd_canvas_link)
 
     # Pre-extract tool_args from sys.argv for commands that support '--'.
     # argparse.REMAINDER had a bug where it swallowed named options (--name,
