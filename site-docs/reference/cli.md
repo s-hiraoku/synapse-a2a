@@ -602,7 +602,9 @@ Post a full Canvas Message Protocol JSON payload. Supports composite cards (mult
 synapse canvas link "<url>" [OPTIONS]
 ```
 
-Posts a link preview card with OGP metadata. The server fetches Open Graph metadata (title, description, image, site name) from the URL and renders a rich link card.
+Posts a link preview card with OGP metadata. The server fetches Open Graph metadata from the URL using streaming reads and renders a rich link card. Only `http://` and `https://` URLs are accepted; private/loopback addresses are rejected (SSRF protection), and redirect targets are validated at each hop. Multiple link-preview blocks in a composite card are fetched in parallel.
+
+The enriched body uses `og_`-prefixed field names (`og_title`, `og_description`, `og_image`, `og_site_name`). The renderer also accepts plain aliases (`title`, `description`, `image`, `site_name`) for non-OGP payloads.
 
 | Flag | Description |
 |------|-------------|

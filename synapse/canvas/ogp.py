@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 # Maximum bytes to read from a response (only need <head> for OGP tags)
 _MAX_READ_BYTES = 65_536  # 64 KB
 
+# Maximum number of HTTP redirects to follow manually (SSRF-safe redirect loop)
+_MAX_REDIRECTS = 10
+
 # OGP property -> result dict key mapping
 _OGP_KEYS: dict[str, str] = {
     "og:title": "og_title",
@@ -160,8 +163,6 @@ async def fetch_ogp(url: str, *, timeout: float = 5.0) -> dict:
         logger.debug("Rejected private/loopback URL: %s", url)
         return _fallback(url)
 
-    _MAX_REDIRECTS = 10
-
     try:
         async with httpx.AsyncClient(
             follow_redirects=False,
@@ -234,15 +235,7 @@ async def fetch_ogp(url: str, *, timeout: float = 5.0) -> dict:
     }
 
     # Map OGP fields
-    ogp_keys = (
-        "og_title",
-        "og_description",
-        "og_image",
-        "og_site_name",
-        "og_url",
-        "og_type",
-    )
-    result.update({k: tags[k] for k in ogp_keys if k in tags})
+    result.update({k: tags[k] for k in _OGP_KEYS.values() if k in tags})
 
     # Fallback: use <title> / <meta name="description"> when OGP equivalents are missing
     if "og_title" not in result and "title_fallback" in tags:

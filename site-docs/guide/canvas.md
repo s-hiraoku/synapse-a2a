@@ -133,7 +133,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
 | `tip` | Plain text | Tip callout | Helpful hints and tips |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation table |
-| `link-preview` | `{url, title?, description?, image?, site_name?}` | Link card | Rich link preview with OGP metadata |
+| `link-preview` | `{url, og_title?, og_description?, og_image?, og_site_name?}` | Link card | Rich link preview with OGP metadata (also accepts plain aliases: `title`, `description`, `image`, `site_name`) |
 | `plan` | `{}` (empty object; data lives in `template_data`) | Plan template | Execution plan with Mermaid DAG, step list, and status tracking |
 
 !!! tip "Mermaid Theme Integration"

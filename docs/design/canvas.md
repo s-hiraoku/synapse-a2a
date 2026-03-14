@@ -81,6 +81,12 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `tip` | String | Styled tip card | System tips and suggestions |
 | `link-preview` | `{url}` (enriched with `og_title`, `og_description`, `og_image`, `og_site_name`, `og_type`, `favicon`, `domain`, `fetched`) | Embed card | OGP link previews with title, description, image |
 
+**Link-preview OGP fetch details**:
+- **URL validation**: Only `http` and `https` URLs are accepted; the CLI command exits with a non-zero status on invalid input.
+- **SSRF protection**: HTTP redirects are followed manually with each redirect target validated against the same allowlist, preventing open-redirect SSRF attacks.
+- **Streaming read with size cap**: HTML is read via `aiter_bytes()` with a 64 KB ceiling, avoiding unbounded memory consumption on large pages.
+- **Parallel fetch**: When a card contains multiple `link-preview` blocks, OGP metadata is fetched concurrently via `asyncio.gather`.
+
 **Block-level metadata**: Any content block can carry optional `x_title` and `x_filename` fields. Renderers (mermaid, json, code, log, checklist, trace, tip) use `buildMetaRow()` to display this metadata above the rendered content. This replaces the earlier body-embedded metadata pattern (`{source, title?, filename?}`) and `parseBodyWithKey()` helper, which have been removed.
 
 **Key: `html` format** — This is the escape hatch. When no predefined format fits, agents can send raw HTML. This makes expression essentially unlimited.

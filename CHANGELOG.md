@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-03-15
+
 ### Added
 
 - `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
 - `synapse canvas link <url>` CLI command for posting rich link preview cards
+
+### Fixed
+
+- SSRF: validate redirect targets at each hop to prevent private IP bypass via open redirects
+- OGP streaming: use `aiter_bytes()` to enforce 64KB read limit (was `aread()` + truncate)
+- Parallel OGP fetch via `asyncio.gather` for composite cards with multiple link-preview blocks
+- CSS token `--color-muted` → `--color-text-muted` for link-preview card styles
+- CLI `canvas link` exits with non-zero status on failure
+- URL validation in `post_link_preview` rejects empty and non-http(s) URLs
+- Test isolation: prevent Canvas CLI tests from writing to live server DB
 
 ## [0.12.0] - 2026-03-14
 

@@ -655,10 +655,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
             return_exceptions=True,
         )
         for (block, body, _), result in zip(targets, results, strict=True):
-            if isinstance(result, (Exception, BaseException)):
+            if isinstance(result, BaseException):
                 continue
-            if isinstance(result, dict):
-                body.update(result)
+            body.update(result)
             block.body = body
 
     # ----------------------------------------------------------------

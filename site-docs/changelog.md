@@ -4,10 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### Unreleased
+### v0.12.1
 
 - **Added**: `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
 - **Added**: `synapse canvas link <url>` CLI command for posting rich link preview cards
+- **Fixed**: SSRF redirect validation, streaming 64KB read, parallel OGP fetch, CSS token fix, test isolation
 
 ### v0.12.0
 
