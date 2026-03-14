@@ -3024,6 +3024,34 @@ def cmd_tasks_purge(args: argparse.Namespace) -> None:
     print(f"Purged {deleted}{qualifier} task(s).")
 
 
+def cmd_tasks_accept_plan(args: argparse.Namespace) -> None:
+    """Accept a plan card and register its steps as task board tasks."""
+    from synapse.commands.canvas import accept_plan
+
+    result = accept_plan(
+        plan_id=args.plan_id,
+        created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
+    )
+    if result is None:
+        print(f"Error: Plan '{args.plan_id}' not found", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Plan '{args.plan_id}' accepted. {len(result['task_ids'])} tasks created:")
+    for step_id, task_id in result["step_to_task"].items():
+        print(f"  {step_id} → {task_id[:8]}")
+
+
+def cmd_tasks_sync_plan(args: argparse.Namespace) -> None:
+    """Sync task board progress back to a plan card."""
+    from synapse.commands.canvas import sync_plan_progress
+
+    updated = sync_plan_progress(plan_id=args.plan_id)
+    if updated:
+        print(f"Plan '{args.plan_id}' progress synced.")
+    else:
+        print(f"No changes to sync for plan '{args.plan_id}'.")
+
+
 # ============================================================
 # Shared Memory Commands
 # ============================================================
@@ -5432,6 +5460,20 @@ Integration with synapse list:
         help="Purge without confirmation prompt",
     )
     p_tasks_purge.set_defaults(func=cmd_tasks_purge)
+
+    # tasks accept-plan <plan_id> — Accept a plan and create board tasks
+    p_tasks_accept = tasks_subparsers.add_parser(
+        "accept-plan", help="Accept a plan card and register its steps as tasks"
+    )
+    p_tasks_accept.add_argument("plan_id", help="Plan card ID to accept")
+    p_tasks_accept.set_defaults(func=cmd_tasks_accept_plan)
+
+    # tasks sync-plan <plan_id> — Sync task progress back to plan card
+    p_tasks_sync = tasks_subparsers.add_parser(
+        "sync-plan", help="Sync task board progress back to a plan card"
+    )
+    p_tasks_sync.add_argument("plan_id", help="Plan card ID to sync")
+    p_tasks_sync.set_defaults(func=cmd_tasks_sync_plan)
 
     # memory - Shared Memory
     p_memory = subparsers.add_parser(

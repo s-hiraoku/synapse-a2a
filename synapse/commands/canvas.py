@@ -660,6 +660,172 @@ def post_plan(
     )
 
 
+def accept_plan(
+    plan_id: str,
+    canvas_db: str | None = None,
+    board_db: str | None = None,
+    created_by: str = "",
+) -> dict | None:
+    """Accept a plan card and register its steps as Task Board tasks.
+
+    Returns a dict with plan_id, task_ids, and step_to_task mapping,
+    or None if the plan card was not found.
+    """
+    from synapse.task_board import TaskBoard
+
+    store = CanvasStore(db_path=canvas_db)
+    card = store.get_card(plan_id)
+    if card is None:
+        return None
+
+    td_raw = card.get("template_data")
+    td = json.loads(td_raw) if isinstance(td_raw, str) else td_raw or {}
+
+    steps = td.get("steps", [])
+    if not steps:
+        return None
+
+    board = TaskBoard(db_path=board_db)
+    creator = created_by or os.environ.get("SYNAPSE_AGENT_ID", "user")
+
+    # Map step IDs to board task IDs
+    step_to_task: dict[str, str] = {}
+    task_ids: list[str] = []
+
+    # First pass: create all tasks (without blocked_by, since we need all IDs first)
+    for step in steps:
+        step_id = step.get("id", "")
+        subject = step.get("subject", f"Step {step_id}")
+        priority = step.get("priority", 3)
+        if not isinstance(priority, int) or not (1 <= priority <= 5):
+            priority = 3
+
+        task_id = board.create_task(
+            subject=subject,
+            description=step.get("description", ""),
+            created_by=creator,
+            priority=priority,
+        )
+        step_to_task[step_id] = task_id
+        task_ids.append(task_id)
+
+        # Set assignee_hint if agent is specified
+        agent = step.get("agent")
+        if agent:
+            conn = board._get_connection()
+            try:
+                conn.execute(
+                    "UPDATE board_tasks SET assignee_hint = ? WHERE id = ?",
+                    (agent, task_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    # Second pass: set blocked_by using the resolved task IDs
+    for step in steps:
+        step_id = step.get("id", "")
+        blocked_by_steps = step.get("blocked_by", [])
+        if not blocked_by_steps:
+            continue
+
+        task_id = step_to_task[step_id]
+        blocked_by_task_ids = [
+            step_to_task[bid] for bid in blocked_by_steps if bid in step_to_task
+        ]
+        if blocked_by_task_ids:
+            conn = board._get_connection()
+            try:
+                conn.execute(
+                    "UPDATE board_tasks SET blocked_by = ? WHERE id = ?",
+                    (json.dumps(blocked_by_task_ids), task_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    # Update plan card status to 'active'
+    td["status"] = "active"
+    store.upsert_card(
+        card_id=plan_id,
+        agent_id=card.get("agent_id", ""),
+        content=card.get("content", ""),
+        title=card.get("title", ""),
+        pinned=True,
+        template="plan",
+        template_data=td,
+    )
+
+    return {
+        "plan_id": plan_id,
+        "task_ids": task_ids,
+        "step_to_task": step_to_task,
+    }
+
+
+def sync_plan_progress(
+    plan_id: str,
+    canvas_db: str | None = None,
+    board_db: str | None = None,
+) -> bool:
+    """Sync Task Board task statuses back to Canvas Plan Card.
+
+    Returns True if the card was updated, False if not found or no changes.
+    """
+    from synapse.task_board import TaskBoard
+
+    store = CanvasStore(db_path=canvas_db)
+    card = store.get_card(plan_id)
+    if card is None:
+        return False
+
+    td_raw = card.get("template_data")
+    td = json.loads(td_raw) if isinstance(td_raw, str) else td_raw or {}
+
+    steps = td.get("steps", [])
+    if not steps:
+        return False
+
+    board = TaskBoard(db_path=board_db)
+    board_tasks = {t["subject"]: t for t in board.list_tasks()}
+
+    updated = False
+    all_completed = True
+
+    for step in steps:
+        subject = step.get("subject", "")
+        board_task = board_tasks.get(subject)
+        if board_task is None:
+            if step.get("status") != "completed":
+                all_completed = False
+            continue
+
+        new_status = board_task.get("status", "pending")
+        if new_status != step.get("status"):
+            step["status"] = new_status
+            updated = True
+
+        if new_status != "completed":
+            all_completed = False
+
+    if all_completed and td.get("status") != "completed":
+        td["status"] = "completed"
+        updated = True
+
+    if updated:
+        store.upsert_card(
+            card_id=plan_id,
+            agent_id=card.get("agent_id", ""),
+            content=card.get("content", ""),
+            title=card.get("title", ""),
+            pinned=True,
+            template="plan",
+            template_data=td,
+        )
+
+    return updated
+
+
 def post_shortcut(
     format_name: str,
     body: str,
