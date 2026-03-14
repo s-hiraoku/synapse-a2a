@@ -162,6 +162,15 @@ synapse approve <task_id>
 synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs."
 ```
 
+**Plan Card workflow** — for structured plans posted to Canvas:
+```bash
+# Accept a plan card and register its steps as task board tasks
+synapse tasks accept-plan <plan_id>
+
+# Sync task board progress back to the plan card
+synapse tasks sync-plan <plan_id>
+```
+
 **Update task board after decision:**
 ```bash
 # After approve — keep the approved plan moving via assignment/delegation.
@@ -260,6 +269,7 @@ may accidentally accept future tasks intended for other agents.
 | Regression test fails | `scripts/regression_triage.sh` to classify |
 | Agent READY but no output | Check `git diff`, re-send if needed |
 | Agent submits a plan | `synapse approve` or `synapse reject --reason "..."` |
+| Agent posts a plan card | `synapse tasks accept-plan <plan_id>` to register steps, `synapse tasks sync-plan <plan_id>` to update |
 | Discovered a reusable pattern | `synapse memory save <key> "<pattern>" --notify` |
 | Cross-review finds issue | Send fix request with `--attach`, re-verify |
 | Delegating work to an agent | `synapse tasks create` + `synapse tasks assign` before `synapse send` |

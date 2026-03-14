@@ -106,6 +106,26 @@ until their blockers are completed, making execution order explicit.
 8 characters. `synapse tasks assign`, `synapse tasks complete`, and
 `--blocked-by` accept either the full UUID or a unique prefix.
 
+### Plan Card Output (Canvas)
+
+For visual plans with Mermaid DAG visualization and step-level status tracking,
+post a plan card to Canvas and optionally accept it into the task board:
+
+```bash
+# Post plan card with Mermaid DAG and step list
+synapse canvas plan '{"plan_id":"plan-auth","status":"proposed","mermaid":"graph TD; A[Tests]-->B[Impl]-->C[Review]","steps":[{"id":"s1","subject":"Write auth tests","agent":"Tester","status":"pending"},{"id":"s2","subject":"Implement auth","agent":"Impl","status":"pending","blocked_by":["s1"]},{"id":"s3","subject":"Review","agent":"Tester","status":"pending","blocked_by":["s2"]}]}' --title "Auth Plan"
+
+# Accept plan and register steps as task board tasks (one command)
+synapse tasks accept-plan plan-auth
+
+# Sync task board progress back to the plan card
+synapse tasks sync-plan plan-auth
+```
+
+Plan cards are useful when the decomposition should be visible to the team in the
+Canvas dashboard, not just the task board. Use plan cards for plans with 3+ steps
+or complex dependency chains that benefit from DAG visualization.
+
 ### TodoList for Personal Micro-Steps
 
 Use a TodoList for your **own** micro-step tracking within a single task.

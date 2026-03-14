@@ -16,4 +16,6 @@
 | **Response Modes** | `--wait / --notify / --silent` | Blocking, async notification, or fire-and-forget |
 | **Reply Routing** | `synapse reply` | Auto-routed responses to original sender |
 | **Message Files** | `--message-file / --stdin` | Send large messages without shell limits |
-| **MCP Bootstrap** | `synapse mcp serve` / `python -m synapse.mcp` | Distribute instructions via MCP resources (opt-in) |
+| **Plan Cards** | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` | Mermaid DAG + step tracking with task board integration |
+| **Smart Suggest** | MCP tool: `analyze_task` | Analyze prompts and suggest team/task splits for large work |
+| **MCP Bootstrap** | `synapse mcp serve` / `python -m synapse.mcp` | Distribute instructions via MCP resources (opt-in, including Copilot via tools) |

@@ -133,7 +133,7 @@ When enabled, the `.synapse/proactive.md` instruction file is injected at startu
 
 Distribute Synapse initial instructions via MCP (Model Context Protocol) resources and tools. MCP-compatible clients (Claude Code, Codex, Gemini CLI, OpenCode) can read instructions as structured resources instead of relying solely on PTY injection.
 
-**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + automatic PTY skip. `bootstrap_agent` returns runtime context and instruction resource URIs for the current agent. When a Synapse MCP server config entry is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse automatically skips PTY startup instruction injection. Non-Synapse MCP entries do not trigger the skip. Copilot continues to use PTY bootstrap.
+**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + automatic PTY skip + `analyze_task` Smart Suggest tool. `bootstrap_agent` returns runtime context and instruction resource URIs for the current agent. When a Synapse MCP server config entry is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse automatically skips PTY startup instruction injection. Non-Synapse MCP entries do not trigger the skip. Copilot supports MCP tools only (`bootstrap_agent`, `list_agents`, `analyze_task`) and cannot consume MCP resources/prompts.
 
 **Resources:**
 
@@ -145,7 +145,10 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 | `synapse://instructions/learning` | Learning mode guidance (if enabled) |
 | `synapse://instructions/proactive` | Proactive mode instructions (if enabled) |
 
-**Tool:** `bootstrap_agent` returns runtime context (agent_id, agent_type, port, working_dir, instruction_resources, available_features).
+**Tools:**
+- `bootstrap_agent` returns runtime context (agent_id, agent_type, port, working_dir, instruction_resources, available_features).
+- `list_agents` lists running Synapse agents with status and connection info.
+- `analyze_task` analyzes a user prompt and suggests team/task splits when the work is large enough (Smart Suggest).
 
 ```bash
 # Start MCP server (stdio transport)
@@ -157,7 +160,7 @@ python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.
 
-**Copilot limitation:** GitHub Copilot's coding agent supports MCP tools only and cannot consume MCP resources/prompts. Copilot agents must use the `bootstrap_agent` tool to retrieve runtime context; the `synapse://instructions/*` resources are not available to Copilot.
+**Copilot MCP support:** GitHub Copilot's coding agent supports MCP tools only and cannot consume MCP resources/prompts. Copilot agents use `bootstrap_agent` to retrieve runtime context and `analyze_task` for smart suggestions; the `synapse://instructions/*` resources are not available to Copilot.
 
 **Settings caching:** The MCP server caches `SynapseSettings` as a lazy singleton for the lifetime of the process, avoiding repeated file reads.
 
@@ -186,6 +189,16 @@ synapse canvas open                      # Open in browser (auto-starts server)
 synapse canvas list [--agent-id <id>] [--type <format>] [--search "<query>"]
 ```
 
-**Templates (5):** briefing, comparison, dashboard, steps, slides. Templates control how composite content blocks are laid out. Use `synapse canvas briefing` for the briefing template CLI shortcut, or `synapse canvas post-raw` with `template`/`template_data` fields for any template. See `references/commands.md` for full schema details.
+**Templates (6):** briefing, comparison, dashboard, steps, slides, plan. Templates control how composite content blocks are laid out. Use `synapse canvas briefing` for the briefing template CLI shortcut, `synapse canvas plan` for plan cards with Mermaid DAG and step tracking, or `synapse canvas post-raw` with `template`/`template_data` fields for any template. See `references/commands.md` for full schema details.
+
+### Plan Cards
+
+Plan cards combine a Mermaid DAG visualization with a step list for tracking multi-step work. Plans can be accepted into the task board and progress synced back.
+
+```bash
+synapse canvas plan '{"plan_id":"plan-auth","status":"proposed","mermaid":"graph TD; A-->B","steps":[{"id":"s1","subject":"Design","status":"pending"}]}' --title "Auth Plan"
+synapse tasks accept-plan plan-auth              # Register steps as task board tasks
+synapse tasks sync-plan plan-auth                # Sync task board progress back to plan card
+```
 
 **Storage:** `.synapse/canvas.db` (project-local, SQLite).
