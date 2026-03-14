@@ -3908,11 +3908,17 @@
     if (el) el.remove();
   }
 
+  let _adminSending = false;
+
   async function sendAdminCommand() {
+    if (_adminSending) return;
     if (!adminTargetAgent || !adminMessageInput) return;
     var target = adminTargetAgent.value;
     var message = adminMessageInput.value.trim();
     if (!target || !message) return;
+
+    _adminSending = true;
+    if (adminSendBtn) adminSendBtn.disabled = true;
 
     var agentName = adminTargetAgent.options[adminTargetAgent.selectedIndex].textContent;
     addAdminBubble("user", message, null);
@@ -3936,6 +3942,9 @@
     } catch (e) {
       removeAdminSpinner();
       addAdminBubble("agent", "Error: " + e.message, agentName);
+    } finally {
+      _adminSending = false;
+      if (adminSendBtn) adminSendBtn.disabled = false;
     }
   }
 

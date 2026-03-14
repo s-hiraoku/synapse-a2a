@@ -12,6 +12,7 @@ import glob
 import json
 import logging
 import os
+import re
 import signal
 import sqlite3
 import time
@@ -57,6 +58,20 @@ def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
     for q in _sse_queues:
         with contextlib.suppress(asyncio.QueueFull):
             q.put_nowait(payload)
+
+
+# Strip ANSI escapes and terminal control characters from agent output
+_ANSI_RE = re.compile(
+    r"\x1b\[[0-9;]*[a-zA-Z]"  # CSI sequences (colors, cursor)
+    r"|\x1b\][^\x07]*(?:\x07|\x1b\\)"  # OSC sequences
+    r"|\x1b[()][A-Z0-9]"  # Character set selection
+    r"|[\x00-\x08\x0e-\x1f\x7f]"  # Control characters (except \t \n \r)
+)
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences and control characters from text."""
+    return _ANSI_RE.sub("", text).strip()
 
 
 def _get_registry_dir() -> str:
@@ -1077,7 +1092,12 @@ def create_app(db_path: str | None = None) -> FastAPI:
             err = resp_data["error"]
             error = err.get("message", str(err)) if isinstance(err, dict) else str(err)
 
-        return {"task_id": task_id, "status": state, "output": output, "error": error}
+        return {
+            "task_id": task_id,
+            "status": state,
+            "output": _strip_ansi(output) if output else "",
+            "error": error,
+        }
 
     @app.post("/api/admin/start")
     async def admin_start() -> dict[str, Any]:
