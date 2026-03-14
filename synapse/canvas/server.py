@@ -68,10 +68,30 @@ _ANSI_RE = re.compile(
     r"|[\x00-\x08\x0e-\x1f\x7f]"  # Control characters (except \t \n \r)
 )
 
+# Pattern to detect status bar / spinner junk after BEL or ›
+_STATUSBAR_RE = re.compile(
+    r"\x07.*"  # Everything after BEL character
+    r"|›\s+\S.*"  # Status bar lines starting with ›
+)
+
+# Spinner animation fragments (e.g. Wo•Wor•Work•Working)
+_SPINNER_RE = re.compile(
+    r"(?:[A-Z][a-z]*(?:•|\.{2,3})?){2,}"  # Repeated partial words with bullet separators
+    r"|[a-z]{1,6}(?:•[A-Z][a-z]*)*$"  # Trailing spinner fragments
+)
+
 
 def _strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences and control characters from text."""
-    return _ANSI_RE.sub("", text).strip()
+    """Remove ANSI escapes, terminal status bars, and spinner junk from text."""
+    # Strip ANSI escapes and control chars
+    text = _ANSI_RE.sub("", text)
+    # Remove everything after BEL (status bar boundary)
+    text = _STATUSBAR_RE.sub("", text)
+    # Remove spinner animation fragments
+    text = _SPINNER_RE.sub("", text)
+    # Clean up bullets used as line markers by some agents
+    text = text.strip().strip("\u2022").strip()
+    return text
 
 
 def _get_registry_dir() -> str:

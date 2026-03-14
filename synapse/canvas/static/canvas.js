@@ -3920,9 +3920,12 @@
     _adminSending = true;
     if (adminSendBtn) adminSendBtn.disabled = true;
 
+    // Clear input immediately and force DOM update
+    adminMessageInput.value = "";
+    adminMessageInput.blur();
+
     var agentName = adminTargetAgent.options[adminTargetAgent.selectedIndex].textContent;
     addAdminBubble("user", message, null);
-    adminMessageInput.value = "";
 
     addAdminSpinner();
 
