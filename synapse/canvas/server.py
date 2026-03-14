@@ -60,37 +60,32 @@ def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
             q.put_nowait(payload)
 
 
-# Strip ANSI escapes and terminal control characters from agent output
-_ANSI_RE = re.compile(
-    r"\x1b\[[0-9;]*[a-zA-Z]"  # CSI sequences (colors, cursor)
-    r"|\x1b\][^\x07]*(?:\x07|\x1b\\)"  # OSC sequences
-    r"|\x1b[()][A-Z0-9]"  # Character set selection
-    r"|[\x00-\x08\x0e-\x1f\x7f]"  # Control characters (except \t \n \r)
-)
+def _strip_terminal_junk(text: str) -> str:
+    """Remove ANSI escapes, terminal status bars, and spinner junk from text.
 
-# Pattern to detect status bar / spinner junk after BEL or ›
-_STATUSBAR_RE = re.compile(
-    r"\x07.*"  # Everything after BEL character
-    r"|›\s+\S.*"  # Status bar lines starting with ›
-)
+    Agent PTY output contains ANSI escape sequences, status bar text,
+    and spinner animation fragments. This function cleans them while
+    preserving actual content (including multi-byte chars like Japanese).
+    """
+    # Step 1: Truncate at BEL character — everything after is status bar junk
+    if "\x07" in text:
+        text = text[: text.index("\x07")]
+        # Remove trailing digits before BEL (CSI parameter remnants like "7" in "です7\x07")
+        text = re.sub(r"\d+$", "", text)
 
-# Spinner animation fragments (e.g. Wo•Wor•Work•Working)
-_SPINNER_RE = re.compile(
-    r"(?:[A-Z][a-z]*(?:•|\.{2,3})?){2,}"  # Repeated partial words with bullet separators
-    r"|[a-z]{1,6}(?:•[A-Z][a-z]*)*$"  # Trailing spinner fragments
-)
+    # Step 2: Remove ANSI escape sequences
+    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    text = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", text)
+    text = re.sub(r"\x1b.", "", text)
 
+    # Step 3: Remove control characters (except \t \n \r)
+    text = re.sub(r"[\x00-\x08\x0e-\x1f\x7f]", "", text)
 
-def _strip_ansi(text: str) -> str:
-    """Remove ANSI escapes, terminal status bars, and spinner junk from text."""
-    # Strip ANSI escapes and control chars
-    text = _ANSI_RE.sub("", text)
-    # Remove everything after BEL (status bar boundary)
-    text = _STATUSBAR_RE.sub("", text)
-    # Remove spinner animation fragments
-    text = _SPINNER_RE.sub("", text)
-    # Clean up bullets used as line markers by some agents
+    # Step 4: Clean up
+    text = re.sub(r"›[^\n]*", "", text)
     text = text.strip().strip("\u2022").strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
     return text
 
 
@@ -1115,7 +1110,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {
             "task_id": task_id,
             "status": state,
-            "output": _strip_ansi(output) if output else "",
+            "output": _strip_terminal_junk(output) if output else "",
             "error": error,
         }
 

@@ -3920,14 +3920,14 @@
     _adminSending = true;
     if (adminSendBtn) adminSendBtn.disabled = true;
 
-    // Clear input immediately and force DOM update
-    adminMessageInput.value = "";
-    adminMessageInput.blur();
-
     var agentName = adminTargetAgent.options[adminTargetAgent.selectedIndex].textContent;
-    addAdminBubble("user", message, null);
 
+    // Clear input immediately
+    adminMessageInput.value = "";
+
+    addAdminBubble("user", message, null);
     addAdminSpinner();
+    console.log("[Admin] Sending to", target, ":", message);
 
     try {
       var resp = await fetch("/api/admin/send", {
@@ -3936,6 +3936,7 @@
         body: JSON.stringify({ target: target, message: message }),
       });
       var data = await resp.json();
+      console.log("[Admin] Send response:", data);
       if (!resp.ok) {
         removeAdminSpinner();
         addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
@@ -3945,6 +3946,7 @@
     } catch (e) {
       removeAdminSpinner();
       addAdminBubble("agent", "Error: " + e.message, agentName);
+      console.error("[Admin] Send error:", e);
     } finally {
       _adminSending = false;
       if (adminSendBtn) adminSendBtn.disabled = false;
@@ -3953,32 +3955,45 @@
 
   function pollAdminTask(taskId, target, agentName) {
     var attempts = 0;
-    var maxAttempts = 60;
-    var timer = setInterval(async function () {
+    var maxAttempts = 150;
+    var polling = true;
+
+    async function poll() {
+      if (!polling) return;
       attempts++;
       if (attempts > maxAttempts) {
-        clearInterval(timer);
+        polling = false;
         removeAdminSpinner();
-        addAdminBubble("agent", "Timeout: No response after 2 minutes", agentName);
+        addAdminBubble("agent", "Timeout: No response after 5 minutes", agentName);
         return;
       }
       try {
         var resp = await fetch("/api/admin/tasks/" + encodeURIComponent(taskId) + "?target=" + encodeURIComponent(target));
         var data = await resp.json();
+        console.log("[Admin] Poll #" + attempts + ":", data.status, data.output ? data.output.substring(0, 50) : "(no output)");
         if (data.status === "completed" || data.status === "DONE") {
-          clearInterval(timer);
+          polling = false;
           removeAdminSpinner();
-          addAdminBubble("agent", data.output || data.text || "Task completed", agentName);
+          var output = data.output || "Task completed";
+          console.log("[Admin] Final output:", output);
+          addAdminBubble("agent", output, agentName);
+          return;
         } else if (data.status === "failed" || data.status === "error") {
-          clearInterval(timer);
+          polling = false;
           removeAdminSpinner();
           addAdminBubble("agent", "Failed: " + (data.error || "Unknown error"), agentName);
+          return;
         }
       } catch (e) {
-        // Continue polling on network errors
+        console.warn("[Admin] Poll error:", e);
       }
-    }, 2000);
-    _adminPollingTimers.push(timer);
+      // Adaptive interval: 1s for first 10, then 2s
+      var delay = attempts < 10 ? 1000 : 2000;
+      setTimeout(poll, delay);
+    }
+
+    // Start first poll quickly
+    setTimeout(poll, 500);
   }
 
   function escapeHtml(str) {
