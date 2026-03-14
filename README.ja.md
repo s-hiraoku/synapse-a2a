@@ -102,6 +102,9 @@ flowchart LR
 | **委譲モード** | `--delegate-mode` と `synapse-manager` スキルによる、構造化された 5 ステップのマルチエージェント管理 |
 | **ペイン自動生成** | `synapse team start` — 最初のエージェントが現在のターミナルを引き継ぎ、他は新しいペインで起動 |
 | **エージェント単体起動** | `synapse spawn <profile>` — 1つのエージェントを新しいペインまたはウィンドウで起動 |
+| **Canvas** | エージェント共有のビジュアル出力面。Mermaid ダイアグラム、テーブル、チャート、コード、diff など 23 フォーマットをブラウザ UI でレンダリング。6 種のレイアウトテンプレート: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan`。**Plan Card** テンプレートは Mermaid DAG + ステップリストでタスク計画を可視化し、Task Board 連携 (`synapse tasks accept-plan`) で計画を実行に移行。`synapse canvas serve` (ポート 3000) |
+| **Smart Suggest** | `analyze_task` MCP ツールがユーザーの指示を解析し、チーム/タスク分割が有効な場合に提案。トリガー条件（ファイル数、複数ディレクトリ、テスト不足、プロンプト複雑度、キーワード）は `.synapse/suggest.yaml` で設定可能。提案は Canvas の Plan Card として表示され、`synapse tasks accept-plan <plan_id>` で Task Board に自動登録 |
+| **MCP Bootstrap** | `synapse mcp serve` で MCP プロトコル経由のブートストラップリソース配布。Claude Code、Codex、Gemini CLI、OpenCode、Copilot で MCP 設定検出時に PTY インストラクション注入を自動スキップ。Copilot MCP 設定: `~/.copilot/mcp-config.json`。[MCP Bootstrap 設計](docs/design/mcp-bootstrap.md)参照 |
 
 ---
 

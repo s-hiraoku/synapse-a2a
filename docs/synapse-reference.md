@@ -46,6 +46,8 @@ synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 synapse tasks purge                            # Delete all completed/failed tasks
 synapse tasks purge --status completed         # Delete only completed tasks
+synapse tasks accept-plan <plan_id>             # Accept Plan Card → auto-register tasks
+synapse tasks sync-plan <plan_id>               # Sync Task Board → Canvas Plan Card
 synapse approve <task_id>
 synapse reject <task_id> --reason "reason"
 
@@ -65,6 +67,7 @@ synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
 synapse canvas post markdown "## Doc" --title "Doc"
 synapse canvas post-raw '{"content":{"format":"code","body":"print(1)","x_title":"Demo"}}'
 synapse canvas briefing '{"content":[...],"sections":[...]}'
+synapse canvas plan '{"title":"...","plan_id":"...","steps":[...]}'  # Plan Card
 synapse canvas list [--mine] [--search TERM]
 synapse canvas open [--port 3000]
 synapse canvas status [--port 3000]
@@ -99,6 +102,9 @@ synapse mcp serve --agent-id synapse-claude-8100 --agent-type claude --port 8100
 # bootstrap_agent    — Returns runtime context (agent_id, port, features)
 # list_agents        — List all running Synapse agents with status and connection info
 #                      Optional input: {"status": "READY"}  (filter by status)
+# analyze_task       — Analyze user prompt and suggest team/task split (Smart Suggest)
+#                      Input: {"prompt": "user instruction text"}
+#                      Triggers configurable via .synapse/suggest.yaml
 
 # Auth
 synapse auth setup
@@ -175,7 +181,8 @@ See test files in `tests/` directory. Key test groups:
 - Agent Teams: `test_task_board.py`, `test_hooks.py`, `test_plan_approval.py`, `test_delegate_mode.py`
 - Spawn: `test_spawn.py`, `test_auto_spawn.py`, `test_auto_layout.py`
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
-- MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`
+- MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`, `test_mcp_analyze_task.py`
+- Smart Suggest / Plan: `test_plan_accept.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
 
 ## Priority Levels

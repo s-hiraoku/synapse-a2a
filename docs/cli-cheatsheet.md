@@ -303,8 +303,8 @@ All 4 tools support MCP server connections.
 
 ### Synapse MCP bootstrap server
 
-Use `synapse mcp serve` to expose Synapse bootstrap resources and the
-`bootstrap_agent` tool over stdio MCP transport.
+Use `synapse mcp serve` to expose Synapse bootstrap resources and
+tools (`bootstrap_agent`, `list_agents`, `analyze_task`) over stdio MCP transport.
 
 ```bash
 # Start manually for local testing

@@ -938,6 +938,10 @@ class SynapseSettings:
                 cwd / "opencode.json",
                 home / ".config" / "opencode" / "opencode.json",
             ]
+        if agent_type == "copilot":
+            return [
+                home / ".copilot" / "mcp-config.json",
+            ]
         return []
 
     def _has_synapse_mcp_json(self, path: Path, agent_type: str) -> bool:

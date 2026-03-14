@@ -18,6 +18,9 @@
 | `synapse tasks purge [--status STATUS]` | Delete tasks (all or by status) |
 | `synapse approve <id>` | Approve agent plan |
 | `synapse reject <id> --reason "<feedback>"` | Reject with guidance |
+| `synapse tasks accept-plan <plan_id>` | Accept plan card and register steps as board tasks |
+| `synapse tasks sync-plan <plan_id>` | Sync task board progress back to plan card |
+| `synapse canvas plan '<json>' --title "<title>"` | Post a plan card (Mermaid DAG + step list) |
 | `synapse memory save <key> "<content>" --tags <t> --notify` | Share knowledge |
 | `synapse memory search "<query>"` | Find shared knowledge |
 | `synapse history list --agent <name>` | Check task history |
