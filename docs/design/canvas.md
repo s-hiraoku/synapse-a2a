@@ -605,7 +605,7 @@ class CanvasMessage:
     card_id: str = ""                   # For upserts
     pinned: bool = False
     tags: list[str] = field(default_factory=list)
-    template: str = ""                  # Template name (briefing | comparison | dashboard | steps | slides)
+    template: str = ""                  # Template name (briefing | comparison | dashboard | steps | slides | plan)
     template_data: dict = field(default_factory=dict)  # Template-specific layout metadata
 ```
 
@@ -616,7 +616,7 @@ class CanvasMessage:
 - `content.body` max size: 2MB per block
 - `card_id` must be globally unique (schema: `card_id TEXT UNIQUE`). If a different agent reuses an existing `card_id`, the server returns 403
 - Composite cards: max 30 content blocks per card
-- `template` must be one of: `briefing`, `comparison`, `dashboard`, `steps`, `slides` (or empty for no template)
+- `template` must be one of: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` (or empty for no template)
 - Template cards require composite content (list of blocks); `template_data` defines how blocks are grouped
 
 ### Templates
@@ -630,6 +630,7 @@ Templates add structured layout semantics on top of composite cards. The `templa
 | `dashboard` | Flexible grid of widgets with size hints | MAX_WIDGETS = 20, cols 1–4 |
 | `steps` | Linear workflow with completion tracking | MAX_STEPS = 30 |
 | `slides` | Page-by-page slide navigation | MAX_SLIDES = 30 |
+| `plan` | Task plan with Mermaid DAG + step list, status tracking, and Task Board integration | MAX_STEPS = 30 |
 
 #### Template Schemas
 
@@ -718,6 +719,39 @@ synapse canvas briefing --file report.json --title "CI Report"
 --pinned                       # Pin to top
 --tags "sprint,weekly"         # Comma-separated tags
 ```
+
+**plan**:
+```jsonc
+{
+  "title": "OAuth2 Migration Plan",
+  "plan_id": "plan-oauth2-migration",    // Unique plan identifier
+  "status": "proposed",                  // proposed | active | completed | cancelled
+  "mermaid": "graph TD\n  A[Design] --> B[Implement]\n  B --> C[Test]",
+  "steps": [
+    {
+      "id": "task-001",
+      "subject": "OAuth2 Design",
+      "agent": "claude",                 // Suggested agent
+      "status": "pending",               // pending | blocked | in_progress | completed | failed
+      "blocked_by": []                   // IDs of blocking steps
+    }
+  ],
+  "actions": ["approve", "edit", "cancel"]
+}
+```
+
+CLI shortcut:
+```bash
+# Post plan card
+synapse canvas plan '{"title":"Migration Plan","plan_id":"plan-001","status":"proposed","mermaid":"...","steps":[...]}'
+
+# Post from file
+synapse canvas plan --file plan.json
+```
+
+After approval via `synapse tasks accept-plan <plan_id>`, steps are auto-registered on the Task Board with dependency tracking. Progress syncs back to the Canvas Plan Card via `synapse tasks sync-plan <plan_id>`.
+
+See [Smart Suggest & Plan Canvas Design](smart-suggest-plan-canvas.md) for the full design.
 
 Other templates (`comparison`, `dashboard`, `steps`, `slides`) can be posted via `synapse canvas post` with the full Canvas Message Protocol JSON including `template` and `template_data` fields.
 

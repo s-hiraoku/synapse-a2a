@@ -206,9 +206,19 @@ steps:
     response_mode: wait
 ```
 
+## Smart Suggest
+
+When using MCP bootstrap, the `analyze_task` MCP tool can automatically suggest task splits for complex prompts. When a prompt triggers Smart Suggest (based on file count, multi-directory changes, missing tests, prompt length, or keyword matching), the agent receives a suggested breakdown (design/implement/verify) that can be turned into a Plan Card and accepted as Task Board tasks.
+
+This complements workflows by automating the initial task decomposition step. While workflows define fixed, reusable sequences, Smart Suggest dynamically analyzes each prompt and proposes ad-hoc task splits when the work appears large enough.
+
+See [MCP Bootstrap Setup](mcp-setup.md#mcp-tools) for details on the `analyze_task` tool, and [Canvas -- Plan Template](canvas.md#plan) for Plan Card documentation.
+
 ## Related Pages
 
 - [Communication](communication.md) -- message sending, priority levels, response modes
 - [Session Save/Restore](session.md) -- save and restore team configurations
 - [Cross-Agent Scenarios](cross-agent-scenarios.md) -- real-world multi-agent workflows
+- [Canvas](canvas.md) -- shared visual output surface, including Plan Cards
+- [Task Board](task-board.md) -- task tracking with Plan Card integration
 - [CLI Commands](../reference/cli.md#workflows) -- full command reference

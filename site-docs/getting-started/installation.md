@@ -105,7 +105,7 @@ synapse skills list --scope project
 
 Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Agents that use the MCP bootstrap require a one-time configuration to connect to the Synapse MCP server.
 
-Once this Synapse MCP configuration is present, Synapse skips PTY startup instruction injection automatically for Claude Code, Codex, Gemini CLI, and OpenCode. GitHub Copilot still uses PTY bootstrap because it does not consume the `synapse://instructions/*` resources.
+Once this Synapse MCP configuration is present, Synapse skips PTY startup instruction injection automatically for Claude Code, Codex, Gemini CLI, OpenCode, and GitHub Copilot.
 
 === "Claude Code"
 
@@ -199,10 +199,27 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
 
 === "GitHub Copilot"
 
-    !!! warning "Tools-only support"
-        GitHub Copilot's coding agent supports MCP **tools only** and cannot consume MCP resources/prompts. The `synapse://instructions/*` resources are not available to Copilot. Instead, Copilot uses the `bootstrap_agent` tool to retrieve runtime context.
+    Add to `~/.copilot/mcp-config.json`:
 
-    No MCP configuration is needed for Copilot — it receives Synapse instructions via PTY injection at startup, which is the default bootstrap method for all agents.
+    ```json
+    {
+      "mcpServers": {
+        "synapse": {
+          "command": "/path/to/uv",
+          "args": [
+            "run", "--directory", "/path/to/synapse-a2a",
+            "python", "-m", "synapse.mcp",
+            "--agent-id", "synapse-copilot-8140",
+            "--agent-type", "copilot",
+            "--port", "8140"
+          ]
+        }
+      }
+    }
+    ```
+
+    !!! note
+        Copilot's coding agent supports MCP **tools only** and cannot consume MCP resources/prompts. Copilot uses the `bootstrap_agent` and `analyze_task` tools to retrieve runtime context and task suggestions.
 
 !!! tip "Path Replacement"
     The examples above assume a **source checkout** with `uv`. Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.

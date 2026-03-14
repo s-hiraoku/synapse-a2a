@@ -9,7 +9,7 @@ Synapse Canvas is a shared visual output surface for agents. When an agent needs
 1. **Agent-driven**: Canvas is the agent's drawing board — agents decide what to show.
 2. **Protocol-first**: One unified JSON protocol for all communication. No type-specific CLI commands.
 3. **Expressive**: Agents can render anything — from Mermaid diagrams to raw HTML/CSS.
-4. **Template-driven**: Five built-in templates (briefing, comparison, dashboard, steps, slides) provide structured layouts for common use cases.
+4. **Template-driven**: Six built-in templates (briefing, comparison, dashboard, steps, slides, plan) provide structured layouts for common use cases.
 5. **Dead simple for agents**: One command, one JSON payload. That's it.
 6. **Zero-config for users**: `synapse canvas` starts the server. No npm, no build step.
 
@@ -130,6 +130,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
 | `tip` | Plain text | Tip callout | Helpful hints and tips |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation table |
+| `plan` | `{}` (empty object; data lives in `template_data`) | Plan template | Execution plan with Mermaid DAG, step list, and status tracking |
 
 !!! tip "Mermaid Theme Integration"
     Mermaid diagrams automatically sync with the Canvas dark/light theme toggle. When the theme changes, diagrams re-render using a custom color palette — Catppuccin-inspired tones for dark mode and Indigo tones for light mode, with the brand accent color (`#4051b5`). The original Mermaid source is preserved in a `data-mermaid-source` attribute on each diagram element, enabling seamless re-rendering without re-posting the card.
@@ -227,6 +228,7 @@ Templates add structured layouts on top of composite cards. While composite card
 | `dashboard` | Grid layout with resizable widgets (1-4 columns) | `widgets` (title, blocks, size), `cols` |
 | `steps` | Linear workflow with completion tracking | `steps` (title, blocks, done, description) |
 | `slides` | Page-by-page navigation with speaker notes | `slides` (title, blocks, notes) |
+| `plan` | Execution plan with dependency DAG and status tracking | `plan_id`, `status`, `steps` (id, subject, agent, status, blocked_by), `mermaid` |
 
 ### How Templates Work
 
@@ -329,6 +331,56 @@ Maximum 30 steps.
 
 Maximum 30 slides. Each slide must have a `blocks` array.
 
+#### `plan`
+
+```json
+{
+  "plan_id": "plan-oauth2",
+  "status": "proposed",
+  "mermaid": "graph TD\n  A[Design] --> B[Implement]\n  A --> C[Test]\n  B --> D[Review]\n  C --> D",
+  "steps": [
+    { "id": "s1", "subject": "Design auth module", "agent": "claude", "status": "pending" },
+    { "id": "s2", "subject": "Implement auth", "agent": "codex", "status": "pending", "blocked_by": ["s1"] },
+    { "id": "s3", "subject": "Write tests", "agent": "gemini", "status": "pending", "blocked_by": ["s1"] },
+    { "id": "s4", "subject": "Review", "agent": "claude", "status": "pending", "blocked_by": ["s2", "s3"] }
+  ]
+}
+```
+
+Maximum 30 steps. Each step must have `id` and `subject`.
+
+| Field | Required | Description |
+|---|:---:|---|
+| `plan_id` | Yes | Unique plan identifier (also used as `card_id`) |
+| `status` | No | Plan status: `proposed`, `active`, `completed`, `cancelled` (default: `proposed`) |
+| `mermaid` | No | Mermaid DAG source for visual dependency graph |
+| `steps` | Yes | Array of step objects |
+| `steps[].id` | Yes | Unique step identifier |
+| `steps[].subject` | Yes | Step description |
+| `steps[].agent` | No | Suggested assignee agent |
+| `steps[].status` | No | Step status: `pending`, `blocked`, `in_progress`, `completed`, `failed` |
+| `steps[].blocked_by` | No | Array of step IDs this step depends on |
+
+The Plan template renders a Mermaid dependency DAG at the top (if `mermaid` is provided) followed by a step list with status indicators. Plan cards are pinned by default.
+
+!!! tip "Plan Card + Task Board Integration"
+    Use `synapse tasks accept-plan <plan_id>` to register all plan steps as Task Board tasks with dependency chains preserved. Then use `synapse tasks sync-plan <plan_id>` to sync Task Board progress back to the Canvas Plan Card. See [Task Board -- Plan Card Integration](task-board.md#plan-card-integration) for details.
+
+### CLI: Plan Shortcut
+
+The `plan` template has a dedicated CLI command:
+
+```bash
+# From inline JSON
+synapse canvas plan '{"plan_id":"plan-oauth2","steps":[{"id":"s1","subject":"Design"}]}'
+
+# From file
+synapse canvas plan --file plan.json --title "OAuth2 Plan"
+
+# With options
+synapse canvas plan '...' --title "Plan" --card-id plan-oauth2 --pinned --tags "plan,auth"
+```
+
 ### CLI: Briefing Shortcut
 
 The `briefing` template has a dedicated CLI command for convenience:
@@ -344,7 +396,7 @@ synapse canvas briefing --file report.json --title "Sprint Report"
 synapse canvas briefing '...' --title "Report" --summary "Executive summary" --pinned --tags "sprint,review"
 ```
 
-Other templates can be posted via the `post-raw` command with the `template` and `template_data` fields in the JSON payload.
+The `plan` template also has a CLI shortcut (`synapse canvas plan`). Other templates can be posted via the `post-raw` command with the `template` and `template_data` fields in the JSON payload.
 
 ## CLI Commands
 
@@ -483,6 +535,7 @@ Internal limits:
 | Max dashboard widgets | 20 |
 | Max steps | 30 |
 | Max slides | 30 |
+| Max plan steps | 30 |
 
 ## Browser UI
 
@@ -490,7 +543,7 @@ Open `http://localhost:3000` to view the Canvas.
 
 The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
-For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 22 card types plus the 5 built-in templates with hardcoded sample data under `site-docs/assets/`.
+For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 22 card types plus the 6 built-in templates with hardcoded sample data under `site-docs/assets/`.
 
 The UI uses **SPA hash routing** with four views:
 
