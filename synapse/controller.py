@@ -166,6 +166,9 @@ class TerminalController:
         self._file_safety_manager: FileSafetyManager | None = None
 
         self.env = env or os.environ.copy()
+        # Unset CLAUDECODE to prevent nested-session detection when
+        # launching Claude Code from within a Claude Code session.
+        self.env.pop("CLAUDECODE", None)
         self.master_fd: int | None = None
         self.slave_fd: int | None = None
         self.process: subprocess.Popen[bytes] | None = None
@@ -1175,6 +1178,10 @@ class TerminalController:
         # pty.spawn() inherits current environment, so update os.environ
         # to pass SYNAPSE_* vars to child process for sender identification
         os.environ.update(self.env)
+        # Remove CLAUDECODE from os.environ to prevent nested-session detection.
+        # self.env already has it popped, but os.environ may still carry it
+        # from the parent process.
+        os.environ.pop("CLAUDECODE", None)
 
         if use_input_callback:
             pty.spawn(cmd_list, read_callback, input_callback)
