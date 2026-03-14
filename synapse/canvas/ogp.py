@@ -160,32 +160,60 @@ async def fetch_ogp(url: str, *, timeout: float = 5.0) -> dict:
         logger.debug("Rejected private/loopback URL: %s", url)
         return _fallback(url)
 
+    _MAX_REDIRECTS = 10
+
     try:
-        async with (
-            httpx.AsyncClient(
-                follow_redirects=True,
-                timeout=timeout,
-                headers={
-                    "User-Agent": "Synapse-Canvas/1.0 (OGP link-preview)",
-                    "Accept": "text/html, */*;q=0.1",
-                },
-            ) as client,
-            client.stream("GET", url) as resp,
-        ):
-            # Check status
-            if resp.status_code != 200:
-                logger.debug("HTTP %d for %s", resp.status_code, url)
-                return _fallback(url)
+        async with httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=timeout,
+            headers={
+                "User-Agent": "Synapse-Canvas/1.0 (OGP link-preview)",
+                "Accept": "text/html, */*;q=0.1",
+            },
+        ) as client:
+            target = url
+            for _ in range(_MAX_REDIRECTS):
+                async with client.stream("GET", target) as resp:
+                    if resp.is_redirect:
+                        location = resp.headers.get("location", "")
+                        if not location:
+                            return _fallback(url)
+                        target = urljoin(target, location)
+                        redir_parsed = urlparse(target)
+                        redir_host = redir_parsed.hostname or ""
+                        if redir_parsed.scheme not in ("http", "https"):
+                            logger.debug("Redirect to non-http(s): %s", target)
+                            return _fallback(url)
+                        if not redir_host or _is_private_ip(redir_host):
+                            logger.debug("Redirect to private IP: %s", target)
+                            return _fallback(url)
+                        continue
 
-            # Check content type
-            ct = resp.headers.get("content-type", "")
-            if "html" not in ct.lower():
-                logger.debug("Non-HTML content-type for %s: %s", url, ct)
-                return _fallback(url)
+                    # Check status
+                    if resp.status_code != 200:
+                        logger.debug("HTTP %d for %s", resp.status_code, url)
+                        return _fallback(url)
 
-            # Read limited bytes
-            raw = await resp.aread()
-            html_text = raw[:_MAX_READ_BYTES].decode("utf-8", errors="replace")
+                    # Check content type
+                    ct = resp.headers.get("content-type", "")
+                    if "html" not in ct.lower():
+                        logger.debug("Non-HTML content-type for %s: %s", url, ct)
+                        return _fallback(url)
+
+                    # Stream limited bytes
+                    chunks: list[bytes] = []
+                    total = 0
+                    async for chunk in resp.aiter_bytes():
+                        remain = _MAX_READ_BYTES - total
+                        if remain <= 0:
+                            break
+                        chunks.append(chunk[:remain])
+                        total += len(chunks[-1])
+                    html_text = b"".join(chunks).decode("utf-8", errors="replace")
+                    break
+            else:
+                logger.debug("Too many redirects for %s", url)
+                return _fallback(url)
 
     except (
         httpx.TimeoutException,

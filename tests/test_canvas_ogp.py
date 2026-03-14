@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import httpx
 import pytest
 
@@ -130,9 +132,10 @@ class MockResponse:
         self.status_code = status_code
         self.text = text
         self.headers = headers or {"content-type": "text/html; charset=utf-8"}
+        self.is_redirect = 300 <= status_code < 400
 
-    async def aread(self) -> bytes:
-        return self.text.encode()
+    async def aiter_bytes(self) -> AsyncIterator[bytes]:
+        yield self.text.encode()
 
     async def aclose(self) -> None:
         pass

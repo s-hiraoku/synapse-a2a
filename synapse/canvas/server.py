@@ -633,6 +633,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         from synapse.canvas.ogp import fetch_ogp
 
         blocks = msg.content if isinstance(msg.content, list) else [msg.content]
+        targets: list[tuple[Any, dict, str]] = []
         for block in blocks:
             if block.format != "link-preview":
                 continue
@@ -642,11 +643,22 @@ def create_app(db_path: str | None = None) -> FastAPI:
             url = body.get("url")
             if not url or not isinstance(url, str):
                 continue
-            # Skip if already enriched
             if body.get("fetched"):
                 continue
-            ogp_data = await fetch_ogp(url)
-            body.update(ogp_data)
+            targets.append((block, body, url))
+
+        if not targets:
+            return
+
+        results = await asyncio.gather(
+            *(fetch_ogp(url) for _, _, url in targets),
+            return_exceptions=True,
+        )
+        for (block, body, _), result in zip(targets, results, strict=True):
+            if isinstance(result, (Exception, BaseException)):
+                continue
+            if isinstance(result, dict):
+                body.update(result)
             block.body = body
 
     # ----------------------------------------------------------------

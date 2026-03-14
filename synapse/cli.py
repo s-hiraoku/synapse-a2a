@@ -2729,6 +2729,7 @@ def cmd_canvas_link(args: argparse.Namespace) -> None:
         print(f"Link preview card created: {result.get('card_id', '')}")
     else:
         print("Failed to create link preview card", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_auth_setup(args: argparse.Namespace) -> None:

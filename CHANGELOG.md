@@ -312,8 +312,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - show labeled task detail fields on card click
 
-## [Unreleased]
-
 ## [0.11.4] - 2026-03-08
 
 ### Added

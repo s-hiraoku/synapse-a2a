@@ -896,6 +896,14 @@ def post_link_preview(
     port: int = DEFAULT_PORT,
 ) -> dict | None:
     """Post a link-preview card for *url*. Returns card dict or None."""
+    url = url.strip()
+    if not url:
+        print("Error: URL is required", file=sys.stderr)
+        return None
+    if not url.startswith(("http://", "https://")):
+        print("Error: URL must start with http:// or https://", file=sys.stderr)
+        return None
+
     return post_shortcut(
         format_name="link-preview",
         body={"url": url},

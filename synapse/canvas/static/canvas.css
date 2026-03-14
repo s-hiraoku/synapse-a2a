@@ -3783,7 +3783,7 @@ body.sidebar-collapsed #main-content {
   align-items: center;
   gap: var(--sp-2);
   font-size: var(--text-xs);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -3809,7 +3809,7 @@ body.sidebar-collapsed #main-content {
 
 .link-preview-description {
   font-size: var(--text-sm);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   line-height: var(--leading-normal);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -3819,7 +3819,7 @@ body.sidebar-collapsed #main-content {
 
 .link-preview-url {
   font-size: var(--text-xs);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;

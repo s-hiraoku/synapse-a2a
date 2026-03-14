@@ -1943,12 +1943,12 @@
 
   function renderLinkPreview(el, body) {
     var data = body && typeof body === "object" ? body : {};
-    var url = data.url || "";
+    var url = data.url || data.og_url || "";
     var domain = data.domain || "";
-    var title = data.og_title || domain || url;
-    var description = data.og_description || "";
-    var image = data.og_image || "";
-    var siteName = data.og_site_name || domain;
+    var title = data.og_title || data.title || domain || url;
+    var description = data.og_description || data.description || "";
+    var image = data.og_image || data.image || "";
+    var siteName = data.og_site_name || data.site_name || domain;
     var favicon = data.favicon || "";
 
     var card = document.createElement("a");
