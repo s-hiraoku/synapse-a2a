@@ -688,11 +688,11 @@ def accept_plan(
     board = TaskBoard(db_path=board_db)
     creator = created_by or os.environ.get("SYNAPSE_AGENT_ID", "user")
 
-    # Map step IDs to board task IDs
+    # Map step IDs to board task IDs (two passes: create first, then set blocked_by)
     step_to_task: dict[str, str] = {}
     task_ids: list[str] = []
 
-    # First pass: create all tasks (without blocked_by, since we need all IDs first)
+    # First pass: create all tasks without blocked_by (need all IDs first)
     for step in steps:
         step_id = step.get("id", "")
         subject = step.get("subject", f"Step {step_id}")
@@ -709,20 +709,11 @@ def accept_plan(
         step_to_task[step_id] = task_id
         task_ids.append(task_id)
 
-        # Set assignee_hint if agent is specified
         agent = step.get("agent")
         if agent:
-            conn = board._get_connection()
-            try:
-                conn.execute(
-                    "UPDATE board_tasks SET assignee_hint = ? WHERE id = ?",
-                    (agent, task_id),
-                )
-                conn.commit()
-            finally:
-                conn.close()
+            board.set_assignee_hint(task_id, agent)
 
-    # Second pass: set blocked_by using the resolved task IDs
+    # Second pass: set blocked_by using resolved task IDs
     for step in steps:
         step_id = step.get("id", "")
         blocked_by_steps = step.get("blocked_by", [])
@@ -734,18 +725,11 @@ def accept_plan(
             step_to_task[bid] for bid in blocked_by_steps if bid in step_to_task
         ]
         if blocked_by_task_ids:
-            conn = board._get_connection()
-            try:
-                conn.execute(
-                    "UPDATE board_tasks SET blocked_by = ? WHERE id = ?",
-                    (json.dumps(blocked_by_task_ids), task_id),
-                )
-                conn.commit()
-            finally:
-                conn.close()
+            board.set_blocked_by(task_id, blocked_by_task_ids)
 
-    # Update plan card status to 'active'
+    # Persist step_to_task mapping for sync_plan_progress
     td["status"] = "active"
+    td["step_to_task"] = step_to_task
     store.upsert_card(
         card_id=plan_id,
         agent_id=card.get("agent_id", ""),
@@ -787,14 +771,16 @@ def sync_plan_progress(
         return False
 
     board = TaskBoard(db_path=board_db)
-    board_tasks = {t["subject"]: t for t in board.list_tasks()}
+    step_to_task = td.get("step_to_task", {})
+    board_tasks = {t["id"]: t for t in board.list_tasks()} if step_to_task else {}
 
     updated = False
     all_completed = True
 
     for step in steps:
-        subject = step.get("subject", "")
-        board_task = board_tasks.get(subject)
+        step_id = step.get("id", "")
+        task_id = step_to_task.get(step_id)
+        board_task = board_tasks.get(task_id) if task_id else None
         if board_task is None:
             if step.get("status") != "completed":
                 all_completed = False

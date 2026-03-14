@@ -405,6 +405,16 @@ class SynapseMCPServer:
     def _has_missing_tests(self, changed_paths: list[str]) -> bool:
         project_root = Path.cwd()
         tests_root = project_root / "tests"
+        if not tests_root.exists():
+            # No tests directory at all — any source file counts as missing
+            return any(
+                Path(p).suffix == ".py"
+                and not (Path(p).parts and Path(p).parts[0] == "tests")
+                and not Path(p).name.startswith("test_")
+                for p in changed_paths
+            )
+        # Build set of existing test filenames once (avoid per-file rglob)
+        existing_tests = {f.name for f in tests_root.rglob("test_*.py")}
         for path_text in changed_paths:
             path = Path(path_text)
             if path.suffix != ".py":
@@ -413,10 +423,7 @@ class SynapseMCPServer:
                 continue
             if path.name.startswith("test_"):
                 continue
-            candidate_name = f"test_{path.stem}.py"
-            if not tests_root.exists():
-                return True
-            if not any(tests_root.rglob(candidate_name)):
+            if f"test_{path.stem}.py" not in existing_tests:
                 return True
         return False
 

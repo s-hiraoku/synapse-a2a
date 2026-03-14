@@ -540,6 +540,32 @@ class TaskBoard:
             finally:
                 conn.close()
 
+    def set_blocked_by(self, task_id: str, blocked_by: list[str]) -> bool:
+        """Set the blocked_by list for a task.
+
+        Args:
+            task_id: The board task ID.
+            blocked_by: List of task IDs that block this task.
+
+        Returns:
+            True if the task was updated, False if no matching task found.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    """
+                    UPDATE board_tasks
+                    SET blocked_by = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (json.dumps(blocked_by), task_id),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+            finally:
+                conn.close()
+
     def link_a2a_task(self, board_task_id: str, a2a_task_id: str) -> bool:
         """Link a board task to an A2A transport task.
 
