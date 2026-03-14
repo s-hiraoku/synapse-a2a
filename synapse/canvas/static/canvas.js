@@ -711,6 +711,8 @@
         return renderStepsTemplate(blocks, td, compact, renderOptions);
       case "slides":
         return renderSlidesTemplate(blocks, td, compact, renderOptions);
+      case "plan":
+        return renderPlanTemplate(blocks, td, compact, renderOptions);
       default:
         return null;
     }
@@ -1000,6 +1002,78 @@
       }
 
       container.appendChild(stepEl);
+    }
+
+    return container;
+  }
+
+  // ----------------------------------------------------------------
+  // Plan template renderer — Mermaid DAG + step list with status
+  // ----------------------------------------------------------------
+  function renderPlanTemplate(blocks, templateData, compact, renderOptions) {
+    var STEP_STATUS_ICONS = {
+      pending: "\u23F3",      // ⏳
+      blocked: "\uD83D\uDD12", // 🔒
+      in_progress: "\uD83D\uDD04", // 🔄
+      completed: "\u2705",    // ✅
+      failed: "\u274C"        // ❌
+    };
+    var PLAN_STATUS_LABELS = {
+      proposed: "PROPOSED",
+      active: "ACTIVE",
+      completed: "COMPLETED",
+      cancelled: "CANCELLED"
+    };
+
+    var container = document.createElement("div");
+    container.className = "plan-container";
+
+    // Plan header with status badge
+    var planStatus = templateData.status || "proposed";
+    var header = document.createElement("div");
+    header.className = "plan-header";
+    var badge = document.createElement("span");
+    badge.className = "plan-status-badge plan-status-" + planStatus;
+    badge.textContent = PLAN_STATUS_LABELS[planStatus] || planStatus.toUpperCase();
+    header.appendChild(badge);
+    container.appendChild(header);
+
+    // Mermaid DAG section
+    if (templateData.mermaid) {
+      var dagSection = document.createElement("div");
+      dagSection.className = "plan-dag";
+      var pre = document.createElement("pre");
+      pre.className = "mermaid-pending mermaid";
+      pre.textContent = templateData.mermaid;
+      pre.dataset.mermaidSource = templateData.mermaid;
+      dagSection.appendChild(pre);
+      container.appendChild(dagSection);
+    }
+
+    // Steps section
+    var steps = templateData.steps || [];
+    if (steps.length > 0) {
+      // Progress bar
+      var doneCount = steps.filter(function (s) { return s.status === "completed"; }).length;
+      var progressWrap = document.createElement("div");
+      progressWrap.className = "plan-progress";
+      var progressBar = document.createElement("div");
+      progressBar.className = "plan-progress-bar";
+      var pct = (doneCount / steps.length) * 100;
+      progressBar.style.width = pct + "%";
+      progressWrap.appendChild(progressBar);
+      var progressLabel = document.createElement("span");
+      progressLabel.className = "plan-progress-label";
+      progressLabel.textContent = doneCount + "/" + steps.length + " completed";
+      progressWrap.appendChild(progressLabel);
+      container.appendChild(progressWrap);
+
+      // Step list
+      var stepList = document.createElement("div");
+      stepList.className = "plan-step-list";
+      // TODO(human): Implement the step list item rendering logic
+      stepList.appendChild(document.createTextNode(""));
+      container.appendChild(stepList);
     }
 
     return container;
