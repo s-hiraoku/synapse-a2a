@@ -155,6 +155,94 @@ def test_dashboard_route_in_js() -> None:
     assert "renderDashboard" in js
 
 
+def test_admin_view_exists_in_html() -> None:
+    """index.html should contain the admin view shell and controls."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    for fragment in [
+        'id="admin-view"',
+        'id="admin-container"',
+        'id="admin-agents-list"',
+        'id="admin-feed"',
+        'id="admin-target-agent"',
+        'id="admin-message-input"',
+        'id="admin-send-btn"',
+    ]:
+        assert fragment in html, f"Missing admin fragment: {fragment}"
+
+
+def test_admin_nav_link_exists_and_follows_system() -> None:
+    """Admin nav link should exist and appear after the system nav item."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    system_pos = html.index('data-route="system"')
+    admin_pos = html.index('data-route="admin"')
+    assert system_pos < admin_pos
+
+
+def test_admin_route_in_js() -> None:
+    """canvas.js should expose admin route handling and DOM bindings."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert 'document.getElementById("admin-view")' in js
+    assert 'document.getElementById("admin-feed")' in js
+    assert 'document.getElementById("admin-agents-list")' in js
+    assert 'document.getElementById("admin-target-agent")' in js
+    assert 'document.getElementById("admin-message-input")' in js
+    assert 'document.getElementById("admin-send-btn")' in js
+    assert 'admin: "Admin"' in js
+    assert 'currentRoute === "admin"' in js
+    assert "loadAdminAgents();" in js
+
+
+def test_admin_command_center_functions_exist_in_js() -> None:
+    """canvas.js should define the admin command-center helpers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    for name in [
+        "async function loadAdminAgents()",
+        "function renderAdminAgentsList(agents)",
+        "function updateAdminDropdown(agents)",
+        "function addAdminBubble(role, text, agentName)",
+        "function addAdminSpinner()",
+        "function removeAdminSpinner()",
+        "async function sendAdminCommand()",
+        "function pollAdminTask(taskId, target, agentName)",
+        "function escapeHtml(str)",
+    ]:
+        assert name in js, f"Missing admin helper: {name}"
+
+
+def test_admin_init_event_listeners_exist_in_js() -> None:
+    """canvas.js should wire the admin send button and Enter key handler."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert 'adminSendBtn.addEventListener("click", sendAdminCommand)' in js
+    assert 'adminMessageInput.addEventListener("keydown", function (e)' in js
+    assert 'if (e.key === "Enter" && !e.shiftKey)' in js
+
+
+def test_admin_css_classes_exist() -> None:
+    """canvas.css should define the admin view layout and bubble styles."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    for selector in [
+        "#admin-view",
+        "#admin-container",
+        "#admin-agents-panel",
+        ".admin-agent-item",
+        "#admin-feed",
+        ".admin-bubble",
+        ".admin-bubble-user",
+        ".admin-bubble-agent",
+        "#admin-input-bar",
+        "#admin-target-agent",
+        "#admin-message-input",
+        "#admin-send-btn",
+        ".admin-spinner",
+        ".admin-spinner-dot",
+    ]:
+        assert selector in css, f"Missing admin CSS selector: {selector}"
+
+
 def test_canvas_view_image_block_can_expand_to_available_height() -> None:
     """Canvas view image blocks should be allowed to fill the spotlight body."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")

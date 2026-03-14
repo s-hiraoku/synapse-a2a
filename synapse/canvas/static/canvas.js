@@ -17,6 +17,12 @@
   const dashboardView = document.getElementById("dashboard-view");
   const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
+  const adminView = document.getElementById("admin-view");
+  const adminFeed = document.getElementById("admin-feed");
+  const adminAgentsList = document.getElementById("admin-agents-list");
+  const adminTargetAgent = document.getElementById("admin-target-agent");
+  const adminMessageInput = document.getElementById("admin-message-input");
+  const adminSendBtn = document.getElementById("admin-send-btn");
   const navLinks = document.querySelectorAll(".nav-link");
   const sidebar = document.getElementById("sidebar");
   const sidebarOverlay = document.getElementById("sidebar-overlay");
@@ -26,7 +32,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System", admin: "Admin" };
 
   // Current route
   let currentRoute = "canvas";
@@ -98,6 +104,7 @@
 
     es.addEventListener("system_update", () => {
       loadSystemPanel();
+      if (currentRoute === "admin") loadAdminAgents();
     });
 
     var _sseHasConnected = false;
@@ -3534,6 +3541,7 @@
     if (hash === "#/dashboard") return "dashboard";
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
+    if (hash === "#/admin") return "admin";
     return "canvas";
   }
 
@@ -3597,6 +3605,7 @@
     if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
+    if (adminView) adminView.classList.add("view-hidden");
 
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
@@ -3611,6 +3620,10 @@
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       if (_lastSystemData) renderSystemPanel(_lastSystemData);
+    } else if (currentRoute === "admin") {
+      if (adminView) adminView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadAdminAgents();
     } else {
       historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
@@ -3808,11 +3821,172 @@
   }
 
   // ----------------------------------------------------------------
+  // Admin View — Command Center
+  // ----------------------------------------------------------------
+  let _adminPollingTimers = [];
+
+  async function loadAdminAgents() {
+    try {
+      const resp = await fetch("/api/admin/agents");
+      const data = await resp.json();
+      const agents = data.agents || [];
+      renderAdminAgentsList(agents);
+      updateAdminDropdown(agents);
+    } catch (e) {
+      console.error("Failed to load admin agents:", e);
+    }
+  }
+
+  function renderAdminAgentsList(agents) {
+    if (!adminAgentsList) return;
+    if (agents.length === 0) {
+      adminAgentsList.innerHTML = '<div class="admin-no-agents">No active agents</div>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < agents.length; i++) {
+      var a = agents[i];
+      var name = a.name || a.agent_id;
+      var color = statusColor(a.status);
+      html += '<div class="admin-agent-item">'
+        + '<span class="admin-agent-dot" style="background:' + color + '"></span>'
+        + '<span class="admin-agent-name">' + escapeHtml(name) + '</span>'
+        + '<span class="admin-agent-type">' + escapeHtml(a.agent_type || "") + '</span>'
+        + '<span class="admin-agent-status">' + escapeHtml(a.status || "") + '</span>'
+        + '</div>';
+    }
+    adminAgentsList.innerHTML = html;
+  }
+
+  function updateAdminDropdown(agents) {
+    if (!adminTargetAgent) return;
+    var current = adminTargetAgent.value;
+    adminTargetAgent.innerHTML = '<option value="">Select agent...</option>';
+    for (var i = 0; i < agents.length; i++) {
+      var a = agents[i];
+      var opt = document.createElement("option");
+      opt.value = a.agent_id;
+      opt.textContent = (a.name || a.agent_id) + " (" + (a.agent_type || "") + ")";
+      adminTargetAgent.appendChild(opt);
+    }
+    if (current) adminTargetAgent.value = current;
+  }
+
+  function addAdminBubble(role, text, agentName) {
+    if (!adminFeed) return;
+    var bubble = document.createElement("div");
+    bubble.className = "admin-bubble admin-bubble-" + role;
+    var header = document.createElement("div");
+    header.className = "admin-bubble-header";
+    header.textContent = role === "user" ? "You" : (agentName || "Agent");
+    bubble.appendChild(header);
+    var body = document.createElement("div");
+    body.className = "admin-bubble-body";
+    body.textContent = text;
+    bubble.appendChild(body);
+    var time = document.createElement("div");
+    time.className = "admin-bubble-time";
+    time.textContent = new Date().toLocaleTimeString();
+    bubble.appendChild(time);
+    adminFeed.appendChild(bubble);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
+  }
+
+  function addAdminSpinner() {
+    if (!adminFeed) return;
+    var spinner = document.createElement("div");
+    spinner.className = "admin-spinner";
+    spinner.id = "admin-active-spinner";
+    spinner.innerHTML = '<span class="admin-spinner-dot"></span> Waiting for response...';
+    adminFeed.appendChild(spinner);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
+    return spinner;
+  }
+
+  function removeAdminSpinner() {
+    var el = document.getElementById("admin-active-spinner");
+    if (el) el.remove();
+  }
+
+  async function sendAdminCommand() {
+    if (!adminTargetAgent || !adminMessageInput) return;
+    var target = adminTargetAgent.value;
+    var message = adminMessageInput.value.trim();
+    if (!target || !message) return;
+
+    var agentName = adminTargetAgent.options[adminTargetAgent.selectedIndex].textContent;
+    addAdminBubble("user", message, null);
+    adminMessageInput.value = "";
+
+    addAdminSpinner();
+
+    try {
+      var resp = await fetch("/api/admin/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: target, message: message }),
+      });
+      var data = await resp.json();
+      if (!resp.ok) {
+        removeAdminSpinner();
+        addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
+        return;
+      }
+      pollAdminTask(data.task_id, target, agentName);
+    } catch (e) {
+      removeAdminSpinner();
+      addAdminBubble("agent", "Error: " + e.message, agentName);
+    }
+  }
+
+  function pollAdminTask(taskId, target, agentName) {
+    var attempts = 0;
+    var maxAttempts = 60;
+    var timer = setInterval(async function () {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(timer);
+        removeAdminSpinner();
+        addAdminBubble("agent", "Timeout: No response after 2 minutes", agentName);
+        return;
+      }
+      try {
+        var resp = await fetch("/api/admin/tasks/" + encodeURIComponent(taskId) + "?target=" + encodeURIComponent(target));
+        var data = await resp.json();
+        if (data.status === "completed" || data.status === "DONE") {
+          clearInterval(timer);
+          removeAdminSpinner();
+          addAdminBubble("agent", data.output || data.text || "Task completed", agentName);
+        } else if (data.status === "failed" || data.status === "error") {
+          clearInterval(timer);
+          removeAdminSpinner();
+          addAdminBubble("agent", "Failed: " + (data.error || "Unknown error"), agentName);
+        }
+      } catch (e) {
+        // Continue polling on network errors
+      }
+    }, 2000);
+    _adminPollingTimers.push(timer);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ----------------------------------------------------------------
   // Init
   // ----------------------------------------------------------------
   filterType.addEventListener("change", renderAll);
   filterAgent.addEventListener("change", renderAll);
   window.addEventListener("hashchange", navigate);
+  if (adminSendBtn) adminSendBtn.addEventListener("click", sendAdminCommand);
+  if (adminMessageInput) {
+    adminMessageInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAdminCommand(); }
+    });
+  }
 
   /** Mermaid theme config keyed by canvas theme. */
   var MERMAID_THEMES = {

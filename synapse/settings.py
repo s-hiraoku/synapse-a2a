@@ -165,6 +165,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "on_idle": "",
         "on_task_completed": "",
     },
+    "administrator": {
+        "profile": "claude",
+        "name": "Admin",
+        "role": "coordinator",
+        "skill_set": "manager",
+        "port": 8150,
+        "tool_args": ["--dangerously-skip-permissions"],
+        "auto_start": False,
+    },
 }
 
 # Known top-level settings keys for validation
@@ -179,6 +188,7 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "delegate_mode",
     "hooks",
     "skill_sets",
+    "administrator",
 }
 
 # Deprecated settings keys with migration messages
@@ -296,6 +306,7 @@ class SynapseSettings:
     shutdown_config: dict[str, Any] = field(default_factory=dict)
     delegate_mode_config: dict[str, Any] = field(default_factory=dict)
     hooks_config: dict[str, str] = field(default_factory=dict)
+    administrator_config: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -310,6 +321,7 @@ class SynapseSettings:
             shutdown_config=dict(DEFAULT_SETTINGS["shutdown"]),
             delegate_mode_config=dict(DEFAULT_SETTINGS["delegate_mode"]),
             hooks_config=dict(DEFAULT_SETTINGS["hooks"]),
+            administrator_config=dict(DEFAULT_SETTINGS["administrator"]),
         )
 
     @classmethod
@@ -375,6 +387,7 @@ class SynapseSettings:
             shutdown_config=merged.get("shutdown", {}),
             delegate_mode_config=merged.get("delegate_mode", {}),
             hooks_config=merged.get("hooks", {}),
+            administrator_config=merged.get("administrator", {}),
         )
 
     def get_instruction(
@@ -1108,6 +1121,29 @@ class SynapseSettings:
             "on_idle": self.hooks_config.get("on_idle", defaults["on_idle"]),
             "on_task_completed": self.hooks_config.get(
                 "on_task_completed", defaults["on_task_completed"]
+            ),
+        }
+
+    def get_administrator_config(self) -> dict[str, Any]:
+        """Get administrator agent configuration.
+
+        Returns:
+            Dict with profile, name, role, skill_set, port, tool_args, auto_start.
+        """
+        defaults = DEFAULT_SETTINGS["administrator"]
+        return {
+            "profile": self.administrator_config.get("profile", defaults["profile"]),
+            "name": self.administrator_config.get("name", defaults["name"]),
+            "role": self.administrator_config.get("role", defaults["role"]),
+            "skill_set": self.administrator_config.get(
+                "skill_set", defaults["skill_set"]
+            ),
+            "port": self.administrator_config.get("port", defaults["port"]),
+            "tool_args": self.administrator_config.get(
+                "tool_args", defaults["tool_args"]
+            ),
+            "auto_start": self.administrator_config.get(
+                "auto_start", defaults["auto_start"]
             ),
         }
 
