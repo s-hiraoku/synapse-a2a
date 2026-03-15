@@ -15,7 +15,7 @@ import sys
 import threading
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
@@ -94,6 +94,8 @@ class SenderInfo:
     def to_reply_stack_entry(self) -> ReplyStackSenderInfo:
         """Convert to SenderInfo TypedDict for reply stack storage."""
         entry: ReplyStackSenderInfo = {}
+        if self.sender_id:
+            entry["sender_id"] = self.sender_id
         if self.sender_endpoint:
             entry["sender_endpoint"] = self.sender_endpoint
         if self.sender_uds_path:
@@ -1143,6 +1145,8 @@ def create_a2a_router(
             ):
                 reply_stack = get_reply_stack()
                 reply_entry = sender_info.to_reply_stack_entry()
+                reply_entry["message_preview"] = text_content[:80]
+                reply_entry["received_at"] = datetime.now(timezone.utc).isoformat()
                 reply_stack.set(sender_info.sender_id, reply_entry)
                 if agent_id:
                     try:
@@ -2182,11 +2186,24 @@ def create_a2a_router(
         sender_endpoint: str | None = None
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
+        message_preview: str | None = None
+        received_at: str | None = None
+
+    class ReplyTargetSummary(BaseModel):
+        """Reply target summary with disambiguation metadata."""
+
+        sender_id: str
+        sender_endpoint: str | None = None
+        sender_uds_path: str | None = None
+        sender_task_id: str | None = None
+        message_preview: str | None = None
+        received_at: str | None = None
 
     class ReplyTargetList(BaseModel):
         """List of reply target sender IDs."""
 
         sender_ids: list[str]
+        targets: list[ReplyTargetSummary] = []
 
     @router.get("/reply-stack/list", response_model=ReplyTargetList)
     async def list_reply_targets(
@@ -2199,7 +2216,20 @@ def create_a2a_router(
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         reply_stack = get_reply_stack()
-        return ReplyTargetList(sender_ids=reply_stack.list_senders())
+        return ReplyTargetList(
+            sender_ids=reply_stack.list_senders(),
+            targets=[
+                ReplyTargetSummary(
+                    sender_id=target["sender_id"],
+                    sender_endpoint=target.get("sender_endpoint"),
+                    sender_uds_path=target.get("sender_uds_path"),
+                    sender_task_id=target.get("sender_task_id"),
+                    message_preview=target.get("message_preview"),
+                    received_at=target.get("received_at"),
+                )
+                for target in reply_stack.list_targets()
+            ],
+        )
 
     @router.get("/reply-stack/get", response_model=ReplyTarget)
     async def get_reply_target(
@@ -2222,6 +2252,8 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            message_preview=info.get("message_preview"),
+            received_at=info.get("received_at"),
         )
 
     @router.get("/reply-stack/pop", response_model=ReplyTarget)
@@ -2245,6 +2277,8 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            message_preview=info.get("message_preview"),
+            received_at=info.get("received_at"),
         )
 
     # ================================================================

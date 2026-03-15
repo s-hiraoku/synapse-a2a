@@ -14,15 +14,18 @@ Key features:
 """
 
 import threading
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class SenderInfo(TypedDict, total=False):
     """Sender information for reply routing."""
 
+    sender_id: str
     sender_endpoint: str  # HTTP endpoint URL
     sender_task_id: str | None  # Task ID on sender's server (for in_reply_to)
     sender_uds_path: str | None  # UDS socket path (optional)
+    message_preview: str | None
+    received_at: str | None
 
 
 class ReplyStack:
@@ -84,6 +87,16 @@ class ReplyStack:
         """Return list of all sender IDs currently stored."""
         with self._lock:
             return list(self._map.keys())
+
+    def list_targets(self) -> list[dict[str, Any]]:
+        """Return stored reply targets with their selection metadata."""
+        with self._lock:
+            targets: list[dict[str, Any]] = []
+            for sender_id, info in self._map.items():
+                target = dict(info)
+                target["sender_id"] = sender_id
+                targets.append(target)
+            return targets
 
     def peek_last(self) -> SenderInfo | None:
         """

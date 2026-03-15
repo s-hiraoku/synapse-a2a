@@ -875,10 +875,26 @@ def cmd_reply(args: argparse.Namespace) -> None:
             if resp.status_code == 200:
                 data = resp.json()
                 sender_ids = data.get("sender_ids", [])
+                targets = data.get("targets", [])
                 if sender_ids:
                     print("Available reply targets:")
-                    for sid in sender_ids:
-                        print(f"  - {sid}")
+                    if targets:
+                        for target_summary in targets:
+                            sender_id = target_summary.get("sender_id", "unknown")
+                            task_id = target_summary.get("sender_task_id")
+                            preview = target_summary.get("message_preview")
+                            received_at = target_summary.get("received_at")
+                            parts = [f"  - {sender_id}"]
+                            if task_id:
+                                parts.append(f"task={task_id}")
+                            if received_at:
+                                parts.append(f"received_at={received_at}")
+                            if preview:
+                                parts.append(f"preview={preview}")
+                            print(" | ".join(parts))
+                    else:
+                        for sid in sender_ids:
+                            print(f"  - {sid}")
                 else:
                     print("No reply targets available.")
             else:
@@ -899,8 +915,39 @@ def cmd_reply(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    # Build reply-stack/get URL with optional sender_id
+    def _load_target_summaries() -> list[dict[str, str]]:
+        try:
+            resp = requests.get(f"{my_endpoint}/reply-stack/list", timeout=5)
+        except requests.RequestException:
+            return []
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        targets = data.get("targets", [])
+        if isinstance(targets, list) and targets:
+            return [target for target in targets if isinstance(target, dict)]
+        sender_ids = data.get("sender_ids", [])
+        if isinstance(sender_ids, list):
+            return [{"sender_id": sid} for sid in sender_ids if isinstance(sid, str)]
+        return []
+
     to_sender = getattr(args, "to", None)
+    if not to_sender:
+        summaries = _load_target_summaries()
+        if len(summaries) > 1:
+            print(
+                "Error: Multiple reply targets available. Use "
+                "'synapse reply --list-targets' or pass --to <sender_id>.",
+                file=sys.stderr,
+            )
+            for summary in summaries:
+                sender_id = summary.get("sender_id", "unknown")
+                print(f"  - {sender_id}", file=sys.stderr)
+            sys.exit(1)
+        if len(summaries) == 1:
+            to_sender = summaries[0].get("sender_id")
+
+    # Build reply-stack/get URL with optional sender_id
     get_url = f"{my_endpoint}/reply-stack/get"
     if to_sender:
         get_url += f"?sender_id={to_sender}"
