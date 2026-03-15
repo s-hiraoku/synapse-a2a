@@ -1060,8 +1060,25 @@ synapse tasks list
 synapse tasks list --status pending
 synapse tasks list --agent claude
 
+# Verbose output (show descriptions, dependencies, grouping columns)
+synapse tasks list --verbose
+
+# Machine-readable JSON output
+synapse tasks list --format json
+
+# Group tasks by a column (group_id, component, milestone, status, assignee)
+synapse tasks list --group-by component
+
+# Filter by grouping columns
+synapse tasks list --group <group_id>
+synapse tasks list --component <component>
+synapse tasks list --milestone <milestone>
+
 # Create a task
 synapse tasks create "Implement auth module" -d "OAuth2 flow with JWT tokens"
+
+# Create with grouping metadata
+synapse tasks create "Implement auth module" -d "OAuth2 flow" --group auth --component backend --milestone v1.0
 
 # Create with dependency (blocked until blocker completes)
 synapse tasks create "Write integration tests" --blocked-by <task_id>
@@ -1093,6 +1110,13 @@ synapse tasks purge
 synapse tasks purge --status completed
 synapse tasks purge --status failed
 synapse tasks purge --status pending
+
+# Delete tasks older than a duration (e.g., 7d, 24h, 30m)
+synapse tasks purge --older-than 7d
+
+# Preview what would be deleted without actually deleting
+synapse tasks purge --dry-run
+synapse tasks purge --status completed --older-than 7d --dry-run
 ```
 
 ### Plan Integration

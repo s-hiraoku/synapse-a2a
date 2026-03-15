@@ -399,14 +399,18 @@ def test_dashboard_task_board_renders_all_status_columns() -> None:
     end = js.index("\n  function renderSystemFileLocks(", start)
     body = js[start:end]
 
-    assert '["pending", "in_progress", "completed", "failed"]' in body
+    # Status columns are defined via TASK_STATUSES constant and used via groupTasksBy
+    assert (
+        "TASK_STATUSES" in body
+        or '["pending", "in_progress", "completed", "failed"]' in body
+    )
 
 
 def test_dashboard_task_board_shows_summary_and_detail() -> None:
     """Dashboard task widget should show summary bar and expandable detail."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    start = js.index("function renderDashTasks(tasks) {")
-    end = js.index("\n  function renderDashMemory(", start)
+    start = js.index("function buildTaskBars(tasks) {")
+    end = js.index("\n  function buildMemoryList(", start)
     body = js[start:end]
 
     assert "dash-task-bar-row" in body
@@ -609,6 +613,24 @@ def test_dashboard_expand_state_persists_across_renders() -> None:
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
 
     assert "var _dashExpandState = {};" in js
+
+
+def test_dashboard_refresh_updates_lazy_detail_builder_reference() -> None:
+    """Collapsed widgets should reopen with the latest detail builder after refreshes."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "wrapper._dashDetailBuilder = detailBuilder;" in js
+    assert "existing._dashDetailBuilder = detailBuilder;" in js
+    assert "var builder = wrapper._dashDetailBuilder;" in js
+    assert "detail.appendChild(builder());" in js
+
+
+def test_canvas_design_doc_only_claims_dashboard_in_place_updates() -> None:
+    """Design doc should scope in-place update wording to the dashboard widgets."""
+    text = Path("docs/design/canvas.md").read_text(encoding="utf-8")
+
+    assert "Dashboard widgets update in-place" in text
+    assert "System Panel and Dashboard counters update in-place" not in text
 
 
 def test_dashboard_detail_sections_reuse_system_renderers() -> None:

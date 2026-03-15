@@ -96,7 +96,7 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
-| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle, A2A task linking (`--task` flag), auto-claim/auto-complete, and purge (`synapse tasks`). **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
+| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle, A2A task linking (`--task` flag), auto-claim/auto-complete, and purge (`synapse tasks`). **Phase 2 Grouping**: tasks support `group_id`, `group_title`, `plan_id`, `component`, `milestone`, and `external_ref` columns for organizing large plans. `accept-plan` auto-sets `plan_id`/`group_id`/`group_title`. `--verbose` shows grouping columns; `--format json` for scripts; `--group-by {group_id\|component\|milestone\|status}` for grouped views. `--older-than` duration filter and `--dry-run` for purge. Agent names resolved via `resolve_display_name`. **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
@@ -112,7 +112,7 @@ flowchart LR
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview and `--continue-on-error` for resilient execution. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
-| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled), and Task Board integration (`synapse tasks accept-plan`). CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). **Admin Command Center**: interactive Admin tab for sending messages to agents, viewing responses, and managing the fleet from the browser. Agent selection via clickable table rows, multi-line textarea with Cmd+Enter, IME support, multi-artifact response extraction, terminal junk stripping. See [Canvas Design](docs/design/canvas.md), [Admin Command Center](docs/admin-command-center.md) |
+| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 22 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled), and Task Board integration (`synapse tasks accept-plan`). **Task Board view toggle**: switch between Status, Group, and Component views in the Canvas UI. CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). **Admin Command Center**: interactive Admin tab for sending messages to agents, viewing responses, and managing the fleet from the browser. Agent selection via clickable table rows, multi-line textarea with Cmd+Enter, IME support, multi-artifact response extraction, terminal junk stripping. See [Canvas Design](docs/design/canvas.md), [Admin Command Center](docs/admin-command-center.md) |
 | **Smart Suggest** | `analyze_task` MCP tool analyzes user prompts and suggests team/task splits when collaboration would be beneficial. Trigger conditions (file count, multi-directory changes, missing tests, prompt complexity, keywords) are configurable via `.synapse/suggest.yaml`. Suggestions are displayed as Plan Cards on Canvas and can be accepted via `synapse tasks accept-plan <plan_id>` to auto-register tasks on the Task Board with dependency tracking. Progress syncs from Task Board back to Canvas Plan Card. See [Smart Suggest Design (Japanese)](docs/design/smart-suggest-plan-canvas.md) |
 | **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes OR any delegation MUST have a task board entry (`synapse tasks create` + `assign`) before `synapse send`. Task board = team contract; TodoList = personal micro-steps. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 | **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) and tools (`bootstrap_agent`, `list_agents`, `analyze_task`) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context without PTY injection. When a Synapse MCP server config entry is detected, Synapse automatically skips PTY startup instruction injection for Claude Code, Codex, Gemini CLI, OpenCode, and Copilot; non-Synapse MCP entries do not trigger the skip. Copilot MCP config: `~/.copilot/mcp-config.json`. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
@@ -724,14 +724,14 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
-| `synapse tasks list` | List shared task board |
-| `synapse tasks create` | Create a task (supports `--priority 1-5`) |
+| `synapse tasks list` | List shared task board. Flags: `--verbose` (show grouping columns), `--format json` (JSON output), `--group-by {group_id\|component\|milestone\|status}` (grouped view) |
+| `synapse tasks create` | Create a task. Flags: `--priority 1-5`, `--group`, `--component`, `--milestone` |
 | `synapse tasks assign` | Assign task to agent |
 | `synapse tasks complete` | Mark task completed |
 | `synapse tasks fail` | Mark task failed (with `--reason`) |
 | `synapse tasks reopen` | Reopen completed/failed task to pending |
-| `synapse tasks purge` | Delete tasks from board (optional `--status` filter) |
-| `synapse tasks accept-plan <plan_id>` | Accept a Canvas Plan Card and auto-register its steps as Task Board entries with dependency tracking |
+| `synapse tasks purge` | Delete tasks from board. Flags: `--status` filter, `--older-than` duration (e.g., `1h`, `7d`), `--dry-run` |
+| `synapse tasks accept-plan <plan_id>` | Accept a Canvas Plan Card and auto-register its steps as Task Board entries with dependency tracking. Auto-sets `plan_id`, `group_id`, and `group_title` |
 | `synapse tasks sync-plan <plan_id>` | Sync Task Board progress back to the Canvas Plan Card |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
@@ -1069,13 +1069,13 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
-| `/tasks/board` | GET | List shared task board |
-| `/tasks/board` | POST | Create task on board (supports `priority` field) |
+| `/tasks/board` | GET | List shared task board. Query params: `group_by`, `component`, `milestone`, `format` |
+| `/tasks/board` | POST | Create task on board (supports `priority`, `group`, `component`, `milestone` fields) |
 | `/tasks/board/{id}/claim` | POST | Claim task atomically |
 | `/tasks/board/{id}/complete` | POST | Complete task |
 | `/tasks/board/{id}/fail` | POST | Mark task as failed (with optional `reason`) |
 | `/tasks/board/{id}/reopen` | POST | Reopen completed/failed task to pending |
-| `/tasks/board/purge` | POST | Delete tasks from board (optional `status` filter) |
+| `/tasks/board/purge` | POST | Delete tasks from board (optional `status` filter, `older_than` duration) |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (A2A-initiated) |

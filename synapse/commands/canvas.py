@@ -687,6 +687,7 @@ def accept_plan(
 
     board = TaskBoard(db_path=board_db)
     creator = created_by or os.environ.get("SYNAPSE_AGENT_ID", "user")
+    plan_title = card.get("title", plan_id)
 
     # Map step IDs to board task IDs (two passes: create first, then set blocked_by)
     step_to_task: dict[str, str] = {}
@@ -705,6 +706,9 @@ def accept_plan(
             description=step.get("description", ""),
             created_by=creator,
             priority=priority,
+            plan_id=plan_id,
+            group_id=plan_id,
+            group_title=plan_title,
         )
         step_to_task[step_id] = task_id
         task_ids.append(task_id)

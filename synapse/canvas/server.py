@@ -685,6 +685,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 key=lambda item: item.get("created_at", ""),
                 reverse=True,
             )[:50]
+            from synapse.task_board import resolve_display_name
+
             for row in rows:
                 status = row.get("status", "")
                 if status not in tasks:
@@ -694,10 +696,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         "id": row.get("id", ""),
                         "subject": row.get("subject", ""),
                         "assignee": row.get("assignee") or "",
+                        "assignee_name": resolve_display_name(row.get("assignee")),
                         "description": row.get("description", ""),
                         "priority": row.get("priority", 3),
                         "created_by": row.get("created_by", ""),
+                        "created_by_name": resolve_display_name(row.get("created_by")),
                         "created_at": row.get("created_at", ""),
+                        "updated_at": row.get("updated_at", ""),
+                        "fail_reason": row.get("fail_reason", ""),
+                        "group_id": row.get("group_id") or "",
+                        "group_title": row.get("group_title") or "",
+                        "component": row.get("component") or "",
+                        "milestone": row.get("milestone") or "",
                     }
                 )
         except Exception:

@@ -434,9 +434,9 @@ data: {"timestamp": "..."} // Triggers /api/system refetch
 
 When the SSE connection drops (e.g., server restart, network interruption), `EventSource` auto-reconnects. A `_sseHasConnected` guard ensures that `es.onopen` only triggers `loadCards()` on **re**-connections, not on the initial connect (which already loads cards during page init). This prevents a redundant double-load on first page open while still ensuring the browser UI never shows stale data after a reconnection.
 
-#### SSE-Only Updates (No Polling)
+#### SSE + Fallback Polling
 
-All real-time updates are delivered exclusively via SSE events. There is no periodic `setInterval` polling. The `system_update` event triggers a `/api/system` refetch in the Dashboard view, keeping all widgets current without any client-side timer.
+Real-time updates are delivered via SSE events. The `system_update` event triggers a `/api/system` refetch in the Dashboard view. Additionally, the Dashboard uses a 10-second `setInterval` fallback poll to ensure widgets stay current even if SSE events are missed or delayed. Both SSE-triggered and poll-triggered updates use `updateDashWidget()` for in-place DOM updates that preserve widget expand/collapse state.
 
 #### Toast Batching
 
@@ -515,10 +515,12 @@ Cards are grouped into panels per agent, sorted by the latest activity.
 
 ### Dashboard View (`#/dashboard`)
 
-The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). READY/PROCESSING/WAITING/DONE status counters update in-place rather than rebuilding the full DOM, so values refresh without triggering entry animations. Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
+The Dashboard view provides an operational status overview, updated in real-time via SSE with a 10-second fallback polling interval. READY/PROCESSING/WAITING/DONE status counters update in-place rather than rebuilding the full DOM, so values refresh without triggering entry animations. Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
 
 - **Summary** (always visible): A compact overview rendered in the widget header area (e.g., status strip for agents, bar chart for tasks, counts for others).
-- **Detail** (expandable): Full content revealed by clicking the widget header. Expand/collapse state is persisted across SSE re-renders via `_dashExpandState`.
+- **Detail** (expandable): Full content revealed by clicking the widget header. Expand/collapse state is persisted across both SSE and polling re-renders via `_dashExpandState`.
+
+On subsequent updates (SSE or polling), the `updateDashWidget()` helper performs in-place DOM updates on existing widgets rather than destroying and rebuilding them via `innerHTML`. This preserves the user's expand/collapse state across the 10-second polling cycle. `updateDashWidget()` updates the title text, replaces the summary element, and rebuilds the detail content only if the detail panel is currently expanded. If no existing widget element is found, it falls through to `createDashWidget()` for initial creation.
 
 Widget IDs:
 
@@ -858,7 +860,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
-- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. System Panel and Dashboard counters update in-place (no DOM rebuild)
+- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. Dashboard widgets update in-place (no DOM rebuild) and preserve expand/collapse state across 10-second polling via `updateDashWidget()`
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
 

@@ -2933,6 +2933,40 @@ body.sidebar-collapsed #main-content {
   margin-top: var(--sp-1);
 }
 
+.task-fail-reason {
+  font-size: var(--text-xs);
+  color: var(--color-danger, #e74c3c);
+  margin-top: var(--sp-1);
+  font-style: italic;
+}
+
+.task-view-toggle {
+  display: flex;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+
+.task-view-btn {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.task-view-btn.active {
+  background: var(--color-accent);
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+.task-view-btn:hover:not(.active) {
+  border-color: var(--color-accent);
+}
+
 /* ── Toast Notifications — glass float ──────── */
 
 #toast-container {

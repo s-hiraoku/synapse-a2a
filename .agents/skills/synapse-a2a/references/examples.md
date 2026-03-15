@@ -202,19 +202,26 @@ synapse memory stats
 ### Task Board Coordination
 
 ```bash
-# Manager creates tasks
-synapse tasks create "Implement auth module" -d "OAuth2 with JWT"
-synapse tasks create "Write auth tests" --blocked-by <auth_task_id>
+# Manager creates tasks with grouping metadata
+synapse tasks create "Implement auth module" -d "OAuth2 with JWT" --group auth --component backend --milestone v1.0
+synapse tasks create "Write auth tests" --blocked-by <auth_task_id> --group auth --component backend --milestone v1.0
 
 # Assign to agents
 synapse tasks assign <auth_task_id> gemini
 synapse tasks assign <test_task_id> codex
 
-# Monitor progress
+# Monitor progress (verbose shows descriptions and grouping columns)
 synapse tasks list --status in_progress
+synapse tasks list --verbose
+synapse tasks list --group-by component
+synapse tasks list --format json
 
 # Complete task (auto-unblocks dependent test task)
 synapse tasks complete <auth_task_id>
+
+# Cleanup old tasks
+synapse tasks purge --older-than 7d --dry-run
+synapse tasks purge --status completed --older-than 7d
 ```
 
 ### Delegate Mode Setup

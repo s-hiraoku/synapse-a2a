@@ -32,10 +32,11 @@ Inter-agent communication framework via Google A2A Protocol.
 | Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <tool-specific-automation-args>` |
-| Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n>` |
+| Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n> [--group G] [--component C] [--milestone M]` |
+| List tasks | `synapse tasks list [--verbose] [--format json] [--group-by COL] [--group G] [--component C] [--milestone M]` |
 | Assign task | `synapse tasks assign <id> <agent>` |
 | Complete task | `synapse tasks complete <id>` |
-| Purge tasks | `synapse tasks purge [--status STATUS]` (delete all or by status: pending, in_progress, completed, failed) |
+| Purge tasks | `synapse tasks purge [--status STATUS] [--older-than DURATION] [--dry-run]` |
 | Approve plan | `synapse approve <id>` |
 | Reject plan | `synapse reject <id> --reason "<feedback>"` |
 | Save knowledge | `synapse memory save <key> "<content>" --tags <t> --notify` |
@@ -78,7 +79,7 @@ Evaluate collaboration opportunities before starting work:
 
 | Feature | Why It Matters | Commands |
 |---------|---------------|----------|
-| **Task Board** | Transparent work tracking prevents duplication | `synapse tasks create/assign/complete/fail/reopen/purge` |
+| **Task Board** | Transparent work tracking prevents duplication; grouping (--group, --component, --milestone), verbose/JSON output, age-based purge | `synapse tasks create/assign/complete/fail/reopen/purge/list` |
 | **Shared Memory** | Collective knowledge survives agent restarts | `synapse memory save/search/list` |
 | **File Safety** | Locking prevents data loss when two agents edit the same file | `synapse file-safety lock/unlock/locks` |
 | **Worktree** | File isolation eliminates merge conflicts in parallel editing | `synapse spawn --worktree` |
@@ -124,6 +125,8 @@ synapse send Impl "Implement auth module" --task --silent
 synapse tasks purge                    # Delete all tasks
 synapse tasks purge --status completed # Delete only completed tasks
 synapse tasks purge --status failed    # Delete only failed tasks
+synapse tasks purge --older-than 7d    # Delete tasks older than 7 days
+synapse tasks purge --dry-run          # Preview what would be deleted
 ```
 
 If none of the triggers apply and the work is a small single-agent change, you can skip the task board.

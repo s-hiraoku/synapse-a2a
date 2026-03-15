@@ -933,3 +933,362 @@ class TestTaskBoardMigrationNewColumns:
         assert board.link_a2a_task("t1", "a2a-123") is True
         task = board.get_task("t1")
         assert task["a2a_task_id"] == "a2a-123"
+
+
+# ============================================================
+# Phase 1A: resolve_display_name
+# ============================================================
+
+
+class TestResolveDisplayName:
+    """Tests for the module-level resolve_display_name helper."""
+
+    def test_returns_name_with_id_when_found(self):
+        """Should return 'Name (agent_id)' when registry has the agent."""
+        import synapse.task_board as tb
+        from synapse.task_board import resolve_display_name
+
+        mock_info = {"name": "Claude", "agent_id": "synapse-claude-8100"}
+        mock_reg = type("MockReg", (), {"get_agent": lambda self, x: mock_info})()
+        old = tb._registry_cache
+        try:
+            tb._registry_cache = mock_reg
+            result = resolve_display_name("synapse-claude-8100")
+        finally:
+            tb._registry_cache = old
+        assert result == "Claude (synapse-claude-8100)"
+
+    def test_returns_raw_id_when_not_found(self):
+        """Should fall back to raw agent_id when not in registry."""
+        import synapse.task_board as tb
+        from synapse.task_board import resolve_display_name
+
+        mock_reg = type("MockReg", (), {"get_agent": lambda self, x: None})()
+        old = tb._registry_cache
+        try:
+            tb._registry_cache = mock_reg
+            result = resolve_display_name("synapse-unknown-9999")
+        finally:
+            tb._registry_cache = old
+        assert result == "synapse-unknown-9999"
+
+    def test_returns_raw_id_when_name_empty(self):
+        """Should fall back when agent has no name field."""
+        import synapse.task_board as tb
+        from synapse.task_board import resolve_display_name
+
+        mock_info = {"name": "", "agent_id": "synapse-claude-8100"}
+        mock_reg = type("MockReg", (), {"get_agent": lambda self, x: mock_info})()
+        old = tb._registry_cache
+        try:
+            tb._registry_cache = mock_reg
+            result = resolve_display_name("synapse-claude-8100")
+        finally:
+            tb._registry_cache = old
+        assert result == "synapse-claude-8100"
+
+    def test_returns_empty_for_empty_id(self):
+        """Should return empty string for empty agent_id."""
+        from synapse.task_board import resolve_display_name
+
+        result = resolve_display_name("")
+        assert result == ""
+
+    def test_returns_empty_for_none_id(self):
+        """Should return empty string for None agent_id."""
+        from synapse.task_board import resolve_display_name
+
+        result = resolve_display_name(None)
+        assert result == ""
+
+
+# ============================================================
+# Phase 1C: purge_stale and purge_by_ids
+# ============================================================
+
+
+class TestTaskBoardPurgeStale:
+    """Tests for purge_stale functionality."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_purge_stale_removes_old_tasks(self, board):
+        """Should delete tasks older than the given threshold."""
+        t1 = board.create_task(subject="Old", description="", created_by="claude")
+        board.create_task(subject="New", description="", created_by="claude")
+
+        # Manually age t1
+        conn = sqlite3.connect(board.db_path)
+        conn.execute(
+            "UPDATE board_tasks SET updated_at = datetime('now', '-2 hours') WHERE id = ?",
+            (t1,),
+        )
+        conn.commit()
+        conn.close()
+
+        deleted = board.purge_stale(older_than_seconds=3600)  # 1 hour
+        assert len(deleted) == 1
+        assert deleted[0]["id"] == t1
+
+    def test_purge_stale_with_status_filter(self, board):
+        """Should only delete stale tasks matching the status filter."""
+        t1 = board.create_task(
+            subject="Old Pending", description="", created_by="claude"
+        )
+        t2 = board.create_task(
+            subject="Old InProgress", description="", created_by="claude"
+        )
+        board.claim_task(t2, "synapse-claude-8100")
+
+        # Age both tasks
+        conn = sqlite3.connect(board.db_path)
+        conn.execute("UPDATE board_tasks SET updated_at = datetime('now', '-2 hours')")
+        conn.commit()
+        conn.close()
+
+        deleted = board.purge_stale(older_than_seconds=3600, status="pending")
+        assert len(deleted) == 1
+        assert deleted[0]["id"] == t1
+
+    def test_purge_stale_returns_empty_when_none_match(self, board):
+        """Should return empty list when no tasks are stale."""
+        board.create_task(subject="Fresh", description="", created_by="claude")
+        deleted = board.purge_stale(older_than_seconds=3600)
+        assert deleted == []
+
+
+class TestTaskBoardPurgeByIds:
+    """Tests for purge_by_ids functionality."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_purge_specific_ids(self, board):
+        """Should delete only the specified tasks."""
+        t1 = board.create_task(subject="T1", description="", created_by="claude")
+        t2 = board.create_task(subject="T2", description="", created_by="claude")
+        t3 = board.create_task(subject="T3", description="", created_by="claude")
+
+        count = board.purge_by_ids([t1, t3])
+        assert count == 2
+        remaining = board.list_tasks()
+        assert len(remaining) == 1
+        assert remaining[0]["id"] == t2
+
+    def test_purge_by_ids_nonexistent(self, board):
+        """Should return 0 for nonexistent IDs."""
+        count = board.purge_by_ids(["nonexistent-1", "nonexistent-2"])
+        assert count == 0
+
+    def test_purge_by_ids_empty_list(self, board):
+        """Should return 0 for empty list."""
+        board.create_task(subject="T1", description="", created_by="claude")
+        count = board.purge_by_ids([])
+        assert count == 0
+
+
+# ============================================================
+# Phase 2A: Schema extension for grouping
+# ============================================================
+
+
+class TestTaskBoardGroupingSchema:
+    """Tests for group_id, group_title, plan_id, component, milestone, external_ref columns."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_new_columns_default_to_none(self, board):
+        """New tasks should have None for all grouping columns."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        task = board.get_task(task_id)
+        assert task["group_id"] is None
+        assert task["group_title"] is None
+        assert task["plan_id"] is None
+        assert task["component"] is None
+        assert task["milestone"] is None
+        assert task["external_ref"] is None
+
+    def test_create_with_grouping_params(self, board):
+        """create_task should accept grouping parameters."""
+        task_id = board.create_task(
+            subject="Grouped",
+            description="",
+            created_by="claude",
+            group_id="grp-1",
+            group_title="Sprint 1",
+            plan_id="plan-abc",
+            component="backend",
+            milestone="v1.0",
+        )
+        task = board.get_task(task_id)
+        assert task["group_id"] == "grp-1"
+        assert task["group_title"] == "Sprint 1"
+        assert task["plan_id"] == "plan-abc"
+        assert task["component"] == "backend"
+        assert task["milestone"] == "v1.0"
+
+    def test_group_id_index_exists(self, board):
+        """idx_board_group index should exist."""
+        conn = sqlite3.connect(board.db_path)
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
+        index_names = {row[0] for row in cursor.fetchall()}
+        conn.close()
+        assert "idx_board_group" in index_names
+
+    def test_migration_adds_grouping_columns(self, tmp_path):
+        """Opening an old DB should add grouping columns."""
+        db_path = str(tmp_path / "old.db")
+
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE board_tasks (
+                id TEXT PRIMARY KEY,
+                subject TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'pending',
+                assignee TEXT,
+                created_by TEXT NOT NULL,
+                blocked_by TEXT DEFAULT '[]',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME,
+                priority INTEGER DEFAULT 3,
+                fail_reason TEXT DEFAULT '',
+                a2a_task_id TEXT,
+                assignee_hint TEXT
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO board_tasks (id, subject, created_by) "
+            "VALUES ('t1', 'Old task', 'claude')"
+        )
+        conn.commit()
+        conn.close()
+
+        from synapse.task_board import TaskBoard
+
+        board = TaskBoard(db_path=db_path)
+        task = board.get_task("t1")
+        assert task["group_id"] is None
+        assert task["component"] is None
+        assert task["milestone"] is None
+        assert task["external_ref"] is None
+
+
+# ============================================================
+# Phase 2B: list_tasks grouping filters and update_group
+# ============================================================
+
+
+class TestTaskBoardGroupingFilters:
+    """Tests for filtering tasks by group_id, component, milestone."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_filter_by_group_id(self, board):
+        """list_tasks should filter by group_id."""
+        board.create_task(
+            subject="A", description="", created_by="claude", group_id="g1"
+        )
+        board.create_task(
+            subject="B", description="", created_by="claude", group_id="g2"
+        )
+        tasks = board.list_tasks(group_id="g1")
+        assert len(tasks) == 1
+        assert tasks[0]["subject"] == "A"
+
+    def test_filter_by_component(self, board):
+        """list_tasks should filter by component."""
+        board.create_task(
+            subject="Backend", description="", created_by="claude", component="backend"
+        )
+        board.create_task(
+            subject="Frontend",
+            description="",
+            created_by="claude",
+            component="frontend",
+        )
+        tasks = board.list_tasks(component="backend")
+        assert len(tasks) == 1
+        assert tasks[0]["subject"] == "Backend"
+
+    def test_filter_by_milestone(self, board):
+        """list_tasks should filter by milestone."""
+        board.create_task(
+            subject="V1", description="", created_by="claude", milestone="v1.0"
+        )
+        board.create_task(
+            subject="V2", description="", created_by="claude", milestone="v2.0"
+        )
+        tasks = board.list_tasks(milestone="v1.0")
+        assert len(tasks) == 1
+        assert tasks[0]["subject"] == "V1"
+
+    def test_combined_filters(self, board):
+        """Multiple filters should AND together."""
+        board.create_task(
+            subject="Match",
+            description="",
+            created_by="claude",
+            group_id="g1",
+            component="backend",
+        )
+        board.create_task(
+            subject="NoMatch",
+            description="",
+            created_by="claude",
+            group_id="g1",
+            component="frontend",
+        )
+        tasks = board.list_tasks(group_id="g1", component="backend")
+        assert len(tasks) == 1
+        assert tasks[0]["subject"] == "Match"
+
+
+class TestTaskBoardUpdateGroup:
+    """Tests for update_group functionality."""
+
+    @pytest.fixture
+    def board(self, tmp_path):
+        from synapse.task_board import TaskBoard
+
+        return TaskBoard(db_path=str(tmp_path / "task_board.db"))
+
+    def test_update_group(self, board):
+        """update_group should set group_id and group_title."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        result = board.update_group(task_id, group_id="grp-1", group_title="Sprint 1")
+        assert result is True
+        task = board.get_task(task_id)
+        assert task["group_id"] == "grp-1"
+        assert task["group_title"] == "Sprint 1"
+
+    def test_update_group_nonexistent(self, board):
+        """update_group on missing task should return False."""
+        result = board.update_group("nonexistent", group_id="g1", group_title="G1")
+        assert result is False
+
+    def test_update_group_partial(self, board):
+        """update_group should allow setting only group_id."""
+        task_id = board.create_task(subject="Test", description="", created_by="claude")
+        board.update_group(task_id, group_id="grp-2")
+        task = board.get_task(task_id)
+        assert task["group_id"] == "grp-2"
+        assert task["group_title"] is None

@@ -254,6 +254,8 @@ synapse tasks complete "$IMPL_ID"
 synapse kill Impl -f && synapse kill Tester -f
 synapse list                              # Verify cleanup
 synapse tasks purge --status completed    # Clean up finished tasks
+synapse tasks purge --older-than 7d      # Clean up old tasks
+synapse tasks purge --dry-run            # Preview what would be deleted
 ```
 
 Killing spawned agents frees ports, memory, and PTY sessions. Orphaned agents

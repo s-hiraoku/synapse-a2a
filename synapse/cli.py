@@ -2896,30 +2896,133 @@ def _normalize_task_assignee(agent: str) -> str:
 # ============================================================
 
 
+def _parse_duration(value: str) -> int:
+    """Parse a human-readable duration string into seconds.
+
+    Supports: 30s, 5m, 2h, 7d.  Plain integers treated as seconds.
+    """
+    import re
+
+    m = re.fullmatch(r"(\d+)\s*([smhd])?", value.strip().lower())
+    if not m:
+        raise ValueError(f"Invalid duration: '{value}'. Use e.g. 30s, 5m, 2h, 7d")
+    n = int(m.group(1))
+    unit = m.group(2) or "s"
+    return n * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+
+
+def _relative_time(iso_str: str | None) -> str:
+    """Convert an ISO datetime string to a human-readable relative time."""
+    if not iso_str:
+        return "-"
+    from datetime import datetime, timezone
+
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        delta = now - dt
+        secs = int(delta.total_seconds())
+        if secs < 0:
+            return "just now"
+        if secs < 60:
+            return f"{secs}s ago"
+        if secs < 3600:
+            return f"{secs // 60}m ago"
+        if secs < 86400:
+            return f"{secs // 3600}h ago"
+        return f"{secs // 86400}d ago"
+    except (ValueError, TypeError):
+        return iso_str[:16] if iso_str else "-"
+
+
 def cmd_tasks_list(args: argparse.Namespace) -> None:
     """List tasks from the shared task board."""
-    from synapse.task_board import TaskBoard
+    from synapse.task_board import TaskBoard, resolve_display_name
 
     board = TaskBoard.from_env()
     status_filter = getattr(args, "status", None)
     agent_filter = getattr(args, "agent", None)
+    group_id_filter = getattr(args, "group", None)
+    component_filter = getattr(args, "component", None)
+    milestone_filter = getattr(args, "milestone", None)
 
-    tasks = board.list_tasks(status=status_filter, assignee=agent_filter)
+    tasks = board.list_tasks(
+        status=status_filter,
+        assignee=agent_filter,
+        group_id=group_id_filter,
+        component=component_filter,
+        milestone=milestone_filter,
+    )
 
     if not tasks:
         print("No tasks found.")
         return
 
+    fmt = getattr(args, "format", None)
+    verbose = getattr(args, "verbose", False)
+    group_by = getattr(args, "group_by", None)
+
+    # JSON output
+    if fmt == "json":
+        import json as _json
+
+        print(_json.dumps(tasks, indent=2, default=str))
+        return
+
+    # Group-by view
+    if group_by:
+        _print_grouped_tasks(tasks, group_by, verbose, resolve_display_name)
+        return
+
+    # Table view
+    _print_task_table(tasks, verbose, resolve_display_name)
+
+
+def _print_task_table(
+    tasks: list[dict],
+    verbose: bool,
+    resolve_fn: Callable[[str], str],
+) -> None:
+    """Print tasks in a formatted table."""
     for task in tasks:
-        blocked = (
-            f" [blocked by: {', '.join(task['blocked_by'][:3])}]"
-            if task["blocked_by"]
-            else ""
+        tid = task["id"] if verbose else task["id"][:8]
+        status = task["status"]
+        priority = f"P{task.get('priority', 3)}"
+        raw_assignee = task.get("assignee") or ""
+        assignee = resolve_fn(str(raw_assignee)) if raw_assignee else "-"
+        subject = task["subject"]
+        updated = (
+            task.get("updated_at", "")
+            if verbose
+            else _relative_time(task.get("updated_at"))
         )
-        assignee = f" → {task['assignee']}" if task["assignee"] else ""
+
         print(
-            f"  {task['id'][:8]}  [{task['status']}]{assignee}  {task['subject']}{blocked}"
+            f"  {tid}  {status:<12} {priority}  {assignee:<20}  {subject}  ({updated})"
         )
+
+        # Show fail_reason inline for failed tasks
+        if status == "failed" and task.get("fail_reason"):
+            print(f"           └─ {task['fail_reason']}")
+
+
+def _print_grouped_tasks(
+    tasks: list[dict],
+    group_by: str,
+    verbose: bool,
+    resolve_fn: Callable[[str], str],
+) -> None:
+    """Print tasks grouped by a given key."""
+    groups: dict[str, list[dict]] = {}
+    for task in tasks:
+        key = task.get(group_by) or "(ungrouped)"
+        groups.setdefault(key, []).append(task)
+
+    for group_name, group_tasks in groups.items():
+        print(f"\n── {group_name} ({len(group_tasks)}) ──")
+        _print_task_table(group_tasks, verbose, resolve_fn)
 
 
 def cmd_tasks_create(args: argparse.Namespace) -> None:
@@ -2944,6 +3047,9 @@ def cmd_tasks_create(args: argparse.Namespace) -> None:
         created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
         blocked_by=blocked_list,
         priority=priority,
+        group_id=getattr(args, "group", None),
+        component=getattr(args, "component", None),
+        milestone=getattr(args, "milestone", None),
     )
     print(f"Created task: {task_id[:8]} - {args.subject} (priority={priority})")
 
@@ -3032,7 +3138,30 @@ def cmd_tasks_purge(args: argparse.Namespace) -> None:
     board = TaskBoard.from_env()
     status_filter = getattr(args, "status", None)
     force = getattr(args, "force", False)
-    if not force:
+    dry_run = getattr(args, "dry_run", False)
+    older_than = getattr(args, "older_than", None)
+
+    # --older-than path: use purge_stale
+    if older_than:
+        try:
+            seconds = _parse_duration(older_than)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        deleted = board.purge_stale(
+            older_than_seconds=seconds, status=status_filter, dry_run=dry_run
+        )
+        if dry_run:
+            print(f"Would purge {len(deleted)} task(s):")
+            for t in deleted:
+                print(f"  {t['id'][:8]}  {t['status']:<12}  {t['subject']}")
+        else:
+            print(f"Purged {len(deleted)} stale task(s).")
+        return
+
+    # Standard purge path
+    if not force and not dry_run:
         if not sys.stdin.isatty():
             print("Aborted (non-interactive, use --force).")
             return
@@ -3045,9 +3174,17 @@ def cmd_tasks_purge(args: argparse.Namespace) -> None:
         if answer != "y":
             print("Aborted.")
             return
-    deleted = board.purge(status=status_filter)
+
+    if dry_run:
+        tasks = board.list_tasks(status=status_filter)
+        print(f"Would purge {len(tasks)} task(s):")
+        for t in tasks:
+            print(f"  {t['id'][:8]}  {t['status']:<12}  {t['subject']}")
+        return
+
+    purged = board.purge(status=status_filter)
     qualifier = f" {status_filter}" if status_filter else ""
-    print(f"Purged {deleted}{qualifier} task(s).")
+    print(f"Purged {purged}{qualifier} task(s).")
 
 
 def cmd_tasks_accept_plan(args: argparse.Namespace) -> None:
@@ -5433,6 +5570,23 @@ Integration with synapse list:
         "--status", help="Filter by status (pending, in_progress, completed, failed)"
     )
     p_tasks_list.add_argument("--agent", help="Filter by assignee agent")
+    p_tasks_list.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show full UUIDs and absolute times",
+    )
+    p_tasks_list.add_argument(
+        "--format", choices=["json"], help="Output format (default: table)"
+    )
+    p_tasks_list.add_argument(
+        "--group-by",
+        choices=["group_id", "component", "milestone", "status"],
+        help="Group tasks by field",
+    )
+    p_tasks_list.add_argument("--group", help="Filter by group_id")
+    p_tasks_list.add_argument("--component", help="Filter by component")
+    p_tasks_list.add_argument("--milestone", help="Filter by milestone")
     p_tasks_list.set_defaults(func=cmd_tasks_list)
 
     p_tasks_create = tasks_subparsers.add_parser("create", help="Create a task")
@@ -5450,6 +5604,11 @@ Integration with synapse list:
         default=3,
         help="Priority level 1-5 (default: 3, higher is more urgent)",
     )
+    p_tasks_create.add_argument("--group", help="Group ID for task grouping")
+    p_tasks_create.add_argument(
+        "--component", help="Component tag (e.g. backend, frontend)"
+    )
+    p_tasks_create.add_argument("--milestone", help="Milestone tag (e.g. v1.0)")
     p_tasks_create.set_defaults(func=cmd_tasks_create)
 
     p_tasks_assign = tasks_subparsers.add_parser(
@@ -5488,6 +5647,15 @@ Integration with synapse list:
         "-f",
         action="store_true",
         help="Purge without confirmation prompt",
+    )
+    p_tasks_purge.add_argument(
+        "--older-than",
+        help="Only purge tasks older than duration (e.g. 1h, 7d, 30m)",
+    )
+    p_tasks_purge.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be purged without deleting",
     )
     p_tasks_purge.set_defaults(func=cmd_tasks_purge)
 

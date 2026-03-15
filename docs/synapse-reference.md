@@ -41,12 +41,18 @@ synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)
 
 # Task Board (mandatory for delegations — create+assign before synapse send)
 synapse tasks list
+synapse tasks list --verbose                   # Show grouping columns (group, component, milestone)
+synapse tasks list --format json               # JSON output for AI/scripts
+synapse tasks list --group-by status            # Group by: group_id | component | milestone | status
 synapse tasks create "Subject" -d "description" --priority 4
+synapse tasks create "Subject" --group "auth" --component "backend" --milestone "v1.0"
 synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 synapse tasks purge                            # Delete all completed/failed tasks
 synapse tasks purge --status completed         # Delete only completed tasks
-synapse tasks accept-plan <plan_id>             # Accept Plan Card → auto-register tasks
+synapse tasks purge --older-than 7d            # Delete tasks older than duration (1h, 7d, etc.)
+synapse tasks purge --dry-run                  # Preview what would be deleted
+synapse tasks accept-plan <plan_id>             # Accept Plan Card → auto-register tasks (auto-sets plan_id/group_id/group_title)
 synapse tasks sync-plan <plan_id>               # Sync Task Board → Canvas Plan Card
 synapse approve <task_id>
 synapse reject <task_id> --reason "reason"
@@ -118,6 +124,8 @@ Targets resolve in priority order:
 2. Full Runtime ID: `synapse-claude-8100`
 3. Type-port shorthand: `claude-8100`
 4. Agent type (single instance only): `claude`
+
+**Display Name Resolution**: `resolve_display_name` resolves agent IDs (e.g., `synapse-claude-8100`) to human-friendly display names (e.g., `my-claude`) across the Task Board and Canvas views.
 
 ## Profile Configuration
 

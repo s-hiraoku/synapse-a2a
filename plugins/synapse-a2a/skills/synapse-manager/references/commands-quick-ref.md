@@ -10,12 +10,12 @@
 | `synapse send <name> "<msg>" --attach <file>` | Send with reference files |
 | `synapse broadcast "<msg>" --priority <n>` | Message all agents |
 | `synapse interrupt <name> "<msg>"` | Urgent status check (priority 4) |
-| `synapse tasks create "<subject>" -d "<desc>" --priority <n>` | Create task on board |
+| `synapse tasks create "<subject>" -d "<desc>" --priority <n> [--group G] [--component C] [--milestone M]` | Create task on board |
 | `synapse tasks assign <id> <agent>` | Assign task |
 | `synapse tasks complete <id>` | Mark task done |
 | `synapse tasks fail <id> --reason "<why>"` | Mark task failed |
 | `synapse tasks reopen <id>` | Reopen a completed or failed task |
-| `synapse tasks purge [--status STATUS]` | Delete tasks (all or by status) |
+| `synapse tasks purge [--status STATUS] [--older-than DURATION] [--dry-run]` | Delete tasks (all, by status, by age, or preview) |
 | `synapse approve <id>` | Approve agent plan |
 | `synapse reject <id> --reason "<feedback>"` | Reject with guidance |
 | `synapse tasks accept-plan <plan_id>` | Accept plan card and register steps as board tasks |
