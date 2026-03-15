@@ -515,7 +515,7 @@ Cards are grouped into panels per agent, sorted by the latest activity.
 
 ### Dashboard View (`#/dashboard`)
 
-The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
+The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). READY/PROCESSING/WAITING/DONE status counters update in-place rather than rebuilding the full DOM, so values refresh without triggering entry animations. Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
 
 - **Summary** (always visible): A compact overview rendered in the widget header area (e.g., status strip for agents, bar chart for tasks, counts for others).
 - **Detail** (expandable): Full content revealed by clicking the widget header. Expand/collapse state is persisted across SSE re-renders via `_dashExpandState`.
@@ -558,7 +558,7 @@ The UI adheres to a strict design system for consistency and accessibility:
 - **Spacing**: 4px base scale using variables `--sp-1` (4px) through `--sp-8` (32px).
 - **Colors**: Semantic tokens including `--color-bg`, `--color-bg-raised`, `--color-bg-inset`, and `--color-accent-subtle`.
 - **Fonts**: Inter for UI display/headings; Source Sans 3 for markdown card body text; Source Code Pro / JetBrains Mono for code. Loaded via Google Fonts.
-- **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states.
+- **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states. Card entry animations (e.g., `scaleIn`) use an `.is-new` CSS modifier class so they only play on first render; subsequent SSE/polling updates skip the animation to prevent visual replay.
 
 ---
 
@@ -858,7 +858,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
-- [ ] Card animations (insert/update/delete)
+- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. System Panel and Dashboard counters update in-place (no DOM rebuild)
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
 

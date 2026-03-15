@@ -43,6 +43,7 @@
   let systemAgents = [];
   // Cached system data for instant rendering on route change
   let _lastSystemData = null;
+  var _systemPanelRendered = false;
 
   // ----------------------------------------------------------------
   // Initial load
@@ -2142,6 +2143,12 @@
       content.appendChild(configGroup);
     }
 
+    if (!_systemPanelRendered) {
+      content.querySelectorAll('.system-section').forEach(function(s) {
+        s.classList.add('is-new');
+      });
+      _systemPanelRendered = true;
+    }
     systemPanel.appendChild(content);
   }
 
@@ -2150,6 +2157,7 @@
   // ----------------------------------------------------------------
 
   var _dashExpandState = {};
+  var _dashboardRendered = false;
 
   function createDashHeader(iconClass, titleText) {
     var header = document.createElement("div");
@@ -2220,19 +2228,36 @@
     renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
     renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
+    if (!_dashboardRendered) {
+      var dashboardView = document.getElementById("dashboard-view");
+      if (dashboardView) {
+        var widgets = dashboardView.querySelectorAll(".dash-widget");
+        for (var wi = 0; wi < widgets.length; wi++) widgets[wi].classList.add("is-new");
+        var strips = dashboardView.querySelectorAll(".dash-strip");
+        for (var si = 0; si < strips.length; si++) strips[si].classList.add("is-new");
+      }
+      _dashboardRendered = true;
+    }
+  }
+
+  var AGENT_STATUSES = ["ready", "processing", "waiting", "done"];
+
+  function countAgentStatuses(agents) {
+    var counts = {};
+    for (var i = 0; i < agents.length; i++) {
+      var s = (agents[i].status || "unknown").toLowerCase();
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
   }
 
   function buildStatusStrip(agents) {
     var strip = document.createElement("div");
     strip.className = "dash-strip";
 
-    var counts = {};
-    for (var i = 0; i < agents.length; i++) {
-      var s = (agents[i].status || "unknown").toLowerCase();
-      counts[s] = (counts[s] || 0) + 1;
-    }
+    var counts = countAgentStatuses(agents);
 
-    var statuses = ["ready", "processing", "waiting", "done"];
+    var statuses = AGENT_STATUSES;
     for (var si = 0; si < statuses.length; si++) {
       var status = statuses[si];
       var count = counts[status] || 0;
@@ -2260,11 +2285,21 @@
   function renderDashAgents(agents) {
     var el = document.getElementById("dash-agents");
     if (!el) return;
+
+    var existingCounts = el.querySelectorAll(".dash-strip-count");
+    if (existingCounts.length === AGENT_STATUSES.length) {
+      var counts = countAgentStatuses(agents);
+      for (var si = 0; si < AGENT_STATUSES.length; si++) {
+        existingCounts[si].textContent = String(counts[AGENT_STATUSES[si]] || 0);
+        existingCounts[si].style.color = statusColor(AGENT_STATUSES[si]);
+      }
+      var headerTitle = el.querySelector(".dash-widget-header span");
+      if (headerTitle) headerTitle.textContent = "Agents (" + agents.length + ")";
+      return;
+    }
+
     el.innerHTML = "";
-
-    // Summary: status strip (READY 6 | PROCESSING 0 | ...)
     var summary = buildStatusStrip(agents);
-
     el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
   }
 
@@ -3677,6 +3712,9 @@
     if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
+
+    _dashboardRendered = false;
+    _systemPanelRendered = false;
 
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
