@@ -1,6 +1,6 @@
 """Tests for file-based reply target persistence."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -91,7 +91,7 @@ def test_load_expired_target_returns_none(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("SYNAPSE_REPLY_TARGET_TTL_SECONDS", "600")
     agent_id = "synapse-codex-8122"
     reply_file = Path(tmp_path) / f"{agent_id}.reply.json"
-    expired_at = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    expired_at = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     reply_file.write_text(
         "{"
         '"sender_endpoint": "http://localhost:8110", '
