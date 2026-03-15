@@ -231,6 +231,118 @@ class TestAdminTaskProxy:
         resp = client.get("/api/admin/tasks/task-123")
         assert resp.status_code == 400
 
+    def test_proxy_task_multiple_artifacts_concatenated(self, client):
+        """Should concatenate text from multiple artifacts."""
+        mock_response = httpx.Response(
+            200,
+            json={
+                "id": "task-multi",
+                "status": {"state": "completed"},
+                "artifacts": [
+                    {"parts": [{"type": "text", "text": "Line 1"}]},
+                    {"parts": [{"type": "text", "text": "Line 2"}]},
+                    {"data": {"content": "Line 3"}},
+                ],
+            },
+            request=httpx.Request("GET", "http://localhost:8100/tasks/task-multi"),
+        )
+
+        with (
+            patch(
+                "synapse.canvas.server._resolve_agent_endpoint",
+                return_value="http://localhost:8100",
+            ),
+            patch(
+                "httpx.AsyncClient.get",
+                new_callable=AsyncMock,
+                return_value=mock_response,
+            ),
+        ):
+            resp = client.get(
+                "/api/admin/tasks/task-multi",
+                params={"target": "synapse-claude-8100"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "Line 1" in data["output"]
+        assert "Line 2" in data["output"]
+        assert "Line 3" in data["output"]
+
+    def test_proxy_task_format2_data_string(self, client):
+        """Should extract output from artifact data as plain string."""
+        mock_response = httpx.Response(
+            200,
+            json={
+                "id": "task-str",
+                "status": {"state": "completed"},
+                "artifacts": [
+                    {"data": "Plain string output"},
+                ],
+            },
+            request=httpx.Request("GET", "http://localhost:8100/tasks/task-str"),
+        )
+
+        with (
+            patch(
+                "synapse.canvas.server._resolve_agent_endpoint",
+                return_value="http://localhost:8100",
+            ),
+            patch(
+                "httpx.AsyncClient.get",
+                new_callable=AsyncMock,
+                return_value=mock_response,
+            ),
+        ):
+            resp = client.get(
+                "/api/admin/tasks/task-str",
+                params={"target": "synapse-claude-8100"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["output"] == "Plain string output"
+
+
+# ============================================================
+# _strip_terminal_junk tests
+# ============================================================
+
+
+class TestStripTerminalJunk:
+    """Tests for the _strip_terminal_junk helper."""
+
+    def test_preserves_multiline_text_with_trailing_numbers(self):
+        """Should not strip trailing numbers from normal multi-line text."""
+        from synapse.canvas.server import _strip_terminal_junk
+
+        text = "Step 1\nStep 2\nStep 3"
+        assert _strip_terminal_junk(text) == "Step 1\nStep 2\nStep 3"
+
+    def test_strips_bel_and_csi_remnants(self):
+        """Should strip content after BEL and trailing CSI digits."""
+        from synapse.canvas.server import _strip_terminal_junk
+
+        text = "Hello7\x07status bar junk"
+        result = _strip_terminal_junk(text)
+        assert result == "Hello"
+        assert "\x07" not in result
+
+    def test_strips_ansi_sequences(self):
+        """Should remove ANSI escape sequences."""
+        from synapse.canvas.server import _strip_terminal_junk
+
+        text = "\x1b[32mGreen\x1b[0m text"
+        result = _strip_terminal_junk(text)
+        assert result == "Green text"
+
+    def test_preserves_japanese_text(self):
+        """Should preserve multi-byte characters like Japanese."""
+        from synapse.canvas.server import _strip_terminal_junk
+
+        text = "完了しました"
+        assert _strip_terminal_junk(text) == "完了しました"
+
 
 # ============================================================
 # POST /api/admin/start — Administrator start

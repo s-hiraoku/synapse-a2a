@@ -35,6 +35,7 @@ from synapse.canvas.protocol import (
     validate_message,
 )
 from synapse.canvas.store import CanvasStore
+from synapse.controller import strip_ansi
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +72,31 @@ def _strip_terminal_junk(text: str) -> str:
     if "\x07" in text:
         text = text[: text.index("\x07")]
         # Remove trailing digits before BEL (CSI parameter remnants like "7" in "です7\x07")
-        text = re.sub(r"\d+$", "", text)
+        text = text.rstrip("0123456789")
 
-    # Step 2: Remove ANSI escape sequences
-    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
-    text = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", text)
-    text = re.sub(r"\x1b.", "", text)
+    # Step 2: Remove ANSI escape sequences (reuse controller.strip_ansi)
+    text = strip_ansi(text)
 
-    # Step 3: Remove control characters (except \t \n \r)
+    # Step 3: Remove orphaned CSI parameter fragments
+    # When \x1b was already stripped, bare fragments like "9m", "1C",
+    # "249m", "38;2;153;153;153m" remain glued to real text.
+    # Pattern: 1-3 digits optionally followed by ;digits, ending in a letter
+    text = re.sub(r"\d+(?:;\d+)*[A-HJKSTfm]", "", text)
+
+    # Step 4: Remove well-known terminal UI status bar phrases
+    # Codex/Claude status bars: "Esc to cancel · Tab to amend · ctrl+e to explain"
+    text = re.sub(
+        r"(?:Esc|Tab|ctrl\+\w+)\s+to\s+\w+[\s·]*", "", text, flags=re.IGNORECASE
+    )
+    # Codex UI fragments: "switchAgentConnection" and similar camelCase UI tokens
+    text = re.sub(
+        r"switch\s*Agent\s*Connection[^)\n]*\)?", "", text, flags=re.IGNORECASE
+    )
+
+    # Step 5: Remove control characters (except \t \n \r)
     text = re.sub(r"[\x00-\x08\x0e-\x1f\x7f]", "", text)
 
-    # Step 4: Clean up
+    # Step 6: Clean up
     text = re.sub(r"›[^\n]*", "", text)
     text = text.strip().strip("\u2022").strip()
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -1003,6 +1018,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         "status": data.get("status", ""),
                         "port": data.get("port"),
                         "endpoint": data.get("endpoint", ""),
+                        "role": data.get("role", ""),
+                        "skill_set": data.get("skill_set", ""),
+                        "working_dir": data.get("working_dir", ""),
                     }
                 )
         return {"agents": agents}
@@ -1023,8 +1041,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if not endpoint:
             raise HTTPException(status_code=404, detail=f"Agent '{target}' not found")
 
-        # Build A2A SendMessageRequest with response_mode=notify
-        # so the agent marks the task as completed when done
+        # Build A2A SendMessageRequest with sender info so the agent
+        # knows this comes from the Admin Command Center (human operator)
         a2a_request = {
             "message": {
                 "role": "user",
@@ -1032,6 +1050,10 @@ def create_app(db_path: str | None = None) -> FastAPI:
             },
             "metadata": {
                 "response_mode": "notify",
+                "sender": {
+                    "sender_id": "canvas-admin",
+                    "sender_name": "Admin",
+                },
             },
         }
 
@@ -1081,21 +1103,25 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if isinstance(state, dict):
             state = state.get("state", "unknown")
 
-        # Extract text from artifacts
+        # Extract text from all artifacts
         # Format varies: [{parts: [{type, text}]}] or [{type, data: {content}}]
-        output = ""
+        output_parts: list[str] = []
         for artifact in resp_data.get("artifacts", []):
             # Format 1: {parts: [{type: "text", text: "..."}]}
             for part in artifact.get("parts", []):
-                if part.get("type") == "text":
-                    output += part.get("text", "")
-            # Format 2: {type: "text", data: {content: "..."}}
-            if not output and artifact.get("data"):
-                content = artifact["data"].get("content", "")
+                if part.get("type") == "text" and part.get("text"):
+                    output_parts.append(part["text"])
+            # Format 2: {type: "text", data: {content: "..."}} or data as string
+            data = artifact.get("data")
+            if isinstance(data, dict):
+                content = data.get("content", "")
                 if content:
-                    output += content
+                    output_parts.append(content)
+            elif isinstance(data, str) and data:
+                output_parts.append(data)
+        output = "\n".join(output_parts)
 
-        # Also check message for output
+        # Also check message for output (fallback when no artifacts)
         msg = resp_data.get("message")
         if msg and not output:
             for part in msg.get("parts", []):
