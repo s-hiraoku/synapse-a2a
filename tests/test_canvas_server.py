@@ -1341,6 +1341,84 @@ class TestSlidesAPI:
         assert resp.status_code == 422
 
 
+class TestLinkPreview:
+    """Tests for link-preview format OGP enrichment."""
+
+    def test_post_link_preview_enrichment(self, client, monkeypatch):
+        """POST link-preview card triggers OGP enrichment."""
+        import synapse.canvas.ogp as ogp_mod
+
+        async def fake_fetch_ogp(url, **kwargs):
+            return {
+                "url": url,
+                "domain": "example.com",
+                "fetched": True,
+                "og_title": "Example Title",
+                "og_description": "Example description",
+                "og_image": "https://example.com/img.jpg",
+                "og_site_name": "Example",
+            }
+
+        monkeypatch.setattr(ogp_mod, "fetch_ogp", fake_fetch_ogp)
+
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "agent_id": "test",
+                "content": {
+                    "format": "link-preview",
+                    "body": {"url": "https://example.com"},
+                },
+            },
+        )
+        assert resp.status_code == 201
+        card = resp.json()
+        content = json.loads(card["content"])
+        body = content["body"]
+        assert body["fetched"] is True
+        assert body["og_title"] == "Example Title"
+        assert body["og_description"] == "Example description"
+
+    def test_post_link_preview_already_enriched(self, client):
+        """Link-preview with fetched=True is not re-enriched."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "agent_id": "test",
+                "content": {
+                    "format": "link-preview",
+                    "body": {
+                        "url": "https://example.com",
+                        "fetched": True,
+                        "og_title": "Already Set",
+                        "domain": "example.com",
+                    },
+                },
+            },
+        )
+        assert resp.status_code == 201
+        card = resp.json()
+        content = json.loads(card["content"])
+        assert content["body"]["og_title"] == "Already Set"
+
+    def test_link_preview_validation(self, client):
+        """link-preview format is accepted by validation."""
+        resp = client.post(
+            "/api/cards",
+            json={
+                "type": "render",
+                "agent_id": "test",
+                "content": {
+                    "format": "link-preview",
+                    "body": {"url": "https://example.com"},
+                },
+            },
+        )
+        assert resp.status_code == 201
+
+
 class TestSSE:
     """Tests for GET /api/stream (SSE)."""
 

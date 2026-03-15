@@ -79,6 +79,13 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
 | `cost` | `{agents: [{name, input_tokens, output_tokens, cost}], total_cost, currency}` | Cost table | Token/cost aggregation |
 | `tip` | String | Styled tip card | System tips and suggestions |
+| `link-preview` | `{url}` (enriched with `og_title`, `og_description`, `og_image`, `og_site_name`, `og_type`, `favicon`, `domain`, `fetched`) | Embed card | OGP link previews with title, description, image |
+
+**Link-preview OGP fetch details**:
+- **URL validation**: Only `http` and `https` URLs are accepted; the CLI command exits with a non-zero status on invalid input.
+- **SSRF protection**: HTTP redirects are followed manually with each redirect target validated against the same allowlist, preventing open-redirect SSRF attacks.
+- **Streaming read with size cap**: HTML is read via `aiter_bytes()` with a 64 KB ceiling, avoiding unbounded memory consumption on large pages.
+- **Parallel fetch**: When a card contains multiple `link-preview` blocks, OGP metadata is fetched concurrently via `asyncio.gather`.
 
 **Block-level metadata**: Any content block can carry optional `x_title` and `x_filename` fields. Renderers (mermaid, json, code, log, checklist, trace, tip) use `buildMetaRow()` to display this metadata above the rendered content. This replaces the earlier body-embedded metadata pattern (`{source, title?, filename?}`) and `parseBodyWithKey()` helper, which have been removed.
 
@@ -176,6 +183,7 @@ synapse canvas code "def foo(): pass" --lang python --title "Impl"
 synapse canvas diff "--- a/f.py\n+++ b/f.py\n..." --title "Changes"
 synapse canvas chart '{"type":"bar","data":{...}}' --title "Coverage"
 synapse canvas image "https://..." --title "Screenshot"
+synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas briefing '{"sections":[...],"content":[...]}' --title "Report"
 synapse canvas briefing --file report.json --title "CI Report"
 ```
@@ -507,7 +515,7 @@ Cards are grouped into panels per agent, sorted by the latest activity.
 
 ### Dashboard View (`#/dashboard`)
 
-The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
+The Dashboard view provides an operational status overview, updated in real-time via SSE (no periodic polling). READY/PROCESSING/WAITING/DONE status counters update in-place rather than rebuilding the full DOM, so values refresh without triggering entry animations. Each widget uses a two-tier **summary+detail** display pattern built with the `createDashWidget()` helper:
 
 - **Summary** (always visible): A compact overview rendered in the widget header area (e.g., status strip for agents, bar chart for tasks, counts for others).
 - **Detail** (expandable): Full content revealed by clicking the widget header. Expand/collapse state is persisted across SSE re-renders via `_dashExpandState`.
@@ -550,7 +558,7 @@ The UI adheres to a strict design system for consistency and accessibility:
 - **Spacing**: 4px base scale using variables `--sp-1` (4px) through `--sp-8` (32px).
 - **Colors**: Semantic tokens including `--color-bg`, `--color-bg-raised`, `--color-bg-inset`, and `--color-accent-subtle`.
 - **Fonts**: Inter for UI display/headings; Source Sans 3 for markdown card body text; Source Code Pro / JetBrains Mono for code. Loaded via Google Fonts.
-- **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states.
+- **Motion/Interaction**: Full support for `prefers-reduced-motion` and `focus-visible` states. Card entry animations (e.g., `scaleIn`) use an `.is-new` CSS modifier class so they only play on first render; subsequent SSE/polling updates skip the animation to prevent visual replay.
 
 ---
 
@@ -850,7 +858,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
-- [ ] Card animations (insert/update/delete)
+- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. System Panel and Dashboard counters update in-place (no DOM rebuild)
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
 

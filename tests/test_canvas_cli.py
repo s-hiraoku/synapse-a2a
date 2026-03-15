@@ -12,6 +12,24 @@ import sys
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _isolate_from_live_server(request, monkeypatch):
+    """Prevent tests from writing to a live Canvas server's DB.
+
+    post_shortcut / post_card check is_canvas_server_running() and, when True,
+    bypass the db_path argument and write via HTTP to the production DB.
+    Force the fallback (direct DB write with tmp_path) in all tests.
+
+    Tests that need the real function can use @pytest.mark.no_server_mock.
+    """
+    if "no_server_mock" in request.keywords:
+        return
+    monkeypatch.setattr(
+        "synapse.commands.canvas.is_canvas_server_running", lambda port=3000: False
+    )
+
+
 # ============================================================
 # TestCanvasPost — synapse canvas post
 # ============================================================
@@ -333,6 +351,7 @@ class TestCanvasDelete:
 class TestAutoStart:
     """Tests for Canvas server auto-start on first post."""
 
+    @pytest.mark.no_server_mock
     def test_is_server_running_false_when_not_started(self):
         """Should return False when no server is running."""
         from synapse.commands.canvas import is_canvas_server_running

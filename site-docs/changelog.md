@@ -9,10 +9,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: Canvas Admin Command Center — browser-based view (`#/admin`) for sending messages to agents and managing agent lifecycle
 - **Added**: Admin API endpoints on Canvas server (`/api/admin/agents`, `/api/admin/send`, `/api/admin/replies/{id}`, spawn/stop)
 - **Changed**: Admin response flow replaced artifact-polling with reply-based architecture (`synapse reply` via `POST /tasks/send` callback), eliminating terminal junk issues
+- **Added**: `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
+- **Added**: `synapse canvas link <url>` CLI command for posting rich link preview cards
+- **Fixed**: SSRF redirect validation, streaming 64KB read, parallel OGP fetch, CSS token fix, test isolation
 - **Fixed**: IME composition (Japanese/Chinese input) no longer triggers premature send
 - **Fixed**: Double-send prevention when clicking Send rapidly
-- **Fixed**: Admin send uses `response_mode=notify` for correct A2A response handling
-- **Fixed**: Adaptive polling intervals for reply retrieval (1s then 2s)
 
 ### v0.12.0
 

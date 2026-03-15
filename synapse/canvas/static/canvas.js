@@ -51,6 +51,7 @@
   let systemAgents = [];
   // Cached system data for instant rendering on route change
   let _lastSystemData = null;
+  var _systemPanelRendered = false;
 
   // ----------------------------------------------------------------
   // Initial load
@@ -697,6 +698,9 @@
         break;
       case "cost":
         renderCost(wrap, block.body);
+        break;
+      case "link-preview":
+        renderLinkPreview(wrap, block.body);
         break;
       default:
         wrap.textContent = block.body;
@@ -1947,6 +1951,83 @@
     el.appendChild(table);
   }
 
+  function renderLinkPreview(el, body) {
+    var data = body && typeof body === "object" ? body : {};
+    var url = data.url || data.og_url || "";
+    var domain = data.domain || "";
+    var title = data.og_title || data.title || domain || url;
+    var description = data.og_description || data.description || "";
+    var image = data.og_image || data.image || "";
+    var siteName = data.og_site_name || data.site_name || domain;
+    var favicon = data.favicon || "";
+
+    var card = document.createElement(url ? "a" : "div");
+    card.className = "link-preview-card";
+    if (url) {
+      card.href = url;
+      card.target = "_blank";
+      card.rel = "noopener noreferrer";
+    }
+
+    // Left text section
+    var textSection = document.createElement("div");
+    textSection.className = "link-preview-text";
+
+    // Site name row (favicon + site name)
+    var siteRow = document.createElement("div");
+    siteRow.className = "link-preview-site";
+    if (favicon) {
+      var favImg = document.createElement("img");
+      favImg.className = "link-preview-favicon";
+      favImg.src = favicon;
+      favImg.alt = "";
+      favImg.width = 16;
+      favImg.height = 16;
+      favImg.onerror = function () { this.style.display = "none"; };
+      siteRow.appendChild(favImg);
+    }
+    var siteSpan = document.createElement("span");
+    siteSpan.textContent = siteName;
+    siteRow.appendChild(siteSpan);
+    textSection.appendChild(siteRow);
+
+    // Title
+    var titleEl = document.createElement("div");
+    titleEl.className = "link-preview-title";
+    titleEl.textContent = title;
+    textSection.appendChild(titleEl);
+
+    // Description
+    if (description) {
+      var descEl = document.createElement("div");
+      descEl.className = "link-preview-description";
+      descEl.textContent = description;
+      textSection.appendChild(descEl);
+    }
+
+    // URL display
+    var urlEl = document.createElement("div");
+    urlEl.className = "link-preview-url";
+    urlEl.textContent = url;
+    textSection.appendChild(urlEl);
+
+    card.appendChild(textSection);
+
+    // Right thumbnail image
+    if (image) {
+      var imgWrap = document.createElement("div");
+      imgWrap.className = "link-preview-thumbnail";
+      var img = document.createElement("img");
+      img.src = image;
+      img.alt = title;
+      img.onerror = function () { imgWrap.style.display = "none"; };
+      imgWrap.appendChild(img);
+      card.appendChild(imgWrap);
+    }
+
+    el.appendChild(card);
+  }
+
   function formatNumber(n) {
     if (n == null) return "-";
     return Number(n).toLocaleString();
@@ -2074,6 +2155,12 @@
       content.appendChild(configGroup);
     }
 
+    if (!_systemPanelRendered) {
+      content.querySelectorAll('.system-section').forEach(function(s) {
+        s.classList.add('is-new');
+      });
+      _systemPanelRendered = true;
+    }
     systemPanel.appendChild(content);
   }
 
@@ -2082,6 +2169,7 @@
   // ----------------------------------------------------------------
 
   var _dashExpandState = {};
+  var _dashboardRendered = false;
 
   function createDashHeader(iconClass, titleText) {
     var header = document.createElement("div");
@@ -2152,19 +2240,36 @@
     renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
     renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
+    if (!_dashboardRendered) {
+      var dashboardView = document.getElementById("dashboard-view");
+      if (dashboardView) {
+        var widgets = dashboardView.querySelectorAll(".dash-widget");
+        for (var wi = 0; wi < widgets.length; wi++) widgets[wi].classList.add("is-new");
+        var strips = dashboardView.querySelectorAll(".dash-strip");
+        for (var si = 0; si < strips.length; si++) strips[si].classList.add("is-new");
+      }
+      _dashboardRendered = true;
+    }
+  }
+
+  var AGENT_STATUSES = ["ready", "processing", "waiting", "done"];
+
+  function countAgentStatuses(agents) {
+    var counts = {};
+    for (var i = 0; i < agents.length; i++) {
+      var s = (agents[i].status || "unknown").toLowerCase();
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return counts;
   }
 
   function buildStatusStrip(agents) {
     var strip = document.createElement("div");
     strip.className = "dash-strip";
 
-    var counts = {};
-    for (var i = 0; i < agents.length; i++) {
-      var s = (agents[i].status || "unknown").toLowerCase();
-      counts[s] = (counts[s] || 0) + 1;
-    }
+    var counts = countAgentStatuses(agents);
 
-    var statuses = ["ready", "processing", "waiting", "done"];
+    var statuses = AGENT_STATUSES;
     for (var si = 0; si < statuses.length; si++) {
       var status = statuses[si];
       var count = counts[status] || 0;
@@ -2192,11 +2297,21 @@
   function renderDashAgents(agents) {
     var el = document.getElementById("dash-agents");
     if (!el) return;
+
+    var existingCounts = el.querySelectorAll(".dash-strip-count");
+    if (existingCounts.length === AGENT_STATUSES.length) {
+      var counts = countAgentStatuses(agents);
+      for (var si = 0; si < AGENT_STATUSES.length; si++) {
+        existingCounts[si].textContent = String(counts[AGENT_STATUSES[si]] || 0);
+        existingCounts[si].style.color = statusColor(AGENT_STATUSES[si]);
+      }
+      var headerTitle = el.querySelector(".dash-widget-header span");
+      if (headerTitle) headerTitle.textContent = "Agents (" + agents.length + ")";
+      return;
+    }
+
     el.innerHTML = "";
-
-    // Summary: status strip (READY 6 | PROCESSING 0 | ...)
     var summary = buildStatusStrip(agents);
-
     el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
   }
 
@@ -3621,6 +3736,9 @@
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
+
+    _dashboardRendered = false;
+    _systemPanelRendered = false;
 
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");

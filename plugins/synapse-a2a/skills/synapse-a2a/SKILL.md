@@ -47,6 +47,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
 | Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
 | Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
+| Link preview | `synapse canvas link "<url>" --title "<title>"` |
 | Post template | `synapse canvas briefing '<json>' --title "<title>"` |
 | Post plan card | `synapse canvas plan '<json>' --title "<title>"` (Mermaid DAG + step list with status tracking) |
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
@@ -84,7 +85,7 @@ Evaluate collaboration opportunities before starting work:
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
-| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan) | `synapse canvas post/briefing/plan/open/list` |
+| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan) | `synapse canvas post/link/briefing/plan/open/list` |
 | **Admin Command Center** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses) | `synapse canvas open` → navigate to `#/admin` |
 | **Plan Cards** | Mermaid DAG + step list with accept/sync workflow for task board integration | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
