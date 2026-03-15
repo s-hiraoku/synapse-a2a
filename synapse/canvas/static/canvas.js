@@ -2229,7 +2229,7 @@
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
     renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
     if (!_dashboardRendered) {
-      var dashboardView = document.getElementById("view-dashboard");
+      var dashboardView = document.getElementById("dashboard-view");
       if (dashboardView) {
         var widgets = dashboardView.querySelectorAll(".dash-widget");
         for (var wi = 0; wi < widgets.length; wi++) widgets[wi].classList.add("is-new");
