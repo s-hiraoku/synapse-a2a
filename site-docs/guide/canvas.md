@@ -584,12 +584,12 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 
 The Dashboard view provides a real-time operational status overview of the entire Synapse environment. It is designed for monitoring multi-agent systems at a glance.
 
-**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data. Widget expand/collapse state is preserved across polling refreshes so the view does not jump while you are reading details.
+**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data. Widget expand/collapse state is preserved across re-renders so the view does not jump while you are reading details.
 
 **Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
-- **Tasks**: Pending/in-progress/completed tasks from the task board. Task cards are expandable with markdown-rendered descriptions, and expand state persists across polling updates. The view toggle (Status | Group | Component) uses high-contrast active-tab styling for clear visibility
+- **Tasks**: Pending/in-progress/completed tasks from the task board. Task cards are expandable with Markdown-rendered descriptions, and expand state persists across re-renders. The view toggle (Status | Group | Component) uses high-contrast active-tab styling for clear visibility
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
 - **Memory**: Recent shared memory entries
