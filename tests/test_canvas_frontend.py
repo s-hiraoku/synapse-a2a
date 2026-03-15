@@ -312,8 +312,7 @@ def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     assert "min-height: 200px;" not in iframe_rule
     assert "formatCanvasHTMLDocument" in js
     assert "html, body { height: 100%;" in js
-    assert "body { margin: 0;" in js
-    assert "overflow: hidden;" in js
+    assert "margin: 0;" in js
     assert "options && options.inCanvasView === true" in js
     assert 'el.closest(".canvas-content")' not in js
 

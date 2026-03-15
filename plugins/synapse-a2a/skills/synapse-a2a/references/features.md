@@ -177,7 +177,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Code cards**: Syntax highlighted via highlight.js (set `--lang` for best results)
 - **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
-- **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with auto-resize to content height
+- **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with theme sync via `postMessage` (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver, dark mode background, and full document normalization (extracts `<head>`/`<body>` from complete HTML documents to avoid CSP/cascade conflicts)
 - **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 - **Link-preview cards**: Fetches Open Graph metadata from a URL and renders a rich card with title, description, and thumbnail image

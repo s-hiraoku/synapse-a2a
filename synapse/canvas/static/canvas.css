@@ -2592,6 +2592,9 @@ body.sidebar-collapsed #main-content {
   background: #fff;
   border-radius: var(--radius-md);
 }
+[data-theme="dark"] .format-html iframe {
+  background: #1a1a2e;
+}
 
 /* ── Footer ──────────────────────────────────── */
 
