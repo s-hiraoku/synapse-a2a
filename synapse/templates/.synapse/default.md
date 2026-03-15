@@ -233,6 +233,11 @@ synapse send codex "Run the test suite and commit if all tests pass" --silent
 synapse send codex "STOP" --priority 5
 ```
 
+ADMIN COMMAND CENTER:
+Messages prefixed with `A2A: [From: Admin (canvas-admin)] [REPLY EXPECTED]` come from a human operator
+via the Canvas Admin Command Center. Respond thoroughly with detailed, multi-line answers.
+Always respond in the same language as the received message.
+
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot
 LIST COMMAND: synapse list
 SPAWN COMMAND: synapse spawn <profile> --name <name> --role "<role>" [--worktree]
