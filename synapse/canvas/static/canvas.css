@@ -2942,10 +2942,19 @@ body.sidebar-collapsed #main-content {
   font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--color-text);
+  overflow-x: auto;
 }
 
 .task-detail-md p {
   margin: 0 0 var(--sp-1) 0;
+}
+
+.task-detail-md h1, .task-detail-md h2, .task-detail-md h3,
+.task-detail-md h4, .task-detail-md h5, .task-detail-md h6 {
+  margin: var(--sp-2) 0 var(--sp-1) 0;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .task-detail-md code {
@@ -2955,9 +2964,65 @@ body.sidebar-collapsed #main-content {
   font-size: 0.9em;
 }
 
+.task-detail-md pre {
+  background: var(--color-bg-inset);
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: var(--sp-1) 0;
+  border: 1px solid var(--glass-stroke);
+}
+
+.task-detail-md pre code {
+  background: none;
+  padding: 0;
+  font-family: var(--md-mono, monospace);
+  font-size: var(--text-xs);
+  white-space: pre;
+  color: var(--color-text);
+}
+
+.task-detail-md a {
+  color: var(--color-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-accent-border, transparent);
+}
+
+.task-detail-md a:hover {
+  opacity: 0.9;
+}
+
+.task-detail-md blockquote {
+  margin: var(--sp-1) 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--color-accent-border-strong, var(--color-accent));
+  background: var(--color-accent-tint, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
 .task-detail-md ul, .task-detail-md ol {
   margin: 0 0 var(--sp-1) 0;
   padding-left: var(--sp-4);
+}
+
+.task-detail-md table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--sp-1) 0;
+  font-size: var(--text-xs);
+  overflow-x: auto;
+  display: block;
+}
+
+.task-detail-md th, .task-detail-md td {
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--glass-stroke);
+  text-align: left;
+}
+
+.task-detail-md th {
+  background: var(--glass-bg);
+  font-weight: 600;
 }
 
 .task-fail-reason {

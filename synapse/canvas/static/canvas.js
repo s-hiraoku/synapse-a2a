@@ -2853,8 +2853,12 @@
     card.className = "task-item";
     card.style.cursor = "pointer";
 
+    card.dataset.taskId = taskId;
+
     const title = document.createElement("div");
+    title.className = "task-item-title";
     title.textContent = (taskId.slice(0, 8) + " " + (item.subject || "")).trim();
+    title.title = taskId;
     card.appendChild(title);
 
     if (item.assignee_name || item.assignee) {
@@ -2921,7 +2925,8 @@
       detail.classList.add("expanded");
     }
 
-    card.addEventListener("click", function () {
+    card.addEventListener("click", function (e) {
+      if (e.target.closest('a, button, input, textarea, select, [role="button"]')) return;
       detail.classList.toggle("expanded");
       _dashTaskExpandedIds[taskId] = detail.classList.contains("expanded");
     });
