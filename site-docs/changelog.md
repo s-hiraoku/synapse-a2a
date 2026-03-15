@@ -7,11 +7,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.12.1
 
 - **Added**: Canvas Admin Command Center — browser-based view (`#/admin`) for sending messages to agents and managing agent lifecycle
-- **Added**: Admin API endpoints on Canvas server (`/api/admin/agents`, `/api/admin/send`, `/api/admin/tasks/{id}`, spawn/stop)
-- **Fixed**: Terminal junk stripping (ANSI escapes, status bars, spinner fragments) in admin responses
+- **Added**: Admin API endpoints on Canvas server (`/api/admin/agents`, `/api/admin/send`, `/api/admin/replies/{id}`, spawn/stop)
+- **Changed**: Admin response flow replaced artifact-polling with reply-based architecture (`synapse reply` via `POST /tasks/send` callback), eliminating terminal junk issues
+- **Fixed**: IME composition (Japanese/Chinese input) no longer triggers premature send
+- **Fixed**: Double-send prevention when clicking Send rapidly
 - **Fixed**: Admin send uses `response_mode=notify` for correct A2A response handling
-- **Fixed**: Adaptive polling intervals for task result retrieval (1s then 2s)
-- **Fixed**: Double-send prevention in admin command input
+- **Fixed**: Adaptive polling intervals for reply retrieval (1s then 2s)
 
 ### v0.12.0
 

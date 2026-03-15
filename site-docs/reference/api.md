@@ -1213,8 +1213,10 @@ The Canvas server exposes admin endpoints for the [Admin Command Center](../guid
 | Method | Endpoint | Description |
 |:------:|----------|-------------|
 | GET | `/api/admin/agents` | List active agents from registry |
-| POST | `/api/admin/send` | Send a message to an agent via A2A protocol |
-| GET | `/api/admin/tasks/{task_id}?target=` | Poll task status from target agent |
+| POST | `/api/admin/send` | Send a message to an agent via A2A protocol (includes `sender_endpoint`) |
+| POST | `/tasks/send` | Receive agent replies via A2A callback (`synapse reply`) |
+| GET | `/api/admin/replies/{task_id}` | Poll for agent replies by task ID |
+| GET | `/api/admin/tasks/{task_id}?target=` | Fallback: proxy task status to target agent |
 | POST | `/api/admin/start` | Start the administrator agent |
 | POST | `/api/admin/stop` | Stop the administrator agent |
 | POST | `/api/admin/agents/spawn` | Spawn a new agent from a profile |
@@ -1251,7 +1253,7 @@ curl -X POST http://localhost:3000/api/admin/send \
   -d '{"target": "synapse-claude-8100", "message": "What files are in the project?"}'
 ```
 
-The `target` field accepts an agent ID, agent name, or agent type (if unique). The message is forwarded via the A2A protocol with `response_mode=notify`.
+The `target` field accepts an agent ID, agent name, or agent type (if unique). The message is forwarded via the A2A protocol with `response_mode=notify` and includes `sender_endpoint` metadata so the agent can reply back to Canvas.
 
 **Response:**
 
@@ -1262,7 +1264,39 @@ The `target` field accepts an agent ID, agent name, or agent type (if unique). T
 }
 ```
 
-### Poll Task Status
+### Poll for Agent Reply
+
+After sending a message, poll for the agent's reply. The agent responds via `synapse reply`, which sends a structured response back to Canvas's `POST /tasks/send` endpoint. The reply is stored in memory and made available here.
+
+```bash
+curl "http://localhost:3000/api/admin/replies/task-abc123"
+```
+
+**Response (waiting):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "waiting",
+  "output": ""
+}
+```
+
+**Response (completed):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "completed",
+  "output": "The project contains the following files..."
+}
+```
+
+Replies are clean, structured text from the agent (no terminal junk since they bypass PTY output). Replies are also broadcast as `admin_reply` SSE events to connected Canvas clients.
+
+### Poll Task Status (Fallback)
+
+Fallback endpoint that proxies a task status request directly to the target agent. Used when the reply-based mechanism is not available (e.g., agent does not support `synapse reply`).
 
 ```bash
 curl "http://localhost:3000/api/admin/tasks/task-abc123?target=synapse-claude-8100"
@@ -1278,8 +1312,6 @@ curl "http://localhost:3000/api/admin/tasks/task-abc123?target=synapse-claude-81
   "error": null
 }
 ```
-
-The `output` field has terminal junk (ANSI escapes, status bar text, spinner fragments) automatically stripped.
 
 ### Spawn Agent
 

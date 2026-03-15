@@ -464,7 +464,9 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `GET` | `/api/system` | System panel data (agents, tasks, file locks) |
 | `GET` | `/api/admin/agents` | List active agents for Admin view |
 | `POST` | `/api/admin/send` | Send message to agent via A2A |
-| `GET` | `/api/admin/tasks/{id}` | Poll task status from target agent |
+| `POST` | `/tasks/send` | Receive agent replies (A2A callback) |
+| `GET` | `/api/admin/replies/{id}` | Poll for agent replies by task ID |
+| `GET` | `/api/admin/tasks/{id}` | Fallback: proxy task status to target agent |
 | `POST` | `/api/admin/agents/spawn` | Spawn a new agent |
 | `DELETE` | `/api/admin/agents/{id}` | Stop an agent |
 
@@ -607,18 +609,20 @@ The Admin view is a **Command Center** for directly interacting with running age
 
 **Components:**
 
-- **Agent selector**: Dropdown of all active agents (auto-populated from the registry). Select a target agent before sending commands.
-- **Agent list**: Live status display of all registered agents with colored status dots.
-- **Message input**: Text input for composing commands. Press Enter to send (Shift+Enter for newlines).
-- **Response feed**: Chat-bubble style conversation log showing sent commands and agent responses.
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent.
+- **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
+- **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
 
 **How it works:**
 
-1. Select a target agent from the dropdown
-2. Type a message/command in the input field
-3. The message is sent via the A2A protocol (`POST /api/admin/send`)
-4. A polling mechanism checks for the task result using adaptive intervals (1s for the first 10 attempts, then 2s, up to 5 minutes)
-5. When the agent responds, the output appears in a chat bubble with terminal junk (ANSI escapes, status bars, spinner fragments) automatically stripped
+1. Click an agent row in the table to select it as the target
+2. Type a message/command in the textarea
+3. The message is sent via the A2A protocol (`POST /api/admin/send`) with `sender_endpoint` metadata pointing back to Canvas
+4. The target agent processes the message and replies via `synapse reply`, which sends a structured response back to Canvas (`POST /tasks/send`)
+5. Canvas stores the reply and the frontend polls `GET /api/admin/replies/{task_id}` using adaptive intervals (1s for the first 10 attempts, then 2s, up to 5 minutes)
+6. When the reply arrives, it appears in a chat bubble with clean, structured text (no terminal junk since responses bypass PTY output)
+
+The reply-based flow reuses the same `synapse reply` mechanism as inter-agent communication, ensuring clean responses without terminal output parsing (ANSI escapes, status bars, spinner fragments).
 
 The agent list refreshes automatically on SSE `system_update` events, so newly started or stopped agents appear without manual refresh.
 

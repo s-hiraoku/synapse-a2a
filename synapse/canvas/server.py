@@ -37,6 +37,7 @@ from synapse.canvas.protocol import (
 )
 from synapse.canvas.store import CanvasStore
 from synapse.controller import strip_ansi
+from synapse.utils import extract_text_from_parts
 
 logger = logging.getLogger(__name__)
 
@@ -534,8 +535,12 @@ def _extract_tip_text(content: Any) -> str:
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
     store = CanvasStore(db_path=db_path)
+    _canvas_port = int(os.environ.get("SYNAPSE_CANVAS_PORT", "3000"))
     admin_replies: dict[str, list[dict[str, Any]]] = {}
-    _admin_pending_tasks: list[str] = []
+    _admin_pending_tasks: set[str] = set()
+    # Map agent_task_id → pre_task_id for fallback reply correlation
+    _admin_task_id_map: dict[str, str] = {}
+    _ADMIN_REPLIES_MAX = 200  # Evict oldest entries beyond this limit
 
     async def _cleanup_loop() -> None:
         """Periodically remove expired cards."""
@@ -1030,14 +1035,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
         metadata = body.get("metadata", {}) or {}
         task_id = metadata.get("in_reply_to") or metadata.get("sender_task_id")
 
-        # If no task_id in metadata, try to match the most recent waiting
-        # admin task. This handles the case where synapse reply doesn't
-        # have sender_task_id (e.g., Admin didn't include it in the send).
+        # Resolve agent_task_id → pre_task_id via mapping
+        if task_id and task_id in _admin_task_id_map:
+            task_id = _admin_task_id_map.pop(task_id)
+
+        # Fallback: if still no correlation, pick any pending task
         if not task_id and _admin_pending_tasks:
-            task_id = _admin_pending_tasks[-1]
+            task_id = next(iter(_admin_pending_tasks))
 
         if not isinstance(task_id, str) or not task_id:
-            # Still no match — generate a synthetic ID so the reply isn't lost
             task_id = str(uuid.uuid4())
             logger.warning(
                 "Reply received without task correlation, using synthetic ID %s",
@@ -1045,21 +1051,10 @@ def create_app(db_path: str | None = None) -> FastAPI:
             )
 
         parts = message.get("parts", []) if isinstance(message, dict) else []
-        output_parts: list[str] = []
-        for part in parts:
-            if (
-                isinstance(part, dict)
-                and part.get("type") == "text"
-                and part.get("text")
-            ):
-                output_parts.append(str(part["text"]))
-        output = "\n".join(output_parts).strip()
+        output = extract_text_from_parts(parts).strip()
 
-        sender_id = (
-            metadata.get("sender", {}).get("sender_id", "")
-            if isinstance(metadata.get("sender"), dict)
-            else ""
-        )
+        sender = metadata.get("sender", {})
+        sender_id = sender.get("sender_id", "") if isinstance(sender, dict) else ""
         reply = {
             "task_id": task_id,
             "status": "completed",
@@ -1068,9 +1063,12 @@ def create_app(db_path: str | None = None) -> FastAPI:
         }
         admin_replies.setdefault(task_id, []).append(reply)
         _broadcast_event("admin_reply", reply)
-        # Remove from pending once reply is received
-        if task_id in _admin_pending_tasks:
-            _admin_pending_tasks.remove(task_id)
+        _admin_pending_tasks.discard(task_id)
+
+        # Evict oldest entries to prevent unbounded growth
+        while len(admin_replies) > _ADMIN_REPLIES_MAX:
+            oldest_key = next(iter(admin_replies))
+            del admin_replies[oldest_key]
 
         now = datetime.now(timezone.utc).isoformat()
         return {
@@ -1149,9 +1147,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 "sender": {
                     "sender_id": "canvas-admin",
                     "sender_name": "Admin",
-                    "sender_endpoint": (
-                        f"http://localhost:{int(os.environ.get('SYNAPSE_CANVAS_PORT', '3000'))}"
-                    ),
+                    "sender_endpoint": f"http://localhost:{_canvas_port}",
                 },
                 "sender_task_id": pre_task_id,
             },
@@ -1164,7 +1160,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     json=a2a_request,
                 )
                 resp_data = resp.json()
-        except (httpx.HTTPError, Exception) as e:
+        except httpx.HTTPError as e:
             raise HTTPException(
                 status_code=502, detail=f"Failed to reach agent: {e}"
             ) from e
@@ -1180,10 +1176,10 @@ def create_app(db_path: str | None = None) -> FastAPI:
         # The agent's reply will include in_reply_to=pre_task_id
         # (from sender_task_id in metadata), so the frontend polls
         # for replies using this same ID.
-        _admin_pending_tasks.append(pre_task_id)
-        # Also track agent_task_id → pre_task_id for fallback matching
+        _admin_pending_tasks.add(pre_task_id)
+        # Map agent_task_id → pre_task_id for fallback correlation
         if agent_task_id:
-            _admin_pending_tasks.append(agent_task_id)
+            _admin_task_id_map[agent_task_id] = pre_task_id
 
         return {"task_id": pre_task_id, "status": status}
 
@@ -1215,7 +1211,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(f"{endpoint}/tasks/{task_id}")
                 resp_data = resp.json()
-        except (httpx.HTTPError, Exception) as e:
+        except httpx.HTTPError as e:
             raise HTTPException(
                 status_code=502, detail=f"Failed to reach agent: {e}"
             ) from e
