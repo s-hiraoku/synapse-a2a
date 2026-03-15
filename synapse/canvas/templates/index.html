@@ -119,17 +119,17 @@
   <!-- Admin View -->
   <section id="admin-view" class="view-hidden">
     <div id="admin-container">
-      <div id="admin-agents-panel">
-        <h3><i class="ph ph-users-three"></i> Active Agents</h3>
-        <div id="admin-agents-list"></div>
+      <div id="admin-agents-widget">
+        <h3 class="admin-section-title"><i class="ph ph-cursor-click"></i> Select Agent</h3>
       </div>
-      <div id="admin-feed"></div>
+      <div id="admin-feed-wrap">
+        <h3 class="admin-section-title"><i class="ph ph-chat-circle-text"></i> Response</h3>
+        <div id="admin-feed"></div>
+      </div>
       <div id="admin-input-bar">
-        <select id="admin-target-agent">
-          <option value="">Select agent...</option>
-        </select>
-        <input type="text" id="admin-message-input" placeholder="Type a command for the agent..." />
-        <button id="admin-send-btn" title="Send"><i class="ph ph-paper-plane-right"></i> Send</button>
+        <span id="admin-target-badge">Select agent...</span>
+        <textarea id="admin-message-input" placeholder="Type a command..." rows="1"></textarea>
+        <button id="admin-send-btn" title="Send (⌘↵)"><i class="ph ph-paper-plane-right"></i></button>
       </div>
     </div>
   </section>

@@ -19,10 +19,12 @@
   const systemView = document.getElementById("system-view");
   const adminView = document.getElementById("admin-view");
   const adminFeed = document.getElementById("admin-feed");
-  const adminAgentsList = document.getElementById("admin-agents-list");
-  const adminTargetAgent = document.getElementById("admin-target-agent");
+  const adminTargetBadge = document.getElementById("admin-target-badge");
+  const adminAgentsWidget = document.getElementById("admin-agents-widget");
   const adminMessageInput = document.getElementById("admin-message-input");
   const adminSendBtn = document.getElementById("admin-send-btn");
+  var _selectedAdminTarget = "";
+  var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
   const sidebar = document.getElementById("sidebar");
   const sidebarOverlay = document.getElementById("sidebar-overlay");
@@ -1970,6 +1972,9 @@
       if (currentRoute === "history") {
         renderAll();
       }
+      if (currentRoute === "admin") {
+        loadAdminAgents();
+      }
     } catch (e) {
       console.error("Failed to load system panel:", e);
     }
@@ -2418,95 +2423,105 @@
     return el;
   }
 
-  function renderSystemAgents(agents) {
-    const wrap = document.createElement("div");
+  function buildAgentRow(agent) {
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-agent-id", agent.agent_id);
+
+    var tdDot = document.createElement("td");
+    tdDot.className = "agent-dot-cell";
+    var dot = document.createElement("span");
+    dot.className = "system-status-dot";
+    dot.style.background = statusColor(agent.status);
+    tdDot.appendChild(dot);
+    tr.appendChild(tdDot);
+
+    var tdType = document.createElement("td");
+    tdType.textContent = agent.agent_type || "";
+    tr.appendChild(tdType);
+
+    var tdName = document.createElement("td");
+    tdName.className = "agent-name-cell";
+    tdName.textContent = agent.name || "-";
+    tr.appendChild(tdName);
+
+    var tdRole = document.createElement("td");
+    tdRole.className = "agent-role-cell";
+    tdRole.textContent = agent.role || "-";
+    tr.appendChild(tdRole);
+
+    var tdSkill = document.createElement("td");
+    tdSkill.className = "agent-role-cell";
+    tdSkill.textContent = agent.skill_set || "-";
+    tr.appendChild(tdSkill);
+
+    var tdStatus = document.createElement("td");
+    tdStatus.className = "agent-status-cell";
+    tdStatus.textContent = agent.status || "-";
+    tdStatus.style.color = statusColor(agent.status);
+    tr.appendChild(tdStatus);
+
+    var tdPort = document.createElement("td");
+    tdPort.className = "agent-port-cell";
+    tdPort.textContent = agent.port || "-";
+    tr.appendChild(tdPort);
+
+    var tdDir = document.createElement("td");
+    tdDir.className = "agent-dir-cell";
+    tdDir.textContent = agent.working_dir || "-";
+    tr.appendChild(tdDir);
+
+    var tdCurrent = document.createElement("td");
+    tdCurrent.className = "agent-current-cell";
+    var preview = agent.current_task_preview || "-";
+    if (preview !== "-" && agent.task_received_at) {
+      tdCurrent.textContent = preview + " (" + formatElapsed(agent.task_received_at) + ")";
+    } else {
+      tdCurrent.textContent = preview;
+    }
+    tr.appendChild(tdCurrent);
+
+    return tr;
+  }
+
+  function renderSystemAgents(agents, options) {
+    var wrap = document.createElement("div");
     if (agents.length === 0) {
       wrap.appendChild(emptyState("No agents running"));
       return wrap;
     }
 
-    const table = document.createElement("table");
-    table.className = "system-agents-table";
+    var onRowClick = options && options.onRowClick;
+    var selectedId = options && options.selectedId;
 
-    // Header
-    const thead = document.createElement("thead");
-    const hrow = document.createElement("tr");
-    for (const col of ["", "TYPE", "NAME", "ROLE", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"]) {
-      const th = document.createElement("th");
-      th.textContent = col;
+    var table = document.createElement("table");
+    table.className = "system-agents-table" + (onRowClick ? " admin-selectable-table" : "");
+
+    var thead = document.createElement("thead");
+    var hrow = document.createElement("tr");
+    var cols = ["", "TYPE", "NAME", "ROLE", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"];
+    for (var ci = 0; ci < cols.length; ci++) {
+      var th = document.createElement("th");
+      th.textContent = cols[ci];
       hrow.appendChild(th);
     }
     thead.appendChild(hrow);
     table.appendChild(thead);
 
-    // Body
-    const tbody = document.createElement("tbody");
-    for (const agent of agents) {
-      const tr = document.createElement("tr");
-
-      // Status dot
-      const tdDot = document.createElement("td");
-      tdDot.className = "agent-dot-cell";
-      const dot = document.createElement("span");
-      dot.className = "system-status-dot";
-      dot.style.background = statusColor(agent.status);
-      tdDot.appendChild(dot);
-      tr.appendChild(tdDot);
-
-      // Type
-      const tdType = document.createElement("td");
-      tdType.textContent = agent.agent_type || "";
-      tr.appendChild(tdType);
-
-      // Name
-      const tdName = document.createElement("td");
-      tdName.className = "agent-name-cell";
-      tdName.textContent = agent.name || "-";
-      tr.appendChild(tdName);
-
-      // Role
-      const tdRole = document.createElement("td");
-      tdRole.className = "agent-role-cell";
-      tdRole.textContent = agent.role || "-";
-      tr.appendChild(tdRole);
-
-      // Skill Set
-      const tdSkill = document.createElement("td");
-      tdSkill.className = "agent-role-cell";
-      tdSkill.textContent = agent.skill_set || "-";
-      tr.appendChild(tdSkill);
-
-      // Status
-      const tdStatus = document.createElement("td");
-      tdStatus.className = "agent-status-cell";
-      tdStatus.textContent = agent.status || "-";
-      tdStatus.style.color = statusColor(agent.status);
-      tr.appendChild(tdStatus);
-
-      // Port
-      const tdPort = document.createElement("td");
-      tdPort.className = "agent-port-cell";
-      tdPort.textContent = agent.port || "-";
-      tr.appendChild(tdPort);
-
-      // Working dir
-      const tdDir = document.createElement("td");
-      tdDir.className = "agent-dir-cell";
-      tdDir.textContent = agent.working_dir || "-";
-      tr.appendChild(tdDir);
-
-      // Current task
-      const tdCurrent = document.createElement("td");
-      tdCurrent.className = "agent-current-cell";
-      const preview = agent.current_task_preview || "-";
-      if (preview !== "-" && agent.task_received_at) {
-        tdCurrent.textContent = `${preview} (${formatElapsed(agent.task_received_at)})`;
-      } else {
-        tdCurrent.textContent = preview;
-      }
-      tr.appendChild(tdCurrent);
-
-      tbody.appendChild(tr);
+    var tbody = document.createElement("tbody");
+    for (var i = 0; i < agents.length; i++) {
+      (function(agent) {
+        var tr = buildAgentRow(agent);
+        if (selectedId && selectedId === agent.agent_id) tr.classList.add("admin-row-selected");
+        if (onRowClick) {
+          tr.style.cursor = "pointer";
+          tr.addEventListener("click", function() {
+            tbody.querySelectorAll("tr").forEach(function(r) { r.classList.remove("admin-row-selected"); });
+            tr.classList.add("admin-row-selected");
+            onRowClick(agent);
+          });
+        }
+        tbody.appendChild(tr);
+      })(agents[i]);
     }
     table.appendChild(tbody);
 
@@ -3830,46 +3845,32 @@
       const resp = await fetch("/api/admin/agents");
       const data = await resp.json();
       const agents = data.agents || [];
-      renderAdminAgentsList(agents);
-      updateAdminDropdown(agents);
+      renderAdminAgentsWidget(agents);
     } catch (e) {
       console.error("Failed to load admin agents:", e);
     }
   }
 
-  function renderAdminAgentsList(agents) {
-    if (!adminAgentsList) return;
-    if (agents.length === 0) {
-      adminAgentsList.innerHTML = '<div class="admin-no-agents">No active agents</div>';
-      return;
-    }
-    var html = "";
-    for (var i = 0; i < agents.length; i++) {
-      var a = agents[i];
-      var name = a.name || a.agent_id;
-      var color = statusColor(a.status);
-      html += '<div class="admin-agent-item">'
-        + '<span class="admin-agent-dot" style="background:' + color + '"></span>'
-        + '<span class="admin-agent-name">' + escapeHtml(name) + '</span>'
-        + '<span class="admin-agent-type">' + escapeHtml(a.agent_type || "") + '</span>'
-        + '<span class="admin-agent-status">' + escapeHtml(a.status || "") + '</span>'
-        + '</div>';
-    }
-    adminAgentsList.innerHTML = html;
-  }
+  function renderAdminAgentsWidget(agents) {
+    if (!adminAgentsWidget) return;
+    // Preserve the h3 title, remove only the table wrapper
+    var existingWrap = adminAgentsWidget.querySelector(".admin-agents-table-wrap");
+    if (existingWrap) existingWrap.remove();
 
-  function updateAdminDropdown(agents) {
-    if (!adminTargetAgent) return;
-    var current = adminTargetAgent.value;
-    adminTargetAgent.innerHTML = '<option value="">Select agent...</option>';
-    for (var i = 0; i < agents.length; i++) {
-      var a = agents[i];
-      var opt = document.createElement("option");
-      opt.value = a.agent_id;
-      opt.textContent = (a.name || a.agent_id) + " (" + (a.agent_type || "") + ")";
-      adminTargetAgent.appendChild(opt);
-    }
-    if (current) adminTargetAgent.value = current;
+    var content = renderSystemAgents(agents, {
+      selectedId: _selectedAdminTarget,
+      onRowClick: function(agent) {
+        _selectedAdminTarget = agent.agent_id;
+        _selectedAdminName = agent.name || agent.agent_id;
+        if (adminTargetBadge) {
+          adminTargetBadge.textContent = _selectedAdminName;
+          adminTargetBadge.classList.add("has-target");
+        }
+        if (adminMessageInput) adminMessageInput.focus();
+      }
+    });
+    content.className = "admin-agents-table-wrap";
+    adminAgentsWidget.appendChild(content);
   }
 
   function addAdminBubble(role, text, agentName) {
@@ -3878,16 +3879,18 @@
     bubble.className = "admin-bubble admin-bubble-" + role;
     var header = document.createElement("div");
     header.className = "admin-bubble-header";
-    header.textContent = role === "user" ? "You" : (agentName || "Agent");
+    var headerName = document.createElement("span");
+    headerName.textContent = role === "user" ? "You" : (agentName || "Agent");
+    header.appendChild(headerName);
+    var time = document.createElement("span");
+    time.className = "admin-bubble-time";
+    time.textContent = new Date().toLocaleTimeString();
+    header.appendChild(time);
     bubble.appendChild(header);
     var body = document.createElement("div");
     body.className = "admin-bubble-body";
     body.textContent = text;
     bubble.appendChild(body);
-    var time = document.createElement("div");
-    time.className = "admin-bubble-time";
-    time.textContent = new Date().toLocaleTimeString();
-    bubble.appendChild(time);
     adminFeed.appendChild(bubble);
     adminFeed.scrollTop = adminFeed.scrollHeight;
   }
@@ -3912,22 +3915,22 @@
 
   async function sendAdminCommand() {
     if (_adminSending) return;
-    if (!adminTargetAgent || !adminMessageInput) return;
-    var target = adminTargetAgent.value;
+    if (!adminMessageInput) return;
+    var target = _selectedAdminTarget;
     var message = adminMessageInput.value.trim();
     if (!target || !message) return;
 
     _adminSending = true;
     if (adminSendBtn) adminSendBtn.disabled = true;
 
-    var agentName = adminTargetAgent.options[adminTargetAgent.selectedIndex].textContent;
+    var agentName = _selectedAdminName || target;
 
     // Clear input immediately
     adminMessageInput.value = "";
+    adminMessageInput.style.height = "auto";
 
     addAdminBubble("user", message, null);
     addAdminSpinner();
-    console.log("[Admin] Sending to", target, ":", message);
 
     try {
       var resp = await fetch("/api/admin/send", {
@@ -3936,7 +3939,6 @@
         body: JSON.stringify({ target: target, message: message }),
       });
       var data = await resp.json();
-      console.log("[Admin] Send response:", data);
       if (!resp.ok) {
         removeAdminSpinner();
         addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
@@ -3946,7 +3948,6 @@
     } catch (e) {
       removeAdminSpinner();
       addAdminBubble("agent", "Error: " + e.message, agentName);
-      console.error("[Admin] Send error:", e);
     } finally {
       _adminSending = false;
       if (adminSendBtn) adminSendBtn.disabled = false;
@@ -3970,12 +3971,10 @@
       try {
         var resp = await fetch("/api/admin/tasks/" + encodeURIComponent(taskId) + "?target=" + encodeURIComponent(target));
         var data = await resp.json();
-        console.log("[Admin] Poll #" + attempts + ":", data.status, data.output ? data.output.substring(0, 50) : "(no output)");
         if (data.status === "completed" || data.status === "DONE") {
           polling = false;
           removeAdminSpinner();
           var output = data.output || "Task completed";
-          console.log("[Admin] Final output:", output);
           addAdminBubble("agent", output, agentName);
           return;
         } else if (data.status === "failed" || data.status === "error") {
@@ -4009,9 +4008,18 @@
   filterAgent.addEventListener("change", renderAll);
   window.addEventListener("hashchange", navigate);
   if (adminSendBtn) adminSendBtn.addEventListener("click", sendAdminCommand);
+  var _isComposing = false;
+  function autoResizeAdminInput() {
+    if (!adminMessageInput) return;
+    adminMessageInput.style.height = "auto";
+    adminMessageInput.style.height = Math.min(adminMessageInput.scrollHeight, 120) + "px";
+  }
   if (adminMessageInput) {
+    adminMessageInput.addEventListener("compositionstart", function() { _isComposing = true; });
+    adminMessageInput.addEventListener("compositionend", function() { _isComposing = false; });
+    adminMessageInput.addEventListener("input", autoResizeAdminInput);
     adminMessageInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAdminCommand(); }
+      if (e.key === "Enter" && e.metaKey && !_isComposing) { e.preventDefault(); sendAdminCommand(); }
     });
   }
 
