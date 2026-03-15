@@ -48,7 +48,24 @@ synapse tasks create "Implement OAuth2 authentication" \
 # With priority (1-5, default 3)
 synapse tasks create "Fix critical security bug" \
   -d "SQL injection in login endpoint" --priority 5
+
+# With grouping metadata
+synapse tasks create "Add user endpoint" \
+  -d "REST endpoint for user CRUD" \
+  --group sprint-3 --component backend --milestone v1.0
 ```
+
+### Task Metadata Fields
+
+Tasks support optional metadata fields for organizing work:
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--group GROUP` | Group ID for task grouping | `sprint-3`, `feature-auth` |
+| `--component COMP` | Component tag | `backend`, `frontend`, `infra` |
+| `--milestone MS` | Milestone tag | `v1.0`, `mvp`, `q2-release` |
+
+These fields can be used for filtering (`synapse tasks list --component backend`) and grouped display (`synapse tasks list --group-by component`).
 
 ## Listing Tasks
 
@@ -56,6 +73,34 @@ synapse tasks create "Fix critical security bug" \
 synapse tasks list                       # All tasks
 synapse tasks list --status pending      # Filter by status
 synapse tasks list --status in_progress  # In-progress tasks
+synapse tasks list --agent claude        # Filter by assignee
+synapse tasks list --component backend   # Filter by component
+synapse tasks list --milestone v1.0      # Filter by milestone
+synapse tasks list --group sprint-3      # Filter by group
+synapse tasks list --verbose             # Show full UUIDs and absolute times
+synapse tasks list --format json         # Output as JSON
+```
+
+### Grouped View
+
+Use `--group-by` to display tasks organized by a field:
+
+```bash
+synapse tasks list --group-by status      # Group by status
+synapse tasks list --group-by component   # Group by component
+synapse tasks list --group-by milestone   # Group by milestone
+synapse tasks list --group-by group_id    # Group by group ID
+```
+
+Output example:
+
+```
+── pending (2) ──
+  a1b2c3d4  pending      P3  -                     Design auth module  (5m ago)
+  e5f6g7h8  pending      P4  -                     Fix login bug  (2m ago)
+
+── in_progress (1) ──
+  i9j0k1l2  in_progress  P3  claude                Implement OAuth  (1h ago)
 ```
 
 ## Assigning Tasks
@@ -93,15 +138,36 @@ Reopened tasks return to `pending` status.
 ## Purging Tasks
 
 ```bash
-synapse tasks purge                      # Delete completed + failed tasks
+synapse tasks purge                      # Delete completed + failed tasks (prompts for confirmation)
+synapse tasks purge --force              # Skip confirmation prompt
 synapse tasks purge --status completed   # Delete only completed tasks
 synapse tasks purge --status failed      # Delete only failed tasks
+synapse tasks purge --older-than 7d      # Delete tasks older than 7 days
+synapse tasks purge --older-than 2h --status completed  # Combine age and status filters
+synapse tasks purge --dry-run            # Preview what would be deleted
 ```
 
 By default, `synapse tasks purge` removes `completed` and `failed` tasks from the Task Board. Use the `--status` filter to target a specific status.
 
+| Flag | Description |
+|------|-------------|
+| `--force`, `-f` | Skip confirmation prompt |
+| `--older-than DURATION` | Only purge tasks older than the given duration (e.g. `30m`, `2h`, `7d`) |
+| `--dry-run` | Preview what would be purged without deleting |
+| `--status STATUS` | Only purge tasks with this status |
+
+!!! tip "Dry Run Preview"
+    Use `--dry-run` to see exactly which tasks would be affected before committing to a purge:
+    ```bash
+    synapse tasks purge --older-than 7d --dry-run
+    # Would purge 3 task(s):
+    #   a1b2c3d4  completed     Design auth module
+    #   e5f6g7h8  failed        Fix login bug
+    #   i9j0k1l2  completed     Implement OAuth
+    ```
+
 !!! warning "Irreversible"
-    Purged tasks cannot be recovered. Use this to reset the board between sprints or after experiments.
+    Purged tasks cannot be recovered. Use `--dry-run` to preview, or rely on the confirmation prompt (skipped only with `--force`).
 
 ## Task-Linked Messaging
 
@@ -456,6 +522,9 @@ task_id = board.create_task(
     created_by="synapse-claude-8100",
     blocked_by=["task-design-001"],  # Optional dependency list
     priority=4,                       # 1-5 (default: 3)
+    group_id="sprint-3",             # Optional group ID
+    component="backend",             # Optional component tag
+    milestone="v1.0",               # Optional milestone tag
 )
 print(f"Created task: {task_id}")
 ```
@@ -494,6 +563,8 @@ task = board.get_task(task_id)
 all_tasks = board.list_tasks()
 pending = board.list_tasks(status="pending")
 my_tasks = board.list_tasks(assignee="synapse-claude-8100")
+backend = board.list_tasks(component="backend")
+sprint = board.list_tasks(group_id="sprint-3", milestone="v1.0")
 
 # Get available (unblocked, unassigned, pending) tasks
 # Ordered by priority DESC, then created_at ASC
@@ -522,6 +593,9 @@ Every task is returned as a dictionary with the following keys:
 | `fail_reason` | `str` | Reason for failure (if failed) |
 | `a2a_task_id` | `str` or `None` | Linked A2A task ID (set when created via `--task` / `-T`) |
 | `assignee_hint` | `str` or `None` | Suggested assignee agent (used by auto-claim) |
+| `group_id` | `str` or `None` | Group identifier for task grouping |
+| `component` | `str` or `None` | Component tag (e.g. `backend`, `frontend`) |
+| `milestone` | `str` or `None` | Milestone tag (e.g. `v1.0`) |
 
 ### Integration Example: Auto-Assign Available Tasks
 

@@ -23,6 +23,38 @@ logger = logging.getLogger(__name__)
 DEFAULT_DB_PATH = ".synapse/task_board.db"
 
 
+_registry_cache: Any = None
+
+
+def _get_registry() -> Any:
+    """Return a cached AgentRegistry instance (avoids N+1 instantiation)."""
+    global _registry_cache
+    if _registry_cache is None:
+        from synapse.registry import AgentRegistry
+
+        _registry_cache = AgentRegistry()
+    return _registry_cache
+
+
+def resolve_display_name(agent_id: str | None) -> str:
+    """Resolve an agent_id to a human-readable display name.
+
+    Returns ``"Name (agent_id)"`` when the registry has a name,
+    otherwise returns the raw *agent_id*.  Empty/None → ``""``.
+    """
+    if not agent_id:
+        return ""
+    try:
+        info = _get_registry().get_agent(agent_id)
+        if info:
+            name = str(info.get("name") or "")
+            if name:
+                return f"{name} ({agent_id})"
+    except Exception:
+        logger.debug("Failed to resolve agent name for %s", agent_id, exc_info=True)
+    return agent_id
+
+
 class TaskBoard:
     """Project-local shared task board.
 
@@ -71,7 +103,7 @@ class TaskBoard:
     @staticmethod
     def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         """Convert a SQLite Row to a task dictionary."""
-        return {
+        d: dict[str, Any] = {
             "id": row["id"],
             "subject": row["subject"],
             "description": row["description"],
@@ -87,6 +119,18 @@ class TaskBoard:
             "a2a_task_id": row["a2a_task_id"],
             "assignee_hint": row["assignee_hint"],
         }
+        # Phase 2 grouping columns (graceful for old schemas)
+        keys = row.keys()
+        for col in (
+            "group_id",
+            "group_title",
+            "plan_id",
+            "component",
+            "milestone",
+            "external_ref",
+        ):
+            d[col] = row[col] if col in keys else None
+        return d
 
     @classmethod
     def from_env(cls, db_path: str | None = None) -> TaskBoard:
@@ -157,6 +201,20 @@ class TaskBoard:
                     conn.execute(
                         "ALTER TABLE board_tasks ADD COLUMN assignee_hint TEXT"
                     )
+                # Phase 2: grouping columns
+                for col in (
+                    "group_id",
+                    "group_title",
+                    "plan_id",
+                    "component",
+                    "milestone",
+                    "external_ref",
+                ):
+                    if col not in columns:
+                        conn.execute(f"ALTER TABLE board_tasks ADD COLUMN {col} TEXT")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_board_group ON board_tasks(group_id)"
+                )
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_board_priority ON board_tasks(priority)"
                 )
@@ -176,6 +234,12 @@ class TaskBoard:
         created_by: str,
         blocked_by: list[str] | None = None,
         priority: int = 3,
+        *,
+        group_id: str | None = None,
+        group_title: str | None = None,
+        plan_id: str | None = None,
+        component: str | None = None,
+        milestone: str | None = None,
     ) -> str:
         """Create a new task.
 
@@ -185,6 +249,11 @@ class TaskBoard:
             created_by: Agent ID of the creator.
             blocked_by: List of task IDs that block this task.
             priority: Task priority 1-5 (higher is more urgent).
+            group_id: Optional group identifier for task grouping.
+            group_title: Optional human-readable group title.
+            plan_id: Optional plan card ID this task was created from.
+            component: Optional component tag (e.g. "backend", "frontend").
+            milestone: Optional milestone tag (e.g. "v1.0").
 
         Returns:
             The new task's UUID.
@@ -205,10 +274,23 @@ class TaskBoard:
                 conn.execute(
                     """
                     INSERT INTO board_tasks
-                        (id, subject, description, created_by, blocked_by, priority)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                        (id, subject, description, created_by, blocked_by, priority,
+                         group_id, group_title, plan_id, component, milestone)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (task_id, subject, description, created_by, blocked_json, priority),
+                    (
+                        task_id,
+                        subject,
+                        description,
+                        created_by,
+                        blocked_json,
+                        priority,
+                        group_id,
+                        group_title,
+                        plan_id,
+                        component,
+                        milestone,
+                    ),
                 )
                 conn.commit()
             finally:
@@ -398,12 +480,19 @@ class TaskBoard:
         self,
         status: str | None = None,
         assignee: str | None = None,
+        *,
+        group_id: str | None = None,
+        component: str | None = None,
+        milestone: str | None = None,
     ) -> list[dict[str, Any]]:
         """List tasks with optional filters.
 
         Args:
             status: Filter by status (pending, in_progress, completed).
             assignee: Filter by assignee agent ID.
+            group_id: Filter by group_id.
+            component: Filter by component.
+            milestone: Filter by milestone.
 
         Returns:
             List of task dicts.
@@ -420,6 +509,15 @@ class TaskBoard:
                 if assignee:
                     query += " AND assignee = ?"
                     params.append(assignee)
+                if group_id:
+                    query += " AND group_id = ?"
+                    params.append(group_id)
+                if component:
+                    query += " AND component = ?"
+                    params.append(component)
+                if milestone:
+                    query += " AND milestone = ?"
+                    params.append(milestone)
 
                 query += " ORDER BY created_at"
                 rows = conn.execute(query, params).fetchall()
@@ -511,6 +609,121 @@ class TaskBoard:
                     cursor = conn.execute("DELETE FROM board_tasks")
                 conn.commit()
                 return cursor.rowcount
+            finally:
+                conn.close()
+
+    def _find_stale(
+        self,
+        conn: sqlite3.Connection,
+        older_than_seconds: int,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Find tasks whose updated_at is older than the threshold."""
+        query = "SELECT * FROM board_tasks WHERE updated_at < datetime('now', ?)"
+        params: list[str | int] = [f"-{older_than_seconds} seconds"]
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        rows = conn.execute(query, params).fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
+    def purge_stale(
+        self,
+        older_than_seconds: int,
+        status: str | None = None,
+        *,
+        dry_run: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Delete tasks whose updated_at is older than the threshold.
+
+        Args:
+            older_than_seconds: Age threshold in seconds.
+            status: If given, only purge stale tasks with this status.
+            dry_run: If True, return matching tasks without deleting.
+
+        Returns:
+            List of deleted (or would-be-deleted) task dicts.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                stale = self._find_stale(conn, older_than_seconds, status)
+
+                if stale and not dry_run:
+                    ids = [t["id"] for t in stale]
+                    placeholders = ",".join("?" for _ in ids)
+                    conn.execute(
+                        f"DELETE FROM board_tasks WHERE id IN ({placeholders})",
+                        ids,
+                    )
+                    conn.commit()
+
+                return stale
+            finally:
+                conn.close()
+
+    def purge_by_ids(self, ids: list[str]) -> int:
+        """Delete specific tasks by their IDs.
+
+        Args:
+            ids: List of task IDs to delete.
+
+        Returns:
+            Number of deleted tasks.
+        """
+        if not ids:
+            return 0
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                placeholders = ",".join("?" for _ in ids)
+                cursor = conn.execute(
+                    f"DELETE FROM board_tasks WHERE id IN ({placeholders})",
+                    ids,
+                )
+                conn.commit()
+                return cursor.rowcount
+            finally:
+                conn.close()
+
+    def update_group(
+        self,
+        task_id: str,
+        group_id: str | None = None,
+        group_title: str | None = None,
+    ) -> bool:
+        """Update the group_id and/or group_title of a task.
+
+        Args:
+            task_id: The task to update.
+            group_id: New group identifier (set if provided).
+            group_title: New group title (set if provided).
+
+        Returns:
+            True if the task was updated, False if not found.
+        """
+        sets: list[str] = []
+        params: list[str] = []
+        if group_id is not None:
+            sets.append("group_id = ?")
+            params.append(group_id)
+        if group_title is not None:
+            sets.append("group_title = ?")
+            params.append(group_title)
+        if not sets:
+            return False
+        sets.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(task_id)
+
+        with self._lock:
+            conn = self._get_connection()
+            try:
+                cursor = conn.execute(
+                    f"UPDATE board_tasks SET {', '.join(sets)} WHERE id = ?",
+                    params,
+                )
+                conn.commit()
+                return cursor.rowcount > 0
             finally:
                 conn.close()
 

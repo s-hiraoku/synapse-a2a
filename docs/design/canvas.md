@@ -860,7 +860,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
-- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. System Panel and Dashboard counters update in-place (no DOM rebuild). Dashboard widgets preserve expand/collapse state across 10-second polling via `updateDashWidget()`
+- [x] Card animations: `scaleIn` on first render via `.is-new` CSS modifier; suppressed on polling/SSE updates. Dashboard widgets update in-place (no DOM rebuild) and preserve expand/collapse state across 10-second polling via `updateDashWidget()`
 - [ ] Auto-cleanup of old cards
 - [ ] `--file` flag for all shortcuts
 

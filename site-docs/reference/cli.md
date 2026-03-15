@@ -332,14 +332,34 @@ Lists CLI tool session files from the filesystem (Claude, Gemini, Codex, Copilot
 ### List Tasks
 
 ```bash
-synapse tasks list [--status STATUS] [--agent AGENT]
+synapse tasks list [--status STATUS] [--agent AGENT] [--group GROUP] [--component COMP] [--milestone MS] [--group-by FIELD] [--verbose] [--format json]
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--status STATUS` | Filter by status (`pending`, `in_progress`, `completed`, `failed`) |
+| `--agent AGENT` | Filter by assignee agent |
+| `--group GROUP` | Filter by group ID |
+| `--component COMP` | Filter by component tag |
+| `--milestone MS` | Filter by milestone tag |
+| `--group-by FIELD` | Group output by field: `group_id`, `component`, `milestone`, `status` |
+| `--verbose`, `-v` | Show full UUIDs and absolute timestamps |
+| `--format json` | Output as JSON |
 
 ### Create Task
 
 ```bash
-synapse tasks create "<subject>" -d "<description>" [--priority N] [--blocked-by ID]
+synapse tasks create "<subject>" -d "<description>" [--priority N] [--blocked-by ID] [--group GROUP] [--component COMP] [--milestone MS]
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--description`, `-d` | Task description |
+| `--priority`, `-p` | Priority level 1-5 (default: 3) |
+| `--blocked-by` | Comma-separated task IDs that block this task |
+| `--group GROUP` | Group ID for task grouping |
+| `--component COMP` | Component tag (e.g. `backend`, `frontend`) |
+| `--milestone MS` | Milestone tag (e.g. `v1.0`) |
 
 ### Assign / Complete / Fail / Reopen
 
@@ -353,10 +373,17 @@ synapse tasks reopen <task_id>
 ### Purge
 
 ```bash
-synapse tasks purge [--status STATUS]
+synapse tasks purge [--status STATUS] [--force] [--older-than DURATION] [--dry-run]
 ```
 
-Delete tasks from the Task Board. By default, removes `completed` and `failed` tasks. Use `--status` to target a specific status (e.g., `--status completed`).
+Delete tasks from the Task Board. By default, removes `completed` and `failed` tasks (with confirmation prompt). Use `--status` to target a specific status.
+
+| Flag | Description |
+|------|-------------|
+| `--status STATUS` | Only purge tasks with this status (`pending`, `in_progress`, `completed`, `failed`) |
+| `--force`, `-f` | Purge without confirmation prompt |
+| `--older-than DURATION` | Only purge tasks older than duration (e.g. `30m`, `2h`, `7d`) |
+| `--dry-run` | Show what would be purged without deleting |
 
 ### Plan Approval
 

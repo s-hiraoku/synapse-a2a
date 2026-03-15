@@ -37,11 +37,16 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | Command | Description |
 |---------|-------------|
 | `synapse tasks list` | List all tasks |
+| `synapse tasks list --group-by status` | List tasks grouped by status |
+| `synapse tasks list --component backend` | Filter by component |
+| `synapse tasks list --format json` | Output as JSON |
 | `synapse tasks create "subject" -d "desc"` | Create a task |
+| `synapse tasks create "subject" --group sprint-3 --component backend` | Create with metadata |
 | `synapse tasks assign <id> <agent>` | Assign task to agent |
 | `synapse tasks complete <id>` | Mark task completed |
 | `synapse tasks fail <id>` | Mark task failed |
 | `synapse tasks purge [--status STATUS] [--force]` | Remove tasks (prompts for confirmation; `--force` to skip) |
+| `synapse tasks purge --older-than 7d --dry-run` | Preview stale task cleanup |
 | `synapse approve <id>` | Approve a plan |
 | `synapse reject <id> --reason "..."` | Reject with reason |
 | `synapse tasks accept-plan <plan_id>` | Accept a Plan Card and create board tasks |
@@ -295,16 +300,29 @@ When specifying a target for `send`, `kill`, `jump`, `rename`, `interrupt`, or `
 # Create a task
 synapse tasks create "Implement auth module" -d "Add JWT-based auth" --priority 4
 
+# Create with grouping metadata
+synapse tasks create "Add user endpoint" -d "REST CRUD" \
+  --group sprint-3 --component backend --milestone v1.0
+
 # List tasks
 synapse tasks list
 synapse tasks list --status pending
+synapse tasks list --component backend --milestone v1.0
+synapse tasks list --group-by status       # Grouped view
+synapse tasks list --format json           # JSON output
+synapse tasks list --verbose               # Full UUIDs and timestamps
 
 # Assign, complete, fail, reopen
 synapse tasks assign <task_id> claude
 synapse tasks complete <task_id>
 synapse tasks fail <task_id> --reason "dependency missing"
 synapse tasks reopen <task_id>
-synapse tasks purge --force
+
+# Purge with safety options
+synapse tasks purge --force                       # Skip confirmation
+synapse tasks purge --dry-run                     # Preview only
+synapse tasks purge --older-than 7d               # Age-based cleanup
+synapse tasks purge --older-than 2h --status completed  # Combine filters
 
 # Task-linked messaging (creates board task, auto-claim on receive, auto-complete on finalize)
 synapse send gemini "Implement feature" --task
