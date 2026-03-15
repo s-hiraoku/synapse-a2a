@@ -2221,14 +2221,17 @@
       }
     });
 
+    var summarySlot = document.createElement("div");
+    summarySlot.className = "dash-widget-summary-slot";
+    if (summaryEl) summarySlot.appendChild(summaryEl);
     wrapper.appendChild(header);
-    if (summaryEl) wrapper.appendChild(summaryEl);
+    wrapper.appendChild(summarySlot);
     wrapper.appendChild(detail);
     frag.appendChild(wrapper);
     return frag;
   }
 
-  function updateDashWidget(el, titleText, summaryEl, detailBuilder) {
+  function updateDashWidget(el, titleText, summaryBuilder, detailBuilder) {
     var existing = el.querySelector("[data-widget-key]");
     if (!existing) return false;
     var widgetKey = existing.getAttribute("data-widget-key");
@@ -2236,9 +2239,10 @@
     var headerTitle = existing.querySelector(".dash-widget-header span");
     if (headerTitle) headerTitle.textContent = titleText;
 
-    var oldSummary = existing.querySelector(".dash-widget-summary, .dash-strip, .dash-task-bars, .dash-memory-list");
-    if (oldSummary && summaryEl) {
-      existing.replaceChild(summaryEl, oldSummary);
+    var slot = existing.querySelector(".dash-widget-summary-slot");
+    if (slot) {
+      slot.innerHTML = "";
+      slot.appendChild(summaryBuilder());
     }
 
     if (_dashExpandState[widgetKey] && detailBuilder) {
@@ -2412,7 +2416,7 @@
       return;
     }
 
-    if (updateDashWidget(el, "Task Board (" + result.total + ")", result.bars, function () { return renderSystemTasks(tasks); })) return;
+    if (updateDashWidget(el, "Task Board (" + result.total + ")", function () { return buildTaskBars(tasks).bars; }, function () { return renderSystemTasks(tasks); })) return;
 
     el.innerHTML = "";
     el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + result.total + ")", result.bars, function () { return renderSystemTasks(tasks); }));
@@ -2461,7 +2465,7 @@
     var titleText = "Shared Knowledge (" + memories.length + ")";
     var detailFn = function () { return renderSystemMemories(memories); };
 
-    if (updateDashWidget(el, titleText, buildMemoryList(memories), detailFn)) return;
+    if (updateDashWidget(el, titleText, function () { return buildMemoryList(memories); }, detailFn)) return;
 
     el.innerHTML = "";
     el.appendChild(createDashWidget("memory", "ph-brain", titleText, buildMemoryList(memories), detailFn));
@@ -2488,7 +2492,7 @@
     var titleText = "File Locks (" + locks.length + ")";
     var detailFn = function () { return renderSystemFileLocks(locks); };
 
-    if (updateDashWidget(el, titleText, buildLockSummary(locks), detailFn)) return;
+    if (updateDashWidget(el, titleText, function () { return buildLockSummary(locks); }, detailFn)) return;
 
     el.innerHTML = "";
     el.appendChild(createDashWidget("file-locks", "ph-lock", titleText, buildLockSummary(locks), detailFn));
@@ -2519,7 +2523,7 @@
     var titleText = "Worktrees (" + worktrees.length + ")";
     var detailFn = function () { return renderSystemWorktrees(worktrees); };
 
-    if (updateDashWidget(el, titleText, buildWorktreeSummary(worktrees), detailFn)) return;
+    if (updateDashWidget(el, titleText, function () { return buildWorktreeSummary(worktrees); }, detailFn)) return;
 
     el.innerHTML = "";
     el.appendChild(createDashWidget("worktrees", "ph-git-branch", titleText, buildWorktreeSummary(worktrees), detailFn));
@@ -2546,7 +2550,7 @@
     var titleText = "Registry Errors (" + errors.length + ")";
     var detailFn = function () { return renderRegistryErrors(errors); };
 
-    if (updateDashWidget(el, titleText, buildErrorSummary(errors), detailFn)) return;
+    if (updateDashWidget(el, titleText, function () { return buildErrorSummary(errors); }, detailFn)) return;
 
     el.innerHTML = "";
     el.appendChild(createDashWidget("errors", "ph-warning-circle", titleText, buildErrorSummary(errors), detailFn));
