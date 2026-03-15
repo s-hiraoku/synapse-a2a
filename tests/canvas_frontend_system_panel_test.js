@@ -115,6 +115,7 @@ function buildHarness() {
       el.textContent = "tips:" + tips.length;
       return el;
     }
+    var _systemPanelRendered = false;
     function fetch() { return Promise.resolve(); }
     function createSystemSection(key, title, bodyContent) {
       globalThis.__headerCalls.push(title);
