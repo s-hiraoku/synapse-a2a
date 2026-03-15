@@ -127,7 +127,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `alert` | `{severity, message, source}` | Alert notification | Persistent important notifications |
 | `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
 | `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
-| `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
+| `task-board` | `{columns: [...]}` | Kanban board | Kanban board view with markdown descriptions |
 | `progress` | `{current, total, label, steps, status}` | Progress bar | Progress bar with steps (status: in_progress, completed, failed, paused) |
 | `terminal` | Plain text (ANSI supported) | Terminal output | Terminal output with ANSI color support |
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
@@ -584,12 +584,12 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 
 The Dashboard view provides a real-time operational status overview of the entire Synapse environment. It is designed for monitoring multi-agent systems at a glance.
 
-**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data.
+**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data. Widget expand/collapse state is preserved across re-renders so the view does not jump while you are reading details.
 
 **Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
-- **Tasks**: Pending/in-progress/completed tasks from the task board
+- **Tasks**: Pending/in-progress/completed tasks from the task board. Task cards are expandable with Markdown-rendered descriptions, and expand state persists across re-renders. The view toggle (Status | Group | Component) uses high-contrast active-tab styling for clear visibility
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
 - **Memory**: Recent shared memory entries

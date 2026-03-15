@@ -2170,6 +2170,7 @@
 
   var _dashExpandState = {};
   var _dashTaskViewState = "status";
+  var _dashTaskExpandedIds = {};
   var TASK_STATUSES = ["pending", "in_progress", "completed", "failed"];
   var _dashboardRendered = false;
 
@@ -2772,8 +2773,6 @@
       { key: "group", label: "Group" },
       { key: "component", label: "Component" },
     ];
-    let activeView = _dashTaskViewState;
-
     function renderBoard() {
       const existing = wrapper.querySelector(".task-board");
       if (existing) existing.remove();
@@ -2781,7 +2780,7 @@
       const board = document.createElement("div");
       board.className = "task-board";
 
-      const grouped = groupTasksBy(tasks, activeView);
+      const grouped = groupTasksBy(tasks, _dashTaskViewState);
       for (const [groupName, items] of Object.entries(grouped)) {
         const column = document.createElement("div");
         column.className = "task-column";
@@ -2812,7 +2811,6 @@
       btn.className = "task-view-btn" + (v.key === _dashTaskViewState ? " active" : "");
       btn.textContent = v.label;
       btn.addEventListener("click", function () {
-        activeView = v.key;
         _dashTaskViewState = v.key;
         toggleBar.querySelectorAll(".task-view-btn").forEach(function (b) {
           b.classList.toggle("active", b.textContent === v.label);
@@ -2837,12 +2835,7 @@
       return result;
     }
     // Flatten all tasks from status buckets, then group by field
-    const all = [];
-    for (const name of TASK_STATUSES) {
-      for (const item of (tasks[name] || [])) {
-        all.push(item);
-      }
-    }
+    const all = TASK_STATUSES.flatMap(function (name) { return tasks[name] || []; });
     const grouped = {};
     for (const item of all) {
       const key = viewKey === "group"
@@ -2855,12 +2848,17 @@
   }
 
   function renderTaskCard(item) {
+    const taskId = item.id || "";
     const card = document.createElement("div");
     card.className = "task-item";
     card.style.cursor = "pointer";
 
+    card.dataset.taskId = taskId;
+
     const title = document.createElement("div");
-    title.textContent = ((item.id || "").slice(0, 8) + " " + (item.subject || "")).trim();
+    title.className = "task-item-title";
+    title.textContent = (taskId.slice(0, 8) + " " + (item.subject || "")).trim();
+    title.title = taskId;
     card.appendChild(title);
 
     if (item.assignee_name || item.assignee) {
@@ -2880,8 +2878,24 @@
 
     const detail = document.createElement("div");
     detail.className = "task-item-detail";
+
+    // Description rendered as markdown
+    const descBody = item.description || "";
+    if (descBody && descBody !== "-") {
+      const descRow = document.createElement("div");
+      descRow.className = "task-detail-row task-detail-desc";
+      const descLabel = document.createElement("span");
+      descLabel.className = "task-detail-label";
+      descLabel.textContent = "Description";
+      descRow.appendChild(descLabel);
+      const descValue = document.createElement("div");
+      descValue.className = "task-detail-md";
+      renderMarkdown(descValue, descBody);
+      descRow.appendChild(descValue);
+      detail.appendChild(descRow);
+    }
+
     const fields = [
-      ["Description", item.description || "-"],
       ["Priority", "P" + String(item.priority || 3)],
       ["Assignee", item.assignee_name || item.assignee || "-"],
       ["Created by", item.created_by_name || item.created_by || "-"],
@@ -2906,9 +2920,16 @@
     }
     card.appendChild(detail);
 
-    card.addEventListener("click", (function (d) {
-      return function () { d.classList.toggle("expanded"); };
-    })(detail));
+    // Restore expand state from previous render
+    if (_dashTaskExpandedIds[taskId]) {
+      detail.classList.add("expanded");
+    }
+
+    card.addEventListener("click", function (e) {
+      if (e.target.closest('a, button, input, textarea, select, [role="button"]')) return;
+      detail.classList.toggle("expanded");
+      _dashTaskExpandedIds[taskId] = detail.classList.contains("expanded");
+    });
 
     return card;
   }

@@ -11,6 +11,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: `purge_stale`/`purge_by_ids` with `--older-than`/`--dry-run` CLI flags
 - **Changed**: Cached `AgentRegistry` in `resolve_display_name` to avoid N+1 instantiation
 - **Fixed**: Canvas task view toggle state persists across polling refreshes
+- **Fixed**: Canvas task card expand state preserved across polling updates
+- **Fixed**: Task descriptions now render as Markdown in Canvas task cards
+- **Fixed**: View toggle active tab contrast improved for clear visibility
 
 ### v0.12.2
 
