@@ -1745,6 +1745,7 @@ Rule of thumb:
 | progress | Progress bar + steps | `status`: in_progress, completed, failed, paused |
 | terminal | ANSI terminal | Renders raw terminal output with ANSI escape codes |
 | dependency-graph | Force-directed graph | Nodes with optional `group` colouring; directed edges |
+| task-board | Dashboard widget | Expandable task cards with markdown descriptions; expand state persists across polling; view toggle tabs (Status\|Group\|Component) |
 | cost | Cost summary table | Per-agent token counts and costs with total row |
 | link-preview | Open Graph card | Fetches OG metadata from URL; renders title, description, and thumbnail |
 

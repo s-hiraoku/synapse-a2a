@@ -2773,8 +2773,6 @@
       { key: "group", label: "Group" },
       { key: "component", label: "Component" },
     ];
-    let activeView = _dashTaskViewState;
-
     function renderBoard() {
       const existing = wrapper.querySelector(".task-board");
       if (existing) existing.remove();
@@ -2782,7 +2780,7 @@
       const board = document.createElement("div");
       board.className = "task-board";
 
-      const grouped = groupTasksBy(tasks, activeView);
+      const grouped = groupTasksBy(tasks, _dashTaskViewState);
       for (const [groupName, items] of Object.entries(grouped)) {
         const column = document.createElement("div");
         column.className = "task-column";
@@ -2813,7 +2811,6 @@
       btn.className = "task-view-btn" + (v.key === _dashTaskViewState ? " active" : "");
       btn.textContent = v.label;
       btn.addEventListener("click", function () {
-        activeView = v.key;
         _dashTaskViewState = v.key;
         toggleBar.querySelectorAll(".task-view-btn").forEach(function (b) {
           b.classList.toggle("active", b.textContent === v.label);
@@ -2838,12 +2835,7 @@
       return result;
     }
     // Flatten all tasks from status buckets, then group by field
-    const all = [];
-    for (const name of TASK_STATUSES) {
-      for (const item of (tasks[name] || [])) {
-        all.push(item);
-      }
-    }
+    const all = TASK_STATUSES.flatMap(function (name) { return tasks[name] || []; });
     const grouped = {};
     for (const item of all) {
       const key = viewKey === "group"
@@ -2929,12 +2921,10 @@
       detail.classList.add("expanded");
     }
 
-    card.addEventListener("click", (function (d, id) {
-      return function () {
-        d.classList.toggle("expanded");
-        _dashTaskExpandedIds[id] = d.classList.contains("expanded");
-      };
-    })(detail, taskId));
+    card.addEventListener("click", function () {
+      detail.classList.toggle("expanded");
+      _dashTaskExpandedIds[taskId] = detail.classList.contains("expanded");
+    });
 
     return card;
   }

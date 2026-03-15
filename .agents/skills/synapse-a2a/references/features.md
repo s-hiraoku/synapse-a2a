@@ -181,6 +181,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 - **Link-preview cards**: Fetches Open Graph metadata from a URL and renders a rich card with title, description, and thumbnail image
+- **Task-board cards**: Expandable task cards with markdown-rendered descriptions; expand state persists across polling re-renders; view toggle tabs (Status|Group|Component) for grouped views
 
 ```bash
 synapse canvas post <format> "<body>" --title "<title>" [--pinned] [--tags "t1,t2"]
