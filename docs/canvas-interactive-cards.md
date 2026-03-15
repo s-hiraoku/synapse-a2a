@@ -25,7 +25,7 @@ Canvas のインタラクティブ機能に関する設計ドキュメント。
 
 1. **ResizeObserver スクリプト注入** — iframe 内の `body` の高さ変更を検知し、`{ type: "synapse-resize", height: N }` を親に通知
 2. **グローバル message リスナー** — 親が `synapse-resize` メッセージを受信し、対応する iframe の `style.height` を更新
-3. **overflow 対応** — `body` の `overflow: hidden` を一時的に `auto` に切り替えて正確な `scrollHeight` を取得
+3. **overflow 対応** — `body` の `overflow: hidden` を一時的に `visible` に切り替えて正確な `scrollHeight` を取得
 
 #### CSS ダークモード対応
 

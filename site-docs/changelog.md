@@ -14,7 +14,6 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: Task Board UX improvements — dynamic agent name resolution, table-format CLI with `--verbose`/`--format json`, `fail_reason` inline display
 - **Added**: Task Board grouping — `group_id`/`component`/`milestone` columns, `--group-by` CLI view, Canvas view toggle (Status|Group|Component)
 - **Added**: `purge_stale`/`purge_by_ids` with `--older-than`/`--dry-run` CLI flags
-- **Added**: HTML Artifact Support — interactive HTML/JS/CSS in sandboxed iframes with theme sync (`postMessage`), auto-resize (`ResizeObserver`), CSS variables (`--bg`, `--fg`, `--border`), and full document normalization
 - **Changed**: Cached `AgentRegistry` in `resolve_display_name` to avoid N+1 instantiation
 - **Fixed**: Canvas task view toggle state persists across polling refreshes
 - **Fixed**: Canvas task card expand state preserved across polling updates

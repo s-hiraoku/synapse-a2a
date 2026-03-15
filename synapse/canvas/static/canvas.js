@@ -4545,13 +4545,17 @@
     hljs.configure({ ignoreUnescapedHTML: true });
   }
 
-  // Listen for resize messages from HTML artifact iframes
+  // Listen for resize messages from HTML artifact iframes (dashboard only)
   window.addEventListener("message", function(e) {
     if (!e.data || e.data.type !== "synapse-resize") return;
+    var h = e.data.height;
+    if (typeof h !== "number" || h <= 0 || h > 10000) return;
     var iframes = document.querySelectorAll(".format-html iframe");
     for (var i = 0; i < iframes.length; i++) {
       if (iframes[i].contentWindow === e.source) {
-        iframes[i].style.height = e.data.height + "px";
+        // Skip canvas view iframes — they use CSS flex for sizing
+        if (iframes[i].closest(".canvas-content")) break;
+        iframes[i].style.height = h + "px";
         break;
       }
     }
