@@ -4,6 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.12.1
+
+- **Added**: Canvas Admin Command Center — browser-based view (`#/admin`) for sending messages to agents and managing agent lifecycle
+- **Added**: Admin API endpoints on Canvas server (`/api/admin/agents`, `/api/admin/send`, `/api/admin/tasks/{id}`, spawn/stop)
+- **Fixed**: Terminal junk stripping (ANSI escapes, status bars, spinner fragments) in admin responses
+- **Fixed**: Admin send uses `response_mode=notify` for correct A2A response handling
+- **Fixed**: Adaptive polling intervals for task result retrieval (1s then 2s)
+- **Fixed**: Double-send prevention in admin command input
+
 ### v0.12.0
 
 - **Added**: Smart Suggest — `analyze_task` MCP tool that analyzes user prompts and suggests team/task splits

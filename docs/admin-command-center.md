@@ -53,7 +53,8 @@ synapse canvas serve
 open http://localhost:3000
 
 # 4. Click the "Admin" tab in the navigation bar
-# 5. Select an agent from the dropdown, type a message, click Send
+# 5. Click an agent row in the table to select it
+# 6. Type a message in the textarea, press Cmd+Enter (or click Send)
 ```
 
 The Admin tab appears in the Canvas navigation alongside Canvas, Dashboard, History, and System.
@@ -136,11 +137,16 @@ List all live agents from the registry.
       "agent_type": "claude",
       "status": "READY",
       "port": 8100,
-      "endpoint": "http://localhost:8100"
+      "endpoint": "http://localhost:8100",
+      "role": "code reviewer",
+      "skill_set": "synapse-a2a",
+      "working_dir": "/path/to/project"
     }
   ]
 }
 ```
+
+The `role`, `skill_set`, and `working_dir` fields are included when available in the agent's registry entry.
 
 ### POST /api/admin/send
 
@@ -204,7 +210,7 @@ Proxy a task status request to the target agent. Used by the frontend to poll fo
 }
 ```
 
-The endpoint extracts text from both `artifacts[].parts[]` and `message.parts[]` in the A2A task response, combining them into a single `output` string.
+The endpoint extracts text from all `artifacts[].parts[]` (multi-artifact responses are fully supported) and `message.parts[]` in the A2A task response, combining them into a single `output` string. Terminal control sequences (ANSI escapes, BEL characters, status bar junk) are stripped from the output before returning to the browser.
 
 ### POST /api/admin/start
 
@@ -330,28 +336,29 @@ The Admin view is rendered entirely in the existing Canvas single-page applicati
 flowchart TD
     subgraph AdminView["Admin View"]
         direction TB
-        subgraph LeftPanel["Agent List Panel"]
-            AgentList["Agent entries with<br/>status dot + name + type"]
+        subgraph TopSection["Select Agent"]
+            AgentTable["system-agents-table<br/>(clickable rows, sticky header)"]
         end
-        subgraph RightPanel["Chat Panel"]
+        subgraph BottomSection["Response"]
             ChatFeed["Chat bubble feed<br/>(scrollable)"]
-            InputBar["Agent selector | Text input | Send"]
+            InputBar["Textarea (multi-line) | Send"]
         end
     end
 
-    LeftPanel --- RightPanel
+    TopSection --- BottomSection
 ```
 
-### Agent List Panel
+### Agent List (Select Agent)
 
-Displays all active agents retrieved from `GET /api/admin/agents`. Each entry shows:
+Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target. Each row shows:
 
 - **Status dot** -- color-coded by agent status (green = READY, amber = PROCESSING, red = error)
 - **Agent name** -- custom name or agent ID
 - **Agent type** -- profile type (claude, gemini, etc.)
+- **Role** -- role description (if set)
 - **Status text** -- current status string
 
-The list refreshes when the Admin tab is activated.
+The section title reads "Select Agent". The list refreshes when the Admin tab is activated. The glass-morphism styling is consistent with other Canvas panels, using `--color-accent` variables.
 
 ### Chat Feed
 
@@ -364,11 +371,10 @@ A chat-bubble interface that displays the conversation between the operator and 
 
 ### Input Bar
 
-Located at the bottom of the chat panel:
+Located at the bottom of the Response section:
 
-- **Agent selector** -- dropdown populated from the agent list
-- **Text input** -- message field; submit with Enter key or the Send button
-- **Send button** -- triggers `POST /api/admin/send`
+- **Textarea** -- multi-line message field with IME composition support; submit with **Cmd+Enter** (macOS) or **Ctrl+Enter**, or click the Send button. Plain Enter inserts a newline for multi-line messages
+- **Send button** -- triggers `POST /api/admin/send`; disabled during pending requests to prevent double-send
 
 ### Response Polling
 
@@ -395,8 +401,8 @@ A spinner is shown in the chat feed while polling is active.
 | File | Changes |
 |------|---------|
 | `synapse/canvas/templates/index.html` | Admin navigation tab, `admin-view` section markup |
-| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsList`, `updateAdminDropdown`, `addAdminBubble`, `sendAdminCommand`, `pollAdminTask`, `escapeHtml` |
-| `synapse/canvas/static/canvas.css` | Admin view layout, glassmorphism panels, chat bubble styles, input bar, spinner animation |
+| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows), `addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (adaptive polling, terminal junk stripping), `escapeHtml`, IME composition handling |
+| `synapse/canvas/static/canvas.css` | Admin view layout, glassmorphism panels (consistent `--color-accent` variables), sticky table headers, chat bubble styles, textarea input bar, spinner animation |
 
 ### Tests
 
@@ -435,8 +441,8 @@ sequenceDiagram
     participant Reg as Registry Files
     participant Agent as Target Agent
 
-    User->>UI: Select agent, type message
-    User->>UI: Click Send / press Enter
+    User->>UI: Click agent row in table, type message
+    User->>UI: Click Send / press Cmd+Enter
     UI->>API: POST /api/admin/send<br/>{target: "claude", message: "..."}
     API->>Reg: Read ~/.a2a/registry/*.json
     Reg-->>API: endpoint = http://localhost:8100
@@ -457,6 +463,19 @@ sequenceDiagram
         end
     end
 ```
+
+## Recent Fixes
+
+The following issues were resolved after the initial release:
+
+| Issue | Fix |
+|-------|-----|
+| IME composition (Japanese/Chinese input) triggered premature send | `compositionstart`/`compositionend` event handling prevents send during active composition |
+| Multi-artifact responses showed only the first artifact | Response extraction now iterates all `artifacts[].parts[]` |
+| Terminal junk (BEL `\x07`, ANSI escapes, status bar lines) leaked into response text | Adaptive stripping with regex-based cleanup before display |
+| Double-send when clicking Send rapidly | Send button and Cmd+Enter disabled while a request is pending |
+| Stray `console.log` statements in production | Removed |
+| Glass-morphism inconsistency across panels | Unified `--color-accent` CSS variable usage |
 
 ## Troubleshooting
 
