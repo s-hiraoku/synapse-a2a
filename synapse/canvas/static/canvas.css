@@ -2933,6 +2933,33 @@ body.sidebar-collapsed #main-content {
   margin-top: var(--sp-1);
 }
 
+.task-detail-desc {
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.task-detail-md {
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.task-detail-md p {
+  margin: 0 0 var(--sp-1) 0;
+}
+
+.task-detail-md code {
+  background: var(--glass-bg);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.task-detail-md ul, .task-detail-md ol {
+  margin: 0 0 var(--sp-1) 0;
+  padding-left: var(--sp-4);
+}
+
 .task-fail-reason {
   font-size: var(--text-xs);
   color: var(--color-danger, #e74c3c);
