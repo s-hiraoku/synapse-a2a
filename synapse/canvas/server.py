@@ -1089,7 +1089,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
             )
 
         parts = message.get("parts", []) if isinstance(message, dict) else []
-        output = extract_text_from_parts(parts).strip()
+        raw_output = extract_text_from_parts(parts).strip()
+        # Clean terminal junk that may leak through auto-notify responses
+        # (artifact-based replies contain PTY output with ANSI escapes,
+        # status bars, and spinner fragments).
+        output = _strip_terminal_junk(raw_output) if raw_output else ""
 
         sender = metadata.get("sender", {})
         sender_id = sender.get("sender_id", "") if isinstance(sender, dict) else ""

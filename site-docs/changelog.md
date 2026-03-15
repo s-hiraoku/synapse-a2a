@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.12.2
+
+- **Fixed**: Admin reply receiver now strips terminal junk from auto-notify artifact responses
+- **Added**: "Reuse Existing Infrastructure" design principle in CLAUDE.md and AGENTS.md
+
 ### v0.12.1
 
 - **Added**: Canvas Admin Command Center — browser-based view (`#/admin`) for sending messages to agents and managing agent lifecycle
