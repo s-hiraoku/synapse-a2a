@@ -2240,17 +2240,24 @@
     }
   }
 
-  function buildStatusStrip(agents) {
-    var strip = document.createElement("div");
-    strip.className = "dash-strip";
+  var AGENT_STATUSES = ["ready", "processing", "waiting", "done"];
 
+  function countAgentStatuses(agents) {
     var counts = {};
     for (var i = 0; i < agents.length; i++) {
       var s = (agents[i].status || "unknown").toLowerCase();
       counts[s] = (counts[s] || 0) + 1;
     }
+    return counts;
+  }
 
-    var statuses = ["ready", "processing", "waiting", "done"];
+  function buildStatusStrip(agents) {
+    var strip = document.createElement("div");
+    strip.className = "dash-strip";
+
+    var counts = countAgentStatuses(agents);
+
+    var statuses = AGENT_STATUSES;
     for (var si = 0; si < statuses.length; si++) {
       var status = statuses[si];
       var count = counts[status] || 0;
@@ -2280,16 +2287,11 @@
     if (!el) return;
 
     var existingCounts = el.querySelectorAll(".dash-strip-count");
-    if (existingCounts.length === 4) {
-      var counts = {};
-      for (var i = 0; i < agents.length; i++) {
-        var s = (agents[i].status || "unknown").toLowerCase();
-        counts[s] = (counts[s] || 0) + 1;
-      }
-      var statuses = ["ready", "processing", "waiting", "done"];
-      for (var si = 0; si < statuses.length; si++) {
-        existingCounts[si].textContent = String(counts[statuses[si]] || 0);
-        existingCounts[si].style.color = statusColor(statuses[si]);
+    if (existingCounts.length === AGENT_STATUSES.length) {
+      var counts = countAgentStatuses(agents);
+      for (var si = 0; si < AGENT_STATUSES.length; si++) {
+        existingCounts[si].textContent = String(counts[AGENT_STATUSES[si]] || 0);
+        existingCounts[si].style.color = statusColor(AGENT_STATUSES[si]);
       }
       var headerTitle = el.querySelector(".dash-widget-header span");
       if (headerTitle) headerTitle.textContent = "Agents (" + agents.length + ")";
@@ -3711,8 +3713,10 @@
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
 
+    _dashboardRendered = false;
+    _systemPanelRendered = false;
+
     if (currentRoute === "canvas") {
-      _dashboardRendered = false;
       canvasView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       renderSpotlight();
@@ -3722,13 +3726,10 @@
       if (_lastSystemData) renderDashboard(_lastSystemData);
       loadSystemPanel();
     } else if (currentRoute === "system") {
-      _dashboardRendered = false;
-      _systemPanelRendered = false;
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       if (_lastSystemData) renderSystemPanel(_lastSystemData);
     } else {
-      _dashboardRendered = false;
       historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
       renderAll();
