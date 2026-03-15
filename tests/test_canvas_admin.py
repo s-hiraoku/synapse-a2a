@@ -127,7 +127,8 @@ class TestAdminSend:
         assert resp.status_code == 200
         data = resp.json()
         assert "task_id" in data
-        assert data["task_id"] == "task-123"
+        # task_id is a pre-generated UUID (sender_task_id), not the agent's task ID
+        assert len(data["task_id"]) == 36  # UUID format
 
     def test_send_message_agent_not_found(self, client):
         """Should return 404 when target agent is not found."""
@@ -302,6 +303,81 @@ class TestAdminTaskProxy:
         assert resp.status_code == 200
         data = resp.json()
         assert data["output"] == "Plain string output"
+
+
+class TestAdminReplies:
+    """Tests for reply ingestion and retrieval."""
+
+    def test_reply_receive_endpoint_exists(self, client):
+        """POST /tasks/send should accept reply payloads for the admin inbox."""
+        resp = client.post(
+            "/tasks/send",
+            json={
+                "message": {
+                    "role": "agent",
+                    "parts": [{"type": "text", "text": "Reply text"}],
+                },
+                "metadata": {"sender_task_id": "task-123"},
+            },
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["task"]["status"] == "completed"
+
+    def test_replies_can_be_polled_by_task_id(self, client):
+        """Replies for a task should be retrievable via admin polling endpoint."""
+        client.post(
+            "/tasks/send",
+            json={
+                "message": {
+                    "role": "agent",
+                    "parts": [{"type": "text", "text": "Structured reply"}],
+                },
+                "metadata": {"sender_task_id": "task-xyz"},
+            },
+        )
+
+        resp = client.get("/api/admin/replies/task-xyz")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "completed"
+        assert data["output"] == "Structured reply"
+
+    def test_admin_send_includes_sender_endpoint(self, client):
+        """Forwarded admin messages should include sender_endpoint metadata."""
+        mock_response = httpx.Response(
+            200,
+            json={
+                "id": "task-123",
+                "status": {"state": "working"},
+                "contextId": "ctx-1",
+            },
+            request=httpx.Request("POST", "http://localhost:8100/tasks/send"),
+        )
+
+        async def mock_post(self, url, json=None, **kwargs):  # noqa: ARG001
+            assert json is not None
+            sender = json["metadata"]["sender"]
+            assert sender["sender_id"] == "canvas-admin"
+            assert sender["sender_name"] == "Admin"
+            assert sender["sender_endpoint"] == "http://localhost:3000"
+            return mock_response
+
+        with (
+            patch(
+                "synapse.canvas.server._resolve_agent_endpoint",
+                return_value="http://localhost:8100",
+            ),
+            patch("httpx.AsyncClient.post", new=mock_post),
+        ):
+            resp = client.post(
+                "/api/admin/send",
+                json={"target": "synapse-claude-8100", "message": "Hello agent"},
+            )
+
+        assert resp.status_code == 200
 
 
 # ============================================================

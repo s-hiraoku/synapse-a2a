@@ -22,6 +22,14 @@ synapse send <target> "message" --wait     # Send message (synchronous)
 synapse send <target> "message" --silent   # Send message (fire-and-forget)
 ```
 
+## Implementation Principle: Reuse First
+
+新機能は既存の仕組みを最大限活用すること。新設する前に必ず確認:
+
+- **通信**: A2A Protocol（`/tasks/send`, reply stack, `sender_endpoint`）を使う。PTY 出力の直接読み取りでレスポンスを取得しない
+- **UI**: Canvas の既存コンポーネント（バブル、スピナー、テーブル、カード等）を再利用する。同じ役割の新コンポーネントを作らない — トンマナが崩れ、実装コストも増える
+- **データ取得**: A2A API（`task.artifacts`, `task.message`）から構造化データを取得する。`controller.get_context()` のターミナル生出力をユーザー表示に使わない
+
 ## Coding Style
 
 - Python 3.10+, PEP 8, 4-space indentation

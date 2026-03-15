@@ -16,6 +16,7 @@ import re
 import signal
 import sqlite3
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,7 +78,9 @@ def _strip_terminal_junk(text: str) -> str:
     # Step 2: Remove ANSI escape sequences (reuse controller.strip_ansi)
     text = strip_ansi(text)
 
-    # Step 3: Remove orphaned CSI parameter fragments
+    # Step 3: Remove DEC private mode sequences and orphaned CSI parameter fragments
+    # DEC private mode: ?2026h, ?25l, ?7h etc. (remains after ESC[ is stripped)
+    text = re.sub(r"\?\d+[hlHL]", "", text)
     # When \x1b was already stripped, bare fragments like "9m", "1C",
     # "249m", "38;2;153;153;153m" remain glued to real text.
     # Pattern: 1-3 digits optionally followed by ;digits, ending in a letter
@@ -93,10 +96,27 @@ def _strip_terminal_junk(text: str) -> str:
         r"switch\s*Agent\s*Connection[^)\n]*\)?", "", text, flags=re.IGNORECASE
     )
 
-    # Step 5: Remove control characters (except \t \n \r)
+    # Step 5: Remove status bar lines with box-drawing characters
+    # Codex draws ─────... lines for status bars and prompts
+    text = re.sub(r"[─━═]{10,}[^\n]*", "", text)
+    # Status bar fragments: "gpt-5.4 medium · 25% left · /path/..."
+    text = re.sub(
+        r"(?:gpt|claude|gemini|codex)[\w.-]*\s+\w+\s*·[^\n]*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Percentage patterns from status bars: "25% left", "31% left"
+    text = re.sub(r"\d+%\s+left[^\n]*", "", text, flags=re.IGNORECASE)
+
+    # Step 6: Remove spinner animation fragments
+    # "Working", "Workin", "Worki", "Work", "Wor", etc. and bullet-prefixed variants
+    text = re.sub(r"[•\u2022]?\s*Work(?:ing|in|i|)\b", "", text)
+
+    # Step 7: Remove control characters (except \t \n \r)
     text = re.sub(r"[\x00-\x08\x0e-\x1f\x7f]", "", text)
 
-    # Step 6: Clean up
+    # Step 8: Clean up
     text = re.sub(r"›[^\n]*", "", text)
     text = text.strip().strip("\u2022").strip()
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -514,6 +534,8 @@ def _extract_tip_text(content: Any) -> str:
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
     store = CanvasStore(db_path=db_path)
+    admin_replies: dict[str, list[dict[str, Any]]] = {}
+    _admin_pending_tasks: list[str] = []
 
     async def _cleanup_loop() -> None:
         """Periodically remove expired cards."""
@@ -995,6 +1017,76 @@ def create_app(db_path: str | None = None) -> FastAPI:
             },
         )
 
+    @app.post("/tasks/send")
+    @app.post("/tasks/send-priority")
+    async def admin_receive_reply(request: Request) -> dict[str, Any]:
+        """Receive agent replies via the standard A2A callback path.
+
+        Also handles /tasks/send-priority (Synapse extension) since
+        a2a_client uses that endpoint by default for priority support.
+        """
+        body = await request.json()
+        message = body.get("message", {}) or {}
+        metadata = body.get("metadata", {}) or {}
+        task_id = metadata.get("in_reply_to") or metadata.get("sender_task_id")
+
+        # If no task_id in metadata, try to match the most recent waiting
+        # admin task. This handles the case where synapse reply doesn't
+        # have sender_task_id (e.g., Admin didn't include it in the send).
+        if not task_id and _admin_pending_tasks:
+            task_id = _admin_pending_tasks[-1]
+
+        if not isinstance(task_id, str) or not task_id:
+            # Still no match — generate a synthetic ID so the reply isn't lost
+            task_id = str(uuid.uuid4())
+            logger.warning(
+                "Reply received without task correlation, using synthetic ID %s",
+                task_id[:8],
+            )
+
+        parts = message.get("parts", []) if isinstance(message, dict) else []
+        output_parts: list[str] = []
+        for part in parts:
+            if (
+                isinstance(part, dict)
+                and part.get("type") == "text"
+                and part.get("text")
+            ):
+                output_parts.append(str(part["text"]))
+        output = "\n".join(output_parts).strip()
+
+        sender_id = (
+            metadata.get("sender", {}).get("sender_id", "")
+            if isinstance(metadata.get("sender"), dict)
+            else ""
+        )
+        reply = {
+            "task_id": task_id,
+            "status": "completed",
+            "output": output,
+            "sender_id": sender_id,
+        }
+        admin_replies.setdefault(task_id, []).append(reply)
+        _broadcast_event("admin_reply", reply)
+        # Remove from pending once reply is received
+        if task_id in _admin_pending_tasks:
+            _admin_pending_tasks.remove(task_id)
+
+        now = datetime.now(timezone.utc).isoformat()
+        return {
+            "task": {
+                "id": task_id,
+                "status": "completed",
+                "message": message,
+                "artifacts": [],
+                "error": None,
+                "created_at": now,
+                "updated_at": now,
+                "context_id": None,
+                "metadata": metadata,
+            }
+        }
+
     # ----------------------------------------------------------------
     # Admin API — Command Center endpoints
     # ----------------------------------------------------------------
@@ -1043,6 +1135,10 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         # Build A2A SendMessageRequest with sender info so the agent
         # knows this comes from the Admin Command Center (human operator)
+        # Pre-generate a task ID so we can include it as sender_task_id.
+        # This lets the agent's reply include in_reply_to for correlation.
+        pre_task_id = str(uuid.uuid4())
+
         a2a_request = {
             "message": {
                 "role": "user",
@@ -1053,7 +1149,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 "sender": {
                     "sender_id": "canvas-admin",
                     "sender_name": "Admin",
+                    "sender_endpoint": (
+                        f"http://localhost:{int(os.environ.get('SYNAPSE_CANVAS_PORT', '3000'))}"
+                    ),
                 },
+                "sender_task_id": pre_task_id,
             },
         }
 
@@ -1071,11 +1171,33 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         # SendMessageResponse wraps task in {"task": {...}}
         task_data = resp_data.get("task", resp_data)
-        task_id = task_data.get("id", "")
+        agent_task_id = task_data.get("id", "")
         status = task_data.get("status", "unknown")
         if isinstance(status, dict):
             status = status.get("state", "unknown")
-        return {"task_id": task_id, "status": status}
+
+        # Use pre_task_id as the canonical admin task_id.
+        # The agent's reply will include in_reply_to=pre_task_id
+        # (from sender_task_id in metadata), so the frontend polls
+        # for replies using this same ID.
+        _admin_pending_tasks.append(pre_task_id)
+        # Also track agent_task_id → pre_task_id for fallback matching
+        if agent_task_id:
+            _admin_pending_tasks.append(agent_task_id)
+
+        return {"task_id": pre_task_id, "status": status}
+
+    @app.get("/api/admin/replies/{task_id}")
+    async def admin_replies_poll(task_id: str) -> dict[str, Any]:
+        """Return stored replies for a task."""
+        replies = admin_replies.get(task_id, [])
+        if not replies:
+            return {"task_id": task_id, "status": "waiting", "output": ""}
+
+        output = "\n\n".join(
+            reply.get("output", "") for reply in replies if reply.get("output")
+        ).strip()
+        return {"task_id": task_id, "status": "completed", "output": output}
 
     @app.get("/api/admin/tasks/{task_id}")
     async def admin_task_proxy(task_id: str, target: str | None = None) -> Any:

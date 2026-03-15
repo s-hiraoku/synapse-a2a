@@ -235,8 +235,14 @@ synapse send codex "STOP" --priority 5
 
 ADMIN COMMAND CENTER:
 Messages prefixed with `A2A: [From: Admin (canvas-admin)] [REPLY EXPECTED]` come from a human operator
-via the Canvas Admin Command Center. Respond thoroughly with detailed, multi-line answers.
-Always respond in the same language as the received message.
+via the Canvas Admin Command Center. You MUST use `synapse reply` to send your response back:
+
+```bash
+synapse reply "Your detailed response here"
+```
+
+Do NOT just output text to the terminal — the Admin UI can only see responses sent via `synapse reply`.
+Respond thoroughly with detailed, multi-line answers. Always respond in the same language as the received message.
 
 AVAILABLE AGENTS: claude, gemini, codex, opencode, copilot
 LIST COMMAND: synapse list

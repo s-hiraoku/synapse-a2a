@@ -16,6 +16,7 @@ flowchart LR
 
     subgraph CanvasServer["Canvas Server (port 3000)"]
         AdminAPI["/api/admin/*"]
+        ReplyAPI["POST /tasks/send\n(reply receiver)"]
     end
 
     subgraph Agents["Agent Fleet"]
@@ -29,14 +30,14 @@ flowchart LR
     end
 
     AdminTab -- "POST /api/admin/send" --> AdminAPI
-    AdminAPI -- "POST /tasks/send (A2A)" --> A1
-    AdminAPI -- "POST /tasks/send (A2A)" --> A2
-    AdminAPI -- "POST /tasks/send (A2A)" --> A3
+    AdminAPI -- "POST /tasks/send (A2A)\n+ sender_endpoint" --> A1
+    AdminAPI -- "POST /tasks/send (A2A)\n+ sender_endpoint" --> A2
+    AdminAPI -- "POST /tasks/send (A2A)\n+ sender_endpoint" --> A3
     AdminAPI -- "resolve target" --> RegFiles
-    AdminAPI -- "GET /tasks/{id}" --> A1
-    AdminAPI -- "GET /tasks/{id}" --> A2
-    AdminAPI -- "GET /tasks/{id}" --> A3
-    AdminAPI -- "JSON response" --> AdminTab
+    A1 -- "synapse reply\nPOST /tasks/send" --> ReplyAPI
+    A2 -- "synapse reply\nPOST /tasks/send" --> ReplyAPI
+    A3 -- "synapse reply\nPOST /tasks/send" --> ReplyAPI
+    AdminTab -- "GET /api/admin/replies/{id}" --> AdminAPI
 ```
 
 ## Quick Start
@@ -75,17 +76,26 @@ sequenceDiagram
     User->>Canvas: POST /api/admin/send<br/>{target, message}
     Canvas->>Registry: Resolve target to endpoint
     Registry-->>Canvas: http://localhost:8100
-    Canvas->>Agent: POST /tasks/send<br/>A2A SendMessageRequest
+    Canvas->>Agent: POST /tasks/send<br/>A2A SendMessageRequest<br/>(sender_endpoint=localhost:3000)
     Agent-->>Canvas: {id, status}
     Canvas-->>User: {task_id, status}
 
-    loop Poll every 2s (up to 2 min)
-        User->>Canvas: GET /api/admin/tasks/{id}?target=X
-        Canvas->>Agent: GET /tasks/{id}
-        Agent-->>Canvas: Task with artifacts
+    Note over Agent: Agent processes task...
+    Agent->>Canvas: synapse reply → POST /tasks/send<br/>(structured response text)
+    Canvas->>Canvas: Store reply in admin_replies[task_id]
+
+    loop Poll every 1-2s
+        User->>Canvas: GET /api/admin/replies/{task_id}
         Canvas-->>User: {status, output}
+        alt status == "completed"
+            User->>User: Show response bubble, stop spinner
+        else status == "waiting"
+            User->>User: Continue polling
+        end
     end
 ```
+
+**Key design**: The Admin Command Center reuses the same reply mechanism as inter-agent communication (`synapse reply`). By including `sender_endpoint` in the send metadata, the target agent can reply directly to Canvas using the standard A2A callback path (`POST /tasks/send`). This avoids reading PTY output and ensures clean, structured responses.
 
 ### Proxy Pattern
 
@@ -178,20 +188,64 @@ Forward a message to a target agent using the A2A `SendMessageRequest` format.
 | 404 | Target agent not found in registry |
 | 502 | Agent endpoint unreachable |
 
-The message is wrapped into an A2A `Message` with a single `TextPart` before forwarding:
+The message is wrapped into an A2A `Message` with a single `TextPart` before forwarding. The `sender_endpoint` is included so that the agent can reply via `synapse reply`:
 
 ```json
 {
   "message": {
     "role": "user",
     "parts": [{ "type": "text", "text": "..." }]
+  },
+  "metadata": {
+    "response_mode": "notify",
+    "sender": {
+      "sender_id": "canvas-admin",
+      "sender_name": "Admin",
+      "sender_endpoint": "http://localhost:3000"
+    }
   }
 }
 ```
 
-### GET /api/admin/tasks/{task_id}?target=X
+The agent's PTY displays the message as `A2A: [From: Admin (canvas-admin)] [REPLY EXPECTED] ...`, and the agent processes and replies using the standard `synapse reply` mechanism.
 
-Proxy a task status request to the target agent. Used by the frontend to poll for responses after sending a command.
+### POST /tasks/send (Reply Receiver)
+
+Receives agent replies via the standard A2A callback path. When an agent runs `synapse reply`, the response is sent to the `sender_endpoint` specified in the original message metadata — in this case, the Canvas server.
+
+**Request body** (sent by agent automatically):
+
+The reply contains `in_reply_to` or `sender_task_id` in metadata to correlate with the original task. The text content is extracted from `message.parts[]` and stored in an in-memory dict keyed by task ID.
+
+Replies are also broadcast as `admin_reply` SSE events to connected Canvas clients.
+
+### GET /api/admin/replies/{task_id}
+
+Poll for replies received from an agent for a given task.
+
+**Response (waiting):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "waiting",
+  "output": ""
+}
+```
+
+**Response (completed):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "completed",
+  "output": "The auth module looks good. No critical issues found."
+}
+```
+
+### GET /api/admin/tasks/{task_id}?target=X (Fallback)
+
+Proxy a task status request to the target agent. Retained as a fallback for cases where the reply mechanism is not available (e.g., agent does not support `synapse reply`).
 
 **Query parameters:**
 
@@ -209,8 +263,6 @@ Proxy a task status request to the target agent. Used by the frontend to poll fo
   "error": null
 }
 ```
-
-The endpoint extracts text from all `artifacts[].parts[]` (multi-artifact responses are fully supported) and `message.parts[]` in the A2A task response, combining them into a single `output` string. Terminal control sequences (ANSI escapes, BEL characters, status bar junk) are stripped from the output before returning to the browser.
 
 ### POST /api/admin/start
 
@@ -376,15 +428,17 @@ Located at the bottom of the Response section:
 - **Textarea** -- multi-line message field with IME composition support; submit with **Cmd+Enter** (macOS) or **Ctrl+Enter**, or click the Send button. Plain Enter inserts a newline for multi-line messages
 - **Send button** -- triggers `POST /api/admin/send`; disabled during pending requests to prevent double-send
 
-### Response Polling
+### Response Handling
 
-After sending a message, the frontend polls `GET /api/admin/tasks/{id}?target=X` with:
+After sending a message, the frontend polls `GET /api/admin/replies/{task_id}` to check for agent replies:
 
-- **Interval:** 2 seconds
-- **Timeout:** 2 minutes (60 attempts)
-- **Terminal states:** `completed`, `failed`, `canceled`
+- **Interval:** 1 second for the first 10 attempts, then 2 seconds
+- **Timeout:** 5 minutes (150 attempts)
+- **Terminal states:** `completed`, `failed`
 
-A spinner is shown in the chat feed while polling is active.
+The response flow uses the same `synapse reply` mechanism as inter-agent communication. The agent processes the message and replies to Canvas's `sender_endpoint`, which stores the reply and makes it available via the polling endpoint.
+
+A spinner is shown in the chat feed while waiting for a reply.
 
 ## Files Changed
 
@@ -392,7 +446,7 @@ A spinner is shown in the chat feed while polling is active.
 
 | File | Changes |
 |------|---------|
-| `synapse/canvas/server.py` | 7 admin endpoints, helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
+| `synapse/canvas/server.py` | Admin endpoints, reply receiver (`POST /tasks/send`), reply polling (`GET /api/admin/replies/{task_id}`), helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
 | `synapse/settings.py` | Administrator config section, `get_administrator_config()` method |
 | `synapse/port_manager.py` | Admin port range entry (`8150-8159`) in `PORT_RANGES` |
 
@@ -401,7 +455,7 @@ A spinner is shown in the chat feed while polling is active.
 | File | Changes |
 |------|---------|
 | `synapse/canvas/templates/index.html` | Admin navigation tab, `admin-view` section markup |
-| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows), `addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (adaptive polling, terminal junk stripping), `escapeHtml`, IME composition handling |
+| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows), `createAdminBubble`/`addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (polls `/api/admin/replies/` for agent replies), `escapeHtml`, IME composition handling |
 | `synapse/canvas/static/canvas.css` | Admin view layout, glassmorphism panels (consistent `--color-accent` variables), sticky table headers, chat bubble styles, textarea input bar, spinner animation |
 
 ### Tests
@@ -421,9 +475,13 @@ Direct requests from the browser to agent ports (e.g., `localhost:8100`) would r
 
 The Admin send endpoint constructs a standard A2A `SendMessageRequest` with `Message` and `TextPart`. Agents already implement `/tasks/send` for inter-agent communication, so no new protocol surface is needed. This also means the administrator agent (if configured) can participate as a regular A2A peer.
 
+### Why reply-based instead of PTY streaming?
+
+Early iterations attempted to stream PTY output via SSE proxy, but this required extensive terminal junk stripping (ANSI escapes, status bars, spinner animations) and produced unreliable results. The reply-based approach reuses the existing `synapse reply` mechanism — the same infrastructure agents use to communicate with each other — ensuring clean, structured responses without any terminal output parsing.
+
 ### Why polling instead of WebSocket?
 
-Canvas already uses Server-Sent Events (SSE) for card updates. Adding WebSocket for admin responses would introduce a second real-time transport. Polling at 2-second intervals is simple, sufficient for the human-in-the-loop use case, and avoids additional connection management complexity.
+Canvas already uses Server-Sent Events (SSE) for card updates. The reply is also broadcast as an `admin_reply` SSE event, but the frontend uses polling as the primary mechanism for simplicity. Polling at 1-2 second intervals is sufficient for the human-in-the-loop use case and avoids additional connection management complexity.
 
 ### Why registry-based discovery?
 
@@ -446,19 +504,21 @@ sequenceDiagram
     UI->>API: POST /api/admin/send<br/>{target: "claude", message: "..."}
     API->>Reg: Read ~/.a2a/registry/*.json
     Reg-->>API: endpoint = http://localhost:8100
-    API->>Agent: POST /tasks/send<br/>(A2A SendMessageRequest)
+    API->>Agent: POST /tasks/send<br/>(A2A SendMessageRequest<br/>+ sender_endpoint=localhost:3000)
     Agent-->>API: {id: "task-123", status: {state: "submitted"}}
     API-->>UI: {task_id: "task-123", status: "submitted"}
     UI->>UI: Show sent bubble + spinner
 
-    loop Every 2 seconds
-        UI->>API: GET /api/admin/tasks/task-123?target=claude
-        API->>Agent: GET /tasks/task-123
-        Agent-->>API: Task response
+    Note over Agent: Agent processes task...<br/>PTY shows: A2A: [From: Admin] [REPLY EXPECTED]
+    Agent->>API: synapse reply → POST /tasks/send<br/>(structured response)
+    API->>API: Store in admin_replies["task-123"]<br/>Broadcast admin_reply SSE event
+
+    loop Every 1-2 seconds
+        UI->>API: GET /api/admin/replies/task-123
         API-->>UI: {status, output}
         alt status == "completed"
             UI->>UI: Show response bubble, stop spinner
-        else status == "working"
+        else status == "waiting"
             UI->>UI: Continue polling
         end
     end
@@ -470,9 +530,9 @@ The following issues were resolved after the initial release:
 
 | Issue | Fix |
 |-------|-----|
+| Response contained terminal junk (ANSI escapes, status bars, spinners) | **Architecture change**: Replaced artifact-polling with reply-based flow (`synapse reply`). Responses are now structured text, not PTY output |
+| Agent responses showed only 1 line (premature artifact completion) | Eliminated by reply-based flow — agent sends complete response via `synapse reply` |
 | IME composition (Japanese/Chinese input) triggered premature send | `compositionstart`/`compositionend` event handling prevents send during active composition |
-| Multi-artifact responses showed only the first artifact | Response extraction now iterates all `artifacts[].parts[]` |
-| Terminal junk (BEL `\x07`, ANSI escapes, status bar lines) leaked into response text | Adaptive stripping with regex-based cleanup before display |
 | Double-send when clicking Send rapidly | Send button and Cmd+Enter disabled while a request is pending |
 | Stray `console.log` statements in production | Removed |
 | Glass-morphism inconsistency across panels | Unified `--color-accent` CSS variable usage |
@@ -484,7 +544,8 @@ The following issues were resolved after the initial release:
 | Agent list is empty | No agents running or registry directory missing | Start an agent with `synapse start claude` |
 | "Agent not found" on send | Target identifier does not match any registry entry | Use `synapse list --json` to verify agent IDs and names |
 | 502 error on send | Agent process crashed or port is unreachable | Check agent logs, restart with `synapse start` |
-| Polling times out (2 min) | Agent is busy with a long-running task | Wait for the agent to finish its current task, then retry |
+| Polling times out (5 min) | Agent did not reply (busy, crashed, or does not support `synapse reply`) | Check agent status with `synapse list`; retry or use a different agent |
+| Reply not received | Agent lacks `sender_endpoint` awareness | Ensure agent has Synapse bootstrap instructions; reply stack must contain canvas-admin |
 | Admin tab not visible | Canvas running an older version without admin support | Stop Canvas (`synapse canvas stop`) and restart (`synapse canvas serve`) |
 
 ## Related Documentation

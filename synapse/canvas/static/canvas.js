@@ -3873,8 +3873,7 @@
     adminAgentsWidget.appendChild(content);
   }
 
-  function addAdminBubble(role, text, agentName) {
-    if (!adminFeed) return;
+  function createAdminBubble(role, text, agentName) {
     var bubble = document.createElement("div");
     bubble.className = "admin-bubble admin-bubble-" + role;
     var header = document.createElement("div");
@@ -3891,6 +3890,13 @@
     body.className = "admin-bubble-body";
     body.textContent = text;
     bubble.appendChild(body);
+    bubble._adminBody = body;
+    return bubble;
+  }
+
+  function addAdminBubble(role, text, agentName) {
+    if (!adminFeed) return;
+    var bubble = createAdminBubble(role, text, agentName);
     adminFeed.appendChild(bubble);
     adminFeed.scrollTop = adminFeed.scrollHeight;
   }
@@ -3969,7 +3975,7 @@
         return;
       }
       try {
-        var resp = await fetch("/api/admin/tasks/" + encodeURIComponent(taskId) + "?target=" + encodeURIComponent(target));
+        var resp = await fetch("/api/admin/replies/" + encodeURIComponent(taskId));
         var data = await resp.json();
         if (data.status === "completed" || data.status === "DONE") {
           polling = false;

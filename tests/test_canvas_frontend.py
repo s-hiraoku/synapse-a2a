@@ -200,6 +200,7 @@ def test_admin_command_center_functions_exist_in_js() -> None:
     for name in [
         "async function loadAdminAgents()",
         "function renderAdminAgentsWidget(agents)",
+        "function createAdminBubble(role, text, agentName)",
         "function addAdminBubble(role, text, agentName)",
         "function addAdminSpinner()",
         "function removeAdminSpinner()",
@@ -217,6 +218,23 @@ def test_admin_init_event_listeners_exist_in_js() -> None:
     assert 'adminSendBtn.addEventListener("click", sendAdminCommand)' in js
     assert 'adminMessageInput.addEventListener("keydown", function (e)' in js
     assert 'if (e.key === "Enter" && e.metaKey && !_isComposing)' in js
+
+
+def test_admin_reply_polling_endpoint_used_in_js() -> None:
+    """Admin command center should poll the reply endpoint instead of SSE streaming."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "/api/admin/replies/" in js
+    assert "streamAdminTask(" not in js
+    assert "/api/admin/stream/" not in js
+
+
+def test_admin_bubble_creation_split_exists_in_js() -> None:
+    """addAdminBubble should delegate DOM construction to createAdminBubble."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "function createAdminBubble(role, text, agentName)" in js
+    assert "var bubble = createAdminBubble(role, text, agentName);" in js
 
 
 def test_admin_css_classes_exist() -> None:

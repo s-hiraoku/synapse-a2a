@@ -71,6 +71,15 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ### 実装ドキュメント
 
+- `admin-command-center.md` - **Canvas Admin Command Center ガイド**
+  - ブラウザからエージェントにコマンド送信・レスポンス表示
+  - Reply ベース方式（`synapse reply` を活用、PTY 出力は使わない）
+  - API リファレンス、UI コンポーネント、設計判断
+
+- `artifact-pipeline.md` - **PTY 出力から Artifact へのパイプライン**
+  - PTY キャプチャ → バッファ蓄積 → アイドル検知 → 確定 → Artifact 格納
+  - ※ Admin Command Center は reply ベース方式を使用（このパイプラインは経由しない）
+
 - `file-safety.md` - **File Safety（ファイル競合防止）ユーザーガイド**
   - ファイルロックと変更追跡でマルチエージェント競合を防止
   - CLI コマンドと Python API の詳細リファレンス

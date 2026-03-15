@@ -1599,7 +1599,7 @@ Canvas is a shared visual dashboard where agents post rich content cards rendere
 - **`#/dashboard`** (Dashboard view) — Operational overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
 - **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
 - **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
-- **`#/admin`** (Admin Command Center) — Browser-based agent management: clickable agent table rows for selection (with role, skill set, working directory), textarea input with Cmd+Enter, multi-artifact response extraction, section titles (Select Agent, Response), sticky table headers, IME composition handling
+- **`#/admin`** (Admin Command Center) — Browser-based agent management: clickable agent table rows for selection (with role, skill set, working directory), textarea input with Cmd+Enter, reply-based response via `synapse reply` (agent replies are received at Canvas's `/tasks/send` endpoint), section titles (Select Agent, Response), sticky table headers, IME composition handling
 
 ### Post Cards
 
