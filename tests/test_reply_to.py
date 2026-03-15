@@ -119,10 +119,26 @@ class TestReplyStackEndpoints:
         return app, test_stack
 
     def test_reply_stack_list_endpoint(self):
-        """GET /reply-stack/list should return all sender IDs."""
+        """GET /reply-stack/list should return sender IDs and selection metadata."""
         app, stack = self._create_test_app()
-        stack.set("sender-a", {"sender_endpoint": "http://a:8100"})
-        stack.set("sender-b", {"sender_endpoint": "http://b:8110"})
+        stack.set(
+            "sender-a",
+            {
+                "sender_endpoint": "http://a:8100",
+                "sender_task_id": "task-a",
+                "message_preview": "hello from a",
+                "received_at": "2026-03-15T02:00:00+00:00",
+            },
+        )
+        stack.set(
+            "sender-b",
+            {
+                "sender_endpoint": "http://b:8110",
+                "sender_task_id": "task-b",
+                "message_preview": "hello from b",
+                "received_at": "2026-03-15T02:01:00+00:00",
+            },
+        )
 
         client = TestClient(app)
         with patch("synapse.a2a_compat.get_reply_stack", return_value=stack):
@@ -131,8 +147,13 @@ class TestReplyStackEndpoints:
         assert resp.status_code == 200
         data = resp.json()
         assert "sender_ids" in data
+        assert "targets" in data
         assert "sender-a" in data["sender_ids"]
         assert "sender-b" in data["sender_ids"]
+        assert data["targets"][0]["sender_id"] == "sender-a"
+        assert data["targets"][0]["sender_task_id"] == "task-a"
+        assert data["targets"][0]["message_preview"] == "hello from a"
+        assert data["targets"][1]["sender_id"] == "sender-b"
 
     def test_reply_stack_get_by_sender(self):
         """GET /reply-stack/get?sender_id=X should return specific sender."""

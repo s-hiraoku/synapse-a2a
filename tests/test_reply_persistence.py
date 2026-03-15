@@ -1,5 +1,6 @@
 """Tests for file-based reply target persistence."""
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -72,6 +73,39 @@ def test_save_overwrites(tmp_path, monkeypatch) -> None:
     }
 
 
+def test_load_missing_saved_at_is_still_supported(tmp_path, monkeypatch) -> None:
+    """Existing persistence files without saved_at should still load."""
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    agent_id = "synapse-codex-8122"
+    reply_file = Path(tmp_path) / f"{agent_id}.reply.json"
+    reply_file.write_text('{"sender_endpoint": "http://localhost:8110"}')
+
+    loaded = load_reply_target(agent_id)
+
+    assert loaded == {"sender_endpoint": "http://localhost:8110"}
+
+
+def test_load_expired_target_returns_none(tmp_path, monkeypatch) -> None:
+    """Persisted reply targets older than the TTL should be ignored."""
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_TTL_SECONDS", "600")
+    agent_id = "synapse-codex-8122"
+    reply_file = Path(tmp_path) / f"{agent_id}.reply.json"
+    expired_at = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    reply_file.write_text(
+        "{"
+        '"sender_endpoint": "http://localhost:8110", '
+        '"sender_task_id": "task-123", '
+        f'"saved_at": "{expired_at}"'
+        "}"
+    )
+
+    loaded = load_reply_target(agent_id)
+
+    assert loaded is None
+    assert not reply_file.exists()
+
+
 @patch("synapse.a2a_compat.save_reply_target")
 def test_send_task_message_persists_reply_target(mock_save_reply_target) -> None:
     """A2A message with response_mode should persist reply target to file."""
@@ -103,10 +137,11 @@ def test_send_task_message_persists_reply_target(mock_save_reply_target) -> None
     resp = client.post("/tasks/send", json=payload)
 
     assert resp.status_code == 200
-    mock_save_reply_target.assert_called_once_with(
-        "synapse-codex-8122",
-        {
-            "sender_endpoint": "http://localhost:8100",
-            "sender_task_id": "task-123",
-        },
-    )
+    mock_save_reply_target.assert_called_once()
+    agent_id, sender_info = mock_save_reply_target.call_args.args
+    assert agent_id == "synapse-codex-8122"
+    assert sender_info["sender_id"] == "synapse-claude-8100"
+    assert sender_info["sender_endpoint"] == "http://localhost:8100"
+    assert sender_info["sender_task_id"] == "task-123"
+    assert sender_info["message_preview"] == "hello"
+    assert "received_at" in sender_info

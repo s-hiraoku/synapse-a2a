@@ -1639,17 +1639,28 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8100",
         }
 
-        # Mock the GET /reply-stack/get response (first call)
+        # Mock the GET /reply-stack/list response (first call)
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
+        # Mock the GET /reply-stack/get response (second call)
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_task_id": "abc12345",
         }
-        # Mock the GET /reply-stack/pop response (second call after success)
+        # Mock the GET /reply-stack/pop response (third call after success)
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1668,10 +1679,11 @@ class TestCmdReply:
         assert call_kwargs["in_reply_to"] == "abc12345"
         assert call_kwargs["message"] == "Hello back!"
 
-        # Verify get was called first, then pop after success
-        assert len(mock_requests_get.call_args_list) == 2
-        assert "/reply-stack/get" in mock_requests_get.call_args_list[0][0][0]
-        assert "/reply-stack/pop" in mock_requests_get.call_args_list[1][0][0]
+        requested_urls = [call.args[0] for call in mock_requests_get.call_args_list]
+        assert len(requested_urls) == 3
+        assert "/reply-stack/list" in requested_urls[0]
+        assert "/reply-stack/get" in requested_urls[1]
+        assert "/reply-stack/pop" in requested_urls[2]
 
         captured = capsys.readouterr()
         assert "Reply sent" in captured.out
@@ -1750,6 +1762,12 @@ class TestCmdReply:
         }
 
         # Mock the GET /reply-stack/get response - no task_id
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
@@ -1759,7 +1777,11 @@ class TestCmdReply:
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1801,6 +1823,58 @@ class TestCmdReply:
         assert "Reply message is required" in captured.err
         mock_requests_get.assert_not_called()
 
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_requires_to_when_multiple_targets_available(
+        self,
+        mock_requests_get,
+        mock_sender,
+        capsys,
+    ):
+        """Should refuse implicit reply when multiple reply targets are available."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-codex-8122",
+            "sender_endpoint": "http://localhost:8122",
+        }
+
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["canvas-admin", "synapse-claude-8100"],
+            "targets": [
+                {
+                    "sender_id": "canvas-admin",
+                    "sender_task_id": "task-admin",
+                    "message_preview": "テスト送信です。",
+                    "received_at": "2026-03-15T02:00:00+00:00",
+                },
+                {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_task_id": "task-claude",
+                    "message_preview": "Please help me",
+                    "received_at": "2026-03-15T02:01:00+00:00",
+                },
+            ],
+        }
+        mock_requests_get.return_value = mock_list_response
+
+        args = argparse.Namespace(message="了解", list_targets=False, to=None)
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Multiple reply targets available" in captured.err
+        assert "synapse reply --list-targets" in captured.err
+        assert "canvas-admin" in captured.err
+        assert "synapse-claude-8100" in captured.err
+
+        requested_urls = [call.args[0] for call in mock_requests_get.call_args_list]
+        assert any("/reply-stack/list" in url for url in requested_urls)
+
     @patch("synapse.tools.a2a.cmd_reply")
     @patch("sys.argv", ["a2a.py", "reply", "Hello back!"])
     def test_main_reply_command(self, mock_cmd):
@@ -1830,13 +1904,19 @@ class TestCmdReply:
         }
 
         # Mock the GET /reply-stack/get response (first call)
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_task_id": "abc12345",
         }
-        mock_requests_get.return_value = mock_get_response
+        mock_requests_get.side_effect = [mock_list_response, mock_get_response]
 
         # Mock the client - send fails
         mock_client = MagicMock()
@@ -1852,9 +1932,10 @@ class TestCmdReply:
         captured = capsys.readouterr()
         assert "Failed to send reply" in captured.err
 
-        # Verify peek was called (not pop), so target is preserved for retry
-        # First call should be to /reply-stack/get
-        assert "/reply-stack/get" in mock_requests_get.call_args_list[0][0][0]
+        requested_urls = [call.args[0] for call in mock_requests_get.call_args_list]
+        assert any("/reply-stack/list" in url for url in requested_urls)
+        assert any("/reply-stack/get" in url for url in requested_urls)
+        assert not any("/reply-stack/pop" in url for url in requested_urls)
 
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.build_sender_info")
@@ -1876,6 +1957,12 @@ class TestCmdReply:
         }
 
         # Mock the GET /reply-stack/get response with UDS path
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
@@ -1886,7 +1973,11 @@ class TestCmdReply:
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
 
         # Mock the client
         mock_client = MagicMock()
@@ -1926,6 +2017,12 @@ class TestCmdReply:
         }
 
         # Mock the GET /reply-stack/get response - UDS only, no HTTP
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
@@ -1936,7 +2033,11 @@ class TestCmdReply:
         # Second call (pop) returns 200
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
 
         # Mock the client
         mock_client = MagicMock()
@@ -2022,6 +2123,12 @@ class TestCmdReply:
             "sender_endpoint": "http://localhost:8122",
         }
 
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-codex-8122"],
+            "targets": [{"sender_id": "synapse-codex-8122"}],
+        }
         mock_get_response = MagicMock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
@@ -2030,7 +2137,11 @@ class TestCmdReply:
         }
         mock_pop_response = MagicMock()
         mock_pop_response.status_code = 200
-        mock_requests_get.side_effect = [mock_get_response, mock_pop_response]
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
 
         mock_client = MagicMock()
         mock_client.send_to_local.return_value = MagicMock(
@@ -2042,6 +2153,46 @@ class TestCmdReply:
         cmd_reply(args)
 
         mock_clear_reply_target.assert_called_once_with("synapse-codex-8122")
+
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    def test_cmd_reply_list_targets_shows_metadata(
+        self,
+        mock_requests_get,
+        mock_sender,
+        capsys,
+    ):
+        """Should display reply target metadata for manual disambiguation."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-codex-8122",
+            "sender_endpoint": "http://localhost:8122",
+        }
+
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["canvas-admin"],
+            "targets": [
+                {
+                    "sender_id": "canvas-admin",
+                    "sender_task_id": "task-admin",
+                    "message_preview": "テスト送信です。",
+                    "received_at": "2026-03-15T02:00:00+00:00",
+                }
+            ],
+        }
+        mock_requests_get.return_value = mock_list_response
+
+        args = argparse.Namespace(message="", list_targets=True, to=None)
+        cmd_reply(args)
+
+        captured = capsys.readouterr()
+        assert "canvas-admin" in captured.out
+        assert "task-admin" in captured.out
+        assert "テスト送信です。" in captured.out
+        assert "2026-03-15T02:00:00+00:00" in captured.out
 
 
 # ============================================================
