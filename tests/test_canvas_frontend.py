@@ -405,8 +405,8 @@ def test_dashboard_task_board_renders_all_status_columns() -> None:
 def test_dashboard_task_board_shows_summary_and_detail() -> None:
     """Dashboard task widget should show summary bar and expandable detail."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    start = js.index("function renderDashTasks(tasks) {")
-    end = js.index("\n  function renderDashMemory(", start)
+    start = js.index("function buildTaskBars(tasks) {")
+    end = js.index("\n  function buildMemoryList(", start)
     body = js[start:end]
 
     assert "dash-task-bar-row" in body

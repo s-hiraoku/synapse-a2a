@@ -2196,6 +2196,10 @@
     var frag = document.createDocumentFragment();
     var isExpanded = !!_dashExpandState[widgetKey];
 
+    var wrapper = document.createElement("div");
+    wrapper.className = "dash-widget-inner";
+    wrapper.setAttribute("data-widget-key", widgetKey);
+
     // Header with chevron
     var header = createDashHeader(iconClass, titleText);
     var chevron = document.createElement("i");
@@ -2217,10 +2221,34 @@
       }
     });
 
-    frag.appendChild(header);
-    if (summaryEl) frag.appendChild(summaryEl);
-    frag.appendChild(detail);
+    wrapper.appendChild(header);
+    if (summaryEl) wrapper.appendChild(summaryEl);
+    wrapper.appendChild(detail);
+    frag.appendChild(wrapper);
     return frag;
+  }
+
+  function updateDashWidget(el, titleText, summaryEl, detailBuilder) {
+    var existing = el.querySelector("[data-widget-key]");
+    if (!existing) return false;
+    var widgetKey = existing.getAttribute("data-widget-key");
+
+    var headerTitle = existing.querySelector(".dash-widget-header span");
+    if (headerTitle) headerTitle.textContent = titleText;
+
+    var oldSummary = existing.querySelector(".dash-widget-summary, .dash-strip, .dash-task-bars, .dash-memory-list");
+    if (oldSummary && summaryEl) {
+      existing.replaceChild(summaryEl, oldSummary);
+    }
+
+    if (_dashExpandState[widgetKey] && detailBuilder) {
+      var detail = existing.querySelector(".dash-widget-detail");
+      if (detail) {
+        detail.innerHTML = "";
+        detail.appendChild(detailBuilder());
+      }
+    }
+    return true;
   }
 
   function formatElapsed(isoOrUnix) {
@@ -2307,6 +2335,13 @@
       }
       var headerTitle = el.querySelector(".dash-widget-header span");
       if (headerTitle) headerTitle.textContent = "Agents (" + agents.length + ")";
+      if (_dashExpandState["agents"]) {
+        var detail = el.querySelector(".dash-widget-detail");
+        if (detail) {
+          detail.innerHTML = "";
+          detail.appendChild(renderSystemAgents(agents));
+        }
+      }
       return;
     }
 
@@ -2315,11 +2350,7 @@
     el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
   }
 
-  function renderDashTasks(tasks) {
-    var el = document.getElementById("dash-tasks");
-    if (!el) return;
-    el.innerHTML = "";
-
+  function buildTaskBars(tasks) {
     var total = 0;
     var statuses = ["pending", "in_progress", "completed", "failed"];
     var counts = {};
@@ -2328,14 +2359,8 @@
       counts[statuses[i]] = items.length;
       total += items.length;
     }
+    if (total === 0) return { bars: null, total: 0 };
 
-    if (total === 0) {
-      el.appendChild(createDashHeader("ph-kanban", "Task Board (0)"));
-      el.appendChild(emptyState("No tasks"));
-      return;
-    }
-
-    // Summary: bar chart
     var bars = document.createElement("div");
     bars.className = "dash-task-bars";
 
@@ -2371,22 +2396,29 @@
 
       bars.appendChild(row);
     }
-
-    el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + total + ")", bars, function () { return renderSystemTasks(tasks); }));
+    return { bars: bars, total: total };
   }
 
-  function renderDashMemory(memories) {
-    var el = document.getElementById("dash-memory");
+  function renderDashTasks(tasks) {
+    var el = document.getElementById("dash-tasks");
     if (!el) return;
-    el.innerHTML = "";
 
-    if (memories.length === 0) {
-      el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (0)"));
-      el.appendChild(emptyState("No shared memories"));
+    var result = buildTaskBars(tasks);
+
+    if (result.total === 0) {
+      el.innerHTML = "";
+      el.appendChild(createDashHeader("ph-kanban", "Task Board (0)"));
+      el.appendChild(emptyState("No tasks"));
       return;
     }
 
-    // Summary: compact key list
+    if (updateDashWidget(el, "Task Board (" + result.total + ")", result.bars, function () { return renderSystemTasks(tasks); })) return;
+
+    el.innerHTML = "";
+    el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + result.total + ")", result.bars, function () { return renderSystemTasks(tasks); }));
+  }
+
+  function buildMemoryList(memories) {
     var list = document.createElement("div");
     list.className = "dash-memory-list";
     var shown = memories.slice(0, 5);
@@ -2412,40 +2444,57 @@
 
       list.appendChild(item);
     }
+    return list;
+  }
 
-    // Detail: full memory table
-    el.appendChild(createDashWidget("memory", "ph-brain", "Shared Knowledge (" + memories.length + ")", list, function () { return renderSystemMemories(memories); }));
+  function renderDashMemory(memories) {
+    var el = document.getElementById("dash-memory");
+    if (!el) return;
+
+    if (memories.length === 0) {
+      el.innerHTML = "";
+      el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (0)"));
+      el.appendChild(emptyState("No shared memories"));
+      return;
+    }
+
+    var titleText = "Shared Knowledge (" + memories.length + ")";
+    var detailFn = function () { return renderSystemMemories(memories); };
+
+    if (updateDashWidget(el, titleText, buildMemoryList(memories), detailFn)) return;
+
+    el.innerHTML = "";
+    el.appendChild(createDashWidget("memory", "ph-brain", titleText, buildMemoryList(memories), detailFn));
+  }
+
+  function buildLockSummary(locks) {
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.textContent = locks.length + " file" + (locks.length !== 1 ? "s" : "") + " locked";
+    return summary;
   }
 
   function renderDashFileLocks(locks) {
     var el = document.getElementById("dash-file-locks");
     if (!el) return;
-    el.innerHTML = "";
 
     if (locks.length === 0) {
+      el.innerHTML = "";
       el.appendChild(createDashHeader("ph-lock", "File Locks (0)"));
       el.appendChild(emptyState("No active file locks"));
       return;
     }
 
-    var summary = document.createElement("div");
-    summary.className = "dash-widget-summary";
-    summary.textContent = locks.length + " file" + (locks.length !== 1 ? "s" : "") + " locked";
+    var titleText = "File Locks (" + locks.length + ")";
+    var detailFn = function () { return renderSystemFileLocks(locks); };
 
-    el.appendChild(createDashWidget("file-locks", "ph-lock", "File Locks (" + locks.length + ")", summary, function () { return renderSystemFileLocks(locks); }));
+    if (updateDashWidget(el, titleText, buildLockSummary(locks), detailFn)) return;
+
+    el.innerHTML = "";
+    el.appendChild(createDashWidget("file-locks", "ph-lock", titleText, buildLockSummary(locks), detailFn));
   }
 
-  function renderDashWorktrees(worktrees) {
-    var el = document.getElementById("dash-worktrees");
-    if (!el) return;
-    el.innerHTML = "";
-
-    if (worktrees.length === 0) {
-      el.appendChild(createDashHeader("ph-git-branch", "Worktrees (0)"));
-      el.appendChild(emptyState("No active worktrees"));
-      return;
-    }
-
+  function buildWorktreeSummary(worktrees) {
     var summary = document.createElement("div");
     summary.className = "dash-widget-summary";
     var branches = [];
@@ -2453,26 +2502,54 @@
       branches.push(worktrees[i].branch || worktrees[i].agent_name || worktrees[i].agent_id);
     }
     summary.textContent = worktrees.length + " worktree" + (worktrees.length !== 1 ? "s" : "") + " — " + branches.join(", ") + (worktrees.length > 3 ? "…" : "");
+    return summary;
+  }
 
-    el.appendChild(createDashWidget("worktrees", "ph-git-branch", "Worktrees (" + worktrees.length + ")", summary, function () { return renderSystemWorktrees(worktrees); }));
+  function renderDashWorktrees(worktrees) {
+    var el = document.getElementById("dash-worktrees");
+    if (!el) return;
+
+    if (worktrees.length === 0) {
+      el.innerHTML = "";
+      el.appendChild(createDashHeader("ph-git-branch", "Worktrees (0)"));
+      el.appendChild(emptyState("No active worktrees"));
+      return;
+    }
+
+    var titleText = "Worktrees (" + worktrees.length + ")";
+    var detailFn = function () { return renderSystemWorktrees(worktrees); };
+
+    if (updateDashWidget(el, titleText, buildWorktreeSummary(worktrees), detailFn)) return;
+
+    el.innerHTML = "";
+    el.appendChild(createDashWidget("worktrees", "ph-git-branch", titleText, buildWorktreeSummary(worktrees), detailFn));
+  }
+
+  function buildErrorSummary(errors) {
+    var summary = document.createElement("div");
+    summary.className = "dash-widget-summary";
+    summary.style.color = "var(--color-danger)";
+    summary.textContent = errors.length + " error" + (errors.length !== 1 ? "s" : "") + " detected";
+    return summary;
   }
 
   function renderDashErrors(errors) {
     var el = document.getElementById("dash-errors");
     if (!el) return;
-    el.innerHTML = "";
     if (errors.length === 0) {
+      el.innerHTML = "";
       el.style.display = "none";
       return;
     }
     el.style.display = "";
 
-    var summary = document.createElement("div");
-    summary.className = "dash-widget-summary";
-    summary.style.color = "var(--color-danger)";
-    summary.textContent = errors.length + " error" + (errors.length !== 1 ? "s" : "") + " detected";
+    var titleText = "Registry Errors (" + errors.length + ")";
+    var detailFn = function () { return renderRegistryErrors(errors); };
 
-    el.appendChild(createDashWidget("errors", "ph-warning-circle", "Registry Errors (" + errors.length + ")", summary, function () { return renderRegistryErrors(errors); }));
+    if (updateDashWidget(el, titleText, buildErrorSummary(errors), detailFn)) return;
+
+    el.innerHTML = "";
+    el.appendChild(createDashWidget("errors", "ph-warning-circle", titleText, buildErrorSummary(errors), detailFn));
   }
 
   // System section key → Phosphor icon class
