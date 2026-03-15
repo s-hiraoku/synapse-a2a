@@ -1647,7 +1647,7 @@ synapse canvas post chart '{"type":"pie","data":{"labels":["Pass","Fail"],"datas
 # Post a diff (rendered as side-by-side comparison)
 synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
 
-# Post HTML (rendered in sandboxed iframe with auto-height)
+# Post HTML (sandboxed iframe with theme sync, auto-resize, dark mode)
 synapse canvas post html "<h1>Hello</h1><p>Rich content</p>" --title "HTML Card"
 
 # Read body from file
@@ -1739,7 +1739,7 @@ Rule of thumb:
 | code | highlight.js 11.x | Syntax highlighting; set `--lang` for best results |
 | chart | Chart.js 4.x | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
 | diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
-| html | Sandboxed iframe | `allow-scripts`; auto-resizes to content height |
+| html | Sandboxed iframe | `allow-scripts`; theme sync via `postMessage` (`--bg`/`--fg`/`--border` CSS vars), auto-resize via ResizeObserver, dark mode support, full document normalization |
 | image | `<img>` tag | PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB) |
 | mermaid | Mermaid 11.x | Diagrams rendered client-side; theme-synced with light/dark toggle (Catppuccin dark / Indigo light palettes, brand accent `#4051b5`) |
 | progress | Progress bar + steps | `status`: in_progress, completed, failed, paused |

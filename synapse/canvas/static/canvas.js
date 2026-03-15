@@ -1287,33 +1287,104 @@
     el.innerHTML = html;
   }
 
-  function formatCanvasHTMLDocument(body) {
-    const documentStyle = [
+  function formatCanvasHTMLDocument(body, isCanvasView) {
+    // Minimal layout reset — avoid overflow:hidden and min-height:100%
+    // which clip content and break user layouts
+    const documentStyle = isCanvasView ? [
       "<style>",
-      "html, body { height: 100%; }",
-      "body { margin: 0; overflow: hidden; }",
-      "body > :first-child { min-height: 100%; }",
+      "html, body { height: 100%; margin: 0; }",
+      "</style>",
+    ].join("") : "";
+
+    // Theme CSS variables that agent-generated HTML can use
+    var artifactStyle = [
+      "<style>",
+      ':root { color-scheme: dark; --bg: #1a1a2e; --fg: #e0e0e0; --border: #333; }',
+      ':root[data-theme="light"] { color-scheme: light; --bg: #fff; --fg: #1a1a1a; --border: #ddd; }',
+      "body { background: var(--bg); color: var(--fg); }",
       "</style>",
     ].join("");
 
+    // Listen for theme changes from parent
+    var artifactScript = [
+      "<script>",
+      'window.addEventListener("message", function(e) {',
+      '  if (e.data && e.data.type === "synapse-theme") {',
+      '    document.documentElement.setAttribute("data-theme", e.data.theme);',
+      "    document.documentElement.style.colorScheme = e.data.theme;",
+      "  }",
+      "});",
+      "</script>",
+    ].join("");
+
+    // Notify parent of content height changes for auto-resize
+    var resizeScript = [
+      "<script>",
+      "(function() {",
+      "  var _lastH = 0;",
+      "  function notifyHeight() {",
+      "    var b = document.body; if (!b) return;",
+      "    var prev = b.style.overflow;",
+      "    b.style.overflow = 'visible';",
+      "    var h = Math.max(b.scrollHeight, b.offsetHeight);",
+      "    b.style.overflow = prev;",
+      '    if (h !== _lastH) { _lastH = h; parent.postMessage({ type: "synapse-resize", height: h }, "*"); }',
+      "  }",
+      '  window.addEventListener("load", function() {',
+      '    if (typeof ResizeObserver !== "undefined") { new ResizeObserver(notifyHeight).observe(document.body); }',
+      "    else { setTimeout(notifyHeight, 50); }",
+      "  });",
+      "})();",
+      "</script>",
+    ].join("");
+
+    var injected = documentStyle + artifactStyle + artifactScript + resizeScript;
+
+    // Normalize full documents to fragments to avoid head-semantics issues
+    // (CSP meta, script ordering, overflow conflicts) in sandboxed iframes.
+    // Extract head content and body content, then wrap uniformly.
+    var headContent = "";
+    var innerBody = body;
+
     if (/<html[\s>]/i.test(body) || /<!doctype/i.test(body)) {
-      if (/<head[\s>]/i.test(body)) {
-        return body.replace(/<\/head>/i, documentStyle + "</head>");
+      // Extract content between <head> and </head>
+      var headMatch = body.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+      if (headMatch) {
+        headContent = headMatch[1];
       }
-      return body.replace(/<html([^>]*)>/i, "<html$1><head>" + documentStyle + "</head>");
+      // Extract content between <body> and </body>
+      var bodyMatch = body.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        innerBody = bodyMatch[1];
+      } else {
+        // No <body> tag — strip doctype/html/head wrappers
+        innerBody = body
+          .replace(/<!doctype[^>]*>/i, "")
+          .replace(/<\/?html[^>]*>/gi, "")
+          .replace(/<head[^>]*>[\s\S]*?<\/head>/i, "");
+      }
     }
 
     return [
       "<!doctype html>",
       "<html>",
       "<head>",
-      documentStyle,
+      injected,
+      headContent,
       "</head>",
       "<body>",
-      body,
+      innerBody,
       "</body>",
       "</html>",
     ].join("");
+  }
+
+  function broadcastThemeToIframes(theme) {
+    document.querySelectorAll(".format-html iframe").forEach(function(iframe) {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: "synapse-theme", theme: theme }, "*");
+      }
+    });
   }
 
   function renderHTML(el, body, options) {
@@ -1328,13 +1399,17 @@
     if (!isCanvasView) {
       iframe.style.minHeight = "200px";
     }
-    iframe.srcdoc = isCanvasView ? formatCanvasHTMLDocument(body) : body;
+    iframe.srcdoc = formatCanvasHTMLDocument(body, isCanvasView);
     // Auto-resize (dashboard only — canvas uses CSS flex)
     iframe.onload = function () {
-      if (isCanvasView) return;
-      try {
-        iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + "px";
-      } catch { /* cross-origin fallback */ }
+      if (!isCanvasView) {
+        // Fallback: try direct DOM access (works when not cross-origin)
+        try {
+          iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + "px";
+        } catch { /* cross-origin — postMessage resize will handle it */ }
+      }
+      // Send initial theme to iframe
+      broadcastThemeToIframes(document.documentElement.getAttribute("data-theme") || "dark");
     };
     el.appendChild(iframe);
   }
@@ -3805,6 +3880,7 @@
     setThemeLabel(next);
     initMermaidTheme(next);
     reRenderMermaid();
+    broadcastThemeToIframes(next);
   });
 
   function statusIcon(state) {
@@ -4468,6 +4544,22 @@
   if (typeof hljs !== "undefined") {
     hljs.configure({ ignoreUnescapedHTML: true });
   }
+
+  // Listen for resize messages from HTML artifact iframes (dashboard only)
+  window.addEventListener("message", function(e) {
+    if (!e.data || e.data.type !== "synapse-resize") return;
+    var h = e.data.height;
+    if (typeof h !== "number" || h <= 0 || h > 10000) return;
+    var iframes = document.querySelectorAll(".format-html iframe");
+    for (var i = 0; i < iframes.length; i++) {
+      if (iframes[i].contentWindow === e.source) {
+        // Skip canvas view iframes — they use CSS flex for sizing
+        if (iframes[i].closest(".canvas-content")) break;
+        iframes[i].style.height = h + "px";
+        break;
+      }
+    }
+  });
 
   initTheme();
   loadCards();

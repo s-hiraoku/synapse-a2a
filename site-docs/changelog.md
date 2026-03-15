@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.14.0
+
+- **Added**: Canvas HTML Artifact Support — interactive HTML/JS/CSS in sandboxed iframes with theme sync (`postMessage`), auto-resize (`ResizeObserver`), CSS variables (`--bg`, `--fg`, `--border`), and full document normalization
+- **Changed**: Extracted `broadcastThemeToIframes` helper, conditional ResizeObserver/setTimeout
+
 ### v0.13.0
 
 - **Added**: Task Board UX improvements — dynamic agent name resolution, table-format CLI with `--verbose`/`--format json`, `fail_reason` inline display

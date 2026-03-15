@@ -112,7 +112,7 @@ The `content.format` field determines how `content.body` is rendered. New format
 |---|---|---|---|
 | `mermaid` | Mermaid source | mermaid.js | Flowcharts, sequence diagrams, ER diagrams |
 | `markdown` | Markdown text | Built-in markdown parser | Design docs, explanations, formatted text |
-| `html` | Raw HTML string | Sandboxed iframe (fills Canvas view) | Full freedom — any visual expression |
+| `html` | Raw HTML string | Sandboxed iframe with theme sync & auto-resize | Full freedom — interactive HTML/JS/CSS artifacts |
 | `table` | `{headers, rows}` | Native HTML | Structured data, test results, comparisons |
 | `json` | Any JSON | Collapsible tree viewer | API responses, config, data structures |
 | `diff` | Unified diff | Side-by-side diff renderer | Code changes, before/after comparisons |
@@ -142,8 +142,14 @@ The `content.format` field determines how `content.body` is rendered. New format
 !!! tip "Enhanced Markdown Rendering"
     The `markdown` format uses the built-in `simpleMarkdown()` parser with support for tables, blockquotes (`>` lines), horizontal rules (`---`), nested ordered and unordered lists, headings (`#` → h2, `##` → h3, `###` → h4), inline code, fenced code blocks, bold, italic, strikethrough, links, and proper paragraph wrapping. Markdown card content is rendered with **Source Sans 3** for body text and **Source Code Pro** for code, with styled heading hierarchy, blockquote accent stripes, and table styling.
 
-!!! tip "The `html` Escape Hatch"
-    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited, though HTML content is rendered in a sandboxed `<iframe>` for safety. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display. In the History view (`#/history`), the iframe auto-resizes to fit its content.
+!!! tip "The `html` Escape Hatch — Artifact Support"
+    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited — agents can create interactive HTML/JS/CSS artifacts similar to Claude.ai Artifacts. HTML content is rendered in a sandboxed `<iframe>` (`sandbox="allow-scripts"`, no `allow-same-origin`) for safety.
+
+    **Theme Sync**: The iframe automatically receives the Canvas theme via `postMessage`. Agent-generated HTML can use CSS variables `var(--bg)`, `var(--fg)`, and `var(--border)` to adapt to dark/light mode. When the user toggles the theme, all HTML iframes update instantly.
+
+    **Auto-Resize**: In the History view (`#/history`), iframes automatically resize to fit their content height using a `ResizeObserver` inside the iframe that sends `postMessage` notifications to the parent. In the Canvas view (`#/`), the iframe fills the entire content area for immersive display.
+
+    **Full Document Handling**: Both HTML fragments and full documents (with `<!doctype html>`, `<html>`, `<head>`, `<body>`) are accepted. Full documents are normalized — `<head>` and `<body>` contents are extracted and wrapped through the same pipeline as fragments, avoiding CSS cascade conflicts and CSP issues.
 
 !!! tip "Block-Level Metadata (`x_title` / `x_filename`)"
     Supported renderers (`mermaid`, `json`, `code`, `log`, `checklist`, `trace`, and `tip`) accept optional `x_title` and `x_filename` fields that render a styled header above the content. This block-level metadata keeps decorative labels out of the base `body` schema and follows the A2A `x-` extension convention.
