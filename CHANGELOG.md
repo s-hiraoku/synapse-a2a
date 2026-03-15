@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-03-15
+
+### Added
+
+- Task Board UX improvements: `resolve_display_name` for dynamic agent name resolution, table-format CLI output with `--verbose`/`--format json`, `fail_reason` inline display (#394)
+- Task Board grouping: `group_id`/`group_title`/`plan_id`/`component`/`milestone`/`external_ref` schema columns with filtering and `--group-by` CLI view (#396)
+- `purge_stale` and `purge_by_ids` methods with `--older-than`/`--dry-run` CLI flags
+- Canvas view toggle (Status | Group | Component) for task board dashboard widget
+- `accept_plan` auto-sets `plan_id`/`group_id`/`group_title` on task creation
+
+### Changed
+
+- Use summary-slot pattern and lazy builders in `updateDashWidget`
+- Cache `AgentRegistry` instance in `resolve_display_name` to avoid N+1 instantiation
+
+### Fixed
+
+- Preserve dashboard widget expand state across polling updates
+- Canvas task view toggle state persists across polling refreshes
+
 ## [0.12.2] - 2026-03-15
 
 ### Added

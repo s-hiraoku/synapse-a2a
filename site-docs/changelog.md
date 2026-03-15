@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.13.0
+
+- **Added**: Task Board UX improvements — dynamic agent name resolution, table-format CLI with `--verbose`/`--format json`, `fail_reason` inline display
+- **Added**: Task Board grouping — `group_id`/`component`/`milestone` columns, `--group-by` CLI view, Canvas view toggle (Status|Group|Component)
+- **Added**: `purge_stale`/`purge_by_ids` with `--older-than`/`--dry-run` CLI flags
+- **Changed**: Cached `AgentRegistry` in `resolve_display_name` to avoid N+1 instantiation
+- **Fixed**: Canvas task view toggle state persists across polling refreshes
+
 ### v0.12.2
 
 - **Fixed**: Admin reply receiver now strips terminal junk from auto-notify artifact responses
