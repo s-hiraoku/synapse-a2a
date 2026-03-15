@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-03-15
+
+### Added
+
+- Canvas HTML Artifact Support: interactive HTML/JS/CSS in sandboxed iframes with parent-iframe theme sync via postMessage (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver, dark mode iframe background, and full document normalization
+
+### Changed
+
+- `formatCanvasHTMLDocument` normalizes full HTML documents (`<!doctype html>`) to fragments, avoiding head-semantics issues (CSS cascade conflicts, overflow clipping)
+- Extracted `broadcastThemeToIframes` helper to eliminate postMessage duplication
+- ResizeObserver/setTimeout made conditional (ResizeObserver preferred, setTimeout as fallback)
+
 ## [0.13.0] - 2026-03-15
 
 ### Added
@@ -2386,6 +2398,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.13.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.2...v0.13.0
+[0.14.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.0...v0.12.1
