@@ -12,13 +12,17 @@ import glob
 import json
 import logging
 import os
+import re
+import signal
 import sqlite3
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +36,8 @@ from synapse.canvas.protocol import (
     validate_message,
 )
 from synapse.canvas.store import CanvasStore
+from synapse.controller import strip_ansi
+from synapse.utils import extract_text_from_parts
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,239 @@ def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
     for q in _sse_queues:
         with contextlib.suppress(asyncio.QueueFull):
             q.put_nowait(payload)
+
+
+def _strip_terminal_junk(text: str) -> str:
+    """Remove ANSI escapes, terminal status bars, and spinner junk from text.
+
+    Agent PTY output contains ANSI escape sequences, status bar text,
+    and spinner animation fragments. This function cleans them while
+    preserving actual content (including multi-byte chars like Japanese).
+    """
+    # Step 1: Truncate at BEL character — everything after is status bar junk
+    if "\x07" in text:
+        text = text[: text.index("\x07")]
+        # Remove trailing digits before BEL (CSI parameter remnants like "7" in "です7\x07")
+        text = text.rstrip("0123456789")
+
+    # Step 2: Remove ANSI escape sequences (reuse controller.strip_ansi)
+    text = strip_ansi(text)
+
+    # Step 3: Remove DEC private mode sequences and orphaned CSI parameter fragments
+    # DEC private mode: ?2026h, ?25l, ?7h etc. (remains after ESC[ is stripped)
+    text = re.sub(r"\?\d+[hlHL]", "", text)
+    # When \x1b was already stripped, bare fragments like "9m", "1C",
+    # "249m", "38;2;153;153;153m" remain glued to real text.
+    # Pattern: 1-3 digits optionally followed by ;digits, ending in a letter
+    text = re.sub(r"\d+(?:;\d+)*[A-HJKSTfm]", "", text)
+
+    # Step 4: Remove well-known terminal UI status bar phrases
+    # Codex/Claude status bars: "Esc to cancel · Tab to amend · ctrl+e to explain"
+    text = re.sub(
+        r"(?:Esc|Tab|ctrl\+\w+)\s+to\s+\w+[\s·]*", "", text, flags=re.IGNORECASE
+    )
+    # Codex UI fragments: "switchAgentConnection" and similar camelCase UI tokens
+    text = re.sub(
+        r"switch\s*Agent\s*Connection[^)\n]*\)?", "", text, flags=re.IGNORECASE
+    )
+
+    # Step 5: Remove status bar lines with box-drawing characters
+    # Codex draws ─────... lines for status bars and prompts
+    text = re.sub(r"[─━═]{10,}[^\n]*", "", text)
+    # Status bar fragments: "gpt-5.4 medium · 25% left · /path/..."
+    text = re.sub(
+        r"(?:gpt|claude|gemini|codex)[\w.-]*\s+\w+\s*·[^\n]*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Percentage patterns from status bars: "25% left", "31% left"
+    text = re.sub(r"\d+%\s+left[^\n]*", "", text, flags=re.IGNORECASE)
+
+    # Step 6: Remove spinner animation fragments
+    # "Working", "Workin", "Worki", "Work", "Wor", etc. and bullet-prefixed variants
+    text = re.sub(r"[•\u2022]?\s*Work(?:ing|in|i|)\b", "", text)
+
+    # Step 7: Remove control characters (except \t \n \r)
+    text = re.sub(r"[\x00-\x08\x0e-\x1f\x7f]", "", text)
+
+    # Step 8: Clean up
+    text = re.sub(r"›[^\n]*", "", text)
+    text = text.strip().strip("\u2022").strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text
+
+
+def _get_registry_dir() -> str:
+    """Return the path to the agent registry directory."""
+    return os.path.expanduser("~/.a2a/registry")
+
+
+def _resolve_agent_endpoint(target: str) -> str | None:
+    """Resolve an agent target to its HTTP endpoint.
+
+    Searches registry files by agent_id, name, or agent_type.
+
+    Args:
+        target: Agent ID, name, or type to resolve.
+
+    Returns:
+        HTTP endpoint URL, or None if not found.
+    """
+    registry_dir = _get_registry_dir()
+    if not os.path.isdir(registry_dir):
+        return None
+
+    candidates: list[dict[str, Any]] = []
+    for file_path in glob.glob(os.path.join(registry_dir, "*.json")):
+        try:
+            data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            continue
+        candidates.append(data)
+
+    # Exact agent_id match
+    for c in candidates:
+        if c.get("agent_id") == target:
+            return c.get("endpoint")
+
+    # Name match
+    for c in candidates:
+        if c.get("name") == target:
+            return c.get("endpoint")
+
+    # Agent type match (only if unique)
+    type_matches = [c for c in candidates if c.get("agent_type") == target]
+    if len(type_matches) == 1:
+        return type_matches[0].get("endpoint")
+
+    return None
+
+
+def _start_administrator() -> dict[str, Any]:
+    """Start the administrator agent using settings config."""
+    import subprocess
+    import sys
+
+    from synapse.settings import get_settings
+
+    settings = get_settings()
+    config = settings.get_administrator_config()
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "synapse.server",
+        "--profile",
+        config["profile"],
+        "--port",
+        str(config["port"]),
+    ]
+
+    env = os.environ.copy()
+    tool_args = config.get("tool_args", [])
+    if tool_args:
+        env["SYNAPSE_TOOL_ARGS"] = json.dumps(tool_args)
+
+    log_dir = os.path.expanduser("~/.synapse/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "admin.log")
+
+    with open(log_file, "w") as log:
+        process = subprocess.Popen(
+            cmd, stdout=log, stderr=log, start_new_session=True, env=env
+        )
+
+    return {"status": "started", "pid": process.pid, "port": config["port"]}
+
+
+def _stop_administrator() -> dict[str, Any]:
+    """Stop the administrator agent."""
+    from synapse.settings import get_settings
+
+    settings = get_settings()
+    config = settings.get_administrator_config()
+    agent_id = f"synapse-{config['profile']}-{config['port']}"
+
+    registry_dir = _get_registry_dir()
+    registry_file = os.path.join(registry_dir, f"{agent_id}.json")
+
+    if not os.path.exists(registry_file):
+        return {"status": "not_running"}
+
+    try:
+        data = json.loads(Path(registry_file).read_text(encoding="utf-8"))
+        pid = data.get("pid")
+        if pid:
+            os.kill(pid, signal.SIGTERM)
+            return {"status": "stopped", "pid": pid}
+    except (json.JSONDecodeError, OSError, ProcessLookupError):
+        pass
+
+    return {"status": "not_running"}
+
+
+def _spawn_agent(
+    profile: str, name: str | None = None, role: str | None = None
+) -> dict[str, Any]:
+    """Spawn a new agent with the given profile."""
+    import subprocess
+    import sys
+
+    from synapse.port_manager import PortManager
+    from synapse.registry import AgentRegistry
+
+    registry = AgentRegistry()
+    port_manager = PortManager(registry)
+    port = port_manager.get_available_port(profile)
+
+    if port is None:
+        return {"status": "error", "detail": f"No available ports for {profile}"}
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "synapse.server",
+        "--profile",
+        profile,
+        "--port",
+        str(port),
+    ]
+
+    env = os.environ.copy()
+
+    log_dir = os.path.expanduser("~/.synapse/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"{profile}-{port}.log")
+
+    with open(log_file, "w") as log:
+        process = subprocess.Popen(
+            cmd, stdout=log, stderr=log, start_new_session=True, env=env
+        )
+
+    agent_id = f"synapse-{profile}-{port}"
+    return {"status": "started", "agent_id": agent_id, "pid": process.pid, "port": port}
+
+
+def _stop_agent(agent_id: str) -> dict[str, Any]:
+    """Stop an agent by its ID."""
+    registry_dir = _get_registry_dir()
+    registry_file = os.path.join(registry_dir, f"{agent_id}.json")
+
+    if not os.path.exists(registry_file):
+        return {"status": "not_found", "agent_id": agent_id}
+
+    try:
+        data = json.loads(Path(registry_file).read_text(encoding="utf-8"))
+        pid = data.get("pid")
+        if pid:
+            os.kill(pid, signal.SIGTERM)
+            return {"status": "stopped", "agent_id": agent_id, "pid": pid}
+    except (json.JSONDecodeError, OSError, ProcessLookupError):
+        pass
+
+    return {"status": "not_found", "agent_id": agent_id}
 
 
 CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
@@ -296,6 +535,12 @@ def _extract_tip_text(content: Any) -> str:
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create and configure the Canvas FastAPI app."""
     store = CanvasStore(db_path=db_path)
+    _canvas_port = int(os.environ.get("SYNAPSE_CANVAS_PORT", "3000"))
+    admin_replies: dict[str, list[dict[str, Any]]] = {}
+    _admin_pending_tasks: set[str] = set()
+    # Map agent_task_id → pre_task_id for fallback reply correlation
+    _admin_task_id_map: dict[str, str] = {}
+    _ADMIN_REPLIES_MAX = 200  # Evict oldest entries beyond this limit
 
     async def _cleanup_loop() -> None:
         """Periodically remove expired cards."""
@@ -814,5 +1059,273 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 "X-Accel-Buffering": "no",
             },
         )
+
+    @app.post("/tasks/send")
+    @app.post("/tasks/send-priority")
+    async def admin_receive_reply(request: Request) -> dict[str, Any]:
+        """Receive agent replies via the standard A2A callback path.
+
+        Also handles /tasks/send-priority (Synapse extension) since
+        a2a_client uses that endpoint by default for priority support.
+        """
+        body = await request.json()
+        message = body.get("message", {}) or {}
+        metadata = body.get("metadata", {}) or {}
+        task_id = metadata.get("in_reply_to") or metadata.get("sender_task_id")
+
+        # Resolve agent_task_id → pre_task_id via mapping
+        if task_id and task_id in _admin_task_id_map:
+            task_id = _admin_task_id_map.pop(task_id)
+
+        # Fallback: if still no correlation, pick any pending task
+        if not task_id and _admin_pending_tasks:
+            task_id = next(iter(_admin_pending_tasks))
+
+        if not isinstance(task_id, str) or not task_id:
+            task_id = str(uuid.uuid4())
+            logger.warning(
+                "Reply received without task correlation, using synthetic ID %s",
+                task_id[:8],
+            )
+
+        parts = message.get("parts", []) if isinstance(message, dict) else []
+        output = extract_text_from_parts(parts).strip()
+
+        sender = metadata.get("sender", {})
+        sender_id = sender.get("sender_id", "") if isinstance(sender, dict) else ""
+        reply = {
+            "task_id": task_id,
+            "status": "completed",
+            "output": output,
+            "sender_id": sender_id,
+        }
+        admin_replies.setdefault(task_id, []).append(reply)
+        _broadcast_event("admin_reply", reply)
+        _admin_pending_tasks.discard(task_id)
+
+        # Evict oldest entries to prevent unbounded growth
+        while len(admin_replies) > _ADMIN_REPLIES_MAX:
+            oldest_key = next(iter(admin_replies))
+            del admin_replies[oldest_key]
+
+        now = datetime.now(timezone.utc).isoformat()
+        return {
+            "task": {
+                "id": task_id,
+                "status": "completed",
+                "message": message,
+                "artifacts": [],
+                "error": None,
+                "created_at": now,
+                "updated_at": now,
+                "context_id": None,
+                "metadata": metadata,
+            }
+        }
+
+    # ----------------------------------------------------------------
+    # Admin API — Command Center endpoints
+    # ----------------------------------------------------------------
+
+    @app.get("/api/admin/agents")
+    async def admin_agents() -> dict[str, Any]:
+        """Return list of live agents for Admin view."""
+        registry_dir = _get_registry_dir()
+        agents: list[dict[str, Any]] = []
+        if os.path.isdir(registry_dir):
+            for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
+                try:
+                    data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                    continue
+                agents.append(
+                    {
+                        "agent_id": data.get("agent_id", ""),
+                        "name": data.get("name", ""),
+                        "agent_type": data.get("agent_type", ""),
+                        "status": data.get("status", ""),
+                        "port": data.get("port"),
+                        "endpoint": data.get("endpoint", ""),
+                        "role": data.get("role", ""),
+                        "skill_set": data.get("skill_set", ""),
+                        "working_dir": data.get("working_dir", ""),
+                    }
+                )
+        return {"agents": agents}
+
+    @app.post("/api/admin/send")
+    async def admin_send(request: Request) -> Any:
+        """Forward a message to a target agent via A2A protocol."""
+        body = await request.json()
+        target = body.get("target", "")
+        message = body.get("message", "")
+
+        if not target or not message:
+            raise HTTPException(
+                status_code=400, detail="target and message are required"
+            )
+
+        endpoint = _resolve_agent_endpoint(target)
+        if not endpoint:
+            raise HTTPException(status_code=404, detail=f"Agent '{target}' not found")
+
+        # Build A2A SendMessageRequest with sender info so the agent
+        # knows this comes from the Admin Command Center (human operator)
+        # Pre-generate a task ID so we can include it as sender_task_id.
+        # This lets the agent's reply include in_reply_to for correlation.
+        pre_task_id = str(uuid.uuid4())
+
+        a2a_request = {
+            "message": {
+                "role": "user",
+                "parts": [{"type": "text", "text": message}],
+            },
+            "metadata": {
+                "response_mode": "notify",
+                "sender": {
+                    "sender_id": "canvas-admin",
+                    "sender_name": "Admin",
+                    "sender_endpoint": f"http://localhost:{_canvas_port}",
+                },
+                "sender_task_id": pre_task_id,
+            },
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{endpoint}/tasks/send",
+                    json=a2a_request,
+                )
+                resp_data = resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=502, detail=f"Failed to reach agent: {e}"
+            ) from e
+
+        # SendMessageResponse wraps task in {"task": {...}}
+        task_data = resp_data.get("task", resp_data)
+        agent_task_id = task_data.get("id", "")
+        status = task_data.get("status", "unknown")
+        if isinstance(status, dict):
+            status = status.get("state", "unknown")
+
+        # Use pre_task_id as the canonical admin task_id.
+        # The agent's reply will include in_reply_to=pre_task_id
+        # (from sender_task_id in metadata), so the frontend polls
+        # for replies using this same ID.
+        _admin_pending_tasks.add(pre_task_id)
+        # Map agent_task_id → pre_task_id for fallback correlation
+        if agent_task_id:
+            _admin_task_id_map[agent_task_id] = pre_task_id
+
+        return {"task_id": pre_task_id, "status": status}
+
+    @app.get("/api/admin/replies/{task_id}")
+    async def admin_replies_poll(task_id: str) -> dict[str, Any]:
+        """Return stored replies for a task."""
+        replies = admin_replies.get(task_id, [])
+        if not replies:
+            return {"task_id": task_id, "status": "waiting", "output": ""}
+
+        output = "\n\n".join(
+            reply.get("output", "") for reply in replies if reply.get("output")
+        ).strip()
+        return {"task_id": task_id, "status": "completed", "output": output}
+
+    @app.get("/api/admin/tasks/{task_id}")
+    async def admin_task_proxy(task_id: str, target: str | None = None) -> Any:
+        """Proxy a task status request to the target agent."""
+        if not target:
+            raise HTTPException(
+                status_code=400, detail="target query parameter is required"
+            )
+
+        endpoint = _resolve_agent_endpoint(target)
+        if not endpoint:
+            raise HTTPException(status_code=404, detail=f"Agent '{target}' not found")
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(f"{endpoint}/tasks/{task_id}")
+                resp_data = resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=502, detail=f"Failed to reach agent: {e}"
+            ) from e
+
+        # Extract status — A2A Task.status is a plain string, not an object
+        state = resp_data.get("status", "unknown")
+        if isinstance(state, dict):
+            state = state.get("state", "unknown")
+
+        # Extract text from all artifacts
+        # Format varies: [{parts: [{type, text}]}] or [{type, data: {content}}]
+        output_parts: list[str] = []
+        for artifact in resp_data.get("artifacts", []):
+            # Format 1: {parts: [{type: "text", text: "..."}]}
+            for part in artifact.get("parts", []):
+                if part.get("type") == "text" and part.get("text"):
+                    output_parts.append(part["text"])
+            # Format 2: {type: "text", data: {content: "..."}} or data as string
+            data = artifact.get("data")
+            if isinstance(data, dict):
+                content = data.get("content", "")
+                if content:
+                    output_parts.append(content)
+            elif isinstance(data, str) and data:
+                output_parts.append(data)
+        output = "\n".join(output_parts)
+
+        # Also check message for output (fallback when no artifacts)
+        msg = resp_data.get("message")
+        if msg and not output:
+            for part in msg.get("parts", []):
+                if part.get("type") == "text":
+                    output += part.get("text", "")
+
+        error = None
+        if resp_data.get("error"):
+            err = resp_data["error"]
+            error = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+
+        return {
+            "task_id": task_id,
+            "status": state,
+            "output": _strip_terminal_junk(output) if output else "",
+            "error": error,
+        }
+
+    @app.post("/api/admin/start")
+    async def admin_start() -> dict[str, Any]:
+        """Start the administrator agent."""
+        return _start_administrator()
+
+    @app.post("/api/admin/stop")
+    async def admin_stop() -> dict[str, Any]:
+        """Stop the administrator agent."""
+        return _stop_administrator()
+
+    @app.post("/api/admin/agents/spawn")
+    async def admin_spawn_agent(request: Request) -> Any:
+        """Spawn a new agent from a profile."""
+        body = await request.json()
+        profile = body.get("profile", "")
+        if not profile:
+            raise HTTPException(status_code=400, detail="profile is required")
+
+        name = body.get("name")
+        role = body.get("role")
+        result = _spawn_agent(profile, name=name, role=role)
+        if result.get("status") == "error":
+            raise HTTPException(
+                status_code=500, detail=result.get("detail", "Failed to spawn")
+            )
+        return result
+
+    @app.delete("/api/admin/agents/{agent_id}")
+    async def admin_stop_agent(agent_id: str) -> dict[str, Any]:
+        """Stop an agent by ID."""
+        return _stop_agent(agent_id)
 
     return app

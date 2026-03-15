@@ -17,6 +17,14 @@
   const dashboardView = document.getElementById("dashboard-view");
   const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
+  const adminView = document.getElementById("admin-view");
+  const adminFeed = document.getElementById("admin-feed");
+  const adminTargetBadge = document.getElementById("admin-target-badge");
+  const adminAgentsWidget = document.getElementById("admin-agents-widget");
+  const adminMessageInput = document.getElementById("admin-message-input");
+  const adminSendBtn = document.getElementById("admin-send-btn");
+  var _selectedAdminTarget = "";
+  var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
   const sidebar = document.getElementById("sidebar");
   const sidebarOverlay = document.getElementById("sidebar-overlay");
@@ -26,7 +34,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System", admin: "Admin" };
 
   // Current route
   let currentRoute = "canvas";
@@ -99,6 +107,7 @@
 
     es.addEventListener("system_update", () => {
       loadSystemPanel();
+      if (currentRoute === "admin") loadAdminAgents();
     });
 
     var _sseHasConnected = false;
@@ -2044,6 +2053,9 @@
       if (currentRoute === "history") {
         renderAll();
       }
+      if (currentRoute === "admin") {
+        loadAdminAgents();
+      }
     } catch (e) {
       console.error("Failed to load system panel:", e);
     }
@@ -2526,95 +2538,105 @@
     return el;
   }
 
-  function renderSystemAgents(agents) {
-    const wrap = document.createElement("div");
+  function buildAgentRow(agent) {
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-agent-id", agent.agent_id);
+
+    var tdDot = document.createElement("td");
+    tdDot.className = "agent-dot-cell";
+    var dot = document.createElement("span");
+    dot.className = "system-status-dot";
+    dot.style.background = statusColor(agent.status);
+    tdDot.appendChild(dot);
+    tr.appendChild(tdDot);
+
+    var tdType = document.createElement("td");
+    tdType.textContent = agent.agent_type || "";
+    tr.appendChild(tdType);
+
+    var tdName = document.createElement("td");
+    tdName.className = "agent-name-cell";
+    tdName.textContent = agent.name || "-";
+    tr.appendChild(tdName);
+
+    var tdRole = document.createElement("td");
+    tdRole.className = "agent-role-cell";
+    tdRole.textContent = agent.role || "-";
+    tr.appendChild(tdRole);
+
+    var tdSkill = document.createElement("td");
+    tdSkill.className = "agent-role-cell";
+    tdSkill.textContent = agent.skill_set || "-";
+    tr.appendChild(tdSkill);
+
+    var tdStatus = document.createElement("td");
+    tdStatus.className = "agent-status-cell";
+    tdStatus.textContent = agent.status || "-";
+    tdStatus.style.color = statusColor(agent.status);
+    tr.appendChild(tdStatus);
+
+    var tdPort = document.createElement("td");
+    tdPort.className = "agent-port-cell";
+    tdPort.textContent = agent.port || "-";
+    tr.appendChild(tdPort);
+
+    var tdDir = document.createElement("td");
+    tdDir.className = "agent-dir-cell";
+    tdDir.textContent = agent.working_dir || "-";
+    tr.appendChild(tdDir);
+
+    var tdCurrent = document.createElement("td");
+    tdCurrent.className = "agent-current-cell";
+    var preview = agent.current_task_preview || "-";
+    if (preview !== "-" && agent.task_received_at) {
+      tdCurrent.textContent = preview + " (" + formatElapsed(agent.task_received_at) + ")";
+    } else {
+      tdCurrent.textContent = preview;
+    }
+    tr.appendChild(tdCurrent);
+
+    return tr;
+  }
+
+  function renderSystemAgents(agents, options) {
+    var wrap = document.createElement("div");
     if (agents.length === 0) {
       wrap.appendChild(emptyState("No agents running"));
       return wrap;
     }
 
-    const table = document.createElement("table");
-    table.className = "system-agents-table";
+    var onRowClick = options && options.onRowClick;
+    var selectedId = options && options.selectedId;
 
-    // Header
-    const thead = document.createElement("thead");
-    const hrow = document.createElement("tr");
-    for (const col of ["", "TYPE", "NAME", "ROLE", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"]) {
-      const th = document.createElement("th");
-      th.textContent = col;
+    var table = document.createElement("table");
+    table.className = "system-agents-table" + (onRowClick ? " admin-selectable-table" : "");
+
+    var thead = document.createElement("thead");
+    var hrow = document.createElement("tr");
+    var cols = ["", "TYPE", "NAME", "ROLE", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"];
+    for (var ci = 0; ci < cols.length; ci++) {
+      var th = document.createElement("th");
+      th.textContent = cols[ci];
       hrow.appendChild(th);
     }
     thead.appendChild(hrow);
     table.appendChild(thead);
 
-    // Body
-    const tbody = document.createElement("tbody");
-    for (const agent of agents) {
-      const tr = document.createElement("tr");
-
-      // Status dot
-      const tdDot = document.createElement("td");
-      tdDot.className = "agent-dot-cell";
-      const dot = document.createElement("span");
-      dot.className = "system-status-dot";
-      dot.style.background = statusColor(agent.status);
-      tdDot.appendChild(dot);
-      tr.appendChild(tdDot);
-
-      // Type
-      const tdType = document.createElement("td");
-      tdType.textContent = agent.agent_type || "";
-      tr.appendChild(tdType);
-
-      // Name
-      const tdName = document.createElement("td");
-      tdName.className = "agent-name-cell";
-      tdName.textContent = agent.name || "-";
-      tr.appendChild(tdName);
-
-      // Role
-      const tdRole = document.createElement("td");
-      tdRole.className = "agent-role-cell";
-      tdRole.textContent = agent.role || "-";
-      tr.appendChild(tdRole);
-
-      // Skill Set
-      const tdSkill = document.createElement("td");
-      tdSkill.className = "agent-role-cell";
-      tdSkill.textContent = agent.skill_set || "-";
-      tr.appendChild(tdSkill);
-
-      // Status
-      const tdStatus = document.createElement("td");
-      tdStatus.className = "agent-status-cell";
-      tdStatus.textContent = agent.status || "-";
-      tdStatus.style.color = statusColor(agent.status);
-      tr.appendChild(tdStatus);
-
-      // Port
-      const tdPort = document.createElement("td");
-      tdPort.className = "agent-port-cell";
-      tdPort.textContent = agent.port || "-";
-      tr.appendChild(tdPort);
-
-      // Working dir
-      const tdDir = document.createElement("td");
-      tdDir.className = "agent-dir-cell";
-      tdDir.textContent = agent.working_dir || "-";
-      tr.appendChild(tdDir);
-
-      // Current task
-      const tdCurrent = document.createElement("td");
-      tdCurrent.className = "agent-current-cell";
-      const preview = agent.current_task_preview || "-";
-      if (preview !== "-" && agent.task_received_at) {
-        tdCurrent.textContent = `${preview} (${formatElapsed(agent.task_received_at)})`;
-      } else {
-        tdCurrent.textContent = preview;
-      }
-      tr.appendChild(tdCurrent);
-
-      tbody.appendChild(tr);
+    var tbody = document.createElement("tbody");
+    for (var i = 0; i < agents.length; i++) {
+      (function(agent) {
+        var tr = buildAgentRow(agent);
+        if (selectedId && selectedId === agent.agent_id) tr.classList.add("admin-row-selected");
+        if (onRowClick) {
+          tr.style.cursor = "pointer";
+          tr.addEventListener("click", function() {
+            tbody.querySelectorAll("tr").forEach(function(r) { r.classList.remove("admin-row-selected"); });
+            tr.classList.add("admin-row-selected");
+            onRowClick(agent);
+          });
+        }
+        tbody.appendChild(tr);
+      })(agents[i]);
     }
     table.appendChild(tbody);
 
@@ -3649,6 +3671,7 @@
     if (hash === "#/dashboard") return "dashboard";
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
+    if (hash === "#/admin") return "admin";
     return "canvas";
   }
 
@@ -3712,6 +3735,7 @@
     if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
+    if (adminView) adminView.classList.add("view-hidden");
 
     _dashboardRendered = false;
     _systemPanelRendered = false;
@@ -3729,6 +3753,10 @@
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       if (_lastSystemData) renderSystemPanel(_lastSystemData);
+    } else if (currentRoute === "admin") {
+      if (adminView) adminView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadAdminAgents();
     } else {
       historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
@@ -3926,11 +3954,198 @@
   }
 
   // ----------------------------------------------------------------
+  // Admin View — Command Center
+  // ----------------------------------------------------------------
+  let _adminPollingTimers = [];
+
+  async function loadAdminAgents() {
+    try {
+      const resp = await fetch("/api/admin/agents");
+      const data = await resp.json();
+      const agents = data.agents || [];
+      renderAdminAgentsWidget(agents);
+    } catch (e) {
+      console.error("Failed to load admin agents:", e);
+    }
+  }
+
+  function renderAdminAgentsWidget(agents) {
+    if (!adminAgentsWidget) return;
+    // Preserve the h3 title, remove only the table wrapper
+    var existingWrap = adminAgentsWidget.querySelector(".admin-agents-table-wrap");
+    if (existingWrap) existingWrap.remove();
+
+    var content = renderSystemAgents(agents, {
+      selectedId: _selectedAdminTarget,
+      onRowClick: function(agent) {
+        _selectedAdminTarget = agent.agent_id;
+        _selectedAdminName = agent.name || agent.agent_id;
+        if (adminTargetBadge) {
+          adminTargetBadge.textContent = _selectedAdminName;
+          adminTargetBadge.classList.add("has-target");
+        }
+        if (adminMessageInput) adminMessageInput.focus();
+      }
+    });
+    content.className = "admin-agents-table-wrap";
+    adminAgentsWidget.appendChild(content);
+  }
+
+  function createAdminBubble(role, text, agentName) {
+    var bubble = document.createElement("div");
+    bubble.className = "admin-bubble admin-bubble-" + role;
+    var header = document.createElement("div");
+    header.className = "admin-bubble-header";
+    var headerName = document.createElement("span");
+    headerName.textContent = role === "user" ? "You" : (agentName || "Agent");
+    header.appendChild(headerName);
+    var time = document.createElement("span");
+    time.className = "admin-bubble-time";
+    time.textContent = new Date().toLocaleTimeString();
+    header.appendChild(time);
+    bubble.appendChild(header);
+    var body = document.createElement("div");
+    body.className = "admin-bubble-body";
+    body.textContent = text;
+    bubble.appendChild(body);
+    bubble._adminBody = body;
+    return bubble;
+  }
+
+  function addAdminBubble(role, text, agentName) {
+    if (!adminFeed) return;
+    var bubble = createAdminBubble(role, text, agentName);
+    adminFeed.appendChild(bubble);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
+  }
+
+  function addAdminSpinner() {
+    if (!adminFeed) return;
+    var spinner = document.createElement("div");
+    spinner.className = "admin-spinner";
+    spinner.id = "admin-active-spinner";
+    spinner.innerHTML = '<span class="admin-spinner-dot"></span> Waiting for response...';
+    adminFeed.appendChild(spinner);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
+    return spinner;
+  }
+
+  function removeAdminSpinner() {
+    var el = document.getElementById("admin-active-spinner");
+    if (el) el.remove();
+  }
+
+  let _adminSending = false;
+
+  async function sendAdminCommand() {
+    if (_adminSending) return;
+    if (!adminMessageInput) return;
+    var target = _selectedAdminTarget;
+    var message = adminMessageInput.value.trim();
+    if (!target || !message) return;
+
+    _adminSending = true;
+    if (adminSendBtn) adminSendBtn.disabled = true;
+
+    var agentName = _selectedAdminName || target;
+
+    // Clear input immediately
+    adminMessageInput.value = "";
+    adminMessageInput.style.height = "auto";
+
+    addAdminBubble("user", message, null);
+    addAdminSpinner();
+
+    try {
+      var resp = await fetch("/api/admin/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: target, message: message }),
+      });
+      var data = await resp.json();
+      if (!resp.ok) {
+        removeAdminSpinner();
+        addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
+        return;
+      }
+      pollAdminTask(data.task_id, target, agentName);
+    } catch (e) {
+      removeAdminSpinner();
+      addAdminBubble("agent", "Error: " + e.message, agentName);
+    } finally {
+      _adminSending = false;
+      if (adminSendBtn) adminSendBtn.disabled = false;
+    }
+  }
+
+  function pollAdminTask(taskId, target, agentName) {
+    var attempts = 0;
+    var maxAttempts = 150;
+    var polling = true;
+
+    async function poll() {
+      if (!polling) return;
+      attempts++;
+      if (attempts > maxAttempts) {
+        polling = false;
+        removeAdminSpinner();
+        addAdminBubble("agent", "Timeout: No response after 5 minutes", agentName);
+        return;
+      }
+      try {
+        var resp = await fetch("/api/admin/replies/" + encodeURIComponent(taskId));
+        var data = await resp.json();
+        if (data.status === "completed" || data.status === "DONE") {
+          polling = false;
+          removeAdminSpinner();
+          var output = data.output || "Task completed";
+          addAdminBubble("agent", output, agentName);
+          return;
+        } else if (data.status === "failed" || data.status === "error") {
+          polling = false;
+          removeAdminSpinner();
+          addAdminBubble("agent", "Failed: " + (data.error || "Unknown error"), agentName);
+          return;
+        }
+      } catch (e) {
+        console.warn("[Admin] Poll error:", e);
+      }
+      // Adaptive interval: 1s for first 10, then 2s
+      var delay = attempts < 10 ? 1000 : 2000;
+      setTimeout(poll, delay);
+    }
+
+    // Start first poll quickly
+    setTimeout(poll, 500);
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+  }
+
+  // ----------------------------------------------------------------
   // Init
   // ----------------------------------------------------------------
   filterType.addEventListener("change", renderAll);
   filterAgent.addEventListener("change", renderAll);
   window.addEventListener("hashchange", navigate);
+  if (adminSendBtn) adminSendBtn.addEventListener("click", sendAdminCommand);
+  var _isComposing = false;
+  function autoResizeAdminInput() {
+    if (!adminMessageInput) return;
+    adminMessageInput.style.height = "auto";
+    adminMessageInput.style.height = Math.min(adminMessageInput.scrollHeight, 120) + "px";
+  }
+  if (adminMessageInput) {
+    adminMessageInput.addEventListener("compositionstart", function() { _isComposing = true; });
+    adminMessageInput.addEventListener("compositionend", function() { _isComposing = false; });
+    adminMessageInput.addEventListener("input", autoResizeAdminInput);
+    adminMessageInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.metaKey && !_isComposing) { e.preventDefault(); sendAdminCommand(); }
+    });
+  }
 
   /** Mermaid theme config keyed by canvas theme. */
   var MERMAID_THEMES = {

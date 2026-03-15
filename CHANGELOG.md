@@ -24,6 +24,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - URL validation in `post_link_preview` rejects empty and non-http(s) URLs
 - Test isolation: prevent Canvas CLI tests from writing to live server DB
 
+## [0.12.1] - 2026-03-15
+
+### Fixed
+
+- Canvas Admin: IME composition handling prevents premature send during Japanese/Chinese input
+- Canvas Admin: multi-artifact response extraction now iterates all artifacts
+- Canvas Admin: BEL and terminal status bar junk stripped from agent responses
+- Canvas Admin: double-send prevention (button/shortcut disabled while pending)
+- Canvas Admin: removed stray `console.log` statements
+
+### Changed
+
+- Canvas Admin: agent selection uses clickable table rows (`system-agents-table` with sticky headers) instead of dropdown
+- Canvas Admin: text input replaced with multi-line textarea (Cmd+Enter to send)
+- Canvas Admin: glass-morphism styling unified with `--color-accent` CSS variables
+- Canvas Admin: `/api/admin/agents` response now includes `role`, `skill_set`, `working_dir` fields
+
+### Documentation
+
+- Update Canvas Admin Command Center docs for bug fixes and UX improvements
+
 ## [0.12.0] - 2026-03-14
 
 ### Added

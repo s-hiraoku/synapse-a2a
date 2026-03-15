@@ -469,6 +469,13 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `GET` | `/api/formats` | List supported formats |
 | `GET` | `/api/health` | Health check (returns `service`, `status`, `pid`, `cards`, `version`, `asset_hash`) |
 | `GET` | `/api/system` | System panel data (agents, tasks, file locks) |
+| `GET` | `/api/admin/agents` | List active agents for Admin view |
+| `POST` | `/api/admin/send` | Send message to agent via A2A |
+| `POST` | `/tasks/send` | Receive agent replies (A2A callback) |
+| `GET` | `/api/admin/replies/{id}` | Poll for agent replies by task ID |
+| `GET` | `/api/admin/tasks/{id}` | Fallback: proxy task status to target agent |
+| `POST` | `/api/admin/agents/spawn` | Spawn a new agent |
+| `DELETE` | `/api/admin/agents/{id}` | Stop an agent |
 
 ## System Panel
 
@@ -552,7 +559,7 @@ The Canvas UI features a **glassmorphism design** with glass panels and `backdro
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 23 card types plus the 6 built-in templates with hardcoded sample data under `site-docs/assets/`.
 
-The UI uses **SPA hash routing** with four views:
+The UI uses **SPA hash routing** with five views:
 
 | Route | View | Purpose |
 |---|---|---|
@@ -560,6 +567,7 @@ The UI uses **SPA hash routing** with four views:
 | `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
 | `#/history` | **History** | Card grid with live feed, agent messages, and filters |
 | `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
+| `#/admin` | **Admin** | Command center for sending messages to agents and managing agent lifecycle |
 
 ### Canvas View (`#/`)
 
@@ -601,3 +609,29 @@ The History view shows the traditional card grid with live feed and agent messag
 - **Dark/light theme**: Manual toggle via sidebar button, persisted in `localStorage("canvas-theme")` (defaults to dark). Mermaid diagrams re-render automatically when the theme changes, using palette-matched colors for each mode.
 - **Toast notifications**: `notify` type shows ephemeral messages. Toasts are **batched** within a 300ms window -- when multiple SSE events arrive in a burst, a single summary toast (e.g., "3 cards updated") is shown instead of individual toasts for each event.
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp
+
+### Admin View (`#/admin`)
+
+The Admin view is a **Command Center** for directly interacting with running agents from the Canvas browser UI. It provides a chat-style interface for sending messages to agents and viewing their responses.
+
+**Components:**
+
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent.
+- **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
+- **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
+
+**How it works:**
+
+1. Click an agent row in the table to select it as the target
+2. Type a message/command in the textarea
+3. The message is sent via the A2A protocol (`POST /api/admin/send`) with `sender_endpoint` metadata pointing back to Canvas
+4. The target agent processes the message and replies via `synapse reply`, which sends a structured response back to Canvas (`POST /tasks/send`)
+5. Canvas stores the reply and the frontend polls `GET /api/admin/replies/{task_id}` using adaptive intervals (1s for the first 10 attempts, then 2s, up to 5 minutes)
+6. When the reply arrives, it appears in a chat bubble with clean, structured text (no terminal junk since responses bypass PTY output)
+
+The reply-based flow reuses the same `synapse reply` mechanism as inter-agent communication, ensuring clean responses without terminal output parsing (ANSI escapes, status bars, spinner fragments).
+
+The agent list refreshes automatically on SSE `system_update` events, so newly started or stopped agents appear without manual refresh.
+
+!!! tip "Admin API Endpoints"
+    The Admin view is backed by dedicated API endpoints on the Canvas server. See [Canvas Admin API](../reference/api.md#canvas-admin-api) for the full endpoint reference.

@@ -1206,6 +1206,150 @@ List all running Synapse agents with status and connection info. This is the MCP
 
 ---
 
+## Canvas Admin API
+
+The Canvas server exposes admin endpoints for the [Admin Command Center](../guide/canvas.md#admin-view-admin) browser view. These endpoints run on the Canvas port (default `3000`), not on individual agent ports.
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| GET | `/api/admin/agents` | List active agents from registry |
+| POST | `/api/admin/send` | Send a message to an agent via A2A protocol (includes `sender_endpoint`) |
+| POST | `/tasks/send` | Receive agent replies via A2A callback (`synapse reply`) |
+| GET | `/api/admin/replies/{task_id}` | Poll for agent replies by task ID |
+| GET | `/api/admin/tasks/{task_id}?target=` | Fallback: proxy task status to target agent |
+| POST | `/api/admin/start` | Start the administrator agent |
+| POST | `/api/admin/stop` | Stop the administrator agent |
+| POST | `/api/admin/agents/spawn` | Spawn a new agent from a profile |
+| DELETE | `/api/admin/agents/{agent_id}` | Stop an agent by ID |
+
+### List Admin Agents
+
+```bash
+curl http://localhost:3000/api/admin/agents
+```
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "agent_id": "synapse-claude-8100",
+      "name": "Gojo",
+      "agent_type": "claude",
+      "status": "READY",
+      "port": 8100,
+      "endpoint": "http://localhost:8100"
+    }
+  ]
+}
+```
+
+### Send Message to Agent
+
+```bash
+curl -X POST http://localhost:3000/api/admin/send \
+  -H "Content-Type: application/json" \
+  -d '{"target": "synapse-claude-8100", "message": "What files are in the project?"}'
+```
+
+The `target` field accepts an agent ID, agent name, or agent type (if unique). The message is forwarded via the A2A protocol with `response_mode=notify` and includes `sender_endpoint` metadata so the agent can reply back to Canvas.
+
+**Response:**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "submitted"
+}
+```
+
+### Poll for Agent Reply
+
+After sending a message, poll for the agent's reply. The agent responds via `synapse reply`, which sends a structured response back to Canvas's `POST /tasks/send` endpoint. The reply is stored in memory and made available here.
+
+```bash
+curl "http://localhost:3000/api/admin/replies/task-abc123"
+```
+
+**Response (waiting):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "waiting",
+  "output": ""
+}
+```
+
+**Response (completed):**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "completed",
+  "output": "The project contains the following files..."
+}
+```
+
+Replies are clean, structured text from the agent (no terminal junk since they bypass PTY output). Replies are also broadcast as `admin_reply` SSE events to connected Canvas clients.
+
+### Poll Task Status (Fallback)
+
+Fallback endpoint that proxies a task status request directly to the target agent. Used when the reply-based mechanism is not available (e.g., agent does not support `synapse reply`).
+
+```bash
+curl "http://localhost:3000/api/admin/tasks/task-abc123?target=synapse-claude-8100"
+```
+
+**Response:**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "completed",
+  "output": "The project contains the following files...",
+  "error": null
+}
+```
+
+### Spawn Agent
+
+```bash
+curl -X POST http://localhost:3000/api/admin/agents/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"profile": "claude", "name": "Reviewer", "role": "code-review"}'
+```
+
+**Response:**
+
+```json
+{
+  "status": "started",
+  "agent_id": "synapse-claude-8101",
+  "pid": 12345,
+  "port": 8101
+}
+```
+
+### Stop Agent
+
+```bash
+curl -X DELETE http://localhost:3000/api/admin/agents/synapse-claude-8101
+```
+
+**Response:**
+
+```json
+{
+  "status": "stopped",
+  "agent_id": "synapse-claude-8101",
+  "pid": 12345
+}
+```
+
+---
+
 ## Error Responses
 
 All endpoints use standard HTTP status codes with JSON error details.

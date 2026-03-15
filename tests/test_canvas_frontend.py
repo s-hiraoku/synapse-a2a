@@ -155,6 +155,110 @@ def test_dashboard_route_in_js() -> None:
     assert "renderDashboard" in js
 
 
+def test_admin_view_exists_in_html() -> None:
+    """index.html should contain the admin view shell and controls."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    for fragment in [
+        'id="admin-view"',
+        'id="admin-container"',
+        'id="admin-agents-widget"',
+        'id="admin-feed"',
+        'id="admin-target-badge"',
+        'id="admin-message-input"',
+        'id="admin-send-btn"',
+    ]:
+        assert fragment in html, f"Missing admin fragment: {fragment}"
+
+
+def test_admin_nav_link_exists_and_follows_system() -> None:
+    """Admin nav link should exist and appear after the system nav item."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    system_pos = html.index('data-route="system"')
+    admin_pos = html.index('data-route="admin"')
+    assert system_pos < admin_pos
+
+
+def test_admin_route_in_js() -> None:
+    """canvas.js should expose admin route handling and DOM bindings."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert 'document.getElementById("admin-view")' in js
+    assert 'document.getElementById("admin-feed")' in js
+    assert 'document.getElementById("admin-target-badge")' in js
+    assert 'document.getElementById("admin-agents-widget")' in js
+    assert 'document.getElementById("admin-message-input")' in js
+    assert 'document.getElementById("admin-send-btn")' in js
+    assert 'admin: "Admin"' in js
+    assert 'currentRoute === "admin"' in js
+    assert "loadAdminAgents();" in js
+
+
+def test_admin_command_center_functions_exist_in_js() -> None:
+    """canvas.js should define the admin command-center helpers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    for name in [
+        "async function loadAdminAgents()",
+        "function renderAdminAgentsWidget(agents)",
+        "function createAdminBubble(role, text, agentName)",
+        "function addAdminBubble(role, text, agentName)",
+        "function addAdminSpinner()",
+        "function removeAdminSpinner()",
+        "async function sendAdminCommand()",
+        "function pollAdminTask(taskId, target, agentName)",
+        "function escapeHtml(str)",
+    ]:
+        assert name in js, f"Missing admin helper: {name}"
+
+
+def test_admin_init_event_listeners_exist_in_js() -> None:
+    """canvas.js should wire the admin send button, Enter key, and IME handlers."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert 'adminSendBtn.addEventListener("click", sendAdminCommand)' in js
+    assert 'adminMessageInput.addEventListener("keydown", function (e)' in js
+    assert 'if (e.key === "Enter" && e.metaKey && !_isComposing)' in js
+
+
+def test_admin_reply_polling_endpoint_used_in_js() -> None:
+    """Admin command center should poll the reply endpoint instead of SSE streaming."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "/api/admin/replies/" in js
+    assert "streamAdminTask(" not in js
+    assert "/api/admin/stream/" not in js
+
+
+def test_admin_bubble_creation_split_exists_in_js() -> None:
+    """addAdminBubble should delegate DOM construction to createAdminBubble."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "function createAdminBubble(role, text, agentName)" in js
+    assert "var bubble = createAdminBubble(role, text, agentName);" in js
+
+
+def test_admin_css_classes_exist() -> None:
+    """canvas.css should define the admin view layout and bubble styles."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    for selector in [
+        "#admin-view",
+        "#admin-container",
+        "#admin-agents-widget",
+        "#admin-feed",
+        ".admin-bubble",
+        ".admin-bubble-user",
+        ".admin-bubble-agent",
+        "#admin-input-bar",
+        "#admin-target-badge",
+        "#admin-message-input",
+        "#admin-send-btn",
+        ".admin-spinner",
+        ".admin-spinner-dot",
+    ]:
+        assert selector in css, f"Missing admin CSS selector: {selector}"
+
+
 def test_canvas_view_image_block_can_expand_to_available_height() -> None:
     """Canvas view image blocks should be allowed to fill the spotlight body."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
@@ -828,3 +932,58 @@ def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
     assert "if (a.pinned && !b.pinned)" not in source
     assert "if (!a.pinned && b.pinned)" not in source
     assert 'pin.className = "pin-icon"' not in source
+
+
+def test_admin_ime_composition_listeners_exist() -> None:
+    """canvas.js should register compositionstart/compositionend for IME support."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "compositionstart" in js
+    assert "compositionend" in js
+    assert "_isComposing" in js
+
+
+def test_admin_target_badge_exists_in_html() -> None:
+    """index.html should have a badge for showing selected agent."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+
+    assert 'id="admin-target-badge"' in html
+
+
+def test_admin_agents_widget_reuses_renderSystemAgents() -> None:
+    """canvas.js should reuse renderSystemAgents with onRowClick for admin selection."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert "renderAdminAgentsWidget" in js
+    assert "_selectedAdminTarget" in js
+    assert "admin-row-selected" in js
+    # Admin widget delegates to shared renderSystemAgents with options
+    assert "renderSystemAgents(agents, {" in js
+    assert "onRowClick" in js
+    # Shared row builder
+    assert "function buildAgentRow(agent)" in js
+
+
+def test_admin_no_console_log_debug() -> None:
+    """canvas.js should not contain console.log debug lines for admin."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+
+    assert 'console.log("[Admin]' not in js
+
+
+def test_admin_bubble_max_width_is_90_percent() -> None:
+    """Admin bubbles should use 90% max-width for better readability."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index(".admin-bubble {")
+    end = css.index("}", start)
+    block = css[start:end]
+
+    assert "max-width: 90%;" in block
+
+
+def test_admin_badge_has_proper_styling() -> None:
+    """Admin target badge should have consistent styling."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+
+    assert "#admin-target-badge {" in css
+    assert ".admin-row-selected" in css

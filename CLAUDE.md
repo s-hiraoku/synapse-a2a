@@ -37,9 +37,15 @@ synapse/
 └── profiles/        # YAML configs per agent type
 ```
 
-## Core Design Principle
+## Core Design Principles
 
 **A2A Protocol First**: All communication uses Message/Part + Task format per Google A2A spec. Extensions use `x-` prefix.
+
+**Reuse Existing Infrastructure**: 新機能は既存の仕組みを最大限活用すること。独自パイプラインを新設する前に、既存のプロトコル・エンドポイント・UIコンポーネントで実現できないか必ず検討する。
+
+- **通信**: エージェント間の reply/send 機構（reply stack, sender_endpoint, `/tasks/send`）を使う。PTY 出力の直接読み取りで代替しない
+- **UI**: Canvas の既存コンポーネント（バブル、スピナー、テーブル、SSE broadcast 等）を再利用する。同じ役割の新コンポーネントを作らない — トンマナの統一性が崩れ、実装コストも増える
+- **データ取得**: A2A API（task.artifacts, task.message）から構造化データを取得する。ターミナル生出力のクリーニングで代替しない
 
 ## Port Ranges
 
