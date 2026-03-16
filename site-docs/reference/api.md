@@ -1219,7 +1219,7 @@ The Canvas server exposes admin endpoints for the [Admin Command Center](../guid
 | GET | `/api/admin/tasks/{task_id}?target=` | Fallback: proxy task status to target agent |
 | POST | `/api/admin/start` | Start the administrator agent |
 | POST | `/api/admin/stop` | Stop the administrator agent |
-| POST | `/api/admin/jump/{agent_id}` | Jump to the agent's terminal pane (tmux/iTerm2) |
+| POST | `/api/admin/jump/{agent_id}` | Jump to the agent's terminal (tmux, VS Code, Ghostty, iTerm2, Terminal.app) |
 | POST | `/api/admin/agents/spawn` | Spawn a new agent from a profile |
 | DELETE | `/api/admin/agents/{agent_id}` | Stop an agent by ID |
 

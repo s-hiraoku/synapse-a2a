@@ -1346,23 +1346,26 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.post("/api/admin/jump/{agent_id}")
     async def admin_jump_to_agent(agent_id: str) -> dict[str, Any]:
         """Jump to the terminal running the specified agent."""
-        from synapse.registry import AgentRegistry
         from synapse.terminal_jump import jump_to_terminal
 
-        agent_info = AgentRegistry().get_agent(agent_id)
-        if agent_info is None:
+        registry_dir = _get_registry_dir()
+        agent_file = os.path.join(registry_dir, f"{agent_id}.json")
+        if not os.path.isfile(agent_file):
             return {"ok": False, "error": f"Agent {agent_id} not found"}
+        try:
+            agent_info = json.loads(Path(agent_file).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"ok": False, "error": "Failed to read agent info"}
 
+        # jump_to_terminal enriches agent_info with resolved tty_device
         success = jump_to_terminal(agent_info)
         if not success:
-            from synapse.terminal_jump import detect_terminal_app
-
-            terminal = detect_terminal_app() or "undetected"
+            # Report agent-level info (tty may have been resolved by jump_to_terminal)
             tty = agent_info.get("tty_device", "")
             pid = agent_info.get("pid", "")
             return {
                 "ok": False,
-                "error": f"terminal={terminal}, tty={tty or 'none'}, pid={pid or 'none'}",
+                "error": f"tty={tty or 'none'}, pid={pid or 'none'}",
             }
         return {"ok": True}
 

@@ -562,7 +562,7 @@ Internal limits:
 
 Open `http://localhost:3000` to view the Canvas.
 
-The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the topbar displays "Canvas / History". Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
+The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the top bar displays "Canvas / History". Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 23 card types plus the 6 built-in templates with hardcoded sample data under `site-docs/assets/`.
 
@@ -606,7 +606,7 @@ The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity â€
 
 ### History View (`#/history`)
 
-The History view shows the traditional card grid with live feed and agent messages. In the sidebar, History appears as an indented sub-item under the Canvas parent link. When this route is active, the Canvas parent also shows as active and the topbar displays "Canvas / History".
+The History view shows the traditional card grid with live feed and agent messages. In the sidebar, History appears as an indented sub-item under the Canvas parent link. When this route is active, the Canvas parent also shows as active and the top bar displays "Canvas / History".
 
 **Features:**
 

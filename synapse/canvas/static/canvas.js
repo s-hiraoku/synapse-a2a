@@ -2120,8 +2120,9 @@
       const text = await resp.text();
       // Skip re-render if data hasn't changed (prevents flicker on polling)
       if (text === _lastSystemJSON) return;
-      _lastSystemJSON = text;
       const data = JSON.parse(text);
+      // Update cache only after successful parse
+      _lastSystemJSON = text;
       systemAgents = Array.isArray(data.agents) ? data.agents : [];
       _lastSystemData = data;
       if (currentRoute === "system") {

@@ -1362,7 +1362,7 @@ body.sidebar-collapsed #main-content {
 /* Description cells — allow text wrapping */
 .desc-cell {
   white-space: normal !important;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   line-height: 1.4;
 }
 
@@ -1505,7 +1505,6 @@ body.sidebar-collapsed #main-content {
   padding: var(--sp-2) var(--sp-3);
   white-space: normal;
   overflow-wrap: anywhere;
-  word-break: break-word;
   color: var(--color-text-secondary);
   vertical-align: top;
   border-bottom: 1px solid var(--color-border-faint);
@@ -1548,7 +1547,6 @@ body.sidebar-collapsed #main-content {
 
 .agent-role-cell {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .agent-port-cell {
@@ -1566,7 +1564,6 @@ body.sidebar-collapsed #main-content {
 
 .agent-current-cell {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .agent-status-cell {
@@ -4061,7 +4058,7 @@ body.sidebar-collapsed #main-content {
   flex-direction: column;
 }
 .admin-agents-table-wrap {
-  overflow-y: auto;
+  overflow: auto;
   flex: 1;
   min-height: 0;
 }
@@ -4122,7 +4119,7 @@ body.sidebar-collapsed #main-content {
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .admin-bubble-time {
   font-size: var(--text-xs);
