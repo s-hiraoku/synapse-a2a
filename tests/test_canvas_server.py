@@ -187,10 +187,13 @@ class TestSystemPanelRegistryErrors:
         tips = system_resp.json()["tips"]
         assert {"card_id": resp.json()["card_id"], "text": "Use test-first."} in tips
 
-    def test_system_panel_reads_tasks_from_board_tasks_table(self, client):
+    def test_system_panel_reads_tasks_from_board_tasks_table(
+        self, client, tmp_path, monkeypatch
+    ):
         """System panel should surface pending tasks from the task board schema."""
         from synapse.task_board import TaskBoard
 
+        monkeypatch.chdir(tmp_path)
         board = TaskBoard.from_env()
         task_id = board.create_task(
             subject="Dashboard task board check",
@@ -204,10 +207,13 @@ class TestSystemPanelRegistryErrors:
         pending = resp.json()["tasks"]["pending"]
         assert any(item["id"] == task_id for item in pending)
 
-    def test_system_panel_groups_failed_tasks_from_board_tasks(self, client):
+    def test_system_panel_groups_failed_tasks_from_board_tasks(
+        self, client, tmp_path, monkeypatch
+    ):
         """System panel should surface failed tasks from the task board schema."""
         from synapse.task_board import TaskBoard
 
+        monkeypatch.chdir(tmp_path)
         board = TaskBoard.from_env()
         task_id = board.create_task(
             subject="Broken task",

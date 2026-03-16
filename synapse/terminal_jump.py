@@ -6,6 +6,7 @@ Also supports tmux sessions and Zellij (with limitations).
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import shlex
@@ -140,6 +141,138 @@ def _build_agent_command(
     return cmd
 
 
+def _is_tty_in_tmux(tty_device: str) -> bool:
+    """Check if a TTY device belongs to a tmux pane."""
+    if not tty_device or not shutil.which("tmux"):
+        return False
+    try:
+        result = subprocess.run(
+            ["tmux", "list-panes", "-a", "-F", "#{pane_tty}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return tty_device in result.stdout.strip().split("\n")
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return False
+
+
+def _detect_agent_terminal(agent_info: dict[str, Any]) -> str | None:
+    """Detect the terminal application for a specific agent.
+
+    Walks the agent's parent process chain to determine which terminal
+    app launched it, rather than relying on the current process env.
+
+    Args:
+        agent_info: Agent info with optional tty_device and pid.
+
+    Returns:
+        Terminal app name or None.
+    """
+    pid = agent_info.get("pid")
+
+    # Walk parent process chain to find the launching terminal
+    if pid:
+        terminal = _detect_terminal_from_pid_chain(int(pid))
+        if terminal:
+            return terminal
+
+    # Fallback: check if TTY is in tmux (TTY already resolved by caller)
+    tty = agent_info.get("tty_device") or ""
+    if tty and _is_tty_in_tmux(tty):
+        return "tmux"
+
+    # Last resort: env-based detection
+    return detect_terminal_app()
+
+
+def _detect_terminal_from_pid_chain(pid: int) -> str | None:
+    """Walk the parent process chain to find the terminal application.
+
+    Args:
+        pid: Process ID to start from.
+
+    Returns:
+        Terminal app name or None.
+    """
+    # Map of process name patterns to terminal app names
+    patterns = {
+        "tmux": "tmux",
+        "Visual Studio Code": "VSCode",
+        "Code Helper": "VSCode",
+        "Electron": None,  # Too generic, skip
+        "iTerm2": "iTerm2",
+        "iTermServer": "iTerm2",
+        "ghostty": "Ghostty",
+        "Terminal": "Terminal",
+        "zellij": "zellij",
+    }
+
+    try:
+        current_pid = pid
+        visited: set[int] = set()
+        while current_pid > 1 and current_pid not in visited:
+            visited.add(current_pid)
+            result = subprocess.run(
+                ["ps", "-p", str(current_pid), "-o", "ppid=,comm="],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                break
+            line = result.stdout.strip()
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                break
+            ppid_str, comm = parts
+            try:
+                ppid = int(ppid_str)
+            except ValueError:
+                break
+
+            for pattern, terminal in patterns.items():
+                if pattern in comm:
+                    if terminal is not None:
+                        return terminal
+                    break
+
+            current_pid = ppid
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def _resolve_tty_from_pid(pid: int) -> str:
+    """Resolve TTY device from a process PID by walking up the process tree.
+
+    Uses `ps` to find the controlling TTY for the given PID or its ancestors.
+    This is useful when tty_device was not stored in the registry.
+
+    Returns:
+        TTY device path (e.g., '/dev/ttys003') or empty string if not found.
+    """
+    try:
+        # Get the TTY for this PID and its parent chain
+        result = subprocess.run(
+            ["ps", "-o", "tty=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        tty = result.stdout.strip()
+        if tty and tty != "??" and tty != "-":
+            # ps returns short form like 'ttys003', convert to /dev/ path
+            if not tty.startswith("/dev/"):
+                tty = f"/dev/{tty}"
+            return tty
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        pass
+    return ""
+
+
 def detect_terminal_app() -> str | None:
     """Detect the current terminal application.
 
@@ -194,14 +327,22 @@ def jump_to_terminal(
     Returns:
         True if jump was successful, False otherwise.
     """
+    # Resolve TTY once upfront and enrich agent_info for all downstream use
+    tty_device = agent_info.get("tty_device") or ""
+    if not tty_device:
+        pid = agent_info.get("pid")
+        if pid:
+            tty_device = _resolve_tty_from_pid(int(pid))
+            if tty_device:
+                agent_info = {**agent_info, "tty_device": tty_device}
+
     if terminal_app is None:
-        terminal_app = detect_terminal_app()
+        terminal_app = _detect_agent_terminal(agent_info)
 
     if terminal_app is None:
         logger.warning("Could not detect terminal application")
         return False
 
-    tty_device = agent_info.get("tty_device")
     agent_id = agent_info.get("agent_id", "unknown")
 
     if terminal_app == "tmux":
@@ -422,10 +563,115 @@ def _jump_vscode(tty_device: str | None, agent_id: str) -> bool:
         return False
 
 
+def _classify_terminal_string(term: str) -> str | None:
+    """Classify a terminal identifier string to an app name.
+
+    Args:
+        term: Lowercased terminal identifier (e.g., from TERM_PROGRAM or tmux client_termname).
+
+    Returns:
+        Canonical terminal app name or None.
+    """
+    if "ghostty" in term:
+        return "Ghostty"
+    if "iterm" in term:
+        return "iTerm2"
+    if "apple_terminal" in term or term == "xterm-256color":
+        return "Terminal"
+    return None
+
+
+def _detect_tmux_host_terminal() -> str | None:
+    """Detect the terminal application hosting tmux.
+
+    Queries tmux clients to determine the outer terminal app.
+
+    Returns:
+        Canonical app name (e.g., 'Ghostty', 'iTerm2'), or None if unknown.
+    """
+    try:
+        result = subprocess.run(
+            ["tmux", "list-clients", "-F", "#{client_termname}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.strip().split("\n"):
+                classified = _classify_terminal_string(line.strip().lower())
+                if classified:
+                    return classified
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    # Fallback: check TERM_PROGRAM from the launching environment
+    term_program = os.environ.get("TERM_PROGRAM", "").lower()
+    return _classify_terminal_string(term_program)
+
+
+def _activate_app(app_name: str) -> None:
+    """Bring a macOS application to the foreground."""
+    if sys.platform != "darwin":
+        return
+    with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+        subprocess.run(
+            ["open", "-a", app_name],
+            capture_output=True,
+            timeout=5,
+        )
+
+
+def _switch_terminal_tab(terminal_app: str, session_id: str) -> None:
+    """Switch the terminal tab to match the tmux session.
+
+    For Ghostty: clicks the radio button in the tab bar whose name
+    starts with the tmux session ID.
+    For iTerm2: uses AppleScript to select the tab matching the session.
+    """
+    if sys.platform != "darwin":
+        return
+
+    escaped_session = _escape_applescript_string(session_id)
+
+    if terminal_app == "Ghostty":
+        script = f'''
+tell application "System Events"
+    tell process "ghostty"
+        set tg to tab group 1 of window 1
+        repeat with r in (every radio button of tg)
+            if name of r starts with "{escaped_session}" then
+                click r
+                exit repeat
+            end if
+        end repeat
+    end tell
+end tell
+'''
+        _run_applescript(script)
+    elif terminal_app == "iTerm2":
+        script = f'''
+tell application "iTerm2"
+    activate
+    repeat with w in windows
+        repeat with t in tabs of w
+            repeat with s in sessions of t
+                if name of s starts with "{escaped_session}" then
+                    select t
+                    return
+                end if
+            end repeat
+        end repeat
+    end repeat
+end tell
+'''
+        _run_applescript(script)
+
+
 def _jump_tmux(agent_info: dict[str, Any]) -> bool:
     """Jump to tmux window/pane containing the agent.
 
-    Uses tmux pane TTY tracking to find the right pane.
+    Uses tmux pane TTY tracking to find the right pane,
+    then activates the host terminal application.
 
     Args:
         agent_info: Agent info with tty_device and agent_id.
@@ -437,9 +683,14 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
         logger.warning("tmux not found")
         return False
 
-    tty_device = agent_info.get("tty_device")
+    # TTY should already be resolved by jump_to_terminal(); use as-is
+    tty_device = agent_info.get("tty_device") or ""
+
     if not tty_device:
-        logger.warning(f"No TTY device for agent {agent_info.get('agent_id')}")
+        logger.warning(
+            f"No TTY device for agent {agent_info.get('agent_id')} "
+            f"(pid={agent_info.get('pid')})"
+        )
         return False
 
     try:
@@ -497,6 +748,13 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
                         f"{window_result.stderr}"
                     )
                     return False
+
+                # Activate the host terminal and switch to the correct tab
+                session_id = pane_id.split(":")[0]
+                host_terminal = _detect_tmux_host_terminal()
+                if host_terminal:
+                    _activate_app(host_terminal)
+                    _switch_terminal_tab(host_terminal, session_id)
 
                 return True
 

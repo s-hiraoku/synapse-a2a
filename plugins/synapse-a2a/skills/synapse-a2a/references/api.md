@@ -104,6 +104,20 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 |----------|--------|-------------|
 | `/tasks/{id}/subscribe` | GET | Subscribe to task updates via Server-Sent Events |
 
+### Canvas Admin Endpoints (served by Canvas server)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/admin/agents` | GET | List agents with status |
+| `/api/admin/send` | POST | Send message to agent |
+| `/api/admin/replies/{task_id}` | GET | Get replies for a task |
+| `/api/admin/tasks/{task_id}` | GET | Get task details |
+| `/api/admin/start` | POST | Start agents |
+| `/api/admin/stop` | POST | Stop agents |
+| `/api/admin/agents/spawn` | POST | Spawn a new agent |
+| `/api/admin/agents/{agent_id}` | DELETE | Stop agent by ID |
+| `/api/admin/jump/{agent_id}` | POST | Jump to agent's terminal (uses PID-based terminal detection with TTY fallback) |
+
 ### External Agent Endpoints
 
 | Endpoint | Method | Description |

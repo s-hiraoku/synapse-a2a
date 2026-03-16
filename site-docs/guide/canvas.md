@@ -480,6 +480,7 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `POST` | `/tasks/send` | Receive agent replies (A2A callback) |
 | `GET` | `/api/admin/replies/{id}` | Poll for agent replies by task ID |
 | `GET` | `/api/admin/tasks/{id}` | Fallback: proxy task status to target agent |
+| `POST` | `/api/admin/jump/{agent_id}` | Jump to agent's terminal pane |
 | `POST` | `/api/admin/agents/spawn` | Spawn a new agent |
 | `DELETE` | `/api/admin/agents/{id}` | Stop an agent |
 
@@ -561,7 +562,7 @@ Internal limits:
 
 Open `http://localhost:3000` to view the Canvas.
 
-The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
+The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the top bar displays "Canvas / History". Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 23 card types plus the 6 built-in templates with hardcoded sample data under `site-docs/assets/`.
 
@@ -570,8 +571,8 @@ The UI uses **SPA hash routing** with five views:
 | Route | View | Purpose |
 |---|---|---|
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
+| `#/history` | **History** (sub-item of Canvas) | Card grid with live feed, agent messages, and filters |
 | `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
-| `#/history` | **History** | Card grid with live feed, agent messages, and filters |
 | `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
 | `#/admin` | **Admin** | Command center for sending messages to agents and managing agent lifecycle |
 
@@ -605,7 +606,7 @@ The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity â€
 
 ### History View (`#/history`)
 
-The History view shows the traditional card grid with live feed and agent messages. Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons.
+The History view shows the traditional card grid with live feed and agent messages. In the sidebar, History appears as an indented sub-item under the Canvas parent link. When this route is active, the Canvas parent also shows as active and the top bar displays "Canvas / History".
 
 **Features:**
 
@@ -622,7 +623,7 @@ The Admin view is a **Command Center** for directly interacting with running age
 
 **Components:**
 
-- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent.
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2).
 - **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
 - **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
 

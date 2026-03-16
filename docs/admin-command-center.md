@@ -58,7 +58,7 @@ open http://localhost:3000
 # 6. Type a message in the textarea, press Cmd+Enter (or click Send)
 ```
 
-The Admin tab appears in the Canvas navigation alongside Canvas, Dashboard, History, and System.
+The Admin tab appears in the Canvas sidebar navigation alongside Canvas (with History as a sub-item), Dashboard, and System.
 
 ## Architecture
 
@@ -323,6 +323,32 @@ Spawn a new agent instance with automatic port allocation.
 
 Port allocation uses `PortManager` to find the first available port in the profile's range.
 
+### POST /api/admin/jump/{agent_id}
+
+Jump to the terminal running a specific agent. Double-clicking an agent row in the Admin table triggers this endpoint.
+
+Uses the same terminal detection as `synapse jump`: walks the agent's parent process chain to identify the host terminal (tmux, VS Code, Ghostty, iTerm2, Terminal.app) and activates the corresponding window/tab/pane.
+
+**Response (success):**
+
+```json
+{ "ok": true }
+```
+
+**Response (failure):**
+
+```json
+{
+  "ok": false,
+  "error": "terminal=undetected, tty=none, pid=12345"
+}
+```
+
+| Status | Condition |
+|--------|-----------|
+| 200 `ok: false` | Agent found but terminal jump failed (unsupported terminal or missing TTY) |
+| 200 `ok: false` | Agent not found in registry |
+
 ### DELETE /api/admin/agents/{agent_id}
 
 Stop a specific agent by sending SIGTERM to its process.
@@ -402,7 +428,7 @@ flowchart TD
 
 ### Agent List (Select Agent)
 
-Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target. Each row shows:
+Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target; **double-clicking** a row jumps to that agent's terminal (`POST /api/admin/jump/{agent_id}`). Each row shows:
 
 - **Status dot** -- color-coded by agent status (green = READY, amber = PROCESSING, red = error)
 - **Agent name** -- custom name or agent ID
@@ -446,7 +472,7 @@ A spinner is shown in the chat feed while waiting for a reply.
 
 | File | Changes |
 |------|---------|
-| `synapse/canvas/server.py` | Admin endpoints, reply receiver (`POST /tasks/send`), reply polling (`GET /api/admin/replies/{task_id}`), helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
+| `synapse/canvas/server.py` | Admin endpoints, reply receiver (`POST /tasks/send`), reply polling (`GET /api/admin/replies/{task_id}`), terminal jump (`POST /api/admin/jump/{agent_id}`), helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
 | `synapse/settings.py` | Administrator config section, `get_administrator_config()` method |
 | `synapse/port_manager.py` | Admin port range entry (`8150-8159`) in `PORT_RANGES` |
 
@@ -455,7 +481,7 @@ A spinner is shown in the chat feed while waiting for a reply.
 | File | Changes |
 |------|---------|
 | `synapse/canvas/templates/index.html` | Admin navigation tab, `admin-view` section markup |
-| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows), `createAdminBubble`/`addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (polls `/api/admin/replies/` for agent replies), `escapeHtml`, IME composition handling |
+| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows, double-click terminal jump), `jumpToAgent`, `createAdminBubble`/`addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (polls `/api/admin/replies/` for agent replies), `escapeHtml`, IME composition handling |
 | `synapse/canvas/static/canvas.css` | Admin view layout, glassmorphism panels (consistent `--color-accent` variables), sticky table headers, chat bubble styles, textarea input bar, spinner animation |
 
 ### Tests
@@ -536,6 +562,54 @@ The following issues were resolved after the initial release:
 | Double-send when clicking Send rapidly | Send button and Cmd+Enter disabled while a request is pending |
 | Stray `console.log` statements in production | Removed |
 | Glass-morphism inconsistency across panels | Unified `--color-accent` CSS variable usage |
+
+## Technical Details: Terminal Jump Architecture
+
+The terminal jump feature (`POST /api/admin/jump/{agent_id}`) enables jumping from the Canvas browser UI to the terminal running a specific agent. This section describes the internal mechanisms.
+
+### Terminal Detection via Parent Process Chain
+
+When an agent is selected for jump, the system needs to determine **which terminal application** the agent is running in. This cannot be done by checking the Canvas server's own environment variables (e.g., `$TMUX`, `$TERM_PROGRAM`) because the server runs as a background daemon — its environment reflects how it was launched, not where each agent runs.
+
+Instead, `_detect_terminal_from_pid_chain(pid)` walks the agent's parent process tree using `ps -p <pid> -o ppid=,comm=`:
+
+```
+Agent (python) → shell (zsh) → tmux         → detected as "tmux"
+Agent (python) → shell (zsh) → Code Helper  → detected as "VSCode"
+Agent (python) → shell (zsh) → ghostty      → detected as "Ghostty"
+```
+
+Pattern matching maps process names to terminal types: `"tmux"`, `"Code Helper"` / `"Visual Studio Code"` → VSCode, `"ghostty"` → Ghostty, `"iTerm2"` → iTerm2, etc.
+
+### TTY Resolution from PID
+
+Agent registry entries may not always contain `tty_device`. When missing, `_resolve_tty_from_pid(pid)` uses `ps -o tty= -p <pid>` to find the controlling terminal device (e.g., `/dev/ttys045`). This is resolved once at the top of `jump_to_terminal` and written back to `agent_info` to avoid redundant subprocess calls downstream.
+
+### tmux Jump Flow
+
+For tmux agents, the jump involves three layers:
+
+1. **Pane selection**: `tmux list-panes -a` lists all panes with their TTY devices. The agent's TTY is matched to find the target pane, then `tmux select-pane` and `select-window` focus it.
+
+2. **Host terminal activation**: `_detect_tmux_host_terminal()` queries `tmux list-clients -F "#{client_termname}"` to identify the outer terminal (e.g., `xterm-ghostty` → Ghostty). Then `open -a <app>` brings it to the foreground on macOS.
+
+3. **Tab switching (Ghostty)**: When multiple Ghostty tabs each run independent tmux clients connected to different sessions, `tmux switch-client` is insufficient (each tab is its own client). Instead, `_switch_terminal_tab` uses macOS Accessibility API via AppleScript to click the correct tab bar radio button matching the tmux session ID.
+
+### VS Code Jump Flow
+
+For VS Code agents, the jump simply activates VS Code via AppleScript (`tell application "Visual Studio Code" to activate`). Terminal-level pane focusing within VS Code is not supported due to VS Code's limited scriptable API.
+
+### Supported Terminals
+
+| Terminal | Jump Method | Tab Switch |
+|----------|------------|------------|
+| tmux (in Ghostty) | TTY pane match + `open -a` | AppleScript radio button click |
+| tmux (in iTerm2) | TTY pane match + `open -a` | AppleScript session name match |
+| tmux (in Terminal.app) | TTY pane match + `open -a` | — |
+| VS Code | AppleScript activate | — |
+| Ghostty (standalone) | `open -a` | — |
+| iTerm2 (standalone) | AppleScript TTY match | — |
+| Zellij | `open -a` (limited) | — |
 
 ## Troubleshooting
 

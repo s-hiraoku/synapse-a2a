@@ -83,12 +83,12 @@ def test_dashboard_nav_link_exists() -> None:
 
 
 def test_dashboard_nav_order() -> None:
-    """Dashboard nav link should appear between Canvas and History."""
+    """History sub-nav should appear after Canvas, Dashboard after History."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     canvas_pos = html.index('data-route="canvas"')
-    dashboard_pos = html.index('data-route="dashboard"')
     history_pos = html.index('data-route="history"')
-    assert canvas_pos < dashboard_pos < history_pos
+    dashboard_pos = html.index('data-route="dashboard"')
+    assert canvas_pos < history_pos < dashboard_pos
 
 
 def test_dashboard_widget_ids_in_html() -> None:

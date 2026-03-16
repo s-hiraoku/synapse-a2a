@@ -34,10 +34,12 @@ synapse list --json
 **Terminal Jump Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
-- Ghostty (macOS) - Activates application. **Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs during spawn or team start.
+- Ghostty (macOS) - Switches to correct tab via AppleScript. **Note:** Do not switch tabs during spawn or team start.
 - VS Code integrated terminal - Activates/focuses VS Code window
 - tmux - Switches to agent's session/pane
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)
+
+**Detection:** Terminal jump uses per-agent PID-based detection (`_detect_agent_terminal`) that walks the agent's parent process chain, with TTY device fallback when PID is unavailable.
 
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)
@@ -1620,8 +1622,8 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with five views navigated via hash routing:
 
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
+  - **`#/history`** (History sub-view) — Grid layout with filters, live feed, and agent messages (sub-item under Canvas in sidebar navigation)
 - **`#/dashboard`** (Dashboard view) — Operational overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
-- **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
 - **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
 - **`#/admin`** (Admin Command Center) — Browser-based agent management: clickable agent table rows for selection (with role, skill set, working directory), textarea input with Cmd+Enter, reply-based response via `synapse reply` (agent replies are received at Canvas's `/tasks/send` endpoint), section titles (Select Agent, Response), sticky table headers, IME composition handling
 
