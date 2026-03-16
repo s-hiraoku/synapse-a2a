@@ -34,7 +34,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "History", system: "System", admin: "Admin" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", system: "System", admin: "Admin" };
 
   // Current route
   let currentRoute = "canvas";
@@ -3995,9 +3995,11 @@
   function navigate() {
     currentRoute = getRoute();
 
-    // Update nav links
+    // Update nav links — Canvas parent stays active when History sub-route is shown
     navLinks.forEach(link => {
-      link.classList.toggle("active", link.dataset.route === currentRoute);
+      var isActive = link.dataset.route === currentRoute;
+      if (link.dataset.route === "canvas" && currentRoute === "history") isActive = true;
+      link.classList.toggle("active", isActive);
     });
 
     // Update topbar title

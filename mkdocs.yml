@@ -125,10 +125,11 @@ nav:
     - File Safety: guide/file-safety.md
     - Skills: guide/skills.md
     - Shared Memory: guide/shared-memory.md
-    - History & Tracing: guide/history.md
     - Session Save/Restore: guide/session.md
     - Workflows: guide/workflow.md
-    - Canvas: guide/canvas.md
+    - Canvas:
+      - Overview: guide/canvas.md
+      - History & Tracing: guide/history.md
     - Proactive Mode: guide/proactive-mode.md
     - MCP Bootstrap Setup: guide/mcp-setup.md
     - Settings & Configuration: guide/settings.md

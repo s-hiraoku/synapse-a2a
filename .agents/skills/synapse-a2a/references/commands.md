@@ -1622,8 +1622,8 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with five views navigated via hash routing:
 
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
+  - **`#/history`** (History sub-view) — Grid layout with filters, live feed, and agent messages (sub-item under Canvas in sidebar navigation)
 - **`#/dashboard`** (Dashboard view) — Operational overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
-- **`#/history`** (History view) — Grid layout with filters, live feed, and agent messages
 - **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
 - **`#/admin`** (Admin Command Center) — Browser-based agent management: clickable agent table rows for selection (with role, skill set, working directory), textarea input with Cmd+Enter, reply-based response via `synapse reply` (agent replies are received at Canvas's `/tasks/send` endpoint), section titles (Select Agent, Response), sticky table headers, IME composition handling
 

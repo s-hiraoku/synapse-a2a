@@ -273,6 +273,20 @@ body.sidebar-collapsed #main-content {
   outline-offset: -2px;
 }
 
+/* Sub-navigation — indented child links */
+.nav-sub {
+  padding-left: calc(var(--sp-3) + 24px + var(--sp-2));
+  font-size: var(--text-xs);
+  opacity: 0.85;
+}
+.nav-sub i {
+  font-size: var(--text-sm);
+  width: 18px;
+}
+.nav-sub.active {
+  opacity: 1;
+}
+
 /* ── Sidebar Footer ──────────────────────── */
 
 .sidebar-footer {

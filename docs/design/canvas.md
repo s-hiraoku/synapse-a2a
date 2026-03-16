@@ -457,7 +457,7 @@ The browser UI uses hash-based SPA routing with four views:
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
 | `#/system` | **System view** | `ph-gear` | Configuration panel: tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, and environment. |
 
-Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. The URL hash updates accordingly and the browser back/forward buttons work as expected.
+Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the topbar displays "Canvas / History". The URL hash updates accordingly and the browser back/forward buttons work as expected.
 
 ### Canvas View (`#/`)
 
@@ -892,7 +892,7 @@ Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `m
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/dashboard`, `#/history`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience. Dashboard shows operational status; System shows configuration.
+6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; System shows configuration.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

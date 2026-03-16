@@ -58,7 +58,7 @@ open http://localhost:3000
 # 6. Type a message in the textarea, press Cmd+Enter (or click Send)
 ```
 
-The Admin tab appears in the Canvas navigation alongside Canvas, Dashboard, History, and System.
+The Admin tab appears in the Canvas sidebar navigation alongside Canvas (with History as a sub-item), Dashboard, and System.
 
 ## Architecture
 
