@@ -75,6 +75,7 @@ class TestSynapseSendResponseFlags:
         mock_args.sender = None
         mock_args.reply_to = None
         mock_args.response_mode = "wait"
+        mock_args.task = False
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
@@ -96,6 +97,7 @@ class TestSynapseSendResponseFlags:
         mock_args.sender = None
         mock_args.reply_to = None
         mock_args.response_mode = "silent"
+        mock_args.task = False
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)
@@ -117,6 +119,7 @@ class TestSynapseSendResponseFlags:
         mock_args.sender = None
         mock_args.reply_to = None
         mock_args.response_mode = "notify"
+        mock_args.task = False
 
         with patch("synapse.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(stdout="Success", stderr="", returncode=0)

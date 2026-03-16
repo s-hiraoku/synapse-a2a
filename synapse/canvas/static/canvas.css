@@ -1212,13 +1212,16 @@ body.sidebar-collapsed #main-content {
   flex-direction: column;
   gap: var(--sp-5);
   padding: var(--sp-4) 0 var(--sp-8);
+}
+/* Only animate on first render — subsequent updates swap content without fade */
+#system-panel-content.is-new {
   animation: fadeIn 0.4s var(--ease-out);
 }
 
 /* System Groups — logical grouping of related sections */
 .system-group {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));
   gap: var(--sp-4);
 }
 
@@ -1234,6 +1237,8 @@ body.sidebar-collapsed #main-content {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--glass-inner-shadow), var(--shadow-sm);
   transition: all var(--duration-normal) var(--ease-out);
+  overflow-x: auto;
+  min-width: 0;
 }
 
 .system-section.is-new {
@@ -1454,14 +1459,11 @@ body.sidebar-collapsed #main-content {
 /* System Agents Table */
 .system-agents-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
-}
-
-.system-agents-table.has-desc {
-  table-layout: fixed;
 }
 
 .system-agents-table th {
@@ -1487,7 +1489,9 @@ body.sidebar-collapsed #main-content {
 
 .system-agents-table td {
   padding: var(--sp-2) var(--sp-3);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: var(--color-text-secondary);
   vertical-align: top;
   border-bottom: 1px solid var(--color-border-faint);
@@ -1506,6 +1510,16 @@ body.sidebar-collapsed #main-content {
   border-bottom-color: var(--color-accent-glow);
 }
 
+/* Agent-specific: single-row with horizontal scroll */
+.system-agents-table.agents-nowrap {
+  table-layout: auto;
+}
+.system-agents-table.agents-nowrap td {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .agent-dot-cell {
   width: 20px;
   text-align: center;
@@ -1519,9 +1533,8 @@ body.sidebar-collapsed #main-content {
 }
 
 .agent-role-cell {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .agent-port-cell {
@@ -1533,15 +1546,13 @@ body.sidebar-collapsed #main-content {
 .agent-dir-cell {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .agent-current-cell {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .agent-status-cell {

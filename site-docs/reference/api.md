@@ -1219,6 +1219,7 @@ The Canvas server exposes admin endpoints for the [Admin Command Center](../guid
 | GET | `/api/admin/tasks/{task_id}?target=` | Fallback: proxy task status to target agent |
 | POST | `/api/admin/start` | Start the administrator agent |
 | POST | `/api/admin/stop` | Stop the administrator agent |
+| POST | `/api/admin/jump/{agent_id}` | Jump to the agent's terminal pane (tmux/iTerm2) |
 | POST | `/api/admin/agents/spawn` | Spawn a new agent from a profile |
 | DELETE | `/api/admin/agents/{agent_id}` | Stop an agent by ID |
 
@@ -1345,6 +1346,31 @@ curl -X DELETE http://localhost:3000/api/admin/agents/synapse-claude-8101
   "status": "stopped",
   "agent_id": "synapse-claude-8101",
   "pid": 12345
+}
+```
+
+### Jump to Agent Terminal
+
+Switch focus to the terminal pane running the specified agent. Supports tmux and iTerm2. In the Admin view, double-clicking an agent row triggers this action.
+
+```bash
+curl -X POST http://localhost:3000/api/admin/jump/synapse-claude-8100
+```
+
+**Response (success):**
+
+```json
+{
+  "ok": true
+}
+```
+
+**Response (failure):**
+
+```json
+{
+  "ok": false,
+  "error": "terminal=tmux, tty=/dev/ttys003, pid=12345"
 }
 ```
 

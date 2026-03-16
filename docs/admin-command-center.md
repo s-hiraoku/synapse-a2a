@@ -323,6 +323,32 @@ Spawn a new agent instance with automatic port allocation.
 
 Port allocation uses `PortManager` to find the first available port in the profile's range.
 
+### POST /api/admin/jump/{agent_id}
+
+Jump to the terminal running a specific agent. Double-clicking an agent row in the Admin table triggers this endpoint.
+
+Uses the same terminal detection as `synapse jump`: walks the agent's parent process chain to identify the host terminal (tmux, VS Code, Ghostty, iTerm2, Terminal.app) and activates the corresponding window/tab/pane.
+
+**Response (success):**
+
+```json
+{ "ok": true }
+```
+
+**Response (failure):**
+
+```json
+{
+  "ok": false,
+  "error": "terminal=undetected, tty=none, pid=12345"
+}
+```
+
+| Status | Condition |
+|--------|-----------|
+| 200 `ok: false` | Agent found but terminal jump failed (unsupported terminal or missing TTY) |
+| 200 `ok: false` | Agent not found in registry |
+
 ### DELETE /api/admin/agents/{agent_id}
 
 Stop a specific agent by sending SIGTERM to its process.
@@ -402,7 +428,7 @@ flowchart TD
 
 ### Agent List (Select Agent)
 
-Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target. Each row shows:
+Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target; **double-clicking** a row jumps to that agent's terminal (`POST /api/admin/jump/{agent_id}`). Each row shows:
 
 - **Status dot** -- color-coded by agent status (green = READY, amber = PROCESSING, red = error)
 - **Agent name** -- custom name or agent ID
@@ -446,7 +472,7 @@ A spinner is shown in the chat feed while waiting for a reply.
 
 | File | Changes |
 |------|---------|
-| `synapse/canvas/server.py` | Admin endpoints, reply receiver (`POST /tasks/send`), reply polling (`GET /api/admin/replies/{task_id}`), helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
+| `synapse/canvas/server.py` | Admin endpoints, reply receiver (`POST /tasks/send`), reply polling (`GET /api/admin/replies/{task_id}`), terminal jump (`POST /api/admin/jump/{agent_id}`), helper functions (`_resolve_agent_endpoint`, `_start_administrator`, `_stop_administrator`, `_spawn_agent`, `_stop_agent`, `_get_registry_dir`) |
 | `synapse/settings.py` | Administrator config section, `get_administrator_config()` method |
 | `synapse/port_manager.py` | Admin port range entry (`8150-8159`) in `PORT_RANGES` |
 
@@ -455,7 +481,7 @@ A spinner is shown in the chat feed while waiting for a reply.
 | File | Changes |
 |------|---------|
 | `synapse/canvas/templates/index.html` | Admin navigation tab, `admin-view` section markup |
-| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows), `createAdminBubble`/`addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (polls `/api/admin/replies/` for agent replies), `escapeHtml`, IME composition handling |
+| `synapse/canvas/static/canvas.js` | Admin route handler, `loadAdminAgents`, `renderAdminAgentsTable` (system-agents-table with clickable rows, double-click terminal jump), `jumpToAgent`, `createAdminBubble`/`addAdminBubble`, `sendAdminCommand` (double-send prevention), `pollAdminTask` (polls `/api/admin/replies/` for agent replies), `escapeHtml`, IME composition handling |
 | `synapse/canvas/static/canvas.css` | Admin view layout, glassmorphism panels (consistent `--color-accent` variables), sticky table headers, chat bubble styles, textarea input bar, spinner animation |
 
 ### Tests

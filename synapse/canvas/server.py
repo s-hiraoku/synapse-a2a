@@ -1163,6 +1163,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         "role": data.get("role", ""),
                         "skill_set": data.get("skill_set", ""),
                         "working_dir": data.get("working_dir", ""),
+                        "tty_device": data.get("tty_device", ""),
                     }
                 )
         return {"agents": agents}
@@ -1341,5 +1342,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
     async def admin_stop_agent(agent_id: str) -> dict[str, Any]:
         """Stop an agent by ID."""
         return _stop_agent(agent_id)
+
+    @app.post("/api/admin/jump/{agent_id}")
+    async def admin_jump_to_agent(agent_id: str) -> dict[str, Any]:
+        """Jump to the terminal running the specified agent."""
+        from synapse.registry import AgentRegistry
+        from synapse.terminal_jump import jump_to_terminal
+
+        agent_info = AgentRegistry().get_agent(agent_id)
+        if agent_info is None:
+            return {"ok": False, "error": f"Agent {agent_id} not found"}
+
+        success = jump_to_terminal(agent_info)
+        if not success:
+            from synapse.terminal_jump import detect_terminal_app
+
+            terminal = detect_terminal_app() or "undetected"
+            tty = agent_info.get("tty_device", "")
+            pid = agent_info.get("pid", "")
+            return {
+                "ok": False,
+                "error": f"terminal={terminal}, tty={tty or 'none'}, pid={pid or 'none'}",
+            }
+        return {"ok": True}
 
     return app

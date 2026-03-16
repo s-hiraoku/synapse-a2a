@@ -102,7 +102,7 @@ class TestJumpToTerminal:
 
     def test_jump_no_terminal_detected(self) -> None:
         """Should return False when no terminal detected."""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch("synapse.terminal_jump._detect_agent_terminal", return_value=None):
             result = jump_to_terminal({"agent_id": "test", "tty_device": "/dev/tty0"})
             assert result is False
 
@@ -198,6 +198,85 @@ class TestJumpToTerminal:
 
         assert result is False
         mock_as.assert_not_called()
+
+    def test_jump_tmux_pid_fallback(self) -> None:
+        """Should resolve TTY from PID when tty_device is missing in tmux."""
+        agent_info = {"agent_id": "test-agent", "pid": 12345}
+
+        with (
+            patch("synapse.terminal_jump.shutil.which", return_value="/usr/bin/tmux"),
+            patch(
+                "synapse.terminal_jump._resolve_tty_from_pid",
+                return_value="/dev/ttys003",
+            ) as mock_resolve,
+            patch("synapse.terminal_jump.subprocess.run") as mock_run,
+        ):
+            # list-panes, select-pane, select-window,
+            # list-clients (host detect), open -a, osascript (tab switch)
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout="main:0.0 /dev/ttys003\n"),
+                MagicMock(returncode=0),
+                MagicMock(returncode=0),
+                MagicMock(returncode=0, stdout="xterm-ghostty\n"),
+                MagicMock(returncode=0),
+                MagicMock(returncode=0, stdout=""),
+            ]
+            result = jump_to_terminal(agent_info, terminal_app="tmux")
+
+        assert result is True
+        mock_resolve.assert_called_with(12345)
+
+    def test_jump_tmux_no_tty_no_pid(self) -> None:
+        """Should return False when neither tty_device nor pid is available."""
+        agent_info = {"agent_id": "test-agent"}
+
+        with patch("synapse.terminal_jump.shutil.which", return_value="/usr/bin/tmux"):
+            result = jump_to_terminal(agent_info, terminal_app="tmux")
+
+        assert result is False
+
+
+class TestResolveTtyFromPid:
+    """Tests for _resolve_tty_from_pid helper."""
+
+    def test_resolves_tty_from_ps(self) -> None:
+        """Should return /dev/ path when ps returns a TTY."""
+        from synapse.terminal_jump import _resolve_tty_from_pid
+
+        with patch("synapse.terminal_jump.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="ttys003\n")
+            result = _resolve_tty_from_pid(12345)
+
+        assert result == "/dev/ttys003"
+
+    def test_returns_empty_when_no_tty(self) -> None:
+        """Should return empty string when ps returns ?? or -."""
+        from synapse.terminal_jump import _resolve_tty_from_pid
+
+        with patch("synapse.terminal_jump.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="??\n")
+            result = _resolve_tty_from_pid(12345)
+
+        assert result == ""
+
+    def test_handles_full_dev_path(self) -> None:
+        """Should not double-prefix /dev/ paths."""
+        from synapse.terminal_jump import _resolve_tty_from_pid
+
+        with patch("synapse.terminal_jump.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(stdout="/dev/ttys003\n")
+            result = _resolve_tty_from_pid(12345)
+
+        assert result == "/dev/ttys003"
+
+    def test_handles_subprocess_error(self) -> None:
+        """Should return empty string on subprocess failure."""
+        from synapse.terminal_jump import _resolve_tty_from_pid
+
+        with patch("synapse.terminal_jump.subprocess.run", side_effect=OSError):
+            result = _resolve_tty_from_pid(12345)
+
+        assert result == ""
 
 
 class TestRunApplescript:

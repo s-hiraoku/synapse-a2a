@@ -52,6 +52,7 @@
   // Cached system data for instant rendering on route change
   let _lastSystemData = null;
   var _systemPanelRendered = false;
+  var _lastSystemJSON = "";
 
   // ----------------------------------------------------------------
   // Initial load
@@ -2116,7 +2117,11 @@
     try {
       const resp = await fetch("/api/system");
       if (!resp.ok) return;
-      const data = await resp.json();
+      const text = await resp.text();
+      // Skip re-render if data hasn't changed (prevents flicker on polling)
+      if (text === _lastSystemJSON) return;
+      _lastSystemJSON = text;
+      const data = JSON.parse(text);
       systemAgents = Array.isArray(data.agents) ? data.agents : [];
       _lastSystemData = data;
       if (currentRoute === "system") {
@@ -2138,7 +2143,6 @@
 
   function renderSystemPanel(data) {
     if (!systemPanel) return;
-    systemPanel.innerHTML = "";
 
     const userProfileCount = Array.isArray(data.user_agent_profiles) ? data.user_agent_profiles.length : 0;
     const activeProjectProfileCount = Array.isArray(data.active_project_agent_profiles) ? data.active_project_agent_profiles.length : 0;
@@ -2231,12 +2235,14 @@
     }
 
     if (!_systemPanelRendered) {
+      content.classList.add('is-new');
       content.querySelectorAll('.system-section').forEach(function(s) {
         s.classList.add('is-new');
       });
       _systemPanelRendered = true;
     }
-    systemPanel.appendChild(content);
+    // Use replaceChildren to swap content in a single frame (avoids blank flash)
+    systemPanel.replaceChildren(content);
   }
 
   // ----------------------------------------------------------------
@@ -2768,10 +2774,11 @@
     }
 
     var onRowClick = options && options.onRowClick;
+    var onRowDblClick = options && options.onRowDblClick;
     var selectedId = options && options.selectedId;
 
     var table = document.createElement("table");
-    table.className = "system-agents-table" + (onRowClick ? " admin-selectable-table" : "");
+    table.className = "system-agents-table agents-nowrap" + (onRowClick ? " admin-selectable-table" : "");
 
     var thead = document.createElement("thead");
     var hrow = document.createElement("tr");
@@ -2795,6 +2802,11 @@
             tbody.querySelectorAll("tr").forEach(function(r) { r.classList.remove("admin-row-selected"); });
             tr.classList.add("admin-row-selected");
             onRowClick(agent);
+          });
+        }
+        if (onRowDblClick) {
+          tr.addEventListener("dblclick", function() {
+            onRowDblClick(agent);
           });
         }
         tbody.appendChild(tr);
@@ -4249,10 +4261,28 @@
           adminTargetBadge.classList.add("has-target");
         }
         if (adminMessageInput) adminMessageInput.focus();
+      },
+      onRowDblClick: function(agent) {
+        jumpToAgent(agent.agent_id);
       }
     });
     content.className = "admin-agents-table-wrap";
     adminAgentsWidget.appendChild(content);
+  }
+
+  function jumpToAgent(agentId) {
+    fetch("/api/admin/jump/" + encodeURIComponent(agentId), { method: "POST" })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          showToast("Jumped to terminal", agentId);
+        } else {
+          showToast("Jump failed: " + (data.error || "unknown"), agentId);
+        }
+      })
+      .catch(function() {
+        showToast("Jump failed: network error", agentId);
+      });
   }
 
   function createAdminBubble(role, text, agentName) {

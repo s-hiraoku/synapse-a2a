@@ -480,6 +480,7 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `POST` | `/tasks/send` | Receive agent replies (A2A callback) |
 | `GET` | `/api/admin/replies/{id}` | Poll for agent replies by task ID |
 | `GET` | `/api/admin/tasks/{id}` | Fallback: proxy task status to target agent |
+| `POST` | `/api/admin/jump/{agent_id}` | Jump to agent's terminal pane |
 | `POST` | `/api/admin/agents/spawn` | Spawn a new agent |
 | `DELETE` | `/api/admin/agents/{id}` | Stop an agent |
 
@@ -622,7 +623,7 @@ The Admin view is a **Command Center** for directly interacting with running age
 
 **Components:**
 
-- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent.
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2).
 - **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
 - **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
 

@@ -34,10 +34,12 @@ synapse list --json
 **Terminal Jump Supported Terminals:**
 - iTerm2 (macOS) - Switches to correct tab/pane
 - Terminal.app (macOS) - Switches to correct tab
-- Ghostty (macOS) - Activates application. **Note:** Ghostty uses AppleScript to target the focused tab. Do not switch tabs during spawn or team start.
+- Ghostty (macOS) - Switches to correct tab via AppleScript. **Note:** Do not switch tabs during spawn or team start.
 - VS Code integrated terminal - Activates/focuses VS Code window
 - tmux - Switches to agent's session/pane
 - Zellij - Activates terminal app (direct pane focus not supported via CLI)
+
+**Detection:** Terminal jump uses per-agent PID-based detection (`_detect_agent_terminal`) that walks the agent's parent process chain, with TTY device fallback when PID is unavailable.
 
 **Output columns:**
 - **NAME**: Custom name if set, otherwise agent type (e.g., `my-claude` or `claude`)

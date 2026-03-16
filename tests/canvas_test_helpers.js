@@ -128,6 +128,16 @@ class Element {
     return child;
   }
 
+  replaceChildren(...nodes) {
+    for (const child of [...this.children]) {
+      child.parentNode = null;
+    }
+    this.children = [];
+    for (const node of nodes) {
+      this.appendChild(node);
+    }
+  }
+
   set innerHTML(value) {
     this.children = [];
     this.textContent = value;
