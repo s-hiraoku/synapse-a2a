@@ -558,23 +558,20 @@ class TestAdministratorConfig:
 class TestAdminJump:
     """Tests for POST /api/admin/jump/{agent_id}."""
 
-    def test_jump_success(self, client, tmp_path):
+    def test_jump_success(self, client):
         """Should call jump_to_terminal and return ok=True."""
         agent_data = {
             "agent_id": "synapse-claude-8100",
             "agent_type": "claude",
             "tty_device": "/dev/ttys001",
         }
-        registry_dir = tmp_path / ".synapse" / "agents"
-        registry_dir.mkdir(parents=True)
-        (registry_dir / "synapse-claude-8100.json").write_text(
-            json.dumps(agent_data), encoding="utf-8"
-        )
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = agent_data
 
         with (
             patch(
-                "synapse.canvas.server._get_registry_dir",
-                return_value=str(registry_dir),
+                "synapse.registry.AgentRegistry",
+                return_value=mock_registry,
             ),
             patch(
                 "synapse.terminal_jump.jump_to_terminal", return_value=True
@@ -587,33 +584,30 @@ class TestAdminJump:
         mock_jump.assert_called_once()
         assert mock_jump.call_args[0][0]["agent_id"] == "synapse-claude-8100"
 
-    def test_jump_agent_not_found(self, client, tmp_path):
+    def test_jump_agent_not_found(self, client):
         """Should return ok=False when agent doesn't exist."""
-        registry_dir = tmp_path / ".synapse" / "agents"
-        registry_dir.mkdir(parents=True)
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = None
 
         with patch(
-            "synapse.canvas.server._get_registry_dir",
-            return_value=str(registry_dir),
+            "synapse.registry.AgentRegistry",
+            return_value=mock_registry,
         ):
             resp = client.post("/api/admin/jump/nonexistent")
 
         assert resp.status_code == 200
         assert resp.json()["ok"] is False
 
-    def test_jump_failure(self, client, tmp_path):
+    def test_jump_failure(self, client):
         """Should return ok=False when jump_to_terminal fails."""
         agent_data = {"agent_id": "synapse-claude-8100"}
-        registry_dir = tmp_path / ".synapse" / "agents"
-        registry_dir.mkdir(parents=True)
-        (registry_dir / "synapse-claude-8100.json").write_text(
-            json.dumps(agent_data), encoding="utf-8"
-        )
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = agent_data
 
         with (
             patch(
-                "synapse.canvas.server._get_registry_dir",
-                return_value=str(registry_dir),
+                "synapse.registry.AgentRegistry",
+                return_value=mock_registry,
             ),
             patch("synapse.terminal_jump.jump_to_terminal", return_value=False),
         ):
