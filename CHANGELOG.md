@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-03-16
+
+### Added
+
+- Admin terminal jump: double-click agent row to jump to its terminal (`POST /api/admin/jump/{agent_id}`)
+- Parent process chain detection (`_detect_terminal_from_pid_chain`) — walks PID ancestors to identify tmux, VS Code, Ghostty, iTerm2
+- PID-to-TTY fallback (`_resolve_tty_from_pid`) for agents missing `tty_device` in registry
+- Tmux host terminal activation — `open -a` + Ghostty/iTerm tab switching via AppleScript
+- `_classify_terminal_string` helper to unify terminal name classification
+- `replaceChildren` Element method in canvas test helpers (jsdom mock)
+
+### Fixed
+
+- System menu polling flicker: skip re-render when JSON response unchanged, use `replaceChildren` instead of `innerHTML=""`, scope `fadeIn` animation to first render only
+- Table overflow on narrow screens: `table-layout: fixed` + `word-break` for general tables; Agent table uses `nowrap` + `overflow-x: auto` for horizontal scroll
+- `system-group` grid overflow below 400px (`minmax(min(400px, 100%), 1fr)`)
+- Test DB pollution: `test_canvas_server.py` wrote to production `task_board.db` (fixed with `monkeypatch.chdir(tmp_path)`); `test_response_option.py` triggered `--task` flag via `MagicMock` truthiness (fixed with `mock_args.task = False`)
+
+### Changed
+
+- `jump_to_terminal` resolves TTY once upfront and enriches `agent_info`, eliminating redundant `_resolve_tty_from_pid` subprocess calls
+- `admin_jump_to_agent` endpoint uses `AgentRegistry().get_agent()` instead of raw JSON file reads
+- `_detect_tmux_host_terminal` returns canonical `"iTerm2"` (was `"iTerm"`) for naming consistency
+
 ## [0.14.0] - 2026-03-15
 
 ### Added
@@ -2398,6 +2422,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.1...v0.12.2

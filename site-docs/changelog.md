@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.0
+
+- **Added**: Admin terminal jump — double-click agent row to jump to its terminal (tmux, VS Code, Ghostty, iTerm2)
+- **Added**: Parent process chain detection for accurate terminal identification
+- **Fixed**: System menu polling flicker (JSON comparison, `replaceChildren`, scoped animation)
+- **Fixed**: Table overflow on narrow screens (responsive wrapping, Agent table horizontal scroll)
+- **Fixed**: Test DB pollution in `test_canvas_server` and `test_response_option`
+
 ### v0.14.0
 
 - **Added**: Canvas HTML Artifact Support — interactive HTML/JS/CSS in sandboxed iframes with theme sync (`postMessage`), auto-resize (`ResizeObserver`), CSS variables (`--bg`, `--fg`, `--border`), and full document normalization

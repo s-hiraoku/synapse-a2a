@@ -563,6 +563,54 @@ The following issues were resolved after the initial release:
 | Stray `console.log` statements in production | Removed |
 | Glass-morphism inconsistency across panels | Unified `--color-accent` CSS variable usage |
 
+## Technical Details: Terminal Jump Architecture
+
+The terminal jump feature (`POST /api/admin/jump/{agent_id}`) enables jumping from the Canvas browser UI to the terminal running a specific agent. This section describes the internal mechanisms.
+
+### Terminal Detection via Parent Process Chain
+
+When an agent is selected for jump, the system needs to determine **which terminal application** the agent is running in. This cannot be done by checking the Canvas server's own environment variables (e.g., `$TMUX`, `$TERM_PROGRAM`) because the server runs as a background daemon — its environment reflects how it was launched, not where each agent runs.
+
+Instead, `_detect_terminal_from_pid_chain(pid)` walks the agent's parent process tree using `ps -p <pid> -o ppid=,comm=`:
+
+```
+Agent (python) → shell (zsh) → tmux         → detected as "tmux"
+Agent (python) → shell (zsh) → Code Helper  → detected as "VSCode"
+Agent (python) → shell (zsh) → ghostty      → detected as "Ghostty"
+```
+
+Pattern matching maps process names to terminal types: `"tmux"`, `"Code Helper"` / `"Visual Studio Code"` → VSCode, `"ghostty"` → Ghostty, `"iTerm2"` → iTerm2, etc.
+
+### TTY Resolution from PID
+
+Agent registry entries may not always contain `tty_device`. When missing, `_resolve_tty_from_pid(pid)` uses `ps -o tty= -p <pid>` to find the controlling terminal device (e.g., `/dev/ttys045`). This is resolved once at the top of `jump_to_terminal` and written back to `agent_info` to avoid redundant subprocess calls downstream.
+
+### tmux Jump Flow
+
+For tmux agents, the jump involves three layers:
+
+1. **Pane selection**: `tmux list-panes -a` lists all panes with their TTY devices. The agent's TTY is matched to find the target pane, then `tmux select-pane` and `select-window` focus it.
+
+2. **Host terminal activation**: `_detect_tmux_host_terminal()` queries `tmux list-clients -F "#{client_termname}"` to identify the outer terminal (e.g., `xterm-ghostty` → Ghostty). Then `open -a <app>` brings it to the foreground on macOS.
+
+3. **Tab switching (Ghostty)**: When multiple Ghostty tabs each run independent tmux clients connected to different sessions, `tmux switch-client` is insufficient (each tab is its own client). Instead, `_switch_terminal_tab` uses macOS Accessibility API via AppleScript to click the correct tab bar radio button matching the tmux session ID.
+
+### VS Code Jump Flow
+
+For VS Code agents, the jump simply activates VS Code via AppleScript (`tell application "Visual Studio Code" to activate`). Terminal-level pane focusing within VS Code is not supported due to VS Code's limited scriptable API.
+
+### Supported Terminals
+
+| Terminal | Jump Method | Tab Switch |
+|----------|------------|------------|
+| tmux (in Ghostty) | TTY pane match + `open -a` | AppleScript radio button click |
+| tmux (in iTerm2) | TTY pane match + `open -a` | AppleScript session name match |
+| tmux (in Terminal.app) | TTY pane match + `open -a` | — |
+| VS Code | AppleScript activate | — |
+| Ghostty (standalone) | `open -a` | — |
+| iTerm2 (standalone) | AppleScript TTY match | — |
+| Zellij | `open -a` (limited) | — |
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
