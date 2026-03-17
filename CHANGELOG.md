@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Agent Control drag-resize splitter: draggable separator between "Select Agent" and "Response" panels for adjustable height ratio, with localStorage persistence, keyboard support (Arrow keys), and `role="separator"` accessibility
+
 ### Changed
 
 - History moved from top-level sidebar item to Canvas sub-menu (`nav-sub` class), with Canvas parent link staying active on History route and topbar showing "Canvas / History"

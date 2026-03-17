@@ -23,6 +23,7 @@
   const adminAgentsWidget = document.getElementById("admin-agents-widget");
   const adminMessageInput = document.getElementById("admin-message-input");
   const adminSendBtn = document.getElementById("admin-send-btn");
+  const adminSplitter = document.getElementById("admin-splitter");
   var _selectedAdminTarget = "";
   var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
@@ -4595,11 +4596,85 @@
     }
   });
 
+  // ── Admin splitter (drag-resize between agents widget and feed) ──
+  function initAdminSplitter() {
+    if (!adminSplitter || !adminAgentsWidget) return;
+    var adminContainer = document.getElementById("admin-container");
+    var adminInputBar = document.getElementById("admin-input-bar");
+    var storageKey = "canvas-admin-agents-height";
+    var minH = 80;
+
+    // Restore saved height
+    try {
+      var saved = localStorage.getItem(storageKey);
+      if (saved) {
+        adminAgentsWidget.style.height = saved + "px";
+        adminAgentsWidget.classList.add("splitter-resized");
+      }
+    } catch (e) { /* ignore */ }
+
+    var startY = 0;
+    var startHeight = 0;
+
+    function getMaxHeight() {
+      if (!adminContainer) return 400;
+      var inputH = adminInputBar ? adminInputBar.offsetHeight : 0;
+      return adminContainer.clientHeight - inputH - adminSplitter.offsetHeight - minH;
+    }
+
+    function clamp(v) {
+      return Math.max(minH, Math.min(v, getMaxHeight()));
+    }
+
+    function onMouseMove(e) {
+      var delta = e.clientY - startY;
+      var newH = clamp(startHeight + delta);
+      adminAgentsWidget.style.height = newH + "px";
+    }
+
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.classList.remove("splitter-dragging");
+      adminSplitter.classList.remove("dragging");
+      adminAgentsWidget.classList.add("splitter-resized");
+      try { localStorage.setItem(storageKey, parseInt(adminAgentsWidget.style.height, 10)); } catch (e) { /* ignore */ }
+    }
+
+    adminSplitter.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      startY = e.clientY;
+      startHeight = adminAgentsWidget.offsetHeight;
+      document.body.classList.add("splitter-dragging");
+      adminSplitter.classList.add("dragging");
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+
+    // Keyboard support
+    adminSplitter.addEventListener("keydown", function (e) {
+      var step = e.shiftKey ? 20 : 5;
+      var current = adminAgentsWidget.offsetHeight;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        adminAgentsWidget.style.height = clamp(current + step) + "px";
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        adminAgentsWidget.style.height = clamp(current - step) + "px";
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        adminAgentsWidget.classList.add("splitter-resized");
+        try { localStorage.setItem(storageKey, parseInt(adminAgentsWidget.style.height, 10)); } catch (e2) { /* ignore */ }
+      }
+    });
+  }
+
   initTheme();
   loadCards();
   loadSystemPanel();
   connectSSE();
   window.setInterval(loadSystemPanel, 10000);
+  initAdminSplitter();
 
   // Initial route
   navigate();
