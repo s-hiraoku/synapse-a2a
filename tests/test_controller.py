@@ -1134,7 +1134,7 @@ class TestInterAgentMessageWrite:
         assert writes == [b"hello", b"\r", b"\r", b"\n"]
 
     def test_submit_fallback_more_retries_than_sequences(self):
-        """Extra retries beyond sequences should fall back to original submit_bytes."""
+        """Extra retries beyond sequences should cycle through fallback list."""
         ctrl = self._make_copilot_ctrl(retries=4, fallback_sequences=["\n"])
 
         writes: list[bytes] = []
@@ -1147,9 +1147,9 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("hello", submit_seq="\r")
 
-        # retries=4, sequences=["\n"] -> first retry uses \n,
-        # remaining 3 retries fall back to original \r
-        assert writes == [b"hello", b"\r", b"\r", b"\n", b"\r", b"\r", b"\r"]
+        # retries=4, sequences=["\n"] -> all retries cycle through ["\n"]
+        # (single-element list cycles to \n every time)
+        assert writes == [b"hello", b"\r", b"\r", b"\n", b"\n", b"\n", b"\n"]
 
     # --- Bracketed paste mode tests ---
 
