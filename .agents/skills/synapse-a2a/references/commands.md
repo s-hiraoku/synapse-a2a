@@ -1786,8 +1786,8 @@ synapse canvas stop [--port/-p 3000]     # Stop server (verifies process identit
 ## MCP Bootstrap Server
 
 ```bash
-# Start MCP server over stdio (for MCP client integration)
-synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
+# Start MCP server over stdio (options auto-resolved from $SYNAPSE_AGENT_ID)
+synapse mcp serve
 
 # Module entrypoint (recommended for client configs — uses repo-pinned version)
 uv run --directory /path/to/synapse-a2a python -m synapse.mcp

@@ -151,11 +151,8 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 - `analyze_task` analyzes a user prompt and suggests team/task splits when the work is large enough (Smart Suggest).
 
 ```bash
-# Start MCP server (stdio transport)
-synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
-
-# Module entrypoint (recommended for MCP client configs)
-python -m synapse.mcp
+# Start MCP server (stdio transport; options auto-resolved from $SYNAPSE_AGENT_ID)
+synapse mcp serve
 ```
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.

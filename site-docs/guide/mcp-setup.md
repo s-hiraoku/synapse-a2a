@@ -28,6 +28,8 @@ The MCP server exposes:
 # Verify MCP server works
 synapse mcp serve
 # Should wait for JSON-RPC input on stdin. Press Ctrl+C to exit.
+# Note: 手動実行時は SYNAPSE_AGENT_ID 未設定のため agent-type を推論できません。
+#       必要に応じて --agent-type を明示するか、環境変数を設定してください。
 ```
 
 ## Client Configuration
