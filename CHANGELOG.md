@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - History moved from top-level sidebar item to Canvas sub-menu (`nav-sub` class), with Canvas parent link staying active on History route and topbar showing "Canvas / History"
 
+## [0.15.2] - 2026-03-18
+
+### Added
+
+- Name prompt placeholder: `Name [Enter = claude-agent]:` — auto-generates a suggested petname via `suggest_petname_ids()`, accepted with Enter
+- Save ID prompt placeholder: `Saved agent ID [Enter = alice-reviewer]:` — suggests a petname based on name, role, skill set, and profile
+
+### Changed
+
+- Canvas menu: "Admin" renamed to "Agent Control" for clarity
+- Canvas sidebar: "Agent Control" moved before "System" in menu order
+- Extracted `_input_with_default()` helper to deduplicate prompt-with-default logic
+
 ## [0.15.1] - 2026-03-17
 
 ### Added
@@ -2447,6 +2460,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.13.0...v0.14.0
