@@ -1351,7 +1351,7 @@ curl -X DELETE http://localhost:3000/api/admin/agents/synapse-claude-8101
 
 ### Jump to Agent Terminal
 
-Switch focus to the terminal pane running the specified agent. Supports tmux and iTerm2. In the Agent Control view, double-clicking an agent row triggers this action.
+Switch focus to the terminal pane running the specified agent. Supports tmux, VS Code, Ghostty, iTerm2, and Terminal.app. In the Agent Control view, double-clicking an agent row triggers this action.
 
 ```bash
 curl -X POST http://localhost:3000/api/admin/jump/synapse-claude-8100

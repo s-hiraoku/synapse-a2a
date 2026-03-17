@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -194,7 +194,8 @@ def test_save_prompt_asks_when_no_saved_profiles() -> None:
     store.add.assert_not_called()  # user declined, but prompt was shown
 
 
-def test_save_prompt_accepts_suggested_id_on_enter() -> None:
+@patch("synapse.cli.suggest_petname_ids", return_value=["alice-reviewer"])
+def test_save_prompt_accepts_suggested_id_on_enter(mock_suggest: MagicMock) -> None:
     """Empty input on save ID prompt should adopt the suggested petname."""
     store = MagicMock(spec=AgentProfileStore)
     store.list_all.return_value = []
@@ -215,9 +216,7 @@ def test_save_prompt_accepts_suggested_id_on_enter() -> None:
 
     store.add.assert_called_once()
     call_kwargs = store.add.call_args.kwargs
-    # The suggested ID should be a valid petname (non-empty, contains '-')
-    assert call_kwargs["profile_id"]
-    assert "-" in call_kwargs["profile_id"]
+    assert call_kwargs["profile_id"] == "alice-reviewer"
 
 
 def test_save_prompt_suggests_petname_and_retries_on_invalid_id() -> None:

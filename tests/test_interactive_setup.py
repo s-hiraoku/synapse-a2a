@@ -109,9 +109,8 @@ class TestInteractiveSetup(unittest.TestCase):
                 "synapse-claude-8100", 8100, profile="claude"
             )
 
-        # suggest_petname_ids("claude") returns "claude-agent" as first candidate
-        self.assertIsNotNone(name)
-        self.assertTrue(len(name) > 0)
+        # profile="claude" の既定候補を Enter で採用
+        self.assertEqual(name, "claude-agent")
         self.assertEqual(role, "MyRole")
         self.assertIsNone(skill_set)
 

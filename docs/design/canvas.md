@@ -448,13 +448,14 @@ When a mermaid block carries `x_title` or `x_filename` metadata, the renderer wr
 
 ### SPA Routing
 
-The browser UI uses hash-based SPA routing with four views:
+The browser UI uses hash-based SPA routing with five views:
 
 | Route | View | Icon | Description |
 |---|---|---|---|
 | `#/` | **Canvas view** | `ph-projector-screen` | Full-viewport projection of the latest card. Designed for immersive content display. |
 | `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, file locks, worktrees, shared memory, and registry errors. Each widget uses a summary+detail expand/collapse pattern. |
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
+| `#/admin` | **Agent Control** | `ph-crown` | Interactive agent management: send messages, inspect responses, and control the fleet. |
 | `#/system` | **System view** | `ph-gear` | Configuration panel: tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, and environment. |
 
 Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the topbar displays "Canvas / History". The URL hash updates accordingly and the browser back/forward buttons work as expected.
