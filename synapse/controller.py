@@ -89,6 +89,7 @@ class TerminalController:
         submit_confirm_timeout: float | None = None,
         submit_confirm_poll_interval: float | None = None,
         submit_confirm_retries: int | None = None,
+        submit_fallback_sequences: str | list[str] | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -283,6 +284,26 @@ class TerminalController:
                     f"got {submit_confirm_retries}"
                 )
             self._submit_confirm_retries = submit_confirm_retries
+
+        # Fallback submit sequences for confirmation retries (Copilot).
+        # Each retry cycles through the list (wrapping from end to start).
+        # Only when this list is empty does the retry use the original submit_bytes.
+        self._submit_fallback_sequences: list[bytes] = []
+        if submit_fallback_sequences:
+            if isinstance(submit_fallback_sequences, str):
+                submit_fallback_sequences = [submit_fallback_sequences]
+            if not isinstance(submit_fallback_sequences, list):
+                raise TypeError(
+                    "submit_fallback_sequences must be a list of strings, "
+                    f"got {type(submit_fallback_sequences).__name__}"
+                )
+            for i, seq in enumerate(submit_fallback_sequences):
+                if not isinstance(seq, str):
+                    raise TypeError(
+                        f"submit_fallback_sequences[{i}] must be str, "
+                        f"got {type(seq).__name__}"
+                    )
+                self._submit_fallback_sequences.append(seq.encode("utf-8"))
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.
@@ -987,6 +1008,17 @@ class TerminalController:
             and self._submit_confirm_retries > 0
         )
 
+    def _get_retry_submit_bytes(self, attempt: int, original: bytes) -> bytes:
+        """Return the submit bytes for a given retry attempt.
+
+        Cycles through fallback sequences circularly; returns *original*
+        only when no fallback sequences are configured.
+        """
+        if self._submit_fallback_sequences:
+            index = attempt % len(self._submit_fallback_sequences)
+            return self._submit_fallback_sequences[index]
+        return original
+
     def _submit_confirmed(self, data: str, initial_status: str) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
         current_status = self.status
@@ -1020,11 +1052,18 @@ class TerminalController:
         for attempt in range(self._submit_confirm_retries + 1):
             for _ in range(poll_limit):
                 if self._submit_confirmed(data, initial_status):
+                    if attempt > 0:
+                        used = self._get_retry_submit_bytes(attempt - 1, submit_bytes)
+                        if used is not submit_bytes:
+                            logger.info(
+                                f"[{self.agent_id}] submit confirmed via "
+                                f"fallback sequence {used!r} (attempt {attempt})"
+                            )
                     return
                 time.sleep(self._submit_confirm_poll_interval)
 
             if attempt < self._submit_confirm_retries:
-                self._write_all(submit_bytes)
+                self._write_all(self._get_retry_submit_bytes(attempt, submit_bytes))
 
         message = (
             f"[{self.agent_id}] submit confirmation failed after "

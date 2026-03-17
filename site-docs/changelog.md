@@ -7,7 +7,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.15.1
 
 - **Added**: Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts)
-- **Fixed**: MCP setup docs — removed unnecessary `--agent-id`/`--agent-type`/`--port` from client config examples (auto-resolved from `$SYNAPSE_AGENT_ID`)
+- **Added**: Copilot submit fallback chain — cycles through alternative submit sequences on each confirmation retry
+- **Added**: Context delta for task responses — `--wait`/`--notify` replies prefer PTY output since task start
+- **Fixed**: MCP setup docs — removed unnecessary `--agent-id`/`--agent-type`/`--port` from client config examples
+- **Fixed**: Copilot PTY input not processed when `\r` alone fails to trigger Ink TUI submission
 
 ### v0.15.0
 

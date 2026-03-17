@@ -16,15 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts), distinct from `html` format for raw snippets
+- Copilot submit fallback chain: `submit_fallback_sequences` profile field cycles through alternative submit sequences (`\n`, `\x1b\r`) on each confirmation retry instead of repeating the same `\r`
+- `_get_retry_submit_bytes` helper method for submit retry sequence selection
+- Context delta for task responses: `--wait`/`--notify` replies now prefer PTY output captured since task start, reducing status-line noise in responses
 
 ### Fixed
 
 - MCP setup documentation: removed unnecessary `--agent-id`, `--agent-type`, `--port` options from all client configuration examples (auto-resolved from `$SYNAPSE_AGENT_ID`)
+- Copilot PTY input not being processed when `\r` alone fails to trigger Ink TUI submission
 
 ### Documentation
 
 - Simplified MCP client configuration across site-docs, docs, guides, and plugin skills
 - Updated Card Gallery with artifact format sample (interactive counter)
+- Updated `synapse-reference.md`, `HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md`, and `profiles-yaml.md` with fallback sequence documentation
+- Added `--wait`/`--notify` response behavior explanation to README (EN/KO)
 
 ## [0.15.0] - 2026-03-16
 

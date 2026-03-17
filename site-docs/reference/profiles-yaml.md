@@ -13,6 +13,7 @@ bracketed_paste: boolean           # Wrap PTY data in bracketed paste sequences 
 submit_confirm_timeout: float      # Optional: poll window for post-submit confirmation (seconds)
 submit_confirm_poll_interval: float # Optional: poll interval for submit confirmation (seconds)
 submit_confirm_retries: integer    # Optional: extra submit attempts after confirmation failures
+submit_fallback_sequences: [string] # Optional: alternative submit sequences tried on each confirmation retry
 
 idle_detection:
   strategy: "pattern" | "timeout" | "hybrid"  # Detection strategy (required)
@@ -96,6 +97,17 @@ Bounded post-submit confirmation for TUIs where text may land in the input box w
 submit_confirm_timeout: 1.5         # Per confirmation round
 submit_confirm_poll_interval: 0.05  # Poll every 50ms
 submit_confirm_retries: 3           # Extra submit attempts after initial retry
+```
+
+### submit_fallback_sequences
+
+Alternative submit sequences tried in order on each confirmation retry when the primary `submit_sequence` fails to execute input. Each entry is sent as a raw byte string (C-style escapes are expanded). This is useful for TUI frameworks where different versions may respond to different key sequences.
+
+```yaml
+submit_fallback_sequences:
+  - "\n"        # LF — some Ink versions accept this instead of CR
+  - "\x1b\r"   # ESC + CR — alternative for certain terminal modes
+# Default: not set (only submit_sequence is used)
 ```
 
 ### idle_detection.strategy
@@ -186,6 +198,9 @@ bracketed_paste: true
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
+submit_fallback_sequences:
+  - "\n"
+  - "\x1b\r"
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"

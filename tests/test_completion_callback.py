@@ -121,6 +121,7 @@ class TestCompletionNotification:
         controller.get_context.return_value = "task done successfully"
 
         app = FastAPI()
+        app.state.router_controller = controller
         router = create_a2a_router(controller, "test-agent", 8121, "\n")
         app.include_router(router)
         return app
@@ -231,6 +232,56 @@ class TestCompletionNotification:
         assert get_response.status_code == 200
         mock_send.assert_called_once()
         mock_notify.assert_not_called()
+
+    def test_wait_response_uses_context_delta_not_terminal_tail(self, client):
+        """Auto-response should prefer output since task start over the PTY tail."""
+        app_controller = client.app.state.router_controller
+        app_controller.get_context.return_value = "Update available!\n"
+
+        send_response = client.post(
+            "/tasks/send",
+            json={
+                "message": {"role": "user", "parts": [{"type": "text", "text": "run"}]},
+                "metadata": {
+                    "response_mode": "wait",
+                    "sender": {
+                        "sender_id": "synapse-claude-8100",
+                        "sender_endpoint": "http://localhost:8100",
+                        "sender_task_id": "sender-task-2",
+                    },
+                },
+            },
+        )
+        assert send_response.status_code == 200
+        task_id = send_response.json()["task"]["id"]
+
+        app_controller.get_context.return_value = (
+            "Update available!\n"
+            "Answer line 1\n"
+            "Answer line 2\n"
+            "permissions on (shift+tab to cycle)\n"
+        )
+
+        with (
+            patch(
+                "synapse.a2a_compat._send_response_to_sender", new_callable=AsyncMock
+            ) as mock_send,
+            patch(
+                "synapse.a2a_compat._notify_sender_completion",
+                new_callable=AsyncMock,
+                create=True,
+            ) as mock_notify,
+        ):
+            get_response = client.get(f"/tasks/{task_id}")
+
+        assert get_response.status_code == 200
+        mock_notify.assert_not_called()
+        mock_send.assert_called_once()
+        sent_task = mock_send.await_args.args[0]
+        contents = [artifact.data["content"] for artifact in sent_task.artifacts]
+        joined = "\n".join(contents)
+        assert "Answer line 1" in joined
+        assert "Update available!" not in joined
 
     @pytest.mark.asyncio
     async def test_notify_sender_completion_is_best_effort(self):

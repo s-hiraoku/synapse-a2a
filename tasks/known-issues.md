@@ -57,10 +57,10 @@ Some TUI apps (Ink-based) may not respond to `\r` for submission.
 
 **Current Status:**
 - `\r` works for Gemini CLI
-- Not tested with all TUI frameworks
+- Copilot CLI uses `submit_fallback_sequences` to cycle through alternative submit sequences (`\n`, `\x1b\r`) on each confirmation retry. Configured in `copilot.yaml`.
 
-**Investigation Needed:**
-- Test with other Ink-based CLIs
+**Remaining Investigation:**
+- Test with other Ink-based CLIs beyond Copilot
 - Document which submit sequences work with which tools
 
 ---

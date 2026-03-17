@@ -138,6 +138,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     submit_confirm_timeout = profile.get("submit_confirm_timeout")
     submit_confirm_poll_interval = profile.get("submit_confirm_poll_interval")
     submit_confirm_retries = profile.get("submit_confirm_retries")
+    submit_fallback_sequences = profile.get("submit_fallback_sequences")
 
     controller = TerminalController(
         command=profile["command"],
@@ -159,6 +160,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         submit_confirm_timeout=submit_confirm_timeout,
         submit_confirm_poll_interval=submit_confirm_poll_interval,
         submit_confirm_retries=submit_confirm_retries,
+        submit_fallback_sequences=submit_fallback_sequences,
     )
     controller.start()
 
