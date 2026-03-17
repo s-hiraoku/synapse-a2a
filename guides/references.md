@@ -1915,6 +1915,7 @@ synapse canvas stop [--port PORT]     # Canvas サーバーを停止
 | `synapse canvas chart <json>` | Chart.js カード |
 | `synapse canvas code <body>` | シンタックスハイライト付きコードカード |
 | `synapse canvas html <body>` | 生 HTML カード（サンドボックス iframe） |
+| `synapse canvas post artifact <body>` | インタラクティブ HTML/JS/CSS アプリカード（サンドボックス iframe） |
 | `synapse canvas diff <body>` | サイドバイサイド diff カード |
 | `synapse canvas image <url>` | 画像カード |
 | `synapse canvas briefing <json>` | ブリーフィングテンプレートカード。`--file` 対応 |

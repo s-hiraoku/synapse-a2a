@@ -71,6 +71,7 @@ synapse memory search <query>
 synapse canvas serve [--port 3000] [--no-open]
 synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
 synapse canvas post markdown "## Doc" --title "Doc"
+synapse canvas post artifact '<!doctype html>...' --title "Counter App"
 synapse canvas post-raw '{"content":{"format":"code","body":"print(1)","x_title":"Demo"}}'
 synapse canvas briefing '{"content":[...],"sections":[...]}'
 synapse canvas link "https://example.com/article" --title "Reference"
@@ -102,8 +103,7 @@ synapse init
 synapse reset
 
 # MCP Bootstrap
-synapse mcp serve                          # Start MCP server over stdio
-synapse mcp serve --agent-id synapse-claude-8100 --agent-type claude --port 8100
+synapse mcp serve                          # Start MCP server over stdio (options auto-resolved from $SYNAPSE_AGENT_ID)
 
 # MCP Tools (available via JSON-RPC tools/call)
 # bootstrap_agent    — Returns runtime context (agent_id, port, features)

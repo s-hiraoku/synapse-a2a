@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.15.0`).
+You should see the version number (e.g., `0.15.1`).
 
 ## Initialize Configuration
 
@@ -119,17 +119,14 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
           "command": "/path/to/uv",
           "args": [
             "run", "--directory", "/path/to/synapse-a2a",
-            "python", "-m", "synapse.mcp",
-            "--agent-id", "synapse-claude-8100",
-            "--agent-type", "claude",
-            "--port", "8100"
+            "python", "-m", "synapse.mcp"
           ]
         }
       }
     }
     ```
 
-    Or via CLI: `claude mcp add --scope user synapse /path/to/uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100`
+    Or via CLI: `claude mcp add --scope user synapse /path/to/uv run --directory /path/to/synapse-a2a python -m synapse.mcp`
 
 === "Gemini CLI"
 
@@ -142,10 +139,7 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
           "command": "/path/to/uv",
           "args": [
             "run", "--directory", "/path/to/synapse-a2a",
-            "python", "-m", "synapse.mcp",
-            "--agent-id", "synapse-gemini-8110",
-            "--agent-type", "gemini",
-            "--port", "8110"
+            "python", "-m", "synapse.mcp"
           ],
           "timeout": 5000,
           "trust": true
@@ -164,9 +158,6 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
     args = [
       "run", "--directory", "/path/to/synapse-a2a",
       "python", "-m", "synapse.mcp",
-      "--agent-id", "synapse-codex-8120",
-      "--agent-type", "codex",
-      "--port", "8120",
     ]
     ```
 
@@ -182,10 +173,7 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
           "command": [
             "/path/to/uv",
             "run", "--directory", "/path/to/synapse-a2a",
-            "python", "-m", "synapse.mcp",
-            "--agent-id", "synapse-opencode-8130",
-            "--agent-type", "opencode",
-            "--port", "8130"
+            "python", "-m", "synapse.mcp"
           ],
           "enabled": true,
           "timeout": 5000
@@ -208,10 +196,7 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
           "command": "/path/to/uv",
           "args": [
             "run", "--directory", "/path/to/synapse-a2a",
-            "python", "-m", "synapse.mcp",
-            "--agent-id", "synapse-copilot-8140",
-            "--agent-type", "copilot",
-            "--port", "8140"
+            "python", "-m", "synapse.mcp"
           ]
         }
       }
@@ -228,14 +213,14 @@ Once this Synapse MCP configuration is present, Synapse skips PTY startup instru
 
     ```json
     "command": "synapse",
-    "args": ["mcp", "serve", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]
+    "args": ["mcp", "serve"]
     ```
 
     If you installed via **pip** (system or venv), you can use either the entrypoint or the module directly:
 
     ```json
     "command": "python",
-    "args": ["-m", "synapse.mcp", "--agent-id", "synapse-claude-8100", "--agent-type", "claude", "--port", "8100"]
+    "args": ["-m", "synapse.mcp"]
     ```
 
 For detailed configuration, troubleshooting, and verification steps, see [MCP Bootstrap Setup](../guide/mcp-setup.md).

@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - History moved from top-level sidebar item to Canvas sub-menu (`nav-sub` class), with Canvas parent link staying active on History route and topbar showing "Canvas / History"
 
+## [0.15.1] - 2026-03-17
+
+### Added
+
+- Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts), distinct from `html` format for raw snippets
+
+### Fixed
+
+- MCP setup documentation: removed unnecessary `--agent-id`, `--agent-type`, `--port` options from all client configuration examples (auto-resolved from `$SYNAPSE_AGENT_ID`)
+
+### Documentation
+
+- Simplified MCP client configuration across site-docs, docs, guides, and plugin skills
+- Updated Card Gallery with artifact format sample (interactive counter)
+
 ## [0.15.0] - 2026-03-16
 
 ### Added
@@ -2426,6 +2441,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.12.2...v0.13.0

@@ -73,6 +73,7 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "mermaid": FormatSpec(body_type="string", cdn="mermaid/11.4.1/mermaid.min.js"),
     "markdown": FormatSpec(body_type="string", cdn="marked/15.0.0/marked.min.js"),
     "html": FormatSpec(body_type="string", cdn=None, sandboxed=True),
+    "artifact": FormatSpec(body_type="string", cdn=None, sandboxed=True),
     "table": FormatSpec(body_type="object", cdn=None),
     "json": FormatSpec(body_type="any", cdn=None),
     "diff": FormatSpec(body_type="string", cdn="diff2html/3.4.48/diff2html.min.js"),

@@ -308,7 +308,7 @@ tools (`bootstrap_agent`, `list_agents`, `analyze_task`) over stdio MCP transpor
 
 ```bash
 # Start manually for local testing
-synapse mcp serve --agent-id synapse-codex-8120 --agent-type codex --port 8120
+synapse mcp serve
 ```
 
 Typical client config targets:

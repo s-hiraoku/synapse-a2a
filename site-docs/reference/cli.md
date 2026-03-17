@@ -592,6 +592,7 @@ synapse canvas post <format> "<body>" [OPTIONS]
 | `markdown` | Markdown text | Formatted documents |
 | `table` | `{headers, rows}` JSON | Structured data |
 | `html` | Raw HTML | Full freedom (sandboxed iframe) |
+| `artifact` | Full HTML document | Interactive HTML/JS/CSS application (sandboxed iframe) |
 | `code` | Source code | Syntax-highlighted code |
 | `diff` | Unified diff | Side-by-side diff view |
 | `chart` | Chart.js config JSON | All chart types |

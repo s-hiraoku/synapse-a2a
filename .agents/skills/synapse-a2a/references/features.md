@@ -151,11 +151,9 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 - `analyze_task` analyzes a user prompt and suggests team/task splits when the work is large enough (Smart Suggest).
 
 ```bash
-# Start MCP server (stdio transport)
-synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
-
-# Module entrypoint (recommended for MCP client configs)
-python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+# Start MCP server (stdio transport; options auto-resolved from $SYNAPSE_AGENT_ID)
+# Fallback: if SYNAPSE_AGENT_ID is unset, defaults to agent-id "synapse-mcp"
+synapse mcp serve
 ```
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.
@@ -170,7 +168,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 
 **Views:** Hash-routed SPA with five views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment), and `#/admin` (Admin Command Center: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
 
-**23 card formats:** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost, link-preview.
+**26 card formats:** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, tip, progress, terminal, dependency-graph, cost, link-preview, plan.
 
 **Rendering highlights:**
 - **Markdown cards**: Enhanced parser supports headings, paragraphs, bold/italic, inline code, code blocks, unordered and ordered lists, tables, blockquotes, horizontal rules, and links. Document content uses Source Sans 3 body font and Source Code Pro monospace font for a polished typographic appearance
@@ -178,6 +176,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
 - **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with theme sync via `postMessage` (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver, dark mode background, and full document normalization (extracts `<head>`/`<body>` from complete HTML documents to avoid CSP/cascade conflicts)
+- **Artifact cards**: Interactive HTML/JS/CSS applications (like Claude.ai Artifacts) rendered in sandboxed iframe (`allow-scripts`) with theme sync via `postMessage` (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver; accepts a full HTML document string
 - **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 - **Link-preview cards**: Fetches Open Graph metadata from a URL and renders a rich card with title, description, and thumbnail image
