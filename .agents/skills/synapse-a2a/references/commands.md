@@ -1652,6 +1652,9 @@ synapse canvas post diff "@@ -1 +1 @@\n-old\n+new" --title "Changes"
 # Post HTML (sandboxed iframe with theme sync, auto-resize, dark mode)
 synapse canvas post html "<h1>Hello</h1><p>Rich content</p>" --title "HTML Card"
 
+# Post an interactive artifact (sandboxed iframe for full HTML/JS/CSS applications)
+synapse canvas post artifact '<html><body><button onclick="alert(1)">Click</button></body></html>' --title "App"
+
 # Read body from file
 synapse canvas post mermaid "" --file diagram.mmd --title "From File"
 
@@ -1683,7 +1686,7 @@ synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
 
-**Supported formats (23):** mermaid, markdown, html, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost, link-preview
+**Supported formats (24):** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, progress, terminal, dependency-graph, cost, link-preview
 
 ### Templates
 
@@ -1742,6 +1745,7 @@ Rule of thumb:
 | chart | Chart.js 4.x | All chart types: bar, line, pie, doughnut, radar, polarArea, scatter, bubble |
 | diff | Side-by-side | Parsed into left (deletions) / right (additions) columns |
 | html | Sandboxed iframe | `allow-scripts`; theme sync via `postMessage` (`--bg`/`--fg`/`--border` CSS vars), auto-resize via ResizeObserver, dark mode support, full document normalization |
+| artifact | Sandboxed iframe | Interactive HTML/JS/CSS applications (like Claude.ai Artifacts); full document in sandboxed `allow-scripts` iframe |
 | image | `<img>` tag | PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB) |
 | mermaid | Mermaid 11.x | Diagrams rendered client-side; theme-synced with light/dark toggle (Catppuccin dark / Indigo light palettes, brand accent `#4051b5`) |
 | progress | Progress bar + steps | `status`: in_progress, completed, failed, paused |

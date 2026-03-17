@@ -671,6 +671,12 @@
           body: "<body style='margin:0;font-family:Inter,sans-serif;background:#111827;color:#eff4ff;display:grid;place-items:center;height:100vh'><div style='padding:24px;border:1px solid rgba(255,255,255,.18);border-radius:20px;background:rgba(255,255,255,.06)'><h2 style='margin-top:0'>HTML card</h2><p>Rendered in an isolated iframe.</p></div></body>",
         },
         {
+          format: "artifact",
+          title: "artifact",
+          description: "Interactive HTML/JS/CSS application in a sandboxed iframe — like Claude.ai Artifacts.",
+          body: "<!doctype html><html><head><style>body{margin:0;font-family:Inter,sans-serif;background:var(--bg,#111827);color:var(--fg,#eff4ff);display:grid;place-items:center;height:100vh}button{padding:12px 24px;font-size:1.2em;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(255,255,255,.08);color:inherit;cursor:pointer}button:hover{background:rgba(255,255,255,.15)}#count{font-size:3em;font-weight:700}</style></head><body><div style='text-align:center'><div id='count'>0</div><button onclick='document.getElementById(\"count\").textContent=++this.n' n='0'>Increment</button></div></body></html>",
+        },
+        {
           format: "table",
           title: "table",
           description: "Structured tabular data with headers and rows.",
@@ -1021,6 +1027,7 @@
             renderMarkdown(wrap, block.body);
             break;
           case "html":
+          case "artifact":
             renderHTML(wrap, block.body);
             break;
           case "table":

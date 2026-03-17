@@ -638,6 +638,7 @@
         renderMarkdown(wrap, block.body);
         break;
       case "html":
+      case "artifact":
         renderHTML(wrap, block.body, options);
         break;
       case "table":
@@ -1381,7 +1382,7 @@
   }
 
   function broadcastThemeToIframes(theme) {
-    document.querySelectorAll(".format-html iframe").forEach(function(iframe) {
+    document.querySelectorAll(".format-html iframe, .format-artifact iframe").forEach(function(iframe) {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage({ type: "synapse-theme", theme: theme }, "*");
       }
@@ -4583,7 +4584,7 @@
     if (!e.data || e.data.type !== "synapse-resize") return;
     var h = e.data.height;
     if (typeof h !== "number" || h <= 0 || h > 10000) return;
-    var iframes = document.querySelectorAll(".format-html iframe");
+    var iframes = document.querySelectorAll(".format-html iframe, .format-artifact iframe");
     for (var i = 0; i < iframes.length; i++) {
       if (iframes[i].contentWindow === e.source) {
         // Skip canvas view iframes — they use CSS flex for sizing

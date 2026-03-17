@@ -295,14 +295,15 @@ def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     """Canvas view HTML blocks should be allowed to fill the spotlight body."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    start = css.index(".canvas-content > .content-block.format-html {")
+    start = css.index(".canvas-content > .content-block.format-html,")
     end = css.index("}", start)
     html_block = css[start:end]
 
     assert "flex: 1;" in html_block
     assert "min-height: 0;" in html_block
+    assert "format-artifact" in html_block
 
-    start = css.index(".canvas-content .format-html iframe {")
+    start = css.index(".canvas-content .format-html iframe,")
     end = css.index("}", start)
     iframe_rule = css[start:end]
 

@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.1
+
+- **Added**: Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts)
+- **Fixed**: MCP setup docs — removed unnecessary `--agent-id`/`--agent-type`/`--port` from client config examples (auto-resolved from `$SYNAPSE_AGENT_ID`)
+
 ### v0.15.0
 
 - **Added**: Admin terminal jump — double-click agent row to jump to its terminal (tmux, VS Code, Ghostty, iTerm2)
