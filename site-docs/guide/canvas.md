@@ -150,7 +150,7 @@ The `content.format` field determines how `content.body` is rendered. New format
     The `artifact` format is purpose-built for interactive HTML/JS/CSS applications — think Claude.ai Artifacts. It shares the same sandboxed iframe renderer as `html` but carries distinct semantic meaning: `artifact` signals an interactive application (counter, form, game, data visualization) whereas `html` is for raw HTML snippets. Use `artifact` when posting self-contained interactive apps.
 
 !!! tip "The `html` Escape Hatch — Raw HTML"
-    When no predefined format fits, agents can send raw HTML via the `html` format. This makes expression essentially unlimited — agents can create interactive HTML/JS/CSS artifacts similar to Claude.ai Artifacts. HTML content is rendered in a sandboxed `<iframe>` (`sandbox="allow-scripts"`, no `allow-same-origin`) for safety.
+    When no predefined format fits, agents can send raw HTML snippets via the `html` format. Use this for simple markup and content insertion — styled text, embedded widgets, or layout fragments. HTML content is rendered in a sandboxed `<iframe>` (`sandbox="allow-scripts"`, no `allow-same-origin`) for safety. For interactive applications (counters, forms, games), use the `artifact` format instead.
 
     **Theme Sync**: The iframe automatically receives the Canvas theme via `postMessage`. Agent-generated HTML can use CSS variables `var(--bg)`, `var(--fg)`, and `var(--border)` to adapt to dark/light mode. When the user toggles the theme, all HTML iframes update instantly.
 
@@ -571,7 +571,7 @@ Open `http://localhost:3000` to view the Canvas.
 
 The Canvas UI features a **glassmorphism design** with glass panels and `backdrop-filter` blur, **sidebar navigation** (fixed on desktop, hamburger drawer on mobile) with a custom SVG synapse brand icon, and **Phosphor Icons v2** throughout. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the top bar displays "Canvas / History". Colors are managed centrally via `palette.css` with the brand color unified to MkDocs Material indigo (`#4051b5`).
 
-For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all 24 card types plus the 6 built-in templates with hardcoded sample data under `site-docs/assets/`.
+For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all supported card types and built-in templates with hardcoded sample data under `site-docs/assets/`.
 
 The UI uses **SPA hash routing** with five views:
 
