@@ -1013,13 +1013,12 @@ class TerminalController:
     def _get_retry_submit_bytes(self, attempt: int, original: bytes) -> bytes:
         """Return the submit bytes for a given retry attempt.
 
-        Uses fallback sequences in order; falls back to *original* once
-        the list is exhausted.
+        Cycles through fallback sequences circularly; returns *original*
+        only when no fallback sequences are configured.
         """
-        if self._submit_fallback_sequences and attempt < len(
-            self._submit_fallback_sequences
-        ):
-            return self._submit_fallback_sequences[attempt]
+        if self._submit_fallback_sequences:
+            index = attempt % len(self._submit_fallback_sequences)
+            return self._submit_fallback_sequences[index]
         return original
 
     def _submit_confirmed(self, data: str, initial_status: str) -> bool:

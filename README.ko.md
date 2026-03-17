@@ -744,7 +744,7 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 | `--silent` | - | 전송 후 잊기 - 응답이나 알림이 필요 없음 |
 | `--force` | - | 작업 디렉터리 불일치 체크를 우회하여 전송 |
 
-`--wait` 와 `--notify` 는 PTY 생출력을 직접 읽지 않고, 발신자 측 task 와 구조화된 A2A reply artifact 로 완료를 처리합니다. 또한 완료 시점에는 단순히 터미널 마지막 부분을 쓰지 않고 작업 시작 이후의 PTY 출력 차분을 우선 사용하므로, Claude Code / Copilot 의 상태줄이나 업데이트 배너가 응답에 섞일 가능성을 줄입니다.
+`--wait` 와 `--notify` 는 PTY 생출력을 직접 읽지 않고, 발신자 측 task(작업) 와 구조화된 A2A reply artifact(응답 아티팩트) 로 완료를 처리합니다. 또한 완료 시점에는 단순히 터미널 마지막 부분을 쓰지 않고 작업 시작 이후의 PTY 출력 차분을 우선 사용하므로, Claude Code / Copilot 의 상태줄이나 업데이트 배너가 응답에 섞일 가능성을 줄입니다.
 
 **예시:**
 
