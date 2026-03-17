@@ -89,7 +89,7 @@ class TerminalController:
         submit_confirm_timeout: float | None = None,
         submit_confirm_poll_interval: float | None = None,
         submit_confirm_retries: int | None = None,
-        submit_fallback_sequences: list[str] | None = None,
+        submit_fallback_sequences: str | list[str] | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -303,9 +303,7 @@ class TerminalController:
                         f"submit_fallback_sequences[{i}] must be str, "
                         f"got {type(seq).__name__}"
                     )
-                self._submit_fallback_sequences.append(
-                    seq.encode().decode("unicode_escape").encode("utf-8")
-                )
+                self._submit_fallback_sequences.append(seq.encode("utf-8"))
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.
