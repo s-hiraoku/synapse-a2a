@@ -286,8 +286,8 @@ class TerminalController:
             self._submit_confirm_retries = submit_confirm_retries
 
         # Fallback submit sequences for confirmation retries (Copilot).
-        # Each retry uses the next sequence instead of repeating the original.
-        # After the list is exhausted, retries fall back to the original submit_bytes.
+        # Each retry cycles through the list (wrapping from end to start).
+        # Only when this list is empty does the retry use the original submit_bytes.
         self._submit_fallback_sequences: list[bytes] = []
         if submit_fallback_sequences:
             if isinstance(submit_fallback_sequences, str):
