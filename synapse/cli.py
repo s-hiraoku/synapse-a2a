@@ -2793,6 +2793,7 @@ def interactive_agent_setup(
     current_name: str | None = None,
     current_role: str | None = None,
     current_skill_set: str | None = None,
+    existing_names: set[str] | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """Interactively prompt for agent name, role, and skill set.
 
@@ -2840,7 +2841,7 @@ def interactive_agent_setup(
             print("Name allows you to call this agent by name instead of ID.")
             print('Example: synapse send my-claude "hello"')
             print()
-            suggestions = suggest_petname_ids(profile)
+            suggestions = suggest_petname_ids(profile, exclude=existing_names)
             suggested_name = suggestions[0] if suggestions else None
             name = _input_with_default("Name", suggested_name)
             print()
@@ -4160,6 +4161,11 @@ def cmd_run_interactive(
         and sys.stdin.isatty()
         and (name is None or role is None or skill_set is None)
     ):
+        taken_names: set[str] = {
+            n
+            for info in registry.list_agents().values()
+            if (n := info.get("name")) is not None
+        }
         agent_name, agent_role, selected_skill_set = interactive_agent_setup(
             agent_id,
             port,
@@ -4167,6 +4173,7 @@ def cmd_run_interactive(
             current_name=name,
             current_role=role,
             current_skill_set=skill_set,
+            existing_names=taken_names,
         )
 
     if agent_name and not registry.is_name_unique(

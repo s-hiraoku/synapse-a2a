@@ -155,6 +155,31 @@ class TestInteractiveSetup(unittest.TestCase):
         self.assertEqual(role, "MyRole")
         self.assertIsNone(skill_set)
 
+    @patch("synapse.cli.input")
+    @patch("synapse.skills.load_skill_sets")
+    @patch("termios.tcgetattr")
+    @patch("termios.tcsetattr")
+    def test_name_placeholder_skips_existing_names(
+        self, mock_set, mock_get, mock_load, mock_input
+    ):
+        """Suggested name should skip names already taken by other agents."""
+        mock_load.return_value = {}
+        # Accept placeholder with Enter, then "MyRole"
+        mock_input.side_effect = ["", "MyRole"]
+
+        with patch("sys.stdin.isatty", return_value=True):
+            name, role, skill_set = interactive_agent_setup(
+                "synapse-claude-8100",
+                8100,
+                profile="claude",
+                existing_names={"claude-agent"},
+            )
+
+        # "claude-agent" is taken, so next candidate "claude-helper" should be used
+        self.assertEqual(name, "claude-helper")
+        self.assertEqual(role, "MyRole")
+        self.assertIsNone(skill_set)
+
 
 if __name__ == "__main__":
     unittest.main()
