@@ -104,7 +104,7 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 |----------|--------|-------------|
 | `/tasks/{id}/subscribe` | GET | Subscribe to task updates via Server-Sent Events |
 
-### Canvas Admin Endpoints (served by Canvas server)
+### Canvas Agent Control Endpoints (served by Canvas server)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

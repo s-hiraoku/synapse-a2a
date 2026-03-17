@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.2
+
+- **Added**: Name prompt placeholder — auto-suggests a petname (e.g., `Name [Enter = claude-agent]:`)
+- **Added**: Save ID prompt placeholder — suggests petname based on agent context
+- **Changed**: Canvas menu "Admin" renamed to "Agent Control", reordered before System
+
 ### v0.15.1
 
 - **Added**: Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts)

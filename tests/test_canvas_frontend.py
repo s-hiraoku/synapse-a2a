@@ -171,11 +171,11 @@ def test_admin_view_exists_in_html() -> None:
 
 
 def test_admin_nav_link_exists_and_follows_system() -> None:
-    """Admin nav link should exist and appear after the system nav item."""
+    """Admin nav link should exist and appear before the system nav item."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     system_pos = html.index('data-route="system"')
     admin_pos = html.index('data-route="admin"')
-    assert system_pos < admin_pos
+    assert admin_pos < system_pos
 
 
 def test_admin_route_in_js() -> None:
@@ -188,7 +188,7 @@ def test_admin_route_in_js() -> None:
     assert 'document.getElementById("admin-agents-widget")' in js
     assert 'document.getElementById("admin-message-input")' in js
     assert 'document.getElementById("admin-send-btn")' in js
-    assert 'admin: "Admin"' in js
+    assert 'admin: "Agent Control"' in js
     assert 'currentRoute === "admin"' in js
     assert "loadAdminAgents();" in js
 

@@ -2,6 +2,8 @@
 
 > Transform Canvas from a read-only display into an interactive command center for managing and communicating with agents directly from the browser.
 
+> **Note**: The Canvas menu label for this feature was renamed from "Admin" to "Agent Control". The route (`#/admin`) and API paths (`/api/admin/*`) remain unchanged. The menu now appears before System in the sidebar order.
+
 ## Overview
 
 The Admin Command Center extends the Synapse Canvas (browser UI at `localhost:3000`) with the ability to view agent status, send messages, spawn or stop agents, and monitor responses -- all from a single browser tab. It introduces an **Administrator** concept: a designated agent (or human operator) that coordinates the fleet through the Canvas interface.
@@ -53,12 +55,12 @@ synapse canvas serve
 # 3. Open the browser
 open http://localhost:3000
 
-# 4. Click the "Admin" tab in the navigation bar
+# 4. Click the "Agent Control" tab in the navigation bar
 # 5. Click an agent row in the table to select it
 # 6. Type a message in the textarea, press Cmd+Enter (or click Send)
 ```
 
-The Admin tab appears in the Canvas sidebar navigation alongside Canvas (with History as a sub-item), Dashboard, and System.
+The Agent Control tab appears in the Canvas sidebar navigation alongside Canvas (with History as a sub-item), Dashboard, and System. The menu order is: Canvas (with History sub-item), Dashboard, Agent Control, System.
 
 ## Architecture
 
@@ -620,7 +622,7 @@ For VS Code agents, the jump simply activates VS Code via AppleScript (`tell app
 | 502 error on send | Agent process crashed or port is unreachable | Check agent logs, restart with `synapse start` |
 | Polling times out (5 min) | Agent did not reply (busy, crashed, or does not support `synapse reply`) | Check agent status with `synapse list`; retry or use a different agent |
 | Reply not received | Agent lacks `sender_endpoint` awareness | Ensure agent has Synapse bootstrap instructions; reply stack must contain canvas-admin |
-| Admin tab not visible | Canvas running an older version without admin support | Stop Canvas (`synapse canvas stop`) and restart (`synapse canvas serve`) |
+| Agent Control tab not visible | Canvas running an older version without admin support | Stop Canvas (`synapse canvas stop`) and restart (`synapse canvas serve`) |
 
 ## Related Documentation
 

@@ -87,7 +87,7 @@ Evaluate collaboration opportunities before starting work:
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan) | `synapse canvas post/link/briefing/plan/open/list` |
-| **Admin Command Center** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
+| **Agent Control** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
 | **Plan Cards** | Mermaid DAG + step list with accept/sync workflow for task board integration | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
