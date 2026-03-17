@@ -482,7 +482,7 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `GET` | `/api/formats` | List supported formats |
 | `GET` | `/api/health` | Health check (returns `service`, `status`, `pid`, `cards`, `version`, `asset_hash`) |
 | `GET` | `/api/system` | System panel data (agents, tasks, file locks) |
-| `GET` | `/api/admin/agents` | List active agents for Admin view |
+| `GET` | `/api/admin/agents` | List active agents for Agent Control view |
 | `POST` | `/api/admin/send` | Send message to agent via A2A |
 | `POST` | `/tasks/send` | Receive agent replies (A2A callback) |
 | `GET` | `/api/admin/replies/{id}` | Poll for agent replies by task ID |
@@ -580,8 +580,8 @@ The UI uses **SPA hash routing** with five views:
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
 | `#/history` | **History** (sub-item of Canvas) | Card grid with live feed, agent messages, and filters |
 | `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
+| `#/admin` | **Agent Control** | Command center for sending messages to agents and managing agent lifecycle |
 | `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
-| `#/admin` | **Admin** | Command center for sending messages to agents and managing agent lifecycle |
 
 ### Canvas View (`#/`)
 
@@ -624,9 +624,9 @@ The History view shows the traditional card grid with live feed and agent messag
 - **Toast notifications**: `notify` type shows ephemeral messages. Toasts are **batched** within a 300ms window -- when multiple SSE events arrive in a burst, a single summary toast (e.g., "3 cards updated") is shown instead of individual toasts for each event.
 - **Agent badges**: Each card shows agent name, type icon/color, and relative timestamp
 
-### Admin View (`#/admin`)
+### Agent Control View (`#/admin`)
 
-The Admin view is a **Command Center** for directly interacting with running agents from the Canvas browser UI. It provides a chat-style interface for sending messages to agents and viewing their responses.
+The Agent Control view is a **Command Center** for directly interacting with running agents from the Canvas browser UI. It provides a chat-style interface for sending messages to agents and viewing their responses.
 
 **Components:**
 
@@ -647,5 +647,5 @@ The reply-based flow reuses the same `synapse reply` mechanism as inter-agent co
 
 The agent list refreshes automatically on SSE `system_update` events, so newly started or stopped agents appear without manual refresh.
 
-!!! tip "Admin API Endpoints"
-    The Admin view is backed by dedicated API endpoints on the Canvas server. See [Canvas Admin API](../reference/api.md#canvas-admin-api) for the full endpoint reference.
+!!! tip "Agent Control API Endpoints"
+    The Agent Control view is backed by dedicated API endpoints on the Canvas server. See [Canvas Admin API](../reference/api.md#canvas-admin-api) for the full endpoint reference.

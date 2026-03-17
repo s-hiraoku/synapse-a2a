@@ -92,6 +92,70 @@ class TestInteractiveSetup(unittest.TestCase):
 
         self.assertEqual(len(messages), 0)
 
+    @patch("synapse.cli.input")
+    @patch("synapse.skills.load_skill_sets")
+    @patch("termios.tcgetattr")
+    @patch("termios.tcsetattr")
+    def test_name_placeholder_accepted_on_enter(
+        self, mock_set, mock_get, mock_load, mock_input
+    ):
+        """Enter on name prompt should adopt the suggested petname."""
+        mock_load.return_value = {}
+        # Empty string for name (accept placeholder), then "MyRole" for role
+        mock_input.side_effect = ["", "MyRole"]
+
+        with patch("sys.stdin.isatty", return_value=True):
+            name, role, skill_set = interactive_agent_setup(
+                "synapse-claude-8100", 8100, profile="claude"
+            )
+
+        # suggest_petname_ids("claude") returns "claude-agent" as first candidate
+        self.assertIsNotNone(name)
+        self.assertTrue(len(name) > 0)
+        self.assertEqual(role, "MyRole")
+        self.assertIsNone(skill_set)
+
+    @patch("synapse.cli.input")
+    @patch("synapse.skills.load_skill_sets")
+    @patch("termios.tcgetattr")
+    @patch("termios.tcsetattr")
+    def test_name_placeholder_overridden_by_user_input(
+        self, mock_set, mock_get, mock_load, mock_input
+    ):
+        """User input on name prompt should override the placeholder."""
+        mock_load.return_value = {}
+        mock_input.side_effect = ["custom-name", "MyRole"]
+
+        with patch("sys.stdin.isatty", return_value=True):
+            name, role, skill_set = interactive_agent_setup(
+                "synapse-claude-8100", 8100, profile="claude"
+            )
+
+        self.assertEqual(name, "custom-name")
+        self.assertEqual(role, "MyRole")
+        self.assertIsNone(skill_set)
+
+    @patch("synapse.cli.input")
+    @patch("synapse.skills.load_skill_sets")
+    @patch("termios.tcgetattr")
+    @patch("termios.tcsetattr")
+    def test_name_fallback_when_no_profile(
+        self, mock_set, mock_get, mock_load, mock_input
+    ):
+        """Enter with no profile should adopt a generic fallback name."""
+        mock_load.return_value = {}
+        # Empty string for name (accept fallback), then "MyRole" for role
+        mock_input.side_effect = ["", "MyRole"]
+
+        with patch("sys.stdin.isatty", return_value=True):
+            name, role, skill_set = interactive_agent_setup("synapse-claude-8100", 8100)
+
+        # suggest_petname_ids("") returns generic fallbacks like "silent-snake"
+        self.assertIsNotNone(name)
+        self.assertTrue("-" in name)
+        self.assertEqual(role, "MyRole")
+        self.assertIsNone(skill_set)
+
 
 if __name__ == "__main__":
     unittest.main()

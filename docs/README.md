@@ -71,7 +71,7 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ### 実装ドキュメント
 
-- `admin-command-center.md` - **Canvas Admin Command Center ガイド**
+- `admin-command-center.md` - **Canvas Agent Control (Admin Command Center) ガイド**
   - ブラウザからエージェントにコマンド送信・レスポンス表示
   - Reply ベース方式（`synapse reply` を活用、PTY 出力は使わない）
   - API リファレンス、UI コンポーネント、設計判断

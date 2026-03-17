@@ -110,7 +110,7 @@ When you start an agent without `--name` or `--role`, Synapse offers an interact
 
 ```
 $ synapse claude
-? Enter a name for this agent (optional): reviewer
+? Name [Enter = claude-agent]: reviewer
 ? Enter a role for this agent (optional): Senior code reviewer
 Starting claude as 'reviewer' (Senior code reviewer)...
 ```

@@ -892,7 +892,7 @@ Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `m
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; System shows configuration.
+6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/admin`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; Agent Control (`#/admin`) provides interactive agent management; System shows configuration.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

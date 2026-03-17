@@ -34,7 +34,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", system: "System", admin: "Admin" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", system: "System", admin: "Agent Control" };
 
   // Current route
   let currentRoute = "canvas";

@@ -655,6 +655,21 @@ def cmd_agents_delete(args: argparse.Namespace) -> None:
     print(f"Deleted saved agent: {args.id_or_name}")
 
 
+def _input_with_default(
+    label: str,
+    default: str | None,
+    *,
+    input_func: Callable[[str], str] | None = None,
+) -> str | None:
+    """Prompt for free-text input with an optional suggested default."""
+    if input_func is None:
+        input_func = input
+    if default:
+        raw = input_func(f"{label} [Enter = {default}]: ").strip()
+        return raw if raw else default
+    return input_func(f"{label} [Enter to skip]: ").strip() or None
+
+
 def _maybe_prompt_save_agent_profile(
     *,
     profile: str,
@@ -694,8 +709,13 @@ def _maybe_prompt_save_agent_profile(
     if save not in {"y", "yes"}:
         return
 
+    suggestions = suggest_petname_ids(name, role, skill_set, profile)
+    suggested_id = suggestions[0] if suggestions else None
+
     while True:
-        profile_id = input_func("Saved agent ID (petname, e.g. silent-snake): ").strip()
+        profile_id = _input_with_default(
+            "Saved agent ID", suggested_id, input_func=input_func
+        )
         if not profile_id:
             print_func("Skipped: no saved agent ID provided.")
             return
@@ -703,7 +723,6 @@ def _maybe_prompt_save_agent_profile(
             AgentProfileStore._validate_profile_id(profile_id)
         except AgentProfileError as e:
             print_func(f"Invalid saved agent ID: {e}")
-            suggestions = suggest_petname_ids(name, role, skill_set, profile)
             if suggestions:
                 print_func("Try one of: " + ", ".join(suggestions))
             continue
@@ -2770,6 +2789,7 @@ def cmd_auth_setup(args: argparse.Namespace) -> None:
 def interactive_agent_setup(
     agent_id: str,
     port: int,
+    profile: str = "",
     current_name: str | None = None,
     current_role: str | None = None,
     current_skill_set: str | None = None,
@@ -2779,6 +2799,7 @@ def interactive_agent_setup(
     Args:
         agent_id: The agent ID (e.g., synapse-claude-8100).
         port: The port number.
+        profile: The agent profile type (e.g., "claude", "gemini").
         current_name: Current name if already specified.
         current_role: Current role if already specified.
         current_skill_set: Current skill set if already specified.
@@ -2819,7 +2840,9 @@ def interactive_agent_setup(
             print("Name allows you to call this agent by name instead of ID.")
             print('Example: synapse send my-claude "hello"')
             print()
-            name = input("Name [Enter to skip]: ").strip() or None
+            suggestions = suggest_petname_ids(profile)
+            suggested_name = suggestions[0] if suggestions else None
+            name = _input_with_default("Name", suggested_name)
             print()
 
         # Role selection
@@ -4140,6 +4163,7 @@ def cmd_run_interactive(
         agent_name, agent_role, selected_skill_set = interactive_agent_setup(
             agent_id,
             port,
+            profile=profile,
             current_name=name,
             current_role=role,
             current_skill_set=skill_set,
