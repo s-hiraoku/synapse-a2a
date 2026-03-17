@@ -857,7 +857,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] All 23 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
-- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
+- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), `#/admin` (Agent Control), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
