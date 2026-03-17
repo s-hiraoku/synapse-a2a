@@ -1786,7 +1786,7 @@ synapse canvas stop [--port/-p 3000]     # Stop server (verifies process identit
 synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
 
 # Module entrypoint (recommended for client configs — uses repo-pinned version)
-uv run --directory /path/to/synapse-a2a python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+uv run --directory /path/to/synapse-a2a python -m synapse.mcp
 ```
 
 **Defaults:** `--agent-id` defaults to `$SYNAPSE_AGENT_ID` or `synapse-mcp`. `--agent-type` is auto-extracted from the agent ID if not specified.

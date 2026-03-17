@@ -26,7 +26,7 @@ The MCP server exposes:
 
 ```bash
 # Verify MCP server works
-synapse mcp serve --agent-type claude --port 8100
+synapse mcp serve
 # Should wait for JSON-RPC input on stdin. Press Ctrl+C to exit.
 ```
 
@@ -35,11 +35,13 @@ synapse mcp serve --agent-type claude --port 8100
 Each agent requires a configuration file telling it how to start the Synapse MCP server. The recommended command uses `uv run` to ensure the correct version:
 
 ```
-uv run --directory /path/to/synapse-a2a python -m synapse.mcp \
-  --agent-id <agent-id> --agent-type <type> --port <port>
+uv run --directory /path/to/synapse-a2a python -m synapse.mcp
 ```
 
 Replace `/path/to/synapse-a2a` with your actual checkout path.
+
+!!! tip "agent-id / agent-type は自動解決"
+    `--agent-id` と `--agent-type` を明示する必要はありません。Synapse はエージェント起動時に環境変数 `SYNAPSE_AGENT_ID` を自動セットし、MCP サーバーはそこから agent-id を取得、agent-type は agent-id から推論します。
 
 ### Claude Code
 
@@ -53,10 +55,7 @@ Replace `/path/to/synapse-a2a` with your actual checkout path.
       "command": "/path/to/uv",
       "args": [
         "run", "--directory", "/path/to/synapse-a2a",
-        "python", "-m", "synapse.mcp",
-        "--agent-id", "synapse-claude-8100",
-        "--agent-type", "claude",
-        "--port", "8100"
+        "python", "-m", "synapse.mcp"
       ]
     }
   }
@@ -68,7 +67,7 @@ Or add via CLI:
 ```bash
 claude mcp add --scope user synapse \
   /path/to/uv run --directory /path/to/synapse-a2a \
-  python -m synapse.mcp --agent-type claude --port 8100
+  python -m synapse.mcp
 ```
 
 **Docs**: <https://code.claude.com/docs/en/mcp>
@@ -83,9 +82,6 @@ command = "/path/to/uv"
 args = [
   "run", "--directory", "/path/to/synapse-a2a",
   "python", "-m", "synapse.mcp",
-  "--agent-id", "synapse-codex-8120",
-  "--agent-type", "codex",
-  "--port", "8120",
 ]
 ```
 
@@ -102,10 +98,7 @@ args = [
       "command": "/path/to/uv",
       "args": [
         "run", "--directory", "/path/to/synapse-a2a",
-        "python", "-m", "synapse.mcp",
-        "--agent-id", "synapse-gemini-8110",
-        "--agent-type", "gemini",
-        "--port", "8110"
+        "python", "-m", "synapse.mcp"
       ],
       "timeout": 5000,
       "trust": true
@@ -128,10 +121,7 @@ args = [
       "command": [
         "/path/to/uv",
         "run", "--directory", "/path/to/synapse-a2a",
-        "python", "-m", "synapse.mcp",
-        "--agent-id", "synapse-opencode-8130",
-        "--agent-type", "opencode",
-        "--port", "8130"
+        "python", "-m", "synapse.mcp"
       ],
       "enabled": true,
       "timeout": 5000
@@ -156,10 +146,7 @@ args = [
       "command": "/path/to/uv",
       "args": [
         "run", "--directory", "/path/to/synapse-a2a",
-        "python", "-m", "synapse.mcp",
-        "--agent-id", "synapse-copilot-8140",
-        "--agent-type", "copilot",
-        "--port", "8140"
+        "python", "-m", "synapse.mcp"
       ]
     }
   }
@@ -280,7 +267,7 @@ When Smart Suggest is enabled, the default instruction resource automatically in
 After configuring, restart the agent and check that the MCP server connects:
 
 1. The agent should show `synapse` as a connected MCP server
-2. Run `synapse mcp serve --agent-type <type> --port <port>` manually to debug if connection fails
+2. Run `synapse mcp serve` manually to debug if connection fails
 3. On the next `synapse <agent>` launch, Synapse should not paste the long initial instruction block into the PTY
 
 ## Troubleshooting
@@ -289,7 +276,7 @@ After configuring, restart the agent and check that the MCP server connects:
 |---------|-------|-----|
 | `failed` status | `uv` or `synapse` not found in PATH | Use absolute path to `uv` binary |
 | Connection timeout | Import takes too long | Check `uv sync` completed, try `python -m synapse.mcp` directly |
-| Server starts but no resources | Wrong `--agent-type` | Verify type matches agent profile (claude, codex, gemini, opencode, copilot) |
+| Server starts but no resources | Agent type could not be inferred | Ensure `SYNAPSE_AGENT_ID` is set or pass `--agent-type` explicitly |
 
 ## Design Reference
 

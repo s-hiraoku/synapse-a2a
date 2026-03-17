@@ -751,7 +751,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps sequentially (`--dry-run` to preview) |
 | `synapse workflow delete <name>` | Delete a saved workflow |
-| `synapse mcp serve` | Start MCP bootstrap server over stdio (`--agent-id`, `--agent-type`, `--port`). Exposes `bootstrap_agent`, `list_agents`, and `analyze_task` tools |
+| `synapse mcp serve` | Start MCP bootstrap server over stdio (options auto-resolved from `$SYNAPSE_AGENT_ID`). Exposes `bootstrap_agent`, `list_agents`, and `analyze_task` tools |
 | `synapse canvas serve` | Start Canvas server (auto-opens browser, port 3000). `--no-open` to suppress browser open |
 | `synapse canvas status` | Show Canvas server status (version, PID, asset hash match, STALE warning) |
 | `synapse canvas stop` | Stop Canvas server (health-check with identity + process verification, SIGKILL escalation, PID fallback). `--port`/`-p` to specify port |

@@ -155,7 +155,7 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 synapse mcp serve [--agent-id ID] [--agent-type TYPE] [--port PORT]
 
 # Module entrypoint (recommended for MCP client configs)
-python -m synapse.mcp --agent-id synapse-claude-8100 --agent-type claude --port 8100
+python -m synapse.mcp
 ```
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.

@@ -102,8 +102,7 @@ synapse init
 synapse reset
 
 # MCP Bootstrap
-synapse mcp serve                          # Start MCP server over stdio
-synapse mcp serve --agent-id synapse-claude-8100 --agent-type claude --port 8100
+synapse mcp serve                          # Start MCP server over stdio (options auto-resolved from $SYNAPSE_AGENT_ID)
 
 # MCP Tools (available via JSON-RPC tools/call)
 # bootstrap_agent    — Returns runtime context (agent_id, port, features)
