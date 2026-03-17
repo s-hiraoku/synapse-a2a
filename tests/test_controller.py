@@ -1024,6 +1024,133 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert "submit confirmation failed" in caplog.text
 
+    # --- Submit fallback sequences tests ---
+
+    @staticmethod
+    def _make_copilot_ctrl(*, retries=2, fallback_sequences=None):
+        """Factory for a Copilot controller with submit-confirm defaults."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_id="synapse-copilot-8140",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=retries,
+            submit_fallback_sequences=fallback_sequences,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
+        return ctrl
+
+    def test_submit_fallback_sequences_tried_in_order(self):
+        """Fallback sequences should be tried in order on each retry."""
+        ctrl = self._make_copilot_ctrl(retries=2, fallback_sequences=["\n", "\x1b\r"])
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # Expected: data, \r (initial), \r (submit_retry_delay double-tap),
+        # then retry 0 -> \n, retry 1 -> \x1b\r
+        assert writes == [b"hello", b"\r", b"\r", b"\n", b"\x1b\r"]
+
+    def test_submit_fallback_logs_successful_sequence(self, caplog):
+        """Should log INFO when a fallback sequence succeeds."""
+        ctrl = self._make_copilot_ctrl(retries=2, fallback_sequences=["\n", "\x1b\r"])
+
+        # _submit_confirmed returns False for first poll cycle, True on 2nd poll
+        # of the 1st retry (attempt=1)
+        call_count = 0
+        poll_limit = max(
+            1, int(ctrl._submit_confirm_timeout / ctrl._submit_confirm_poll_interval)
+        )
+
+        def fake_confirmed(data, initial_status):
+            nonlocal call_count
+            call_count += 1
+            # First full poll cycle (attempt=0): all False
+            # Second cycle (attempt=1): True on 2nd poll
+            return call_count > poll_limit + 1
+
+        ctrl._submit_confirmed = fake_confirmed  # type: ignore[method-assign]
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: len(data),
+            ),
+            patch("synapse.controller.time.sleep"),
+            caplog.at_level("INFO"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert "fallback" in caplog.text.lower()
+
+    def test_submit_fallback_empty_list_uses_original(self):
+        """Empty fallback list should use original submit_bytes on retry."""
+        ctrl = self._make_copilot_ctrl(retries=1, fallback_sequences=[])
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # With empty fallback, retries use original \r
+        assert writes == [b"hello", b"\r", b"\r", b"\r"]
+
+    def test_submit_fallback_fewer_retries_than_sequences(self):
+        """With retries < sequences, only first fallback(s) should be tried."""
+        ctrl = self._make_copilot_ctrl(
+            retries=1, fallback_sequences=["\n", "\x1b\r", "\x03"]
+        )
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # retries=1, so only 1 retry -> first fallback \n
+        assert writes == [b"hello", b"\r", b"\r", b"\n"]
+
+    def test_submit_fallback_more_retries_than_sequences(self):
+        """Extra retries beyond sequences should fall back to original submit_bytes."""
+        ctrl = self._make_copilot_ctrl(retries=4, fallback_sequences=["\n"])
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # retries=4, sequences=["\n"] -> first retry uses \n,
+        # remaining 3 retries fall back to original \r
+        assert writes == [b"hello", b"\r", b"\r", b"\n", b"\r", b"\r", b"\r"]
+
     # --- Bracketed paste mode tests ---
 
     def test_bracketed_paste_wraps_data(self):

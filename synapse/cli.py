@@ -4207,6 +4207,7 @@ def cmd_run_interactive(
     submit_confirm_timeout = config.get("submit_confirm_timeout")
     submit_confirm_poll_interval = config.get("submit_confirm_poll_interval")
     submit_confirm_retries = config.get("submit_confirm_retries")
+    submit_fallback_sequences = config.get("submit_fallback_sequences")
 
     # Create controller - initial instructions sent on IDLE (unless resume mode)
     controller = TerminalController(
@@ -4236,6 +4237,7 @@ def cmd_run_interactive(
         submit_confirm_timeout=submit_confirm_timeout,
         submit_confirm_poll_interval=submit_confirm_poll_interval,
         submit_confirm_retries=submit_confirm_retries,
+        submit_fallback_sequences=submit_fallback_sequences,
     )
 
     # Handle Ctrl+C gracefully

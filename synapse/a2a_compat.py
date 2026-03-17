@@ -571,6 +571,8 @@ history_manager = HistoryManager.from_env(db_path=_history_db_path)
 # Logger for A2A operations
 logger = logging.getLogger(__name__)
 
+_CONTEXT_START_METADATA_KEY = "_context_start"
+
 
 async def _send_response_to_sender(
     task: Task,
@@ -886,7 +888,9 @@ def create_a2a_router(
         agent_id = f"synapse-{agent_type}-{port}"
     router = APIRouter(tags=["Google A2A Compatible"])
 
-    def _finalize_working_task(task_id: str, recent_context: str) -> Task | None:
+    def _finalize_working_task(
+        task_id: str, full_context: str, recent_context: str
+    ) -> Task | None:
         """Detect completion status, add artifacts, save history, and clear preview.
 
         Shared by ``_on_status_change`` (sync callback) and ``get_task`` (async
@@ -895,7 +899,19 @@ def create_a2a_router(
         Returns:
             The updated Task after finalization, or None if the task vanished.
         """
-        status, error = detect_task_status(recent_context)
+        task = task_store.get(task_id)
+        if not task:
+            return None
+
+        metadata = task.metadata or {}
+        response_context = recent_context
+        context_start = metadata.get(_CONTEXT_START_METADATA_KEY)
+        if isinstance(context_start, int) and 0 <= context_start <= len(full_context):
+            delta = full_context[context_start:]
+            if delta.strip():
+                response_context = delta
+
+        status, error = detect_task_status(response_context)
         if status == "failed" and error:
             task_store.set_error(
                 task_id,
@@ -913,8 +929,8 @@ def create_a2a_router(
             _dispatch_task_event("task.completed", {"task_id": task_id})
 
         # Add artifacts from parsed output
-        if recent_context:
-            segments = parse_output(recent_context)
+        if response_context:
+            segments = parse_output(response_context)
             if segments:
                 for seg in segments:
                     artifact_data: dict[str, Any] = {"content": seg.content}
@@ -925,7 +941,7 @@ def create_a2a_router(
                     )
             else:
                 task_store.add_artifact(
-                    task_id, Artifact(type="text", data=recent_context)
+                    task_id, Artifact(type="text", data=response_context)
                 )
 
         # Compound signal: clear task active to allow READY transition (#314)
@@ -1002,7 +1018,7 @@ def create_a2a_router(
                     # Silent tasks still need cleanup (#314)
                     context = controller.get_context()
                     recent_ctx = context[-CONTEXT_RECENT_SIZE:]
-                    _finalize_working_task(tid, recent_ctx)
+                    _finalize_working_task(tid, context, recent_ctx)
                     continue
                 # Guard: only complete if still working
                 current = task_store.get(tid)
@@ -1011,7 +1027,7 @@ def create_a2a_router(
                 context = controller.get_context()
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
 
-                updated = _finalize_working_task(tid, recent_context)
+                updated = _finalize_working_task(tid, context, recent_context)
 
                 # Send response back to sender (sync context — needs event loop dispatch)
                 if updated:
@@ -1113,8 +1129,10 @@ def create_a2a_router(
                 )
 
         # Create task with metadata (may include sender info)
+        task_metadata = dict(request.metadata or {})
+        task_metadata[_CONTEXT_START_METADATA_KEY] = len(controller.get_context())
         task = task_store.create(
-            request.message, request.context_id, metadata=request.metadata
+            request.message, request.context_id, metadata=task_metadata
         )
 
         # Update to working
@@ -1641,7 +1659,7 @@ def create_a2a_router(
                 task_store.update_status(task_id, "input_required")
             elif synapse_status in ("READY", "DONE"):
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
-                updated_task = _finalize_working_task(task_id, recent_context)
+                updated_task = _finalize_working_task(task_id, context, recent_context)
 
                 # Dispatch response or notification based on response_mode
                 if updated_task:

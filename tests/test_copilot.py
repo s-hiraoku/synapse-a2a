@@ -99,6 +99,14 @@ class TestCopilotProfile:
         assert delay is not None
         assert delay >= 0.1, "submit_retry_delay should be >= 100ms for React render"
 
+    def test_profile_submit_fallback_sequences(self, profile):
+        """Profile should have submit_fallback_sequences as a non-empty list of strings."""
+        seqs = profile.get("submit_fallback_sequences")
+        assert seqs is not None, "submit_fallback_sequences should be defined"
+        assert isinstance(seqs, list), "submit_fallback_sequences should be a list"
+        assert len(seqs) >= 1, "should have at least 1 fallback sequence"
+        assert all(isinstance(s, str) for s in seqs), "all sequences should be strings"
+
     def test_profile_submit_confirmation_settings(self, profile):
         """Copilot profile should define bounded submit confirmation settings."""
         assert profile["submit_confirm_timeout"] > 0

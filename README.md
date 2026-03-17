@@ -968,6 +968,8 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
 
+`--wait` and `--notify` use a sender-side task plus structured A2A reply artifacts, not raw PTY scraping. On completion, Synapse prefers the PTY output delta captured since task start instead of blindly returning the terminal tail, which reduces Claude Code / Copilot status-line noise leaking into replies.
+
 **Choosing response mode:**
 
 | Message Type | Flag | Example |

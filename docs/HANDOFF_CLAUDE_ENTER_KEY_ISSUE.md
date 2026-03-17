@@ -105,6 +105,7 @@ When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequ
 | Claude Code | `\r` | Ink TUI requires CR in v2.0.76 |
 | Gemini | `\r` | Standard CR works |
 | Codex | `\r` | Standard CR works |
+| Copilot | `\r` + fallback `["\n", "\x1b\r"]` | Ink TUI with bracketed paste; submit confirmation retries cycle through `submit_fallback_sequences` |
 
 ## Related Files
 
