@@ -152,6 +152,7 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 
 ```bash
 # Start MCP server (stdio transport; options auto-resolved from $SYNAPSE_AGENT_ID)
+# Fallback: if SYNAPSE_AGENT_ID is unset, defaults to agent-id "synapse-mcp"
 synapse mcp serve
 ```
 
@@ -175,7 +176,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Chart cards**: Chart.js supports all chart types (bar, line, pie, doughnut, radar, polarArea, scatter, bubble)
 - **Diff cards**: Side-by-side renderer with left (deletions) / right (additions) columns and line numbers
 - **HTML cards**: Rendered in sandboxed iframe (`allow-scripts`) with theme sync via `postMessage` (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver, dark mode background, and full document normalization (extracts `<head>`/`<body>` from complete HTML documents to avoid CSP/cascade conflicts)
-- **Artifact cards**: Interactive HTML/JS/CSS applications in sandboxed iframe (like Claude.ai Artifacts); accepts a full HTML document string
+- **Artifact cards**: Interactive HTML/JS/CSS applications (like Claude.ai Artifacts) rendered in sandboxed iframe (`allow-scripts`) with theme sync via `postMessage` (CSS variables `--bg`, `--fg`, `--border`), auto-resize via ResizeObserver; accepts a full HTML document string
 - **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 - **Link-preview cards**: Fetches Open Graph metadata from a URL and renders a rich card with title, description, and thumbnail image
