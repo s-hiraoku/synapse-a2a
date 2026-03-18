@@ -85,6 +85,7 @@ synapse canvas stop [--port 3000]
 synapse session save <name>
 synapse session restore <name>
 synapse workflow run <name>
+synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
 # Spawn/Teams
 synapse spawn claude --name Tester --role "test writer"

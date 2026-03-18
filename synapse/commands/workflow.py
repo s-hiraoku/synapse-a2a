@@ -230,11 +230,9 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
 # ── run ──────────────────────────────────────────────────────
 
 
-def _should_auto_spawn(
-    step: WorkflowStep, cli_auto_spawn: bool, wf_auto_spawn: bool = False
-) -> bool:
+def _should_auto_spawn(step: WorkflowStep, effective_auto_spawn: bool) -> bool:
     """Determine whether auto-spawn is enabled for a step."""
-    return step.auto_spawn or cli_auto_spawn or wf_auto_spawn
+    return step.auto_spawn or effective_auto_spawn
 
 
 def _try_spawn_agent(profile: str) -> bool:
@@ -277,7 +275,6 @@ def _run_step(
     total: int,
     *,
     auto_spawn: bool,
-    wf_auto_spawn: bool = False,
 ) -> bool:
     """Execute a single workflow step. Returns True on success."""
     from synapse.cli import _build_a2a_cmd
@@ -298,7 +295,7 @@ def _run_step(
     if (
         result.returncode != 0
         and _NO_AGENT_MARKER in (result.stderr or "")
-        and _should_auto_spawn(step, auto_spawn, wf_auto_spawn)
+        and _should_auto_spawn(step, auto_spawn)
     ):
         print(f"  Agent '{step.target}' not found. Spawning...")
         if _try_spawn_agent(step.target):
@@ -347,13 +344,15 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         print(f"Error: Workflow '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 
+    effective_auto_spawn = auto_spawn or wf.auto_spawn
+
     if dry_run:
         print(f"DRY RUN: Workflow '{name}' ({wf.step_count} steps)")
         print()
         for i, step in enumerate(wf.steps, 1):
             spawn_tag = (
                 " [auto-spawn]"
-                if _should_auto_spawn(step, auto_spawn, wf.auto_spawn)
+                if _should_auto_spawn(step, effective_auto_spawn)
                 else ""
             )
             print(f"  Step {i}: send to {step.target}{spawn_tag}")
@@ -367,9 +366,7 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
 
     failures = 0
     for i, step in enumerate(wf.steps, 1):
-        ok = _run_step(
-            step, i, wf.step_count, auto_spawn=auto_spawn, wf_auto_spawn=wf.auto_spawn
-        )
+        ok = _run_step(step, i, wf.step_count, auto_spawn=effective_auto_spawn)
         if not ok:
             failures += 1
             if not continue_on_error:

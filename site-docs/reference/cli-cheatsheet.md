@@ -93,6 +93,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse workflow list` | List saved workflows |
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps |
+| `synapse workflow run <name> --auto-spawn` | Execute with auto-spawn for missing agents |
+| `synapse workflow sync` | Sync workflow YAMLs to skill directories |
 | `synapse workflow delete <name>` | Delete a workflow |
 
 ### Canvas
@@ -453,6 +455,10 @@ synapse workflow show deploy-pipeline
 synapse workflow run deploy-pipeline
 synapse workflow run deploy-pipeline --dry-run
 synapse workflow run deploy-pipeline --continue-on-error
+synapse workflow run deploy-pipeline --auto-spawn
+
+# Sync workflows to skill directories
+synapse workflow sync
 
 # Delete
 synapse workflow delete deploy-pipeline --force

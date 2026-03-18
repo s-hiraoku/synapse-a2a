@@ -517,7 +517,7 @@ synapse workflow show <name> [--project | --user]
 ### Run Workflow
 
 ```bash
-synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error]
+synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error] [--auto-spawn]
 ```
 
 Executes workflow steps sequentially via `synapse send`.
@@ -526,6 +526,7 @@ Executes workflow steps sequentially via `synapse send`.
 |------|-------------|
 | `--dry-run` | Preview steps without sending messages |
 | `--continue-on-error` | Continue executing remaining steps after a failure |
+| `--auto-spawn` | Auto-spawn agents that are not running (target is used as profile name) |
 
 ### Delete Workflow
 
@@ -536,6 +537,14 @@ synapse workflow delete <name> [--project | --user] [--force]
 | Flag | Description |
 |------|-------------|
 | `--force`, `-f` | Delete without confirmation prompt |
+
+### Sync Workflows to Skills
+
+```bash
+synapse workflow sync
+```
+
+Auto-generates `SKILL.md` files from all workflow YAML definitions into `.claude/skills/` and `.agents/skills/`. Removes orphaned auto-generated skills whose workflow YAML no longer exists. Hand-written skills are never overwritten.
 
 ## Settings
 

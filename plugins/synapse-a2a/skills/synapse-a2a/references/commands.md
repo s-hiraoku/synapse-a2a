@@ -1394,7 +1394,7 @@ Define multi-step agent workflows as YAML files and execute them sequentially.
 synapse workflow create review-and-test
 ```
 
-Creates a starter YAML at the project scope (`.synapse/workflows/review-and-test.yaml`) with example steps that you can customize.
+Creates a starter YAML at the project scope (`.synapse/workflows/review-and-test.yaml`) with example steps that you can customize. Also auto-generates a matching skill (SKILL.md) in `.claude/skills/` and `.agents/skills/` so the workflow is discoverable as a slash command.
 
 ### List Workflows
 
@@ -1429,9 +1429,14 @@ synapse workflow run review-and-test --dry-run
 
 # Continue executing remaining steps even if one fails
 synapse workflow run review-and-test --continue-on-error
+
+# Auto-spawn agents that are not running (target used as profile name)
+synapse workflow run review-and-test --auto-spawn
 ```
 
 Steps are executed in order. Each step sends a message to the specified target agent using the configured priority and response mode. By default, execution stops on the first failure unless `--continue-on-error` is set.
+
+When `--auto-spawn` is passed (or the workflow/step has `auto_spawn: true`), any target agent that is not already running will be spawned automatically before sending the message.
 
 ### Delete Workflow
 
@@ -1443,11 +1448,24 @@ synapse workflow delete review-and-test
 synapse workflow delete review-and-test --force
 ```
 
+Deleting a workflow also removes its auto-generated skill directories (if present).
+
+### Sync Workflow Skills
+
+```bash
+# Sync all workflow YAMLs to skill directories and remove orphans
+synapse workflow sync
+```
+
+Generates or updates SKILL.md files in `.claude/skills/<name>/` and `.agents/skills/<name>/` for every workflow YAML. Removes auto-generated skill directories whose workflow YAML no longer exists. Hand-written skills (without the autogen marker) are never overwritten or removed.
+
 ### YAML Format
 
 ```yaml
 name: review-and-test
 description: "Send review to Claude, then tests to Gemini"
+trigger: "when code review and testing are needed"
+auto_spawn: true
 steps:
   - target: claude
     message: "Review the changes"
@@ -1456,7 +1474,17 @@ steps:
   - target: gemini
     message: "Write tests"
     response_mode: silent
+    auto_spawn: true
 ```
+
+**Top-level fields:**
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | Yes | — | Workflow identifier |
+| `description` | No | `""` | Human-readable description |
+| `trigger` | No | `""` | Keywords describing when to use this workflow (included in auto-generated skill description) |
+| `auto_spawn` | No | `false` | Auto-spawn missing agents for all steps |
 
 **Step fields:**
 
@@ -1466,6 +1494,7 @@ steps:
 | `message` | Yes | — | Message to send |
 | `priority` | No | `3` | Priority level (1-5) |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
+| `auto_spawn` | No | `false` | Auto-spawn this step's target if not running (overrides workflow-level setting) |
 
 ### Storage
 

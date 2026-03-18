@@ -1207,6 +1207,9 @@ synapse workflow run my-pipeline --continue-on-error
 # ワークフローを削除
 synapse workflow delete my-pipeline
 synapse workflow delete my-pipeline --force  # 確認なし
+
+# 全ワークフローからスキルを再生成（孤立スキルも削除）
+synapse workflow sync
 ```
 
 #### スコープ
@@ -1231,6 +1234,8 @@ synapse workflow list --user
 ```yaml
 name: my-pipeline
 description: コードレビューパイプライン
+trigger: "code review pipeline"   # スキル自動生成時のトリガーキーワード（任意）
+auto_spawn: true                  # 対象エージェント未起動時に自動スポーン（任意）
 steps:
   - target: claude
     message: "src/auth.py のコードレビューを実施して"
@@ -1246,6 +1251,15 @@ steps:
     response_mode: silent
 ```
 
+#### ワークフローレベルのフィールド
+
+| フィールド | 必須 | デフォルト | 説明 |
+|-----------|------|-----------|------|
+| `name` | Yes | - | ワークフロー名 |
+| `description` | No | - | ワークフローの説明 |
+| `trigger` | No | `""` | スキル自動生成時のトリガーキーワード（例: `"code review pipeline"`） |
+| `auto_spawn` | No | `false` | `true` の場合、対象エージェントが未起動なら自動でスポーンする |
+
 #### ステップのフィールド
 
 | フィールド | 必須 | デフォルト | 説明 |
@@ -1254,6 +1268,15 @@ steps:
 | `message` | Yes | - | 送信メッセージ |
 | `priority` | No | 3 | 優先度（1-5） |
 | `response_mode` | No | notify | `wait` / `notify` / `silent` |
+
+#### スキル自動生成
+
+ワークフローを作成（`synapse workflow create`）すると、自動的に SKILL.md が `.claude/skills/<name>/` と `.agents/skills/<name>/` に生成されます。これにより、ワークフローがスラッシュコマンドスキルとして検出可能になります。
+
+- 自動生成されたスキルには `<!-- synapse-workflow-autogen -->` マーカーが付与され、手動作成のスキルと区別されます
+- 手動作成のスキルは上書きされません（マーカーが存在しないディレクトリはスキップ）
+- ワークフロー削除時（`synapse workflow delete`）は対応するスキルも自動削除されます
+- `synapse workflow sync` で全ワークフローからスキルを一括再生成し、対応するワークフローが存在しない孤立スキルを削除します
 
 ---
 
