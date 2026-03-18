@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - History moved from top-level sidebar item to Canvas sub-menu (`nav-sub` class), with Canvas parent link staying active on History route and topbar showing "Canvas / History"
 
+## [0.15.2] - 2026-03-19
+
+### Added
+
+- `clean_copilot_response()` in `output_parser.py` — strips Ink TUI artifacts (spinners, box-drawing borders, status bars, input echo, re-render duplicates) from Copilot task responses
+- Sent message metadata (`_sent_message`) stored in task for input echo removal during response cleaning
+- Copilot Ctrl+S submit fallback — sends `\x13` (Ctrl+S "run command") as additional fallback when `\r` fails to trigger Ink TUI submission
+
+### Fixed
+
+- Copilot reply artifacts no longer contain TUI garbage (ANSI escapes, braille spinners, box-drawing borders, status bar text, model name fragments)
+- Copilot input confirmation: added Ctrl+S as submit fallback for Copilot CLI 1.0.7 which uses Ink's `ctrl+s run command` binding
+- Server-mode logging no longer leaks to stderr/PTY — logs redirect to `~/.synapse/logs/` to prevent corrupting agent TUI display
+- Status bar regex tightened to avoid greedily consuming response text on the same line
+
 ## [0.15.1] - 2026-03-17
 
 ### Added
@@ -2447,6 +2462,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.13.0...v0.14.0

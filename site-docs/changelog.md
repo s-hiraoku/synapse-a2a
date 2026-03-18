@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.2
+
+- **Added**: `clean_copilot_response()` — strips Ink TUI artifacts (spinners, borders, status bars, input echo) from Copilot reply artifacts
+- **Added**: Copilot Ctrl+S submit fallback for Copilot CLI 1.0.7 Ink TUI
+- **Fixed**: Copilot reply artifacts no longer contain TUI garbage (ANSI escapes, braille spinners, box-drawing borders)
+- **Fixed**: Server-mode logging no longer leaks to PTY — redirected to `~/.synapse/logs/`
+- **Fixed**: Status bar regex tightened to preserve response text on the same line
+
 ### v0.15.1
 
 - **Added**: Canvas `artifact` card format — interactive HTML/JS/CSS applications in sandboxed iframes (like Claude.ai Artifacts)
