@@ -4118,6 +4118,11 @@ def cmd_run_interactive(
     registry = AgentRegistry()
     agent_id = registry.get_agent_id(profile, port)
 
+    # Reconfigure logging for server mode: suppress stderr (would corrupt
+    # agent TUI) and enable file logging instead.
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        setup_logging(agent_name=agent_id)
+
     # Show startup animation before approval prompt (skip in headless mode)
     if not headless:
         from synapse.startup_tui import show_startup_animation

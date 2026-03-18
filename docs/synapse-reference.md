@@ -158,7 +158,9 @@ waiting_detection:
 - **OpenCode**: Timeout strategy, 1.0s (Bubble Tea TUI).
 - **Copilot**: Timeout strategy, 0.5s. `write_delay: 0.5` for Ink TUI rendering. `bracketed_paste: true` for Ink's `usePaste` hook. `submit_retry_delay: 0.15` as the first Enter safety net, plus bounded submit confirmation (`submit_confirm_timeout`, `submit_confirm_poll_interval`, `submit_confirm_retries`) when injected text appears to remain pending. `submit_fallback_sequences: ["\n", "\x1b\r"]` — on each confirmation retry the controller cycles through these alternative submit sequences before falling back to the original `submit_sequence`. This handles Ink version differences where `\r` alone may not trigger submission.
 
-For `response_mode=wait` and `response_mode=notify`, Synapse completes the sender-side task via structured reply artifacts. Completion finalization now prefers the PTY output delta captured since task start rather than the raw terminal tail, reducing reply corruption from transient TUI lines such as update banners, permission rows, and status bars.
+For `response_mode=wait` and `response_mode=notify`, Synapse completes the sender-side task via structured reply artifacts. Completion finalization now prefers the PTY output delta captured since task start rather than the raw terminal tail, reducing reply corruption from transient TUI lines such as update banners, permission rows, and status bars. For Copilot specifically, `clean_copilot_response()` strips Ink TUI artifacts (spinners, box-drawing borders, status bar, and input echo) from the captured delta before building the reply.
+
+In server mode (when `agent_name` is set), logging is redirected from stderr to file-only to prevent log output from corrupting the agent TUI.
 
 ## Agent Status System
 
