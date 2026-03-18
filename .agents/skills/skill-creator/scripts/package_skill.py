@@ -92,7 +92,15 @@ def package_skill(skill_path, output_dir=None):
         with zipfile.ZipFile(skill_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Walk through the skill directory, excluding build artifacts
             for file_path in skill_path.rglob("*"):
+                if file_path.is_symlink():
+                    print(
+                        f"  Skipped symlink: {file_path.relative_to(skill_path.parent)}"
+                    )
+                    continue
                 if not file_path.is_file():
+                    continue
+                # Skip the output archive itself
+                if file_path.resolve() == skill_filename.resolve():
                     continue
                 arcname = file_path.relative_to(skill_path.parent)
                 if should_exclude(arcname):
