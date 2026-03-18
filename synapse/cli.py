@@ -6009,6 +6009,11 @@ Run 'synapse workflow <subcommand> --help' for detailed usage.""",
         action="store_true",
         help="Don't abort on first step failure",
     )
+    p_workflow_run.add_argument(
+        "--auto-spawn",
+        action="store_true",
+        help="Auto-spawn agents that are not running (target is used as profile name)",
+    )
     p_workflow_run.set_defaults(func=cmd_workflow_run)
 
     # workflow delete

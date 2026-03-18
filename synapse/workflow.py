@@ -38,6 +38,7 @@ class WorkflowStep:
     message: str
     priority: int = 3
     response_mode: str = "notify"
+    auto_spawn: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.target, str) or not self.target:
@@ -104,6 +105,7 @@ class WorkflowStore:
                     "message": s.message,
                     "priority": s.priority,
                     "response_mode": s.response_mode,
+                    **({"auto_spawn": True} if s.auto_spawn else {}),
                 }
                 for s in workflow.steps
             ],
@@ -252,6 +254,7 @@ class WorkflowStore:
                 message=s["message"],
                 priority=s.get("priority", 3),
                 response_mode=s.get("response_mode", "notify"),
+                auto_spawn=bool(s.get("auto_spawn", False)),
             )
             for s in raw["steps"]
         ]

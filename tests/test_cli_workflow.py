@@ -19,6 +19,7 @@ def _make_args(**kwargs: Any) -> argparse.Namespace:
         "force": False,
         "dry_run": False,
         "continue_on_error": False,
+        "auto_spawn": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -473,3 +474,220 @@ def test_run_invalid_name_exits(
         pytest.raises(SystemExit, match="1"),
     ):
         cmd_workflow_run(args)
+
+
+# ── auto-spawn ───────────────────────────────────────────────
+
+
+def _save_single_step_workflow(
+    store, name: str = "spawn-wf", target: str = "claude", auto_spawn: bool = False
+) -> None:
+    """Save a single-step workflow for auto-spawn testing."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    store.save(
+        Workflow(
+            name=name,
+            steps=[
+                WorkflowStep(
+                    target=target,
+                    message="hello",
+                    auto_spawn=auto_spawn,
+                ),
+            ],
+            scope="project",
+        )
+    )
+
+
+def test_auto_spawn_on_no_agent_found_cli_flag(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """--auto-spawn should spawn the agent when 'No agent found' error occurs."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="claude")
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=True)
+
+    call_count = 0
+
+    def _send_side_effect(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        if call_count == 1:
+            # First attempt: agent not found
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = "No agent found matching 'claude'"
+        else:
+            # Second attempt after spawn: success
+            result.returncode = 0
+            result.stdout = "Sent.\n"
+            result.stderr = ""
+        return result
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
+        ) as mock_run,
+        patch(
+            "synapse.commands.workflow._try_spawn_agent", return_value=True
+        ) as mock_spawn,
+        patch(
+            "synapse.commands.workflow._wait_for_agent", return_value=True
+        ) as mock_wait,
+    ):
+        cmd_workflow_run(args)
+
+    # send called twice: first fail, then retry after spawn
+    assert mock_run.call_count == 2
+    mock_spawn.assert_called_once_with("claude")
+    mock_wait.assert_called_once_with("claude")
+
+
+def test_auto_spawn_from_step_yaml(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """auto_spawn: true in YAML should trigger spawn without --auto-spawn flag."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="gemini", auto_spawn=True)
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=False)
+
+    call_count = 0
+
+    def _send_side_effect(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        if call_count == 1:
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = "No agent found matching 'gemini'"
+        else:
+            result.returncode = 0
+            result.stdout = "Sent.\n"
+            result.stderr = ""
+        return result
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
+        ),
+        patch(
+            "synapse.commands.workflow._try_spawn_agent", return_value=True
+        ) as mock_spawn,
+        patch("synapse.commands.workflow._wait_for_agent", return_value=True),
+    ):
+        cmd_workflow_run(args)
+
+    mock_spawn.assert_called_once_with("gemini")
+
+
+def test_auto_spawn_not_triggered_without_flag(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """Without --auto-spawn or auto_spawn in YAML, no spawn attempt should happen."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="claude", auto_spawn=False)
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=False)
+
+    fail_result = MagicMock()
+    fail_result.returncode = 1
+    fail_result.stdout = ""
+    fail_result.stderr = "No agent found matching 'claude'"
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch("synapse.commands.workflow.subprocess.run", return_value=fail_result),
+        patch("synapse.commands.workflow._try_spawn_agent") as mock_spawn,
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+    mock_spawn.assert_not_called()
+
+
+def test_auto_spawn_fails_gracefully(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """When spawn fails, step should still fail but not crash."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="claude", auto_spawn=True)
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=False)
+
+    fail_result = MagicMock()
+    fail_result.returncode = 1
+    fail_result.stdout = ""
+    fail_result.stderr = "No agent found matching 'claude'"
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch("synapse.commands.workflow.subprocess.run", return_value=fail_result),
+        patch("synapse.commands.workflow._try_spawn_agent", return_value=False),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+
+def test_auto_spawn_wait_timeout(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """When spawned agent doesn't register in time, step should fail."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="claude", auto_spawn=True)
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=False)
+
+    fail_result = MagicMock()
+    fail_result.returncode = 1
+    fail_result.stdout = ""
+    fail_result.stderr = "No agent found matching 'claude'"
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch("synapse.commands.workflow.subprocess.run", return_value=fail_result),
+        patch("synapse.commands.workflow._try_spawn_agent", return_value=True),
+        patch("synapse.commands.workflow._wait_for_agent", return_value=False),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+
+def test_dry_run_shows_auto_spawn_tag(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """Dry run should show [auto-spawn] tag for auto-spawn steps."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="claude", auto_spawn=True)
+
+    args = _make_args(workflow_name="spawn-wf", dry_run=True)
+
+    with patch("synapse.commands.workflow._get_workflow_store", return_value=store):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    assert "[auto-spawn]" in captured.out

@@ -572,3 +572,65 @@ def test_parse_file_uses_filename_on_mismatch(
     loaded = store.load("actual", scope="project")
     assert loaded is not None
     assert loaded.name == "actual"
+
+
+# ── auto_spawn field ────────────────────────────────────────
+
+
+def test_auto_spawn_default_false() -> None:
+    """auto_spawn should default to False."""
+    from synapse.workflow import WorkflowStep
+
+    step = WorkflowStep(target="claude", message="hello")
+    assert step.auto_spawn is False
+
+
+def test_auto_spawn_roundtrip(store) -> None:
+    """auto_spawn: true should survive save/load roundtrip."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="spawn-test",
+        steps=[
+            WorkflowStep(target="claude", message="hi", auto_spawn=True),
+            WorkflowStep(target="gemini", message="yo", auto_spawn=False),
+        ],
+        scope="project",
+    )
+    store.save(wf)
+    loaded = store.load("spawn-test")
+    assert loaded is not None
+    assert loaded.steps[0].auto_spawn is True
+    assert loaded.steps[1].auto_spawn is False
+
+
+def test_auto_spawn_omitted_in_yaml_defaults_false(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """YAML without auto_spawn field should default to False."""
+    project_dir, _ = workflow_dirs
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "no-spawn.yaml").write_text(
+        "name: no-spawn\nsteps:\n  - target: claude\n    message: hi\n",
+        encoding="utf-8",
+    )
+    loaded = store.load("no-spawn", scope="project")
+    assert loaded is not None
+    assert loaded.steps[0].auto_spawn is False
+
+
+def test_auto_spawn_true_not_serialized_when_false(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """auto_spawn: false should not appear in serialized YAML (keep it clean)."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, _ = workflow_dirs
+    wf = Workflow(
+        name="clean",
+        steps=[WorkflowStep(target="claude", message="hi", auto_spawn=False)],
+        scope="project",
+    )
+    store.save(wf)
+    content = (project_dir / "clean.yaml").read_text()
+    assert "auto_spawn" not in content
