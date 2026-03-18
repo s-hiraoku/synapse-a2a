@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-03-18
+
 ### Added
 
 - Agent Control drag-resize splitter: draggable separator between "Select Agent" and "Response" panels for adjustable height ratio, with localStorage persistence, keyboard support (Arrow keys), and `role="separator"` accessibility
