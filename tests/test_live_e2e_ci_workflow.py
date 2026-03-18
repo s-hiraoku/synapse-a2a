@@ -109,3 +109,59 @@ def test_workflow_uses_uv_and_python():
         job = wf["jobs"][profile]
         steps_text = str(job.get("steps", []))
         assert "setup-uv" in steps_text, f"{profile} job must use setup-uv action"
+
+
+def test_each_job_installs_agent_cli():
+    """Each job must have a step that installs the agent CLI binary."""
+    wf = _load_workflow()
+    for profile in EXPECTED_PROFILES:
+        job = wf["jobs"][profile]
+        steps = job.get("steps", [])
+        install_steps = [
+            s
+            for s in steps
+            if "install" in str(s.get("name", "")).lower()
+            and (
+                "cli" in str(s.get("name", "")).lower()
+                or profile in str(s.get("name", "")).lower()
+            )
+        ]
+        assert install_steps, f"{profile} job must have a step installing the agent CLI"
+
+
+def test_no_pytest_timeout_flag():
+    """Workflow must not use --timeout (pytest-timeout not in deps)."""
+    content = WORKFLOW_PATH.read_text()
+    assert "--timeout" not in content, (
+        "must not use pytest --timeout flag (pytest-timeout is not a dependency)"
+    )
+
+
+def test_each_job_has_timeout_minutes():
+    """Each job should set timeout-minutes at the job level."""
+    wf = _load_workflow()
+    for profile in EXPECTED_PROFILES:
+        job = wf["jobs"][profile]
+        assert "timeout-minutes" in job, f"{profile} job must set timeout-minutes"
+
+
+# Map of profile → expected auth secret name used in the workflow.
+EXPECTED_AUTH_SECRETS = {
+    "claude": "ANTHROPIC_API_KEY",
+    "codex": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "opencode": "OPENAI_API_KEY",
+    "copilot": "GITHUB_TOKEN",
+}
+
+
+def test_secret_names_match_cli_auth():
+    """Secret gate and env must use the correct auth env var per CLI."""
+    wf = _load_workflow()
+    for profile, expected_secret in EXPECTED_AUTH_SECRETS.items():
+        job = wf["jobs"][profile]
+        job_if = job.get("if", "")
+        assert expected_secret in job_if, (
+            f"{profile} job if-condition must reference {expected_secret}, "
+            f"got: {job_if!r}"
+        )
