@@ -546,3 +546,61 @@ class TestCleanCopilotResponse:
         )
         result = clean_copilot_response(raw)
         assert result == "SYNAPSE_TEST_OK"
+
+    def test_removes_permission_prompt(self):
+        """Copilot permission prompt lines should be stripped."""
+        raw = "The answer is 42.\npermissions on (shift+tab to cycle)\n"
+        result = clean_copilot_response(raw)
+        assert "permissions" not in result
+        assert "The answer is 42." in result
+
+    def test_removes_esc_to_stop(self):
+        """'Esc to stop' variant (post-thinking) should be stripped."""
+        raw = "Esc to stop\nThe answer is 42."
+        result = clean_copilot_response(raw)
+        assert "Esc to stop" not in result
+        assert "The answer is 42." in result
+
+    def test_removes_thinking_without_progress(self):
+        """Thinking indicator without byte progress should be stripped."""
+        raw = "○ Thinking (Esc to cancel)\nDone."
+        result = clean_copilot_response(raw)
+        assert "Thinking" not in result
+        assert "Done." in result
+
+    def test_removes_tool_running_indicator(self):
+        """Tool execution status lines like 'Running: cmd' should be stripped."""
+        raw = "⠋ Running: cat file.txt\nFile contents here."
+        result = clean_copilot_response(raw)
+        # Spinner-prefixed lines are already stripped by _SPINNER_CHARS check
+        assert "Running:" not in result
+        assert "File contents here." in result
+
+    def test_removes_mixed_v108_noise(self):
+        """Full Copilot v1.0.8 noise scenario: multiple artifact types in one output."""
+        raw = (
+            "A2A: [From: synapse-claude-8100] \n"
+            "○ Thinking (Esc to cancel · 1.5 KiB)\n"
+            "⠹ \n"
+            "permissions on (shift+tab to cycle)\n"
+            "───────────────────────────────\n"
+            "shift+tab switch mode · ctrl+s run command "
+            "\u200b──────────────────  claude-haiku-4.5 (1x)\n"
+            "The actual answer is here.\n"
+            "The actual answer is here.\n"
+            "]2;A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+        )
+        result = clean_copilot_response(raw, sent_message=None)
+        assert result == "The actual answer is here."
+
+    def test_preserves_non_copilot_content(self):
+        """Copilot filter must not strip legitimate content that resembles noise."""
+        raw = (
+            "The user pressed Esc to cancel the operation.\n"
+            "Thinking about the problem carefully.\n"
+            "Permission denied error."
+        )
+        result = clean_copilot_response(raw)
+        # "Thinking about..." should NOT be stripped (no "(Esc to cancel)" suffix)
+        assert "Thinking about the problem carefully." in result
+        assert "Permission denied error." in result
