@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.15.4] - 2026-03-19
+
+### Added
+
+- add auto-spawn support to workflow run
+- auto-generate SKILL.md from workflow YAML definitions
+
+### Changed
+
+- simplify workflow skill sync and update docs
+
+### Documentation
+
+- update InputRouter refs to Shell, fix stale links and badges
+
+### Fixed
+
+- Validate `auto_spawn` YAML field as boolean (reject string `"false"`)
+- Deduplicate workflows by name in `sync_all_workflows` (project-first precedence)
+- Use `yaml.safe_dump` for SKILL.md frontmatter to prevent YAML injection
+- Guard against empty history in skill-creator `generate_report.py`
+- Prevent path traversal in skill-creator `run_eval.py`
+- Fix false negative in skill-creator tool detection loop
+
 ## [Unreleased]
 
 ## [0.15.3] - 2026-03-18
@@ -2466,6 +2497,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.3...v0.15.4
 [0.15.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.0...v0.15.1
