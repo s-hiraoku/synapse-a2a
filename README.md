@@ -968,7 +968,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
 
-`--wait` and `--notify` use a sender-side task plus structured A2A reply artifacts, not raw PTY scraping. On completion, Synapse prefers the PTY output delta captured since task start instead of blindly returning the terminal tail, which reduces Claude Code / Copilot status-line noise leaking into replies. For Copilot, a dedicated post-processing step (`clean_copilot_response`) strips Ink TUI artifacts such as spinners, box-drawing borders, status bars, and input echo before the reply is finalized.
+`--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta — not the raw terminal tail — to build artifacts, which reduces status-line noise leaking into replies. For Copilot responses only, an additional post-processing step (`clean_copilot_response`) strips Ink TUI artifacts such as spinners, box-drawing borders, status bars, and input echo before the reply is finalized.
 
 **Choosing response mode:**
 

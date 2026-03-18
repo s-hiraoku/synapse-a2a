@@ -287,7 +287,10 @@ from synapse.controller import strip_ansi  # noqa: E402
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 # Copilot TUI patterns
-_COPILOT_STATUS_BAR_RE = re.compile(r"shift\+tab\s+switch\s+mode.*")
+_COPILOT_STATUS_BAR_RE = re.compile(
+    r"shift\+tab\s+switch\s+mode(?:\s+[·•]\s+ctrl\+\w\s+[\w ]+)*\s*",
+    re.IGNORECASE,
+)
 _MODEL_NAME_RE = re.compile(
     r"(?:claude|gpt|gemini|copilot)[\w.-]*\s*\(\d+x?\)", re.IGNORECASE
 )
@@ -323,9 +326,9 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
         if all(c in _BOX_CHARS for c in stripped):
             continue
         # Strip Copilot status bar (keyboard shortcuts, model name).
-        status_match = _COPILOT_STATUS_BAR_RE.search(stripped)
-        if status_match:
-            remainder = _MODEL_NAME_RE.sub("", stripped[status_match.end() :]).strip()
+        if _COPILOT_STATUS_BAR_RE.search(stripped):
+            remainder = _COPILOT_STATUS_BAR_RE.sub("", stripped)
+            remainder = _MODEL_NAME_RE.sub("", remainder).strip(" \t─│")
             if not remainder:
                 continue
             line = remainder
