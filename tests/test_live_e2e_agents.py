@@ -47,6 +47,13 @@ def _require_live_profile(profile: str) -> None:
             f"(enabled: {sorted(_selected_profiles())})"
         )
     if shutil.which(profile) is None:
+        # In CI (SYNAPSE_LIVE_E2E=1), a missing CLI is a real failure —
+        # the workflow must install it.  Locally, skip gracefully.
+        if os.environ.get("CI", "").lower() in {"true", "1"}:
+            pytest.fail(
+                f"CLI '{profile}' not found on PATH — the workflow must "
+                f"install it before running tests"
+            )
         pytest.skip(f"required CLI '{profile}' is not installed on PATH")
 
 

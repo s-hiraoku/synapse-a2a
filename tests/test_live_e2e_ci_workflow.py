@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 WORKFLOW_PATH = (
@@ -129,6 +130,25 @@ def test_each_job_installs_agent_cli():
         assert install_steps, f"{profile} job must have a step installing the agent CLI"
 
 
+def test_copilot_job_installs_npm_package():
+    """Copilot job must install @github/copilot (provides 'copilot' binary).
+
+    The gh-copilot extension does NOT provide a standalone 'copilot' binary,
+    which would cause shutil.which('copilot') to fail and tests to false-skip.
+    """
+    wf = _load_workflow()
+    job = wf["jobs"]["copilot"]
+    steps_text = str(job.get("steps", []))
+    assert "@github/copilot" in steps_text, (
+        "copilot job must install @github/copilot npm package "
+        "(not gh-copilot extension)"
+    )
+    assert "gh extension" not in steps_text, (
+        "copilot job must not use gh extension install "
+        "(does not provide 'copilot' binary on PATH)"
+    )
+
+
 def test_no_pytest_timeout_flag():
     """Workflow must not use --timeout (pytest-timeout not in deps)."""
     content = WORKFLOW_PATH.read_text()
@@ -165,3 +185,47 @@ def test_secret_names_match_cli_auth():
             f"{profile} job if-condition must reference {expected_secret}, "
             f"got: {job_if!r}"
         )
+
+
+def test_missing_cli_fails_in_ci_not_skips():
+    """In CI, a missing CLI must cause a test failure, not a silent skip."""
+    import importlib
+    import unittest.mock as mock
+
+    import tests.test_live_e2e_agents as live_mod
+
+    importlib.reload(live_mod)
+
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {
+                "SYNAPSE_LIVE_E2E": "1",
+                "SYNAPSE_LIVE_E2E_PROFILES": "claude",
+                "CI": "true",
+            },
+        ),
+        mock.patch("shutil.which", return_value=None),
+    ):
+        with pytest.raises(pytest.fail.Exception, match="CLI 'claude' not found"):
+            live_mod._require_live_profile("claude")
+
+
+def test_missing_cli_skips_locally():
+    """Locally (no CI env), a missing CLI should skip, not fail."""
+    import importlib
+    import unittest.mock as mock
+
+    import tests.test_live_e2e_agents as live_mod
+
+    importlib.reload(live_mod)
+
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SYNAPSE_LIVE_E2E": "1", "SYNAPSE_LIVE_E2E_PROFILES": "claude", "CI": ""},
+        ),
+        mock.patch("shutil.which", return_value=None),
+    ):
+        with pytest.raises(pytest.skip.Exception):
+            live_mod._require_live_profile("claude")

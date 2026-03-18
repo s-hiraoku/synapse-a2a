@@ -145,8 +145,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
       - name: Install Copilot CLI
-        run: |
-          gh extension install github/gh-copilot
-          echo "$(gh config get extensions-dir)/gh-copilot" >> $GITHUB_PATH
+        run: npm install -g @github/copilot
       - name: Run live E2E tests
         run: uv run pytest tests/test_live_e2e_agents.py -v
