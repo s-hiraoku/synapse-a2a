@@ -4606,9 +4606,9 @@
 
     // Restore saved height
     try {
-      var saved = localStorage.getItem(storageKey);
-      if (saved) {
-        adminAgentsWidget.style.height = saved + "px";
+      var saved = parseInt(localStorage.getItem(storageKey), 10);
+      if (isFinite(saved)) {
+        adminAgentsWidget.style.height = Math.max(minH, saved) + "px";
         adminAgentsWidget.classList.add("splitter-resized");
       }
     } catch (e) { /* ignore */ }
@@ -4638,7 +4638,8 @@
       document.body.classList.remove("splitter-dragging");
       adminSplitter.classList.remove("dragging");
       adminAgentsWidget.classList.add("splitter-resized");
-      try { localStorage.setItem(storageKey, parseInt(adminAgentsWidget.style.height, 10)); } catch (e) { /* ignore */ }
+      var h = clamp(parseInt(adminAgentsWidget.style.height, 10));
+      if (isFinite(h)) { try { localStorage.setItem(storageKey, h); } catch (e) { /* ignore */ } }
     }
 
     adminSplitter.addEventListener("mousedown", function (e) {
@@ -4664,7 +4665,8 @@
       }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         adminAgentsWidget.classList.add("splitter-resized");
-        try { localStorage.setItem(storageKey, parseInt(adminAgentsWidget.style.height, 10)); } catch (e2) { /* ignore */ }
+        var kh = clamp(parseInt(adminAgentsWidget.style.height, 10));
+        if (isFinite(kh)) { try { localStorage.setItem(storageKey, kh); } catch (e2) { /* ignore */ } }
       }
     });
   }

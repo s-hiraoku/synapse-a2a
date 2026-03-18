@@ -1027,12 +1027,14 @@ def test_admin_splitter_between_agents_and_feed() -> None:
 
 
 def test_admin_splitter_role_separator() -> None:
-    """Splitter should use role='separator' for accessibility."""
+    """Splitter should use role='separator' with keyboard accessibility attributes."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     start = html.index('id="admin-splitter"')
     end = html.index(">", start)
     tag = html[start:end]
     assert 'role="separator"' in tag
+    assert 'aria-orientation="horizontal"' in tag
+    assert 'tabindex="0"' in tag
 
 
 def test_admin_splitter_css_cursor() -> None:

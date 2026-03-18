@@ -4097,7 +4097,8 @@ body.sidebar-collapsed #main-content {
   transition: width var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
 }
 #admin-splitter:hover::after,
-#admin-splitter.dragging::after {
+#admin-splitter.dragging::after,
+#admin-splitter:focus-visible::after {
   background: var(--color-accent);
   width: 60px;
 }
