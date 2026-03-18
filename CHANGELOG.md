@@ -12,6 +12,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.6] - 2026-03-19
+
+### Added
+
+- Live E2E GitHub Actions workflow for `claude`, `codex`, `gemini`, `opencode`, and `copilot`, gated by per-CLI auth secrets and explicit CLI installation
+- Workflow regression tests covering CLI install steps, job timeouts, auth secret mapping, Copilot npm package installation, and CI fail-vs-skip behavior
+
+### Fixed
+
+- Copilot reply cleaning now strips additional TUI noise patterns including permission prompts, `Esc to stop`, and zero-width-space status bar fragments
+- Copilot live E2E CI now installs the standalone `copilot` binary via `@github/copilot` instead of a `gh` extension mismatch
+- Live E2E tests now fail in CI when a selected CLI is missing, preventing false-green workflow runs
+
 ## [0.15.5] - 2026-03-19
 
 ### Added
@@ -2511,6 +2524,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...HEAD
+[0.15.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.5...v0.15.6
 [0.15.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.4...v0.15.5
 [0.15.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.3...v0.15.4
 [0.15.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.2...v0.15.3

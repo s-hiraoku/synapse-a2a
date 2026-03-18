@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.6
+
+- **Added**: Secret-gated live E2E GitHub Actions workflow for `claude`, `codex`, `gemini`, `opencode`, and `copilot`
+- **Added**: Live E2E workflow validation for CLI installation, job timeout, and auth secret wiring
+- **Fixed**: Copilot reply cleaning for new TUI noise patterns including permission prompts and `Esc to stop`
+- **Fixed**: Copilot live E2E CI now installs the standalone `copilot` CLI and fails CI when a selected CLI is missing
+
 ### v0.15.5
 
 - **Added**: `clean_copilot_response()` — strips Ink TUI artifacts (spinners, borders, status bars, input echo) from Copilot reply artifacts
