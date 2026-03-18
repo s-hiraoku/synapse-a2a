@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.3
+
+- **Added**: Agent Control drag-resize splitter — draggable separator between panels with localStorage persistence and keyboard support
+- **Changed**: History moved to Canvas sub-menu (`nav-sub` class)
+
 ### v0.15.2
 
 - **Added**: Name prompt placeholder — auto-suggests a petname (e.g., `Name [Enter = claude-agent]:`)
