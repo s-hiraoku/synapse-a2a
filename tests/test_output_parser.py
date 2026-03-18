@@ -526,3 +526,23 @@ class TestCleanCopilotResponse:
         result = clean_copilot_response(raw)
         assert "\x1b[" not in result
         assert "shift+tab" not in result
+
+    def test_removes_thinking_meter_and_long_message_echo(self):
+        """Copilot 1.0.8 should not leak thinking meter or long-message echo."""
+        raw = (
+            "A2A: [From: synapse-copilot-8140] "
+            "sc to cancel · 2.3 KiB)○ Thinking (Esc to cancel · 2.3 KiB)"
+            "]2;A2A: [LONG MESSAGE - FILE ATTACHED]"
+        )
+        result = clean_copilot_response(raw)
+        assert result == ""
+
+    def test_preserves_real_answer_while_stripping_copilot_tui_noise(self):
+        """A real answer should survive after removing Copilot TUI artifacts."""
+        raw = (
+            "○ Thinking (Esc to cancel · 2.3 KiB)\n"
+            "]2;A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+            "SYNAPSE_TEST_OK"
+        )
+        result = clean_copilot_response(raw)
+        assert result == "SYNAPSE_TEST_OK"

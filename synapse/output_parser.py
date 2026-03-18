@@ -294,6 +294,22 @@ _COPILOT_STATUS_BAR_RE = re.compile(
 _MODEL_NAME_RE = re.compile(
     r"(?:claude|gpt|gemini|copilot)[\w.-]*\s*\(\d+x?\)", re.IGNORECASE
 )
+_COPILOT_THINKING_RE = re.compile(
+    r"(?:^|[\s)])[○◉◎●]?\s*Thinking\s+\(Esc to cancel(?:\s+[·•]\s+[\d.]+\s+\w+i?B)?\)",
+    re.IGNORECASE,
+)
+_COPILOT_CANCEL_FRAGMENT_RE = re.compile(
+    r"(?:^|[\s(])(?:E|Es|Esc|sc)\s+to\s+cancel(?:\s+[·•]\s+[\d.]+\s+\w+i?B)?\)?",
+    re.IGNORECASE,
+)
+_LONG_MESSAGE_ECHO_RE = re.compile(
+    r"(?:\]2;)?A2A:\s+\[LONG MESSAGE - FILE ATTACHED\]",
+    re.IGNORECASE,
+)
+_SENDER_ECHO_RE = re.compile(
+    r"^A2A:\s+\[From:\s+[^\]]+\]\s*",
+    re.IGNORECASE,
+)
 _SPINNER_CHARS = frozenset("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
 _BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ ")
 
@@ -332,6 +348,14 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
             if not remainder:
                 continue
             line = remainder
+            stripped = line.strip()
+        line = _COPILOT_THINKING_RE.sub("", line)
+        line = _COPILOT_CANCEL_FRAGMENT_RE.sub("", line)
+        line = _LONG_MESSAGE_ECHO_RE.sub("", line)
+        line = _SENDER_ECHO_RE.sub("", line)
+        stripped = line.strip(" \t·•)")
+        if not stripped:
+            continue
         # Skip input prompt echo (> followed by sent message)
         if sent_message and stripped.lstrip("> ").startswith(
             sent_message[:SENT_MESSAGE_COMPARE_LEN]
