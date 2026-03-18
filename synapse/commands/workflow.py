@@ -7,6 +7,7 @@ import logging
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 from synapse.workflow import (
     Scope,
@@ -83,6 +84,15 @@ def cmd_workflow_create(args: argparse.Namespace) -> None:
     except WorkflowError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # Auto-generate skill from the new workflow
+    try:
+        from synapse.workflow_skill_sync import sync_workflow_skill
+
+        project_dir = Path.cwd()
+        sync_workflow_skill(template, project_dir)
+    except Exception as e:
+        logger.warning("Failed to sync workflow skill: %s", e)
 
     print(f"Workflow template created: {path}")
     print(f"Edit the file and run: synapse workflow run {name}")
@@ -203,6 +213,14 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
 
     deleted = store.delete(name, scope=wf.scope)
     if deleted:
+        # Remove auto-generated skill
+        try:
+            from synapse.workflow_skill_sync import remove_workflow_skill
+
+            remove_workflow_skill(name, Path.cwd())
+        except Exception as e:
+            logger.warning("Failed to remove workflow skill: %s", e)
+
         print(f"Workflow '{name}' deleted.")
     else:
         print(f"Error: Failed to delete workflow '{name}'.", file=sys.stderr)
@@ -212,9 +230,11 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
 # ── run ──────────────────────────────────────────────────────
 
 
-def _should_auto_spawn(step: WorkflowStep, cli_auto_spawn: bool) -> bool:
+def _should_auto_spawn(
+    step: WorkflowStep, cli_auto_spawn: bool, wf_auto_spawn: bool = False
+) -> bool:
     """Determine whether auto-spawn is enabled for a step."""
-    return step.auto_spawn or cli_auto_spawn
+    return step.auto_spawn or cli_auto_spawn or wf_auto_spawn
 
 
 def _try_spawn_agent(profile: str) -> bool:
@@ -257,6 +277,7 @@ def _run_step(
     total: int,
     *,
     auto_spawn: bool,
+    wf_auto_spawn: bool = False,
 ) -> bool:
     """Execute a single workflow step. Returns True on success."""
     from synapse.cli import _build_a2a_cmd
@@ -277,7 +298,7 @@ def _run_step(
     if (
         result.returncode != 0
         and _NO_AGENT_MARKER in (result.stderr or "")
-        and _should_auto_spawn(step, auto_spawn)
+        and _should_auto_spawn(step, auto_spawn, wf_auto_spawn)
     ):
         print(f"  Agent '{step.target}' not found. Spawning...")
         if _try_spawn_agent(step.target):
@@ -330,7 +351,11 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         print(f"DRY RUN: Workflow '{name}' ({wf.step_count} steps)")
         print()
         for i, step in enumerate(wf.steps, 1):
-            spawn_tag = " [auto-spawn]" if _should_auto_spawn(step, auto_spawn) else ""
+            spawn_tag = (
+                " [auto-spawn]"
+                if _should_auto_spawn(step, auto_spawn, wf.auto_spawn)
+                else ""
+            )
             print(f"  Step {i}: send to {step.target}{spawn_tag}")
             print(f"    message:  {step.message}")
             print(f"    priority: {step.priority}")
@@ -342,7 +367,9 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
 
     failures = 0
     for i, step in enumerate(wf.steps, 1):
-        ok = _run_step(step, i, wf.step_count, auto_spawn=auto_spawn)
+        ok = _run_step(
+            step, i, wf.step_count, auto_spawn=auto_spawn, wf_auto_spawn=wf.auto_spawn
+        )
         if not ok:
             failures += 1
             if not continue_on_error:
@@ -353,3 +380,25 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     print("Done.")
+
+
+# ── sync ────────────────────────────────────────────────────
+
+
+def cmd_workflow_sync(args: argparse.Namespace) -> None:
+    """Sync all workflow YAMLs to skill directories."""
+    from synapse.workflow_skill_sync import sync_all_workflows
+
+    project_dir = Path.cwd()
+    written, removed = sync_all_workflows(project_dir)
+
+    if written:
+        print(f"Synced {len(written)} skill file(s):")
+        for p in written:
+            print(f"  {p}")
+    if removed:
+        print(f"Removed {len(removed)} orphan skill(s):")
+        for p in removed:
+            print(f"  {p}")
+    if not written and not removed:
+        print("Nothing to sync.")

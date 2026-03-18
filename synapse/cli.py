@@ -45,6 +45,7 @@ from synapse.commands.workflow import (
     cmd_workflow_list,
     cmd_workflow_run,
     cmd_workflow_show,
+    cmd_workflow_sync,
 )
 from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
@@ -6027,6 +6028,13 @@ Run 'synapse workflow <subcommand> --help' for detailed usage.""",
         "--force", "-f", action="store_true", help="Delete without confirmation"
     )
     p_workflow_delete.set_defaults(func=cmd_workflow_delete)
+
+    # workflow sync
+    p_workflow_sync = workflow_subparsers.add_parser(
+        "sync",
+        help="Sync workflow YAMLs to skill directories",
+    )
+    p_workflow_sync.set_defaults(func=cmd_workflow_sync)
 
     # spawn - Spawn single agent in new pane
     p_spawn = subparsers.add_parser(

@@ -634,3 +634,102 @@ def test_auto_spawn_true_not_serialized_when_false(
     store.save(wf)
     content = (project_dir / "clean.yaml").read_text()
     assert "auto_spawn" not in content
+
+
+# ── trigger field ────────────────────────────────────────────
+
+
+def test_trigger_default_empty() -> None:
+    """trigger should default to empty string."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="t",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        scope="project",
+    )
+    assert wf.trigger == ""
+
+
+def test_trigger_roundtrip(store) -> None:
+    """trigger should survive save/load roundtrip."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="triggered",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        description="A triggered workflow",
+        trigger="実装が終わった|post-impl",
+        scope="project",
+    )
+    store.save(wf)
+    loaded = store.load("triggered")
+    assert loaded is not None
+    assert loaded.trigger == "実装が終わった|post-impl"
+
+
+def test_trigger_omitted_in_yaml_when_empty(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """trigger should not appear in YAML when empty."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, _ = workflow_dirs
+    wf = Workflow(
+        name="no-trigger",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        scope="project",
+    )
+    store.save(wf)
+    content = (project_dir / "no-trigger.yaml").read_text()
+    assert "trigger:" not in content
+
+
+# ── workflow-level auto_spawn ────────────────────────────────
+
+
+def test_workflow_auto_spawn_default_false() -> None:
+    """Workflow auto_spawn should default to False."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="t",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        scope="project",
+    )
+    assert wf.auto_spawn is False
+
+
+def test_workflow_auto_spawn_roundtrip(store) -> None:
+    """Workflow-level auto_spawn should survive save/load roundtrip."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="wf-spawn",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        auto_spawn=True,
+        scope="project",
+    )
+    store.save(wf)
+    loaded = store.load("wf-spawn")
+    assert loaded is not None
+    assert loaded.auto_spawn is True
+
+
+def test_workflow_auto_spawn_omitted_when_false(
+    store, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """Workflow-level auto_spawn: false should not appear in YAML."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, _ = workflow_dirs
+    wf = Workflow(
+        name="no-wf-spawn",
+        steps=[WorkflowStep(target="claude", message="hi")],
+        auto_spawn=False,
+        scope="project",
+    )
+    store.save(wf)
+    content = (project_dir / "no-wf-spawn.yaml").read_text()
+    # Step-level auto_spawn should also not be present
+    assert "auto_spawn" not in content

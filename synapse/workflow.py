@@ -66,6 +66,8 @@ class Workflow:
     steps: list[WorkflowStep]
     scope: Scope
     description: str = ""
+    trigger: str = ""
+    auto_spawn: bool = False
     step_count: int = field(init=False)
     path: Path | None = field(default=None, repr=False)
 
@@ -96,7 +98,7 @@ class WorkflowStore:
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / f"{workflow.name}.yaml"
 
-        data = {
+        data: dict = {
             "name": workflow.name,
             "description": workflow.description,
             "steps": [
@@ -110,6 +112,10 @@ class WorkflowStore:
                 for s in workflow.steps
             ],
         }
+        if workflow.trigger:
+            data["trigger"] = workflow.trigger
+        if workflow.auto_spawn:
+            data["auto_spawn"] = True
         # Atomic write: write to temp file then rename to avoid partial YAML.
         fd, tmp = tempfile.mkstemp(dir=str(target_path.parent), suffix=".tmp")
         try:
@@ -262,6 +268,8 @@ class WorkflowStore:
             name=raw_name,
             steps=steps,
             description=raw.get("description", ""),
+            trigger=raw.get("trigger", ""),
+            auto_spawn=bool(raw.get("auto_spawn", False)),
             scope=scope,
         )
         wf.path = file_path
