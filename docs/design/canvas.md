@@ -448,13 +448,14 @@ When a mermaid block carries `x_title` or `x_filename` metadata, the renderer wr
 
 ### SPA Routing
 
-The browser UI uses hash-based SPA routing with four views:
+The browser UI uses hash-based SPA routing with five views:
 
 | Route | View | Icon | Description |
 |---|---|---|---|
 | `#/` | **Canvas view** | `ph-projector-screen` | Full-viewport projection of the latest card. Designed for immersive content display. |
 | `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, file locks, worktrees, shared memory, and registry errors. Each widget uses a summary+detail expand/collapse pattern. |
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
+| `#/admin` | **Agent Control** | `ph-crown` | Interactive agent management: send messages, inspect responses, and control the fleet. |
 | `#/system` | **System view** | `ph-gear` | Configuration panel: tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, and environment. |
 
 Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the topbar displays "Canvas / History". The URL hash updates accordingly and the browser back/forward buttons work as expected.
@@ -856,7 +857,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] All 23 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
-- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), and `#/system` (System view)
+- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), `#/admin` (Agent Control), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
@@ -892,7 +893,7 @@ Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `m
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; System shows configuration.
+6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/admin`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; Agent Control (`#/admin`) provides interactive agent management; System shows configuration.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

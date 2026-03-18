@@ -28,14 +28,24 @@ Define multi-step agent workflows as YAML files. Each step targets an agent with
 **Storage:** `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user).
 
 ```bash
-synapse workflow create <name> [--project|--user] [--force]     # Create workflow template YAML
+synapse workflow create <name> [--project|--user] [--force]     # Create workflow template YAML (+ auto-generate skill)
 synapse workflow list [--project|--user]                        # List saved workflows
 synapse workflow show <name> [--project|--user]                 # Show workflow details
-synapse workflow run <name> [--project|--user] [--dry-run] [--continue-on-error]  # Execute steps
-synapse workflow delete <name> [--project|--user] [--force]    # Delete a saved workflow
+synapse workflow run <name> [--project|--user] [--dry-run] [--continue-on-error] [--auto-spawn]  # Execute steps
+synapse workflow delete <name> [--project|--user] [--force]    # Delete a saved workflow (+ remove auto-generated skill)
+synapse workflow sync                                          # Sync all workflows to skill directories
 ```
 
-Supports `--dry-run` to preview execution without sending messages, and `--continue-on-error` to proceed past step failures.
+Supports `--dry-run` to preview execution without sending messages, `--continue-on-error` to proceed past step failures, and `--auto-spawn` to spawn missing agents on the fly.
+
+### Workflow-to-Skill Bridge
+
+Workflows can be auto-generated as skills so they appear as discoverable slash commands. The `trigger` YAML field provides keywords for skill matching, and `auto_spawn` (workflow-level or per-step) enables automatic agent spawning during execution.
+
+- `synapse workflow create` auto-generates a SKILL.md in `.claude/skills/<name>/` and `.agents/skills/<name>/`
+- `synapse workflow delete` removes the auto-generated skill directories
+- `synapse workflow sync` regenerates skills for all workflows and removes orphaned auto-generated skills
+- Auto-generated skills are marked with `<!-- synapse-workflow-autogen -->` and are never confused with hand-written skills
 
 ## Saved Agent Definitions
 
@@ -166,7 +176,7 @@ synapse mcp serve
 
 Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.
 
-**Views:** Hash-routed SPA with five views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment), and `#/admin` (Admin Command Center: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
+**Views:** Hash-routed SPA with five views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/admin` (Agent Control: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
 
 **26 card formats:** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, tip, progress, terminal, dependency-graph, cost, link-preview, plan.
 

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import subprocess
 import sys
+import time
+from pathlib import Path
 
 from synapse.workflow import (
     Scope,
@@ -13,6 +16,12 @@ from synapse.workflow import (
     WorkflowStep,
     WorkflowStore,
 )
+
+logger = logging.getLogger(__name__)
+
+_NO_AGENT_MARKER = "No agent found matching"
+_SPAWN_WAIT_SECONDS = 5
+_SPAWN_MAX_WAIT_SECONDS = 30
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -75,6 +84,15 @@ def cmd_workflow_create(args: argparse.Namespace) -> None:
     except WorkflowError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # Auto-generate skill from the new workflow
+    try:
+        from synapse.workflow_skill_sync import sync_workflow_skill
+
+        project_dir = Path.cwd()
+        sync_workflow_skill(template, project_dir)
+    except Exception as e:
+        logger.warning("Failed to sync workflow skill: %s", e)
 
     print(f"Workflow template created: {path}")
     print(f"Edit the file and run: synapse workflow run {name}")
@@ -195,6 +213,14 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
 
     deleted = store.delete(name, scope=wf.scope)
     if deleted:
+        # Remove auto-generated skill
+        try:
+            from synapse.workflow_skill_sync import remove_workflow_skill
+
+            remove_workflow_skill(name, Path.cwd())
+        except Exception as e:
+            logger.warning("Failed to remove workflow skill: %s", e)
+
         print(f"Workflow '{name}' deleted.")
     else:
         print(f"Error: Failed to delete workflow '{name}'.", file=sys.stderr)
@@ -204,12 +230,108 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
 # ── run ──────────────────────────────────────────────────────
 
 
+def _should_auto_spawn(step: WorkflowStep, effective_auto_spawn: bool) -> bool:
+    """Determine whether auto-spawn is enabled for a step."""
+    return step.auto_spawn or effective_auto_spawn
+
+
+def _try_spawn_agent(profile: str) -> bool:
+    """Spawn an agent by profile name. Returns True on success."""
+    try:
+        from synapse.spawn import spawn_agent
+
+        result = spawn_agent(profile)
+        if result.status == "submitted":
+            print(f"  Spawned {profile} agent (port {result.port})")
+            return True
+        print(
+            f"  Warning: spawn {profile} returned status '{result.status}'",
+            file=sys.stderr,
+        )
+        return False
+    except Exception as e:
+        print(f"  Warning: failed to spawn '{profile}': {e}", file=sys.stderr)
+        return False
+
+
+def _wait_for_agent(target: str, timeout: float = _SPAWN_MAX_WAIT_SECONDS) -> bool:
+    """Poll registry until target agent appears or timeout."""
+    from synapse.registry import AgentRegistry
+    from synapse.tools.a2a import _resolve_target_agent
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        agents = AgentRegistry().list_agents()
+        agent, _err = _resolve_target_agent(target, agents)
+        if agent is not None:
+            return True
+        time.sleep(1)
+    return False
+
+
+def _run_step(
+    step: WorkflowStep,
+    step_num: int,
+    total: int,
+    *,
+    auto_spawn: bool,
+) -> bool:
+    """Execute a single workflow step. Returns True on success."""
+    from synapse.cli import _build_a2a_cmd
+
+    print(f"  Step {step_num}/{total}: → {step.target} ({step.response_mode})")
+
+    cmd = _build_a2a_cmd(
+        "send",
+        step.message,
+        target=step.target,
+        priority=step.priority,
+        response_mode=step.response_mode,
+    )
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    # Check if agent not found and auto-spawn is enabled
+    if (
+        result.returncode != 0
+        and _NO_AGENT_MARKER in (result.stderr or "")
+        and _should_auto_spawn(step, auto_spawn)
+    ):
+        print(f"  Agent '{step.target}' not found. Spawning...")
+        if _try_spawn_agent(step.target):
+            print(
+                f"  Waiting for agent to register (up to {_SPAWN_MAX_WAIT_SECONDS}s)..."
+            )
+            if _wait_for_agent(step.target):
+                # Retry the send
+                result = subprocess.run(cmd, capture_output=True, text=True)
+            else:
+                print(
+                    f"  Warning: agent '{step.target}' did not register in time.",
+                    file=sys.stderr,
+                )
+
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+
+    if result.returncode != 0:
+        print(
+            f"  Step {step_num} failed (exit {result.returncode}).",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def cmd_workflow_run(args: argparse.Namespace) -> None:
     """Execute workflow steps sequentially."""
     name: str = args.workflow_name
     scope = _resolve_scope(args)
     dry_run = getattr(args, "dry_run", False)
     continue_on_error = getattr(args, "continue_on_error", False)
+    auto_spawn = getattr(args, "auto_spawn", False)
 
     store = _get_workflow_store()
     try:
@@ -222,11 +344,18 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         print(f"Error: Workflow '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 
+    effective_auto_spawn = auto_spawn or wf.auto_spawn
+
     if dry_run:
         print(f"DRY RUN: Workflow '{name}' ({wf.step_count} steps)")
         print()
         for i, step in enumerate(wf.steps, 1):
-            print(f"  Step {i}: send to {step.target}")
+            spawn_tag = (
+                " [auto-spawn]"
+                if _should_auto_spawn(step, effective_auto_spawn)
+                else ""
+            )
+            print(f"  Step {i}: send to {step.target}{spawn_tag}")
             print(f"    message:  {step.message}")
             print(f"    priority: {step.priority}")
             print(f"    mode:     {step.response_mode}")
@@ -235,29 +364,11 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
 
     print(f"Running workflow '{name}' ({wf.step_count} steps)...")
 
-    from synapse.cli import _build_a2a_cmd
-
     failures = 0
     for i, step in enumerate(wf.steps, 1):
-        print(f"  Step {i}/{wf.step_count}: → {step.target} ({step.response_mode})")
-
-        cmd = _build_a2a_cmd(
-            "send",
-            step.message,
-            target=step.target,
-            priority=step.priority,
-            response_mode=step.response_mode,
-        )
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="", file=sys.stderr)
-
-        if result.returncode != 0:
+        ok = _run_step(step, i, wf.step_count, auto_spawn=effective_auto_spawn)
+        if not ok:
             failures += 1
-            print(f"  Step {i} failed (exit {result.returncode}).", file=sys.stderr)
             if not continue_on_error:
                 sys.exit(1)
 
@@ -266,3 +377,25 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     print("Done.")
+
+
+# ── sync ────────────────────────────────────────────────────
+
+
+def cmd_workflow_sync(args: argparse.Namespace) -> None:
+    """Sync all workflow YAMLs to skill directories."""
+    from synapse.workflow_skill_sync import sync_all_workflows
+
+    project_dir = Path.cwd()
+    written, removed = sync_all_workflows(project_dir)
+
+    if written:
+        print(f"Synced {len(written)} skill file(s):")
+        for p in written:
+            print(f"  {p}")
+    if removed:
+        print(f"Removed {len(removed)} orphan skill(s):")
+        for p in removed:
+            print(f"  {p}")
+    if not written and not removed:
+        print("Nothing to sync.")

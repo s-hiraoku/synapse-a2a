@@ -4,13 +4,27 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.4
+
+- **Added**: Auto-spawn support for workflow run — agents spawned on demand when not running
+- **Added**: Workflow-as-skill auto-generation — SKILL.md created from workflow YAML for slash-command discovery
+- **Added**: `synapse workflow sync` CLI command for bulk skill synchronization
+- **Fixed**: YAML frontmatter injection prevention, `auto_spawn` boolean validation, skill-creator script hardening
+
+### v0.15.3
+
+- **Added**: Agent Control drag-resize splitter — draggable separator between panels with localStorage persistence and keyboard support
+- **Changed**: History moved to Canvas sub-menu (`nav-sub` class)
+
 ### v0.15.2
 
+- **Added**: Name prompt placeholder — auto-suggests a petname (e.g., `Name [Enter = claude-agent]:`)
+- **Added**: Save ID prompt placeholder — suggests petname based on agent context
 - **Added**: `clean_copilot_response()` — strips Ink TUI artifacts (spinners, borders, status bars, input echo) from Copilot reply artifacts
 - **Added**: Copilot Ctrl+S submit fallback for Copilot CLI 1.0.7 Ink TUI
+- **Changed**: Canvas menu "Admin" renamed to "Agent Control", reordered before System
 - **Fixed**: Copilot reply artifacts no longer contain TUI garbage (ANSI escapes, braille spinners, box-drawing borders)
 - **Fixed**: Server-mode logging no longer leaks to PTY — redirected to `~/.synapse/logs/`
-- **Fixed**: Status bar regex tightened to preserve response text on the same line
 
 ### v0.15.1
 

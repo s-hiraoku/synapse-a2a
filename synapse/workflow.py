@@ -38,6 +38,7 @@ class WorkflowStep:
     message: str
     priority: int = 3
     response_mode: str = "notify"
+    auto_spawn: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.target, str) or not self.target:
@@ -65,6 +66,8 @@ class Workflow:
     steps: list[WorkflowStep]
     scope: Scope
     description: str = ""
+    trigger: str = ""
+    auto_spawn: bool = False
     step_count: int = field(init=False)
     path: Path | None = field(default=None, repr=False)
 
@@ -95,7 +98,7 @@ class WorkflowStore:
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / f"{workflow.name}.yaml"
 
-        data = {
+        data: dict = {
             "name": workflow.name,
             "description": workflow.description,
             "steps": [
@@ -104,10 +107,15 @@ class WorkflowStore:
                     "message": s.message,
                     "priority": s.priority,
                     "response_mode": s.response_mode,
+                    **({"auto_spawn": True} if s.auto_spawn else {}),
                 }
                 for s in workflow.steps
             ],
         }
+        if workflow.trigger:
+            data["trigger"] = workflow.trigger
+        if workflow.auto_spawn:
+            data["auto_spawn"] = True
         # Atomic write: write to temp file then rename to avoid partial YAML.
         fd, tmp = tempfile.mkstemp(dir=str(target_path.parent), suffix=".tmp")
         try:
@@ -246,19 +254,33 @@ class WorkflowStore:
                 file_path.stem,
             )
             raw_name = file_path.stem
-        steps = [
-            WorkflowStep(
-                target=s["target"],
-                message=s["message"],
-                priority=s.get("priority", 3),
-                response_mode=s.get("response_mode", "notify"),
+        steps = []
+        for s in raw["steps"]:
+            step_auto_spawn = s.get("auto_spawn", False)
+            if step_auto_spawn is not False and not isinstance(step_auto_spawn, bool):
+                raise ValueError(
+                    f"Step auto_spawn must be a boolean, got {type(step_auto_spawn).__name__}"
+                )
+            steps.append(
+                WorkflowStep(
+                    target=s["target"],
+                    message=s["message"],
+                    priority=s.get("priority", 3),
+                    response_mode=s.get("response_mode", "notify"),
+                    auto_spawn=bool(step_auto_spawn),
+                )
             )
-            for s in raw["steps"]
-        ]
+        raw_auto_spawn = raw.get("auto_spawn", False)
+        if raw_auto_spawn is not False and not isinstance(raw_auto_spawn, bool):
+            raise ValueError(
+                f"Workflow auto_spawn must be a boolean, got {type(raw_auto_spawn).__name__}"
+            )
         wf = Workflow(
             name=raw_name,
             steps=steps,
             description=raw.get("description", ""),
+            trigger=raw.get("trigger", ""),
+            auto_spawn=bool(raw_auto_spawn),
             scope=scope,
         )
         wf.path = file_path

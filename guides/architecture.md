@@ -16,7 +16,7 @@ flowchart TB
 
     subgraph Synapse["Synapse A2A Layer"]
         subgraph Core["コアコンポーネント"]
-            IR["InputRouter"]
+            IR["Shell"]
             TC["TerminalController"]
         end
 
@@ -60,7 +60,7 @@ flowchart TB
 ```
 
 **ポイント**:
-- InputRouter は A2AClient を経由してローカル・外部エージェントと通信
+- Shell は A2AClient を経由してローカル・外部エージェントと通信
 - ローカル通信: `send_to_local()` → `/tasks/send-priority`
 - 外部通信: `send_message()` → `/tasks/send`
 - すべての通信で Message/Part 構造を使用
@@ -119,16 +119,16 @@ stateDiagram-v2
 
 ---
 
-### 2.2 InputRouter
+### 2.2 Shell (@Agent Routing)
 
-**ファイル**: `synapse/input_router.py`
+**ファイル**: `synapse/shell.py`
 
 ユーザー入力を 1 文字ずつ解析し、`@Agent` パターンを検出してルーティングします。
 ローカルエージェントと外部エージェントの両方に対応しており、A2AClient を通じて統一的に通信を行います。
 
 ```mermaid
 classDiagram
-    class InputRouter {
+    class Shell {
         -registry: AgentRegistry
         -a2a_client: A2AClient
         -line_buffer: str
@@ -150,7 +150,7 @@ classDiagram
         +send_message(alias, message, wait): A2ATask
     }
 
-    InputRouter --> A2AClient : uses
+    Shell --> A2AClient : uses
 ```
 
 **通信方式の統一**:
@@ -403,7 +403,7 @@ classDiagram
 | `get_task(alias, task_id)` | Task 状態を取得 |
 | `list_agents()` | 登録済み外部エージェント一覧 |
 
-**ローカル通信**: `send_to_local()` メソッドは、InputRouter からローカルエージェントへの通信に使用されます。
+**ローカル通信**: `send_to_local()` メソッドは、Shell からローカルエージェントへの通信に使用されます。
 **外部通信**: `send_message()` メソッドは、外部 A2A エージェントへの通信に使用されます。
 
 **Registry ファイル**: `~/.a2a/external/<alias>.json`
@@ -492,7 +492,7 @@ sequenceDiagram
 sequenceDiagram
     participant User as ユーザー
     participant Claude as Claude (8100)
-    participant IR as InputRouter
+    participant IR as Shell
     participant A2AClient as A2AClient
     participant Registry as AgentRegistry
     participant Codex as Codex (8120)
@@ -515,7 +515,7 @@ sequenceDiagram
 ```
 
 **ポイント**:
-- InputRouter は直接 HTTP リクエストを送信せず、A2AClient.send_to_local() を使用
+- Shell は直接 HTTP リクエストを送信せず、A2AClient.send_to_local() を使用
 - メッセージは A2AMessage 形式（Message/Part 構造）に変換される
 - `/tasks/send-priority` エンドポイントを使用（priority サポートのため）
 
@@ -525,7 +525,7 @@ sequenceDiagram
 sequenceDiagram
     participant User as ユーザー
     participant Claude as Claude (8100)
-    participant IR as InputRouter
+    participant IR as Shell
     participant A2AClient as A2AClient
     participant Codex as Codex (8120)
 
@@ -683,7 +683,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     Keyboard["キーボード"]
-    IR["InputRouter"]
+    IR["Shell"]
     LineBuffer["line_buffer"]
     PTY["PTY stdin"]
     A2A["A2A 送信"]
@@ -724,8 +724,8 @@ flowchart LR
 
 | レイヤー | コンポーネント | 通信方式 |
 |---------|--------------|---------|
-| InputRouter | A2AClient.send_to_local() | `/tasks/send-priority` |
-| InputRouter | A2AClient.send_message() | `/tasks/send` |
+| Shell | A2AClient.send_to_local() | `/tasks/send-priority` |
+| Shell | A2AClient.send_message() | `/tasks/send` |
 | シンプル API | `/message` | 内部で Task 作成 |
 
 **メッセージ構造**: Message/Part 形式で統一
@@ -795,7 +795,7 @@ synapse-a2a/
 │   ├── cli.py              # CLI エントリポイント (~460行)
 │   ├── controller.py       # TerminalController (~245行)
 │   ├── registry.py         # AgentRegistry (~55行)
-│   ├── input_router.py     # InputRouter (~270行)
+│   ├── shell.py            # Interactive shell with @Agent routing (~190行)
 │   ├── server.py           # FastAPI サーバー (~150行)
 │   ├── shell.py            # インタラクティブシェル (~190行)
 │   ├── a2a_compat.py       # Google A2A 互換レイヤー (~570行)
@@ -806,7 +806,9 @@ synapse-a2a/
 │   ├── profiles/           # エージェントプロファイル
 │   │   ├── claude.yaml
 │   │   ├── codex.yaml
+│   │   ├── copilot.yaml
 │   │   ├── gemini.yaml
+│   │   ├── opencode.yaml
 │   │   └── dummy.yaml
 │   └── tools/
 │       └── a2a.py          # A2A CLI ツール (~75行)
@@ -829,7 +831,7 @@ synapse-a2a/
 ~/.synapse/
 ├── logs/
 │   ├── <profile>.log
-│   └── input_router.log
+│   └── shell.log
 └── skills/                 # 中央スキルストア
 
 .synapse/                   # プロジェクトローカル

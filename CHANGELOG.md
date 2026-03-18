@@ -5,19 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.15.4] - 2026-03-19
+
+### Added
+
+- add auto-spawn support to workflow run
+- auto-generate SKILL.md from workflow YAML definitions
+
+### Changed
+
+- simplify workflow skill sync and update docs
+
+### Documentation
+
+- update InputRouter refs to Shell, fix stale links and badges
+
+### Fixed
+
+- Validate `auto_spawn` YAML field as boolean (reject string `"false"`)
+- Deduplicate workflows by name in `sync_all_workflows` (project-first precedence)
+- Use `yaml.safe_dump` for SKILL.md frontmatter to prevent YAML injection
+- Guard against empty history in skill-creator `generate_report.py`
+- Prevent path traversal in skill-creator `run_eval.py`
+- Fix false negative in skill-creator tool detection loop
+
 ## [Unreleased]
+
+## [0.15.3] - 2026-03-18
+
+### Added
+
+- Agent Control drag-resize splitter: draggable separator between "Select Agent" and "Response" panels for adjustable height ratio, with localStorage persistence, keyboard support (Arrow keys), and `role="separator"` accessibility
 
 ### Changed
 
 - History moved from top-level sidebar item to Canvas sub-menu (`nav-sub` class), with Canvas parent link staying active on History route and topbar showing "Canvas / History"
 
-## [0.15.2] - 2026-03-19
+## [0.15.2] - 2026-03-18
 
 ### Added
 
+- Name prompt placeholder: `Name [Enter = claude-agent]:` — auto-generates a suggested petname via `suggest_petname_ids()`, accepted with Enter
+- Save ID prompt placeholder: `Saved agent ID [Enter = alice-reviewer]:` — suggests a petname based on name, role, skill set, and profile
 - `clean_copilot_response()` in `output_parser.py` — strips Ink TUI artifacts (spinners, box-drawing borders, status bars, input echo, re-render duplicates) from Copilot task responses
 - Sent message metadata (`_sent_message`) stored in task for input echo removal during response cleaning
 - Copilot Ctrl+S submit fallback — sends `\x13` (Ctrl+S "run command") as additional fallback when `\r` fails to trigger Ink TUI submission
+
+### Changed
+
+- Canvas menu: "Admin" renamed to "Agent Control" for clarity
+- Canvas sidebar: "Agent Control" moved before "System" in menu order
+- Extracted `_input_with_default()` helper to deduplicate prompt-with-default logic
 
 ### Fixed
 
@@ -2462,6 +2507,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+[0.15.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.3...v0.15.4
+[0.15.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.14.0...v0.15.0

@@ -171,11 +171,11 @@ def test_admin_view_exists_in_html() -> None:
 
 
 def test_admin_nav_link_exists_and_follows_system() -> None:
-    """Admin nav link should exist and appear after the system nav item."""
+    """Admin nav link should exist and appear before the system nav item."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     system_pos = html.index('data-route="system"')
     admin_pos = html.index('data-route="admin"')
-    assert system_pos < admin_pos
+    assert admin_pos < system_pos
 
 
 def test_admin_route_in_js() -> None:
@@ -188,7 +188,7 @@ def test_admin_route_in_js() -> None:
     assert 'document.getElementById("admin-agents-widget")' in js
     assert 'document.getElementById("admin-message-input")' in js
     assert 'document.getElementById("admin-send-btn")' in js
-    assert 'admin: "Admin"' in js
+    assert 'admin: "Agent Control"' in js
     assert 'currentRoute === "admin"' in js
     assert "loadAdminAgents();" in js
 
@@ -1009,3 +1009,38 @@ def test_admin_badge_has_proper_styling() -> None:
 
     assert "#admin-target-badge {" in css
     assert ".admin-row-selected" in css
+
+
+def test_admin_splitter_exists_in_html() -> None:
+    """index.html should contain a splitter element between agents widget and feed."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    assert 'id="admin-splitter"' in html
+
+
+def test_admin_splitter_between_agents_and_feed() -> None:
+    """Splitter should appear between admin-agents-widget and admin-feed-wrap."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    agents_pos = html.index('id="admin-agents-widget"')
+    splitter_pos = html.index('id="admin-splitter"')
+    feed_pos = html.index('id="admin-feed-wrap"')
+    assert agents_pos < splitter_pos < feed_pos
+
+
+def test_admin_splitter_role_separator() -> None:
+    """Splitter should use role='separator' with keyboard accessibility attributes."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    start = html.index('id="admin-splitter"')
+    end = html.index(">", start)
+    tag = html[start:end]
+    assert 'role="separator"' in tag
+    assert 'aria-orientation="horizontal"' in tag
+    assert 'tabindex="0"' in tag
+
+
+def test_admin_splitter_css_cursor() -> None:
+    """CSS should define row-resize cursor for the splitter."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    start = css.index("#admin-splitter {")
+    end = css.index("}", start)
+    block = css[start:end]
+    assert "cursor: row-resize;" in block

@@ -40,7 +40,7 @@
 === "Scoop (Windows)"
 
     ```powershell
-    scoop bucket add synapse-a2a https://github.com/s-hiraoku/synapse-a2a
+    scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
     scoop install synapse-a2a
     ```
 
@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.15.2`).
+You should see the version number (e.g., `0.15.4`).
 
 ## Initialize Configuration
 

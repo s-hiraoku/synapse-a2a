@@ -71,14 +71,10 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ### 実装ドキュメント
 
-- `admin-command-center.md` - **Canvas Admin Command Center ガイド**
+- `admin-command-center.md` - **Canvas Agent Control (Admin Command Center) ガイド**
   - ブラウザからエージェントにコマンド送信・レスポンス表示
   - Reply ベース方式（`synapse reply` を活用、PTY 出力は使わない）
   - API リファレンス、UI コンポーネント、設計判断
-
-- `artifact-pipeline.md` - **PTY 出力から Artifact へのパイプライン**
-  - PTY キャプチャ → バッファ蓄積 → アイドル検知 → 確定 → Artifact 格納
-  - ※ Admin Command Center は reply ベース方式を使用（このパイプラインは経由しない）
 
 - `file-safety.md` - **File Safety（ファイル競合防止）ユーザーガイド**
   - ファイルロックと変更追跡でマルチエージェント競合を防止
@@ -95,10 +91,7 @@ For user guides, see the [`/guides`](../guides/) directory.
   - 設定ファイル: `.synapse/default.md`, `synapse/templates/.synapse/default.md`
   - スキル: `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md`, `plugins/synapse-a2a/skills/synapse-manager/SKILL.md`
 
-- `../PHASE2_HANDOFF.md` - **セッション履歴機能 Phase 2 実装完了レポート**
-  - キーワード検索、統計情報、エクスポート、クリーンアップ機能
-  - テスト覆率: 56 個のテストケース（全て合格）
-  - PR #34 で実装済み
+- セッション履歴機能 Phase 2 は PR #34 で実装済み（キーワード検索、統計情報、エクスポート、クリーンアップ機能）
 
 ### ターミナル・ペイン管理
 

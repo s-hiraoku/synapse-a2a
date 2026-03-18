@@ -912,7 +912,10 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
         assert sleeps[:2] == [0.5, 0.15]
-        assert sleeps[2:] == [0.05] * 12
+        # Filter out 0.1s sleeps that may leak from daemon threads in other
+        # tests (master_fd wait loop).  Only the poll_interval sleeps matter.
+        confirm_sleeps = [s for s in sleeps[2:] if s != 0.1]
+        assert confirm_sleeps == [0.05] * 12
 
     def test_submit_confirmation_stops_when_copilot_status_advances(self):
         """Copilot should stop retrying once status leaves READY."""

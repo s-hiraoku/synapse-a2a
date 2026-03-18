@@ -4072,6 +4072,43 @@ body.sidebar-collapsed #main-content {
   z-index: 1;
   background: var(--color-bg);
 }
+#admin-agents-widget.splitter-resized {
+  max-height: none;
+}
+#admin-splitter {
+  height: 6px;
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+  margin: -3px 0;
+  z-index: 1;
+  background: transparent;
+}
+#admin-splitter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--glass-stroke);
+  transition: width var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+#admin-splitter:hover::after,
+#admin-splitter.dragging::after,
+#admin-splitter:focus-visible::after {
+  background: var(--color-accent);
+  width: 60px;
+}
+body.splitter-dragging {
+  user-select: none;
+  cursor: row-resize;
+}
+@media (max-width: 768px) {
+  #admin-splitter { display: none; }
+}
 #admin-feed-wrap {
   flex: 1;
   min-height: 0;

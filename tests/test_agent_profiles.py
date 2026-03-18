@@ -141,3 +141,30 @@ def test_add_rejects_whitespace_only_required_fields(
             skill_set=None,
             scope="project",
         )
+
+
+# ── suggest_petname_ids exclude ──────────────────────────────
+
+
+def test_suggest_petname_ids_excludes_taken_names() -> None:
+    """Suggestions should skip names already in use."""
+    from synapse.agent_profiles import suggest_petname_ids
+
+    # Without exclude, "claude-agent" is the first candidate
+    assert suggest_petname_ids("claude")[0] == "claude-agent"
+
+    # With "claude-agent" excluded, it should not appear
+    results = suggest_petname_ids("claude", exclude={"claude-agent"})
+    assert "claude-agent" not in results
+    assert len(results) > 0
+
+
+def test_suggest_petname_ids_excludes_all_fallbacks() -> None:
+    """When all normal candidates are excluded, generic fallbacks are used."""
+    from synapse.agent_profiles import suggest_petname_ids
+
+    # Exclude all claude-* fallbacks
+    excluded = {"claude-agent", "claude-helper", "claude-worker", "claude-guide"}
+    results = suggest_petname_ids("claude", exclude=excluded)
+    for r in results:
+        assert r not in excluded
