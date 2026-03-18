@@ -40,7 +40,7 @@
 === "Scoop (Windows)"
 
     ```powershell
-    scoop bucket add synapse-a2a https://github.com/s-hiraoku/synapse-a2a
+    scoop bucket add synapse-a2a https://github.com/s-hiraoku/scoop-synapse-a2a
     scoop install synapse-a2a
     ```
 

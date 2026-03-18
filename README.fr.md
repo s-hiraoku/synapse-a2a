@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2990%20passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3287%20passed-brightgreen.svg)](#tests)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > Un framework qui permet la collaboration inter-agents via le Google A2A Protocol tout en gardant les agents CLI (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactement tels quels**
@@ -451,7 +451,7 @@ Chaque agent est :
 | A2A Router | `synapse/a2a_compat.py` | Implémentation du protocole A2A |
 | A2A Client | `synapse/a2a_client.py` | Communication avec les autres agents |
 | TerminalController | `synapse/controller.py` | Gestion PTY, détection READY/PROCESSING |
-| InputRouter | `synapse/input_router.py` | Détection du pattern @Agent |
+| Shell | `synapse/shell.py` | Shell interactif avec routage de patterns @Agent |
 | AgentRegistry | `synapse/registry.py` | Enregistrement et recherche d'agents |
 | SkillManager | `synapse/skills.py` | Découverte, déploiement, import de skills, ensembles de skills |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | TUI et CLI de gestion de skills |

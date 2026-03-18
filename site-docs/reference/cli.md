@@ -698,6 +698,18 @@ synapse canvas clear                       # Clear all cards
 synapse canvas clear --agent <agent_id>    # Clear specific agent's cards
 ```
 
+### Open
+
+```bash
+synapse canvas open [--port PORT]
+```
+
+Opens the Canvas UI in the default browser. If the server is not running, it is started automatically before opening.
+
+| Flag | Description |
+|------|-------------|
+| `--port PORT` | Canvas server port (default: 3000) |
+
 ### Status
 
 ```bash

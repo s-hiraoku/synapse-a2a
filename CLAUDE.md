@@ -31,10 +31,17 @@ synapse/
 ├── a2a_compat.py    # A2A protocol (Agent Card, Task API)
 ├── a2a_client.py    # Client for other A2A agents
 ├── registry.py      # File-based agent discovery
+├── shell.py         # Interactive shell with @Agent routing
+├── task_board.py    # Shared task board (SQLite)
+├── shared_memory.py # Cross-agent knowledge base (SQLite)
+├── spawn.py         # Agent spawning
 ├── mcp/             # MCP server (bootstrap instruction distribution)
 ├── canvas/          # Shared visual output surface
 ├── commands/        # CLI command implementations
-└── profiles/        # YAML configs per agent type
+├── profiles/        # YAML configs per agent type
+├── proto/           # gRPC Protocol Buffers
+├── tools/           # A2A CLI tools
+└── templates/       # Project template files
 ```
 
 ## Core Design Principles
