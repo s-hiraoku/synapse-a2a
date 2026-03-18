@@ -190,8 +190,19 @@ class AgentProfileStore:
             raise AgentProfileError(f"{field_name} is required")
 
 
-def suggest_petname_ids(*values: str | None, limit: int = 3) -> list[str]:
-    """Suggest a few valid petname-style IDs from user-facing labels."""
+def suggest_petname_ids(
+    *values: str | None,
+    limit: int = 3,
+    exclude: set[str] | None = None,
+) -> list[str]:
+    """Suggest a few valid petname-style IDs from user-facing labels.
+
+    Args:
+        *values: Strings to extract tokens from (name, role, profile, etc.).
+        limit: Maximum number of suggestions to return.
+        exclude: Names already in use — candidates matching these are skipped.
+    """
+    taken = exclude or set()
     tokens: list[str] = []
     seen: set[str] = set()
 
@@ -212,7 +223,7 @@ def suggest_petname_ids(*values: str | None, limit: int = 3) -> list[str]:
             if left == right:
                 continue
             candidate = f"{left}-{right}"
-            if candidate in used:
+            if candidate in used or candidate in taken:
                 continue
             used.add(candidate)
             candidates.append(candidate)
@@ -225,7 +236,7 @@ def suggest_petname_ids(*values: str | None, limit: int = 3) -> list[str]:
             if left == right:
                 continue
             candidate = f"{left}-{right}"
-            if candidate in used:
+            if candidate in used or candidate in taken:
                 continue
             used.add(candidate)
             candidates.append(candidate)
@@ -234,7 +245,7 @@ def suggest_petname_ids(*values: str | None, limit: int = 3) -> list[str]:
 
     generic = ["silent-snake", "calm-lead", "steady-builder"]
     for candidate in generic:
-        if candidate in used:
+        if candidate in used or candidate in taken:
             continue
         candidates.append(candidate)
         if len(candidates) >= limit:
