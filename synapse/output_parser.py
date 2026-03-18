@@ -310,8 +310,16 @@ _SENDER_ECHO_RE = re.compile(
     r"^A2A:\s+\[From:\s+[^\]]+\]\s*",
     re.IGNORECASE,
 )
+_COPILOT_PERMISSION_RE = re.compile(
+    r"permissions\s+(?:on|off)\s*\(shift\+tab\s+to\s+cycle\)",
+    re.IGNORECASE,
+)
+_COPILOT_ESC_STOP_RE = re.compile(
+    r"^Esc\s+to\s+stop\s*$",
+    re.IGNORECASE,
+)
 _SPINNER_CHARS = frozenset("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
-_BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ ")
+_BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ \u200b")
 
 # Sent message echo comparison length (shared with a2a_compat storage)
 SENT_MESSAGE_COMPARE_LEN = 50
@@ -344,7 +352,7 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
         # Strip Copilot status bar (keyboard shortcuts, model name).
         if _COPILOT_STATUS_BAR_RE.search(stripped):
             remainder = _COPILOT_STATUS_BAR_RE.sub("", stripped)
-            remainder = _MODEL_NAME_RE.sub("", remainder).strip(" \t─│")
+            remainder = _MODEL_NAME_RE.sub("", remainder).strip(" \t─│\u200b")
             if not remainder:
                 continue
             line = remainder
@@ -353,6 +361,9 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
         line = _COPILOT_CANCEL_FRAGMENT_RE.sub("", line)
         line = _LONG_MESSAGE_ECHO_RE.sub("", line)
         line = _SENDER_ECHO_RE.sub("", line)
+        line = _COPILOT_PERMISSION_RE.sub("", line)
+        if _COPILOT_ESC_STOP_RE.match(stripped):
+            continue
         stripped = line.strip(" \t·•)")
         if not stripped:
             continue

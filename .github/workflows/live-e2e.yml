@@ -1,0 +1,150 @@
+name: Live E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: >
+          Comma-separated agent profiles to test (e.g. "claude,codex").
+          Leave empty to run all profiles whose secrets are configured.
+        required: false
+        type: string
+        default: ""
+
+# ──────────────────────────────────────────────────────────────────
+# Each job is gated by the secret that its CLI actually reads for
+# non-interactive auth.  The job is skipped when the secret is
+# absent, so contributors configure only the agents they have.
+#
+# Required secrets (must match the CLI's auth env var):
+#   claude   → ANTHROPIC_API_KEY
+#   codex    → OPENAI_API_KEY  (OpenAI Codex CLI)
+#   gemini   → GEMINI_API_KEY
+#   opencode → OPENAI_API_KEY  (uses OpenAI-compatible backend)
+#   copilot  → GITHUB_TOKEN    (GitHub Copilot CLI)
+#
+# Optional input: set `profiles` to limit which agents run.
+# ──────────────────────────────────────────────────────────────────
+
+jobs:
+  claude:
+    name: "Live E2E – claude"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      secrets.ANTHROPIC_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'claude'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: claude
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v
+
+  codex:
+    name: "Live E2E – codex"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      secrets.OPENAI_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'codex'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: codex
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v
+
+  gemini:
+    name: "Live E2E – gemini"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      secrets.GEMINI_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'gemini'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: gemini
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Install Gemini CLI
+        run: npm install -g @google/gemini-cli
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v
+
+  opencode:
+    name: "Live E2E – opencode"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      secrets.OPENAI_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'opencode'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: opencode
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Install OpenCode CLI
+        run: |
+          curl -fsSL https://opencode.ai/install.sh | sh
+          echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v
+
+  copilot:
+    name: "Live E2E – copilot"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      secrets.GITHUB_TOKEN != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'copilot'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: copilot
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v
