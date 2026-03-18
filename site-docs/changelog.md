@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.5
+
+- **Added**: `clean_copilot_response()` — strips Ink TUI artifacts (spinners, borders, status bars, input echo) from Copilot reply artifacts
+- **Added**: Copilot Ctrl+S submit fallback for Copilot CLI 1.0.7 Ink TUI
+- **Fixed**: Copilot reply artifacts no longer contain TUI garbage
+- **Fixed**: Server-mode logging no longer leaks to PTY — redirected to `~/.synapse/logs/`
+
 ### v0.15.4
 
 - **Added**: Auto-spawn support for workflow run — agents spawned on demand when not running
@@ -20,11 +27,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Added**: Name prompt placeholder — auto-suggests a petname (e.g., `Name [Enter = claude-agent]:`)
 - **Added**: Save ID prompt placeholder — suggests petname based on agent context
-- **Added**: `clean_copilot_response()` — strips Ink TUI artifacts (spinners, borders, status bars, input echo) from Copilot reply artifacts
-- **Added**: Copilot Ctrl+S submit fallback for Copilot CLI 1.0.7 Ink TUI
 - **Changed**: Canvas menu "Admin" renamed to "Agent Control", reordered before System
-- **Fixed**: Copilot reply artifacts no longer contain TUI garbage (ANSI escapes, braille spinners, box-drawing borders)
-- **Fixed**: Server-mode logging no longer leaks to PTY — redirected to `~/.synapse/logs/`
 
 ### v0.15.1
 
