@@ -1634,7 +1634,20 @@ pytest
 # Specific category
 pytest tests/test_a2a_compat.py -v
 pytest tests/test_sender_identification.py -v
+
+# Opt-in live E2E against real agent CLIs
+SYNAPSE_LIVE_E2E=1 pytest tests/test_live_e2e_agents.py -q
+
+# Limit live E2E to specific agents
+SYNAPSE_LIVE_E2E=1 SYNAPSE_LIVE_E2E_PROFILES=copilot,codex \
+  pytest tests/test_live_e2e_agents.py -q
 ```
+
+Live E2E tests are skipped by default. They launch the real `claude`, `codex`,
+`gemini`, `opencode`, and `copilot` CLIs in headless Synapse sessions and verify
+that a message sent through `/tasks/send` completes and returns the requested
+token. Use them for local validation or a dedicated CI job with authenticated
+agent CLIs.
 
 ---
 

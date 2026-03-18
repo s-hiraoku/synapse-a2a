@@ -156,7 +156,7 @@ waiting_detection:
 - **Gemini**: Hybrid strategy with 3.0s timeout fallback.
 - **Codex**: Timeout strategy, 3.0s.
 - **OpenCode**: Timeout strategy, 1.0s (Bubble Tea TUI).
-- **Copilot**: Timeout strategy, 0.5s. `write_delay: 0.5` for Ink TUI rendering. `bracketed_paste: true` for Ink's `usePaste` hook. `submit_retry_delay: 0.15` as the first Enter safety net, plus bounded submit confirmation (`submit_confirm_timeout`, `submit_confirm_poll_interval`, `submit_confirm_retries`) when injected text appears to remain pending. `submit_fallback_sequences: ["\n", "\x1b\r"]` — on each confirmation retry the controller cycles through these alternative submit sequences before falling back to the original `submit_sequence`. This handles Ink version differences where `\r` alone may not trigger submission.
+- **Copilot**: Timeout strategy, 0.5s. `write_delay: 0.5` for Ink TUI rendering. `bracketed_paste: true` for Ink's `usePaste` hook. `submit_retry_delay: 0.15` as the first Enter safety net, plus bounded submit confirmation (`submit_confirm_timeout`, `submit_confirm_poll_interval`, `submit_confirm_retries`) when injected text appears to remain pending. `submit_fallback_sequences: ["\n", "\x13", "\x1b\r"]` — on each confirmation retry the controller cycles through LF, then `Ctrl+S` ("run command" in Copilot CLI 1.0.8), then `Esc+CR` before falling back to the original `submit_sequence`. This handles recent Ink/Copilot variants where `\r` alone may leave the prompt populated without executing.
 
 For `response_mode=wait` and `response_mode=notify`, Synapse completes the sender-side task via structured reply artifacts. Completion finalization now prefers the PTY output delta captured since task start rather than the raw terminal tail, reducing reply corruption from transient TUI lines such as update banners, permission rows, and status bars. For Copilot specifically, `clean_copilot_response()` strips Ink TUI artifacts (spinners, box-drawing borders, status bar, and input echo) from the captured delta before building the reply.
 
@@ -200,6 +200,12 @@ See test files in `tests/` directory. Key test groups:
 - MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`, `test_mcp_analyze_task.py`
 - Smart Suggest / Plan: `test_plan_accept.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
+- Live CLI E2E: `test_live_e2e_agents.py` (opt-in via `SYNAPSE_LIVE_E2E=1`; filter profiles with `SYNAPSE_LIVE_E2E_PROFILES=claude,copilot`)
+
+Live E2E tests start real agent CLIs with `synapse <profile> --headless --no-setup`,
+send a tokenized prompt through `/tasks/send`, and wait for task completion. They are
+skipped by default because they require installed/authenticated agent binaries and
+network access.
 
 ## Priority Levels
 
