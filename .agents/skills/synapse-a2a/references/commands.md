@@ -1494,7 +1494,7 @@ steps:
 | `message` | Yes | — | Message to send |
 | `priority` | No | `3` | Priority level (1-5) |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
-| `auto_spawn` | No | `false` | Auto-spawn this step's target if not running (overrides workflow-level setting) |
+| `auto_spawn` | No | `false` | Enable auto-spawn for this step's target if not running (additive — cannot opt out of workflow/CLI-level auto-spawn) |
 
 ### Storage
 

@@ -254,22 +254,33 @@ class WorkflowStore:
                 file_path.stem,
             )
             raw_name = file_path.stem
-        steps = [
-            WorkflowStep(
-                target=s["target"],
-                message=s["message"],
-                priority=s.get("priority", 3),
-                response_mode=s.get("response_mode", "notify"),
-                auto_spawn=bool(s.get("auto_spawn", False)),
+        steps = []
+        for s in raw["steps"]:
+            step_auto_spawn = s.get("auto_spawn", False)
+            if step_auto_spawn is not False and not isinstance(step_auto_spawn, bool):
+                raise ValueError(
+                    f"Step auto_spawn must be a boolean, got {type(step_auto_spawn).__name__}"
+                )
+            steps.append(
+                WorkflowStep(
+                    target=s["target"],
+                    message=s["message"],
+                    priority=s.get("priority", 3),
+                    response_mode=s.get("response_mode", "notify"),
+                    auto_spawn=bool(step_auto_spawn),
+                )
             )
-            for s in raw["steps"]
-        ]
+        raw_auto_spawn = raw.get("auto_spawn", False)
+        if raw_auto_spawn is not False and not isinstance(raw_auto_spawn, bool):
+            raise ValueError(
+                f"Workflow auto_spawn must be a boolean, got {type(raw_auto_spawn).__name__}"
+            )
         wf = Workflow(
             name=raw_name,
             steps=steps,
             description=raw.get("description", ""),
             trigger=raw.get("trigger", ""),
-            auto_spawn=bool(raw.get("auto_spawn", False)),
+            auto_spawn=bool(raw_auto_spawn),
             scope=scope,
         )
         wf.path = file_path

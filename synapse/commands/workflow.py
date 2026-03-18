@@ -249,7 +249,7 @@ def _try_spawn_agent(profile: str) -> bool:
             file=sys.stderr,
         )
         return False
-    except (FileNotFoundError, RuntimeError) as e:
+    except Exception as e:
         print(f"  Warning: failed to spawn '{profile}': {e}", file=sys.stderr)
         return False
 

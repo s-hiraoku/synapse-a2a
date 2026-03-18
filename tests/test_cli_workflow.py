@@ -691,3 +691,60 @@ def test_dry_run_shows_auto_spawn_tag(
 
     captured = capsys.readouterr()
     assert "[auto-spawn]" in captured.out
+
+
+def test_auto_spawn_from_workflow_level(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """Workflow-level auto_spawn should trigger spawn even when step auto_spawn is False."""
+    from synapse.commands.workflow import cmd_workflow_run
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+
+    # Workflow auto_spawn=True, step auto_spawn=False
+    store.save(
+        Workflow(
+            name="wf-level-spawn",
+            steps=[
+                WorkflowStep(target="claude", message="hello", auto_spawn=False),
+            ],
+            auto_spawn=True,
+            scope="project",
+        )
+    )
+
+    args = _make_args(workflow_name="wf-level-spawn", auto_spawn=False)
+
+    call_count = 0
+
+    def _send_side_effect(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        if call_count == 1:
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = "No agent found matching 'claude'"
+        else:
+            result.returncode = 0
+            result.stdout = "Sent.\n"
+            result.stderr = ""
+        return result
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
+        ) as mock_run,
+        patch(
+            "synapse.commands.workflow._try_spawn_agent", return_value=True
+        ) as mock_spawn,
+        patch("synapse.commands.workflow._wait_for_agent", return_value=True),
+    ):
+        cmd_workflow_run(args)
+
+    # Workflow-level auto_spawn should have triggered spawn
+    mock_spawn.assert_called_once_with("claude")
+    assert mock_run.call_count == 2

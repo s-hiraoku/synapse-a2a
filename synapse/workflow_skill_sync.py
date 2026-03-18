@@ -12,6 +12,8 @@ import logging
 import shutil
 from pathlib import Path
 
+import yaml
+
 from synapse.workflow import Workflow, WorkflowStore
 
 logger = logging.getLogger(__name__)
@@ -33,10 +35,15 @@ def generate_skill_md(workflow: Workflow) -> str:
         f"Triggered by /{workflow.name} command."
     )
 
+    frontmatter = yaml.safe_dump(
+        {"name": workflow.name, "description": description},
+        default_flow_style=False,
+        allow_unicode=True,
+    ).rstrip("\n")
+
     return (
         f"---\n"
-        f"name: {workflow.name}\n"
-        f'description: "{description}"\n'
+        f"{frontmatter}\n"
         f"---\n"
         f"{_AUTOGEN_MARKER}\n"
         f"\n"
@@ -132,8 +139,14 @@ def sync_all_workflows(
         project_dir=project_dir / ".synapse" / "workflows",
         user_dir=user_dir or (Path.home() / ".synapse" / "workflows"),
     )
-    workflows = store.list_workflows()
-    workflow_names = {wf.name for wf in workflows}
+    # Deduplicate by name (project-first, matching WorkflowStore.load precedence)
+    all_workflows = store.list_workflows()
+    seen: dict[str, Workflow] = {}
+    for wf in all_workflows:
+        if wf.name not in seen:
+            seen[wf.name] = wf
+    workflows = list(seen.values())
+    workflow_names = set(seen)
 
     written: list[Path] = []
     removed: list[Path] = []
