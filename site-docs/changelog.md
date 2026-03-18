@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.4
+
+- **Added**: Auto-spawn support for workflow run — agents spawned on demand when not running
+- **Added**: Workflow-as-skill auto-generation — SKILL.md created from workflow YAML for slash-command discovery
+- **Added**: `synapse workflow sync` CLI command for bulk skill synchronization
+- **Fixed**: YAML frontmatter injection prevention, `auto_spawn` boolean validation, skill-creator script hardening
+
 ### v0.15.3
 
 - **Added**: Agent Control drag-resize splitter — draggable separator between panels with localStorage persistence and keyboard support

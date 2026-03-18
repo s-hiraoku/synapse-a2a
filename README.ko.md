@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2990%20passed-brightgreen.svg)](#테스트)
+[![Tests](https://img.shields.io/badge/tests-3287%20passed-brightgreen.svg)](#테스트)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > CLI 에이전트(Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI)를 **그대로** 유지하면서 Google A2A Protocol을 통한 에이전트 간 협업을 구현하는 프레임워크
@@ -412,7 +412,7 @@ Synapse에서는 **각 에이전트가 A2A 서버로 동작**합니다. 중앙 �
 | A2A Router | `synapse/a2a_compat.py` | A2A 프로토콜 구현 |
 | A2A Client | `synapse/a2a_client.py` | 다른 에이전트와의 통신 |
 | TerminalController | `synapse/controller.py` | PTY 관리, READY/PROCESSING 감지 |
-| InputRouter | `synapse/input_router.py` | @Agent 패턴 감지 |
+| Shell | `synapse/shell.py` | @Agent 패턴 라우팅이 포함된 대화형 셸 |
 | AgentRegistry | `synapse/registry.py` | 에이전트 등록 및 검색 |
 
 ### 시작 시퀀스

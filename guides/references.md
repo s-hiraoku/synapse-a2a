@@ -2629,7 +2629,7 @@ env:
 | `~/.a2a/external/` | 外部エージェント Registry |
 | `~/.synapse/logs/` | ログディレクトリ |
 | `~/.synapse/logs/<profile>.log` | エージェントログ |
-| `~/.synapse/logs/input_router.log` | InputRouter ログ |
+| `~/.synapse/logs/shell.log` | Shell (@Agent routing) ログ |
 | `~/.synapse/skills/` | 中央スキルストア |
 | `~/.synapse/history/history.db` | タスク履歴データベース |
 | `synapse/profiles/*.yaml` | プロファイル定義 |
@@ -2670,10 +2670,9 @@ env:
 |---------|------|------|
 | `synapse/cli.py` | ~460 | CLI エントリポイント |
 | `synapse/controller.py` | ~245 | TerminalController |
-| `synapse/input_router.py` | ~270 | InputRouter（外部エージェント対応） |
+| `synapse/shell.py` | ~190 | Interactive shell with @Agent routing |
 | `synapse/server.py` | ~150 | FastAPI サーバー |
 | `synapse/registry.py` | ~55 | AgentRegistry |
-| `synapse/shell.py` | ~190 | インタラクティブシェル |
 | `synapse/a2a_compat.py` | ~570 | Google A2A 互換レイヤー |
 | `synapse/a2a_client.py` | ~330 | 外部 A2A エージェントクライアント |
 | `synapse/token_parser.py` | ~40 | トークン/コスト追跡（TokenUsage + parse_tokens レジストリ） |

@@ -76,7 +76,7 @@ flowchart TB
         CLI["CLI Entry<br/>synapse/cli.py"]
         Controller["TerminalController<br/>PTY管理"]
         Server["FastAPI Server<br/>A2A Endpoints"]
-        Router["InputRouter<br/>@Agent検出"]
+        Router["Shell<br/>@Agent検出"]
         Client["A2AClient<br/>送信クライアント"]
     end
 
@@ -115,7 +115,7 @@ flowchart TB
 | FastAPI Server | `synapse/server.py` | HTTP API、A2Aエンドポイント |
 | A2A Router | `synapse/a2a_compat.py` | A2Aプロトコル実装 |
 | A2A Client | `synapse/a2a_client.py` | 他エージェントへの送信 |
-| InputRouter | `synapse/input_router.py` | @Agentパターン検出・ルーティング |
+| Shell | `synapse/shell.py` | @Agentパターン検出・ルーティング |
 | AgentRegistry | `synapse/registry.py` | エージェント登録・検索 |
 | FileSafetyManager | `synapse/file_safety.py` | ファイルロック・変更追跡 |
 | HistoryManager | `synapse/history.py` | タスク履歴管理 |
@@ -180,7 +180,7 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant Claude as Claude (8100)
-    participant Router as InputRouter
+    participant Router as Shell
     participant Client as A2AClient
     participant Registry as AgentRegistry
     participant Gemini as Gemini (8110)

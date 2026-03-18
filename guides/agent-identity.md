@@ -101,7 +101,7 @@ synapse-{モデル名}-{ポート番号}
 | `synapse/cli.py` | 新しいID形式を使用 |
 | `synapse/server.py` | 新しいID形式を使用 |
 | `synapse/a2a_compat.py` | Agent Card に `agent_id`, `addressable_as` を追加 |
-| `synapse/input_router.py` | `synapse-` プレフィックス付きIDでのマッチング対応 |
+| `synapse/shell.py` | `synapse-` プレフィックス付きIDでのマッチング対応 |
 
 ### ID生成
 
@@ -187,7 +187,7 @@ Use these skills to guide your work.
 ### メッセージルーティング
 
 ```python
-# synapse/input_router.py
+# synapse/shell.py
 # Matching priority:
 # 1. Exact match on agent_id (e.g., synapse-claude-8100)
 # 2. Match on agent_type (e.g., claude)

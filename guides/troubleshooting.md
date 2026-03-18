@@ -426,13 +426,13 @@ watch -n 1 'synapse status <agent-name> --json'
 | ログ | パス |
 |------|------|
 | エージェントログ | `~/.synapse/logs/<profile>.log` |
-| InputRouter ログ | `~/.synapse/logs/input_router.log` |
+| Shell ログ | `~/.synapse/logs/shell.log` |
 
 ### 6.2 デバッグコマンド
 
 ```bash
-# InputRouter ログをリアルタイム監視
-tail -f ~/.synapse/logs/input_router.log
+# Shell ログをリアルタイム監視
+tail -f ~/.synapse/logs/shell.log
 
 # エージェントログを確認
 synapse logs claude -f
@@ -843,7 +843,7 @@ stateDiagram-v2
 3. Synapse A2A バージョン
 4. 使用している CLI ツール
 5. エラーメッセージ
-6. `~/.synapse/logs/input_router.log` の内容
+6. `~/.synapse/logs/shell.log` の内容
 7. 外部エージェントの問題の場合: 対象 URL と Agent Card
 8. A2A 関連の問題の場合:
    - 使用しているエンドポイント（`/tasks/send` or `/message`）

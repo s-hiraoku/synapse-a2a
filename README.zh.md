@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2990%20passed-brightgreen.svg)](#测试)
+[![Tests](https://img.shields.io/badge/tests-3287%20passed-brightgreen.svg)](#测试)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > 一个通过 Google A2A Protocol 实现智能体间协作的框架，同时保持 CLI 智能体（Claude Code、Codex、Gemini、OpenCode、GitHub Copilot CLI）**原样不变**
@@ -451,7 +451,7 @@ plugins/
 | A2A Router | `synapse/a2a_compat.py` | A2A 协议实现 |
 | A2A Client | `synapse/a2a_client.py` | 与其他智能体通信 |
 | TerminalController | `synapse/controller.py` | PTY 管理、READY/PROCESSING 检测 |
-| InputRouter | `synapse/input_router.py` | @Agent 模式检测 |
+| Shell | `synapse/shell.py` | 带 @Agent 模式路由的交互式 shell |
 | AgentRegistry | `synapse/registry.py` | 智能体注册与查找 |
 | SkillManager | `synapse/skills.py` | 技能发现、部署、导入、技能组 |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | 技能管理 TUI 和 CLI |
