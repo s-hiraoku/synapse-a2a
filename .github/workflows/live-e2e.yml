@@ -1,0 +1,128 @@
+name: Live E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: >
+          Comma-separated agent profiles to test (e.g. "claude,codex").
+          Leave empty to run all profiles whose secrets are configured.
+        required: false
+        type: string
+        default: ""
+
+# ──────────────────────────────────────────────────────────────────
+# Each job is gated by a per-agent secret.  The job is skipped when
+# the secret is absent, so contributors can configure only the
+# agents they have access to.
+#
+# Required secrets per profile:
+#   claude   → CLAUDE_API_KEY
+#   codex    → CODEX_API_KEY
+#   gemini   → GEMINI_API_KEY
+#   opencode → OPENCODE_API_KEY
+#   copilot  → COPILOT_API_KEY
+#
+# Optional input: set `profiles` to limit which agents run.
+# ──────────────────────────────────────────────────────────────────
+
+jobs:
+  claude:
+    name: "Live E2E – claude"
+    runs-on: ubuntu-latest
+    if: >-
+      secrets.CLAUDE_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'claude'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: claude
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v --timeout=300
+
+  codex:
+    name: "Live E2E – codex"
+    runs-on: ubuntu-latest
+    if: >-
+      secrets.CODEX_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'codex'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: codex
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v --timeout=300
+
+  gemini:
+    name: "Live E2E – gemini"
+    runs-on: ubuntu-latest
+    if: >-
+      secrets.GEMINI_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'gemini'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: gemini
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v --timeout=300
+
+  opencode:
+    name: "Live E2E – opencode"
+    runs-on: ubuntu-latest
+    if: >-
+      secrets.OPENCODE_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'opencode'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: opencode
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v --timeout=300
+
+  copilot:
+    name: "Live E2E – copilot"
+    runs-on: ubuntu-latest
+    if: >-
+      secrets.COPILOT_API_KEY != '' &&
+      (inputs.profiles == '' || contains(inputs.profiles, 'copilot'))
+    env:
+      SYNAPSE_LIVE_E2E: "1"
+      SYNAPSE_LIVE_E2E_PROFILES: copilot
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        run: uv python install 3.13
+      - name: Install dependencies
+        run: uv sync --group dev
+      - name: Run live E2E tests
+        run: uv run pytest tests/test_live_e2e_agents.py -v --timeout=300
