@@ -80,14 +80,16 @@ def setup_logging(
     # Remove existing handlers
     synapse_logger.handlers.clear()
 
-    # Console handler (stderr)
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(level)
-    console_handler.setFormatter(logging.Formatter(log_format, DATE_FORMAT))
-    synapse_logger.addHandler(console_handler)
+    # Console handler (stderr) — skip in server mode (agent_name set) to
+    # avoid log output leaking into the PTY and corrupting the agent TUI.
+    if not agent_name:
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setLevel(level)
+        console_handler.setFormatter(logging.Formatter(log_format, DATE_FORMAT))
+        synapse_logger.addHandler(console_handler)
 
-    # File handler (if enabled)
-    if log_file:
+    # File handler — always enabled in server mode, otherwise opt-in.
+    if agent_name or log_file:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
 
         if agent_name:

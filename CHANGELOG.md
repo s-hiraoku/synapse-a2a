@@ -54,12 +54,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Name prompt placeholder: `Name [Enter = claude-agent]:` — auto-generates a suggested petname via `suggest_petname_ids()`, accepted with Enter
 - Save ID prompt placeholder: `Saved agent ID [Enter = alice-reviewer]:` — suggests a petname based on name, role, skill set, and profile
+- `clean_copilot_response()` in `output_parser.py` — strips Ink TUI artifacts (spinners, box-drawing borders, status bars, input echo, re-render duplicates) from Copilot task responses
+- Sent message metadata (`_sent_message`) stored in task for input echo removal during response cleaning
+- Copilot Ctrl+S submit fallback — sends `\x13` (Ctrl+S "run command") as additional fallback when `\r` fails to trigger Ink TUI submission
 
 ### Changed
 
 - Canvas menu: "Admin" renamed to "Agent Control" for clarity
 - Canvas sidebar: "Agent Control" moved before "System" in menu order
 - Extracted `_input_with_default()` helper to deduplicate prompt-with-default logic
+
+### Fixed
+
+- Copilot reply artifacts no longer contain TUI garbage (ANSI escapes, braille spinners, box-drawing borders, status bar text, model name fragments)
+- Copilot input confirmation: added Ctrl+S as submit fallback for Copilot CLI 1.0.7 which uses Ink's `ctrl+s run command` binding
+- Server-mode logging no longer leaks to stderr/PTY — logs redirect to `~/.synapse/logs/` to prevent corrupting agent TUI display
+- Status bar regex tightened to avoid greedily consuming response text on the same line
 
 ## [0.15.1] - 2026-03-17
 

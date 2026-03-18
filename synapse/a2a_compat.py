@@ -39,7 +39,11 @@ from synapse.long_message import (
     format_file_reference,
     get_long_message_store,
 )
-from synapse.output_parser import parse_output
+from synapse.output_parser import (
+    SENT_MESSAGE_COMPARE_LEN,
+    clean_copilot_response,
+    parse_output,
+)
 from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
@@ -572,6 +576,7 @@ history_manager = HistoryManager.from_env(db_path=_history_db_path)
 logger = logging.getLogger(__name__)
 
 _CONTEXT_START_METADATA_KEY = "_context_start"
+_SENT_MESSAGE_METADATA_KEY = "_sent_message"
 
 
 async def _send_response_to_sender(
@@ -911,6 +916,11 @@ def create_a2a_router(
             if delta.strip():
                 response_context = delta
 
+        # Clean Copilot TUI artifacts (spinners, borders, re-render dupes)
+        if agent_type == "copilot":
+            sent_msg = metadata.get(_SENT_MESSAGE_METADATA_KEY)
+            response_context = clean_copilot_response(response_context, sent_msg)
+
         status, error = detect_task_status(response_context)
         if status == "failed" and error:
             task_store.set_error(
@@ -1131,6 +1141,9 @@ def create_a2a_router(
         # Create task with metadata (may include sender info)
         task_metadata = dict(request.metadata or {})
         task_metadata[_CONTEXT_START_METADATA_KEY] = len(controller.get_context())
+        task_metadata[_SENT_MESSAGE_METADATA_KEY] = text_content[
+            :SENT_MESSAGE_COMPARE_LEN
+        ]
         task = task_store.create(
             request.message, request.context_id, metadata=task_metadata
         )

@@ -2,6 +2,7 @@
 
 from synapse.output_parser import (
     ParsedSegment,
+    clean_copilot_response,
     extract_code_blocks,
     extract_errors,
     extract_file_references,
@@ -442,3 +443,106 @@ const b = 2;
         assert len(code_segs) == 2
         assert code_segs[0].metadata["language"] == "python"
         assert code_segs[1].metadata["language"] == "javascript"
+
+
+class TestCleanCopilotResponse:
+    """Tests for Copilot TUI artifact cleaning."""
+
+    def test_removes_spinner_lines(self):
+        raw = "⠋ Thinking...\n⠙ Thinking...\nThe answer is 4."
+        result = clean_copilot_response(raw)
+        assert "⠋" not in result
+        assert "⠙" not in result
+        assert "The answer is 4." in result
+
+    def test_removes_box_drawing_lines(self):
+        raw = "┌──────────┐\n│ Result   │\n└──────────┘\nThe answer is 4."
+        result = clean_copilot_response(raw)
+        assert "┌" not in result
+        assert "└" not in result
+        assert "The answer is 4." in result
+
+    def test_removes_input_echo(self):
+        raw = "> What is 2+2?\nThe answer is 4."
+        result = clean_copilot_response(raw, sent_message="What is 2+2?")
+        assert "What is 2+2?" not in result
+        assert "The answer is 4." in result
+
+    def test_deduplicates_consecutive_lines(self):
+        raw = "The answer is 4.\nThe answer is 4.\nDone."
+        result = clean_copilot_response(raw)
+        assert result == "The answer is 4.\nDone."
+
+    def test_collapses_blank_lines(self):
+        raw = "Line 1\n\n\n\nLine 2"
+        result = clean_copilot_response(raw)
+        assert result == "Line 1\n\nLine 2"
+
+    def test_empty_input(self):
+        assert clean_copilot_response("") == ""
+        assert clean_copilot_response("   ") == ""
+
+    def test_clean_output_passes_through(self):
+        raw = "The answer is 4."
+        assert clean_copilot_response(raw) == raw
+
+    def test_mixed_artifacts(self):
+        raw = "⠋ \n───────\n> What is 2+2?\nThe answer is 4.\nThe answer is 4.\n⠸ \n"
+        result = clean_copilot_response(raw, sent_message="What is 2+2?")
+        assert result == "The answer is 4."
+
+    def test_no_sent_message_keeps_prompt(self):
+        raw = "> What is 2+2?\nThe answer is 4."
+        result = clean_copilot_response(raw)
+        assert "> What is 2+2?" in result
+
+    def test_removes_status_bar(self):
+        raw = (
+            "shift+tab switch mode · ctrl+s run command "
+            "\u200b──────────────────  claude-haiku-4.5 (1x)\n"
+            "The answer is 4."
+        )
+        result = clean_copilot_response(raw)
+        assert "shift+tab" not in result
+        assert "The answer is 4." in result
+
+    def test_real_copilot_output(self):
+        """Test with actual Copilot 1.0.7 output pattern."""
+        raw = (
+            "shift+tab switch mode · ctrl+s run command "
+            "\u200b────────────────────────────  claude-haiku-4.5 (1x)"
+            'ku-4.5 (1x)4) is asking me a simple math question: "what is 2+2?"'
+        )
+        result = clean_copilot_response(raw, sent_message="What is 2+2?")
+        assert "shift+tab" not in result
+
+    def test_strips_ansi_before_filtering(self):
+        """ANSI escape codes should be stripped before pattern matching."""
+        raw = (
+            "\x07\x1b[38;2;141;138;120mshift+tab switch mode "
+            "\u200b────────────────  claude-haiku-4.5 (1x)"
+            'ku-4.5 (1x)umber."'
+        )
+        result = clean_copilot_response(raw)
+        assert "\x1b[" not in result
+        assert "shift+tab" not in result
+
+    def test_removes_thinking_meter_and_long_message_echo(self):
+        """Copilot 1.0.8 should not leak thinking meter or long-message echo."""
+        raw = (
+            "A2A: [From: synapse-copilot-8140] "
+            "sc to cancel · 2.3 KiB)○ Thinking (Esc to cancel · 2.3 KiB)"
+            "]2;A2A: [LONG MESSAGE - FILE ATTACHED]"
+        )
+        result = clean_copilot_response(raw)
+        assert result == ""
+
+    def test_preserves_real_answer_while_stripping_copilot_tui_noise(self):
+        """A real answer should survive after removing Copilot TUI artifacts."""
+        raw = (
+            "○ Thinking (Esc to cancel · 2.3 KiB)\n"
+            "]2;A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+            "SYNAPSE_TEST_OK"
+        )
+        result = clean_copilot_response(raw)
+        assert result == "SYNAPSE_TEST_OK"

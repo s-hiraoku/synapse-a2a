@@ -278,3 +278,92 @@ def segments_to_artifacts(segments: list[ParsedSegment]) -> list[dict]:
         artifacts.append(artifact)
 
     return artifacts
+
+
+# Reuse strip_ansi from controller (tested, handles CSI/OSC/charset/keypad)
+from synapse.controller import strip_ansi  # noqa: E402
+
+# Additional control character pattern (BEL, etc.) not covered by strip_ansi
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+# Copilot TUI patterns
+_COPILOT_STATUS_BAR_RE = re.compile(
+    r"shift\+tab\s+switch\s+mode(?:\s+[·•]\s+ctrl\+\w\s+[\w ]+)*\s*",
+    re.IGNORECASE,
+)
+_MODEL_NAME_RE = re.compile(
+    r"(?:claude|gpt|gemini|copilot)[\w.-]*\s*\(\d+x?\)", re.IGNORECASE
+)
+_COPILOT_THINKING_RE = re.compile(
+    r"(?:^|[\s)])[○◉◎●]?\s*Thinking\s+\(Esc to cancel(?:\s+[·•]\s+[\d.]+\s+\w+i?B)?\)",
+    re.IGNORECASE,
+)
+_COPILOT_CANCEL_FRAGMENT_RE = re.compile(
+    r"(?:^|[\s(])(?:E|Es|Esc|sc)\s+to\s+cancel(?:\s+[·•]\s+[\d.]+\s+\w+i?B)?\)?",
+    re.IGNORECASE,
+)
+_LONG_MESSAGE_ECHO_RE = re.compile(
+    r"(?:\]2;)?A2A:\s+\[LONG MESSAGE - FILE ATTACHED\]",
+    re.IGNORECASE,
+)
+_SENDER_ECHO_RE = re.compile(
+    r"^A2A:\s+\[From:\s+[^\]]+\]\s*",
+    re.IGNORECASE,
+)
+_SPINNER_CHARS = frozenset("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
+_BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ ")
+
+# Sent message echo comparison length (shared with a2a_compat storage)
+SENT_MESSAGE_COMPARE_LEN = 50
+
+
+def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> str:
+    """Remove Copilot TUI artifacts from response context delta.
+
+    Filters out spinner lines, box-drawing borders, input prompt echoes,
+    and collapses consecutive duplicate lines caused by Ink re-renders.
+    """
+    raw_delta = strip_ansi(raw_delta)
+    raw_delta = _CONTROL_CHAR_RE.sub("", raw_delta)
+    cleaned: list[str] = []
+    for line in raw_delta.split("\n"):
+        stripped = line.strip()
+        # Skip empty/whitespace-only (but keep one blank between content)
+        if not stripped:
+            if cleaned and cleaned[-1] != "":
+                cleaned.append("")
+            continue
+        # Skip spinner lines (pure braille or braille prefix like "⠋ Thinking...")
+        if all(c in _SPINNER_CHARS for c in stripped):
+            continue
+        if stripped[0] in _SPINNER_CHARS and stripped[0] != " ":
+            continue
+        # Skip box-drawing / border lines
+        if all(c in _BOX_CHARS for c in stripped):
+            continue
+        # Strip Copilot status bar (keyboard shortcuts, model name).
+        if _COPILOT_STATUS_BAR_RE.search(stripped):
+            remainder = _COPILOT_STATUS_BAR_RE.sub("", stripped)
+            remainder = _MODEL_NAME_RE.sub("", remainder).strip(" \t─│")
+            if not remainder:
+                continue
+            line = remainder
+            stripped = line.strip()
+        line = _COPILOT_THINKING_RE.sub("", line)
+        line = _COPILOT_CANCEL_FRAGMENT_RE.sub("", line)
+        line = _LONG_MESSAGE_ECHO_RE.sub("", line)
+        line = _SENDER_ECHO_RE.sub("", line)
+        stripped = line.strip(" \t·•)")
+        if not stripped:
+            continue
+        # Skip input prompt echo (> followed by sent message)
+        if sent_message and stripped.lstrip("> ").startswith(
+            sent_message[:SENT_MESSAGE_COMPARE_LEN]
+        ):
+            continue
+        # Deduplicate consecutive identical lines (TUI re-render artifacts)
+        if cleaned and line == cleaned[-1]:
+            continue
+        cleaned.append(line)
+
+    return "\n".join(cleaned).strip()

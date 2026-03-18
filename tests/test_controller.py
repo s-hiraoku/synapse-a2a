@@ -1154,6 +1154,40 @@ class TestInterAgentMessageWrite:
         # (single-element list cycles to \n every time)
         assert writes == [b"hello", b"\r", b"\r", b"\n", b"\n", b"\n", b"\n"]
 
+    def test_submit_fallback_accepts_ctrl_s_sequence(self):
+        """Ctrl+S should be accepted as a valid Copilot retry sequence."""
+        ctrl = self._make_copilot_ctrl(retries=1, fallback_sequences=["\u0013"])
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"hello", b"\r", b"\r", b"\x13"]
+
+    def test_submit_fallback_tries_ctrl_s_after_line_feed(self):
+        """Copilot retries should reach Ctrl+S after newline fallback fails."""
+        ctrl = self._make_copilot_ctrl(
+            retries=2, fallback_sequences=["\n", "\u0013", "\x1b\r"]
+        )
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"hello", b"\r", b"\r", b"\n", b"\x13"]
+
     # --- Bracketed paste mode tests ---
 
     def test_bracketed_paste_wraps_data(self):
