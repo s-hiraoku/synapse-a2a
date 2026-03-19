@@ -960,7 +960,78 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert writes == [b"hello", b"\r", b"\r"]
         assert sleeps[:2] == [0.5, 0.15]
-        assert sleeps[2:] == [0.05, 0.05]
+        assert sleeps[2:] == [0.05]
+
+    def test_submit_confirmation_retries_when_waiting_state_does_not_advance(self):
+        """Copilot should not treat WAITING->WAITING as confirmation by itself."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.2,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "WAITING"
+        ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
+        assert sleeps[:2] == [0.5, 0.15]
+
+    def test_submit_confirmation_accepts_waiting_when_text_disappears(self):
+        """Copilot WAITING->WAITING is confirmed when the prompt text is gone."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            submit_confirm_timeout=0.2,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "WAITING"
+        ctrl.get_context = lambda: "Processing..."  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        assert writes == [b"hello", b"\r", b"\r"]
 
     def test_submit_confirmation_disabled_for_non_copilot(self):
         """Non-Copilot profiles should keep existing write behavior."""
@@ -1187,6 +1258,134 @@ class TestInterAgentMessageWrite:
             ctrl.write("hello", submit_seq="\r")
 
         assert writes == [b"hello", b"\r", b"\r", b"\n", b"\x13"]
+
+    def test_submit_prefers_ctrl_s_when_footer_advertises_run_command(self):
+        """Copilot should use Ctrl+S first when the footer says run command."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.get_context = lambda: "shift+tab switch mode · ctrl+s run command"  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"h", b"e", b"l", b"l", b"o", b"\x13"]
+
+    def test_submit_retries_enter_after_ctrl_s_hint_fails(self):
+        """If Ctrl+S was preferred first, retries should still try Enter next."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+            submit_fallback_sequences=["\n"],
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = (
+            lambda: "shift+tab switch mode · ctrl+s run command\nA2A: hello"
+        )  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"h", b"e", b"l", b"l", b"o", b"\x13", b"\r"]
+
+    def test_copilot_short_single_line_message_is_typed_not_pasted(self):
+        """Short single-line Copilot messages should emulate keyboard typing."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            typing_char_delay=0.01,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert writes == [b"h", b"e", b"l", b"l", b"o", b"\r"]
+        assert sleeps == [0.01, 0.01, 0.01, 0.01, 0.5]
+
+    def test_copilot_multiline_message_keeps_paste_mode(self):
+        """Multi-line Copilot messages should keep the existing paste behavior."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            typing_char_delay=0.01,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello\nworld", submit_seq="\r")
+
+        assert writes == [b"\x1b[200~hello\nworld\x1b[201~", b"\r", b"\r"]
 
     # --- Bracketed paste mode tests ---
 

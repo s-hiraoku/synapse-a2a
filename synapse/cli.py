@@ -4115,6 +4115,16 @@ def cmd_run_interactive(
     if "env" in config:
         env.update(config["env"])
 
+    # Create registry and agent ID before settings/bootstrap work so we can
+    # switch to file logging before any startup warnings are emitted.
+    registry = AgentRegistry()
+    agent_id = registry.get_agent_id(profile, port)
+
+    # Reconfigure logging for interactive agent startup: suppress stderr
+    # (would corrupt the agent TUI) and enable file logging instead.
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        setup_logging(agent_name=agent_id)
+
     # Apply settings from .synapse/settings.json
     from synapse.settings import get_settings
 
@@ -4138,15 +4148,6 @@ def cmd_run_interactive(
             "\x1b[32m[Synapse]\x1b[0m MCP bootstrap detected, "
             "skipping initial instructions"
         )
-
-    # Create registry and register this agent
-    registry = AgentRegistry()
-    agent_id = registry.get_agent_id(profile, port)
-
-    # Reconfigure logging for server mode: suppress stderr (would corrupt
-    # agent TUI) and enable file logging instead.
-    if "PYTEST_CURRENT_TEST" not in os.environ:
-        setup_logging(agent_name=agent_id)
 
     # Show startup animation before approval prompt (skip in headless mode)
     if not headless:
@@ -4241,6 +4242,8 @@ def cmd_run_interactive(
     write_delay = config.get("write_delay")
     submit_retry_delay = config.get("submit_retry_delay")
     bracketed_paste = config.get("bracketed_paste", False)
+    typing_char_delay = config.get("typing_char_delay")
+    typing_max_chars = config.get("typing_max_chars")
     submit_confirm_timeout = config.get("submit_confirm_timeout")
     submit_confirm_poll_interval = config.get("submit_confirm_poll_interval")
     submit_confirm_retries = config.get("submit_confirm_retries")
@@ -4271,6 +4274,8 @@ def cmd_run_interactive(
         write_delay=write_delay,
         submit_retry_delay=submit_retry_delay,
         bracketed_paste=bracketed_paste,
+        typing_char_delay=typing_char_delay,
+        typing_max_chars=typing_max_chars,
         submit_confirm_timeout=submit_confirm_timeout,
         submit_confirm_poll_interval=submit_confirm_poll_interval,
         submit_confirm_retries=submit_confirm_retries,
@@ -4416,7 +4421,10 @@ def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:
 
 
 def main() -> None:
-    if "PYTEST_CURRENT_TEST" not in os.environ:
+    argv = sys.argv
+    interactive_shortcut = len(argv) >= 2 and argv[1] in KNOWN_PROFILES
+
+    if "PYTEST_CURRENT_TEST" not in os.environ and not interactive_shortcut:
         setup_logging()
 
     skip_install_skills = (
@@ -4428,7 +4436,7 @@ def main() -> None:
 
     # Check for shortcut: synapse claude [--port PORT] [--name NAME] [--role ROLE]
     #                     [--no-setup] [-- TOOL_ARGS...]
-    if len(sys.argv) >= 2 and sys.argv[1] in KNOWN_PROFILES:
+    if interactive_shortcut:
         profile = sys.argv[1]
 
         # Find -- separator to split synapse args from tool args

@@ -135,6 +135,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     write_delay = profile.get("write_delay")
     submit_retry_delay = profile.get("submit_retry_delay")
     bracketed_paste = profile.get("bracketed_paste", False)
+    typing_char_delay = profile.get("typing_char_delay")
+    typing_max_chars = profile.get("typing_max_chars")
     submit_confirm_timeout = profile.get("submit_confirm_timeout")
     submit_confirm_poll_interval = profile.get("submit_confirm_poll_interval")
     submit_confirm_retries = profile.get("submit_confirm_retries")
@@ -157,6 +159,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         write_delay=write_delay,
         submit_retry_delay=submit_retry_delay,
         bracketed_paste=bracketed_paste,
+        typing_char_delay=typing_char_delay,
+        typing_max_chars=typing_max_chars,
         submit_confirm_timeout=submit_confirm_timeout,
         submit_confirm_poll_interval=submit_confirm_poll_interval,
         submit_confirm_retries=submit_confirm_retries,

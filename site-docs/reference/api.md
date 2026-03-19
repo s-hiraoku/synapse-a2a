@@ -1269,6 +1269,8 @@ The `target` field accepts an agent ID, agent name, or agent type (if unique). T
 
 After sending a message, poll for the agent's reply. The agent responds via `synapse reply`, which sends a structured response back to Canvas's `POST /tasks/send` endpoint. The reply is stored in memory and made available here.
 
+If the receiver hits a quota or limit error before it can produce a reply, the task is marked failed instead of returning a normal reply body.
+
 ```bash
 curl "http://localhost:3000/api/admin/replies/task-abc123"
 ```

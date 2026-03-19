@@ -662,6 +662,8 @@ synapse logs claude -n 200       # Last 200 lines
 ~/.synapse/logs/<agent-type>-<port>.log
 ```
 
+Interactive startup warnings and setup output are written to these files before PTY handoff, so a clean terminal during startup is expected.
+
 ### Debug PTY Output
 
 To debug idle detection or WAITING state issues, enable PTY debug logging:

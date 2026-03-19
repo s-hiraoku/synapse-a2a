@@ -55,6 +55,7 @@ _ANSI_ESCAPE_RE = re.compile(
     r"|[>=]"  # Keypad mode
     r")"
 )
+_COPILOT_CTRL_S_HINT_RE = re.compile(r"ctrl\+s\s+run command", re.IGNORECASE)
 
 
 def strip_ansi(text: str) -> str:
@@ -86,6 +87,8 @@ class TerminalController:
         write_delay: float | None = None,
         submit_retry_delay: float | None = None,
         bracketed_paste: bool = False,
+        typing_char_delay: float | None = None,
+        typing_max_chars: int | None = None,
         submit_confirm_timeout: float | None = None,
         submit_confirm_poll_interval: float | None = None,
         submit_confirm_retries: int | None = None,
@@ -237,6 +240,32 @@ class TerminalController:
 
         # Wrap data in bracketed paste markers for Ink-based TUIs (Copilot CLI).
         self._bracketed_paste = bracketed_paste
+        self._typing_char_delay = 0.0
+        if typing_char_delay is not None:
+            try:
+                typing_char_delay = float(typing_char_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"typing_char_delay must be numeric, got {typing_char_delay!r}"
+                ) from None
+            if typing_char_delay < 0:
+                raise ValueError(
+                    f"typing_char_delay must be non-negative, got {typing_char_delay}"
+                )
+            self._typing_char_delay = typing_char_delay
+        self._typing_max_chars = 0
+        if typing_max_chars is not None:
+            try:
+                typing_max_chars = int(typing_max_chars)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"typing_max_chars must be an integer, got {typing_max_chars!r}"
+                ) from None
+            if typing_max_chars < 0:
+                raise ValueError(
+                    f"typing_max_chars must be non-negative, got {typing_max_chars}"
+                )
+            self._typing_max_chars = typing_max_chars
         self._submit_confirm_timeout: float | None = None
         if submit_confirm_timeout is not None:
             try:
@@ -937,6 +966,24 @@ class TerminalController:
                 raise OSError("os.write returned 0, PTY master fd may be closed")
             written += n
 
+    def _should_type_input(self, data: str, submit_seq: str | None) -> bool:
+        """Whether to emulate real typing instead of bracketed paste."""
+        return bool(
+            self.agent_type == "copilot"
+            and submit_seq
+            and self._typing_max_chars > 0
+            and len(data) <= self._typing_max_chars
+            and "\n" not in data
+            and "\r" not in data
+        )
+
+    def _write_typed_text(self, data: str) -> None:
+        """Write text character-by-character to emulate actual keyboard input."""
+        for idx, char in enumerate(data):
+            self._write_all(char.encode("utf-8"))
+            if self._typing_char_delay > 0 and idx + 1 < len(data):
+                time.sleep(self._typing_char_delay)
+
     def write(
         self,
         data: str,
@@ -972,26 +1019,38 @@ class TerminalController:
 
         with self._write_lock:
             try:
-                data_bytes = data.encode("utf-8")
-                if self._bracketed_paste:
-                    data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
-                self._write_all(data_bytes)
+                use_typed_input = self._should_type_input(data, submit_seq)
+                if use_typed_input:
+                    self._write_typed_text(data)
+                else:
+                    data_bytes = data.encode("utf-8")
+                    if self._bracketed_paste:
+                        data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
+                    self._write_all(data_bytes)
                 if submit_seq:
+                    original_submit_bytes = submit_seq.encode("utf-8")
+                    submit_bytes = self._get_preferred_submit_bytes(
+                        original_submit_bytes
+                    )
                     if self._write_delay > 0:
                         time.sleep(self._write_delay)
-                    submit_bytes = submit_seq.encode("utf-8")
                     self._write_all(submit_bytes)
                     # Retry: send submit_seq again after a short gap.
                     # Copilot CLI v0.0.300+ needs this because the first
                     # CR flushes the async paste buffer and the second CR
                     # triggers the actual submit after React re-renders.
-                    if self._submit_retry_delay is not None:
+                    if self._submit_retry_delay is not None and not use_typed_input:
                         time.sleep(self._submit_retry_delay)
                         self._write_all(submit_bytes)
                     if self._should_confirm_submit(data, submit_bytes):
                         with self.lock:
                             self.status = previous_status
-                    self._confirm_submit_if_needed(data, submit_bytes, previous_status)
+                    self._confirm_submit_if_needed(
+                        data,
+                        submit_bytes,
+                        previous_status,
+                        original_submit_bytes=original_submit_bytes,
+                    )
                 return True
             except OSError as e:
                 logger.error(f"Write to PTY failed: {e}")
@@ -1008,23 +1067,41 @@ class TerminalController:
             and self._submit_confirm_retries > 0
         )
 
-    def _get_retry_submit_bytes(self, attempt: int, original: bytes) -> bytes:
-        """Return the submit bytes for a given retry attempt.
+    def _get_preferred_submit_bytes(self, original: bytes) -> bytes:
+        """Return the most likely submit key for the current Copilot prompt."""
+        if self.agent_type != "copilot":
+            return original
 
-        Cycles through fallback sequences circularly; returns *original*
-        only when no fallback sequences are configured.
-        """
-        if self._submit_fallback_sequences:
-            index = attempt % len(self._submit_fallback_sequences)
-            return self._submit_fallback_sequences[index]
+        plain = strip_ansi(self.get_context())[-2000:]
+        if _COPILOT_CTRL_S_HINT_RE.search(plain):
+            return b"\x13"
         return original
+
+    def _get_retry_submit_candidates(
+        self, preferred: bytes, original: bytes
+    ) -> list[bytes]:
+        """Build an ordered retry list after the initial submit attempt."""
+        candidates: list[bytes] = []
+        if preferred != original:
+            candidates.append(original)
+
+        for seq in self._submit_fallback_sequences:
+            if seq != preferred and seq not in candidates:
+                candidates.append(seq)
+
+        if not candidates:
+            candidates.append(original)
+
+        return candidates
 
     def _submit_confirmed(self, data: str, initial_status: str) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
         current_status = self.status
         if initial_status == "READY" and current_status != "READY":
             return True
-        if current_status in {"PROCESSING", "WAITING", "DONE"}:
+        if current_status in {"PROCESSING", "DONE"}:
+            return True
+        if current_status == "WAITING" and initial_status != "WAITING":
             return True
 
         plain = strip_ansi(self.get_context())
@@ -1034,7 +1111,11 @@ class TerminalController:
         return data_stripped not in plain[-2000:]
 
     def _confirm_submit_if_needed(
-        self, data: str, submit_bytes: bytes, initial_status: str
+        self,
+        data: str,
+        submit_bytes: bytes,
+        initial_status: str,
+        original_submit_bytes: bytes | None = None,
     ) -> None:
         """Retry submit for Copilot when injected text appears to remain pending."""
         if not self._should_confirm_submit(data, submit_bytes):
@@ -1042,6 +1123,8 @@ class TerminalController:
 
         assert self._submit_confirm_timeout is not None
         assert self._submit_confirm_poll_interval is not None
+        original = original_submit_bytes or submit_bytes
+        retry_candidates = self._get_retry_submit_candidates(submit_bytes, original)
 
         poll_limit = max(
             1,
@@ -1053,8 +1136,8 @@ class TerminalController:
             for _ in range(poll_limit):
                 if self._submit_confirmed(data, initial_status):
                     if attempt > 0:
-                        used = self._get_retry_submit_bytes(attempt - 1, submit_bytes)
-                        if used is not submit_bytes:
+                        used = retry_candidates[(attempt - 1) % len(retry_candidates)]
+                        if used != submit_bytes:
                             logger.info(
                                 f"[{self.agent_id}] submit confirmed via "
                                 f"fallback sequence {used!r} (attempt {attempt})"
@@ -1063,7 +1146,7 @@ class TerminalController:
                 time.sleep(self._submit_confirm_poll_interval)
 
             if attempt < self._submit_confirm_retries:
-                self._write_all(self._get_retry_submit_bytes(attempt, submit_bytes))
+                self._write_all(retry_candidates[attempt % len(retry_candidates)])
 
         message = (
             f"[{self.agent_id}] submit confirmation failed after "

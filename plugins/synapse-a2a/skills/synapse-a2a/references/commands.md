@@ -169,7 +169,7 @@ synapse spawn claude --name Impl --worktree -- --dangerously-skip-permissions
 `--worktree` is a Synapse-level flag placed **before** `--`. It creates an isolated git worktree for any agent type under `.synapse/worktrees/<name>/` with a branch named `worktree-<name>`. Each worktree gets its own branch and working directory, preventing file conflicts when multiple agents edit the same codebase. `synapse list` shows a `[WT]` prefix in the WORKING_DIR column for worktree agents. Environment variables `SYNAPSE_WORKTREE_PATH`, `SYNAPSE_WORKTREE_BRANCH`, and `SYNAPSE_WORKTREE_BASE_BRANCH` are set automatically. The base branch is determined via a 3-step fallback: `git symbolic-ref` -> `origin/main` -> `HEAD`. Note: `.gitignore`-listed files (`.env`, `.venv/`, `node_modules/`) are not copied -- run dependency install or copy `.env` if needed. On exit, cleanup checks for both uncommitted changes and new commits (vs. the base branch); worktrees with neither are auto-deleted, worktrees with either prompt to keep or remove. The registry stores `worktree_base_branch` so cleanup can detect new commits accurately. `synapse kill` also handles worktree cleanup. Consider adding `.synapse/worktrees/` to your `.gitignore` to avoid untracked worktree files appearing in `git status`.
 
 **Headless Mode:**
-When an agent is started via `synapse spawn` or `synapse team start`, `--no-setup --headless` are always added. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, and initial instructions are still sent to enable communication.
+When an agent is started via `synapse spawn` or `synapse team start`, `--no-setup --headless` are always added. This skips all interactive setup (name/role prompts, startup animations, and initial instruction approval prompts) to allow for smooth programmatic orchestration. The A2A server remains active, initial instructions are still sent to enable communication, and startup/runtime logs are redirected to the per-agent log file so they do not leak into the visible terminal transcript.
 
 **Readiness Warning:** After spawning, `synapse spawn` waits for the agent to register and warns with concrete `synapse send` command examples if the agent is not yet ready. Additionally, a server-side Readiness Gate blocks `/tasks/send` until initialization completes (HTTP 503 + `Retry-After: 5` if not ready within 30s; priority 5 and replies bypass).
 
@@ -486,6 +486,8 @@ synapse send codex "Fix the failing CI pipeline" -T --wait
 ```
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
+
+For `--wait` and `--notify`, reply artifacts are built from the PTY output delta captured since task start rather than the raw terminal tail. For Copilot, Synapse also strips common Ink TUI artifacts from the captured delta, prefers typed input for short single-line messages, and can try `Ctrl+S` when the footer advertises `ctrl+s run command`. Quota errors such as `402 You have no quota` are surfaced as failed tasks instead of normal replies.
 
 **Important:** `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at startup, expands to `synapse-<type>-<port>`). You can usually omit it. If you specify it explicitly, never hardcode Runtime IDs -- always use `$SYNAPSE_AGENT_ID`.
 
@@ -1871,6 +1873,8 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 **Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, OpenCode, or Copilot, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot MCP config is read from `~/.copilot/mcp-config.json`.
 
 **Copilot MCP support:** Copilot agents can use the `bootstrap_agent` and `analyze_task` MCP tools but cannot consume MCP resources/prompts.
+
+**Copilot submit confirmation:** Repeated `WAITING` output is not treated as success by itself. Synapse keeps retrying until the visible prompt advances or the injected text disappears.
 
 ## Storage Locations
 

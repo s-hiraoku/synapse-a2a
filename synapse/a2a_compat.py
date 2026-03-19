@@ -939,7 +939,7 @@ def create_a2a_router(
             _dispatch_task_event("task.completed", {"task_id": task_id})
 
         # Add artifacts from parsed output
-        if response_context:
+        if response_context and status != "failed":
             segments = parse_output(response_context)
             if segments:
                 for seg in segments:

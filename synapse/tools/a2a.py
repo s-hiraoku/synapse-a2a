@@ -242,6 +242,20 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
         print("No stale entries found.")
 
 
+def _format_task_error(task_error: object) -> tuple[str, str]:
+    """Extract an error code/message pair from a task error payload."""
+    if isinstance(task_error, dict):
+        return (
+            str(task_error.get("code", "UNKNOWN_ERROR")),
+            str(task_error.get("message", "Task failed")),
+        )
+
+    return (
+        str(getattr(task_error, "code", "UNKNOWN_ERROR")),
+        str(getattr(task_error, "message", "Task failed")),
+    )
+
+
 def _record_sent_message(
     task_id: str,
     target_agent: dict[str, object],
@@ -715,7 +729,11 @@ def cmd_send(args: argparse.Namespace) -> None:
     print(f"  Task ID: {task_id}")
     print(f"  Status: {task.status}")
 
-    if task.artifacts:
+    task_error = getattr(task, "error", None)
+    if task.status == "failed" and task_error:
+        code, message = _format_task_error(task_error)
+        print(f"  Error: {code} - {message}")
+    elif task.artifacts:
         print("  Response:")
         for artifact in task.artifacts:
             artifact_type = artifact.get("type", "unknown")
