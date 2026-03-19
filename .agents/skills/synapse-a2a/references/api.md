@@ -63,6 +63,7 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 - **Transport preference**: Uses UDS (Unix Domain Socket) when available, falls back to HTTP
 - **Timeout**: 10 seconds per callback attempt
 - **Metadata marker**: Updated observations include `completion_callback: true` in metadata
+- **Failure semantics**: Quota/limit output from the receiver is classified as task failure rather than a successful reply body
 
 ### Agent Teams Endpoints
 
@@ -139,6 +140,8 @@ When `--wait` is used, the sender waits for a reply:
 5. **Sender** receives the response and the roundtrip completes
 
 This flow ensures reliable request-response patterns between agents.
+
+If the receiver hits a quota or limit error before producing a reply, the task is finalized as `failed` and the sender sees the structured task error instead of a normal response body.
 
 ## Readiness Gate
 
