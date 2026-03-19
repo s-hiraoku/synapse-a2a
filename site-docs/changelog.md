@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.7
+
+- **Fixed**: Interactive startup logging now switches to per-agent file logs before PTY handoff, so startup warnings no longer leak into interactive terminals
+- **Changed**: Copilot now types short single-line messages instead of pasting them, prefers Ctrl+S when the footer advertises `ctrl+s run command`, and continues through submit retries as needed
+- **Fixed**: Copilot submit confirmation no longer treats repeated WAITING output as success; it waits for visible progress or prompt disappearance
+- **Fixed**: Quota and limit errors now mark tasks as failed instead of returning a normal reply
+
 ### v0.15.6
 
 - **Added**: Secret-gated live E2E GitHub Actions workflow for `claude`, `codex`, `gemini`, `opencode`, and `copilot`

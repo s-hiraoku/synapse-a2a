@@ -969,7 +969,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
 
-`--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta — not the raw terminal tail — to build artifacts, which reduces status-line noise leaking into replies. For Copilot responses only, an additional post-processing step (`clean_copilot_response`) strips Ink TUI artifacts such as spinners, box-drawing borders, status bars, and input echo before the reply is finalized.
+`--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta, not the raw terminal tail, to reduce status-line noise in replies. For Copilot responses, `clean_copilot_response()` strips Ink TUI artifacts before finalization. In server mode, startup/runtime logs stay off stderr so they do not leak into the agent TUI. Quota-exhaustion output such as `402 You have no quota` is classified as a failed task instead of a normal reply.
 
 **Choosing response mode:**
 
@@ -1570,7 +1570,7 @@ Detects agents waiting for user input (selection UI, Y/n prompts) using regex pa
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
 - **Codex**: Indented numbered lists
 - **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
-- **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts
+- **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts. A repeated WAITING state only confirms after the prompt text clears.
 
 ### Compound Signal Status Detection
 

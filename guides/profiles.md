@@ -66,6 +66,8 @@ env:                        # 環境変数
 | `args` | array | No | `[]` | コマンドライン引数 |
 | `submit_sequence` | string | No | `\n` | 送信時のキーシーケンス |
 | `write_delay` | float\|null | No | `null` (→ 0.5s) | データ送信後、submit_sequence 送信前の遅延（秒）。`0` で遅延なし。省略時は `WRITE_PROCESSING_DELAY` (0.5s) を使用 |
+| `typing_char_delay` | float\|null | No | `null` | 短い単一行メッセージを 1 文字ずつ送るときの文字間遅延（秒） |
+| `typing_max_chars` | integer | No | `400` | これ以下の単一行メッセージを typed input に切り替える |
 | `idle_detection` | object | No | `{strategy: "timeout", timeout: 1.5}` | IDLE 検出戦略 |
 | `waiting_detection` | object | No | - | WAITING 状態検出設定（`regex`, `require_idle`, `idle_timeout`, `waiting_expiry`） |
 | `env` | object | No | `{}` | 追加/上書きする環境変数 |
@@ -384,6 +386,8 @@ idle_detection:
   strategy: "timeout"
   pattern_use: "never"
   timeout: 0.5
+typing_char_delay: 0.01         # Short single-line A2A messages are typed, not pasted
+typing_max_chars: 400           # Longer or multi-line messages keep paste mode
 env:
   TERM: "xterm-256color"
 
@@ -399,11 +403,13 @@ waiting_detection:
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
 - **`bracketed_paste: true`**: 入力をブラケテッドペーストシーケンスで包み、Ink の `usePaste` フックがテキスト全体をアトミックに受信
+- **短い単一行メッセージ**: `typing_char_delay` / `typing_max_chars` によって typed input に切り替え、Copilot が実際のキーボード入力として扱う
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
 - **`submit_retry_delay: 0.15`**: 150ms 後に Enter を再送信。React レンダリングタイミングのセーフティネット
+- **submit confirmation**: フッターに `ctrl+s run command` が出ている場合は Ctrl+S を優先し、WAITING->WAITING の再通知だけでは確定扱いにしない
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
-- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア
+- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア。prompt が消えていない再 WAITING は確認に使わない
 
 ---
 

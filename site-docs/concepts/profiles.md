@@ -189,6 +189,8 @@ submit_sequence: "\r"
 write_delay: 0.5
 submit_retry_delay: 0.15
 bracketed_paste: true
+typing_char_delay: 0.01
+typing_max_chars: 400
 
 idle_detection:
   strategy: "timeout"
@@ -199,7 +201,9 @@ idle_detection:
 - Interactive TUI without consistent prompt patterns
 - Requires explicit `write_delay: 0.5` — Ink TUI needs time to finish rendering before CR
 - `bracketed_paste: true` wraps input in paste escape sequences so Ink's `usePaste` hook receives the full text atomically
-- `submit_retry_delay: 0.15` sends Enter a second time after 150 ms as a safety net for React render timing
+- Short single-line messages are typed character-by-character instead of pasted, which makes Copilot behave more like a real terminal user for brief prompts
+- When the footer advertises `ctrl+s run command`, Synapse sends `Ctrl+S` first and falls back through the normal submit retry chain if needed
+- `submit_retry_delay: 0.15` sends Enter a second time after 150 ms as a safety net for React render timing when Copilot is using paste-style submission
 
 ## Custom Profiles
 

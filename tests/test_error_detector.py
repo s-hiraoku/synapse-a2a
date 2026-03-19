@@ -93,6 +93,14 @@ class TestDetectError:
         assert error is not None
         assert error.code == "RATE_LIMITED"
 
+    def test_detect_quota_exceeded(self):
+        """Should detect Copilot/OpenAI style quota exhaustion errors."""
+        output = "✗ 402 You have no quota (Request ID: 1234)"
+        error = detect_error(output)
+
+        assert error is not None
+        assert error.code == "QUOTA_EXCEEDED"
+
     def test_detect_auth_error(self):
         """Should detect authentication errors."""
         output = "Error: Authentication failed. Invalid token."
@@ -162,6 +170,15 @@ class TestDetectTaskStatus:
         assert error is not None
         assert error.code == "FATAL_ERROR"
         assert error.data is not None
+
+    def test_failed_status_on_quota_exceeded(self):
+        """Quota exhaustion should fail the task, not complete it."""
+        output = "✗ 402 You have no quota (Request ID: 1234)"
+        status, error = detect_task_status(output)
+
+        assert status == "failed"
+        assert error is not None
+        assert error.code == "QUOTA_EXCEEDED"
 
 
 # ============================================================

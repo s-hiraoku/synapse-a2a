@@ -73,7 +73,7 @@ synapse send Tester "Add edge-case tests for expired tokens" --wait
 synapse kill Tester -f
 ```
 
-`$SYNAPSE_AGENT_ID` is set automatically by Synapse at startup (e.g., `synapse-claude-8100`). The `--from` flag is auto-detected from this env var, so you can usually omit it.
+`$SYNAPSE_AGENT_ID` is set automatically by Synapse at startup (e.g., `synapse-claude-8100`). The `--from` flag is auto-detected from this env var, so you can usually omit it. In headless sessions, startup/setup logs are routed to the per-agent log file before PTY handoff, so a quiet terminal during spawn is expected.
 
 ### Evaluating Results
 

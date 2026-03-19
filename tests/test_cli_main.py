@@ -32,8 +32,14 @@ class TestCliMain:
     @patch("synapse.cli.PortManager")
     @patch("synapse.cli.AgentRegistry")
     @patch("synapse.cli.install_skills")
+    @patch("synapse.cli.setup_logging")
     def test_main_shortcut_claude(
-        self, mock_install, mock_registry, mock_pm, mock_run_interactive
+        self,
+        mock_setup_logging,
+        mock_install,
+        mock_registry,
+        mock_pm,
+        mock_run_interactive,
     ):
         """synapse claude should trigger interactive mode."""
         mock_pm_inst = mock_pm.return_value
@@ -42,6 +48,7 @@ class TestCliMain:
         with patch.object(sys, "argv", ["synapse", "claude"]):
             main()
 
+        mock_setup_logging.assert_not_called()
         mock_install.assert_called_once()
         mock_run_interactive.assert_called_once_with(
             "claude",

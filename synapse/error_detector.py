@@ -27,6 +27,11 @@ ERROR_PATTERNS: list[tuple[str, str, str]] = [
     (r"connection refused", "CONNECTION_REFUSED", "Connection refused"),
     (r"timeout|timed out", "TIMEOUT", "Operation timed out"),
     # API/Network errors (before generic error patterns)
+    (
+        r"(?:\b402\b.*\byou have no quota\b|\byou have no quota\b|insufficient quota)",
+        "QUOTA_EXCEEDED",
+        "Quota exceeded",
+    ),
     (r"rate limit|too many requests", "RATE_LIMITED", "Rate limit exceeded"),
     (r"unauthorized|authentication failed", "AUTH_ERROR", "Authentication failed"),
     (r"api error|api failure", "API_ERROR", "API error"),

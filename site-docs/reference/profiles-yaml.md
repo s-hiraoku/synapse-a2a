@@ -10,6 +10,8 @@ submit_sequence: "\r" | "\n"       # Submit key: CR or LF (default: "\r")
 write_delay: float                 # Delay between data and submit (seconds, default: WRITE_PROCESSING_DELAY=0.5)
 submit_retry_delay: float          # Send submit_seq twice with this gap (seconds, default: 0 = disabled)
 bracketed_paste: boolean           # Wrap PTY data in bracketed paste sequences (default: false)
+typing_char_delay: float           # Copilot-only: delay between typed chars for short messages
+typing_max_chars: integer          # Copilot-only: max length that uses typed input instead of paste
 submit_confirm_timeout: float      # Optional: poll window for post-submit confirmation (seconds)
 submit_confirm_poll_interval: float # Optional: poll interval for submit confirmation (seconds)
 submit_confirm_retries: integer    # Optional: extra submit attempts after confirmation failures
@@ -62,6 +64,8 @@ The character sent to submit input (press Enter).
 | `"\r"` | CR (Carriage Return) | Ink TUI apps (Claude, Copilot) |
 | `"\n"` | LF (Line Feed) | Simple CLI interfaces |
 
+Copilot may override the configured submit sequence at runtime and send `Ctrl+S` when the footer explicitly advertises `ctrl+s run command`.
+
 ### write_delay
 
 Delay in seconds between writing message data and sending the submit sequence.
@@ -80,6 +84,8 @@ submit_retry_delay: 0.15  # Copilot: retry after 150ms (one React render cycle)
 # Default: 0 (disabled — submit_seq sent only once)
 ```
 
+This retry is skipped when Copilot uses typed input for short single-line messages, because the message is already delivered character-by-character.
+
 ### bracketed_paste
 
 Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~`). Required for agents whose TUI uses a paste hook (e.g., Ink's `usePaste`) to receive multi-character input atomically instead of character-by-character via `useInput`.
@@ -89,9 +95,19 @@ bracketed_paste: true   # Copilot CLI (Ink usePaste hook)
 # Default: false
 ```
 
+### typing_char_delay / typing_max_chars
+
+Copilot-only typing mode for short single-line messages. When enabled, Synapse writes the message one character at a time instead of using bracketed paste, which better matches how a human user interacts with Ink-based TUIs.
+
+```yaml
+typing_char_delay: 0.01   # Delay between typed characters
+typing_max_chars: 400     # Use typed input up to this length
+# Default: not set (typed input disabled)
+```
+
 ### submit_confirm_timeout / submit_confirm_poll_interval / submit_confirm_retries
 
-Bounded post-submit confirmation for TUIs where text may land in the input box without executing. Synapse polls recent context after the normal submit sequence and, if the text still appears pending, sends extra submit keys up to the configured retry limit.
+Bounded post-submit confirmation for TUIs where text may land in the input box without executing. Synapse polls recent context after the normal submit sequence and, if the text still appears pending, sends extra submit keys up to the configured retry limit. For Copilot, a repeated WAITING frame is only accepted if the visible prompt advances or clears; WAITING-to-WAITING by itself stays pending.
 
 ```yaml
 submit_confirm_timeout: 1.5         # Per confirmation round

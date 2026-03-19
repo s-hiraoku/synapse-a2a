@@ -1,5 +1,6 @@
 """Tests for CLI interactive mode and agent table rendering."""
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -224,6 +225,24 @@ class TestCmdRunInteractive:
         assert kwargs["skip_initial_instructions"] is True
         captured = capsys.readouterr()
         assert "MCP bootstrap detected" not in captured.out
+
+    def test_run_interactive_configures_agent_logging_before_settings(
+        self, mock_dependencies
+    ):
+        """Agent-specific file logging should be active before settings work."""
+        mock_dependencies["registry"].get_agent_id.return_value = "agent-123"
+
+        def fake_get_settings():
+            mock_setup_logging.assert_called_once_with(agent_name="agent-123")
+            return mock_dependencies["settings"].return_value
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("synapse.cli.time.sleep"),
+            patch("synapse.cli.setup_logging") as mock_setup_logging,
+            patch("synapse.settings.get_settings", side_effect=fake_get_settings),
+        ):
+            cmd_run_interactive("test_profile", 8100)
 
 
 # ============================================================

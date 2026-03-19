@@ -12,6 +12,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.7] - 2026-03-20
+
+### Changed
+
+- Copilot now types short single-line messages instead of pasting them, prefers `Ctrl+S` when the footer advertises `ctrl+s run command`, and continues through submit retries as needed
+
+### Fixed
+
+- Interactive startup logging now switches to per-agent file logs before PTY handoff, so startup warnings no longer leak into interactive terminals
+- Copilot submit confirmation no longer treats repeated WAITING output as success; it waits for visible progress or prompt disappearance
+- Quota and limit errors now mark tasks as failed instead of returning a normal reply
+
+### Documentation
+
+- Updated core docs, site docs, and plugin skills to reflect the Copilot submit flow, startup log routing, and quota failure behavior
+
 ## [0.15.6] - 2026-03-19
 
 ### Added
@@ -2524,7 +2540,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...HEAD
+[0.15.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...v0.15.7
 [0.15.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.5...v0.15.6
 [0.15.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.4...v0.15.5
 [0.15.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.3...v0.15.4

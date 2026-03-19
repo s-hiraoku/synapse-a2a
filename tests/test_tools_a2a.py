@@ -772,6 +772,62 @@ class TestCmdSend:
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
     @patch("synapse.tools.a2a.AgentRegistry")
+    def test_cmd_send_displays_task_error_without_response_artifacts(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Failed tasks should print the error and suppress normal response output."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-copilot-8140": {
+                "agent_id": "synapse-copilot-8140",
+                "agent_type": "copilot",
+                "port": 8140,
+                "pid": 1234,
+                "endpoint": "http://localhost:8140",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123",
+            status="failed",
+            artifacts=[{"type": "text", "data": "✗ 402 You have no quota"}],
+            error={
+                "code": "QUOTA_EXCEEDED",
+                "message": "Quota exceeded",
+            },
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="copilot",
+            message="hello",
+            priority=1,
+            sender=None,
+            response_mode="wait",
+        )
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "Status: failed" in captured.out
+        assert "Error: QUOTA_EXCEEDED - Quota exceeded" in captured.out
+        assert "Response:" not in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
     def test_cmd_send_request_error(
         self,
         mock_registry_cls,

@@ -29,6 +29,10 @@ submit_fallback_sequences:
 # useInput one-by-one, racing with React state updates and causing the
 # subsequent CR (Enter) to fire before the text is in the input buffer.
 bracketed_paste: true
+# For short single-line A2A messages, emulate real typing instead of paste so
+# Copilot behaves like an actual user pressed Enter/Ctrl+S in the terminal.
+typing_char_delay: 0.01
+typing_max_chars: 400
 env:
   TERM: "xterm-256color"
 
