@@ -142,6 +142,8 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 
 **SSE event:** `workflow_update` — broadcast when a workflow run progresses (step completion, status change).
 
+**Execution engine:** Workflow steps are sent directly via A2A HTTP (`/tasks/send-priority`) rather than subprocess. When a step has `response_mode: wait`, the runner polls the target agent's task (`GET /tasks/{id}`) until it reaches a terminal state (completed, failed, canceled) or the 10-minute timeout expires. If the target returns **HTTP 409** (agent busy), the runner retries up to 5 times with a 2-second interval before reporting failure.
+
 ### External Agent Endpoints
 
 | Endpoint | Method | Description |

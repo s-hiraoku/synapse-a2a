@@ -12,7 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas Workflow view (`#/workflow`): split-panel UI for browsing, visualizing (Mermaid DAG), and executing workflows with real-time SSE progress updates
 - Async workflow runner (`synapse/workflow_runner.py`): background execution engine with in-memory run tracking and LRU eviction
 - 5 workflow API endpoints: `GET /api/workflow`, `GET /api/workflow/{name}`, `POST /api/workflow/run/{name}`, `GET /api/workflow/runs`, `GET /api/workflow/runs/{run_id}`
+- `response_mode: wait` polling — workflow runner now polls target agent until task completion
+- 409 (agent busy) retry with backoff in workflow step execution
 - Phase 2 design document (`docs/design/canvas-workflow.md`)
+
+### Changed
+
+- Redesigned workflow runner to direct httpx POST with async polling
+
+### Fixed
+
+- Route canvas workflow replies through canvas
+- Wait for agent ready before next step, retry on 409, fix Mermaid labels
+- Mermaid selector, row highlight style, re-sync skill parity
 
 ## [0.17.0] - 2026-03-20
 

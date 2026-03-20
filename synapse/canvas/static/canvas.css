@@ -4057,6 +4057,36 @@ body.sidebar-collapsed #main-content {
   flex: 1;
   min-height: 0;
 }
+#workflow-list-panel.splitter-resized {
+  max-height: none;
+}
+#workflow-splitter {
+  height: 6px;
+  cursor: row-resize;
+  flex-shrink: 0;
+  position: relative;
+  margin: -3px 0;
+  z-index: 1;
+  background: transparent;
+}
+#workflow-splitter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--glass-stroke);
+  transition: width var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+#workflow-splitter:hover::after,
+#workflow-splitter.dragging::after,
+#workflow-splitter:focus-visible::after {
+  background: var(--color-accent);
+  width: 60px;
+}
 #workflow-detail-panel {
   flex: 1;
   min-height: 0;
@@ -4201,6 +4231,7 @@ body.sidebar-collapsed #main-content {
 @media (max-width: 768px) {
   #workflow-container { gap: var(--sp-2); }
   #workflow-list-panel { max-height: 180px; }
+  #workflow-splitter { display: none; }
 }
 
 /* -- Admin View -- */

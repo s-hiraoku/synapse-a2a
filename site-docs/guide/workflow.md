@@ -147,8 +147,10 @@ Displays the workflow name, scope, description, and each step's target, priority
 synapse workflow run review-and-test
 ```
 
-Steps execute sequentially. Each step calls `synapse send` with the configured target, message, priority, and response mode.
+Steps execute sequentially. Each step sends an A2A request directly to the target agent over HTTP with the configured target, message, priority, and response mode.
 If a step uses `kind: subworkflow`, Synapse loads the child workflow and executes its send steps inline before continuing.
+
+When a step uses `response_mode: wait`, the runner polls the target agent's task endpoint until the task reaches a terminal state (`completed`, `failed`, or `canceled`). This ensures that subsequent steps only run after the previous step's agent has finished processing. The poll timeout is 10 minutes per step; if exceeded, the step is treated as completed (best-effort).
 
 ### Dry Run
 
@@ -184,7 +186,7 @@ When nested workflows are used, `--continue-on-error` applies to child steps too
 
 Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
 
-Canvas workflow execution sends A2A requests directly from the Canvas server. Each step uses sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
+Both CLI and Canvas workflow execution send A2A requests directly to target agents over HTTP, with `response_mode: wait` polling for task completion. Canvas sets sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
 
 - **Background execution**: Steps run asynchronously; the UI updates in real-time via SSE
 - **Reply routing**: Replies go back to Canvas, not to the agent that happens to be running the Canvas server

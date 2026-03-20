@@ -525,7 +525,7 @@ synapse workflow show <name> [--project | --user]
 synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error] [--auto-spawn]
 ```
 
-Executes workflow steps sequentially via `synapse send`.
+Executes workflow steps sequentially, sending A2A requests directly to target agents. Steps with `response_mode: wait` poll for task completion before proceeding to the next step.
 If a step is `kind: subworkflow`, the child workflow is expanded inline. Cycles are rejected and nesting depth is limited to 10.
 
 | Flag | Description |

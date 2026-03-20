@@ -10,6 +10,8 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 - **Workflow list panel**: Table of available workflows (name, step count, scope, description)
 - **Detail panel**: Selected workflow's steps, Mermaid DAG visualization, Run button
 - **Execution**: `POST /api/workflow/run/{name}` triggers async background execution; Canvas sends steps directly to target agents with `sender_id=canvas-workflow`
+- **Wait mode polling**: Steps with `response_mode: wait` poll the target agent's task endpoint until the task reaches a terminal state (completed/failed), with a 10-minute timeout per step
+- **409 retry**: If the target agent returns HTTP 409 (busy), the runner retries the send with a brief interval before reporting failure
 - **Real-time progress**: SSE `workflow_update` events update step status icons
 - **In-memory runs**: Up to 50 recent runs stored in server memory (lost on restart)
 
