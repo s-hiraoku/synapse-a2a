@@ -1040,6 +1040,85 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert writes == [b"hello", b"\r"]
 
+    def test_copilot_paste_echo_settle_delay_when_echo_detected(self):
+        """Copilot should add settle delay after paste echo is detected."""
+        from synapse.controller import _COPILOT_PASTE_ECHO_SETTLE
+
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+        )
+
+        # Simulate: first call returns pre-paste, second call returns changed
+        contexts = iter(["pre-paste context", "post-paste context with echo"])
+        sleeps: list[float] = []
+        mono_time = [0.0]
+
+        with (
+            patch.object(
+                ctrl,
+                "get_context",
+                side_effect=lambda: next(contexts, "post-paste context with echo"),
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+            patch(
+                "synapse.controller.time.monotonic",
+                side_effect=lambda: (
+                    mono_time.__setitem__(0, mono_time[0] + 0.01) or mono_time[0]
+                ),
+            ),
+        ):
+            ctrl._wait_for_copilot_paste_echo("pre-paste context")
+
+        # The settle delay should be the last sleep call
+        assert _COPILOT_PASTE_ECHO_SETTLE in sleeps
+        assert sleeps[-1] == _COPILOT_PASTE_ECHO_SETTLE
+
+    def test_copilot_paste_echo_fallback_to_write_delay(self):
+        """Copilot should fall back to write_delay when no echo is detected."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+        )
+
+        # Simulate: context never changes (no echo)
+        sleeps: list[float] = []
+        mono_time = [0.0]
+
+        def advance_time(t: float) -> None:
+            mono_time[0] += t
+            sleeps.append(t)
+
+        with (
+            patch.object(
+                ctrl,
+                "get_context",
+                return_value="same context always",
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=advance_time,
+            ),
+            patch(
+                "synapse.controller.time.monotonic",
+                side_effect=lambda: mono_time[0],
+            ),
+        ):
+            ctrl._wait_for_copilot_paste_echo("same context always")
+
+        # Should fall back to write_delay (0.5)
+        assert 0.5 in sleeps
+        assert sleeps[-1] == 0.5
+
     def test_submit_confirmation_disabled_for_non_copilot(self):
         """Non-Copilot profiles should keep existing write behavior."""
         ctrl = TerminalController(

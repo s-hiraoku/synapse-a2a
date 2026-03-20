@@ -402,9 +402,12 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
+- **PTY raw モード**: 子プロセス起動前に `tty.setraw(slave_fd)` を実行。デフォルトの行規則（ICRNL）が `\r` を `\n` に変換するのを防ぎ、Ink が Enter として認識できる `\r` をそのまま通す
 - **`bracketed_paste: true`**: 入力をブラケテッドペーストシーケンスで包み、Ink の `usePaste` フックがテキスト全体をアトミックに受信
+- **`termios.tcdrain()`**: ブラケテッドペースト書き込み後に呼び出し、OS がクローズマーカー（`ESC[201~`）を含むペーストシーケンス全体をアトミックに配信してから CR を送信。大きな書き込みが分割されて Ink のペースト境界検出が混乱するのを防止
 - **短い単一行メッセージ**: `typing_char_delay` / `typing_max_chars` によって typed input に切り替え、Copilot が実際のキーボード入力として扱う
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
+- **ペーストエコー後 settle 遅延**: エコー検出後 150ms（`_COPILOT_PASTE_ECHO_SETTLE`）待機。React の非同期 `setState` がペーストテキストを内部入力バッファにコミットするまでの猶予
 - **`submit_retry_delay: 0.15`**: 150ms 後に Enter を再送信。React レンダリングタイミングのセーフティネット
 - **submit confirmation**: フッターに `ctrl+s run command` が出ている場合は Ctrl+S を優先し、WAITING->WAITING の再通知だけでは確定扱いにしない
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
