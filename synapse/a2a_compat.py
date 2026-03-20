@@ -585,6 +585,8 @@ _REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
 _REPLY_STATUS_METADATA_KEY = "reply_status"
 _REPLY_ERROR_METADATA_KEY = "reply_error"
 _EXPLICIT_REPLY_RECORDED_METADATA_KEY = "_explicit_reply_recorded"
+ERROR_CODE_MISSING_REPLY = "MISSING_REPLY"
+ERROR_CODE_REPLY_FAILED = "REPLY_FAILED"
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
@@ -721,11 +723,28 @@ def _mark_missing_reply(task: Task) -> Task:
     """Fail a wait/notify task when no explicit reply was recorded."""
     task.artifacts = []
     error = TaskErrorModel(
-        code="MISSING_REPLY",
+        code=ERROR_CODE_MISSING_REPLY,
         message="Receiver completed without explicit synapse reply",
     )
     updated = task_store.set_error(task.id, error)
     return updated or task
+
+
+def _maybe_mark_missing_reply(task: Task, resp_mode: str) -> Task:
+    """Mark task as missing-reply if it's a wait/notify without explicit reply.
+
+    Re-reads metadata from the task store to avoid TOCTOU races with the
+    explicit reply endpoint.
+    """
+    if resp_mode not in ("wait", "notify"):
+        return task
+    fresh = task_store.get(task.id)
+    metadata = (fresh.metadata if fresh else task.metadata) or {}
+    if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
+        return fresh or task
+    if (fresh or task).artifacts:
+        return fresh or task
+    return _mark_missing_reply(fresh or task)
 
 
 async def _send_response_to_sender(
@@ -1198,6 +1217,7 @@ def create_a2a_router(
                 if updated:
                     si = _extract_sender_info(metadata)
                     if si.sender_endpoint:
+                        updated = _maybe_mark_missing_reply(updated, resp_mode)
                         try:
                             loop = asyncio.get_event_loop()
                         except RuntimeError:
@@ -1616,6 +1636,8 @@ def create_a2a_router(
         """Request model for explicitly completing a task via synapse reply."""
 
         message: str
+        status: Literal["completed", "failed"] = "completed"
+        error: TaskErrorModel | None = None
 
     @router.get("/tasks/board")
     async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
@@ -1716,9 +1738,16 @@ def create_a2a_router(
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
         task.metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
-        task.artifacts = [Artifact(type="text", data={"content": request.message})]
-        task.error = None
-        updated = task_store.update_status(task_id, "completed")
+        if request.status == "failed":
+            task.artifacts = []
+            task.error = request.error or TaskErrorModel(
+                code=ERROR_CODE_REPLY_FAILED, message=request.message
+            )
+            updated = task_store.set_error(task_id, task.error)
+        else:
+            task.artifacts = [Artifact(type="text", data={"content": request.message})]
+            task.error = None
+            updated = task_store.update_status(task_id, "completed")
         return updated or task
 
     # --------------------------------------------------------
@@ -1930,6 +1959,9 @@ def create_a2a_router(
 
                     if sender_info.sender_endpoint:
                         if resp_mode in ("wait", "notify"):
+                            updated_task = _maybe_mark_missing_reply(
+                                updated_task, resp_mode
+                            )
                             asyncio.create_task(
                                 _send_response_to_sender(
                                     updated_task,

@@ -36,6 +36,7 @@ synapse send claude "Review" --attach src/main.py --wait  # With file
 synapse send claude "Implement auth" --task    # Auto-create linked board task
 synapse send claude "Fix bug" -T               # Short form of --task
 synapse reply "Result here"                    # Auto-route to sender
+synapse reply --fail "Could not complete"      # Send a failed reply
 synapse broadcast "Status check"               # All agents in CWD
 synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)
 

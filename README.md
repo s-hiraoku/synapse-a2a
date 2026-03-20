@@ -691,7 +691,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message. `--task` / `-T` auto-creates a linked board task |
 | `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
-| `synapse reply <message>` | Reply to the last received A2A message |
+| `synapse reply <message>` | Reply to the last received A2A message. `--fail <reason>` sends a failed reply |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
 | `synapse instructions files` | List instruction files |
@@ -1031,9 +1031,10 @@ Reply to the last received message:
 
 ```bash
 synapse reply "<message>"
+synapse reply --fail "reason for failure"   # Send a failed reply
 ```
 
-The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender.
+The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender. Use `--fail` to indicate the task could not be completed; this sends a failed status with an error instead of a normal text reply.
 
 ### Low-Level A2A Tool
 

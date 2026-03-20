@@ -1007,6 +1007,7 @@ class TestReplyStackEndpoints:
         data = response.json()
         assert data["sender_endpoint"] == "http://localhost:8100"
         assert data["sender_task_id"] == "abc12345-uuid"
+        assert data["receiver_task_id"]
 
     def test_reply_stack_not_stored_with_response_mode_silent(
         self, client, mock_controller
@@ -1125,6 +1126,66 @@ class TestReplyStackEndpoints:
         # Stack should be empty (no sender_id to use as key)
         response = client.get("/reply-stack/pop")
         assert response.status_code == 404
+
+    def test_wait_task_fails_without_explicit_reply(self, client, mock_controller):
+        """Wait/notify tasks should fail if the receiver completes without synapse reply."""
+        mock_controller.status = "READY"
+        mock_controller.get_context.return_value = ""
+
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "sender_task_id": "abc12345-uuid",
+                "response_mode": "wait",
+            },
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        response = client.get(f"/tasks/{task_id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "failed"
+        assert data["error"]["code"] == "MISSING_REPLY"
+
+    def test_explicit_reply_endpoint_records_failed_reply(
+        self, client, mock_controller
+    ):
+        """Explicit reply endpoint should store a structured failed reply."""
+        mock_controller.status = "BUSY"
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "sender_task_id": "abc12345-uuid",
+                "response_mode": "wait",
+            },
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        reply_response = client.post(
+            f"/tasks/{task_id}/reply",
+            json={
+                "message": "Quota exceeded",
+                "status": "failed",
+                "error": {"code": "QUOTA_EXCEEDED", "message": "Quota exceeded"},
+            },
+        )
+
+        assert reply_response.status_code == 200
+        data = reply_response.json()
+        assert data["status"] == "failed"
+        assert data["artifacts"] == []
+        assert data["error"]["code"] == "QUOTA_EXCEEDED"
 
 
 class TestA2APrefixedPTYOutput:

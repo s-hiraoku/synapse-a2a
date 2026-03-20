@@ -243,6 +243,7 @@ class A2AClient:
         sender_agent_id: str | None = None,
         target_agent_id: str | None = None,
         board_task_id: str | None = None,
+        extra_metadata: dict[str, Any] | None = None,
     ) -> A2ATask | None:
         """
         Send a message to a local Synapse agent using A2A protocol.
@@ -266,6 +267,7 @@ class A2AClient:
             registry: Optional AgentRegistry for transport status updates
             sender_agent_id: Optional sender agent ID for transport display
             target_agent_id: Optional target agent ID for transport display
+            extra_metadata: Optional additional metadata merged into the A2A request
 
         Returns:
             A2ATask if successful, None otherwise
@@ -304,6 +306,12 @@ class A2AClient:
                 from synapse.config import BOARD_TASK_METADATA_KEY
 
                 metadata[BOARD_TASK_METADATA_KEY] = board_task_id
+            if extra_metadata:
+                # Apply extra_metadata without overriding critical keys
+                reserved = {"response_mode", "sender", "in_reply_to"}
+                metadata.update(
+                    {k: v for k, v in extra_metadata.items() if k not in reserved}
+                )
 
             # Generate sender_task_id when response is expected (wait or notify)
             # The sender owns this task and will use it to receive the reply

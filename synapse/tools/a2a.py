@@ -13,6 +13,12 @@ from pathlib import Path
 import requests
 
 from synapse.a2a_client import A2AClient
+from synapse.a2a_compat import (
+    _REPLY_ARTIFACTS_METADATA_KEY,
+    _REPLY_ERROR_METADATA_KEY,
+    _REPLY_STATUS_METADATA_KEY,
+    ERROR_CODE_REPLY_FAILED,
+)
 from synapse.history import HistoryManager
 from synapse.paths import get_history_db_path
 from synapse.registry import (
@@ -936,7 +942,18 @@ def cmd_reply(args: argparse.Namespace) -> None:
             sys.exit(1)
         return
 
-    if not getattr(args, "message", "").strip():
+    message = getattr(args, "message", "").strip()
+    fail_reason = getattr(args, "fail", None)
+    if fail_reason and message:
+        print(
+            "Error: Use either a reply message or --fail, not both.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if fail_reason:
+        message = str(fail_reason).strip()
+
+    if not message:
         print(
             "Error: Reply message is required unless --list-targets is used.",
             file=sys.stderr,
@@ -1021,22 +1038,54 @@ def cmd_reply(args: argparse.Namespace) -> None:
     target_endpoint = target.get("sender_endpoint")
     target_uds_path = target.get("sender_uds_path")
     task_id = target.get("sender_task_id")  # May be None
+    receiver_task_id = target.get("receiver_task_id")
 
     if not target_endpoint and not target_uds_path:
         print("Error: Reply target has no endpoint", file=sys.stderr)
         sys.exit(1)
+
+    extra_metadata: dict[str, object] | None = None
+    fail_error: dict[str, str] | None = None
+    if fail_reason:
+        fail_error = {"code": ERROR_CODE_REPLY_FAILED, "message": message}
+        extra_metadata = {
+            _REPLY_STATUS_METADATA_KEY: "failed",
+            _REPLY_ERROR_METADATA_KEY: fail_error,
+            _REPLY_ARTIFACTS_METADATA_KEY: [],
+        }
+    if receiver_task_id:
+        local_payload: dict[str, object] = {"message": message}
+        if fail_reason:
+            local_payload["status"] = "failed"
+            local_payload["error"] = fail_error
+        try:
+            local_resp = requests.post(
+                f"{my_endpoint}/tasks/{receiver_task_id}/reply",
+                json=local_payload,
+                timeout=5,
+            )
+        except requests.RequestException as e:
+            print(f"Error: Failed to record local reply: {e}", file=sys.stderr)
+            sys.exit(1)
+        if local_resp.status_code != 200:
+            print(
+                f"Error: Failed to record local reply: HTTP {local_resp.status_code}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # Send reply using A2AClient (prefer UDS if available)
     # sender_info is guaranteed to be dict here (str case exits above)
     client = A2AClient()
     result = client.send_to_local(
         endpoint=target_endpoint or "http://localhost",
-        message=args.message,
+        message=message,
         priority=3,  # Normal priority for replies
         sender_info=sender_info,
         response_mode="silent",  # Reply doesn't expect a reply back
         in_reply_to=task_id,
         uds_path=target_uds_path or None,
+        extra_metadata=extra_metadata,
     )
 
     if not result:
@@ -1192,6 +1241,11 @@ def main() -> None:
         action="store_true",
         default=False,
         help="List available reply targets and exit",
+    )
+    p_reply.add_argument(
+        "--fail",
+        dest="fail",
+        help="Send a failed reply with the given reason instead of a normal text reply",
     )
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
 

@@ -1427,7 +1427,7 @@ wheels = [
 
 [[package]]
 name = "synapse-a2a"
-version = "0.15.9"
+version = "0.15.11"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

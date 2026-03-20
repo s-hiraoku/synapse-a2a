@@ -1730,8 +1730,10 @@ class TestCmdReply:
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.build_sender_info")
     @patch("requests.get")
+    @patch("requests.post")
     def test_cmd_reply_success(
         self,
+        mock_requests_post,
         mock_requests_get,
         mock_sender,
         mock_client_cls,
@@ -1759,6 +1761,7 @@ class TestCmdReply:
         mock_get_response.json.return_value = {
             "sender_endpoint": "http://localhost:8110",
             "sender_task_id": "abc12345",
+            "receiver_task_id": "local-task-1",
         }
         # Mock the GET /reply-stack/pop response (third call after success)
         mock_pop_response = MagicMock()
@@ -1768,6 +1771,9 @@ class TestCmdReply:
             mock_get_response,
             mock_pop_response,
         ]
+        mock_local_reply_response = MagicMock()
+        mock_local_reply_response.status_code = 200
+        mock_requests_post.return_value = mock_local_reply_response
 
         # Mock the client
         mock_client = MagicMock()
@@ -1776,7 +1782,7 @@ class TestCmdReply:
         )
         mock_client_cls.return_value = mock_client
 
-        args = argparse.Namespace(message="Hello back!")
+        args = argparse.Namespace(message="Hello back!", fail=None, to=None)
         cmd_reply(args)
 
         # Verify reply was sent to correct endpoint
@@ -1791,6 +1797,75 @@ class TestCmdReply:
         assert "/reply-stack/list" in requested_urls[0]
         assert "/reply-stack/get" in requested_urls[1]
         assert "/reply-stack/pop" in requested_urls[2]
+        mock_requests_post.assert_called_once()
+        assert "/tasks/local-task-1/reply" in mock_requests_post.call_args.args[0]
+
+        captured = capsys.readouterr()
+        assert "Reply sent" in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.build_sender_info")
+    @patch("requests.get")
+    @patch("requests.post")
+    def test_cmd_reply_fail_sends_structured_failed_reply(
+        self,
+        mock_requests_post,
+        mock_requests_get,
+        mock_sender,
+        mock_client_cls,
+        capsys,
+    ):
+        """Should record and send a failed explicit reply when --fail is used."""
+        from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
+
+        mock_list_response = MagicMock()
+        mock_list_response.status_code = 200
+        mock_list_response.json.return_value = {
+            "sender_ids": ["synapse-claude-8100"],
+            "targets": [{"sender_id": "synapse-claude-8100"}],
+        }
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {
+            "sender_endpoint": "http://localhost:8110",
+            "sender_task_id": "abc12345",
+            "receiver_task_id": "local-task-1",
+        }
+        mock_pop_response = MagicMock()
+        mock_pop_response.status_code = 200
+        mock_requests_get.side_effect = [
+            mock_list_response,
+            mock_get_response,
+            mock_pop_response,
+        ]
+
+        mock_local_reply_response = MagicMock()
+        mock_local_reply_response.status_code = 200
+        mock_requests_post.return_value = mock_local_reply_response
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="completed"
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(message="", fail="Quota exceeded", to=None)
+        cmd_reply(args)
+
+        mock_requests_post.assert_called_once()
+        assert "/tasks/local-task-1/reply" in mock_requests_post.call_args.args[0]
+        assert mock_requests_post.call_args.kwargs["json"] == {
+            "message": "Quota exceeded",
+            "status": "failed",
+            "error": {"code": "REPLY_FAILED", "message": "Quota exceeded"},
+        }
+        call_kwargs = mock_client.send_to_local.call_args.kwargs
+        assert call_kwargs["message"] == "Quota exceeded"
 
         captured = capsys.readouterr()
         assert "Reply sent" in captured.out
@@ -1809,7 +1884,7 @@ class TestCmdReply:
         # Setup: sender info missing endpoint
         mock_sender.return_value = {}
 
-        args = argparse.Namespace(message="Hello back!")
+        args = argparse.Namespace(message="Hello back!", fail=None, to=None)
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_reply(args)
