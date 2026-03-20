@@ -142,9 +142,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     submit_confirm_retries = profile.get("submit_confirm_retries")
     long_submit_confirm_timeout = profile.get("long_submit_confirm_timeout")
     long_submit_confirm_retries = profile.get("long_submit_confirm_retries")
-    long_submit_settle_delay = profile.get("long_submit_settle_delay")
-    long_submit_retry_delay = profile.get("long_submit_retry_delay")
-    submit_fallback_sequences = profile.get("submit_fallback_sequences")
 
     controller = TerminalController(
         command=profile["command"],
@@ -170,9 +167,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         submit_confirm_retries=submit_confirm_retries,
         long_submit_confirm_timeout=long_submit_confirm_timeout,
         long_submit_confirm_retries=long_submit_confirm_retries,
-        long_submit_settle_delay=long_submit_settle_delay,
-        long_submit_retry_delay=long_submit_retry_delay,
-        submit_fallback_sequences=submit_fallback_sequences,
     )
     controller.start()
 

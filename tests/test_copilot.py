@@ -93,19 +93,23 @@ class TestCopilotProfile:
         """
         assert profile.get("bracketed_paste") is True
 
-    def test_profile_submit_retry_delay(self, profile):
-        """Copilot profile should have submit_retry_delay for React render cycle."""
-        delay = profile.get("submit_retry_delay")
-        assert delay is not None
-        assert delay >= 0.1, "submit_retry_delay should be >= 100ms for React render"
+    def test_profile_does_not_use_submit_retry_delay(self, profile):
+        """Copilot profile should rely on confirmation retries, not double-submit."""
+        assert "submit_retry_delay" not in profile
 
-    def test_profile_submit_fallback_sequences(self, profile):
-        """Profile should have submit_fallback_sequences matching expected ordered list."""
-        seqs = profile.get("submit_fallback_sequences")
-        expected = ["\n", "\u0013", "\x1b\r"]
-        assert seqs == expected, (
-            f"submit_fallback_sequences should be {expected!r}, got {seqs!r}"
-        )
+    def test_profile_does_not_use_submit_fallback_sequences(self, profile):
+        """Copilot profile should not advertise alternate submit key fallbacks."""
+        assert "submit_fallback_sequences" not in profile
+
+    def test_profile_does_not_use_typed_input(self, profile):
+        """Copilot profile should not advertise typed-input tuning."""
+        assert "typing_char_delay" not in profile
+        assert "typing_max_chars" not in profile
+
+    def test_profile_does_not_use_long_submit_timing_overrides(self, profile):
+        """Copilot profile should not keep long-submit fail-safe timing overrides."""
+        assert "long_submit_settle_delay" not in profile
+        assert "long_submit_retry_delay" not in profile
 
     def test_profile_submit_confirmation_settings(self, profile):
         """Copilot profile should define bounded submit confirmation settings."""

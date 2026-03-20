@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into an ineffective burst
-- Copilot multiline and file-reference sends now wait longer before the first submit and retry submit strokes, improving long-message confirmation timing
+- Copilot sends now stay on bracketed paste plus Enter instead of mixing typed input, `Ctrl+S`, and alternate submit sequences
+- Copilot submit confirmation now waits for prompt markers such as file-reference banners, `[Paste #N - X lines]`, and `[Saved pasted content to workspace ...]` to clear before treating the send as confirmed
 
 ### Documentation
 
-- Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
+- Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path and marker-based confirmation rules
 
 ## [0.15.8] - 2026-03-20
 

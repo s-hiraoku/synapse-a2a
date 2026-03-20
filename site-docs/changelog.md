@@ -6,9 +6,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.15.9
 
-- **Fixed**: Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into a burst
-- **Fixed**: Copilot multiline and file-reference sends now wait longer before the initial and retry submit strokes
-- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
+- **Fixed**: Copilot sends now stay on bracketed paste plus Enter instead of mixing typed input, `Ctrl+S`, and alternate submit sequences
+- **Fixed**: Copilot submit confirmation now waits for prompt markers such as file-reference banners, `[Paste #N - X lines]`, and `[Saved pasted content to workspace ...]` to clear before treating the send as confirmed
+- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path and marker-based confirmation rules
 
 ### v0.15.8
 
