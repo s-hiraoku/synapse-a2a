@@ -693,8 +693,8 @@ The Workflow view provides a split-panel interface for browsing and executing [W
 
 **Left panel — Workflow list**: A table of all available workflows showing name, step count, scope, and description. Click a row to select a workflow.
 
-**Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph, and a **Run** button to trigger execution.
+**Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph (with message preview and `response_mode` labels on edges), and a **Run** button to trigger execution. The project directory is displayed next to the Run button for context.
 
-**Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes. Up to 50 recent runs are stored in server memory (lost on restart).
+**Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes. When a step fails, the error details are displayed inline so you can diagnose issues without switching views. Up to 50 recent runs are stored in server memory (lost on restart).
 
 See [Workflows](workflow.md) for the full workflow configuration guide, and [Workflow API](../reference/api.md#workflow-api) for endpoint details.

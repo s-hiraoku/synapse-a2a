@@ -147,6 +147,66 @@ async def run_workflow(
     return run_id
 
 
+_TERMINAL_STATES = {"completed", "failed", "canceled"}
+_POLL_INTERVAL = 3.0  # seconds between polls
+_POLL_TIMEOUT = 600.0  # max seconds to wait for a task
+_SEND_RETRY_INTERVAL = 5.0  # seconds between send retries on 409
+_SEND_RETRY_TIMEOUT = 300.0  # max seconds to retry sending
+
+
+async def _poll_task_completion(
+    client: httpx.AsyncClient,
+    endpoint: str,
+    agent_task_id: str,
+    step: StepResult,
+    on_update: Callable[[], None] | None,
+) -> None:
+    """Poll an agent's task endpoint until the task reaches a terminal state."""
+    poll_url = f"{endpoint}/tasks/{agent_task_id}"
+    deadline = time.time() + _POLL_TIMEOUT
+
+    while time.time() < deadline:
+        await asyncio.sleep(_POLL_INTERVAL)
+        try:
+            resp = await client.get(poll_url)
+            if resp.status_code == 404:
+                # Task not found — treat as completed (agent may not track it)
+                break
+            resp.raise_for_status()
+            data = resp.json()
+            task_data = data.get("task", data)
+            state = task_data.get("status", task_data.get("state", ""))
+            if isinstance(state, dict):
+                state = state.get("state", "")
+
+            if state in _TERMINAL_STATES:
+                if state == "failed":
+                    step.status = "failed"
+                    error_msg = task_data.get("error", "") or task_data.get(
+                        "message", ""
+                    )
+                    step.error = (
+                        f"Agent task failed: {error_msg}"
+                        if error_msg
+                        else "Agent task failed"
+                    )
+                    step.completed_at = time.time()
+                    return
+                # completed or canceled
+                step.status = "completed"
+                step.completed_at = time.time()
+                return
+        except Exception:
+            # Transient error — keep polling
+            pass
+        if on_update:
+            on_update()
+
+    # Timeout — mark as completed (best effort, task may still be running)
+    step.status = "completed"
+    step.completed_at = time.time()
+
+
 async def _execute_workflow(
     run: WorkflowRun,
     workflow: Workflow,
@@ -196,15 +256,38 @@ async def _execute_workflow(
                         "sender_task_id": task_id,
                     },
                 }
-                resp = await client.post(
-                    f"{endpoint}/tasks/send",
-                    json=a2a_request,
-                )
-                resp.raise_for_status()
+                # Send with retry on 409 (agent busy)
+                send_deadline = time.time() + _SEND_RETRY_TIMEOUT
+                while True:
+                    resp = await client.post(
+                        f"{endpoint}/tasks/send",
+                        json=a2a_request,
+                    )
+                    if resp.status_code == 409 and time.time() < send_deadline:
+                        # Agent is busy — wait and retry
+                        await asyncio.sleep(_SEND_RETRY_INTERVAL)
+                        continue
+                    resp.raise_for_status()
+                    break
 
-                step.task_id = task_id
-                step.status = "completed"
-                step.completed_at = time.time()
+                # Extract agent task ID from response
+                resp_data = resp.json()
+                task_data = resp_data.get("task", resp_data)
+                agent_task_id = task_data.get("id", "")
+                step.task_id = agent_task_id or task_id
+
+                # For wait mode, poll until agent completes the task
+                if wf_step.response_mode == "wait" and agent_task_id:
+                    await _poll_task_completion(
+                        client,
+                        endpoint,
+                        agent_task_id,
+                        step,
+                        on_update,
+                    )
+                else:
+                    step.status = "completed"
+                    step.completed_at = time.time()
             except Exception as e:
                 step.status = "failed"
                 step.error = str(e)

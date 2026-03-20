@@ -1392,11 +1392,18 @@ The Canvas server exposes workflow management endpoints for the [Workflow View](
 
 ### GET /api/workflow -- List Workflows
 
-Returns all available workflows with their step definitions.
+Returns all available workflows with their step definitions. The response includes a `project_dir` field indicating the project directory used for workflow resolution.
 
 ```bash
 curl http://localhost:3000/api/workflow
 ```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `workflows` | array | List of workflow objects |
+| `project_dir` | string | Absolute path to the project directory used for workflow discovery |
 
 ### GET /api/workflow/{name} -- Workflow Detail
 

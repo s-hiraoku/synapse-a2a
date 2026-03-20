@@ -4401,14 +4401,18 @@
 
     // Mermaid DAG
     if (wf.steps && wf.steps.length > 1) {
+      function mermaidEscape(str) {
+        return str.replace(/"/g, "&quot;").replace(/[[\](){}]/g, " ");
+      }
       var mermaidSrc = "graph TD\n";
       wf.steps.forEach(function (s, i) {
-        var msgPreview = s.message.length > 30 ? s.message.substring(0, 30) + "..." : s.message;
-        var label = (i + 1) + ". " + s.target + "\\n" + msgPreview;
-        mermaidSrc += '  S' + i + '["' + label.replace(/"/g, "#quot;") + '"]\n';
+        var msg = s.message.length > 25 ? s.message.substring(0, 25) + "..." : s.message;
+        var line1 = (i + 1) + ". " + mermaidEscape(s.target);
+        var line2 = mermaidEscape(msg);
+        mermaidSrc += '  S' + i + '["' + line1 + "<br/>" + line2 + '"]\n';
         if (i > 0) {
-          var edgeLabel = s.response_mode === "wait" ? "|wait|" : s.response_mode === "silent" ? "|silent|" : "";
-          mermaidSrc += "  S" + (i - 1) + " -->" + edgeLabel + " S" + i + "\n";
+          var mode = s.response_mode || "notify";
+          mermaidSrc += "  S" + (i - 1) + " -->|" + mode + "| S" + i + "\n";
         }
       });
       var flowDiv = document.createElement("div");
