@@ -183,8 +183,8 @@ def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
     assert "pytest tests/test_mcp_bootstrap.py -q" in text
 
 
-def test_cli_cheatsheet_mentions_synapse_mcp_serve() -> None:
-    """Check that synapse mcp serve is documented (cli-cheatsheet removed, check reference)."""
+def test_synapse_reference_mentions_synapse_mcp_serve() -> None:
+    """Check that synapse mcp serve is documented in the reference."""
     text = _read("docs/synapse-reference.md")
 
     assert "synapse mcp serve" in text
