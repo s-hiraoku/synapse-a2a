@@ -14,6 +14,7 @@ from synapse.a2a_compat import (
     TextPart,
     create_a2a_router,
     map_synapse_status_to_a2a,
+    task_store,
 )
 
 # ============================================================
@@ -432,6 +433,92 @@ class TestA2ARouterEndpoints:
         assert write_call.startswith("A2A: ")
         assert "Reply text" in write_call
 
+    def test_tasks_send_reply_to_uses_structured_reply_metadata(
+        self, client, mock_controller
+    ):
+        """Structured reply metadata should populate the waiting task directly."""
+        create_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}
+        }
+        create_response = client.post("/tasks/send", json=create_payload)
+        task_id = create_response.json()["task"]["id"]
+
+        mock_controller.write.reset_mock()
+
+        reply_payload = {
+            "message": {
+                "role": "agent",
+                "parts": [{"type": "text", "text": "Fallback text"}],
+            },
+            "metadata": {
+                "in_reply_to": task_id,
+                "reply_status": "completed",
+                "reply_artifacts": [
+                    {"type": "text", "data": {"content": "Structured text"}},
+                    {"type": "code", "data": {"content": "print('ok')"}},
+                ],
+            },
+        }
+        response = client.post("/tasks/send", json=reply_payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task"]["id"] == task_id
+        assert data["task"]["status"] == "completed"
+        assert data["task"]["artifacts"] == [
+            {"type": "text", "data": {"content": "Structured text"}},
+            {"type": "code", "data": {"content": "print('ok')"}},
+        ]
+
+        mock_controller.write.assert_called_once()
+        write_call = mock_controller.write.call_args[0][0]
+        assert write_call.startswith("A2A: ")
+        assert "Fallback text" in write_call
+
+    def test_tasks_send_reply_to_sets_failed_status_from_structured_metadata(
+        self, client, mock_controller
+    ):
+        """Structured failed replies should set task status and error."""
+        create_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}
+        }
+        create_response = client.post("/tasks/send", json=create_payload)
+        task_id = create_response.json()["task"]["id"]
+
+        mock_controller.write.reset_mock()
+
+        reply_payload = {
+            "message": {
+                "role": "agent",
+                "parts": [{"type": "text", "text": "Quota exceeded"}],
+            },
+            "metadata": {
+                "in_reply_to": task_id,
+                "reply_status": "failed",
+                "reply_error": {
+                    "code": "QUOTA_EXCEEDED",
+                    "message": "Quota exceeded",
+                },
+            },
+        }
+        response = client.post("/tasks/send", json=reply_payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task"]["id"] == task_id
+        assert data["task"]["status"] == "failed"
+        assert data["task"]["error"] == {
+            "code": "QUOTA_EXCEEDED",
+            "message": "Quota exceeded",
+            "data": None,
+        }
+        assert data["task"]["artifacts"] == []
+
+        mock_controller.write.assert_called_once()
+        write_call = mock_controller.write.call_args[0][0]
+        assert write_call.startswith("A2A: ")
+        assert "Quota exceeded" in write_call
+
     def test_tasks_get_endpoint(self, client, mock_controller):
         """GET /tasks/{id} should return task status."""
         # First create a task
@@ -455,7 +542,7 @@ class TestA2ARouterEndpoints:
             "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
         }
         client.post("/tasks/send", json=payload)
-        client.post("/tasks/send", json=payload)
+        client.post("/tasks/send-priority?priority=5", json=payload)
 
         response = client.get("/tasks")
 
@@ -504,6 +591,101 @@ class TestA2ARouterEndpoints:
         data = response.json()
         assert data["status"] == "completed"
         assert len(data["artifacts"]) > 0
+
+    def test_task_completion_skips_trivial_dot_artifact(self, client, mock_controller):
+        """Trivial dot-only PTY deltas should not become reply artifacts."""
+        mock_controller.status = "READY"
+        mock_controller.get_context.return_value = "."
+
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Test"}]}
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        response = client.get(f"/tasks/{task_id}")
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["artifacts"] == []
+
+    def test_task_completion_falls_back_when_delta_is_trivial(
+        self, client, mock_controller
+    ):
+        """Use broader context when context_start delta is only PTY noise."""
+        full_context = "SYNAPSE_WAIT_TEST_SHORT_3\n7"
+        mock_controller.status = "READY"
+        mock_controller.get_context.return_value = full_context
+
+        payload = {
+            "message": {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "text",
+                        "text": "SYNAPSE_WAIT_TEST_SHORT_3 とだけ返答してください。",
+                    }
+                ],
+            }
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        task = task_store.get(task_id)
+        assert task is not None
+        task.metadata["_context_start"] = len(full_context) - 1
+        task.metadata["_sent_message"] = (
+            "SYNAPSE_WAIT_TEST_SHORT_3 とだけ返答してください。"
+        )
+
+        response = client.get(f"/tasks/{task_id}")
+
+        data = response.json()
+        assert data["status"] == "completed"
+        assert data["artifacts"] == [
+            {"type": "text", "data": {"content": "SYNAPSE_WAIT_TEST_SHORT_3"}}
+        ]
+
+    def test_tasks_send_rejects_second_working_task(self, client, mock_controller):
+        """A single PTY-backed agent should not accept overlapping working tasks."""
+        mock_controller.status = "BUSY"
+
+        first_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "First"}]}
+        }
+        first_response = client.post("/tasks/send", json=first_payload)
+        assert first_response.status_code == 200
+        assert first_response.json()["task"]["status"] == "working"
+
+        second_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Second"}]}
+        }
+        second_response = client.post("/tasks/send", json=second_payload)
+
+        assert second_response.status_code == 409
+        assert "already has a working task" in second_response.json()["detail"]
+
+    def test_tasks_send_allows_priority_interrupt_while_working(
+        self, client, mock_controller
+    ):
+        """Priority interrupts may preempt an existing working task."""
+        mock_controller.status = "BUSY"
+
+        first_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "First"}]}
+        }
+        first_response = client.post("/tasks/send", json=first_payload)
+        assert first_response.status_code == 200
+
+        second_payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Second"}]}
+        }
+        second_response = client.post(
+            "/tasks/send-priority?priority=5", json=second_payload
+        )
+
+        assert second_response.status_code == 200
+        assert second_response.json()["task"]["status"] == "working"
 
 
 # ============================================================
@@ -898,10 +1080,12 @@ class TestReplyStackEndpoints:
     def test_reply_stack_multiple_senders_coexist(self, client, mock_controller):  # noqa: ARG002
         """Multiple senders can coexist in the map."""
         # Send messages from different senders
-        for sender_id, port in [
-            ("synapse-claude-8100", 8100),
-            ("synapse-gemini-8110", 8110),
-        ]:
+        for idx, (sender_id, port) in enumerate(
+            [
+                ("synapse-claude-8100", 8100),
+                ("synapse-gemini-8110", 8110),
+            ]
+        ):
             payload = {
                 "message": {"role": "user", "parts": [{"type": "text", "text": "Hi"}]},
                 "metadata": {
@@ -912,7 +1096,8 @@ class TestReplyStackEndpoints:
                     "response_mode": "wait",
                 },
             }
-            client.post("/tasks/send", json=payload)
+            path = "/tasks/send" if idx == 0 else "/tasks/send-priority?priority=5"
+            client.post(path, json=payload)
 
         # Both entries should be retrievable (pop returns any)
         resp1 = client.get("/reply-stack/pop")

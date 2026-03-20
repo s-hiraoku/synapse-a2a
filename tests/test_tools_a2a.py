@@ -772,6 +772,57 @@ class TestCmdSend:
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
     @patch("synapse.tools.a2a.build_sender_info", return_value={})
     @patch("synapse.tools.a2a.AgentRegistry")
+    def test_cmd_send_flattens_text_artifact_content_dict(
+        self,
+        mock_registry_cls,
+        mock_sender,
+        mock_running,
+        mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Text artifacts with data.content should print the content only."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123",
+            status="completed",
+            artifacts=[{"type": "text", "data": {"content": "Structured text"}}],
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message="hello",
+            priority=1,
+            sender=None,
+            response_mode="wait",
+        )
+
+        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+            mock_settings.return_value.get_a2a_flow.return_value = "auto"
+            cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "[text] Structured text" in captured.out
+        assert "{'content': 'Structured text'}" not in captured.out
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
     def test_cmd_send_displays_task_error_without_response_artifacts(
         self,
         mock_registry_cls,

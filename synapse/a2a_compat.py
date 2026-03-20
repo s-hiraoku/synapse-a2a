@@ -90,6 +90,7 @@ class SenderInfo:
     sender_endpoint: str | None = None
     sender_uds_path: str | None = None
     sender_task_id: str | None = None
+    receiver_task_id: str | None = None
 
     def has_reply_target(self) -> bool:
         """Check if there's enough info to send a reply."""
@@ -106,6 +107,8 @@ class SenderInfo:
             entry["sender_uds_path"] = self.sender_uds_path
         if self.sender_task_id:
             entry["sender_task_id"] = self.sender_task_id
+        if self.receiver_task_id:
+            entry["receiver_task_id"] = self.receiver_task_id
         return entry
 
 
@@ -128,6 +131,7 @@ def _extract_sender_info(metadata: dict[str, Any] | None) -> SenderInfo:
         sender_endpoint=sender.get("sender_endpoint"),
         sender_uds_path=sender.get("sender_uds_path"),
         sender_task_id=metadata.get("sender_task_id"),
+        receiver_task_id=metadata.get("receiver_task_id"),
     )
 
 
@@ -577,6 +581,151 @@ logger = logging.getLogger(__name__)
 
 _CONTEXT_START_METADATA_KEY = "_context_start"
 _SENT_MESSAGE_METADATA_KEY = "_sent_message"
+_REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
+_REPLY_STATUS_METADATA_KEY = "reply_status"
+_REPLY_ERROR_METADATA_KEY = "reply_error"
+_EXPLICIT_REPLY_RECORDED_METADATA_KEY = "_explicit_reply_recorded"
+
+
+def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
+    """Deserialize structured reply artifacts from metadata."""
+    raw_artifacts = metadata.get(_REPLY_ARTIFACTS_METADATA_KEY)
+    if raw_artifacts is None:
+        return None
+    return [Artifact.model_validate(artifact) for artifact in raw_artifacts]
+
+
+def _load_reply_error(metadata: dict[str, Any]) -> TaskErrorModel | None:
+    """Deserialize structured reply error from metadata."""
+    raw_error = metadata.get(_REPLY_ERROR_METADATA_KEY)
+    if raw_error is None:
+        return None
+    result: TaskErrorModel = TaskErrorModel.model_validate(raw_error)
+    return result
+
+
+def _is_trivial_reply_text(text: str) -> bool:
+    """Return True for PTY noise that should not become a reply artifact."""
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if len(stripped) > 3:
+        return False
+    return all(not ch.isalnum() for ch in stripped)
+
+
+def _has_meaningful_response_content(text: str) -> bool:
+    """Return True when cleaned response text contains usable content."""
+    if _is_trivial_reply_text(text):
+        return False
+    segments = parse_output(text)
+    if not segments:
+        return False
+    return any(
+        seg.type != "text" or not _is_trivial_reply_text(seg.content)
+        for seg in segments
+    )
+
+
+def _response_content_score(text: str) -> int:
+    """Score cleaned response text to choose richer context over trivial deltas."""
+    if not text:
+        return 0
+    segments = parse_output(text)
+    if not segments:
+        return 0
+    score = 0
+    for seg in segments:
+        if seg.type == "text":
+            stripped = seg.content.strip()
+            if not stripped:
+                continue
+            if len(stripped) <= 3 and "\n" not in stripped:
+                score += len(stripped)
+            else:
+                score += len(stripped) + 20
+        else:
+            score += len(seg.content.strip()) + 40
+    return score
+
+
+def _strip_trivial_trailing_lines(text: str) -> str:
+    """Drop trailing PTY-noise lines when earlier lines contain the real reply."""
+    lines = text.splitlines()
+    while len(lines) > 1:
+        stripped = lines[-1].strip()
+        if not stripped:
+            lines.pop()
+            continue
+        if len(stripped) <= 3 and "\n" not in stripped:
+            lines.pop()
+            continue
+        if _is_trivial_reply_text(stripped):
+            lines.pop()
+            continue
+        break
+    return "\n".join(lines).strip()
+
+
+def _select_response_context(
+    full_context: str, recent_context: str, metadata: dict[str, Any]
+) -> str:
+    """Choose the best response context, falling back when delta is only PTY noise."""
+    sent_msg = metadata.get(_SENT_MESSAGE_METADATA_KEY)
+    candidates: list[str] = []
+    context_start = metadata.get(_CONTEXT_START_METADATA_KEY)
+    if isinstance(context_start, int) and 0 <= context_start <= len(full_context):
+        delta = full_context[context_start:]
+        if delta.strip():
+            candidates.append(delta)
+    for candidate in (recent_context, full_context):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
+    cleaned_candidates = [
+        _strip_trivial_trailing_lines(clean_copilot_response(candidate, sent_msg))
+        for candidate in candidates
+        if candidate
+    ]
+    best_cleaned = ""
+    best_score = 0
+    for cleaned in cleaned_candidates:
+        if not _has_meaningful_response_content(cleaned):
+            continue
+        score = _response_content_score(cleaned)
+        if score > best_score:
+            best_cleaned = cleaned
+            best_score = score
+    if best_cleaned:
+        return best_cleaned
+    return cleaned_candidates[0] if cleaned_candidates else ""
+
+
+def _find_active_working_task() -> Task | None:
+    """Return the current active working task, if any.
+
+    Only considers incoming tasks (those being executed by this agent).
+    Outgoing wait/notify tasks (direction=outgoing) are excluded since they
+    represent tasks *sent* to other agents, not work this agent is doing.
+    """
+    for task in task_store.list_tasks():
+        if task.status == "working":
+            meta = task.metadata or {}
+            if meta.get("direction") == "outgoing":
+                continue
+            return task
+    return None
+
+
+def _mark_missing_reply(task: Task) -> Task:
+    """Fail a wait/notify task when no explicit reply was recorded."""
+    task.artifacts = []
+    error = TaskErrorModel(
+        code="MISSING_REPLY",
+        message="Receiver completed without explicit synapse reply",
+    )
+    updated = task_store.set_error(task.id, error)
+    return updated or task
 
 
 async def _send_response_to_sender(
@@ -617,16 +766,25 @@ async def _send_response_to_sender(
     # Use sender_task_id (the task ID on sender's server) for in_reply_to
     # This ensures the reply is correctly routed back to the sender's waiting task
     reply_to_id = sender_task_id if sender_task_id else task.id
+    response_metadata: dict[str, Any] = {
+        "sender": {
+            "sender_id": self_agent_id,
+        },
+        "response_mode": "silent",  # Response to response not needed
+        "in_reply_to": reply_to_id,  # Reference to sender's task
+        _REPLY_ARTIFACTS_METADATA_KEY: [
+            artifact.model_dump(mode="json") for artifact in task.artifacts
+        ],
+        _REPLY_STATUS_METADATA_KEY: task.status,
+    }
     payload = {
         "message": {"role": "agent", "parts": response_parts},
-        "metadata": {
-            "sender": {
-                "sender_id": self_agent_id,
-            },
-            "response_mode": "silent",  # Response to response not needed
-            "in_reply_to": reply_to_id,  # Reference to sender's task
-        },
+        "metadata": response_metadata,
     }
+    if task.error is not None:
+        response_metadata[_REPLY_ERROR_METADATA_KEY] = task.error.model_dump(
+            mode="json"
+        )
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -909,17 +1067,9 @@ def create_a2a_router(
             return None
 
         metadata = task.metadata or {}
-        response_context = recent_context
-        context_start = metadata.get(_CONTEXT_START_METADATA_KEY)
-        if isinstance(context_start, int) and 0 <= context_start <= len(full_context):
-            delta = full_context[context_start:]
-            if delta.strip():
-                response_context = delta
-
-        # Clean Copilot TUI artifacts (spinners, borders, re-render dupes)
-        if agent_type == "copilot":
-            sent_msg = metadata.get(_SENT_MESSAGE_METADATA_KEY)
-            response_context = clean_copilot_response(response_context, sent_msg)
+        response_context = _select_response_context(
+            full_context, recent_context, metadata
+        )
 
         status, error = detect_task_status(response_context)
         if status == "failed" and error:
@@ -942,14 +1092,19 @@ def create_a2a_router(
         if response_context and status != "failed":
             segments = parse_output(response_context)
             if segments:
-                for seg in segments:
+                meaningful_segments = [
+                    seg
+                    for seg in segments
+                    if seg.type != "text" or not _is_trivial_reply_text(seg.content)
+                ]
+                for seg in meaningful_segments:
                     artifact_data: dict[str, Any] = {"content": seg.content}
                     if seg.metadata:
                         artifact_data["metadata"] = seg.metadata
                     task_store.add_artifact(
                         task_id, Artifact(type=seg.type, data=artifact_data)
                     )
-            else:
+            elif not _is_trivial_reply_text(response_context):
                 task_store.add_artifact(
                     task_id, Artifact(type="text", data=response_context)
                 )
@@ -1091,11 +1246,30 @@ def create_a2a_router(
 
             # Use the full task ID for subsequent operations
             full_task_id = existing_task.id
-
-            task_store.add_artifact(
-                full_task_id, Artifact(type="text", data={"content": text_content})
+            has_structured_reply = (
+                _REPLY_ARTIFACTS_METADATA_KEY in metadata
+                or _REPLY_STATUS_METADATA_KEY in metadata
+                or _REPLY_ERROR_METADATA_KEY in metadata
             )
-            task_store.update_status(full_task_id, "completed")
+            reply_artifacts = _load_reply_artifacts(metadata)
+            reply_status = metadata.get(_REPLY_STATUS_METADATA_KEY)
+            reply_error = _load_reply_error(metadata)
+
+            if reply_artifacts is not None:
+                existing_task.artifacts = list(reply_artifacts)
+                existing_task.updated_at = get_iso_timestamp()
+            elif not has_structured_reply:
+                task_store.add_artifact(
+                    full_task_id, Artifact(type="text", data={"content": text_content})
+                )
+
+            if reply_status == "failed":
+                if reply_error is not None:
+                    task_store.set_error(full_task_id, reply_error)
+                else:
+                    task_store.update_status(full_task_id, "failed")
+            else:
+                task_store.update_status(full_task_id, "completed")
 
             # Write reply to PTY so the agent can see it and continue conversation
             if controller:
@@ -1112,7 +1286,22 @@ def create_a2a_router(
                     sender_id=reply_sender.sender_id if not used_file else None,
                     sender_name=reply_sender.sender_name if not used_file else None,
                 )
-                controller.write(prefixed, submit_seq=submit_seq)
+                try:
+                    written = controller.write(prefixed, submit_seq=submit_seq)
+                    if not written:
+                        logger.error("Reply write failed: agent process not running")
+                        task_store.update_status(full_task_id, "failed")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to deliver reply: agent process not running",
+                        )
+                except OSError as e:
+                    logger.error(f"Reply write failed: {e}")
+                    task_store.update_status(full_task_id, "failed")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to deliver reply: {e!s}",
+                    ) from e
 
             updated_task = task_store.get(full_task_id)
             if not updated_task:
@@ -1123,6 +1312,17 @@ def create_a2a_router(
 
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
+
+        active_task = _find_active_working_task()
+        if active_task and priority < 5:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Agent already has a working task "
+                    f"({active_task.id[:8]}). Retry after it completes."
+                ),
+                headers={"Retry-After": "2"},
+            )
 
         # Readiness Gate: wait for agent initialization to complete.
         # Priority >= 5 (emergency interrupt) bypasses the gate.
@@ -1176,6 +1376,7 @@ def create_a2a_router(
             ):
                 reply_stack = get_reply_stack()
                 reply_entry = sender_info.to_reply_stack_entry()
+                reply_entry["receiver_task_id"] = task.id
                 reply_entry["message_preview"] = text_content[:80]
                 reply_entry["received_at"] = datetime.now(timezone.utc).isoformat()
                 reply_stack.set(sender_info.sender_id, reply_entry)
@@ -1411,6 +1612,11 @@ def create_a2a_router(
 
         agent_id: str
 
+    class ExplicitReplyRequest(BaseModel):
+        """Request model for explicitly completing a task via synapse reply."""
+
+        message: str
+
     @router.get("/tasks/board")
     async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
         """Get all tasks from the shared task board."""
@@ -1498,6 +1704,22 @@ def create_a2a_router(
                 detail="Task cannot be reopened (may be pending or in_progress)",
             )
         return {"reopened": True, "task_id": task_id}
+
+    @router.post("/tasks/{task_id}/reply")
+    async def record_explicit_reply(
+        task_id: str,
+        request: ExplicitReplyRequest,
+        _: Any = Depends(require_auth),
+    ) -> Task:
+        """Record an explicit synapse reply on the receiver's local task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        task.metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
+        task.artifacts = [Artifact(type="text", data={"content": request.message})]
+        task.error = None
+        updated = task_store.update_status(task_id, "completed")
+        return updated or task
 
     # --------------------------------------------------------
     # Shared Memory Endpoints
@@ -1618,7 +1840,20 @@ def create_a2a_router(
                 f"[A2A:PLAN_APPROVED:{task_id[:8]}] "
                 "Your plan has been approved. Proceed with implementation."
             )
-            controller.write(approval_msg, submit_seq=submit_seq)
+            try:
+                written = controller.write(approval_msg, submit_seq=submit_seq)
+                if not written:
+                    logger.error("Approval write failed: agent process not running")
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to deliver approval: agent process not running",
+                    )
+            except OSError as e:
+                logger.error(f"Approval write failed: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to deliver approval: {e!s}",
+                ) from e
 
         return {"approved": True, "task_id": task_id}
 
@@ -1641,7 +1876,20 @@ def create_a2a_router(
             if reason:
                 rejection_msg += f" Reason: {reason}"
             rejection_msg += " Please revise your plan."
-            controller.write(rejection_msg, submit_seq=submit_seq)
+            try:
+                written = controller.write(rejection_msg, submit_seq=submit_seq)
+                if not written:
+                    logger.error("Rejection write failed: agent process not running")
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed to deliver rejection: agent process not running",
+                    )
+            except OSError as e:
+                logger.error(f"Rejection write failed: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to deliver rejection: {e!s}",
+                ) from e
 
         return {"rejected": True, "task_id": task_id, "reason": reason}
 
@@ -2217,6 +2465,7 @@ def create_a2a_router(
         sender_endpoint: str | None = None
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
+        receiver_task_id: str | None = None
         message_preview: str | None = None
         received_at: str | None = None
 
@@ -2227,6 +2476,7 @@ def create_a2a_router(
         sender_endpoint: str | None = None
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
+        receiver_task_id: str | None = None
         message_preview: str | None = None
         received_at: str | None = None
 
@@ -2255,6 +2505,7 @@ def create_a2a_router(
                     sender_endpoint=target.get("sender_endpoint"),
                     sender_uds_path=target.get("sender_uds_path"),
                     sender_task_id=target.get("sender_task_id"),
+                    receiver_task_id=target.get("receiver_task_id"),
                     message_preview=target.get("message_preview"),
                     received_at=target.get("received_at"),
                 )
@@ -2283,6 +2534,7 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            receiver_task_id=info.get("receiver_task_id"),
             message_preview=info.get("message_preview"),
             received_at=info.get("received_at"),
         )
@@ -2308,6 +2560,7 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            receiver_task_id=info.get("receiver_task_id"),
             message_preview=info.get("message_preview"),
             received_at=info.get("received_at"),
         )

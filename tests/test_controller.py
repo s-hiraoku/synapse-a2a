@@ -892,7 +892,12 @@ class TestInterAgentMessageWrite:
         writes: list[bytes] = []
         sleeps: list[float] = []
 
+        poll_state = {"count": 0}
+
         def fake_get_context() -> str:
+            poll_state["count"] += 1
+            if poll_state["count"] == 1:
+                return ""
             return "A2A: hello"
 
         ctrl.get_context = fake_get_context  # type: ignore[method-assign]
@@ -910,7 +915,7 @@ class TestInterAgentMessageWrite:
             result = ctrl.write("hello", submit_seq="\r")
 
         assert result is True
-        assert writes == [b"hello", b"\r", b"\r", b"\r"]
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
         assert sleeps[:1] == [0.5]
         # Filter out 0.1s sleeps that may leak from daemon threads in other
         # tests (master_fd wait loop).  Only the poll_interval sleeps matter.
@@ -939,9 +944,11 @@ class TestInterAgentMessageWrite:
 
         def fake_get_context() -> str:
             poll_count["value"] += 1
+            if poll_count["value"] == 1:
+                return ""
             if poll_count["value"] >= 2:
                 ctrl.status = "PROCESSING"
-            return "A2A: hello"
+            return "Processing..."
 
         ctrl.get_context = fake_get_context  # type: ignore[method-assign]
 
@@ -960,7 +967,7 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert writes == [b"hello", b"\r"]
         assert sleeps[:1] == [0.5]
-        assert sleeps[1:] in ([], [0.05])
+        assert sleeps[1:] == [0.1]
 
     def test_submit_confirmation_retries_when_waiting_state_does_not_advance(self):
         """Copilot should not treat WAITING->WAITING as confirmation by itself."""
@@ -995,7 +1002,7 @@ class TestInterAgentMessageWrite:
             result = ctrl.write("hello", submit_seq="\r")
 
         assert result is True
-        assert writes == [b"hello", b"\r", b"\r", b"\r"]
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
         assert sleeps[:1] == [0.5]
 
     def test_submit_confirmation_accepts_waiting_when_text_disappears(self):
@@ -1101,6 +1108,35 @@ class TestInterAgentMessageWrite:
     # --- Copilot submit confirmation tests ---
 
     @staticmethod
+    def _copilot_echo_context(initial: str, after_paste: str):
+        """Factory that returns (get_context, write_side_effect).
+
+        get_context: callable returning `initial` before paste, `after_paste` after.
+        write_side_effect: callable for os.write mock that tracks writes and
+            flips the context when bracketed paste data (containing \\x1b[200~)
+            is written.
+
+        Usage in tests:
+            get_ctx, write_se = self._copilot_echo_context("", "A2A: hello")
+            ctrl.get_context = get_ctx
+            with patch("synapse.controller.os.write", side_effect=write_se): ...
+        """
+        state = {"pasted": False}
+        writes: list[bytes] = []
+
+        def get_context() -> str:
+            return after_paste if state["pasted"] else initial
+
+        def write_side_effect(fd: int, data: bytes) -> int:
+            writes.append(data)
+            if b"\x1b[200~" in data:
+                state["pasted"] = True
+            return len(data)
+
+        write_side_effect.writes = writes  # type: ignore[attr-defined]
+        return get_context, write_side_effect
+
+    @staticmethod
     def _make_copilot_ctrl(*, retries=2, long_retries=None):
         """Factory for a Copilot controller with submit-confirm defaults."""
         ctrl = TerminalController(
@@ -1124,18 +1160,22 @@ class TestInterAgentMessageWrite:
     def test_copilot_retries_enter_only_after_confirmation_timeout(self):
         """Copilot retries should resend Enter only after confirmation polls fail."""
         ctrl = self._make_copilot_ctrl(retries=2)
+        get_ctx, write_se = self._copilot_echo_context("", "A2A: hello")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
-        writes: list[bytes] = []
         with (
-            patch(
-                "synapse.controller.os.write",
-                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
-            ),
+            patch("synapse.controller.os.write", side_effect=write_se),
             patch("synapse.controller.time.sleep"),
         ):
             ctrl.write("hello", submit_seq="\r")
 
-        assert writes == [b"\x1b[200~hello\x1b[201~", b"\r", b"\r", b"\r"]
+        assert write_se.writes == [
+            b"\x1b[200~hello\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\r",
+        ]
 
     def test_copilot_short_single_line_message_uses_paste_not_typed(self):
         """Copilot single-line sends should use bracketed paste plus Enter."""
@@ -1147,28 +1187,87 @@ class TestInterAgentMessageWrite:
             bracketed_paste=True,
             submit_confirm_timeout=0.1,
             submit_confirm_poll_interval=0.05,
-            submit_confirm_retries=0,
+            submit_confirm_retries=1,
         )
         ctrl.running = True
         ctrl.master_fd = 1
-        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+        get_ctx, write_se = self._copilot_echo_context("", "echoed")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
-        writes: list[bytes] = []
-        sleeps: list[float] = []
         with (
-            patch(
-                "synapse.controller.os.write",
-                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
-            ),
-            patch(
-                "synapse.controller.time.sleep",
-                side_effect=lambda t: sleeps.append(t),
-            ),
+            patch("synapse.controller.os.write", side_effect=write_se),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert write_se.writes == [b"\x1b[200~hello\x1b[201~", b"\r"]
+
+    def test_copilot_sends_early_enter_nudge_when_prompt_stays_pending(self):
+        """Copilot should resend Enter quickly when the pasted prompt still remains."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        get_ctx, write_se = self._copilot_echo_context("", "A2A: hello")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
+
+        with (
+            patch("synapse.controller.os.write", side_effect=write_se),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert write_se.writes == [b"\x1b[200~hello\x1b[201~", b"\r", b"\r", b"\r"]
+
+    def test_copilot_skips_early_enter_nudge_when_prompt_clears_immediately(self):
+        """Copilot should avoid the early Enter nudge when the prompt clears quickly."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        # After paste echo, status advances → confirmation clears immediately.
+        state = {"pasted": False}
+        writes: list[bytes] = []
+
+        def write_se(fd: int, data: bytes) -> int:
+            writes.append(data)
+            if b"\x1b[200~" in data:
+                state["pasted"] = True
+            return len(data)
+
+        def get_ctx() -> str:
+            if not state["pasted"]:
+                return ""
+            ctrl.status = "PROCESSING"
+            return "Processing..."
+
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
+
+        with (
+            patch("synapse.controller.os.write", side_effect=write_se),
+            patch("synapse.controller.time.sleep"),
         ):
             ctrl.write("hello", submit_seq="\r")
 
         assert writes == [b"\x1b[200~hello\x1b[201~", b"\r"]
-        assert sleeps == [0.5]
 
     def test_copilot_does_not_use_ctrl_s_even_when_footer_mentions_it(self):
         """Copilot submit should stay on Enter even if the footer mentions Ctrl+S."""
@@ -1214,19 +1313,16 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
-        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+        get_ctx, write_se = self._copilot_echo_context("", "hello\nworld")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
-        writes: list[bytes] = []
         with (
-            patch(
-                "synapse.controller.os.write",
-                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
-            ),
+            patch("synapse.controller.os.write", side_effect=write_se),
             patch("synapse.controller.time.sleep"),
         ):
             ctrl.write("hello\nworld", submit_seq="\r")
 
-        assert writes == [b"\x1b[200~hello\nworld\x1b[201~", b"\r"]
+        assert write_se.writes == [b"\x1b[200~hello\nworld\x1b[201~", b"\r"]
 
     def test_copilot_long_message_reference_stays_pending_while_reference_remains(self):
         """Long-message reference text should keep Copilot confirmation pending."""
@@ -1273,6 +1369,7 @@ class TestInterAgentMessageWrite:
             b"Please read this file to get the complete message.\x1b[201~",
             b"\r",
             b"\r",
+            b"\r",
         ]
 
     def test_copilot_long_message_status_advance_needs_reference_to_clear(self):
@@ -1316,6 +1413,7 @@ class TestInterAgentMessageWrite:
             b"Please read this file to get the complete message.\x1b[201~",
             b"\r",
             b"\r",
+            b"\r",
         ]
 
     def test_copilot_compact_paste_token_stays_pending_while_visible(self):
@@ -1354,7 +1452,7 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write(message, submit_seq="\r")
 
-        assert writes == [f"\x1b[200~{message}\x1b[201~".encode(), b"\r", b"\r"]
+        assert writes == [f"\x1b[200~{message}\x1b[201~".encode(), b"\r", b"\r", b"\r"]
 
     def test_copilot_saved_paste_token_stays_pending_while_visible(self):
         """Saved-paste placeholders should keep Copilot confirmation pending."""
@@ -1391,7 +1489,7 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("line1\nline2\nline3", submit_seq="\r")
 
-        assert writes == [b"\x1b[200~line1\nline2\nline3\x1b[201~", b"\r", b"\r"]
+        assert writes == [b"\x1b[200~line1\nline2\nline3\x1b[201~", b"\r", b"\r", b"\r"]
 
     def test_copilot_multiline_message_uses_long_submit_confirm_budget(self):
         """Multi-line Copilot sends should use the long-message confirm budget."""
@@ -1410,15 +1508,12 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.status = "READY"
-        ctrl.get_context = lambda: "hello\nworld"  # type: ignore[method-assign]
+        get_ctx, write_se = self._copilot_echo_context("", "hello\nworld")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
-        writes: list[bytes] = []
         sleeps: list[float] = []
         with (
-            patch(
-                "synapse.controller.os.write",
-                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
-            ),
+            patch("synapse.controller.os.write", side_effect=write_se),
             patch(
                 "synapse.controller.time.sleep",
                 side_effect=lambda t: sleeps.append(t),
@@ -1426,18 +1521,61 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("hello\nworld", submit_seq="\r")
 
-        assert writes == [
+        assert write_se.writes == [
             b"\x1b[200~hello\nworld\x1b[201~",
             b"\r",
             b"\r",
             b"\r",
+            b"\r",
         ]
-        assert sleeps[:1] == [0.5]
-        confirm_sleeps = [s for s in sleeps[1:] if s != 0.1]
-        assert confirm_sleeps == [0.05] * 12
+        # Confirm polls use 0.05s intervals; nudge delays may also appear.
+        poll_sleeps = [s for s in sleeps if s == 0.05]
+        assert len(poll_sleeps) >= 12
+
+    def test_copilot_long_message_uses_longer_early_enter_nudge(self):
+        """Long Copilot sends should wait slightly longer before the early Enter nudge."""
+        from synapse.controller import (
+            _COPILOT_LONG_SUBMIT_NUDGE_DELAY,
+            _COPILOT_SUBMIT_NUDGE_DELAY,
+        )
+
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        get_ctx, write_se = self._copilot_echo_context("", "line1\nline2")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
+
+        sleeps: list[float] = []
+        with (
+            patch("synapse.controller.os.write", side_effect=write_se),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("line1\nline2", submit_seq="\r")
+
+        assert write_se.writes == [
+            b"\x1b[200~line1\nline2\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+        ]
+        assert _COPILOT_LONG_SUBMIT_NUDGE_DELAY in sleeps
+        assert _COPILOT_SUBMIT_NUDGE_DELAY not in sleeps
 
     def test_copilot_single_line_message_keeps_default_submit_timing(self):
-        """Single-line Copilot sends should only use the base settle delay."""
+        """Single-line Copilot sends should use paste echo wait, not fixed delay."""
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$",
@@ -1451,11 +1589,12 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.status = "READY"
-        ctrl.get_context = lambda: "hello"  # type: ignore[method-assign]
+        get_ctx, write_se = self._copilot_echo_context("", "hello")
+        ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
         sleeps: list[float] = []
         with (
-            patch("synapse.controller.os.write", return_value=1),
+            patch("synapse.controller.os.write", side_effect=write_se),
             patch(
                 "synapse.controller.time.sleep",
                 side_effect=lambda t: sleeps.append(t),
@@ -1463,7 +1602,8 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("hello", submit_seq="\r")
 
-        assert sleeps[:1] == [0.5]
+        # No 0.5s fixed write_delay — paste echo detection fires immediately.
+        assert 0.5 not in sleeps
 
     # --- Bracketed paste mode tests ---
 

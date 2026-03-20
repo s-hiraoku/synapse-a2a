@@ -28,6 +28,16 @@ from synapse.settings import get_settings
 logger = logging.getLogger(__name__)
 
 
+def _artifact_display_text(artifact: dict) -> str:
+    """Extract display text from an artifact payload."""
+    data = artifact.get("data")
+    if isinstance(data, dict) and "content" in data:
+        return str(data["content"])
+    if data is not None:
+        return str(data)
+    return str(artifact.get("text", ""))
+
+
 def _get_history_manager() -> HistoryManager:
     """Get history manager instance from environment."""
     db_path = get_history_db_path()
@@ -737,7 +747,7 @@ def cmd_send(args: argparse.Namespace) -> None:
         print("  Response:")
         for artifact in task.artifacts:
             artifact_type = artifact.get("type", "unknown")
-            content = artifact.get("data") or artifact.get("text", "")
+            content = _artifact_display_text(artifact)
             if content:
                 indented = str(content).replace("\n", "\n    ")
                 print(f"    [{artifact_type}] {indented}")

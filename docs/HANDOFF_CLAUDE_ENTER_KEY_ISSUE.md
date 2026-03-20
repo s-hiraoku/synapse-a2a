@@ -69,10 +69,10 @@ The delay between the data write and the submit sequence write is configurable p
 submit_sequence: "\r"
 ```
 
-**Copilot CLI** — same as Claude Code (0.5s for TUI rendering to complete). All messages use bracketed paste plus Enter; confirmation waits for prompt markers to clear:
+**Copilot CLI** — uses adaptive paste echo wait instead of a fixed delay. After bracketed paste, Synapse polls PTY output until Copilot's Ink TUI re-renders (React `usePaste` state update), then sends Enter. Falls back to `write_delay` if no change is detected within 3 s. All messages use bracketed paste plus Enter; confirmation waits for prompt markers to clear:
 
 ```yaml
-write_delay: 0.5
+write_delay: 0.5          # fallback only; adaptive echo wait is used first
 ```
 
 **Claude Code** — explicit default (0.5s for paste boundary to close):
@@ -87,7 +87,7 @@ write_delay: 0.5
 write_delay: 1.0
 ```
 
-When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequence is sent immediately after the data write. This is useful for TUI apps that process paste boundaries faster than the default 0.5s delay.
+When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequence is sent immediately after the data write. This is useful for TUI apps that process paste boundaries faster than the default 0.5s delay. **Note**: For Copilot, the adaptive paste echo wait (`_wait_for_copilot_paste_echo`) takes precedence over `write_delay` when bracketed paste is active; `write_delay` serves only as the fallback if the echo is not detected within the timeout.
 
 ### Write Strategy Evolution
 
@@ -97,6 +97,7 @@ When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequ
 | Bug 3 | Atomic write + retry loop | Partial writes lost data |
 | Bug 4 | Split write + delay + retry loop | Fixed: bracketed paste mode previously trapped CR inside paste boundary |
 | Bug 5 | Split write + per-profile delay | Fixed: Copilot CLI needed different delay than Claude Code |
+| Bug 6 | Adaptive paste echo wait + nudge retry | Fixed: Copilot paste echo timing varies; poll for TUI re-render instead of fixed delay, nudge Enter before confirmation retries |
 
 ## Comparison with Other Agents
 
@@ -105,7 +106,7 @@ When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequ
 | Claude Code | `\r` | Ink TUI requires CR in v2.0.76 |
 | Gemini | `\r` | Standard CR works |
 | Codex | `\r` | Standard CR works |
-| Copilot | Historical note: `\r` + fallback `["\n", "\x13", "\x1b\r"]` | This handoff section captures an older experiment. Current Synapse keeps Copilot on bracketed paste plus Enter and confirms submission by waiting for prompt markers to clear. |
+| Copilot | `\r` (bracketed paste + Enter) | Paste-only path: no typed input, no Ctrl+S. Adaptive paste echo wait replaces fixed `write_delay`; nudge Enter retry before confirmation loop. `submit_confirm_timeout` / `long_submit_confirm_timeout` for bounded confirmation. |
 
 ## Related Files
 

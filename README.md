@@ -970,7 +970,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
 
-`--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta, not the raw terminal tail, to reduce status-line noise in replies. For Copilot responses, `clean_copilot_response()` strips Ink TUI artifacts before finalization. In server mode, startup/runtime logs stay off stderr so they do not leak into the agent TUI. Quota-exhaustion output such as `402 You have no quota` is classified as a failed task instead of a normal reply.
+`--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta, not the raw terminal tail, to reduce status-line noise in replies. TUI response cleaning (`clean_copilot_response()`) now runs for all agents, stripping Ink TUI artifacts (spinners, box-drawing borders, status bar, input echo) before finalization. In server mode, startup/runtime logs stay off stderr so they do not leak into the agent TUI. Quota-exhaustion output such as `402 You have no quota` is classified as a failed task instead of a normal reply.
 
 **Choosing response mode:**
 
@@ -1515,7 +1515,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 If automation is attached to a TTY, use `synapse list --json`, `synapse list --plain`, or set `SYNAPSE_NONINTERACTIVE=1`. Bare `synapse list` is intended for human-operated interactive terminals.
 
-For Copilot specifically, Synapse keeps bracketed paste enabled and submits with Enter. Confirmation stays pending while Copilot still shows the original prompt text, file-reference markers, or paste placeholders such as `[Paste #1 - 12 lines]` and `[Saved pasted content to workspace ...]`.
+For Copilot specifically, Synapse keeps bracketed paste enabled and submits with Enter (paste-only path; no typed input, no Ctrl+S). After pasting, an adaptive paste echo wait polls PTY output for the TUI re-render before sending Enter, replacing the previous fixed `write_delay`. A short nudge delay fires an extra Enter before the main confirmation retry loop. Confirmation stays pending while Copilot still shows the original prompt text, file-reference markers, or paste placeholders such as `[Paste #1 - 12 lines]` and `[Saved pasted content to workspace ...]`.
 
 ### Display Columns
 

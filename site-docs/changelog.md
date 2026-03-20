@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.11
+
+- **Changed**: Adaptive paste echo wait replaces fixed `write_delay` for Copilot — polls PTY output for Ink TUI re-render before sending Enter
+- **Changed**: TUI response cleaning now applies to all agents, fixing corrupted Codex and Claude Code replies
+- **Fixed**: Root logger calls replaced with module logger, preventing log leakage into PTY
+- **Fixed**: Pre-submit context captured before PTY writes for correct placeholder detection
+
 ### v0.15.10
 
 - **Changed**: Refinement of v0.15.9 — removed residual typed-input, `Ctrl+S` fallback, and tmux delay code paths; inlined trivial pass-through methods; optimized pre-submit context capture

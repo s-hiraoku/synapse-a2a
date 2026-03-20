@@ -55,15 +55,30 @@ _ANSI_ESCAPE_RE = re.compile(
     r"|[>=]"  # Keypad mode
     r")"
 )
+_ORPHAN_SGR_RE = re.compile(r"(?<![a-zA-Z])\[[0-9;]+m")
+_ORPHAN_SGR_BARE_RE = re.compile(r"(?<![a-zA-Z0-9\[])[0-9]+(?:;[0-9]+)+m(?![a-zA-Z])")
 _COPILOT_COMPACT_PASTE_RE = re.compile(r"\[Paste #\d+(?: - \d+ lines)?\]")
 _COPILOT_SAVED_PASTE_RE = re.compile(
     r"\[Saved pasted content to workspace \([^)]+\) id=\d+\]"
 )
+_COPILOT_SUBMIT_NUDGE_DELAY = 0.1
+_COPILOT_LONG_SUBMIT_NUDGE_DELAY = 0.2
+_COPILOT_PASTE_ECHO_POLL = 0.05
+_COPILOT_PASTE_ECHO_TIMEOUT = 3.0
 
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
-    return _ANSI_ESCAPE_RE.sub("", text)
+    """Remove ANSI escape sequences from text.
+
+    Three-stage removal:
+    1. Full ANSI sequences (ESC + CSI/OSC/charset/keypad)
+    2. Orphaned SGR fragments like ``[38;5;178m`` (ESC was overwritten by \\r)
+    3. Bare SGR fragments like ``38;5;178m`` (bracket also overwritten)
+    """
+    text = _ANSI_ESCAPE_RE.sub("", text)
+    text = _ORPHAN_SGR_RE.sub("", text)
+    text = _ORPHAN_SGR_BARE_RE.sub("", text)
+    return text
 
 
 class TerminalController:
@@ -128,13 +143,13 @@ class TerminalController:
                 elif pattern:
                     self.idle_regex = re.compile(pattern.encode("utf-8"))
             except re.error as e:
-                logging.error(
+                logger.error(
                     f"Invalid idle detection pattern '{pattern}': {e}. "
                     f"Falling back to timeout-based idle detection."
                 )
                 self.idle_regex = None
             except Exception as e:
-                logging.error(
+                logger.error(
                     f"Unexpected error compiling pattern '{pattern}': {e}. "
                     f"Falling back to timeout-based idle detection."
                 )
@@ -153,7 +168,7 @@ class TerminalController:
                 # Use MULTILINE flag so ^ and $ match per-line in multi-line outputs
                 self._waiting_regex = re.compile(waiting_regex_str, re.MULTILINE)
             except re.error as e:
-                logging.error(
+                logger.error(
                     f"Invalid waiting_detection regex '{waiting_regex_str}': {e}"
                 )
         self._waiting_require_idle: bool = self.waiting_config.get("require_idle", True)
@@ -629,7 +644,7 @@ class TerminalController:
                     if self._last_output_time
                     else 0
                 )
-                logging.debug(
+                logger.debug(
                     f"[{self.agent_id}] Status: {old_status} -> {new_status} "
                     f"(strategy={self.idle_strategy}, elapsed={elapsed:.2f}s)"
                 )
@@ -638,7 +653,7 @@ class TerminalController:
                 if self.agent_id:
                     success = self.registry.update_status(self.agent_id, self.status)
                     if not success:
-                        logging.warning(
+                        logger.debug(
                             f"Failed to sync status to registry: {self.agent_id}"
                             f" -> {self.status}"
                         )
@@ -654,7 +669,7 @@ class TerminalController:
                             try:
                                 cb(_old, _new)
                             except Exception:
-                                logging.exception("Status callback error")
+                                logger.exception("Status callback error")
 
                     threading.Thread(target=_fire_callbacks, daemon=True).start()
 
@@ -1046,6 +1061,32 @@ class TerminalController:
                 return True
         return False
 
+    def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
+        """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
+
+        After bracketed paste, React's usePaste hook triggers a state update.
+        The TUI re-renders and writes new output to PTY (echo, placeholder, or
+        re-drawn prompt).  We poll PTY output until it changes from the
+        pre-paste snapshot, which signals that React's render cycle completed.
+        Falls back to write_delay if no change is detected within the timeout.
+        """
+        deadline = time.monotonic() + _COPILOT_PASTE_ECHO_TIMEOUT
+        while time.monotonic() < deadline:
+            current = self._tail_text(strip_ansi(self.get_context()))
+            if current != pre_paste_context:
+                logger.debug(
+                    f"[{self.agent_id}] paste echo detected after "
+                    f"{_COPILOT_PASTE_ECHO_TIMEOUT - (deadline - time.monotonic()):.3f}s"
+                )
+                return
+            time.sleep(_COPILOT_PASTE_ECHO_POLL)
+        logger.info(
+            f"[{self.agent_id}] paste echo not detected within "
+            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s, falling back to write_delay"
+        )
+        if self._write_delay > 0:
+            time.sleep(self._write_delay)
+
     def write(
         self,
         data: str,
@@ -1081,11 +1122,14 @@ class TerminalController:
 
         with self._write_lock:
             try:
-                pre_submit_context = ""
-                if self._should_confirm_submit(
-                    data, submit_seq and submit_seq.encode("utf-8") or b""
-                ):
-                    pre_submit_context = self._tail_text(strip_ansi(self.get_context()))
+                pre_paste_context = self._tail_text(strip_ansi(self.get_context()))
+                pre_submit_context = (
+                    pre_paste_context
+                    if self._should_confirm_submit(
+                        data, submit_seq and submit_seq.encode("utf-8") or b""
+                    )
+                    else ""
+                )
                 use_typed_input = self._should_type_input(data, submit_seq)
                 if use_typed_input:
                     self._write_typed_text(data)
@@ -1096,7 +1140,9 @@ class TerminalController:
                     self._write_all(data_bytes)
                 if submit_seq:
                     submit_bytes = submit_seq.encode("utf-8")
-                    if self._write_delay > 0:
+                    if self.agent_type == "copilot" and self._bracketed_paste:
+                        self._wait_for_copilot_paste_echo(pre_paste_context)
+                    elif self._write_delay > 0:
                         time.sleep(self._write_delay)
                     self._write_all(submit_bytes)
                     if (
@@ -1134,11 +1180,25 @@ class TerminalController:
             and retries > 0
         )
 
+    def _copilot_submit_nudge_delay(self, data: str) -> float | None:
+        """Return the short pre-confirmation Enter retry delay for Copilot."""
+        if self.agent_type != "copilot":
+            return None
+        if (
+            self._submit_confirm_timeout is None
+            or self._submit_confirm_poll_interval is None
+        ):
+            return None
+        return (
+            _COPILOT_LONG_SUBMIT_NUDGE_DELAY
+            if self._is_long_submit_message(data)
+            else _COPILOT_SUBMIT_NUDGE_DELAY
+        )
+
     def _submit_confirmed(
         self, data: str, initial_status: str, previous_context: str
     ) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
-        long_submit = self._is_long_submit_message(data)
         plain = strip_ansi(self.get_context())
         current_tail = self._tail_text(plain)
         markers = self._pending_submit_markers(data)
@@ -1150,11 +1210,11 @@ class TerminalController:
 
         current_status = self.status
         if initial_status == "READY" and current_status != "READY":
-            return not long_submit or not pending
+            return not pending
         if current_status in {"PROCESSING", "DONE"}:
-            return not long_submit or not pending
+            return not pending
         if current_status == "WAITING" and initial_status != "WAITING":
-            return not long_submit or not pending
+            return not pending
 
         if not markers:
             return True
@@ -1186,6 +1246,12 @@ class TerminalController:
             1,
             math.ceil(confirm_timeout / self._submit_confirm_poll_interval),
         )
+        nudge_delay = self._copilot_submit_nudge_delay(data)
+        if nudge_delay is not None:
+            time.sleep(nudge_delay)
+            if not self._submit_confirmed(data, initial_status, previous_context):
+                self._write_all(submit_bytes)
+
         for attempt in range(confirm_retries + 1):
             for _ in range(poll_limit):
                 if self._submit_confirmed(data, initial_status, previous_context):
@@ -1232,7 +1298,7 @@ class TerminalController:
             self.status = "DONE"
             self._done_time = time.time()
 
-            logging.debug(f"[{self.agent_id}] Status: {old_status} -> DONE")
+            logger.debug(f"[{self.agent_id}] Status: {old_status} -> DONE")
 
             # Sync to registry
             if self.agent_id:
@@ -1298,7 +1364,7 @@ class TerminalController:
             # Capture master_fd for API server to use
             if self.master_fd is None:
                 self.master_fd = fd
-                logging.debug(f"[{self.agent_id}] master_fd initialized to {fd}")
+                logger.debug(f"[{self.agent_id}] master_fd initialized to {fd}")
                 sync_pty_window_size()
 
                 # Get TTY device name and update registry for terminal jump
@@ -1306,7 +1372,7 @@ class TerminalController:
                     tty_device = os.ttyname(fd)
                     if self.agent_id:
                         self.registry.update_tty_device(self.agent_id, tty_device)
-                        logging.debug(
+                        logger.debug(
                             f"[{self.agent_id}] TTY device registered: {tty_device}"
                         )
                 except OSError:
