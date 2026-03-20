@@ -69,7 +69,7 @@ The delay between the data write and the submit sequence write is configurable p
 submit_sequence: "\r"
 ```
 
-**Copilot CLI** — same as Claude Code (0.5s for TUI rendering to complete). Short single-line messages can be typed instead of pasted, which keeps the CLI closer to a real keyboard flow:
+**Copilot CLI** — same as Claude Code (0.5s for TUI rendering to complete). All messages use bracketed paste plus Enter; confirmation waits for prompt markers to clear:
 
 ```yaml
 write_delay: 0.5

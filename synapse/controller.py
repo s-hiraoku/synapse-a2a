@@ -1081,6 +1081,11 @@ class TerminalController:
 
         with self._write_lock:
             try:
+                pre_submit_context = ""
+                if self._should_confirm_submit(
+                    data, submit_seq and submit_seq.encode("utf-8") or b""
+                ):
+                    pre_submit_context = self._tail_text(strip_ansi(self.get_context()))
                 use_typed_input = self._should_type_input(data, submit_seq)
                 if use_typed_input:
                     self._write_typed_text(data)
@@ -1089,7 +1094,6 @@ class TerminalController:
                     if self._bracketed_paste:
                         data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
                     self._write_all(data_bytes)
-                pre_submit_context = ""
                 if submit_seq:
                     submit_bytes = submit_seq.encode("utf-8")
                     if self._write_delay > 0:
@@ -1102,10 +1106,7 @@ class TerminalController:
                     ):
                         time.sleep(self._submit_retry_delay)
                         self._write_all(submit_bytes)
-                    if self._should_confirm_submit(data, submit_bytes):
-                        pre_submit_context = self._tail_text(
-                            strip_ansi(self.get_context())
-                        )
+                    if pre_submit_context:
                         with self.lock:
                             self.status = previous_status
                     self._confirm_submit_if_needed(

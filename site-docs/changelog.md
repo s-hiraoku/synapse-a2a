@@ -6,15 +6,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.15.10
 
-- **Changed**: Copilot submit path simplified — removed typed-input mode, `Ctrl+S` fallback, tmux typing delay override, and `submit_fallback_sequences` in favor of paste-plus-Enter only
-- **Changed**: Inlined trivial pass-through methods; pre-submit context capture now runs only for Copilot agents
-- **Documentation**: Updated reference docs and profiles-yaml schema for paste-only submit path and `long_submit_confirm_*` fields
+- **Changed**: Refinement of v0.15.9 — removed residual typed-input, `Ctrl+S` fallback, and tmux delay code paths; inlined trivial pass-through methods; optimized pre-submit context capture
+- **Documentation**: Added `long_submit_confirm_*` fields to profiles-yaml schema reference
 
 ### v0.15.9
 
-- **Fixed**: Copilot sends now stay on bracketed paste plus Enter instead of mixing typed input, `Ctrl+S`, and alternate submit sequences
-- **Fixed**: Copilot submit confirmation now waits for prompt markers such as file-reference banners, `[Paste #N - X lines]`, and `[Saved pasted content to workspace ...]` to clear before treating the send as confirmed
-- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path and marker-based confirmation rules
+- **Fixed**: Copilot sends now use bracketed paste plus Enter exclusively, with marker-based submit confirmation that waits for prompt text, file-reference banners, and paste placeholders to clear
+- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path
 
 ### v0.15.8
 
