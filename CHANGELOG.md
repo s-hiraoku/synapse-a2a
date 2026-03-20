@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Root logger calls in controller.py replaced with module logger, preventing WARNING messages from leaking into agent PTY output
 - Registry sync failure demoted from WARNING to DEBUG (transient, expected)
 - Pre-submit context captured before PTY writes so paste placeholders are correctly detected as incremental additions
-- `[Unreleased]` compare link updated for v0.15.10
+- `[Unreleased]` compare link updated for v0.15.11
 
 ### Documentation
 

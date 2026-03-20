@@ -1534,6 +1534,11 @@ class TestInterAgentMessageWrite:
 
     def test_copilot_long_message_uses_longer_early_enter_nudge(self):
         """Long Copilot sends should wait slightly longer before the early Enter nudge."""
+        from synapse.controller import (
+            _COPILOT_LONG_SUBMIT_NUDGE_DELAY,
+            _COPILOT_SUBMIT_NUDGE_DELAY,
+        )
+
         ctrl = TerminalController(
             command="echo test",
             idle_regex=r"\$",
@@ -1550,9 +1555,13 @@ class TestInterAgentMessageWrite:
         get_ctx, write_se = self._copilot_echo_context("", "line1\nline2")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
+        sleeps: list[float] = []
         with (
             patch("synapse.controller.os.write", side_effect=write_se),
-            patch("synapse.controller.time.sleep"),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
         ):
             ctrl.write("line1\nline2", submit_seq="\r")
 
@@ -1562,6 +1571,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
         ]
+        assert _COPILOT_LONG_SUBMIT_NUDGE_DELAY in sleeps
+        assert _COPILOT_SUBMIT_NUDGE_DELAY not in sleeps
 
     def test_copilot_single_line_message_keeps_default_submit_timing(self):
         """Single-line Copilot sends should use paste echo wait, not fixed delay."""
