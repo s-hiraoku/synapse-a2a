@@ -25,13 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `synapse list` can now be forced into non-interactive mode with `SYNAPSE_NONINTERACTIVE=1`, so AI-controlled TTY sessions no longer hang in the interactive list UI
-- Copilot typed input now slows down inside tmux so single-line messages are less likely to be coalesced into an ineffective burst
-- Copilot multiline/file-reference sends now wait longer before the first submit and retry submit strokes, improving long-message confirmation timing
 
 ### Documentation
 
 - Updated AI-facing guidance, plugin skills, and site docs to use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or MCP `list_agents` instead of bare `synapse list`
-- Documented Copilot tmux typed-input timing and long-message submit timing controls
+
+## [0.15.7] - 2026-03-20
 
 ### Changed
 

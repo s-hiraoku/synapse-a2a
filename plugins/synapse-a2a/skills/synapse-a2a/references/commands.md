@@ -494,7 +494,7 @@ synapse send codex "Fix the failing CI pipeline" -T --wait
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
 
-For `--wait` and `--notify`, reply artifacts are built from the PTY output delta captured since task start rather than the raw terminal tail. For Copilot, Synapse also strips common Ink TUI artifacts from the captured delta, prefers typed input for short single-line messages, slows typed-input cadence inside tmux so the multiplexer does not batch characters into a burst, and can try `Ctrl+S` when the footer advertises `ctrl+s run command`. Multiline/file-reference sends keep paste mode but use longer settle/retry delays before submit. Quota errors such as `402 You have no quota` are surfaced as failed tasks instead of normal replies.
+For `--wait` and `--notify`, reply artifacts are built from the PTY output delta captured since task start rather than the raw terminal tail. For Copilot, Synapse also strips common Ink TUI artifacts from the captured delta and prefers typed input for short single-line messages. It can also try `Ctrl+S` when the footer advertises `ctrl+s run command`. It slows typed-input cadence inside tmux so the multiplexer does not batch characters into a burst. Multiline/file-reference sends keep paste mode but use longer settle-retry delays before submit. Quota errors such as `402 You have no quota` are surfaced as failed tasks instead of normal replies.
 
 **Important:** `--from` is auto-detected from `$SYNAPSE_AGENT_ID` (set at startup, expands to `synapse-<type>-<port>`). You can usually omit it. If you specify it explicitly, never hardcode Runtime IDs -- always use `$SYNAPSE_AGENT_ID`.
 

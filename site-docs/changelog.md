@@ -14,8 +14,6 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Added**: `synapse list --plain` for one-shot plain-text agent listings without entering the Rich TUI
 - **Fixed**: `synapse list` can now be forced into non-interactive mode with `SYNAPSE_NONINTERACTIVE=1`, preventing hangs in AI-controlled TTY sessions
-- **Fixed**: Copilot typed input now slows down inside tmux so short messages are less likely to be coalesced into a burst
-- **Fixed**: Copilot multiline and file-reference sends now wait longer before the initial and retry submit strokes
 - **Documentation**: Updated AI-facing guidance, plugin skills, and site docs to use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or MCP `list_agents`
 
 ### v0.15.7

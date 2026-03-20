@@ -16,7 +16,7 @@ import termios
 import threading
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, SupportsFloat
 
 if TYPE_CHECKING:
     from synapse.file_safety import FileSafetyManager
@@ -243,37 +243,25 @@ class TerminalController:
                 )
             self._submit_retry_delay = submit_retry_delay
 
-        self._long_submit_settle_delay: float | None = None
-        if long_submit_settle_delay is not None:
+        def validate_non_negative_float(
+            value: SupportsFloat | str | None, name: str
+        ) -> float | None:
+            if value is None:
+                return None
             try:
-                long_submit_settle_delay = float(long_submit_settle_delay)
+                parsed_value = float(value)
             except (TypeError, ValueError):
-                raise ValueError(
-                    "long_submit_settle_delay must be numeric, "
-                    f"got {long_submit_settle_delay!r}"
-                ) from None
-            if long_submit_settle_delay < 0:
-                raise ValueError(
-                    "long_submit_settle_delay must be non-negative, "
-                    f"got {long_submit_settle_delay}"
-                )
-            self._long_submit_settle_delay = long_submit_settle_delay
+                raise ValueError(f"{name} must be numeric, got {value!r}") from None
+            if parsed_value < 0:
+                raise ValueError(f"{name} must be non-negative, got {parsed_value}")
+            return parsed_value
 
-        self._long_submit_retry_delay: float | None = None
-        if long_submit_retry_delay is not None:
-            try:
-                long_submit_retry_delay = float(long_submit_retry_delay)
-            except (TypeError, ValueError):
-                raise ValueError(
-                    "long_submit_retry_delay must be numeric, "
-                    f"got {long_submit_retry_delay!r}"
-                ) from None
-            if long_submit_retry_delay < 0:
-                raise ValueError(
-                    "long_submit_retry_delay must be non-negative, "
-                    f"got {long_submit_retry_delay}"
-                )
-            self._long_submit_retry_delay = long_submit_retry_delay
+        self._long_submit_settle_delay = validate_non_negative_float(
+            long_submit_settle_delay, "long_submit_settle_delay"
+        )
+        self._long_submit_retry_delay = validate_non_negative_float(
+            long_submit_retry_delay, "long_submit_retry_delay"
+        )
 
         # Wrap data in bracketed paste markers for Ink-based TUIs (Copilot CLI).
         self._bracketed_paste = bracketed_paste
