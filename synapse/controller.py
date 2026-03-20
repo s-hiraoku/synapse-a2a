@@ -669,7 +669,7 @@ class TerminalController:
                             try:
                                 cb(_old, _new)
                             except Exception:
-                                logging.exception("Status callback error")
+                                logger.exception("Status callback error")
 
                     threading.Thread(target=_fire_callbacks, daemon=True).start()
 
