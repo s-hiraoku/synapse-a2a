@@ -476,6 +476,7 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `POST` | `/api/cards` | Create/update card (Canvas Message Protocol) |
 | `GET` | `/api/cards` | List cards (optional `?agent_id=`, `?search=`, `?type=` filters) |
 | `GET` | `/api/cards/{id}` | Get single card |
+| `GET` | `/api/cards/{id}/download` | Download card as file (optional `?format=` override) |
 | `DELETE` | `/api/cards/{id}` | Delete card (own cards only) |
 | `DELETE` | `/api/cards` | Clear all cards (optional `?agent_id=` filter) |
 | `GET` | `/api/stream` | SSE stream (card events) |
@@ -540,6 +541,41 @@ Canvas uses a **dedicated port (3000)** separate from agent servers (8100-8149) 
 - **TTL expiry**: Cards expire after `CANVAS_CARD_TTL` (default 1 hour). Expired cards are cleaned up automatically.
 - **Pinned cards**: Exempt from TTL. They stay until manually deleted or server restart.
 - **Update resets TTL**: When a card is updated via `card_id`, its expiry is refreshed.
+
+## Card Download
+
+Cards can be downloaded as files directly from the Canvas UI or via the HTTP API. Each content format maps to an optimal download format automatically.
+
+### Browser UI
+
+Every card in the History view and the Canvas spotlight view includes a **download button** (<i class="ph ph-download-simple"></i>). Clicking it triggers a browser download of the card content in its native format.
+
+### HTTP API
+
+```
+GET /api/cards/{card_id}/download[?format=<override>]
+```
+
+Returns the card content as a downloadable file with an appropriate `Content-Disposition` header and MIME type.
+
+The optional `format` query parameter overrides the default export format. Accepted values: `md`, `json`, `csv`, `html`, `txt`, `native`.
+
+### Format Mapping
+
+Each card format is exported to the most natural file type:
+
+| Card Format | Download As | Extension | MIME Type |
+|---|---|---|---|
+| `markdown`, `checklist`, `tip`, `alert`, `status`, `metric`, `progress`, `timeline`, `link-preview` | Markdown | `.md` | `text/markdown` |
+| `code`, `terminal` | Plain text | `.txt` | `text/plain` |
+| `html`, `artifact` | HTML | `.html` | `text/html` |
+| `diff` | Unified diff | `.diff` | `text/x-diff` |
+| `mermaid` | Mermaid source | `.mmd` | `text/plain` |
+| `image` | Image (PNG) | `.png` | `image/png` |
+| `json`, `chart`, `task-board`, `dependency-graph`, `trace`, `log`, `file-preview`, `plan` | JSON | `.json` | `application/json` |
+| `table`, `cost` | CSV | `.csv` | `text/csv` |
+
+For composite cards (multiple content blocks), the export uses the primary block's format to determine the output type. Template cards include structured metadata in the export.
 
 ## Configuration
 
@@ -609,7 +645,7 @@ The Dashboard view provides a real-time operational status overview of the entir
 - **Memory**: Recent shared memory entries
 - **Errors**: Registry errors and agent issues
 
-The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity — no periodic polling.
+The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity, with a 10-second fallback polling interval to keep widgets current if events are missed or delayed.
 
 ### History View (`#/history`)
 

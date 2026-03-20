@@ -192,7 +192,7 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 See test files in `tests/` directory. Key test groups:
 
 - Core: `test_a2a_compat.py`, `test_registry.py`, `test_controller_registry_sync.py`
-- Canvas: `test_canvas_store.py`, `test_canvas_protocol.py`, `test_canvas_server.py`, `test_canvas_artifact.py`
+- Canvas: `test_canvas_store.py`, `test_canvas_protocol.py`, `test_canvas_server.py`, `test_canvas_artifact.py`, `test_canvas_export.py`
   - Dashboard widget preserves task card expand/collapse state across polling refreshes
   - Task descriptions render as Markdown in the Canvas dashboard
   - View toggle active tab uses improved contrast (white text, semi-bold weight)

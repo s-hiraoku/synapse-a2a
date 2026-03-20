@@ -56,6 +56,33 @@
   var _lastSystemJSON = "";
 
   // ----------------------------------------------------------------
+  // Download card as file
+  // ----------------------------------------------------------------
+  function downloadCard(cardId, format) {
+    var url = "/api/cards/" + encodeURIComponent(cardId) + "/download";
+    if (format) url += "?format=" + encodeURIComponent(format);
+    var a = document.createElement("a");
+    a.href = url;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function createDownloadButton(getCardId) {
+    var btn = document.createElement("button");
+    btn.className = "canvas-dl-btn";
+    btn.title = "Download";
+    btn.innerHTML = '<i class="ph ph-download-simple"></i>';
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var id = typeof getCardId === "function" ? getCardId() : getCardId;
+      if (id) downloadCard(id);
+    });
+    return btn;
+  }
+
+  // ----------------------------------------------------------------
   // Initial load
   // ----------------------------------------------------------------
   async function loadCards() {
@@ -527,6 +554,8 @@
     const title = document.createElement("h2");
     title.textContent = card.title || "Untitled";
     header.appendChild(title);
+
+    header.appendChild(createDownloadButton(card.card_id));
 
     el.appendChild(header);
 
@@ -4126,8 +4155,12 @@
     if (!titleText) {
       titleText = document.createElement("h2");
       titleText.className = "canvas-title-text";
-      syncChildren(titleBar, [titleText]);
     }
+    let dlBtn = titleBar.querySelector(".canvas-dl-btn");
+    if (!dlBtn) {
+      dlBtn = createDownloadButton(function () { return _spotlightCardId; });
+    }
+    syncChildren(titleBar, [titleText, dlBtn]);
 
     let content = canvasSpotlight.querySelector(".canvas-content");
     if (!content) {

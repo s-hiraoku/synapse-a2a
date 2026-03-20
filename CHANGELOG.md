@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-03-20
+
+### Added
+
+- Canvas card download feature: export cards as Markdown, JSON, CSV, HTML, or native format files
+- New API endpoint `GET /api/cards/{card_id}/download?format={format}` with Content-Disposition headers
+- Download buttons in Canvas card grid headers and Spotlight title bar (ph-download-simple icon)
+- Format-aware export: 27 formats mapped to optimal file types, 6 templates export as Markdown or JSON
+- Security hardening: filename sanitization (header injection prevention), base64 decode error handling, 50 MB export size limit
+- `synapse/canvas/export.py` — new module with converter functions for all format groups (Markdown, native, JSON, CSV)
+
+### Tests
+
+- 43 unit tests in `tests/test_canvas_export.py` covering all format groups, templates, edge cases, and security scenarios
+
+### Documentation
+
+- Updated README.md, docs/design/canvas.md, docs/synapse-reference.md, guides/references.md
+- Updated site-docs/guide/canvas.md with download feature documentation
+- Updated plugin skills (SKILL.md, api.md, features.md) with download API reference
+
 ## [0.16.2] - 2026-03-20
 
 ### Added
@@ -2640,6 +2661,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...HEAD
+[0.17.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...v0.16.0

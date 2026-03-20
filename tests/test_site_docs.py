@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from synapse.canvas.protocol import FORMAT_REGISTRY, VALID_TEMPLATES
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -234,3 +236,50 @@ def test_readme_marks_mcp_bootstrap_doc_as_japanese() -> None:
     text = _read("README.md")
 
     assert "MCP Bootstrap Design (Japanese)" in text
+
+
+def test_internal_docs_readme_tracks_current_canvas_format_and_template_counts() -> (
+    None
+):
+    text = _read("docs/README.md")
+
+    expected_summary = (
+        f"{len(FORMAT_REGISTRY)} コンテンツフォーマット + "
+        f"{len(VALID_TEMPLATES)} テンプレート"
+    )
+    assert expected_summary in text
+    for template_name in sorted(VALID_TEMPLATES):
+        assert template_name in text
+
+
+def test_site_index_canvas_section_tracks_current_template_count() -> None:
+    text = _read("site-docs/index.md")
+
+    assert f"{len(VALID_TEMPLATES)} layout templates" in text
+    assert "Five layout templates" not in text
+    for template_name in sorted(VALID_TEMPLATES):
+        assert template_name in text
+
+
+def test_card_gallery_tracks_current_template_count() -> None:
+    text = _read("site-docs/assets/card-gallery.html")
+
+    assert f">{len(VALID_TEMPLATES)} templates<" in text
+    assert ">5 templates<" not in text
+
+
+def test_canvas_guide_describes_dashboard_sse_with_polling_fallback() -> None:
+    text = _read("site-docs/guide/canvas.md")
+
+    assert "10-second fallback polling interval" in text
+    assert "no periodic polling" not in text
+
+
+def test_canvas_design_phase6_tracks_plan_template_rollout() -> None:
+    text = _read("docs/design/canvas.md")
+
+    assert "- [x] 6 templates:" in text
+    assert "`plan`" in text
+    assert "_validate_plan" in text
+    assert "renderPlanTemplate" in text
+    assert "CSS styles for all 6 templates" in text

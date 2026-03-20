@@ -273,10 +273,32 @@ GET    /api/cards           List cards (JSON, optional ?agent_id=&search=&type= 
 GET    /api/cards/{id}      Get single card
 DELETE /api/cards/{id}      Delete card (own cards only, matched by agent_id)
 DELETE /api/cards           Clear all cards (optional ?agent_id= filter)
+GET    /api/cards/{id}/download  Download card as file (?format=md|json|csv|html|native|txt)
 GET    /api/stream          SSE stream (card_created, card_updated, card_deleted events)
 GET    /api/formats         List supported formats (format registry)
 GET    /api/system          System state summary (Agents, User/Active-Project Saved Agents, Tasks, File Locks, Shared Memory, Worktrees, Recent History)
 ```
+
+#### `/api/cards/{id}/download` — Card Download
+
+カードをファイルとしてエクスポートする。`?format=` クエリパラメータで出力形式を指定可能（省略時はフォーマットに応じた最適形式）。
+
+**対応フォーマット**: `md`, `json`, `csv`, `html`, `native`, `txt`
+
+全 27 コンテンツフォーマットは `FORMAT_DOWNLOAD_MAP`（`synapse/canvas/export.py`）で 4 グループに分類される:
+
+| グループ | フォーマット | デフォルト出力 |
+|---------|------------|---------------|
+| Markdown (A) | markdown, checklist, tip, alert, status, metric, progress, timeline, link-preview | `.md` |
+| Native (B) | code, html, artifact, diff, mermaid, terminal, image | 元形式（言語別拡張子, `.html`, `.diff`, `.mmd`, `.txt`, `.png`） |
+| JSON (C) | json, chart, task-board, dependency-graph, trace, log, file-preview, plan | `.json` |
+| CSV (D) | table, cost | `.csv` |
+
+テンプレートカード（briefing, comparison, dashboard, steps, slides, plan）はデフォルトで Markdown にエクスポートされる。`?format=json` で生カードデータを JSON 出力可能。
+
+**UI**: カードグリッドヘッダーと Spotlight タイトルバーにダウンロードボタンを配置。
+
+**実装**: `synapse/canvas/export.py` — `export_card()` 関数がカード辞書を受け取り `(content_bytes, filename, content_type)` を返す。
 
 #### `/api/system` Response Details
 The `/api/system` endpoint aggregates state from across the project:
@@ -876,13 +898,13 @@ Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `m
 
 ### Phase 6: Template System
 - [x] `template` and `template_data` fields added to `CanvasMessage`
-- [x] 5 templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`
-- [x] Per-template validation (`_validate_briefing`, `_validate_comparison`, `_validate_dashboard`, `_validate_steps`, `_validate_slides`)
+- [x] 6 templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan`
+- [x] Per-template validation (`_validate_briefing`, `_validate_comparison`, `_validate_dashboard`, `_validate_steps`, `_validate_slides`, `_validate_plan`)
 - [x] `template` / `template_data` columns added to `cards` table (with migration)
 - [x] POST/GET endpoints pass template fields through
-- [x] `synapse canvas briefing` CLI subcommand (`post_briefing()`)
-- [x] Client-side renderers: `renderBriefing`, `renderComparison`, `renderDashboardTemplate`, `renderStepsTemplate`, `renderSlidesTemplate`
-- [x] CSS styles for all 5 templates
+- [x] `synapse canvas briefing` / `synapse canvas plan` CLI subcommands (`post_briefing()`, `post_plan()`)
+- [x] Client-side renderers: `renderBriefing`, `renderComparison`, `renderDashboardTemplate`, `renderStepsTemplate`, `renderSlidesTemplate`, `renderPlanTemplate`
+- [x] CSS styles for all 6 templates
 
 ---
 

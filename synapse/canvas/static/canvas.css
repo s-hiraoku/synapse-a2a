@@ -4371,3 +4371,37 @@ body.splitter-dragging {
   background: var(--color-accent);
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
+
+/* ── Download Button ────────────────────────── */
+.canvas-dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: var(--sp-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-lg);
+  transition: color 200ms ease, background 200ms ease;
+  flex-shrink: 0;
+}
+.canvas-dl-btn:hover {
+  color: var(--color-accent);
+  background: var(--surface-hover);
+}
+/* flex: 1 ensures h2 shrinks for download button; display/gap already in .canvas-card > header (L1951) */
+.canvas-card > header h2 {
+  flex: 1;
+  min-width: 0;
+}
+.canvas-title-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.canvas-title-bar .canvas-title-text {
+  flex: 1;
+  min-width: 0;
+}
