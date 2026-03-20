@@ -33,6 +33,8 @@ function buildHarness(initialCards, systemAgents) {
     function formatTime(value) { return value; }
     function statusColor(status) { return status || "#999"; }
     function runMermaid() {}
+    function downloadCard() {}
+    function createDownloadButton() { return document.createElement("button"); }
   `;
 
   const script = `

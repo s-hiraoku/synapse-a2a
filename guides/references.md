@@ -1968,7 +1968,35 @@ synapse canvas plan '<json>' [--file FILE]
 | `completed` | 全タスク完了 |
 | `cancelled` | キャンセル済み |
 
-#### 1.24.5 synapse canvas list / delete / clear
+#### 1.24.5 カードダウンロード
+
+Canvas カードをファイルとしてダウンロードします。UI のカードグリッドヘッダーおよび Spotlight タイトルバーにダウンロードボタンが表示されます。
+
+**API エンドポイント**:
+
+```
+GET /api/cards/{card_id}/download?format={format}
+```
+
+| パラメータ | 必須 | 説明 |
+|-----------|------|------|
+| `card_id` | Yes | ダウンロード対象のカード ID |
+| `format` | No | 出力形式（`md`, `json`, `csv`, `html`, `native`, `txt`）。省略時はフォーマットに応じた最適な形式 |
+
+**フォーマット → ダウンロード形式マッピング**:
+
+| グループ | 対象フォーマット | デフォルト出力 |
+|---------|-----------------|---------------|
+| Markdown | markdown, checklist, tip, alert, status, metric, progress, timeline, link-preview | `.md` |
+| Native | code, html, artifact, diff, mermaid, terminal, image | 元形式（`.py`, `.html`, `.diff`, `.mmd`, `.txt`, `.png` 等） |
+| JSON | json, chart, task-board, dependency-graph, trace, log, file-preview, plan | `.json` |
+| CSV | table, cost | `.csv` |
+
+※ `format=plan` は JSON (.json) として出力。`template=plan` のカードはデフォルトで Markdown (.md) として出力される。
+
+テンプレートカード（briefing, comparison, dashboard, steps, slides, plan）はデフォルトで Markdown、`?format=json` で JSON としてエクスポートされます。
+
+#### 1.24.6 synapse canvas list / delete / clear
 
 ```bash
 synapse canvas list [--mine] [--search TERM] [--type TYPE]   # カード一覧

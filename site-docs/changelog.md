@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.0
+
+- **Added**: Canvas card download — export any card as Markdown, JSON, CSV, HTML, or native format file via download button or API
+- **Added**: `GET /api/cards/{id}/download?format=` endpoint with 26 format mappings and 6 template exports
+- **Added**: Security hardening — filename sanitization, base64 error handling, 50 MB export size limit
+
 ### v0.16.2
 
 - **Added**: Canvas Admin UI — right-click context menu on agent rows with Kill Agent action and custom confirm modal

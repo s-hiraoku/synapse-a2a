@@ -26,6 +26,8 @@ function buildHarness(allCards, filteredCards) {
     const FORMAT_ICONS = {};
     function getFilteredCards() { return globalThis.__filteredCards; }
     function runMermaid() {}
+    function downloadCard() {}
+    function createDownloadButton() { return document.createElement("button"); }
     function statusColor() { return "#999"; }
     function formatTimeShort(value) { return value; }
     function formatTime(value) { return value; }

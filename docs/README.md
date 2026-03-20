@@ -25,7 +25,7 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 - `design/canvas.md` - **Synapse Canvas 設計ドキュメント**
   - 共有ビジュアル出力サーフェス（Canvas Message Protocol）
-  - 18 コンテンツフォーマット + 5 テンプレート（briefing, comparison, dashboard, steps, slides）
+  - 26 コンテンツフォーマット + 6 テンプレート（briefing, comparison, dashboard, plan, slides, steps）
   - ブラウザ UI（SPA ルーティング、SSE リアルタイム更新、キャッシュバスティング）
   - CLI コマンドリファレンス（`synapse canvas serve/mermaid/markdown/briefing/...`）
 

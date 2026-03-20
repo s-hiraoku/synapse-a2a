@@ -23,13 +23,14 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from synapse import __version__
 from synapse.canvas import compute_asset_hash
+from synapse.canvas.export import MAX_EXPORT_SIZE, export_card
 from synapse.canvas.protocol import (
     FORMAT_REGISTRY,
     CanvasMessage,
@@ -1004,6 +1005,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if card is None:
             raise HTTPException(status_code=404, detail="Card not found")
         return card
+
+    # ----------------------------------------------------------------
+    # GET /api/cards/{card_id}/download — Download card as file
+    # ----------------------------------------------------------------
+    @app.get("/api/cards/{card_id}/download")
+    async def download_card(card_id: str, format: str | None = None) -> Response:
+        card = store.get_card(card_id)
+        if card is None:
+            raise HTTPException(status_code=404, detail="Card not found")
+        content_bytes, filename, content_type = export_card(card, target_format=format)
+        if len(content_bytes) > MAX_EXPORT_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Export too large ({len(content_bytes)} bytes). Maximum is {MAX_EXPORT_SIZE} bytes.",
+            )
+        return Response(
+            content=content_bytes,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
 
     # ----------------------------------------------------------------
     # DELETE /api/cards/{card_id} — Delete card
