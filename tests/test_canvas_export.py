@@ -130,6 +130,24 @@ def test_mermaid_to_md():
     assert result == "```mermaid\ngraph LR\n  A-->B\n```"
 
 
+def test_chart_to_md_dict():
+    block = {
+        "format": "chart",
+        "body": {"type": "bar", "data": {"labels": ["Q1", "Q2"], "datasets": []}},
+    }
+    result = _block_to_markdown(block)
+    assert "### Bar Chart" in result
+    assert "```json" in result
+    assert '"labels"' in result
+    assert result.endswith("```")
+
+
+def test_chart_to_md_string():
+    block = {"format": "chart", "body": '{"type": "line"}'}
+    result = _block_to_markdown(block)
+    assert result == '```json\n{"type": "line"}\n```'
+
+
 # ============================================================
 # Group B — Native converters
 # ============================================================
@@ -622,6 +640,40 @@ def test_export_multiblock_with_mermaid():
     text = data.decode("utf-8")
     assert "# Overview" in text
     assert "```mermaid\ngraph LR\n  A-->B\n```" in text
+    assert filename.endswith(".md")
+
+
+def test_export_multiblock_with_chart():
+    """Multi-block card with chart should include typed heading and JSON fence."""
+    card = {
+        "card_id": "chrtmd12-3456",
+        "title": "Report",
+        "template": "",
+        "content": [
+            {"format": "markdown", "body": "# Sales"},
+            {"format": "chart", "body": {"type": "bar", "data": {"labels": ["Q1"]}}},
+        ],
+    }
+    data, filename, mime = export_card(card)
+    text = data.decode("utf-8")
+    assert "# Sales" in text
+    assert "### Bar Chart" in text
+    assert "```json" in text
+    assert filename.endswith(".md")
+
+
+def test_export_single_chart_as_md():
+    """Single chart block exported as MD should have heading and JSON fence."""
+    card = {
+        "card_id": "chrtmd12-7890",
+        "title": "Metrics",
+        "template": "",
+        "content": [{"format": "chart", "body": {"type": "line", "data": {}}}],
+    }
+    data, filename, mime = export_card(card, target_format="md")
+    text = data.decode("utf-8")
+    assert "### Line Chart" in text
+    assert "```json" in text
     assert filename.endswith(".md")
 
 

@@ -192,6 +192,15 @@ def _mermaid_to_md(block: dict) -> str:
     return f"```mermaid\n{body}\n```"
 
 
+def _chart_to_md(block: dict) -> str:
+    body = block.get("body", {})
+    if isinstance(body, str):
+        return f"```json\n{body}\n```"
+    chart_type = body.get("type", "chart")
+    json_str = json.dumps(body, indent=2, ensure_ascii=False)
+    return f"### {chart_type.title()} Chart\n\n```json\n{json_str}\n```"
+
+
 # ============================================================
 # Native converters — Group B
 # ============================================================
@@ -320,6 +329,7 @@ _BLOCK_MD_CONVERTERS: dict[str, Any] = {
     "timeline": _timeline_to_md,
     "link-preview": _link_preview_to_md,
     "mermaid": _mermaid_to_md,
+    "chart": _chart_to_md,
 }
 
 
