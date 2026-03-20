@@ -630,7 +630,7 @@ synapse interrupt claude "Stop" --force   # 作業ディレクトリ不一致で
 最後に受信したA2Aメッセージに返信します。Synapseは返信を期待するメッセージの送信者情報を自動的に追跡します。
 
 ```bash
-synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets]
+synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets] [--fail REASON]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -639,6 +639,7 @@ synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets]
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出。サンドボックス環境で必要な場合あり） |
 | `--to` | No | 返信先の sender_id を指定（複数の送信者がいる場合に使用） |
 | `--list-targets` | No | 返信可能なターゲット一覧を表示して終了 |
+| `--fail` | No | 通常のテキスト返信の代わりに失敗返信を送信（理由を指定） |
 
 **例**:
 
@@ -651,6 +652,9 @@ synapse reply "タスク完了しました" --to synapse-claude-8100
 
 # 返信可能なターゲットを確認
 synapse reply --list-targets
+
+# 失敗を返信
+synapse reply --fail "クォータ超過のため処理できませんでした"
 ```
 
 **動作**:

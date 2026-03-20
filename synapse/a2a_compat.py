@@ -550,6 +550,26 @@ class TaskStore:
                 return task
         return None
 
+    def claim_finalization(self, task_id: str) -> Task | None:
+        """Claim exclusive rights to finalize a working task.
+
+        Also checks _explicit_reply_recorded under the same lock to avoid
+        racing with the explicit reply endpoint.
+        """
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if not task or task.status != "working":
+                return None
+            metadata = task.metadata or {}
+            if metadata.get("_finalization_claimed"):
+                return None
+            if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
+                return None
+            metadata["_finalization_claimed"] = True
+            task.metadata = metadata
+            task.updated_at = get_iso_timestamp()
+            return task
+
     def set_error(self, task_id: str, error: TaskErrorModel) -> Task | None:
         """Set error on a task"""
         with self._lock:
@@ -560,6 +580,60 @@ class TaskStore:
                 task.updated_at = get_iso_timestamp()
                 return task
         return None
+
+    def record_explicit_reply(
+        self,
+        task_id: str,
+        message: str,
+        status: Literal["completed", "failed"] = "completed",
+        error: TaskErrorModel | None = None,
+    ) -> Task | None:
+        """Atomically record an explicit reply on a task."""
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return None
+            metadata = task.metadata or {}
+            metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
+            task.metadata = metadata
+            if status == "failed":
+                task.artifacts = []
+                task.error = error or TaskErrorModel(
+                    code=ERROR_CODE_REPLY_FAILED, message=message
+                )
+                task.status = "failed"
+            else:
+                task.artifacts = [Artifact(type="text", data={"content": message})]
+                task.error = None
+                task.status = "completed"
+            task.updated_at = get_iso_timestamp()
+            return task
+
+    def mark_missing_reply_if_unreplied(self, task_id: str) -> Task | None:
+        """Fail a task as missing-reply only if no explicit reply was recorded.
+
+        Only converts to MISSING_REPLY when the task completed normally
+        (no existing error), so _finalize_working_task failures are preserved.
+        """
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return None
+            metadata = task.metadata or {}
+            if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
+                return task
+            if task.artifacts:
+                return task
+            if task.error is not None:
+                return task
+            task.artifacts = []
+            task.error = TaskErrorModel(
+                code=ERROR_CODE_MISSING_REPLY,
+                message="Receiver completed without explicit synapse reply",
+            )
+            task.status = "failed"
+            task.updated_at = get_iso_timestamp()
+            return task
 
     def list_tasks(self, context_id: str | None = None) -> list[Task]:
         """List all tasks, optionally filtered by context"""
@@ -585,6 +659,8 @@ _REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
 _REPLY_STATUS_METADATA_KEY = "reply_status"
 _REPLY_ERROR_METADATA_KEY = "reply_error"
 _EXPLICIT_REPLY_RECORDED_METADATA_KEY = "_explicit_reply_recorded"
+ERROR_CODE_MISSING_REPLY = "MISSING_REPLY"
+ERROR_CODE_REPLY_FAILED = "REPLY_FAILED"
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
@@ -719,12 +795,19 @@ def _find_active_working_task() -> Task | None:
 
 def _mark_missing_reply(task: Task) -> Task:
     """Fail a wait/notify task when no explicit reply was recorded."""
-    task.artifacts = []
-    error = TaskErrorModel(
-        code="MISSING_REPLY",
-        message="Receiver completed without explicit synapse reply",
-    )
-    updated = task_store.set_error(task.id, error)
+    updated = task_store.mark_missing_reply_if_unreplied(task.id)
+    return updated or task
+
+
+def _maybe_mark_missing_reply(task: Task, resp_mode: str) -> Task:
+    """Mark task as missing-reply if it's a wait/notify without explicit reply.
+
+    Re-reads metadata from the task store to avoid TOCTOU races with the
+    explicit reply endpoint.
+    """
+    if resp_mode not in ("wait", "notify"):
+        return task
+    updated = task_store.mark_missing_reply_if_unreplied(task.id)
     return updated or task
 
 
@@ -1062,7 +1145,7 @@ def create_a2a_router(
         Returns:
             The updated Task after finalization, or None if the task vanished.
         """
-        task = task_store.get(task_id)
+        task = task_store.claim_finalization(task_id)
         if not task:
             return None
 
@@ -1198,6 +1281,8 @@ def create_a2a_router(
                 if updated:
                     si = _extract_sender_info(metadata)
                     if si.sender_endpoint:
+                        if resp_mode in ("wait", "notify"):
+                            updated = _maybe_mark_missing_reply(updated, resp_mode)
                         try:
                             loop = asyncio.get_event_loop()
                         except RuntimeError:
@@ -1616,6 +1701,8 @@ def create_a2a_router(
         """Request model for explicitly completing a task via synapse reply."""
 
         message: str
+        status: Literal["completed", "failed"] = "completed"
+        error: TaskErrorModel | None = None
 
     @router.get("/tasks/board")
     async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
@@ -1712,14 +1799,15 @@ def create_a2a_router(
         _: Any = Depends(require_auth),
     ) -> Task:
         """Record an explicit synapse reply on the receiver's local task."""
-        task = task_store.get(task_id)
-        if not task:
+        updated = task_store.record_explicit_reply(
+            task_id,
+            message=request.message,
+            status=request.status,
+            error=request.error,
+        )
+        if not updated:
             raise HTTPException(status_code=404, detail="Task not found")
-        task.metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
-        task.artifacts = [Artifact(type="text", data={"content": request.message})]
-        task.error = None
-        updated = task_store.update_status(task_id, "completed")
-        return updated or task
+        return updated
 
     # --------------------------------------------------------
     # Shared Memory Endpoints
@@ -1930,24 +2018,39 @@ def create_a2a_router(
 
                     if sender_info.sender_endpoint:
                         if resp_mode in ("wait", "notify"):
-                            asyncio.create_task(
-                                _send_response_to_sender(
-                                    updated_task,
-                                    sender_info.sender_endpoint,
-                                    agent_id or "unknown",
-                                    sender_task_id=sender_info.sender_task_id,
-                                )
+                            updated_task = _maybe_mark_missing_reply(
+                                updated_task, resp_mode
                             )
+                            coro = _send_response_to_sender(
+                                updated_task,
+                                sender_info.sender_endpoint,
+                                agent_id or "unknown",
+                                sender_task_id=sender_info.sender_task_id,
+                            )
+                            try:
+                                asyncio.create_task(coro)
+                            except Exception:
+                                coro.close()
+                                logger.exception(
+                                    "Failed to create sender response task for %s",
+                                    task_id,
+                                )
                         else:
-                            asyncio.create_task(
-                                _notify_sender_completion(
-                                    task=updated_task,
-                                    sender_endpoint=sender_info.sender_endpoint,
-                                    sender_uds_path=sender_info.sender_uds_path,
-                                    sender_task_id=sender_info.sender_task_id,
-                                    status=updated_task.status,
-                                )
+                            coro = _notify_sender_completion(
+                                task=updated_task,
+                                sender_endpoint=sender_info.sender_endpoint,
+                                sender_uds_path=sender_info.sender_uds_path,
+                                sender_task_id=sender_info.sender_task_id,
+                                status=updated_task.status,
                             )
+                            try:
+                                asyncio.create_task(coro)
+                            except Exception:
+                                coro.close()
+                                logger.exception(
+                                    "Failed to create sender notification task for %s",
+                                    task_id,
+                                )
 
             updated_task = task_store.get(task_id)
             if updated_task:

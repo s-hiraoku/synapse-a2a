@@ -30,6 +30,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Fire-and-forget | `synapse send <target> "<msg>" --silent` |
 | Reply | `synapse reply "<response>"` |
 | Reply to specific | `synapse reply "<response>" --to <sender_id>` |
+| Reply with failure | `synapse reply --fail "<reason>"` |
 | Interrupt (priority 4) | `synapse interrupt <target> "<msg>"` |
 | Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |

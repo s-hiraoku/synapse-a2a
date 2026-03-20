@@ -207,6 +207,7 @@ synapse reply "<message>"                  # Reply to last sender
 synapse reply "<message>" --to <sender>    # Reply to specific sender
 synapse reply "<message>" --from ID        # With explicit sender ID
 synapse reply --list-targets               # List pending senders
+synapse reply --fail "reason"              # Send a failed reply
 ```
 
 ### Broadcast

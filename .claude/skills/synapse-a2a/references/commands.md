@@ -532,9 +532,10 @@ Reply to the last received message:
 
 ```bash
 synapse reply "<message>"
+synapse reply --fail "<reason>"   # Send a failed reply
 ```
 
-Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is only needed in sandboxed environments (like Codex).
+Synapse automatically knows who to reply to based on tracked senders. The `--from` flag is only needed in sandboxed environments (like Codex). Use `--fail` to indicate the task could not be completed; the sender receives a failed status with an error instead of a normal text reply.
 
 If multiple senders are pending, list and choose explicitly:
 
@@ -545,6 +546,8 @@ synapse reply --list-targets
 # Reply to a specific sender
 synapse reply "<message>" --to <sender_id>
 ```
+
+Tasks completed without an explicit `synapse reply` when `--wait` or `--notify` was used are automatically marked as `MISSING_REPLY` (failed).
 
 ### Broadcast Command
 

@@ -156,6 +156,9 @@ This eliminates the need for separate `synapse tasks create` + `synapse tasks as
 # Auto-routes to the last sender expecting a reply
 synapse reply "Here is my analysis..."
 
+# Send a failed reply (task could not be completed)
+synapse reply --fail "Quota exceeded"
+
 # When multiple senders are pending
 synapse reply --list-targets
 synapse reply "Here is my analysis..." --to <sender_id>
@@ -169,6 +172,8 @@ synapse reply "Here is my analysis..." --from $SYNAPSE_AGENT_ID
 Received: A2A: [From: Claude (synapse-claude-8100)] [REPLY EXPECTED] What is the project structure?
 Reply:    synapse reply "The project has src/, tests/..."
 ```
+
+**Missing reply detection:** If a `--wait` or `--notify` task completes without an explicit `synapse reply`, the task is automatically marked as `MISSING_REPLY` (failed). Always use `synapse reply` or `synapse reply --fail` when `[REPLY EXPECTED]` is present.
 
 **Example -- delegation received (no reply needed):**
 ```

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-20
+
+### Added
+
+- `synapse reply --fail <reason>` flag for sending structured failed replies
+- `MISSING_REPLY` auto-detection for wait/notify tasks completed without explicit reply
+- `extra_metadata` parameter on `A2AClient.send_to_local()` for pass-through metadata
+- `/tasks/{id}/reply` endpoint now accepts `status` and `error` fields for failed replies
+
+### Fixed
+
+- TOCTOU race in `_maybe_mark_missing_reply` guard by re-reading metadata from task store
+- Reserved metadata keys (`response_mode`, `sender`, `in_reply_to`) protected from override via `extra_metadata`
+- Sync path `_maybe_mark_missing_reply` now only runs for wait/notify modes (matching async path)
+
+### Changed
+
+- Extracted `_maybe_mark_missing_reply` helper to deduplicate guard condition across sync/async paths
+- Error codes `MISSING_REPLY` and `REPLY_FAILED` defined as constants (`ERROR_CODE_*`)
+- Metadata keys in `tools/a2a.py` now import constants from `a2a_compat.py`
+
+### Documentation
+
+- Documented `--fail` flag in README, guides, docs, and site-docs
+- Added missing-reply behavior to response mode documentation
+
 ## [0.15.11] - 2026-03-20
 
 ### Changed
@@ -2595,7 +2621,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...v0.16.0
 [0.15.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.10...v0.15.11
 [0.15.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...v0.15.10
 [0.15.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...v0.15.9
