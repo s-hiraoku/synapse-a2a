@@ -1446,7 +1446,7 @@ synapse workflow run review-and-test --continue-on-error
 synapse workflow run review-and-test --auto-spawn
 ```
 
-Steps are executed in order. Each step sends a message to the specified target agent using the configured priority and response mode. By default, execution stops on the first failure unless `--continue-on-error` is set.
+Steps are executed in order. Each step sends a message to the specified target agent via direct A2A HTTP (`/tasks/send-priority`) using the configured priority and response mode. When a step uses `response_mode: wait`, the runner polls the target's task status until completion (up to 10 minutes). If the target returns HTTP 409 (agent busy), the runner retries up to 5 times with a 2-second interval. By default, execution stops on the first failure unless `--continue-on-error` is set.
 
 When `--auto-spawn` is passed (or the workflow/step has `auto_spawn: true`), any target agent that is not already running will be spawned automatically before sending the message.
 

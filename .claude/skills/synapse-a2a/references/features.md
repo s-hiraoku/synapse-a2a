@@ -38,6 +38,8 @@ synapse workflow sync                                          # Sync all workfl
 
 Supports `--dry-run` to preview execution without sending messages, `--continue-on-error` to proceed past step failures, and `--auto-spawn` to spawn missing agents on the fly.
 
+**Execution engine:** Steps are sent directly via A2A HTTP (`/tasks/send-priority`) with built-in resilience. `response_mode: wait` steps poll the target's task until a terminal state (completed, failed, canceled) or a 10-minute timeout. HTTP 409 (agent busy) responses trigger automatic retry (up to 5 attempts, 2-second interval).
+
 ### Workflow-to-Skill Bridge
 
 Workflows can be auto-generated as skills so they appear as discoverable slash commands. The `trigger` YAML field provides keywords for skill matching, and `auto_spawn` (workflow-level or per-step) enables automatic agent spawning during execution.
