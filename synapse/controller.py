@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import codecs
+import contextlib
 import fcntl
 import logging
 import math
@@ -15,6 +16,7 @@ import subprocess
 import termios
 import threading
 import time
+import tty
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -65,6 +67,12 @@ _COPILOT_SUBMIT_NUDGE_DELAY = 0.1
 _COPILOT_LONG_SUBMIT_NUDGE_DELAY = 0.2
 _COPILOT_PASTE_ECHO_POLL = 0.05
 _COPILOT_PASTE_ECHO_TIMEOUT = 3.0
+# Stabilization delay after paste echo is detected.  Ink's React render cycle
+# updates the screen (PTY output) before committing the paste into the internal
+# input buffer via usePaste → setState.  Sending CR immediately after the screen
+# change can race with that state commit, causing Enter to fire on an empty
+# buffer.  This delay gives React one extra tick to finish the state update.
+_COPILOT_PASTE_ECHO_SETTLE = 0.15
 
 
 def strip_ansi(text: str) -> str:
@@ -412,6 +420,16 @@ class TerminalController:
     def start(self) -> None:
         """Start the controlled process in background mode with PTY."""
         self.master_fd, self.slave_fd = pty.openpty()
+
+        # Set slave PTY to raw mode before spawning the child process.
+        # Default PTY modes include ICRNL which translates \r→\n.  Ink-based
+        # TUIs (Copilot CLI) expect literal \r for Enter.  If Ink hasn't
+        # configured raw mode on the slave yet when we send CR through the
+        # master, the line discipline translates it to \n, which Ink may not
+        # recognize as a submit key.  Setting raw mode on the slave here
+        # ensures \r passes through verbatim regardless of child startup timing.
+        with contextlib.suppress(termios.error):
+            tty.setraw(self.slave_fd)
 
         # Build command list: command + args
         cmd_list = [self.command] + self.args
@@ -1068,16 +1086,24 @@ class TerminalController:
         The TUI re-renders and writes new output to PTY (echo, placeholder, or
         re-drawn prompt).  We poll PTY output until it changes from the
         pre-paste snapshot, which signals that React's render cycle completed.
+
+        After detecting the echo, we add a small stabilization delay because
+        Ink updates the screen *before* committing the pasted text into its
+        internal input buffer (setState is asynchronous in React).  Without
+        this settle window, CR can arrive while the buffer is still empty.
+
         Falls back to write_delay if no change is detected within the timeout.
         """
         deadline = time.monotonic() + _COPILOT_PASTE_ECHO_TIMEOUT
         while time.monotonic() < deadline:
             current = self._tail_text(strip_ansi(self.get_context()))
             if current != pre_paste_context:
+                elapsed = _COPILOT_PASTE_ECHO_TIMEOUT - (deadline - time.monotonic())
                 logger.debug(
-                    f"[{self.agent_id}] paste echo detected after "
-                    f"{_COPILOT_PASTE_ECHO_TIMEOUT - (deadline - time.monotonic()):.3f}s"
+                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s, "
+                    f"settling {_COPILOT_PASTE_ECHO_SETTLE}s for React state commit"
                 )
+                time.sleep(_COPILOT_PASTE_ECHO_SETTLE)
                 return
             time.sleep(_COPILOT_PASTE_ECHO_POLL)
         logger.info(
@@ -1138,6 +1164,15 @@ class TerminalController:
                     if self._bracketed_paste:
                         data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
                     self._write_all(data_bytes)
+                    # Drain the master fd to ensure the complete bracketed
+                    # paste payload (including close marker ESC[201~) has been
+                    # delivered to the slave before we start waiting for echo
+                    # or sending CR.  Without this, the OS may split a large
+                    # write and deliver the close marker in a separate read(),
+                    # confusing Ink's paste boundary detection.
+                    if self._bracketed_paste and self.master_fd is not None:
+                        with contextlib.suppress(termios.error, OSError):
+                            termios.tcdrain(self.master_fd)
                 if submit_seq:
                     submit_bytes = submit_seq.encode("utf-8")
                     if self.agent_type == "copilot" and self._bracketed_paste:
