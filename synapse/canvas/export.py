@@ -187,6 +187,11 @@ def _link_preview_to_md(block: dict) -> str:
     return "\n".join(lines)
 
 
+def _mermaid_to_md(block: dict) -> str:
+    body = str(block.get("body", ""))
+    return f"```mermaid\n{body}\n```"
+
+
 # ============================================================
 # Native converters — Group B
 # ============================================================
@@ -314,6 +319,7 @@ _BLOCK_MD_CONVERTERS: dict[str, Any] = {
     "progress": _progress_to_md,
     "timeline": _timeline_to_md,
     "link-preview": _link_preview_to_md,
+    "mermaid": _mermaid_to_md,
 }
 
 

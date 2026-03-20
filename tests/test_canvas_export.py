@@ -124,6 +124,12 @@ def test_tip_to_md():
     assert "> **Tip:** Use --verbose for more info" in result
 
 
+def test_mermaid_to_md():
+    block = {"format": "mermaid", "body": "graph LR\n  A-->B"}
+    result = _block_to_markdown(block)
+    assert result == "```mermaid\ngraph LR\n  A-->B\n```"
+
+
 # ============================================================
 # Group B — Native converters
 # ============================================================
@@ -598,6 +604,38 @@ def test_export_multiblock_nontemplate():
     assert "Block one" in text
     assert "Block two" in text
     assert "A tip" in text
+    assert filename.endswith(".md")
+
+
+def test_export_multiblock_with_mermaid():
+    """Multi-block card with mermaid should fence the mermaid block."""
+    card = {
+        "card_id": "mermmd12-3456",
+        "title": "Mixed",
+        "template": "",
+        "content": [
+            {"format": "markdown", "body": "# Overview"},
+            {"format": "mermaid", "body": "graph LR\n  A-->B"},
+        ],
+    }
+    data, filename, mime = export_card(card)
+    text = data.decode("utf-8")
+    assert "# Overview" in text
+    assert "```mermaid\ngraph LR\n  A-->B\n```" in text
+    assert filename.endswith(".md")
+
+
+def test_export_single_mermaid_as_md():
+    """Single mermaid block exported as MD should have fences."""
+    card = {
+        "card_id": "mermmd12-7890",
+        "title": "Diagram",
+        "template": "",
+        "content": [{"format": "mermaid", "body": "graph TD\n  X-->Y"}],
+    }
+    data, filename, mime = export_card(card, target_format="md")
+    text = data.decode("utf-8")
+    assert "```mermaid\ngraph TD\n  X-->Y\n```" in text
     assert filename.endswith(".md")
 
 
