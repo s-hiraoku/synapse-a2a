@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.10] - 2026-03-20
+
+### Changed
+
+- Copilot submit path simplified: removed typed-input mode, `Ctrl+S` fallback, tmux typing delay override, and `submit_fallback_sequences` in favor of paste-plus-Enter only
+- Inlined trivial `_submit_settle_delay` and `_submit_retry_delay_for` pass-through methods
+- Pre-submit context capture now runs only for Copilot agents, avoiding unnecessary work for other agent types
+- Optimized paste-placeholder detection with `search()` early-exit before `findall()` counting
+
+### Documentation
+
+- Updated `docs/synapse-reference.md` Copilot section and `site-docs/reference/profiles-yaml.md` schema for paste-only submit path and `long_submit_confirm_*` fields
+
 ## [0.15.9] - 2026-03-20
 
 ### Fixed

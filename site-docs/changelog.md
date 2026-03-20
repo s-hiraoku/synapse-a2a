@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.10
+
+- **Changed**: Copilot submit path simplified — removed typed-input mode, `Ctrl+S` fallback, tmux typing delay override, and `submit_fallback_sequences` in favor of paste-plus-Enter only
+- **Changed**: Inlined trivial pass-through methods; pre-submit context capture now runs only for Copilot agents
+- **Documentation**: Updated reference docs and profiles-yaml schema for paste-only submit path and `long_submit_confirm_*` fields
+
 ### v0.15.9
 
 - **Fixed**: Copilot sends now stay on bracketed paste plus Enter instead of mixing typed input, `Ctrl+S`, and alternate submit sequences
