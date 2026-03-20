@@ -12,6 +12,8 @@ submit_retry_delay: float          # Send submit_seq twice with this gap (second
 bracketed_paste: boolean           # Wrap PTY data in bracketed paste sequences (default: false)
 typing_char_delay: float           # Copilot-only: delay between typed chars for short messages
 typing_max_chars: integer          # Copilot-only: max length that uses typed input instead of paste
+long_submit_settle_delay: float    # Copilot-only: multiline/file-reference delay before first submit
+long_submit_retry_delay: float     # Copilot-only: multiline/file-reference delay before retry submit
 submit_confirm_timeout: float      # Optional: poll window for post-submit confirmation (seconds)
 submit_confirm_poll_interval: float # Optional: poll interval for submit confirmation (seconds)
 submit_confirm_retries: integer    # Optional: extra submit attempts after confirmation failures
@@ -86,6 +88,8 @@ submit_retry_delay: 0.15  # Copilot: retry after 150ms (one React render cycle)
 
 This retry is skipped when Copilot uses typed input for short single-line messages, because the message is already delivered character-by-character.
 
+For multiline or file-reference sends, Copilot can use separate timing via `long_submit_settle_delay` and `long_submit_retry_delay` so the Ink UI has more time to reconcile a large paste before the initial or retry submit fires.
+
 ### bracketed_paste
 
 Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~`). Required for agents whose TUI uses a paste hook (e.g., Ink's `usePaste`) to receive multi-character input atomically instead of character-by-character via `useInput`.
@@ -97,13 +101,24 @@ bracketed_paste: true   # Copilot CLI (Ink usePaste hook)
 
 ### typing_char_delay / typing_max_chars
 
-Copilot-only typing mode for short single-line messages. When enabled, Synapse writes the message one character at a time instead of using bracketed paste, which better matches how a human user interacts with Ink-based TUIs.
+Copilot-only typing mode for short single-line messages. When enabled, Synapse writes the message one character at a time instead of using bracketed paste, which better matches how a human user interacts with Ink-based TUIs. Inside tmux, Synapse enforces a slower minimum character delay so tmux does not batch the writes into a burst.
 
 ```yaml
 typing_char_delay: 0.01   # Delay between typed characters
 typing_max_chars: 400     # Use typed input up to this length
 # Default: not set (typed input disabled)
 ```
+
+### long_submit_settle_delay / long_submit_retry_delay
+
+Additional Copilot-only timing controls for multiline or file-reference sends:
+
+```yaml
+long_submit_settle_delay: 0.8   # Wait after paste, before the first submit
+long_submit_retry_delay: 0.3    # Wait before the retry submit stroke
+```
+
+Use these when large pasted messages are visible in the prompt but the first Enter/Ctrl+S fires too early.
 
 ### submit_confirm_timeout / submit_confirm_poll_interval / submit_confirm_retries
 

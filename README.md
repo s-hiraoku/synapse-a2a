@@ -1515,6 +1515,8 @@ The display automatically updates when agent status changes (via file watcher) w
 
 If automation is attached to a TTY, use `synapse list --json`, `synapse list --plain`, or set `SYNAPSE_NONINTERACTIVE=1`. Bare `synapse list` is intended for human-operated interactive terminals.
 
+For Copilot specifically, short single-line messages use typed input instead of paste. When running inside tmux, Synapse slows that typed-input cadence so tmux does not coalesce the characters into an ineffective burst. Multiline and file-reference messages keep paste mode but use longer settle/retry delays before the initial and retry submit strokes.
+
 ### Display Columns
 
 | Column | Description |

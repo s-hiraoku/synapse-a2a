@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.9
+
+- **Fixed**: Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into a burst
+- **Fixed**: Copilot multiline and file-reference sends now wait longer before the initial and retry submit strokes
+- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
+
 ### v0.15.8
 
 - **Added**: `synapse list --plain` for one-shot plain-text agent listings without entering the Rich TUI
