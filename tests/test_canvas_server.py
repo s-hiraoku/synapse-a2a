@@ -1393,11 +1393,18 @@ class TestWorkflowAPI:
         with (
             patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
             patch("httpx.AsyncClient.post", new=mock_post),
+            patch(
+                "synapse.workflow_runner._resolve_target_endpoint",
+                return_value="http://localhost:8100",
+            ),
         ):
             resp = client.post("/api/workflow/run/review-wf")
+            assert resp.status_code == 200
+            for _ in range(20):
+                if "url" in captured:
+                    break
+                time.sleep(0.1)
 
-        assert resp.status_code == 200
-        time.sleep(0.1)
         assert captured["url"].startswith("http://localhost:8100/tasks/send")
         payload = captured["payload"]
         assert isinstance(payload, dict)
@@ -1446,11 +1453,18 @@ class TestWorkflowAPI:
         with (
             patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
             patch("httpx.AsyncClient.post", new=mock_post),
+            patch(
+                "synapse.workflow_runner._resolve_target_endpoint",
+                return_value="http://localhost:8100",
+            ),
         ):
             resp = client.post("/api/workflow/run/reply-wf")
+            assert resp.status_code == 200
+            for _ in range(20):
+                if "payload" in captured:
+                    break
+                time.sleep(0.1)
 
-        assert resp.status_code == 200
-        time.sleep(0.1)
         payload = captured["payload"]
         assert isinstance(payload, dict)
         sender_task_id = payload["metadata"]["sender_task_id"]
