@@ -1423,7 +1423,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 workflows.append(_workflow_to_dict(wf))
         except Exception:
             logger.debug("Failed to list workflows", exc_info=True)
-        return {"workflows": workflows}
+        project_dir = str(Path.cwd())
+        return {"workflows": workflows, "project_dir": project_dir}
 
     @app.post("/api/workflow/run/{name}")
     async def workflow_run(name: str, request: Request) -> dict[str, Any]:

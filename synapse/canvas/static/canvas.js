@@ -32,6 +32,7 @@
   var _workflowData = [];
   var _workflowRuns = [];
   var _selectedWorkflow = null;
+  var _workflowProjectDir = "";
   var _selectedAdminTarget = "";
   var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
@@ -4325,6 +4326,7 @@
       var resp = await fetch("/api/workflow");
       var data = await resp.json();
       _workflowData = data.workflows || [];
+      _workflowProjectDir = data.project_dir || "";
       renderWorkflowList(_workflowData);
       loadWorkflowRuns();
     } catch (e) { /* ignore */ }
@@ -4401,8 +4403,13 @@
     if (wf.steps && wf.steps.length > 1) {
       var mermaidSrc = "graph TD\n";
       wf.steps.forEach(function (s, i) {
-        mermaidSrc += '  S' + i + '["' + (i + 1) + ". " + escapeHtml(s.target) + '"]\n';
-        if (i > 0) mermaidSrc += "  S" + (i - 1) + " --> S" + i + "\n";
+        var msgPreview = s.message.length > 30 ? s.message.substring(0, 30) + "..." : s.message;
+        var label = (i + 1) + ". " + s.target + "\\n" + msgPreview;
+        mermaidSrc += '  S' + i + '["' + label.replace(/"/g, "#quot;") + '"]\n';
+        if (i > 0) {
+          var edgeLabel = s.response_mode === "wait" ? "|wait|" : s.response_mode === "silent" ? "|silent|" : "";
+          mermaidSrc += "  S" + (i - 1) + " -->" + edgeLabel + " S" + i + "\n";
+        }
       });
       var flowDiv = document.createElement("div");
       flowDiv.className = "workflow-step-flow";
@@ -4429,16 +4436,33 @@
       }
       var item = document.createElement("div");
       item.className = "workflow-step-item";
+      var errorHtml = "";
+      if (stepStatus === "failed" && activeRun && activeRun.steps[i] && activeRun.steps[i].error) {
+        errorHtml = '<div class="workflow-step-error">' + escapeHtml(activeRun.steps[i].error) + "</div>";
+      }
+      var durationHtml = "";
+      if (activeRun && activeRun.steps[i] && activeRun.steps[i].started_at && activeRun.steps[i].completed_at) {
+        var dur = Math.round((activeRun.steps[i].completed_at - activeRun.steps[i].started_at) * 10) / 10;
+        durationHtml = '<span class="workflow-step-duration">' + dur + "s</span>";
+      }
       item.innerHTML =
         '<span class="workflow-step-icon">' + stepIcon + "</span>" +
-        '<span class="workflow-step-target">' + escapeHtml(s.target) + "</span>" +
-        '<span class="workflow-step-message">' + escapeHtml(s.message) + "</span>" +
-        '<span class="workflow-step-mode">' + escapeHtml(s.response_mode || "notify") + "</span>";
+        '<div class="workflow-step-body">' +
+          '<div class="workflow-step-header">' +
+            '<span class="workflow-step-target">' + escapeHtml(s.target) + "</span>" +
+            '<span class="workflow-step-message">' + escapeHtml(s.message) + "</span>" +
+            '<span class="workflow-step-mode">' + escapeHtml(s.response_mode || "notify") + "</span>" +
+            durationHtml +
+          "</div>" +
+          errorHtml +
+        "</div>";
       stepsDiv.appendChild(item);
     });
     workflowDetailContent.appendChild(stepsDiv);
 
-    // Run button
+    // Run bar (button + project context)
+    var runBar = document.createElement("div");
+    runBar.className = "workflow-run-bar";
     var isRunning = activeRun && activeRun.status === "running";
     var runBtn = document.createElement("button");
     runBtn.className = "workflow-run-btn";
@@ -4449,7 +4473,20 @@
     runBtn.addEventListener("click", function () {
       runWorkflow(wf.name);
     });
-    workflowDetailContent.appendChild(runBtn);
+    runBar.appendChild(runBtn);
+    // Show execution context (scope + project dir)
+    var ctxLabel = document.createElement("span");
+    ctxLabel.className = "workflow-run-context";
+    if (wf.scope === "project" && _workflowProjectDir) {
+      var dirName = _workflowProjectDir.split("/").pop() || _workflowProjectDir;
+      ctxLabel.innerHTML = '<i class="ph ph-folder-open"></i> ' + escapeHtml(dirName);
+      ctxLabel.title = _workflowProjectDir;
+    } else if (wf.scope === "user") {
+      ctxLabel.innerHTML = '<i class="ph ph-user"></i> User scope';
+      ctxLabel.title = "~/.synapse/workflows/";
+    }
+    runBar.appendChild(ctxLabel);
+    workflowDetailContent.appendChild(runBar);
 
     // Run history
     var relatedRuns = _workflowRuns.filter(function (r) { return r.workflow_name === wf.name; });
@@ -4463,7 +4500,15 @@
         var statusIcon = r.status === "completed" ? "\u2705" : r.status === "failed" ? "\u274c" : "\ud83d\udd04";
         var startTime = r.started_at ? new Date(r.started_at * 1000).toLocaleTimeString() : "";
         var duration = r.completed_at && r.started_at ? Math.round(r.completed_at - r.started_at) + "s" : "...";
-        item.textContent = statusIcon + " " + startTime + " (" + duration + ")";
+        var stepsCompleted = r.steps ? r.steps.filter(function (s) { return s.status === "completed"; }).length : 0;
+        var stepsTotal = r.steps ? r.steps.length : 0;
+        var failedStep = r.steps ? r.steps.find(function (s) { return s.status === "failed"; }) : null;
+        var summary = statusIcon + " " + startTime + " (" + duration + ") — " + stepsCompleted + "/" + stepsTotal + " steps";
+        if (failedStep && failedStep.error) {
+          summary += " — " + failedStep.target + ": " + failedStep.error;
+        }
+        item.textContent = summary;
+        if (r.status === "failed") item.style.color = "var(--color-danger)";
         histDiv.appendChild(item);
       });
       workflowDetailContent.appendChild(histDiv);
