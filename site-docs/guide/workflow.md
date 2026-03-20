@@ -53,11 +53,29 @@ Each step supports the following fields:
 
 | Field | Required | Default | Description |
 |-------|:--------:|:-------:|-------------|
+| `kind` | No | `send` | Step type: `send` or `subworkflow` |
 | `target` | Yes | -- | Agent name, ID, type-port, or type |
 | `message` | Yes | -- | Message content to send |
 | `priority` | No | `3` | Priority level 1-5 |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
 | `auto_spawn` | No | `false` | If `true`, auto-spawn the target agent if not running (step-level override) |
+| `workflow` | Yes for `subworkflow` | -- | Child workflow name to execute |
+
+For `kind: send`, use the regular `target` and `message` fields.
+
+For `kind: subworkflow`, use `workflow` and omit `target` and `message`:
+
+```yaml
+steps:
+  - kind: subworkflow
+    workflow: review-and-test
+```
+
+Nested workflows are expanded recursively at run time. The runner rejects cycles such as `A -> B -> A` and limits nesting depth to 10 workflows.
+
+`target` follows the standard Synapse target resolution rules. For matching priority and ambiguity behavior, see [Agent Identity](agent-identity.md#target-resolution).
+
+When `auto_spawn` is enabled, `target` is also used as the spawn profile name if the agent is not already running. In that case, prefer a profile name such as `claude`, `gemini`, or `codex` rather than a custom name, Runtime ID, or type-port shorthand.
 
 ### Example: Security Audit Pipeline
 
@@ -93,6 +111,18 @@ steps:
     response_mode: wait
 ```
 
+### Example: Reusable Parent Workflow
+
+```yaml
+name: review-fix-verify
+description: "Compose existing workflows into one reusable pipeline"
+steps:
+  - kind: subworkflow
+    workflow: review-and-test
+  - kind: subworkflow
+    workflow: fix-ci-and-verify
+```
+
 ## List Workflows
 
 ```bash
@@ -117,7 +147,10 @@ Displays the workflow name, scope, description, and each step's target, priority
 synapse workflow run review-and-test
 ```
 
-Steps execute sequentially. Each step calls `synapse send` with the configured target, message, priority, and response mode.
+Steps execute sequentially. Each step sends an A2A request directly to the target agent over HTTP with the configured target, message, priority, and response mode.
+If a step uses `kind: subworkflow`, Synapse loads the child workflow and executes its send steps inline before continuing.
+
+When a step uses `response_mode: wait`, the runner polls the target agent's task endpoint until the task reaches a terminal state (`completed`, `failed`, or `canceled`). This ensures that subsequent steps only run after the previous step's agent has finished processing. The poll timeout is 10 minutes per step; if exceeded, the step is treated as completed (best-effort).
 
 ### Dry Run
 
@@ -126,6 +159,8 @@ Preview what would happen without sending any messages:
 ```bash
 synapse workflow run review-and-test --dry-run
 ```
+
+Dry run output includes nested `subworkflow` entries and the send steps they expand into.
 
 ### Auto-Spawn Agents
 
@@ -144,6 +179,26 @@ By default, the workflow stops on the first failed step. Use `--continue-on-erro
 ```bash
 synapse workflow run review-and-test --continue-on-error
 ```
+
+When nested workflows are used, `--continue-on-error` applies to child steps too.
+
+## Run from Canvas
+
+Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
+
+Both CLI and Canvas workflow execution send A2A requests directly to target agents over HTTP, with `response_mode: wait` polling for task completion. Canvas sets sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
+
+- **Background execution**: Steps run asynchronously; the UI updates in real-time via SSE
+- **Reply routing**: Replies go back to Canvas, not to the agent that happens to be running the Canvas server
+- **Step output**: Successful steps show the accepted task summary returned by the target agent
+- **Error translation**: Delivery errors are converted to human-readable messages
+- **Toast notifications**: A notification appears when the run completes or fails
+- **Auto-spawn**: Honors both workflow-level and step-level `auto_spawn` settings
+
+!!! warning "Agent name conflicts"
+    If an agent with the same name exists in a different directory (e.g., a worktree), Canvas will report an error: *"Agent 'X' already exists in a different directory."* Rename the workflow target or stop the conflicting agent.
+
+See [Canvas -- Workflow View](canvas.md#workflow-view-workflow) for the UI documentation.
 
 ## Sync Workflows to Skills
 

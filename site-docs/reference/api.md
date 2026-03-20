@@ -1378,6 +1378,86 @@ curl -X POST http://localhost:3000/api/admin/jump/synapse-claude-8100
 
 ---
 
+## Workflow API
+
+The Canvas server exposes workflow management endpoints for the [Workflow View](../guide/canvas.md#workflow-view-workflow). These endpoints run on the Canvas port (default `3000`).
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| GET | `/api/workflow` | List all workflows with steps |
+| GET | `/api/workflow/{name}` | Get single workflow detail |
+| POST | `/api/workflow/run/{name}` | Start async workflow execution |
+| GET | `/api/workflow/runs` | List active and recent runs |
+| GET | `/api/workflow/runs/{run_id}` | Get individual run status |
+
+### GET /api/workflow -- List Workflows
+
+Returns all available workflows with their step definitions. The response includes a `project_dir` field indicating the project directory used for workflow resolution.
+
+```bash
+curl http://localhost:3000/api/workflow
+```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `workflows` | array | List of workflow objects |
+| `project_dir` | string | Absolute path to the project directory used for workflow discovery |
+
+### GET /api/workflow/{name} -- Workflow Detail
+
+Returns a single workflow by name, including its full step list and metadata.
+
+```bash
+curl http://localhost:3000/api/workflow/deploy-pipeline
+```
+
+### POST /api/workflow/run/{name} -- Run Workflow
+
+Start async background execution of a workflow. Steps are executed sequentially and progress is broadcast via SSE `workflow_update` events.
+
+Canvas sends each workflow step directly to the target agent's A2A endpoint with sender metadata:
+
+- `sender_id: "canvas-workflow"`
+- `sender_name: "Workflow"`
+- `sender_endpoint: "http://localhost:<canvas-port>"`
+- `sender_task_id: "<uuid>"` for reply correlation
+
+This allows the target agent to use `synapse reply` and route the response back to Canvas instead of to whichever shell launched the Canvas server.
+
+```bash
+curl -X POST http://localhost:3000/api/workflow/run/deploy-pipeline
+```
+
+**Response:**
+
+```json
+{
+  "run_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "workflow": "deploy-pipeline",
+  "status": "running"
+}
+```
+
+### GET /api/workflow/runs -- List Runs
+
+Returns active and recent workflow runs (up to 50 most recent, stored in server memory).
+
+```bash
+curl http://localhost:3000/api/workflow/runs
+```
+
+### GET /api/workflow/runs/{run_id} -- Run Status
+
+Returns the status of an individual workflow run, including per-step progress.
+
+```bash
+curl http://localhost:3000/api/workflow/runs/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+---
+
 ## Error Responses
 
 All endpoints use standard HTTP status codes with JSON error details.

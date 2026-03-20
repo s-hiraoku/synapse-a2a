@@ -474,36 +474,27 @@ class TestCmdSend:
         captured = capsys.readouterr()
         assert "No agent found" in captured.err
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    def test_cmd_send_ambiguous_target(self, mock_registry_cls, capsys):
-        """Should error when multiple agents match target."""
-        mock_registry = MagicMock()
-        mock_registry.list_agents.return_value = {
+    def test_cmd_send_multiple_agents_picks_lowest_port(self):
+        """When multiple agents match by type, resolve picks lowest port."""
+        from synapse.tools.a2a import _resolve_target_agent
+
+        agents = {
             "synapse-claude-8100": {
                 "agent_id": "synapse-claude-8100",
                 "agent_type": "claude",
+                "port": 8100,
             },
             "synapse-claude-8101": {
                 "agent_id": "synapse-claude-8101",
                 "agent_type": "claude",
+                "port": 8101,
             },
         }
-        mock_registry_cls.return_value = mock_registry
 
-        args = argparse.Namespace(
-            target="claude",
-            message="hello",
-            priority=1,
-            sender=None,
-            response_mode="notify",
-        )
-
-        with pytest.raises(SystemExit) as exc_info:
-            cmd_send(args)
-
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "Ambiguous" in captured.err
+        info, error = _resolve_target_agent("claude", agents)
+        assert error is None
+        assert info is not None
+        assert info["agent_id"] == "synapse-claude-8100"
 
     @patch("synapse.tools.a2a.is_process_running", return_value=False)
     @patch("synapse.tools.a2a.AgentRegistry")
@@ -1506,42 +1497,30 @@ class TestTypePortShorthandMatch:
         captured = capsys.readouterr()
         assert "No agent found" in captured.err
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    def test_ambiguous_target_shows_hint(self, mock_registry_cls, capsys):
-        """Should show type-port hints when target is ambiguous."""
-        mock_registry = MagicMock()
-        mock_registry.list_agents.return_value = {
+    def test_multiple_agents_picks_ready_over_port(self):
+        """When multiple agents match, READY status takes precedence over port order."""
+        from synapse.tools.a2a import _resolve_target_agent
+
+        agents = {
             "synapse-claude-8100": {
                 "agent_id": "synapse-claude-8100",
                 "agent_type": "claude",
                 "port": 8100,
+                "status": "PROCESSING",
             },
             "synapse-claude-8101": {
                 "agent_id": "synapse-claude-8101",
                 "agent_type": "claude",
                 "port": 8101,
+                "status": "READY",
             },
         }
-        mock_registry_cls.return_value = mock_registry
 
-        args = argparse.Namespace(
-            target="claude",
-            message="hello",
-            priority=1,
-            sender=None,
-            response_mode="notify",
-        )
-
-        with pytest.raises(SystemExit) as exc_info:
-            cmd_send(args)
-
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "Ambiguous" in captured.err
-        # Should show helpful command examples
-        assert "synapse send" in captured.err
-        assert "claude-8100" in captured.err
-        assert "claude-8101" in captured.err
+        info, error = _resolve_target_agent("claude", agents)
+        assert error is None
+        assert info is not None
+        # READY agent wins even though it has a higher port
+        assert info["agent_id"] == "synapse-claude-8101"
 
 
 class TestSentMessageHistory:

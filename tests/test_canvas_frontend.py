@@ -1044,3 +1044,55 @@ def test_admin_splitter_css_cursor() -> None:
     end = css.index("}", start)
     block = css[start:end]
     assert "cursor: row-resize;" in block
+
+
+def test_workflow_view_exists_in_html() -> None:
+    """index.html should contain the workflow view section."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    assert 'id="workflow-view"' in html
+    assert 'id="workflow-container"' in html
+    assert 'id="workflow-list-panel"' in html
+    assert 'id="workflow-detail-panel"' in html
+
+
+def test_workflow_nav_link_exists() -> None:
+    """index.html should have a nav link with data-route='workflow'."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    assert 'data-route="workflow"' in html
+
+
+def test_workflow_nav_order() -> None:
+    """Workflow nav should appear between Dashboard and Agent Control."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    dashboard_pos = html.index('data-route="dashboard"')
+    workflow_pos = html.index('data-route="workflow"')
+    admin_pos = html.index('data-route="admin"')
+    assert dashboard_pos < workflow_pos < admin_pos
+
+
+def test_workflow_css_classes_exist() -> None:
+    """canvas.css should define workflow view CSS classes."""
+    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    for selector in [
+        "#workflow-view",
+        "#workflow-container",
+        "#workflow-list-panel",
+        "#workflow-detail-panel",
+        ".workflow-empty",
+        ".workflow-run-btn",
+        ".workflow-step-item",
+        ".workflow-step-flow",
+    ]:
+        assert selector in css, f"Missing workflow CSS selector: {selector}"
+
+
+def test_workflow_route_in_js() -> None:
+    """canvas.js should handle the workflow route and render functions."""
+    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    assert 'document.getElementById("workflow-view")' in js
+    assert '"workflow"' in js
+    assert "loadWorkflows" in js
+    assert "renderWorkflowList" in js
+    assert "renderWorkflowDetail" in js
+    assert "loadWorkflowRuns" in js
+    assert "workflow_update" in js

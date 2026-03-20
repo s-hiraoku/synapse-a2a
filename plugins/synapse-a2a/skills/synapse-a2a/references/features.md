@@ -38,6 +38,8 @@ synapse workflow sync                                          # Sync all workfl
 
 Supports `--dry-run` to preview execution without sending messages, `--continue-on-error` to proceed past step failures, and `--auto-spawn` to spawn missing agents on the fly.
 
+**Execution engine:** Steps are sent directly via A2A HTTP (`/tasks/send-priority`) with built-in resilience. `response_mode: wait` steps poll the target's task until a terminal state (completed, failed, canceled) or a 10-minute timeout. HTTP 409 (agent busy) responses trigger automatic retry (up to 5 attempts, 2-second interval).
+
 ### Workflow-to-Skill Bridge
 
 Workflows can be auto-generated as skills so they appear as discoverable slash commands. The `trigger` YAML field provides keywords for skill matching, and `auto_spawn` (workflow-level or per-step) enables automatic agent spawning during execution.
@@ -176,7 +178,7 @@ synapse mcp serve
 
 Shared visual dashboard for agents to post rich content cards rendered in a browser-based SPA.
 
-**Views:** Hash-routed SPA with five views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/admin` (Agent Control: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
+**Views:** Hash-routed SPA with six views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/admin` (Agent Control: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers), `#/workflow` (Workflow view: list saved workflows, inspect steps, trigger runs, monitor run progress with live updates via `workflow_update` SSE event; failed steps show error details, each step displays execution duration, Mermaid DAG includes message preview and response_mode edge labels, run history shows step progress count and failure details, project directory displayed next to Run button), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
 
 **26 card formats:** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, tip, progress, terminal, dependency-graph, cost, link-preview, plan.
 

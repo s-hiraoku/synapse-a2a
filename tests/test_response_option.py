@@ -18,6 +18,22 @@ import pytest
 class TestSynapseSendResponseFlags:
     """Tests for synapse send command response flags."""
 
+    def test_build_a2a_cmd_uses_module_execution(self):
+        """A2A subprocesses should run as a module, not via direct script path."""
+        from synapse.cli import _build_a2a_cmd
+
+        cmd = _build_a2a_cmd(
+            "send",
+            "hello",
+            target="claude",
+            priority=1,
+            response_mode="wait",
+        )
+
+        assert cmd[:3] == [sys.executable, "-m", "synapse.tools.a2a"]
+        assert "send" in cmd
+        assert "--wait" in cmd
+
     def test_synapse_send_has_response_flag(self, capsys):
         """synapse send should have --wait flag (not --return)."""
         from synapse.cli import main

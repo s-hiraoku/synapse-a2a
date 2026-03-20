@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 _NO_AGENT_MARKER = "No agent found matching"
 _SPAWN_WAIT_SECONDS = 5
 _SPAWN_MAX_WAIT_SECONDS = 30
+MAX_WORKFLOW_DEPTH = 10
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -172,12 +173,14 @@ def cmd_workflow_show(args: argparse.Namespace) -> None:
     print()
 
     for i, step in enumerate(wf.steps, 1):
-        print(
-            f"  {i}. target={step.target}  priority={step.priority}  mode={step.response_mode}"
-        )
-        # Truncate long messages for display
-        msg = step.message if len(step.message) <= 80 else step.message[:77] + "..."
-        print(f"     message: {msg}")
+        if step.kind == "subworkflow":
+            print(f"  {i}. kind=subworkflow  workflow={step.workflow}")
+        else:
+            print(
+                f"  {i}. target={step.target}  priority={step.priority}  mode={step.response_mode}"
+            )
+            msg = step.message if len(step.message) <= 80 else step.message[:77] + "..."
+            print(f"     message: {msg}")
 
 
 # ── delete ───────────────────────────────────────────────────
@@ -325,6 +328,107 @@ def _run_step(
     return True
 
 
+def _load_nested_workflow(
+    store: WorkflowStore,
+    workflow_name: str,
+    stack: list[str],
+) -> tuple[Workflow, list[str]]:
+    """Load a nested workflow and enforce cycle/depth checks."""
+    next_stack = [*stack, workflow_name]
+    if workflow_name in stack:
+        raise WorkflowError(f"Workflow cycle detected: {' -> '.join(next_stack)}")
+    if len(next_stack) > MAX_WORKFLOW_DEPTH:
+        raise WorkflowError(
+            f"Workflow nesting exceeds maximum depth {MAX_WORKFLOW_DEPTH}: "
+            f"{' -> '.join(next_stack)}"
+        )
+    child = store.load(workflow_name)
+    if child is None:
+        raise WorkflowError(f"Workflow '{workflow_name}' not found.")
+    return child, next_stack
+
+
+def _count_send_steps(
+    workflow: Workflow,
+    store: WorkflowStore,
+    stack: list[str],
+) -> int:
+    """Count executable send steps across nested workflows."""
+    count = 0
+    for step in workflow.steps:
+        if step.kind == "subworkflow":
+            child, child_stack = _load_nested_workflow(store, step.workflow, stack)
+            count += _count_send_steps(child, store, child_stack)
+        else:
+            count += 1
+    return count
+
+
+def _print_dry_run(
+    workflow: Workflow,
+    store: WorkflowStore,
+    effective_auto_spawn: bool,
+    stack: list[str],
+    counter: list[int],
+) -> None:
+    """Print a dry-run preview including nested workflows."""
+    for step in workflow.steps:
+        if step.kind == "subworkflow":
+            print(f"  Step {counter[0]}: subworkflow '{step.workflow}'")
+            child, child_stack = _load_nested_workflow(store, step.workflow, stack)
+            counter[0] += 1
+            _print_dry_run(child, store, effective_auto_spawn, child_stack, counter)
+            continue
+
+        spawn_tag = (
+            " [auto-spawn]" if _should_auto_spawn(step, effective_auto_spawn) else ""
+        )
+        print(f"  Step {counter[0]}: send to {step.target}{spawn_tag}")
+        print(f"    message:  {step.message}")
+        print(f"    priority: {step.priority}")
+        print(f"    mode:     {step.response_mode}")
+        print()
+        counter[0] += 1
+
+
+def _run_nested_workflow(
+    workflow: Workflow,
+    store: WorkflowStore,
+    *,
+    auto_spawn: bool,
+    continue_on_error: bool,
+    stack: list[str],
+    counter: list[int],
+    total: int,
+) -> int:
+    """Execute workflow send steps recursively."""
+    failures = 0
+    for step in workflow.steps:
+        if step.kind == "subworkflow":
+            print(f"  Entering subworkflow '{step.workflow}'...")
+            child, child_stack = _load_nested_workflow(store, step.workflow, stack)
+            failures += _run_nested_workflow(
+                child,
+                store,
+                auto_spawn=auto_spawn,
+                continue_on_error=continue_on_error,
+                stack=child_stack,
+                counter=counter,
+                total=total,
+            )
+            if failures and not continue_on_error:
+                return failures
+            continue
+
+        counter[0] += 1
+        ok = _run_step(step, counter[0], total, auto_spawn=auto_spawn)
+        if not ok:
+            failures += 1
+            if not continue_on_error:
+                return failures
+    return failures
+
+
 def cmd_workflow_run(args: argparse.Namespace) -> None:
     """Execute workflow steps sequentially."""
     name: str = args.workflow_name
@@ -346,31 +450,36 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
 
     effective_auto_spawn = auto_spawn or wf.auto_spawn
 
+    try:
+        total_steps = _count_send_steps(wf, store, [wf.name])
+    except WorkflowError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
     if dry_run:
         print(f"DRY RUN: Workflow '{name}' ({wf.step_count} steps)")
         print()
-        for i, step in enumerate(wf.steps, 1):
-            spawn_tag = (
-                " [auto-spawn]"
-                if _should_auto_spawn(step, effective_auto_spawn)
-                else ""
-            )
-            print(f"  Step {i}: send to {step.target}{spawn_tag}")
-            print(f"    message:  {step.message}")
-            print(f"    priority: {step.priority}")
-            print(f"    mode:     {step.response_mode}")
-            print()
+        try:
+            _print_dry_run(wf, store, effective_auto_spawn, [wf.name], [1])
+        except WorkflowError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
         return
 
     print(f"Running workflow '{name}' ({wf.step_count} steps)...")
-
-    failures = 0
-    for i, step in enumerate(wf.steps, 1):
-        ok = _run_step(step, i, wf.step_count, auto_spawn=effective_auto_spawn)
-        if not ok:
-            failures += 1
-            if not continue_on_error:
-                sys.exit(1)
+    try:
+        failures = _run_nested_workflow(
+            wf,
+            store,
+            auto_spawn=effective_auto_spawn,
+            continue_on_error=continue_on_error,
+            stack=[wf.name],
+            counter=[0],
+            total=total_steps,
+        )
+    except WorkflowError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if failures:
         print(f"Done with {failures} failure(s).", file=sys.stderr)

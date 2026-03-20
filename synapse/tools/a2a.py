@@ -331,28 +331,63 @@ def _record_sent_message(
         logger.debug("Failed to record sent message to history", exc_info=True)
 
 
+def _pick_best_agent(matches: list[dict]) -> dict:
+    """Pick the best agent from multiple candidates.
+
+    Prefers READY agents, then lowest port number.
+    """
+
+    def _sort_key(a: dict) -> tuple[int, int]:
+        # READY first (0), then others (1); then by port ascending
+        status = a.get("status") or ""
+        ready = 0 if status.upper() == "READY" else 1
+        port = a.get("port") or 99999
+        return (ready, int(port))
+
+    return sorted(matches, key=_sort_key)[0]
+
+
 def _resolve_target_agent(
-    target: str, agents: dict[str, dict]
+    target: str,
+    agents: dict[str, dict],
+    *,
+    local_only: bool = False,
 ) -> tuple[dict | None, str | None]:
     """Resolve target agent from name/id.
+
+    When ``local_only=True``, only agents in the same working directory
+    as the sender are considered. When multiple agents match by type,
+    the READY agent with the lowest port number is selected automatically.
 
     Matching priority:
     1. Custom name (exact match, case-sensitive)
     2. Exact match on agent_id (e.g., synapse-claude-8100)
     3. Match on type-port shorthand (e.g., claude-8100)
-    4. Match on agent_type if only one exists (e.g., claude)
+    4. Match on agent_type (e.g., claude) — picks best from candidates
 
     Returns:
         Tuple of (agent_info, error_message). If successful, error_message is None.
     """
-    # Priority 1: Custom name (exact match, case-sensitive)
-    for info in agents.values():
+    if local_only:
+        cwd = os.getcwd()
+        normalized_cwd = _normalize_working_dir(cwd)
+
+        def _is_same_dir(info: dict) -> bool:
+            agent_dir = _normalize_working_dir(info.get("working_dir"))
+            return agent_dir is None or agent_dir == normalized_cwd
+
+        local_agents = {k: v for k, v in agents.items() if _is_same_dir(v)}
+    else:
+        local_agents = agents
+
+    # Priority 1: Custom name (exact match, case-sensitive) — local only
+    for info in local_agents.values():
         if info.get("name") == target:
             return info, None
 
-    # Priority 2: Exact match by ID
-    if target in agents:
-        return agents[target], None
+    # Priority 2: Exact match by ID — local only
+    if target in local_agents:
+        return local_agents[target], None
 
     target_lower = target.lower()
 
@@ -361,23 +396,26 @@ def _resolve_target_agent(
     if type_port_match:
         target_type, port_str = type_port_match.groups()
         target_port = int(port_str)
-        for info in agents.values():
+        for info in local_agents.values():
             if (
                 info.get("agent_type", "").lower() == target_type
                 and info.get("port") == target_port
             ):
                 return info, None
 
-    # Priority 4: Fuzzy match by agent_type
+    # Priority 4: Fuzzy match by agent_type — local agents only
     matches = [
-        a for a in agents.values() if target_lower in a.get("agent_type", "").lower()
+        a
+        for a in local_agents.values()
+        if target_lower in a.get("agent_type", "").lower()
     ]
 
     if len(matches) == 1:
         return matches[0], None
 
     if len(matches) > 1:
-        return None, _format_ambiguous_target_error(target, matches)
+        # Pick best: READY first, then lowest port
+        return _pick_best_agent(matches), None
 
     return None, f"No agent found matching '{target}'"
 

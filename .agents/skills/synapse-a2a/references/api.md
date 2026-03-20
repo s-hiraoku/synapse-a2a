@@ -130,6 +130,20 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 | `/api/admin/agents/{agent_id}` | DELETE | Stop agent by ID |
 | `/api/admin/jump/{agent_id}` | POST | Jump to agent's terminal (uses PID-based terminal detection with TTY fallback) |
 
+### Canvas Workflow Endpoints (served by Canvas server)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/workflow` | GET | List all workflows with full step details (response includes `project_dir`) |
+| `/api/workflow/{name}` | GET | Get a single workflow by name |
+| `/api/workflow/run/{name}` | POST | Start a workflow execution (body: `{continue_on_error?}`) |
+| `/api/workflow/runs` | GET | List active and recent workflow runs |
+| `/api/workflow/runs/{run_id}` | GET | Get the status of a specific workflow run |
+
+**SSE event:** `workflow_update` — broadcast when a workflow run progresses (step completion, status change).
+
+**Execution engine:** Workflow steps are sent directly via A2A HTTP (`/tasks/send-priority`) rather than subprocess. When a step has `response_mode: wait`, the runner polls the target agent's task (`GET /tasks/{id}`) until it reaches a terminal state (completed, failed, canceled) or the 10-minute timeout expires. If the target returns **HTTP 409** (agent busy), the runner retries up to 5 times with a 2-second interval before reporting failure.
+
 ### External Agent Endpoints
 
 | Endpoint | Method | Description |

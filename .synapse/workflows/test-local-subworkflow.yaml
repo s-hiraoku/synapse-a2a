@@ -1,0 +1,7 @@
+name: test-local-subworkflow
+description: >
+  Parent workflow that delegates to test-local-child to verify subworkflow
+  execution against a same-directory agent.
+steps:
+  - kind: subworkflow
+    workflow: test-local-child

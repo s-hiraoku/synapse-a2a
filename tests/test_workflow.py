@@ -556,6 +556,49 @@ def test_step_rejects_non_str_message() -> None:
         WorkflowStep(target="claude", message=42)  # type: ignore[arg-type]
 
 
+def test_step_kind_defaults_to_send() -> None:
+    """Step kind should default to send for backwards compatibility."""
+    from synapse.workflow import WorkflowStep
+
+    step = WorkflowStep(target="claude", message="hi")
+    assert step.kind == "send"
+    assert step.workflow == ""
+
+
+def test_subworkflow_step_requires_workflow_name() -> None:
+    """subworkflow steps require a workflow name."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="workflow"):
+        WorkflowStep(kind="subworkflow", workflow="")
+
+
+def test_subworkflow_step_rejects_target() -> None:
+    """subworkflow steps must not carry send-only fields."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="target"):
+        WorkflowStep(kind="subworkflow", workflow="child", target="claude")
+
+
+def test_subworkflow_step_rejects_message() -> None:
+    """subworkflow steps must not carry send-only fields."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="message"):
+        WorkflowStep(kind="subworkflow", workflow="child", message="hi")
+
+
+def test_send_step_requires_target_and_message() -> None:
+    """send steps preserve target/message validation."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="target"):
+        WorkflowStep(kind="send", target="")
+    with pytest.raises(WorkflowError, match="message"):
+        WorkflowStep(kind="send", target="claude", message="")
+
+
 # ── name/filename mismatch ────────────────────────────────
 
 
@@ -602,6 +645,24 @@ def test_auto_spawn_roundtrip(store) -> None:
     assert loaded is not None
     assert loaded.steps[0].auto_spawn is True
     assert loaded.steps[1].auto_spawn is False
+
+
+def test_subworkflow_roundtrip(store) -> None:
+    """subworkflow steps should survive save/load roundtrip."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    wf = Workflow(
+        name="parent",
+        steps=[WorkflowStep(kind="subworkflow", workflow="child")],
+        scope="project",
+    )
+    store.save(wf)
+    loaded = store.load("parent")
+    assert loaded is not None
+    assert loaded.steps[0].kind == "subworkflow"
+    assert loaded.steps[0].workflow == "child"
+    assert loaded.steps[0].target == ""
+    assert loaded.steps[0].message == ""
 
 
 def test_auto_spawn_omitted_in_yaml_defaults_false(

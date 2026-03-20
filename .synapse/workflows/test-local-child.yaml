@@ -1,0 +1,9 @@
+name: test-local-child
+description: >
+  Minimal local workflow that sends a harmless test message to a same-directory
+  agent.
+steps:
+  - target: Claud
+    message: "One-line reply only: local subworkflow test"
+    priority: 3
+    response_mode: wait
