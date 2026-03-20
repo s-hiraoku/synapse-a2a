@@ -526,6 +526,7 @@ synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-erro
 ```
 
 Executes workflow steps sequentially via `synapse send`.
+If a step is `kind: subworkflow`, the child workflow is expanded inline. Cycles are rejected and nesting depth is limited to 10.
 
 | Flag | Description |
 |------|-------------|

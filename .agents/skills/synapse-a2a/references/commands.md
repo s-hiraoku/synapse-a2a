@@ -1487,6 +1487,8 @@ steps:
     message: "Write tests"
     response_mode: silent
     auto_spawn: true
+  - kind: subworkflow
+    workflow: post-impl-checks
 ```
 
 **Top-level fields:**
@@ -1502,11 +1504,15 @@ steps:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
+| `kind` | No | `send` | Step type: `send` or `subworkflow` |
 | `target` | Yes | — | Agent target (name, type, ID) |
 | `message` | Yes | — | Message to send |
 | `priority` | No | `3` | Priority level (1-5) |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
 | `auto_spawn` | No | `false` | Enable auto-spawn for this step's target if not running (additive — cannot opt out of workflow/CLI-level auto-spawn) |
+| `workflow` | Yes for `subworkflow` | — | Child workflow name to run inline |
+
+For `kind: subworkflow`, set `workflow` and omit `target` / `message`. Nested workflows are expanded recursively, cycles are rejected, and nesting depth is limited to 10.
 
 ### Storage
 

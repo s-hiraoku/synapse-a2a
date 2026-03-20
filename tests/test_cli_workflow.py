@@ -63,6 +63,20 @@ def _save_sample_workflow(store, name: str = "test-wf", scope: str = "project") 
     )
 
 
+def _save_subworkflow_parent(store, name: str = "parent", child: str = "child") -> None:
+    """Save a workflow that delegates to another workflow."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    store.save(
+        Workflow(
+            name=name,
+            steps=[WorkflowStep(kind="subworkflow", workflow=child)],
+            description="Parent workflow",
+            scope="project",
+        )
+    )
+
+
 # ── cmd_workflow_create ──────────────────────────────────────
 
 
@@ -228,6 +242,25 @@ def test_show_displays_details(
     assert "Review code" in captured.out
 
 
+def test_show_displays_subworkflow_step(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """show should render subworkflow steps clearly."""
+    from synapse.commands.workflow import cmd_workflow_show
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_subworkflow_parent(store)
+
+    args = _make_args(workflow_name="parent")
+    with patch("synapse.commands.workflow._get_workflow_store", return_value=store):
+        cmd_workflow_show(args)
+
+    captured = capsys.readouterr()
+    assert "subworkflow" in captured.out
+    assert "child" in captured.out
+
+
 def test_show_not_found(tmp_path: Path, workflow_dirs: tuple[Path, Path]) -> None:
     """show should exit with error for non-existent workflow."""
     from synapse.commands.workflow import cmd_workflow_show
@@ -320,6 +353,37 @@ def test_run_sends_steps_sequentially(
     assert "gemini" in second_cmd
 
 
+def test_run_executes_subworkflow_steps_in_order(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """run should inline child workflow steps in execution order."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_sample_workflow(store, name="child")
+    _save_subworkflow_parent(store)
+
+    args = _make_args(workflow_name="parent")
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd, capture_output=True, text=True):
+        calls.append(cmd)
+        return MagicMock(returncode=0, stdout="ok\n", stderr="")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch("synapse.commands.workflow.subprocess.run", side_effect=_fake_run),
+    ):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    assert "subworkflow 'child'" in captured.out
+    assert len(calls) == 2
+    assert "Review code" in calls[0]
+    assert "Write tests" in calls[1]
+
+
 def test_run_aborts_on_failure(
     tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
 ) -> None:
@@ -380,6 +444,39 @@ def test_run_continue_on_error(
     assert mock_run.call_count == 2
 
 
+def test_run_propagates_continue_on_error_into_subworkflow(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """continue_on_error should apply within nested workflows."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_sample_workflow(store, name="child")
+    _save_subworkflow_parent(store)
+
+    args = _make_args(workflow_name="parent", continue_on_error=True)
+    call_count = 0
+
+    def _fake_run(cmd, capture_output=True, text=True):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return MagicMock(returncode=1, stdout="", stderr="boom")
+        return MagicMock(returncode=0, stdout="ok\n", stderr="")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch("synapse.commands.workflow.subprocess.run", side_effect=_fake_run),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    assert "Done with 1 failure(s)." in captured.err
+    assert call_count == 2
+
+
 def test_run_dry_run(
     tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
 ) -> None:
@@ -407,6 +504,27 @@ def test_run_dry_run(
     assert "dry run" in captured.out.lower() or "DRY RUN" in captured.out
 
 
+def test_run_dry_run_shows_subworkflow(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """dry-run should show nested workflow steps."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_sample_workflow(store, name="child")
+    _save_subworkflow_parent(store)
+
+    args = _make_args(workflow_name="parent", dry_run=True)
+
+    with patch("synapse.commands.workflow._get_workflow_store", return_value=store):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    assert "subworkflow 'child'" in captured.out
+    assert "send to claude" in captured.out
+
+
 def test_run_not_found(tmp_path: Path, workflow_dirs: tuple[Path, Path]) -> None:
     """run should exit with error for non-existent workflow."""
     from synapse.commands.workflow import cmd_workflow_run
@@ -415,6 +533,63 @@ def test_run_not_found(tmp_path: Path, workflow_dirs: tuple[Path, Path]) -> None
     store = _make_store(project_dir, user_dir)
     args = _make_args(workflow_name="ghost")
 
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+
+def test_run_detects_workflow_cycle(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """run should fail fast on workflow cycles."""
+    from synapse.commands.workflow import cmd_workflow_run
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Workflow(
+            name="a",
+            steps=[WorkflowStep(kind="subworkflow", workflow="b")],
+            scope="project",
+        )
+    )
+    store.save(
+        Workflow(
+            name="b",
+            steps=[WorkflowStep(kind="subworkflow", workflow="a")],
+            scope="project",
+        )
+    )
+
+    args = _make_args(workflow_name="a")
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+
+def test_run_rejects_excessive_workflow_depth(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """run should reject deeply nested workflow chains."""
+    from synapse.commands.workflow import MAX_WORKFLOW_DEPTH, cmd_workflow_run
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+
+    for i in range(MAX_WORKFLOW_DEPTH + 1):
+        name = f"wf-{i}"
+        steps = [WorkflowStep(kind="subworkflow", workflow=f"wf-{i + 1}")]
+        if i == MAX_WORKFLOW_DEPTH:
+            steps = [WorkflowStep(target="claude", message="done")]
+        store.save(Workflow(name=name, steps=steps, scope="project"))
+
+    args = _make_args(workflow_name="wf-0")
     with (
         patch("synapse.commands.workflow._get_workflow_store", return_value=store),
         pytest.raises(SystemExit, match="1"),

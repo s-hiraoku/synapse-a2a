@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 Scope = Literal["project", "user"]
 _NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
 _VALID_RESPONSE_MODES = {"wait", "notify", "silent"}
+_VALID_STEP_KINDS = {"send", "subworkflow"}
 
 
 class WorkflowError(ValueError):
@@ -34,17 +35,35 @@ class WorkflowError(ValueError):
 class WorkflowStep:
     """A single step in a workflow sequence."""
 
-    target: str
-    message: str
+    target: str = ""
+    message: str = ""
     priority: int = 3
     response_mode: str = "notify"
     auto_spawn: bool = False
+    kind: str = "send"
+    workflow: str = ""
 
     def __post_init__(self) -> None:
-        if not isinstance(self.target, str) or not self.target:
-            raise WorkflowError("Step target must be a non-empty string.")
-        if not isinstance(self.message, str) or not self.message:
-            raise WorkflowError("Step message must be a non-empty string.")
+        if self.kind not in _VALID_STEP_KINDS:
+            raise WorkflowError(
+                f"Step kind must be one of {_VALID_STEP_KINDS}, got '{self.kind}'."
+            )
+        if not isinstance(self.workflow, str):
+            raise WorkflowError("Step workflow must be a string.")
+        if self.kind == "send":
+            if not isinstance(self.target, str) or not self.target:
+                raise WorkflowError("Step target must be a non-empty string.")
+            if not isinstance(self.message, str) or not self.message:
+                raise WorkflowError("Step message must be a non-empty string.")
+        else:
+            if not self.workflow:
+                raise WorkflowError(
+                    "Subworkflow step workflow must be a non-empty string."
+                )
+            if self.target:
+                raise WorkflowError("Subworkflow step target is not allowed.")
+            if self.message:
+                raise WorkflowError("Subworkflow step message is not allowed.")
         if (
             isinstance(self.priority, bool)
             or not isinstance(self.priority, int)
@@ -102,13 +121,20 @@ class WorkflowStore:
             "name": workflow.name,
             "description": workflow.description,
             "steps": [
-                {
-                    "target": s.target,
-                    "message": s.message,
-                    "priority": s.priority,
-                    "response_mode": s.response_mode,
-                    **({"auto_spawn": True} if s.auto_spawn else {}),
-                }
+                (
+                    {
+                        "kind": "subworkflow",
+                        "workflow": s.workflow,
+                    }
+                    if s.kind == "subworkflow"
+                    else {
+                        "target": s.target,
+                        "message": s.message,
+                        "priority": s.priority,
+                        "response_mode": s.response_mode,
+                        **({"auto_spawn": True} if s.auto_spawn else {}),
+                    }
+                )
                 for s in workflow.steps
             ],
         }
@@ -256,6 +282,7 @@ class WorkflowStore:
             raw_name = file_path.stem
         steps = []
         for s in raw["steps"]:
+            kind = s.get("kind", "send")
             step_auto_spawn = s.get("auto_spawn", False)
             if step_auto_spawn is not False and not isinstance(step_auto_spawn, bool):
                 raise ValueError(
@@ -263,8 +290,10 @@ class WorkflowStore:
                 )
             steps.append(
                 WorkflowStep(
-                    target=s["target"],
-                    message=s["message"],
+                    kind=kind,
+                    workflow=s.get("workflow", ""),
+                    target=s.get("target", ""),
+                    message=s.get("message", ""),
                     priority=s.get("priority", 3),
                     response_mode=s.get("response_mode", "notify"),
                     auto_spawn=bool(step_auto_spawn),

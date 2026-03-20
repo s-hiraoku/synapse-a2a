@@ -1250,6 +1250,8 @@ steps:
     message: "src/auth.py のテストを書いて"
     priority: 3
     response_mode: silent
+  - kind: subworkflow
+    workflow: post-impl-checks
 ```
 
 #### ワークフローレベルのフィールド
@@ -1265,10 +1267,37 @@ steps:
 
 | フィールド | 必須 | デフォルト | 説明 |
 |-----------|------|-----------|------|
+| `kind` | No | `send` | ステップ種別。`send` または `subworkflow` |
 | `target` | Yes | - | 送信先エージェント（名前、ID、タイプ） |
 | `message` | Yes | - | 送信メッセージ |
 | `priority` | No | 3 | 優先度（1-5） |
 | `response_mode` | No | notify | `wait` / `notify` / `silent` |
+| `workflow` | `subworkflow` のとき必須 | - | 呼び出す子 workflow 名 |
+
+`kind: send` では従来どおり `target` と `message` を使います。
+
+`kind: subworkflow` では `workflow` を指定し、`target` / `message` は省略します:
+
+```yaml
+steps:
+  - kind: subworkflow
+    workflow: review-and-test
+```
+
+ネストした workflow は再帰的に展開されます。`A -> B -> A` のような循環参照はエラーになり、ネスト深さは 10 までです。
+
+#### Canvas からの実行
+
+Canvas のブラウザ UI（`#/workflow`）からもワークフローを実行できます。ワークフローを選択して **Run** ボタンをクリックします。
+
+- CLI の `synapse workflow run` と同じ `a2a.py` ツールを使用するため、動作は同一です
+- 各ステップの進捗がリアルタイムで更新されます（SSE 経由）
+- 成功したステップの stdout は「Output」セクションで展開表示可能
+- エラーは人間が読みやすいメッセージに変換されます
+- `auto_spawn` 設定（ワークフローレベル・ステップレベル）が反映されます
+- 完了時にトースト通知が表示されます
+
+> **注意**: 別ディレクトリで同名のエージェントが動作中の場合、名前衝突エラーが表示されます。ワークフローの `target` を変更するか、既存のエージェントを停止してください。
 
 #### スキル自動生成
 

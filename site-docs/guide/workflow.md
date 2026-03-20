@@ -53,11 +53,25 @@ Each step supports the following fields:
 
 | Field | Required | Default | Description |
 |-------|:--------:|:-------:|-------------|
+| `kind` | No | `send` | Step type: `send` or `subworkflow` |
 | `target` | Yes | -- | Agent name, ID, type-port, or type |
 | `message` | Yes | -- | Message content to send |
 | `priority` | No | `3` | Priority level 1-5 |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
 | `auto_spawn` | No | `false` | If `true`, auto-spawn the target agent if not running (step-level override) |
+| `workflow` | Yes for `subworkflow` | -- | Child workflow name to execute |
+
+For `kind: send`, use the regular `target` and `message` fields.
+
+For `kind: subworkflow`, use `workflow` and omit `target` and `message`:
+
+```yaml
+steps:
+  - kind: subworkflow
+    workflow: review-and-test
+```
+
+Nested workflows are expanded recursively at run time. The runner rejects cycles such as `A -> B -> A` and limits nesting depth to 10 workflows.
 
 `target` follows the standard Synapse target resolution rules. For matching priority and ambiguity behavior, see [Agent Identity](agent-identity.md#target-resolution).
 
@@ -97,6 +111,18 @@ steps:
     response_mode: wait
 ```
 
+### Example: Reusable Parent Workflow
+
+```yaml
+name: review-fix-verify
+description: "Compose existing workflows into one reusable pipeline"
+steps:
+  - kind: subworkflow
+    workflow: review-and-test
+  - kind: subworkflow
+    workflow: fix-ci-and-verify
+```
+
 ## List Workflows
 
 ```bash
@@ -122,6 +148,7 @@ synapse workflow run review-and-test
 ```
 
 Steps execute sequentially. Each step calls `synapse send` with the configured target, message, priority, and response mode.
+If a step uses `kind: subworkflow`, Synapse loads the child workflow and executes its send steps inline before continuing.
 
 ### Dry Run
 
@@ -130,6 +157,8 @@ Preview what would happen without sending any messages:
 ```bash
 synapse workflow run review-and-test --dry-run
 ```
+
+Dry run output includes nested `subworkflow` entries and the send steps they expand into.
 
 ### Auto-Spawn Agents
 
@@ -148,6 +177,25 @@ By default, the workflow stops on the first failed step. Use `--continue-on-erro
 ```bash
 synapse workflow run review-and-test --continue-on-error
 ```
+
+When nested workflows are used, `--continue-on-error` applies to child steps too.
+
+## Run from Canvas
+
+Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
+
+Canvas workflow execution uses the same `a2a.py` tool as the CLI, so behavior is identical to `synapse workflow run`. Key differences from CLI execution:
+
+- **Background execution**: Steps run asynchronously; the UI updates in real-time via SSE
+- **Step output**: Successful steps capture stdout, viewable via an expandable "Output" section
+- **Error translation**: Raw subprocess errors are converted to human-readable messages
+- **Toast notifications**: A notification appears when the run completes or fails
+- **Auto-spawn**: Honors both workflow-level and step-level `auto_spawn` settings
+
+!!! warning "Agent name conflicts"
+    If an agent with the same name exists in a different directory (e.g., a worktree), Canvas will report an error: *"Agent 'X' already exists in a different directory."* Rename the workflow target or stop the conflicting agent.
+
+See [Canvas -- Workflow View](canvas.md#workflow-view-workflow) for the UI documentation.
 
 ## Sync Workflows to Skills
 

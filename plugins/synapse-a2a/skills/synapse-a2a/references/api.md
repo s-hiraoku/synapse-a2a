@@ -134,7 +134,7 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/workflow` | GET | List all workflows with full step details |
+| `/api/workflow` | GET | List all workflows with full step details (response includes `project_dir`) |
 | `/api/workflow/{name}` | GET | Get a single workflow by name |
 | `/api/workflow/run/{name}` | POST | Start a workflow execution (body: `{continue_on_error?}`) |
 | `/api/workflow/runs` | GET | List active and recent workflow runs |

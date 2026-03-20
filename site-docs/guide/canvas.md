@@ -695,6 +695,15 @@ The Workflow view provides a split-panel interface for browsing and executing [W
 
 **Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph (with message preview and `response_mode` labels on edges), and a **Run** button to trigger execution. The project directory is displayed next to the Run button for context.
 
-**Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes. When a step fails, the error details are displayed inline so you can diagnose issues without switching views. Up to 50 recent runs are stored in server memory (lost on restart).
+**Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Each step is executed via the same `a2a.py` tool that the CLI uses, ensuring consistent behavior with `synapse send`. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes:
+
+- **Pending** steps show a hourglass icon
+- **Running** steps show a spinner icon
+- **Completed** steps show a checkmark — click the "Output" expander to view the step's stdout
+- **Failed** steps show a red error message with a human-readable explanation
+
+When `auto_spawn` is enabled (workflow-level or step-level), Canvas automatically spawns missing agents before sending. A toast notification appears when the entire workflow run completes or fails. Up to 50 recent runs are stored in server memory (lost on restart).
+
+**Error messages**: Canvas translates raw errors into actionable messages. If the target agent exists in a different directory, it reports the name conflict and suggests changing the target or stopping the remote agent. If the agent is simply not found, it suggests starting the agent or enabling `auto_spawn`.
 
 See [Workflows](workflow.md) for the full workflow configuration guide, and [Workflow API](../reference/api.md#workflow-api) for endpoint details.

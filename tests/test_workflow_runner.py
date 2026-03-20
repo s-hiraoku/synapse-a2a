@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import httpx
 import pytest
 
 from synapse.workflow import Workflow, WorkflowStep
@@ -37,12 +36,21 @@ def _make_workflow(
     return Workflow(name=name, steps=steps, scope="project")
 
 
-def _ok_endpoint(name: str) -> str | None:
-    return "http://localhost:9999"
+class _FakeProcess:
+    """Fake asyncio.subprocess.Process for testing."""
+
+    def __init__(self, returncode: int = 0, stdout: bytes = b"", stderr: bytes = b""):
+        self.returncode = returncode
+        self._stdout = stdout
+        self._stderr = stderr
+
+    async def communicate(self) -> tuple[bytes, bytes]:
+        return self._stdout, self._stderr
 
 
-def _missing_endpoint(name: str) -> str | None:
-    return None
+def _patch_subprocess(monkeypatch, mock_fn):
+    """Patch asyncio.create_subprocess_exec used by _run_a2a_subprocess."""
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_fn)
 
 
 # ---------------------------------------------------------------------------
@@ -50,18 +58,15 @@ def _missing_endpoint(name: str) -> str | None:
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_run_workflow_all_steps_succeed(monkeypatch):
-    """When httpx returns 200 for every step, all steps complete and run status is completed."""
+    """When subprocess returns 0 for every step, all steps complete."""
 
-    async def _mock_post(self, url, **kwargs):
-        resp = httpx.Response(
-            200, json={"ok": True}, request=httpx.Request("POST", url)
-        )
-        return resp
+    async def _mock_exec(*args, **kwargs):
+        return _FakeProcess(returncode=0, stdout=b"ok")
 
-    monkeypatch.setattr(httpx.AsyncClient, "post", _mock_post)
+    _patch_subprocess(monkeypatch, _mock_exec)
 
     wf = _make_workflow()
-    run_id = await run_workflow(wf, _ok_endpoint, canvas_port=7777)
+    run_id = await run_workflow(wf)
 
     # Let the background task finish
     await asyncio.sleep(0.1)
@@ -70,7 +75,7 @@ async def test_run_workflow_all_steps_succeed(monkeypatch):
     assert run is not None
     assert run.status == "completed"
     assert all(s.status == "completed" for s in run.steps)
-    assert all(s.task_id is not None for s in run.steps)
+    assert all(s.output == "ok" for s in run.steps)
     assert run.completed_at is not None
 
 
@@ -83,21 +88,17 @@ async def test_run_workflow_step_fails_stops(monkeypatch):
 
     call_count = 0
 
-    async def _mock_post(self, url, **kwargs):
+    async def _mock_exec(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            raise httpx.HTTPStatusError(
-                "server error",
-                request=httpx.Request("POST", url),
-                response=httpx.Response(500),
-            )
-        return httpx.Response(200, json={}, request=httpx.Request("POST", url))
+            return _FakeProcess(returncode=1, stderr=b"server error")
+        return _FakeProcess(returncode=0, stdout=b"ok")
 
-    monkeypatch.setattr(httpx.AsyncClient, "post", _mock_post)
+    _patch_subprocess(monkeypatch, _mock_exec)
 
     wf = _make_workflow()
-    run_id = await run_workflow(wf, _ok_endpoint, canvas_port=7777)
+    run_id = await run_workflow(wf)
     await asyncio.sleep(0.1)
 
     run = get_run(run_id)
@@ -105,7 +106,7 @@ async def test_run_workflow_step_fails_stops(monkeypatch):
     assert run.status == "failed"
     assert run.steps[0].status == "completed"
     assert run.steps[1].status == "failed"
-    assert run.steps[1].error is not None
+    assert run.steps[1].error == "server error"
     assert run.steps[2].status == "pending"
 
 
@@ -118,26 +119,17 @@ async def test_run_workflow_continue_on_error(monkeypatch):
 
     call_count = 0
 
-    async def _mock_post(self, url, **kwargs):
+    async def _mock_exec(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            raise httpx.HTTPStatusError(
-                "server error",
-                request=httpx.Request("POST", url),
-                response=httpx.Response(500),
-            )
-        return httpx.Response(200, json={}, request=httpx.Request("POST", url))
+            return _FakeProcess(returncode=1, stderr=b"server error")
+        return _FakeProcess(returncode=0, stdout=b"ok")
 
-    monkeypatch.setattr(httpx.AsyncClient, "post", _mock_post)
+    _patch_subprocess(monkeypatch, _mock_exec)
 
     wf = _make_workflow()
-    run_id = await run_workflow(
-        wf,
-        _ok_endpoint,
-        canvas_port=7777,
-        continue_on_error=True,
-    )
+    run_id = await run_workflow(wf, continue_on_error=True)
     await asyncio.sleep(0.1)
 
     run = get_run(run_id)
@@ -149,25 +141,30 @@ async def test_run_workflow_continue_on_error(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 4. Agent not found
+# 4. Subprocess fails with no stderr -> shows exit code
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_run_workflow_agent_not_found():
-    """When resolve_endpoint returns None, the step fails with 'not found' error."""
+async def test_run_workflow_empty_stderr_shows_exit_code(monkeypatch):
+    """When subprocess fails with empty stderr, error shows exit code."""
+
+    async def _mock_exec(*args, **kwargs):
+        return _FakeProcess(returncode=1, stderr=b"")
+
+    _patch_subprocess(monkeypatch, _mock_exec)
 
     wf = Workflow(
-        name="test-missing",
-        steps=[WorkflowStep(target="ghost", message="ping")],
+        name="test-exit",
+        steps=[WorkflowStep(target="agent1", message="ping")],
         scope="project",
     )
-    run_id = await run_workflow(wf, _missing_endpoint, canvas_port=7777)
+    run_id = await run_workflow(wf)
     await asyncio.sleep(0.1)
 
     run = get_run(run_id)
     assert run is not None
     assert run.status == "failed"
     assert run.steps[0].status == "failed"
-    assert "not found" in (run.steps[0].error or "").lower()
+    assert "Exit code 1" in (run.steps[0].error or "")
 
 
 # ---------------------------------------------------------------------------
@@ -177,10 +174,10 @@ async def test_run_workflow_agent_not_found():
 async def test_workflow_run_cap(monkeypatch):
     """Adding 55 runs should evict the oldest, keeping only MAX_RUNS (50)."""
 
-    async def _mock_post(self, url, **kwargs):
-        return httpx.Response(200, json={}, request=httpx.Request("POST", url))
+    async def _mock_exec(*args, **kwargs):
+        return _FakeProcess(returncode=0, stdout=b"ok")
 
-    monkeypatch.setattr(httpx.AsyncClient, "post", _mock_post)
+    _patch_subprocess(monkeypatch, _mock_exec)
 
     wf = Workflow(
         name="cap-test",
@@ -190,7 +187,7 @@ async def test_workflow_run_cap(monkeypatch):
 
     run_ids = []
     for _ in range(55):
-        rid = await run_workflow(wf, _ok_endpoint, canvas_port=7777)
+        rid = await run_workflow(wf)
         run_ids.append(rid)
 
     # Let all background tasks finish
@@ -203,3 +200,33 @@ async def test_workflow_run_cap(monkeypatch):
     # The last 50 should still exist
     for rid in run_ids[5:]:
         assert get_run(rid) is not None
+
+
+# ---------------------------------------------------------------------------
+# 6. Output truncation in to_dict
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_step_output_truncation(monkeypatch):
+    """Long output is truncated to 500 chars in to_dict()."""
+
+    long_output = "x" * 1000
+
+    async def _mock_exec(*args, **kwargs):
+        return _FakeProcess(returncode=0, stdout=long_output.encode())
+
+    _patch_subprocess(monkeypatch, _mock_exec)
+
+    wf = Workflow(
+        name="truncation-test",
+        steps=[WorkflowStep(target="a", message="m")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf)
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    step_dict = run.steps[0].to_dict()
+    assert len(step_dict["output"]) == 500
+    # Raw output is preserved in full
+    assert len(run.steps[0].output) == 1000

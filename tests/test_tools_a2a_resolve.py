@@ -148,22 +148,25 @@ def test_resolve_by_type_single_instance(agents_with_names):
     assert info["agent_id"] == "synapse-codex-8120"
 
 
-def test_resolve_by_type_ambiguous(agents_multiple_claude):
-    """Should return error when multiple agents of same type exist."""
+def test_resolve_by_type_multiple_picks_lowest_port(agents_multiple_claude):
+    """When multiple agents of same type exist, pick the one with lowest port."""
     info, error = _resolve_target_agent("claude", agents_multiple_claude)
 
-    assert info is None
-    assert error is not None
-    assert "Ambiguous" in error
+    assert error is None
+    assert info is not None
+    assert info["agent_id"] == "synapse-claude-8100"
+    assert info["port"] == 8100
 
 
-def test_resolve_by_type_ambiguous_shows_names(agents_multiple_claude):
-    """Error message should include custom names as hints."""
+def test_resolve_by_type_multiple_prefers_ready(agents_multiple_claude):
+    """When multiple agents exist, prefer READY over lower port."""
+    # Make the higher-port agent READY
+    agents_multiple_claude["synapse-claude-8101"]["status"] = "READY"
     info, error = _resolve_target_agent("claude", agents_multiple_claude)
 
-    assert error is not None
-    # Should suggest using custom names
-    assert "reviewer" in error or "tester" in error
+    assert error is None
+    assert info is not None
+    assert info["agent_id"] == "synapse-claude-8101"
 
 
 # ============================================================================

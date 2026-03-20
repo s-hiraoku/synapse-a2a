@@ -4402,14 +4402,14 @@
     // Mermaid DAG
     if (wf.steps && wf.steps.length > 1) {
       function mermaidEscape(str) {
-        return str.replace(/"/g, "&quot;").replace(/[[\](){}]/g, " ");
+        // Escape characters that break Mermaid label parsing
+        return str.replace(/"/g, "#quot;").replace(/[[\](){}]/g, " ").replace(/\//g, "#sol;");
       }
       var mermaidSrc = "graph TD\n";
       wf.steps.forEach(function (s, i) {
-        var msg = s.message.length > 25 ? s.message.substring(0, 25) + "..." : s.message;
-        var line1 = (i + 1) + ". " + mermaidEscape(s.target);
-        var line2 = mermaidEscape(msg);
-        mermaidSrc += '  S' + i + '["' + line1 + "<br/>" + line2 + '"]\n';
+        var msg = s.message.length > 30 ? s.message.substring(0, 30) + "…" : s.message;
+        var label = "Step " + (i + 1) + ": " + mermaidEscape(s.target) + "<br/>" + mermaidEscape(msg);
+        mermaidSrc += '  S' + i + '["' + label + '"]\n';
         if (i > 0) {
           var mode = s.response_mode || "notify";
           mermaidSrc += "  S" + (i - 1) + " -->|" + mode + "| S" + i + "\n";
@@ -4444,6 +4444,10 @@
       if (stepStatus === "failed" && activeRun && activeRun.steps[i] && activeRun.steps[i].error) {
         errorHtml = '<div class="workflow-step-error">' + escapeHtml(activeRun.steps[i].error) + "</div>";
       }
+      var outputHtml = "";
+      if (stepStatus === "completed" && activeRun && activeRun.steps[i] && activeRun.steps[i].output) {
+        outputHtml = '<details class="workflow-step-output"><summary>Output</summary><pre>' + escapeHtml(activeRun.steps[i].output) + "</pre></details>";
+      }
       var durationHtml = "";
       if (activeRun && activeRun.steps[i] && activeRun.steps[i].started_at && activeRun.steps[i].completed_at) {
         var dur = Math.round((activeRun.steps[i].completed_at - activeRun.steps[i].started_at) * 10) / 10;
@@ -4459,6 +4463,7 @@
             durationHtml +
           "</div>" +
           errorHtml +
+          outputHtml +
         "</div>";
       stepsDiv.appendChild(item);
     });
@@ -4532,6 +4537,8 @@
             if (run && run.status !== "running") {
               clearInterval(_workflowRunPollingTimer);
               _workflowRunPollingTimer = 0;
+              var label = run.status === "completed" ? "Workflow completed" : "Workflow failed";
+              showToast(label, run.workflow_name);
             }
           });
         }, 2000);

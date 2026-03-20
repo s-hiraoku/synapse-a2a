@@ -1197,8 +1197,7 @@ def _build_a2a_cmd(
     import tempfile
     import uuid
 
-    a2a_tool = _get_a2a_tool_path()
-    cmd = [sys.executable, str(a2a_tool), subcommand]
+    cmd = [sys.executable, "-m", "synapse.tools.a2a", subcommand]
 
     if target:
         cmd.extend(["--target", target])

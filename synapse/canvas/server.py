@@ -1444,8 +1444,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         run_id = await run_workflow(
             wf,
-            resolve_endpoint=_resolve_agent_endpoint,
-            canvas_port=_canvas_port,
             on_update=lambda: _broadcast_event("workflow_update", {}),
             continue_on_error=continue_on_error,
         )

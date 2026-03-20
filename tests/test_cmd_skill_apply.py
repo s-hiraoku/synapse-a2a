@@ -79,6 +79,9 @@ def setup_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         working_dir=str(project),
     )
 
+    # Ensure cwd matches agent's working_dir for target resolution
+    monkeypatch.chdir(project)
+
     return home, project, synapse, registry, sets_file
 
 
