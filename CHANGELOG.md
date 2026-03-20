@@ -2621,7 +2621,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...v0.16.0
 [0.15.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.10...v0.15.11
 [0.15.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...v0.15.10
 [0.15.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...v0.15.9

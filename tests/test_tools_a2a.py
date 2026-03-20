@@ -1870,8 +1870,14 @@ class TestCmdReply:
         captured = capsys.readouterr()
         assert "Reply sent" in captured.out
 
-    def test_cmd_reply_fail_and_message_exclusive(self, capsys):
+    @patch("synapse.tools.a2a.build_sender_info")
+    def test_cmd_reply_fail_and_message_exclusive(self, mock_sender, capsys):
         from synapse.tools.a2a import cmd_reply
+
+        mock_sender.return_value = {
+            "sender_id": "synapse-claude-8100",
+            "sender_endpoint": "http://localhost:8100",
+        }
 
         args = argparse.Namespace(message="hello", fail="reason", to=None)
 

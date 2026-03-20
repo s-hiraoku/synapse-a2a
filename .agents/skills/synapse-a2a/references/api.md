@@ -19,6 +19,7 @@ Use `synapse reply` to respond:
 
 ```bash
 synapse reply "<your response>"
+synapse reply --fail "<reason>"
 synapse reply --list-targets
 synapse reply "<your response>" --to <sender_id>
 ```
@@ -44,6 +45,7 @@ The framework automatically handles routing - you don't need to know where the m
 |----------|--------|-------------|
 | `/tasks/send-priority` | POST | Send with priority (1-5, 5=interrupt; subject to Readiness Gate) |
 | `/tasks/create` | POST | Create task without PTY send (for `--wait`) |
+| `/tasks/{id}/reply` | POST | Record an explicit reply on the receiver's local task before routing it back to the sender |
 | `/history/update` | POST | Update sender-side history observation (completion callback) |
 | `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
@@ -129,19 +131,23 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 | `/external/agents/{alias}` | DELETE | Remove external agent |
 | `/external/agents/{alias}/send` | POST | Send message to external agent |
 
-## Roundtrip Communication (`--wait` Flow)
+## Roundtrip Communication (`--wait` / `--notify` Flow)
 
-When `--wait` is used, the sender waits for a reply:
+When `--wait` or `--notify` is used, Synapse expects an explicit reply:
 
 1. **Sender** calls `/tasks/create` to create a task without PTY send (stores task context)
 2. **Sender** calls `/tasks/send` on the target agent with `[REPLY EXPECTED]` marker
-3. **Target agent** processes the message and replies via `synapse reply`
-4. **Reply** calls `/reply-stack/pop` to get sender info, then sends response back via `/tasks/send`
-5. **Sender** receives the response and the roundtrip completes
+3. **Target agent** stores sender routing info in the reply stack, including the receiver-side local task ID when available
+4. **Target agent** processes the message and replies via `synapse reply` or `synapse reply --fail`
+5. **Reply** first records the explicit reply locally via `/tasks/{id}/reply` when `receiver_task_id` is available, then routes the response back to the sender via `/tasks/send`
+6. **Sender** receives either reply artifacts or a structured task error and the roundtrip completes
 
 This flow ensures reliable request-response patterns between agents.
 
-If the receiver hits a quota or limit error before producing a reply, the task is finalized as `failed` and the sender sees the structured task error instead of a normal response body.
+**Failure semantics:**
+- `synapse reply --fail "<reason>"` records a failed explicit reply locally and returns a structured `failed` task to the sender (`REPLY_FAILED`)
+- If a `--wait` or `--notify` task completes without an explicit `synapse reply`, the receiver-side task is automatically marked as `MISSING_REPLY`
+- Legacy reply-stack entries may not include `receiver_task_id`; in that case local reply recording is skipped and missing-reply detection remains the safety net
 
 ## Readiness Gate
 

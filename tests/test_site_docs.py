@@ -184,11 +184,10 @@ def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
 
 
 def test_cli_cheatsheet_mentions_synapse_mcp_serve() -> None:
-    text = _read("docs/cli-cheatsheet.md")
+    """Check that synapse mcp serve is documented (cli-cheatsheet removed, check reference)."""
+    text = _read("docs/synapse-reference.md")
 
     assert "synapse mcp serve" in text
-    assert "Claude Code" in text
-    assert "Codex CLI" in text
 
 
 def test_mcp_bootstrap_doc_covers_agent_specific_config_locations() -> None:
