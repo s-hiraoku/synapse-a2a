@@ -49,7 +49,7 @@ blocking, and completion state are visible to the whole team.
 **Check existing agents before spawning** — reuse is faster (avoids startup overhead,
 instruction injection, and readiness wait):
 ```bash
-synapse list
+synapse list --json
 ```
 
 Review WORKING_DIR, ROLE, STATUS, TYPE. Only READY agents can accept work immediately.
@@ -140,7 +140,7 @@ synapse send Impl "Implement auth module" --task --attach synapse/server.py --fo
 ```
 
 ```bash
-synapse list                              # Live status (auto-updates)
+synapse list --json                       # AI-safe snapshot
 synapse tasks list                        # Task board progress and dependencies
 synapse history list --agent Impl         # Completed work
 ```
@@ -252,7 +252,7 @@ synapse tasks list                        # Confirm the UUID prefixes before com
 synapse tasks complete "$TESTS_ID"
 synapse tasks complete "$IMPL_ID"
 synapse kill Impl -f && synapse kill Tester -f
-synapse list                              # Verify cleanup
+synapse list --json                       # Verify cleanup
 synapse tasks purge --status completed    # Clean up finished tasks
 synapse tasks purge --older-than 7d      # Clean up old tasks
 synapse tasks purge --dry-run            # Preview what would be deleted

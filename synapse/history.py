@@ -6,6 +6,7 @@ enabling users to review past interactions and search historical data.
 
 import contextlib
 import json
+import logging
 import os
 import sqlite3
 import sys
@@ -13,6 +14,8 @@ import threading
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @contextlib.contextmanager
@@ -175,6 +178,13 @@ class HistoryManager:
                             metadata_json,
                         ),
                     )
+            except sqlite3.IntegrityError:
+                # Duplicate task_id saves are benign. The first observation wins,
+                # and later status changes should use update_observation_status().
+                logger.debug(
+                    "Observation already exists for task_id=%s; skipping duplicate save",
+                    task_id,
+                )
             except sqlite3.Error as e:
                 print(f"Warning: Failed to save observation: {e}", file=sys.stderr)
 

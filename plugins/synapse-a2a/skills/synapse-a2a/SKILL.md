@@ -8,7 +8,9 @@ description: >-
   managing the task board with synapse tasks, sharing knowledge with
   synapse memory, locking files with synapse file-safety, checking
   agent status with synapse list/status, or orchestrating any
-  multi-agent workflow.
+  multi-agent workflow. For AI/programmatic use, prefer `synapse list --json`,
+  `synapse status <target> --json`, or the MCP `list_agents` tool instead of
+  interactive `synapse list`.
 ---
 
 # Synapse A2A Communication
@@ -19,7 +21,7 @@ Inter-agent communication framework via Google A2A Protocol.
 
 | Task | Command |
 |------|---------|
-| List agents | `synapse list` (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter; `--json` for machine-readable output). MCP alternative: `list_agents` tool (via `tools/call`) |
+| List agents | `synapse list` for humans (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter). For AI/scripts use `synapse list --json`, `synapse list --plain`, or MCP `list_agents` |
 | Agent detail | `synapse status <target> [--json]` |
 | Send message | `synapse send <target> "<msg>"` (default: `--notify`; `--from` auto-detected) |
 | Send with task | `synapse send <target> "<msg>" --task` / `-T` (auto-creates board task, auto-claim on receive, auto-complete on finalize) |
@@ -71,7 +73,7 @@ Evaluate collaboration opportunities before starting work:
 | Discovered a pattern | Share: `synapse memory save <key> "<pattern>" --tags ... --notify` |
 
 **Mandatory Collaboration Gate** (3+ phases OR 10+ file changes):
-1. `synapse list` — check available agents
+1. `synapse list --json` or MCP `list_agents` — check available agents
 2. `synapse memory search "<topic>"` — check shared knowledge
 3. `synapse tasks create` — register work on the task board
 4. Build Agent Assignment Plan (Phase / Agent / Rationale)
@@ -182,7 +184,7 @@ Common defaults:
 | Single focused subtask | Spawn 1 agent |
 | N independent subtasks | Spawn N agents |
 
-**Spawn lifecycle**: spawn → confirm in `synapse list` → wait for READY → send task → evaluate result → kill → confirm cleanup in `synapse list`
+**Spawn lifecycle**: spawn → confirm in `synapse list --json` or `synapse status <target> --json` → wait for READY → send task → evaluate result → kill → confirm cleanup in `synapse list --json`
 
 Killing spawned agents after completion frees ports, memory, and PTY sessions,
 and prevents orphaned agents from accidentally accepting future tasks.
@@ -190,15 +192,15 @@ and prevents orphaned agents from accidentally accepting future tasks.
 ```bash
 # Spawn, delegate, verify, cleanup
 synapse spawn gemini --name Tester --role "test writer" -- --approval-mode=yolo
-synapse list                              # Verify agent appears
+synapse list --json                       # Verify agent appears (AI-safe)
 # Wait for readiness (or rely on server-side Readiness Gate)
 synapse send Tester "Write tests for src/auth.py" --wait
 # Evaluate result, then cleanup
 synapse kill Tester -f
-synapse list                              # Verify cleanup
+synapse list --json                       # Verify cleanup (AI-safe)
 ```
 
-If `synapse kill` fails or the agent still appears in `synapse list`, retry with `-f`,
+If `synapse kill` fails or the agent still appears in `synapse list --json`, retry with `-f`,
 check the agent status/logs, and report the cleanup failure instead of leaving an
 orphaned agent behind.
 

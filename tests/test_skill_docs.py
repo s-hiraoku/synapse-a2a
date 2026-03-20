@@ -44,9 +44,9 @@ def test_check_team_status_reports_failures_and_empty_states_distinctly() -> Non
         "plugins/synapse-a2a/skills/synapse-manager/scripts/check_team_status.sh"
     )
     assert "command -v synapse" in text
-    assert "list_output=$(synapse list 2>&1)" in text
+    assert "list_output=$(synapse list --plain 2>&1)" in text
     assert "list_status=$?" in text
-    assert "synapse list failed:" in text
+    assert "synapse list --plain failed:" in text
     assert "No agents running." in text
     assert "task_output=$(synapse tasks list 2>&1)" in text
     assert "task_status=$?" in text
@@ -87,9 +87,9 @@ def test_synapse_manager_skill_emphasizes_tests_before_implementation() -> None:
 
 def test_synapse_a2a_skill_shows_cleanup_verification() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-a2a/SKILL.md")
-    assert "synapse list                              # Verify agent appears" in text
+    assert "synapse list --json                       # Verify agent appears" in text
     assert "synapse kill Tester -f" in text
-    assert "synapse list                              # Verify cleanup" in text
+    assert "synapse list --json                       # Verify cleanup" in text
     assert "retry" in text.lower()
 
 

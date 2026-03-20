@@ -4247,6 +4247,8 @@ def cmd_run_interactive(
     submit_confirm_timeout = config.get("submit_confirm_timeout")
     submit_confirm_poll_interval = config.get("submit_confirm_poll_interval")
     submit_confirm_retries = config.get("submit_confirm_retries")
+    long_submit_confirm_timeout = config.get("long_submit_confirm_timeout")
+    long_submit_confirm_retries = config.get("long_submit_confirm_retries")
     submit_fallback_sequences = config.get("submit_fallback_sequences")
 
     # Create controller - initial instructions sent on IDLE (unless resume mode)
@@ -4279,6 +4281,8 @@ def cmd_run_interactive(
         submit_confirm_timeout=submit_confirm_timeout,
         submit_confirm_poll_interval=submit_confirm_poll_interval,
         submit_confirm_retries=submit_confirm_retries,
+        long_submit_confirm_timeout=long_submit_confirm_timeout,
+        long_submit_confirm_retries=long_submit_confirm_retries,
         submit_fallback_sequences=submit_fallback_sequences,
     )
 
@@ -4837,6 +4841,12 @@ Status meanings:
         action="store_true",
         dest="json_output",
         help="Output agent list as JSON (for programmatic use)",
+    )
+    p_list.add_argument(
+        "--plain",
+        action="store_true",
+        dest="plain_output",
+        help="Force one-shot plain-text output without the Rich TUI",
     )
     p_list.set_defaults(func=cmd_list)
 

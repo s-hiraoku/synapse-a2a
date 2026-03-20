@@ -92,6 +92,8 @@ class TerminalController:
         submit_confirm_timeout: float | None = None,
         submit_confirm_poll_interval: float | None = None,
         submit_confirm_retries: int | None = None,
+        long_submit_confirm_timeout: float | None = None,
+        long_submit_confirm_retries: int | None = None,
         submit_fallback_sequences: str | list[str] | None = None,
     ):
         self.command = command
@@ -313,6 +315,38 @@ class TerminalController:
                     f"got {submit_confirm_retries}"
                 )
             self._submit_confirm_retries = submit_confirm_retries
+
+        self._long_submit_confirm_timeout: float | None = None
+        if long_submit_confirm_timeout is not None:
+            try:
+                long_submit_confirm_timeout = float(long_submit_confirm_timeout)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "long_submit_confirm_timeout must be numeric, "
+                    f"got {long_submit_confirm_timeout!r}"
+                ) from None
+            if long_submit_confirm_timeout <= 0:
+                raise ValueError(
+                    "long_submit_confirm_timeout must be positive, "
+                    f"got {long_submit_confirm_timeout}"
+                )
+            self._long_submit_confirm_timeout = long_submit_confirm_timeout
+
+        self._long_submit_confirm_retries: int | None = None
+        if long_submit_confirm_retries is not None:
+            try:
+                long_submit_confirm_retries = int(long_submit_confirm_retries)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "long_submit_confirm_retries must be an integer, "
+                    f"got {long_submit_confirm_retries!r}"
+                ) from None
+            if long_submit_confirm_retries < 0:
+                raise ValueError(
+                    "long_submit_confirm_retries must be non-negative, "
+                    f"got {long_submit_confirm_retries}"
+                )
+            self._long_submit_confirm_retries = long_submit_confirm_retries
 
         # Fallback submit sequences for confirmation retries (Copilot).
         # Each retry cycles through the list (wrapping from end to start).
@@ -984,6 +1018,35 @@ class TerminalController:
             if self._typing_char_delay > 0 and idx + 1 < len(data):
                 time.sleep(self._typing_char_delay)
 
+    def _is_long_submit_message(self, data: str) -> bool:
+        """Whether Copilot confirmation should use long-message heuristics."""
+        if self.agent_type != "copilot":
+            return False
+        return "\n" in data or "\r" in data
+
+    def _pending_submit_markers(self, data: str) -> list[str]:
+        """Extract visible markers that indicate Copilot input still remains."""
+        data_stripped = data.strip()
+        if not data_stripped:
+            return []
+
+        markers: list[str] = [data_stripped]
+        if "[LONG MESSAGE - FILE ATTACHED]" in data_stripped:
+            markers.extend(
+                [
+                    "[LONG MESSAGE - FILE ATTACHED]",
+                    "The full message content is stored at:",
+                    "Please read this file",
+                ]
+            )
+        elif self._is_long_submit_message(data):
+            lines = [line.strip() for line in data.splitlines() if line.strip()]
+            for line in lines:
+                if len(line) >= 8 and line not in markers:
+                    markers.append(line)
+
+        return markers
+
     def write(
         self,
         data: str,
@@ -1058,13 +1121,16 @@ class TerminalController:
 
     def _should_confirm_submit(self, data: str, submit_bytes: bytes) -> bool:
         """Whether submit confirmation should run for this write."""
+        retries = self._submit_confirm_retries
+        if self._is_long_submit_message(data) and self._long_submit_confirm_retries:
+            retries = self._long_submit_confirm_retries
         return bool(
             data
             and submit_bytes
             and self.agent_type == "copilot"
             and self._submit_confirm_timeout is not None
             and self._submit_confirm_poll_interval is not None
-            and self._submit_confirm_retries > 0
+            and retries > 0
         )
 
     def _get_preferred_submit_bytes(self, original: bytes) -> bytes:
@@ -1096,19 +1162,23 @@ class TerminalController:
 
     def _submit_confirmed(self, data: str, initial_status: str) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
+        long_submit = self._is_long_submit_message(data)
+        plain = strip_ansi(self.get_context())
+        markers = self._pending_submit_markers(data)
+        pending = any(marker in plain[-4000:] for marker in markers)
+
         current_status = self.status
         if initial_status == "READY" and current_status != "READY":
-            return True
+            return not long_submit or not pending
         if current_status in {"PROCESSING", "DONE"}:
-            return True
+            return not long_submit or not pending
         if current_status == "WAITING" and initial_status != "WAITING":
+            return not long_submit or not pending
+
+        if not markers:
             return True
 
-        plain = strip_ansi(self.get_context())
-        data_stripped = data.strip()
-        if not data_stripped:
-            return True
-        return data_stripped not in plain[-2000:]
+        return not pending
 
     def _confirm_submit_if_needed(
         self,
@@ -1125,14 +1195,19 @@ class TerminalController:
         assert self._submit_confirm_poll_interval is not None
         original = original_submit_bytes or submit_bytes
         retry_candidates = self._get_retry_submit_candidates(submit_bytes, original)
+        confirm_timeout = self._submit_confirm_timeout
+        confirm_retries = self._submit_confirm_retries
+        if self._is_long_submit_message(data):
+            if self._long_submit_confirm_timeout is not None:
+                confirm_timeout = self._long_submit_confirm_timeout
+            if self._long_submit_confirm_retries is not None:
+                confirm_retries = self._long_submit_confirm_retries
 
         poll_limit = max(
             1,
-            math.ceil(
-                self._submit_confirm_timeout / self._submit_confirm_poll_interval
-            ),
+            math.ceil(confirm_timeout / self._submit_confirm_poll_interval),
         )
-        for attempt in range(self._submit_confirm_retries + 1):
+        for attempt in range(confirm_retries + 1):
             for _ in range(poll_limit):
                 if self._submit_confirmed(data, initial_status):
                     if attempt > 0:
@@ -1145,17 +1220,17 @@ class TerminalController:
                     return
                 time.sleep(self._submit_confirm_poll_interval)
 
-            if attempt < self._submit_confirm_retries:
+            if attempt < confirm_retries:
                 self._write_all(retry_candidates[attempt % len(retry_candidates)])
 
         message = (
             f"[{self.agent_id}] submit confirmation failed after "
-            f"{self._submit_confirm_retries} retries"
+            f"{confirm_retries} retries"
         )
         logger.warning(message)
         self._log_inject(
             "WARN",
-            f"submit confirmation failed retries={self._submit_confirm_retries}",
+            f"submit confirmation failed retries={confirm_retries}",
         )
 
     def interrupt(self) -> None:

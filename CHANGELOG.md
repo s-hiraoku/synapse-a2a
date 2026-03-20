@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.15.7] - 2026-03-20
 
+## [0.15.8] - 2026-03-20
+
+### Added
+
+- `synapse list --plain` for one-shot plain-text agent listings without entering the Rich TUI
+
+### Fixed
+
+- `synapse list` can now be forced into non-interactive mode with `SYNAPSE_NONINTERACTIVE=1`, so AI-controlled TTY sessions no longer hang in the interactive list UI
+
+### Documentation
+
+- Updated AI-facing guidance, plugin skills, and site docs to use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or MCP `list_agents` instead of bare `synapse list`
+
 ### Changed
 
 - Copilot now types short single-line messages instead of pasting them, prefers `Ctrl+S` when the footer advertises `ctrl+s run command`, and continues through submit retries as needed
@@ -2540,7 +2554,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...HEAD
+[0.15.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...v0.15.8
 [0.15.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...v0.15.7
 [0.15.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.5...v0.15.6
 [0.15.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.4...v0.15.5

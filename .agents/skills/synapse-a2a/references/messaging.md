@@ -221,10 +221,10 @@ Status transitions rely on multiple signals beyond PTY output patterns, reducing
 
 ### Checking Status Before Sending
 
-Run `synapse list` and confirm the target shows `READY`. Also check WORKING_DIR to avoid the working directory mismatch warning:
+For human operators, run `synapse list` and confirm the target shows `READY`. For AI/scripts, use `synapse list --json` or `synapse status <target> --json`. Also check WORKING_DIR to avoid the working directory mismatch warning:
 
 ```bash
-synapse list
+synapse list --json
 # NAME        TYPE    STATUS      PORT   CURRENT              WORKING_DIR
 # my-claude   claude  READY       8100   -                    my-project
 # gemini      gemini  PROCESSING  8110   Review code (1m 5s)  my-project
@@ -253,7 +253,7 @@ Messages sent to an agent that has not yet reached READY for the first time are 
 
 ## Interactive Controls
 
-`synapse list` provides keyboard-driven agent management:
+For humans, `synapse list` provides keyboard-driven agent management:
 
 | Key | Action |
 |-----|--------|

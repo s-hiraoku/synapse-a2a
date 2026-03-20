@@ -287,14 +287,14 @@ Spawn creates child agents for sub-task delegation — preserving context, paral
 
 #### Waiting for Readiness
 
-`synapse list` is a point-in-time snapshot. After spawning, poll until the agent shows `STATUS=READY`.
+For automation, prefer `synapse status <target> --json` after spawning and poll until the agent shows `STATUS=READY`.
 
-**Note:** Even without polling, the server-side **Readiness Gate** blocks `/tasks/send` requests until the agent finishes initialization. If the agent is not ready within 30 seconds (`AGENT_READY_TIMEOUT`), the API returns HTTP 503 with `Retry-After: 5`. Priority 5 messages and replies bypass this gate. Polling with `synapse list` remains useful for confirming readiness before sending non-urgent messages.
+**Note:** Even without polling, the server-side **Readiness Gate** blocks `/tasks/send` requests until the agent finishes initialization. If the agent is not ready within 30 seconds (`AGENT_READY_TIMEOUT`), the API returns HTTP 503 with `Retry-After: 5`. Priority 5 messages and replies bypass this gate. Human operators can still use `synapse list` interactively.
 
 ```bash
 # Poll until agent is ready (timeout after 30s)
 elapsed=0
-while ! synapse list | grep -q "Tester.*READY"; do
+while ! synapse status Tester --json 2>/dev/null | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"'; do
   sleep 1
   elapsed=$((elapsed + 1))
   if [ "$elapsed" -ge 30 ]; then
@@ -310,8 +310,11 @@ For Pattern 3 (multiple agents), wait for all of them:
 # Poll until BOTH agents are ready (single snapshot per iteration)
 elapsed=0
 while true; do
-  snapshot=$(synapse list)
-  echo "$snapshot" | grep -q "Tester.*READY" && echo "$snapshot" | grep -q "Fixer.*READY" && break
+  tester=$(synapse status Tester --json 2>/dev/null || true)
+  fixer=$(synapse status Fixer --json 2>/dev/null || true)
+  echo "$tester" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"' \
+    && echo "$fixer" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"' \
+    && break
   sleep 1
   elapsed=$((elapsed + 1))
   if [ "$elapsed" -ge 30 ]; then

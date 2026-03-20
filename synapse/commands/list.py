@@ -47,6 +47,12 @@ class ListCommand:
         self._time = time_module
         self._print = print_func
 
+    def _force_noninteractive(self, args: argparse.Namespace) -> bool:
+        """Return True when list output should avoid the Rich TUI."""
+        if getattr(args, "plain_output", False) is True:
+            return True
+        return os.environ.get("SYNAPSE_NONINTERACTIVE") == "1"
+
     def _is_agent_alive(
         self, registry: AgentRegistry, agent_id: str, info: dict[str, Any]
     ) -> bool:
@@ -646,8 +652,8 @@ class ListCommand:
         """List running agents with Rich TUI."""
         registry = self._registry_factory()
 
-        # Check if stdout is a TTY
-        if not sys.stdout.isatty():
+        # AI/programmatic callers may still be attached to a TTY.
+        if self._force_noninteractive(args) or not sys.stdout.isatty():
             # Non-interactive mode: single output
             agents, _, show_file_safety = self._get_agent_data(registry)
             if not agents:

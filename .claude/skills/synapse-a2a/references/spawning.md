@@ -56,9 +56,9 @@ Parent receives task
 # 1. Spawn a helper
 synapse spawn gemini --name Tester --role "test writer"
 
-# 2. Poll for readiness (synapse list is a point-in-time snapshot, so poll until READY)
+# 2. Poll for readiness (AI-safe: use status JSON until READY)
 elapsed=0
-while ! synapse list | grep -q "Tester.*READY"; do
+while ! synapse status Tester --json 2>/dev/null | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"'; do
   sleep 1; elapsed=$((elapsed + 1))
   [ "$elapsed" -ge 30 ] && echo "ERROR: Tester not READY after ${elapsed}s" >&2 && exit 1
 done
@@ -91,7 +91,7 @@ Killing spawned agents after completion frees ports, memory, and PTY sessions, a
 
 ```bash
 synapse kill <spawned-agent-name> -f
-synapse list  # Verify the agent is gone
+synapse list --json  # Verify the agent is gone
 ```
 
 ## Automation Args (per CLI)
