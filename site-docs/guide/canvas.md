@@ -609,7 +609,7 @@ The Canvas UI features a **glassmorphism design** with glass panels and `backdro
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all supported card types and built-in templates with hardcoded sample data under `site-docs/assets/`.
 
-The UI uses **SPA hash routing** with five views:
+The UI uses **SPA hash routing** with six views:
 
 | Route | View | Purpose |
 |---|---|---|
@@ -618,6 +618,7 @@ The UI uses **SPA hash routing** with five views:
 | `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
 | `#/admin` | **Agent Control** | Command center for sending messages to agents and managing agent lifecycle |
 | `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
+| `#/workflow` | **Workflow** | Split-panel workflow browser with execution support |
 
 ### Canvas View (`#/`)
 
@@ -685,3 +686,15 @@ The agent list refreshes automatically on SSE `system_update` events, so newly s
 
 !!! tip "Agent Control API Endpoints"
     The Agent Control view is backed by dedicated API endpoints on the Canvas server. See [Canvas Admin API](../reference/api.md#canvas-admin-api) for the full endpoint reference.
+
+### Workflow View (`#/workflow`)
+
+The Workflow view provides a split-panel interface for browsing and executing [Workflows](workflow.md) directly from the Canvas browser UI.
+
+**Left panel — Workflow list**: A table of all available workflows showing name, step count, scope, and description. Click a row to select a workflow.
+
+**Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph, and a **Run** button to trigger execution.
+
+**Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes. Up to 50 recent runs are stored in server memory (lost on restart).
+
+See [Workflows](workflow.md) for the full workflow configuration guide, and [Workflow API](../reference/api.md#workflow-api) for endpoint details.

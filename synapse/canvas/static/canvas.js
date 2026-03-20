@@ -4088,6 +4088,12 @@
     _dashboardRendered = false;
     _systemPanelRendered = false;
 
+    // Clean up workflow polling timer when leaving workflow view
+    if (currentRoute !== "workflow" && _workflowRunPollingTimer) {
+      clearInterval(_workflowRunPollingTimer);
+      _workflowRunPollingTimer = 0;
+    }
+
     if (currentRoute === "canvas") {
       canvasView.classList.remove("view-hidden");
       filterBar.style.display = "none";

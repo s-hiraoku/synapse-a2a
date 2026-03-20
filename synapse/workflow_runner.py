@@ -41,7 +41,7 @@ class StepResult:
         return {
             "step_index": self.step_index,
             "target": self.target,
-            "message": self.message[:80],
+            "message": self.message,
             "status": self.status,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
@@ -112,7 +112,7 @@ async def run_workflow(
     _workflow_runs[run_id] = run
     _evict_old_runs()
 
-    asyncio.create_task(
+    task = asyncio.create_task(
         _execute_workflow(
             run,
             workflow,
@@ -121,6 +121,9 @@ async def run_workflow(
             on_update,
             continue_on_error,
         )
+    )
+    task.add_done_callback(
+        lambda t: t.result() if not t.cancelled() and not t.exception() else None
     )
     return run_id
 
@@ -136,65 +139,65 @@ async def _execute_workflow(
     """Execute workflow steps sequentially."""
     has_failure = False
 
-    for i, wf_step in enumerate(workflow.steps):
-        step = run.steps[i]
-        endpoint = resolve_endpoint(wf_step.target)
-        if not endpoint:
-            step.status = "failed"
-            step.error = f"Agent '{wf_step.target}' not found"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for i, wf_step in enumerate(workflow.steps):
+            step = run.steps[i]
+            endpoint = resolve_endpoint(wf_step.target)
+            if not endpoint:
+                step.status = "failed"
+                step.error = f"Agent '{wf_step.target}' not found"
+                step.started_at = time.time()
+                step.completed_at = step.started_at
+                has_failure = True
+                if on_update:
+                    on_update()
+                if not continue_on_error:
+                    break
+                continue
+
+            step.status = "running"
             step.started_at = time.time()
-            step.completed_at = step.started_at
-            has_failure = True
             if on_update:
                 on_update()
-            if not continue_on_error:
-                break
-            continue
 
-        step.status = "running"
-        step.started_at = time.time()
-        if on_update:
-            on_update()
-
-        try:
-            task_id = str(uuid.uuid4())
-            a2a_request = {
-                "message": {
-                    "role": "user",
-                    "parts": [{"type": "text", "text": wf_step.message}],
-                },
-                "metadata": {
-                    "response_mode": wf_step.response_mode,
-                    "sender": {
-                        "sender_id": "canvas-workflow",
-                        "sender_name": "Workflow",
-                        "sender_endpoint": f"http://localhost:{canvas_port}",
+            try:
+                task_id = str(uuid.uuid4())
+                a2a_request = {
+                    "message": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": wf_step.message}],
                     },
-                    "sender_task_id": task_id,
-                },
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
+                    "metadata": {
+                        "response_mode": wf_step.response_mode,
+                        "sender": {
+                            "sender_id": "canvas-workflow",
+                            "sender_name": "Workflow",
+                            "sender_endpoint": f"http://localhost:{canvas_port}",
+                        },
+                        "sender_task_id": task_id,
+                    },
+                }
                 resp = await client.post(
                     f"{endpoint}/tasks/send",
                     json=a2a_request,
                 )
                 resp.raise_for_status()
 
-            step.task_id = task_id
-            step.status = "completed"
-            step.completed_at = time.time()
-        except Exception as e:
-            step.status = "failed"
-            step.error = str(e)
-            step.completed_at = time.time()
-            has_failure = True
-            if not continue_on_error:
-                if on_update:
-                    on_update()
-                break
+                step.task_id = task_id
+                step.status = "completed"
+                step.completed_at = time.time()
+            except Exception as e:
+                step.status = "failed"
+                step.error = str(e)
+                step.completed_at = time.time()
+                has_failure = True
+                if not continue_on_error:
+                    if on_update:
+                        on_update()
+                    break
 
-        if on_update:
-            on_update()
+            if on_update:
+                on_update()
 
     run.status = "failed" if has_failure else "completed"
     run.completed_at = time.time()

@@ -1393,45 +1393,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return {"ok": True}
 
     # ── Workflow endpoints ────────────────────────────────────
-    @app.get("/api/workflow")
-    async def workflow_list() -> dict[str, Any]:
-        """List all workflows with full step details."""
-        from synapse.workflow import WorkflowStore
-
-        workflows: list[dict[str, Any]] = []
-        try:
-            store = WorkflowStore()
-            for wf in store.list_workflows():
-                workflows.append(
-                    {
-                        "name": wf.name,
-                        "description": wf.description,
-                        "scope": wf.scope,
-                        "step_count": wf.step_count,
-                        "steps": [
-                            {
-                                "target": s.target,
-                                "message": s.message,
-                                "priority": s.priority,
-                                "response_mode": s.response_mode,
-                            }
-                            for s in wf.steps
-                        ],
-                    }
-                )
-        except Exception:
-            logger.debug("Failed to list workflows", exc_info=True)
-        return {"workflows": workflows}
-
-    @app.get("/api/workflow/{name}")
-    async def workflow_get(name: str) -> dict[str, Any]:
-        """Get a single workflow by name."""
-        from synapse.workflow import WorkflowStore
-
-        store = WorkflowStore()
-        wf = store.load(name)
-        if wf is None:
-            raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+    def _workflow_to_dict(wf: Any) -> dict[str, Any]:
+        """Serialize a Workflow to a JSON-friendly dict."""
         return {
             "name": wf.name,
             "description": wf.description,
@@ -1447,6 +1410,31 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 for s in wf.steps
             ],
         }
+
+    @app.get("/api/workflow")
+    async def workflow_list() -> dict[str, Any]:
+        """List all workflows with full step details."""
+        from synapse.workflow import WorkflowStore
+
+        workflows: list[dict[str, Any]] = []
+        try:
+            store = WorkflowStore()
+            for wf in store.list_workflows():
+                workflows.append(_workflow_to_dict(wf))
+        except Exception:
+            logger.debug("Failed to list workflows", exc_info=True)
+        return {"workflows": workflows}
+
+    @app.get("/api/workflow/{name}")
+    async def workflow_get(name: str) -> dict[str, Any]:
+        """Get a single workflow by name."""
+        from synapse.workflow import WorkflowStore
+
+        store = WorkflowStore()
+        wf = store.load(name)
+        if wf is None:
+            raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+        return _workflow_to_dict(wf)
 
     @app.post("/api/workflow/run/{name}")
     async def workflow_run(name: str, request: Request) -> dict[str, Any]:
