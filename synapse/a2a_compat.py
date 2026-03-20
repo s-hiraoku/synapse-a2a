@@ -696,6 +696,14 @@ def _select_response_context(
     return cleaned_candidates[0] if cleaned_candidates else ""
 
 
+def _find_active_working_task() -> Task | None:
+    """Return the current active working task, if any."""
+    for task in task_store.list_tasks():
+        if task.status == "working":
+            return task
+    return None
+
+
 async def _send_response_to_sender(
     task: Task,
     sender_endpoint: str,
@@ -1280,6 +1288,17 @@ def create_a2a_router(
 
         if not controller:
             raise HTTPException(status_code=503, detail="Agent not running")
+
+        active_task = _find_active_working_task()
+        if active_task and priority < 5:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Agent already has a working task "
+                    f"({active_task.id[:8]}). Retry after it completes."
+                ),
+                headers={"Retry-After": "2"},
+            )
 
         # Readiness Gate: wait for agent initialization to complete.
         # Priority >= 5 (emergency interrupt) bypasses the gate.

@@ -604,3 +604,53 @@ class TestCleanCopilotResponse:
         # "Thinking about..." should NOT be stripped (no "(Esc to cancel)" suffix)
         assert "Thinking about the problem carefully." in result
         assert "Permission denied error." in result
+
+    def test_removes_update_available_banner(self):
+        """Claude/Codex update banners should not become reply content."""
+        raw = "Update available! Run: brew upgrade claude-code"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_compacted_update_banner_with_ansi_residue(self):
+        """ANSI-garbled update banners should still be removed."""
+        raw = "38;5;178m7Run:brewupgradeclaude-code.."
+        assert clean_copilot_response(raw) == ""
+
+    def test_preserves_real_answer_while_removing_update_banner(self):
+        """A real answer should survive when an update banner is also present."""
+        raw = "LONG_REPLY_OK_2\nRECEIVED_LINES=4\nUpdate available! Run: brew upgrade claude-code"
+        assert clean_copilot_response(raw) == "LONG_REPLY_OK_2\nRECEIVED_LINES=4"
+
+    def test_removes_bare_csi_cursor_fragment(self):
+        """Bare CSI cursor fragments should not become reply content."""
+        assert clean_copilot_response("[1C") == ""
+
+    def test_preserves_real_answer_while_removing_bare_csi_fragment(self):
+        """A real answer should survive when a bare CSI fragment is also present."""
+        raw = "LONG_REPLY_OK_3\nRECEIVED_LINES=4\n[1C"
+        assert clean_copilot_response(raw) == "LONG_REPLY_OK_3\nRECEIVED_LINES=4"
+
+    def test_removes_branch_status_line(self):
+        """Branch/status lines should not become reply content."""
+        raw = "[38;5;178m1[38;5;246m  ⎇ fix/cpit-long-submt-timing-0159  (+309,-6)"
+        assert clean_copilot_response(raw) == ""
+
+    def test_preserves_real_answer_while_removing_branch_status_line(self):
+        """A real answer should survive when a branch/status line is also present."""
+        raw = (
+            "SYNAPSE_WAIT_TEST_SHORT_6\n"
+            "[38;5;178m1[38;5;246m  ⎇ fix/cpit-long-submt-timing-0159  (+309,-6)"
+        )
+        assert clean_copilot_response(raw) == "SYNAPSE_WAIT_TEST_SHORT_6"
+
+    def test_removes_progress_branch_status_line(self):
+        """Progress-prefixed branch/status lines should not become reply content."""
+        raw = "[38;5;178m█93  ⎇ fix/cpit-long-submt-timing-0159  (+330,-6)"
+        assert clean_copilot_response(raw) == ""
+
+    def test_preserves_real_answer_while_removing_progress_branch_status_line(self):
+        """A real answer should survive when a progress-prefixed branch line is present."""
+        raw = (
+            "SYNAPSE_WAIT_TEST_SHORT_7\n"
+            "[38;5;178m█93  ⎇ fix/cpit-long-submt-timing-0159  (+330,-6)"
+        )
+        assert clean_copilot_response(raw) == "SYNAPSE_WAIT_TEST_SHORT_7"

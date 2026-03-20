@@ -318,11 +318,36 @@ _COPILOT_ESC_STOP_RE = re.compile(
     r"^Esc\s+to\s+stop\s*$",
     re.IGNORECASE,
 )
+_BARE_CSI_FRAGMENT_RE = re.compile(r"^\[\??\d*(?:;\d+)*[A-Za-z]$")
+_BRANCH_STATUS_LINE_RE = re.compile(r"⎇\s+\S+.*\(\+\d+,-\d+\)")
 _SPINNER_CHARS = frozenset("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
 _BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ \u200b")
 
 # Sent message echo comparison length (shared with a2a_compat storage)
 SENT_MESSAGE_COMPARE_LEN = 50
+
+
+def _is_update_banner_line(line: str) -> bool:
+    """Return True for CLI self-update banners that are not real replies."""
+    compact = re.sub(r"[^a-z0-9:+.-]+", "", line.lower())
+    if "run:brewupgrade" not in compact:
+        return False
+    return any(
+        marker in compact
+        for marker in (
+            "claude-code",
+            "codex",
+            "gemini-cli",
+            "opencode",
+            "copilot",
+            "updateavailable",
+        )
+    )
+
+
+def _is_branch_status_line(line: str) -> bool:
+    """Return True for git branch/status lines emitted by TUI shells."""
+    return _BRANCH_STATUS_LINE_RE.search(line) is not None
 
 
 def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> str:
@@ -348,6 +373,12 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
             continue
         # Skip box-drawing / border lines
         if all(c in _BOX_CHARS for c in stripped):
+            continue
+        if _is_update_banner_line(stripped):
+            continue
+        if _is_branch_status_line(stripped):
+            continue
+        if _BARE_CSI_FRAGMENT_RE.match(stripped):
             continue
         # Strip Copilot status bar (keyboard shortcuts, model name).
         if _COPILOT_STATUS_BAR_RE.search(stripped):
