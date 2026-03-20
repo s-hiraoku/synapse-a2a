@@ -107,6 +107,15 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 |----------|--------|-------------|
 | `/tasks/{id}/subscribe` | GET | Subscribe to task updates via Server-Sent Events |
 
+### Canvas Card Endpoints (served by Canvas server)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cards` | POST | Create a new card |
+| `/api/cards` | GET | List cards (with optional filters) |
+| `/api/cards` | DELETE | Delete cards |
+| `/api/cards/{card_id}/download` | GET | Download card as file (optional `?format=md\|json\|csv\|html\|txt\|native`) |
+
 ### Canvas Agent Control Endpoints (served by Canvas server)
 
 | Endpoint | Method | Description |
