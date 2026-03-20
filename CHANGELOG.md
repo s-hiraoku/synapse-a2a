@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.11] - 2026-03-20
+
+### Changed
+
+- Copilot submit now uses adaptive paste echo wait: polls PTY output for Ink TUI re-render after bracketed paste, then sends Enter — replaces fixed `write_delay` for more reliable timing
+- TUI response cleaning (`clean_copilot_response`) now applies to all agents, fixing corrupted Codex and Claude Code replies
+
+### Fixed
+
+- Root logger calls in controller.py replaced with module logger, preventing WARNING messages from leaking into agent PTY output
+- Registry sync failure demoted from WARNING to DEBUG (transient, expected)
+- Pre-submit context captured before PTY writes so paste placeholders are correctly detected as incremental additions
+- `[Unreleased]` compare link updated for v0.15.10
+
+### Documentation
+
+- Updated HANDOFF doc, synapse-reference, and README for adaptive paste echo wait, all-agent TUI cleaning, and module logger
+- Plugin skills synced with paste echo wait and nudge timing descriptions
+
+### Tests
+
+- Added `_copilot_echo_context` test helper to simulate paste echo for Copilot write tests
+- Added contract tests for `long_submit_confirm_timeout` and `long_submit_confirm_retries` profile keys
+
 ## [0.15.10] - 2026-03-20
 
 ### Changed
@@ -2571,7 +2595,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.10...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.11...HEAD
+[0.15.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.10...v0.15.11
 [0.15.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...v0.15.10
 [0.15.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...v0.15.9
 [0.15.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...v0.15.8

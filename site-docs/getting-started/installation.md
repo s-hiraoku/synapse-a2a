@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.15.10`).
+You should see the version number (e.g., `0.15.11`).
 
 ## Initialize Configuration
 
