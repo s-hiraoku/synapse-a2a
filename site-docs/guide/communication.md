@@ -349,7 +349,7 @@ Beyond explicit messaging, the synapse-a2a skill teaches agents structured colla
 
 ### When You Need Help
 
-1. Run `synapse list` to check available agents (prefer same `WORKING_DIR`). MCP-capable agents can also use the `list_agents` MCP tool instead of the CLI command — see [MCP Setup](mcp-setup.md#list_agents).
+1. For humans, run `synapse list` to check available agents (prefer same `WORKING_DIR`). For AI/scripts, use `synapse list --json` or the `list_agents` MCP tool instead of the interactive CLI output — see [MCP Setup](mcp-setup.md#list_agents).
 2. Run `synapse memory search "<topic>"` to check shared knowledge first
 3. If no suitable agent exists, spawn one: `synapse spawn <profile> --name <name> --role "<role>"`
 4. Send the request: `synapse send <target> "<specific request>" --wait`

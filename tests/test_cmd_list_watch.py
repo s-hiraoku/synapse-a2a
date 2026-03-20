@@ -254,6 +254,55 @@ class TestCmdListTUI:
 
         assert len(run_rich_called) == 1
 
+    def test_plain_flag_bypasses_tui_even_when_tty(self, temp_registry, capsys):
+        """--plain should force one-shot text output even on a TTY."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        args = MagicMock()
+        args.plain_output = True
+        args.json_output = False
+        args.working_dir = None
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
+            patch("sys.stdout.isatty", return_value=True),
+            patch("synapse.commands.list.ListCommand._run_rich_tui") as mock_run_rich,
+        ):
+            cmd_list(args)
+
+        captured = capsys.readouterr()
+        assert "claude" in captured.out
+        assert "8100" in captured.out
+        mock_run_rich.assert_not_called()
+
+    def test_noninteractive_env_bypasses_tui_even_when_tty(self, temp_registry, capsys):
+        """SYNAPSE_NONINTERACTIVE=1 should force one-shot text output on a TTY."""
+        agent_id = "synapse-claude-8100"
+        temp_registry.register(agent_id, "claude", 8100, status="READY")
+
+        args = MagicMock()
+        args.plain_output = False
+        args.json_output = False
+        args.working_dir = None
+
+        with (
+            patch("synapse.cli.AgentRegistry", return_value=temp_registry),
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.is_port_open", return_value=True),
+            patch("sys.stdout.isatty", return_value=True),
+            patch.dict("os.environ", {"SYNAPSE_NONINTERACTIVE": "1"}, clear=False),
+            patch("synapse.commands.list.ListCommand._run_rich_tui") as mock_run_rich,
+        ):
+            cmd_list(args)
+
+        captured = capsys.readouterr()
+        assert "claude" in captured.out
+        assert "8100" in captured.out
+        mock_run_rich.assert_not_called()
+
 
 # ============================================================================
 # Tests for Bug #2: Silent Exception Swallowing

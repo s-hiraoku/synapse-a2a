@@ -15,6 +15,10 @@ submit_retry_delay: 0.15
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
+# Long multiline / file-reference sends can take longer to clear the Copilot
+# prompt after bracketed paste, so use a slightly larger confirmation budget.
+long_submit_confirm_timeout: 3.0
+long_submit_confirm_retries: 5
 # Fallback submit sequences tried in order on each confirmation retry.
 # Copilot CLI 1.0.8 can leave pasted input in the prompt and advertise
 # "ctrl+s run command" instead of executing Enter immediately, so try LF

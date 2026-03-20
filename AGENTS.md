@@ -17,7 +17,7 @@ uv sync                                    # Install dependencies
 pytest                                     # Run all tests
 pytest tests/test_<area>.py -v             # Run specific tests
 synapse <profile>                          # Start agent (claude, gemini, codex, opencode, copilot)
-synapse list                               # List running agents
+synapse list --json                        # List running agents for AI/programmatic use
 synapse send <target> "message" --wait     # Send message (synchronous)
 synapse send <target> "message" --silent   # Send message (fire-and-forget)
 ```

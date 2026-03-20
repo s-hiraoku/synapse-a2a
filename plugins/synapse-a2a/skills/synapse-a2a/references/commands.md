@@ -8,9 +8,14 @@
 # Show all running agents (Rich TUI with auto-refresh on changes)
 synapse list
 
+# Force one-shot plain text even on a TTY
+synapse list --plain
+
 # Output agent list as JSON array (machine-readable, no TUI)
 synapse list --json
 ```
+
+**AI / automation rule:** Do not use bare `synapse list` for agent discovery from an AI-controlled TTY. Use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or the MCP `list_agents` tool.
 
 **Rich TUI Features:**
 - Auto-refresh when agent status changes (via file watcher)
@@ -52,8 +57,10 @@ synapse list --json
   - `UDS→` / `TCP→`: Sending via UDS/TCP
   - `→UDS` / `→TCP`: Receiving via UDS/TCP
   - `-`: No active communication
-- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in non-TTY text output for scripting (e.g., `synapse list | grep my-project`).
+- **WORKING_DIR**: Working directory (truncated in TUI, full path in detail panel). Also included in plain-text output for scripting (e.g., `synapse list --plain | grep my-project`).
 - **EDITING FILE** (when File Safety enabled): Currently locked file name
+
+**Plain Output:** `synapse list --plain` forces single-shot text output without entering the Rich TUI, even when stdout is a TTY. `SYNAPSE_NONINTERACTIVE=1` provides the same behavior for automation wrappers.
 
 **JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`).
 

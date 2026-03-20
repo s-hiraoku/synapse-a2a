@@ -95,6 +95,36 @@ class TestHistoryManager:
         assert observations[0]["metadata"]["sender_id"] == "synapse-gemini-8110"
         assert observations[0]["metadata"]["sender_type"] == "gemini"
 
+    def test_save_observation_duplicate_task_id_is_ignored(
+        self, history_manager, capsys
+    ):
+        """Duplicate task_id saves should be ignored without stderr noise."""
+        history_manager.save_observation(
+            task_id="task-dup",
+            agent_name="claude",
+            session_id="session-1",
+            input_text="Input 1",
+            output_text="Output 1",
+            status="completed",
+        )
+        history_manager.save_observation(
+            task_id="task-dup",
+            agent_name="claude",
+            session_id="session-1",
+            input_text="Input 2",
+            output_text="Output 2",
+            status="failed",
+        )
+
+        captured = capsys.readouterr()
+        assert captured.err == ""
+
+        observations = history_manager.list_observations(limit=10)
+        assert len(observations) == 1
+        assert observations[0]["task_id"] == "task-dup"
+        assert observations[0]["input"] == "Input 1"
+        assert observations[0]["status"] == "completed"
+
     def test_list_observations_default_limit(self, history_manager):
         """Should list observations with default limit."""
         # Create 3 observations

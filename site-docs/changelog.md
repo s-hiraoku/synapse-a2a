@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.8
+
+- **Added**: `synapse list --plain` for one-shot plain-text agent listings without entering the Rich TUI
+- **Fixed**: `synapse list` can now be forced into non-interactive mode with `SYNAPSE_NONINTERACTIVE=1`, preventing hangs in AI-controlled TTY sessions
+- **Documentation**: Updated AI-facing guidance, plugin skills, and site docs to use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or MCP `list_agents`
+
 ### v0.15.7
 
 - **Fixed**: Interactive startup logging now switches to per-agent file logs before PTY handoff, so startup warnings no longer leak into interactive terminals

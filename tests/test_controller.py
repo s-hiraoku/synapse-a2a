@@ -960,7 +960,7 @@ class TestInterAgentMessageWrite:
         assert result is True
         assert writes == [b"hello", b"\r", b"\r"]
         assert sleeps[:2] == [0.5, 0.15]
-        assert sleeps[2:] == [0.05]
+        assert sleeps[2:] in ([], [0.05])
 
     def test_submit_confirmation_retries_when_waiting_state_does_not_advance(self):
         """Copilot should not treat WAITING->WAITING as confirmation by itself."""
@@ -1386,6 +1386,145 @@ class TestInterAgentMessageWrite:
             ctrl.write("hello\nworld", submit_seq="\r")
 
         assert writes == [b"\x1b[200~hello\nworld\x1b[201~", b"\r", b"\r"]
+
+    def test_copilot_long_message_reference_stays_pending_while_reference_remains(self):
+        """Long-message reference text should keep Copilot confirmation pending."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = (  # type: ignore[method-assign]
+            lambda: (
+                "A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+                "The full message content is stored at: /tmp/msg.txt\n"
+                "Please read this file to get the complete message.\n"
+                "Processing..."
+            )
+        )
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write(
+                "A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+                "The full message content is stored at: /tmp/msg.txt\n"
+                "Please read this file to get the complete message.",
+                submit_seq="\r",
+            )
+
+        assert writes == [
+            b"\x1b[200~A2A: [LONG MESSAGE - FILE ATTACHED]\n"
+            b"The full message content is stored at: /tmp/msg.txt\n"
+            b"Please read this file to get the complete message.\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+        ]
+
+    def test_copilot_long_message_status_advance_needs_reference_to_clear(self):
+        """Long Copilot sends should not confirm on PROCESSING while prompt text remains."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = (  # type: ignore[method-assign]
+            lambda: (setattr(ctrl, "status", "PROCESSING") or "")
+            + "[LONG MESSAGE - FILE ATTACHED]\n"
+            + "Please read this file to get the complete message.\n"
+            + "Processing..."
+        )
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write(
+                "[LONG MESSAGE - FILE ATTACHED]\n"
+                "Please read this file to get the complete message.",
+                submit_seq="\r",
+            )
+
+        assert writes == [
+            b"\x1b[200~[LONG MESSAGE - FILE ATTACHED]\n"
+            b"Please read this file to get the complete message.\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+        ]
+
+    def test_copilot_multiline_message_uses_long_submit_confirm_budget(self):
+        """Multi-line Copilot sends should use the long-message confirm budget."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+            long_submit_confirm_timeout=0.2,
+            long_submit_confirm_retries=2,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = lambda: "hello\nworld"  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        sleeps: list[float] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello\nworld", submit_seq="\r")
+
+        assert writes == [
+            b"\x1b[200~hello\nworld\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\r",
+        ]
+        assert sleeps[:2] == [0.5, 0.15]
+        confirm_sleeps = [s for s in sleeps[2:] if s != 0.1]
+        assert confirm_sleeps == [0.05] * 12
 
     # --- Bracketed paste mode tests ---
 

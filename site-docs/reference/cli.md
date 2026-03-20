@@ -70,6 +70,7 @@ synapse stop <target> -a     # Stop all instances of that profile
 
 ```bash
 synapse list                 # Interactive TUI with real-time updates
+synapse list --plain         # One-shot plain text (no TUI)
 synapse list --json          # Output agent list as JSON array
 ```
 
@@ -78,6 +79,9 @@ Interactive TUI with real-time updates. See [Agent Management](../guide/agent-ma
 | Flag | Description |
 |------|-------------|
 | `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
+| `--plain` | Force one-shot plain-text output without entering the Rich TUI |
+
+For AI-controlled terminals, do not use bare `synapse list`. Use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or the MCP `list_agents` tool.
 
 ### Status
 

@@ -137,6 +137,19 @@ class TestCliMain:
         args = mock_cmd_list.call_args[0][0]
         assert args.command == "list"
 
+    @patch("synapse.cli.cmd_list")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_list_plain(self, mock_install, mock_cmd_list):
+        """synapse list --plain should parse the non-interactive flag."""
+        with patch.object(sys, "argv", ["synapse", "list", "--plain"]):
+            main()
+
+        mock_cmd_list.assert_called_once()
+        args = mock_cmd_list.call_args[0][0]
+        assert args.command == "list"
+        assert args.plain_output is True
+        assert args.json_output is False
+
     @patch("synapse.cli.cmd_mcp_serve")
     @patch("synapse.cli.install_skills")
     def test_main_command_mcp_serve(self, mock_install, mock_cmd_mcp_serve):
