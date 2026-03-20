@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.1
+
+- **Added**: Canvas Workflow view (`#/workflow`) — split-panel UI with Mermaid DAG, async execution, real-time SSE progress
+- **Added**: 5 workflow API endpoints for browsing and running workflows from the browser
+
 ### v0.17.0
 
 - **Added**: Canvas card download — export any card as Markdown, JSON, CSV, HTML, or native format file via download button or API
