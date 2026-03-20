@@ -916,10 +916,10 @@ def create_a2a_router(
             if delta.strip():
                 response_context = delta
 
-        # Clean Copilot TUI artifacts (spinners, borders, re-render dupes)
-        if agent_type == "copilot":
-            sent_msg = metadata.get(_SENT_MESSAGE_METADATA_KEY)
-            response_context = clean_copilot_response(response_context, sent_msg)
+        # Clean TUI artifacts (spinners, borders, re-render dupes) for all
+        # agents — PTY output can contain ANSI, control chars, and TUI noise.
+        sent_msg = metadata.get(_SENT_MESSAGE_METADATA_KEY)
+        response_context = clean_copilot_response(response_context, sent_msg)
 
         status, error = detect_task_status(response_context)
         if status == "failed" and error:
