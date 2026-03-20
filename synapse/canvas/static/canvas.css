@@ -4074,7 +4074,7 @@ body.sidebar-collapsed #main-content {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 .workflow-step-flow {
@@ -4123,7 +4123,7 @@ body.sidebar-collapsed #main-content {
   min-width: 80px;
 }
 .workflow-step-message {
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4131,7 +4131,7 @@ body.sidebar-collapsed #main-content {
 }
 .workflow-step-mode {
   font-size: var(--text-xs);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   text-transform: uppercase;
 }
 .workflow-run-history {
@@ -4145,7 +4145,7 @@ body.sidebar-collapsed #main-content {
   gap: var(--sp-2);
   padding: var(--sp-1) 0;
   font-size: var(--text-xs);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
 }
 .workflow-row-selected {
   background: var(--color-accent);

@@ -14,6 +14,7 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 - **In-memory runs**: Up to 50 recent runs stored in server memory (lost on restart)
 
 ### API Endpoints
+
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/workflow` | GET | List all workflows with steps |

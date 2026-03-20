@@ -86,10 +86,29 @@ def get_run(run_id: str) -> WorkflowRun | None:
     return _workflow_runs.get(run_id)
 
 
-def _evict_old_runs() -> None:
-    """Remove oldest runs when over MAX_RUNS."""
+def _evict_old_runs(keep_id: str | None = None) -> None:
+    """Remove oldest finished runs when over MAX_RUNS.
+
+    Prefers evicting completed/failed runs. Falls back to oldest run
+    if all are still running, but never evicts *keep_id*.
+    """
     while len(_workflow_runs) > MAX_RUNS:
-        _workflow_runs.popitem(last=False)
+        # Prefer evicting non-running runs first
+        evicted = False
+        for rid, run in _workflow_runs.items():
+            if rid != keep_id and run.status != "running":
+                del _workflow_runs[rid]
+                evicted = True
+                break
+        if not evicted:
+            # Fall back: evict oldest run that isn't the one we just created
+            for rid in _workflow_runs:
+                if rid != keep_id:
+                    del _workflow_runs[rid]
+                    evicted = True
+                    break
+        if not evicted:
+            break
 
 
 async def run_workflow(
@@ -110,7 +129,7 @@ async def run_workflow(
     ]
     run = WorkflowRun(run_id=run_id, workflow_name=workflow.name, steps=steps)
     _workflow_runs[run_id] = run
-    _evict_old_runs()
+    _evict_old_runs(keep_id=run_id)
 
     task = asyncio.create_task(
         _execute_workflow(

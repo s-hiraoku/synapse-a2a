@@ -4394,7 +4394,7 @@
     header.style.marginBottom = "var(--sp-3)";
     header.innerHTML =
       "<h3 style='margin:0 0 var(--sp-1) 0;'>" + escapeHtml(wf.name) + "</h3>" +
-      (wf.description ? "<p style='margin:0; color:var(--color-muted); font-size:var(--text-sm);'>" + escapeHtml(wf.description) + "</p>" : "");
+      (wf.description ? "<p style='margin:0; color:var(--color-text-muted); font-size:var(--text-sm);'>" + escapeHtml(wf.description) + "</p>" : "");
     workflowDetailContent.appendChild(header);
 
     // Mermaid DAG
@@ -4406,9 +4406,9 @@
       });
       var flowDiv = document.createElement("div");
       flowDiv.className = "workflow-step-flow";
-      var mermaidDiv = document.createElement("div");
-      mermaidDiv.className = "mermaid-pending";
-      mermaidDiv.setAttribute("data-mermaid-source", mermaidSrc);
+      var mermaidDiv = document.createElement("pre");
+      mermaidDiv.className = "mermaid-pending mermaid";
+      mermaidDiv.dataset.mermaidSource = mermaidSrc;
       mermaidDiv.textContent = mermaidSrc;
       flowDiv.appendChild(mermaidDiv);
       workflowDetailContent.appendChild(flowDiv);

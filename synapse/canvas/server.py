@@ -1425,17 +1425,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
             logger.debug("Failed to list workflows", exc_info=True)
         return {"workflows": workflows}
 
-    @app.get("/api/workflow/{name}")
-    async def workflow_get(name: str) -> dict[str, Any]:
-        """Get a single workflow by name."""
-        from synapse.workflow import WorkflowStore
-
-        store = WorkflowStore()
-        wf = store.load(name)
-        if wf is None:
-            raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
-        return _workflow_to_dict(wf)
-
     @app.post("/api/workflow/run/{name}")
     async def workflow_run(name: str, request: Request) -> dict[str, Any]:
         """Start a workflow execution."""
@@ -1477,5 +1466,16 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if run is None:
             raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
         return run.to_dict()
+
+    @app.get("/api/workflow/{name}")
+    async def workflow_get(name: str) -> dict[str, Any]:
+        """Get a single workflow by name."""
+        from synapse.workflow import WorkflowStore
+
+        store = WorkflowStore()
+        wf = store.load(name)
+        if wf is None:
+            raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+        return _workflow_to_dict(wf)
 
     return app
