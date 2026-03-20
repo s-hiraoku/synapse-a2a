@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.16.2
+
+- **Added**: Canvas Admin UI — right-click context menu on agent rows with Kill Agent action and custom confirm modal
+- **Added**: Reusable `showConfirmModal` component with glassmorphism design and theme-aware styling
+
 ### v0.16.1
 
 - **Fixed**: Copilot CLI Enter key not executing after paste injection — set slave PTY to raw mode before spawn, drain bracketed paste writes, and add settle delay for Ink's async input buffer commit

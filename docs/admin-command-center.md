@@ -430,7 +430,7 @@ flowchart TD
 
 ### Agent List (Select Agent)
 
-Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target; **double-clicking** a row jumps to that agent's terminal (`POST /api/admin/jump/{agent_id}`). Each row shows:
+Displays all active agents in a `system-agents-table` retrieved from `GET /api/admin/agents`. The table has sticky headers and clickable rows -- clicking a row selects that agent as the target; **double-clicking** a row jumps to that agent's terminal (`POST /api/admin/jump/{agent_id}`); **right-clicking** a row opens a context menu with a **Kill Agent** action that shows a confirm modal before sending `DELETE /api/admin/agents/{agent_id}`. Each row shows:
 
 - **Status dot** -- color-coded by agent status (green = READY, amber = PROCESSING, red = error)
 - **Agent name** -- custom name or agent ID
