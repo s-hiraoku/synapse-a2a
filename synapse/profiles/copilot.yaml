@@ -5,13 +5,8 @@ args: []
 # CR required for interactive TUI to process Enter key
 submit_sequence: "\r"
 # PTY write delay between data and submit_seq (seconds)
-# Copilot's Ink TUI needs time between the paste and the Enter keypress
-# so that React state updates complete before the submit fires.
+# Copilot's Ink TUI needs a short settle window between the paste and Enter.
 write_delay: 0.5
-# Send submit_sequence twice with a short gap (seconds) between retries.
-# Safety net: the first CR triggers submit, the second retries if React
-# hadn't finished rendering.  150ms is enough for one React render cycle.
-submit_retry_delay: 0.15
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
@@ -19,28 +14,12 @@ submit_confirm_retries: 3
 # prompt after bracketed paste, so use a slightly larger confirmation budget.
 long_submit_confirm_timeout: 3.0
 long_submit_confirm_retries: 5
-# Long multiline sends also need a bit more time before the first submit and
-# before the retry submit, otherwise Ink can still be reconciling the paste.
-long_submit_settle_delay: 0.8
-long_submit_retry_delay: 0.3
-# Fallback submit sequences tried in order on each confirmation retry.
-# Copilot CLI 1.0.8 can leave pasted input in the prompt and advertise
-# "ctrl+s run command" instead of executing Enter immediately, so try LF
-# first, then Ctrl+S, then ESC+CR for older Ink variants.
-submit_fallback_sequences:
-  - "\n"
-  - "\x13"
-  - "\x1b\r"
 # Wrap PTY data in bracketed paste escape sequences (ESC[200~ ... ESC[201~).
 # Copilot CLI uses Ink's usePaste hook which expects pasted text to arrive
 # inside these markers.  Without them, Ink processes each character through
 # useInput one-by-one, racing with React state updates and causing the
 # subsequent CR (Enter) to fire before the text is in the input buffer.
 bracketed_paste: true
-# For short single-line A2A messages, emulate real typing instead of paste so
-# Copilot behaves like an actual user pressed Enter/Ctrl+S in the terminal.
-typing_char_delay: 0.01
-typing_max_chars: 400
 env:
   TERM: "xterm-256color"
 

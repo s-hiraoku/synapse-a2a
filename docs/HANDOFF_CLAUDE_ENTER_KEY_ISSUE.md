@@ -69,7 +69,7 @@ The delay between the data write and the submit sequence write is configurable p
 submit_sequence: "\r"
 ```
 
-**Copilot CLI** — same as Claude Code (0.5s for TUI rendering to complete). Short single-line messages can be typed instead of pasted, which keeps the CLI closer to a real keyboard flow:
+**Copilot CLI** — same as Claude Code (0.5s for TUI rendering to complete). All messages use bracketed paste plus Enter; confirmation waits for prompt markers to clear:
 
 ```yaml
 write_delay: 0.5
@@ -105,7 +105,7 @@ When `write_delay` is `0`, `time.sleep()` is skipped entirely so the submit sequ
 | Claude Code | `\r` | Ink TUI requires CR in v2.0.76 |
 | Gemini | `\r` | Standard CR works |
 | Codex | `\r` | Standard CR works |
-| Copilot | `\r` + fallback `["\n", "\x13", "\x1b\r"]` | Ink TUI with bracketed paste; submit confirmation prefers Ctrl+S when the footer says `ctrl+s run command`, then falls back through `submit_fallback_sequences` |
+| Copilot | Historical note: `\r` + fallback `["\n", "\x13", "\x1b\r"]` | This handoff section captures an older experiment. Current Synapse keeps Copilot on bracketed paste plus Enter and confirms submission by waiting for prompt markers to clear. |
 
 ## Related Files
 

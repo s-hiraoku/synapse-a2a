@@ -4,11 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.15.10
+
+- **Changed**: Refinement of v0.15.9 — removed residual typed-input, `Ctrl+S` fallback, and tmux delay code paths; inlined trivial pass-through methods; optimized pre-submit context capture
+- **Documentation**: Added `long_submit_confirm_*` fields to profiles-yaml schema reference
+
 ### v0.15.9
 
-- **Fixed**: Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into a burst
-- **Fixed**: Copilot multiline and file-reference sends now wait longer before the initial and retry submit strokes
-- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
+- **Fixed**: Copilot sends now use bracketed paste plus Enter exclusively, with marker-based submit confirmation that waits for prompt text, file-reference banners, and paste placeholders to clear
+- **Documentation**: Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path
 
 ### v0.15.8
 

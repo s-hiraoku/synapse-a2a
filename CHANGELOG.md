@@ -5,16 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.10] - 2026-03-20
+
+### Changed
+
+- Copilot submit path simplified: removed typed-input mode, `Ctrl+S` fallback, tmux typing delay override, and `submit_fallback_sequences` in favor of paste-plus-Enter only
+- Inlined trivial `_submit_settle_delay` and `_submit_retry_delay_for` pass-through methods
+- Pre-submit context capture now runs only for Copilot agents, avoiding unnecessary work for other agent types
+- Optimized paste-placeholder detection with `search()` early-exit before `findall()` counting
+
+### Documentation
+
+- Updated `docs/synapse-reference.md` Copilot section and `site-docs/reference/profiles-yaml.md` schema for paste-only submit path and `long_submit_confirm_*` fields
+
 ## [0.15.9] - 2026-03-20
 
 ### Fixed
 
-- Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into an ineffective burst
-- Copilot multiline and file-reference sends now wait longer before the first submit and retry submit strokes, improving long-message confirmation timing
+- Copilot sends now stay on bracketed paste plus Enter instead of mixing typed input, `Ctrl+S`, and alternate submit sequences
+- Copilot submit confirmation now waits for prompt markers such as file-reference banners, `[Paste #N - X lines]`, and `[Saved pasted content to workspace ...]` to clear before treating the send as confirmed
 
 ### Documentation
 
-- Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
+- Updated core docs, site docs, and plugin skills to document Copilot's paste-plus-Enter submit path and marker-based confirmation rules
 
 ## [0.15.8] - 2026-03-20
 
@@ -2558,7 +2571,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.10...HEAD
+[0.15.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...v0.15.10
 [0.15.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...v0.15.9
 [0.15.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...v0.15.8
 [0.15.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...v0.15.7
