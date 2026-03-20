@@ -23,6 +23,7 @@ class SenderInfo(TypedDict, total=False):
     sender_id: str
     sender_endpoint: str  # HTTP endpoint URL
     sender_task_id: str | None  # Task ID on sender's server (for in_reply_to)
+    receiver_task_id: str | None  # Local receiver task ID being replied to
     sender_uds_path: str | None  # UDS socket path (optional)
     message_preview: str | None
     received_at: str | None

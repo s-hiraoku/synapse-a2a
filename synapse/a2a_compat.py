@@ -90,6 +90,7 @@ class SenderInfo:
     sender_endpoint: str | None = None
     sender_uds_path: str | None = None
     sender_task_id: str | None = None
+    receiver_task_id: str | None = None
 
     def has_reply_target(self) -> bool:
         """Check if there's enough info to send a reply."""
@@ -106,6 +107,8 @@ class SenderInfo:
             entry["sender_uds_path"] = self.sender_uds_path
         if self.sender_task_id:
             entry["sender_task_id"] = self.sender_task_id
+        if self.receiver_task_id:
+            entry["receiver_task_id"] = self.receiver_task_id
         return entry
 
 
@@ -128,6 +131,7 @@ def _extract_sender_info(metadata: dict[str, Any] | None) -> SenderInfo:
         sender_endpoint=sender.get("sender_endpoint"),
         sender_uds_path=sender.get("sender_uds_path"),
         sender_task_id=metadata.get("sender_task_id"),
+        receiver_task_id=metadata.get("receiver_task_id"),
     )
 
 
@@ -580,6 +584,7 @@ _SENT_MESSAGE_METADATA_KEY = "_sent_message"
 _REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
 _REPLY_STATUS_METADATA_KEY = "reply_status"
 _REPLY_ERROR_METADATA_KEY = "reply_error"
+_EXPLICIT_REPLY_RECORDED_METADATA_KEY = "_explicit_reply_recorded"
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
@@ -697,11 +702,30 @@ def _select_response_context(
 
 
 def _find_active_working_task() -> Task | None:
-    """Return the current active working task, if any."""
+    """Return the current active working task, if any.
+
+    Only considers incoming tasks (those being executed by this agent).
+    Outgoing wait/notify tasks (direction=outgoing) are excluded since they
+    represent tasks *sent* to other agents, not work this agent is doing.
+    """
     for task in task_store.list_tasks():
         if task.status == "working":
+            meta = task.metadata or {}
+            if meta.get("direction") == "outgoing":
+                continue
             return task
     return None
+
+
+def _mark_missing_reply(task: Task) -> Task:
+    """Fail a wait/notify task when no explicit reply was recorded."""
+    task.artifacts = []
+    error = TaskErrorModel(
+        code="MISSING_REPLY",
+        message="Receiver completed without explicit synapse reply",
+    )
+    updated = task_store.set_error(task.id, error)
+    return updated or task
 
 
 async def _send_response_to_sender(
@@ -1352,6 +1376,7 @@ def create_a2a_router(
             ):
                 reply_stack = get_reply_stack()
                 reply_entry = sender_info.to_reply_stack_entry()
+                reply_entry["receiver_task_id"] = task.id
                 reply_entry["message_preview"] = text_content[:80]
                 reply_entry["received_at"] = datetime.now(timezone.utc).isoformat()
                 reply_stack.set(sender_info.sender_id, reply_entry)
@@ -1587,6 +1612,11 @@ def create_a2a_router(
 
         agent_id: str
 
+    class ExplicitReplyRequest(BaseModel):
+        """Request model for explicitly completing a task via synapse reply."""
+
+        message: str
+
     @router.get("/tasks/board")
     async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
         """Get all tasks from the shared task board."""
@@ -1674,6 +1704,22 @@ def create_a2a_router(
                 detail="Task cannot be reopened (may be pending or in_progress)",
             )
         return {"reopened": True, "task_id": task_id}
+
+    @router.post("/tasks/{task_id}/reply")
+    async def record_explicit_reply(
+        task_id: str,
+        request: ExplicitReplyRequest,
+        _: Any = Depends(require_auth),
+    ) -> Task:
+        """Record an explicit synapse reply on the receiver's local task."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        task.metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
+        task.artifacts = [Artifact(type="text", data={"content": request.message})]
+        task.error = None
+        updated = task_store.update_status(task_id, "completed")
+        return updated or task
 
     # --------------------------------------------------------
     # Shared Memory Endpoints
@@ -2419,6 +2465,7 @@ def create_a2a_router(
         sender_endpoint: str | None = None
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
+        receiver_task_id: str | None = None
         message_preview: str | None = None
         received_at: str | None = None
 
@@ -2429,6 +2476,7 @@ def create_a2a_router(
         sender_endpoint: str | None = None
         sender_uds_path: str | None = None
         sender_task_id: str | None = None
+        receiver_task_id: str | None = None
         message_preview: str | None = None
         received_at: str | None = None
 
@@ -2457,6 +2505,7 @@ def create_a2a_router(
                     sender_endpoint=target.get("sender_endpoint"),
                     sender_uds_path=target.get("sender_uds_path"),
                     sender_task_id=target.get("sender_task_id"),
+                    receiver_task_id=target.get("receiver_task_id"),
                     message_preview=target.get("message_preview"),
                     received_at=target.get("received_at"),
                 )
@@ -2485,6 +2534,7 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            receiver_task_id=info.get("receiver_task_id"),
             message_preview=info.get("message_preview"),
             received_at=info.get("received_at"),
         )
@@ -2510,6 +2560,7 @@ def create_a2a_router(
             sender_endpoint=info.get("sender_endpoint"),
             sender_uds_path=info.get("sender_uds_path"),
             sender_task_id=info.get("sender_task_id"),
+            receiver_task_id=info.get("receiver_task_id"),
             message_preview=info.get("message_preview"),
             received_at=info.get("received_at"),
         )
