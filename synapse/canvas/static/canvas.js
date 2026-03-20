@@ -24,6 +24,14 @@
   const adminMessageInput = document.getElementById("admin-message-input");
   const adminSendBtn = document.getElementById("admin-send-btn");
   const adminSplitter = document.getElementById("admin-splitter");
+  const workflowView = document.getElementById("workflow-view");
+  const workflowListPanel = document.getElementById("workflow-list-panel");
+  const workflowDetailPanel = document.getElementById("workflow-detail-panel");
+  const workflowDetailEmpty = document.getElementById("workflow-detail-empty");
+  const workflowDetailContent = document.getElementById("workflow-detail-content");
+  var _workflowData = [];
+  var _workflowRuns = [];
+  var _selectedWorkflow = null;
   var _selectedAdminTarget = "";
   var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
@@ -35,7 +43,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", system: "System", admin: "Agent Control" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", system: "System", admin: "Agent Control" };
 
   // Current route
   let currentRoute = "canvas";
@@ -155,6 +163,10 @@
     es.addEventListener("system_update", () => {
       loadSystemPanel();
       if (currentRoute === "admin") loadAdminAgents();
+    });
+
+    es.addEventListener("workflow_update", () => {
+      if (currentRoute === "workflow") loadWorkflowRuns();
     });
 
     var _sseHasConnected = false;
@@ -4003,6 +4015,7 @@
     if (hash === "#/dashboard") return "dashboard";
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
+    if (hash === "#/workflow") return "workflow";
     if (hash === "#/admin") return "admin";
     return "canvas";
   }
@@ -4069,6 +4082,7 @@
     if (dashboardView) dashboardView.classList.add("view-hidden");
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
+    if (workflowView) workflowView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
 
     _dashboardRendered = false;
@@ -4087,6 +4101,10 @@
       systemView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       if (_lastSystemData) renderSystemPanel(_lastSystemData);
+    } else if (currentRoute === "workflow") {
+      if (workflowView) workflowView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadWorkflows();
     } else if (currentRoute === "admin") {
       if (adminView) adminView.classList.remove("view-hidden");
       filterBar.style.display = "none";
@@ -4289,6 +4307,182 @@
       canvasSpotlight.classList.remove("spotlight-swap");
       _spotlightSwapTimer = 0;
     }, SPOTLIGHT_SWAP_DELAY);
+  }
+
+  // ----------------------------------------------------------------
+  // Workflow View
+  // ----------------------------------------------------------------
+  var _workflowRunPollingTimer = 0;
+
+  async function loadWorkflows() {
+    try {
+      var resp = await fetch("/api/workflow");
+      var data = await resp.json();
+      _workflowData = data.workflows || [];
+      renderWorkflowList(_workflowData);
+      loadWorkflowRuns();
+    } catch (e) { /* ignore */ }
+  }
+
+  async function loadWorkflowRuns() {
+    try {
+      var resp = await fetch("/api/workflow/runs");
+      var data = await resp.json();
+      _workflowRuns = data.runs || [];
+      if (_selectedWorkflow) renderWorkflowDetail(_selectedWorkflow);
+    } catch (e) { /* ignore */ }
+  }
+
+  function renderWorkflowList(workflows) {
+    if (!workflowListPanel) return;
+    var existingWrap = workflowListPanel.querySelector(".workflow-list-table-wrap");
+    if (existingWrap) existingWrap.remove();
+
+    var wrap = document.createElement("div");
+    wrap.className = "workflow-list-table-wrap";
+
+    if (!workflows.length) {
+      wrap.innerHTML = '<div class="workflow-empty">No workflows defined</div>';
+      workflowListPanel.appendChild(wrap);
+      return;
+    }
+
+    var table = document.createElement("table");
+    table.className = "system-agents-table";
+    var thead = document.createElement("thead");
+    thead.innerHTML = "<tr><th>Name</th><th>Steps</th><th>Scope</th><th>Description</th></tr>";
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    workflows.forEach(function (wf) {
+      var tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+      if (_selectedWorkflow && _selectedWorkflow.name === wf.name) {
+        tr.classList.add("workflow-row-selected");
+      }
+      tr.innerHTML =
+        "<td>" + escapeHtml(wf.name) + "</td>" +
+        "<td>" + wf.step_count + "</td>" +
+        "<td>" + escapeHtml(wf.scope) + "</td>" +
+        "<td>" + escapeHtml(wf.description || "") + "</td>";
+      tr.addEventListener("click", function () {
+        _selectedWorkflow = wf;
+        renderWorkflowList(workflows);
+        renderWorkflowDetail(wf);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    workflowListPanel.appendChild(wrap);
+  }
+
+  function renderWorkflowDetail(wf) {
+    if (!workflowDetailContent || !workflowDetailEmpty) return;
+    workflowDetailEmpty.classList.add("view-hidden");
+    workflowDetailContent.classList.remove("view-hidden");
+    workflowDetailContent.innerHTML = "";
+
+    // Header
+    var header = document.createElement("div");
+    header.style.marginBottom = "var(--sp-3)";
+    header.innerHTML =
+      "<h3 style='margin:0 0 var(--sp-1) 0;'>" + escapeHtml(wf.name) + "</h3>" +
+      (wf.description ? "<p style='margin:0; color:var(--color-muted); font-size:var(--text-sm);'>" + escapeHtml(wf.description) + "</p>" : "");
+    workflowDetailContent.appendChild(header);
+
+    // Mermaid DAG
+    if (wf.steps && wf.steps.length > 1) {
+      var mermaidSrc = "graph TD\n";
+      wf.steps.forEach(function (s, i) {
+        mermaidSrc += '  S' + i + '["' + (i + 1) + ". " + escapeHtml(s.target) + '"]\n';
+        if (i > 0) mermaidSrc += "  S" + (i - 1) + " --> S" + i + "\n";
+      });
+      var flowDiv = document.createElement("div");
+      flowDiv.className = "workflow-step-flow";
+      var mermaidDiv = document.createElement("div");
+      mermaidDiv.className = "mermaid-pending";
+      mermaidDiv.setAttribute("data-mermaid-source", mermaidSrc);
+      mermaidDiv.textContent = mermaidSrc;
+      flowDiv.appendChild(mermaidDiv);
+      workflowDetailContent.appendChild(flowDiv);
+      runMermaid(".workflow-step-flow");
+    }
+
+    // Steps with status
+    var activeRun = _workflowRuns.find(function (r) { return r.workflow_name === wf.name; });
+    var stepsDiv = document.createElement("div");
+    (wf.steps || []).forEach(function (s, i) {
+      var stepStatus = "pending";
+      var stepIcon = "\u23f3"; // ⏳
+      if (activeRun && activeRun.steps[i]) {
+        stepStatus = activeRun.steps[i].status;
+        if (stepStatus === "running") stepIcon = "\ud83d\udd04"; // 🔄
+        else if (stepStatus === "completed") stepIcon = "\u2705"; // ✅
+        else if (stepStatus === "failed") stepIcon = "\u274c"; // ❌
+      }
+      var item = document.createElement("div");
+      item.className = "workflow-step-item";
+      item.innerHTML =
+        '<span class="workflow-step-icon">' + stepIcon + "</span>" +
+        '<span class="workflow-step-target">' + escapeHtml(s.target) + "</span>" +
+        '<span class="workflow-step-message">' + escapeHtml(s.message) + "</span>" +
+        '<span class="workflow-step-mode">' + escapeHtml(s.response_mode || "notify") + "</span>";
+      stepsDiv.appendChild(item);
+    });
+    workflowDetailContent.appendChild(stepsDiv);
+
+    // Run button
+    var isRunning = activeRun && activeRun.status === "running";
+    var runBtn = document.createElement("button");
+    runBtn.className = "workflow-run-btn";
+    runBtn.disabled = isRunning;
+    runBtn.innerHTML = isRunning
+      ? '<i class="ph ph-spinner"></i> Running...'
+      : '<i class="ph ph-play"></i> Run';
+    runBtn.addEventListener("click", function () {
+      runWorkflow(wf.name);
+    });
+    workflowDetailContent.appendChild(runBtn);
+
+    // Run history
+    var relatedRuns = _workflowRuns.filter(function (r) { return r.workflow_name === wf.name; });
+    if (relatedRuns.length > 0) {
+      var histDiv = document.createElement("div");
+      histDiv.className = "workflow-run-history";
+      histDiv.innerHTML = '<div style="font-size:var(--text-xs); color:var(--color-muted); margin-bottom:var(--sp-1);">Recent runs</div>';
+      relatedRuns.slice(0, 10).forEach(function (r) {
+        var item = document.createElement("div");
+        item.className = "workflow-run-item";
+        var statusIcon = r.status === "completed" ? "\u2705" : r.status === "failed" ? "\u274c" : "\ud83d\udd04";
+        var startTime = r.started_at ? new Date(r.started_at * 1000).toLocaleTimeString() : "";
+        var duration = r.completed_at && r.started_at ? Math.round(r.completed_at - r.started_at) + "s" : "...";
+        item.textContent = statusIcon + " " + startTime + " (" + duration + ")";
+        histDiv.appendChild(item);
+      });
+      workflowDetailContent.appendChild(histDiv);
+    }
+  }
+
+  async function runWorkflow(name) {
+    try {
+      var resp = await fetch("/api/workflow/run/" + encodeURIComponent(name), { method: "POST" });
+      var data = await resp.json();
+      if (data.run_id) {
+        // Start polling for updates
+        clearInterval(_workflowRunPollingTimer);
+        _workflowRunPollingTimer = setInterval(function () {
+          loadWorkflowRuns().then(function () {
+            var run = _workflowRuns.find(function (r) { return r.run_id === data.run_id; });
+            if (run && run.status !== "running") {
+              clearInterval(_workflowRunPollingTimer);
+              _workflowRunPollingTimer = 0;
+            }
+          });
+        }, 2000);
+        loadWorkflowRuns();
+      }
+    } catch (e) { /* ignore */ }
   }
 
   // ----------------------------------------------------------------

@@ -26,6 +26,7 @@
     <a href="#/" class="nav-link active" data-route="canvas"><i class="ph ph-monitor"></i><span>Canvas</span></a>
     <a href="#/history" class="nav-link nav-sub" data-route="history"><i class="ph ph-clock-counter-clockwise"></i><span>History</span></a>
     <a href="#/dashboard" class="nav-link" data-route="dashboard"><i class="ph ph-squares-four"></i><span>Dashboard</span></a>
+    <a href="#/workflow" class="nav-link" data-route="workflow"><i class="ph ph-flow-arrow"></i><span>Workflow</span></a>
     <a href="#/admin" class="nav-link" data-route="admin"><i class="ph ph-crown"></i><span>Agent Control</span></a>
     <a href="#/system" class="nav-link" data-route="system"><i class="ph ph-gear-six"></i><span>System</span></a>
   </nav>
@@ -114,6 +115,19 @@
   <!-- System View -->
   <section id="system-view" class="view-hidden">
     <div id="system-panel"></div>
+  </section>
+
+  <!-- Workflow View -->
+  <section id="workflow-view" class="view-hidden">
+    <div id="workflow-container">
+      <div id="workflow-list-panel">
+        <h3 class="admin-section-title"><i class="ph ph-flow-arrow"></i> Workflows</h3>
+      </div>
+      <div id="workflow-detail-panel">
+        <div id="workflow-detail-empty" class="workflow-empty">Select a workflow</div>
+        <div id="workflow-detail-content" class="view-hidden"></div>
+      </div>
+    </div>
   </section>
 
   <!-- Admin View -->
