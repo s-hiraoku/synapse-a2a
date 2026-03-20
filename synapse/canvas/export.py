@@ -196,9 +196,12 @@ def _chart_to_md(block: dict) -> str:
     body = block.get("body", {})
     if isinstance(body, str):
         return f"```json\n{body}\n```"
-    chart_type = body.get("type", "chart")
+    if isinstance(body, dict):
+        chart_type = str(body.get("type", "chart"))
+        json_str = json.dumps(body, indent=2, ensure_ascii=False)
+        return f"### {chart_type.title()} Chart\n\n```json\n{json_str}\n```"
     json_str = json.dumps(body, indent=2, ensure_ascii=False)
-    return f"### {chart_type.title()} Chart\n\n```json\n{json_str}\n```"
+    return f"```json\n{json_str}\n```"
 
 
 # ============================================================

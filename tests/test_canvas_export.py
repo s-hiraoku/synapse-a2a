@@ -148,6 +148,14 @@ def test_chart_to_md_string():
     assert result == '```json\n{"type": "line"}\n```'
 
 
+def test_chart_to_md_list_body():
+    """Chart with list body should not crash — fallback to JSON fence."""
+    block = {"format": "chart", "body": [1, 2, 3]}
+    result = _block_to_markdown(block)
+    assert "```json" in result
+    assert result.endswith("```")
+
+
 # ============================================================
 # Group B — Native converters
 # ============================================================
