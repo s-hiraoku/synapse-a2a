@@ -49,7 +49,6 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ### 仕様ドキュメント
 
-- `draft-spec.md` - Draft specification for Synapse A2A protocol
 - `universal-agent-communication-spec.md` - Universal agent communication specification
 - `input-routing-spec.md` - Input routing specification
 - `agent-teams-adoption-spec.md` - **Agent Teams 機能採用仕様書**

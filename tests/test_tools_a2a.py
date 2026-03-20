@@ -1870,6 +1870,18 @@ class TestCmdReply:
         captured = capsys.readouterr()
         assert "Reply sent" in captured.out
 
+    def test_cmd_reply_fail_and_message_exclusive(self, capsys):
+        from synapse.tools.a2a import cmd_reply
+
+        args = argparse.Namespace(message="hello", fail="reason", to=None)
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_reply(args)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Use either a reply message or --fail" in captured.err
+
     @patch("synapse.tools.a2a.build_sender_info")
     @patch("requests.get")
     def test_cmd_reply_no_sender(

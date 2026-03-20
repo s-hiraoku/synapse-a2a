@@ -231,7 +231,7 @@ write_delay: 1.0
 - **Claude Code**: デフォルト（0.5s）。ブラケテッドペーストモードの境界クローズに時間がかかるため遅延が必要
 - **Copilot CLI**: `write_delay: 0.5`。TUI の描画完了を待ってから CR を送信
 
-詳細は `docs/HANDOFF_CLAUDE_ENTER_KEY_ISSUE.md` を参照。
+詳細はプロファイル YAML の `write_delay` / `submit_sequence` フィールドを参照。
 
 ---
 

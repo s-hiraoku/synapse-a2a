@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.16.0
+
+- **Added**: `synapse reply --fail <reason>` for sending structured failed replies
+- **Added**: `MISSING_REPLY` auto-detection for wait/notify tasks completed without explicit reply
+- **Fixed**: TOCTOU race in missing-reply guard; reserved metadata key protection
+- **Changed**: Error codes and metadata keys extracted to shared constants
+
 ### v0.15.11
 
 - **Changed**: Adaptive paste echo wait replaces fixed `write_delay` for Copilot — polls PTY output for Ink TUI re-render before sending Enter

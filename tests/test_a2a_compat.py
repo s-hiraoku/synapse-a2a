@@ -1,5 +1,6 @@
 """Tests for A2A Compatibility Layer - Google A2A protocol compliance."""
 
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from synapse.a2a_compat import (
     DataPart,
     FilePart,
     Message,
+    TaskErrorModel,
     TaskStore,
     TextPart,
     create_a2a_router,
@@ -201,6 +203,66 @@ class TestTaskStore:
 
         assert task.metadata["sender"]["sender_id"] == "external-agent"
         assert "sender_type" not in task.metadata["sender"]
+
+    def test_record_explicit_reply_completed_updates_task_atomically(self, task_store):
+        """Completed explicit replies should set metadata, artifacts, and status together."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+        task_store.update_status(task.id, "working")
+
+        updated = task_store.record_explicit_reply(task.id, message="Done")
+
+        assert updated is not None
+        assert updated.metadata["_explicit_reply_recorded"] is True
+        assert updated.status == "completed"
+        assert updated.error is None
+        assert updated.artifacts == [Artifact(type="text", data={"content": "Done"})]
+
+    def test_record_explicit_reply_failed_updates_task_atomically(self, task_store):
+        """Failed explicit replies should set metadata, error, and failed status together."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+        task_store.update_status(task.id, "working")
+        error = TaskErrorModel(code="QUOTA_EXCEEDED", message="Quota exceeded")
+
+        updated = task_store.record_explicit_reply(
+            task.id,
+            message="Quota exceeded",
+            status="failed",
+            error=error,
+        )
+
+        assert updated is not None
+        assert updated.metadata["_explicit_reply_recorded"] is True
+        assert updated.status == "failed"
+        assert updated.error == error
+        assert updated.artifacts == []
+
+    def test_mark_missing_reply_if_unreplied_skips_explicit_reply(self, task_store):
+        """Missing-reply marking should not override an explicit reply."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+        task_store.update_status(task.id, "working")
+        task_store.record_explicit_reply(task.id, message="Done")
+
+        updated = task_store.mark_missing_reply_if_unreplied(task.id)
+
+        assert updated is not None
+        assert updated.status == "completed"
+        assert updated.error is None
+        assert updated.metadata["_explicit_reply_recorded"] is True
+
+    def test_claim_finalization_only_allows_single_winner(self, task_store):
+        """Only one caller should be able to claim finalization for a working task."""
+        msg = Message(parts=[TextPart(text="Test")])
+        task = task_store.create(msg)
+        task_store.update_status(task.id, "working")
+
+        first = task_store.claim_finalization(task.id)
+        second = task_store.claim_finalization(task.id)
+
+        assert first is not None
+        assert second is None
 
 
 # ============================================================
@@ -1186,6 +1248,38 @@ class TestReplyStackEndpoints:
         assert data["status"] == "failed"
         assert data["artifacts"] == []
         assert data["error"]["code"] == "QUOTA_EXCEEDED"
+
+    def test_get_task_logs_when_response_dispatch_task_creation_fails(
+        self, client, mock_controller, monkeypatch, caplog
+    ):
+        """Dispatch task-creation failures should be logged instead of escaping."""
+        mock_controller.status = "READY"
+        mock_controller.get_context.return_value = "Completed response"
+
+        payload = {
+            "message": {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+            "metadata": {
+                "sender": {
+                    "sender_id": "synapse-claude-8100",
+                    "sender_endpoint": "http://localhost:8100",
+                },
+                "sender_task_id": "abc12345-uuid",
+                "response_mode": "wait",
+            },
+        }
+        create_response = client.post("/tasks/send", json=payload)
+        task_id = create_response.json()["task"]["id"]
+
+        def raise_create_task(coro):  # noqa: ANN001
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("synapse.a2a_compat.asyncio.create_task", raise_create_task)
+
+        with caplog.at_level(logging.ERROR):
+            response = client.get(f"/tasks/{task_id}")
+
+        assert response.status_code == 200
+        assert "Failed to create sender response task" in caplog.text
 
 
 class TestA2APrefixedPTYOutput:

@@ -1053,6 +1053,8 @@ def cmd_reply(args: argparse.Namespace) -> None:
             _REPLY_ERROR_METADATA_KEY: fail_error,
             _REPLY_ARTIFACTS_METADATA_KEY: [],
         }
+    # receiver_task_id may be absent in legacy reply-stack entries;
+    # skip local reply recording - _maybe_mark_missing_reply handles this case.
     if receiver_task_id:
         local_payload: dict[str, object] = {"message": message}
         if fail_reason:
