@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] - 2026-03-20
+
+### Added
+
+- Canvas Admin UI: right-click context menu on agent rows with Kill Agent action
+- Reusable confirm modal component (`showConfirmModal`) with glassmorphism design, Escape/click-away dismiss, and theme-aware styling
+- Canvas Admin UI: `DELETE /api/admin/agents/{id}` integration for stopping agents from the browser
+
+### Documentation
+
+- Updated README.md, admin-command-center.md, and site-docs/guide/canvas.md with context menu documentation
+
 ## [0.16.1] - 2026-03-20
 
 ### Fixed

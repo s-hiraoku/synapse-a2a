@@ -4239,6 +4239,122 @@ body.splitter-dragging {
 }
 #admin-send-btn:hover { filter: brightness(1.1); }
 #admin-send-btn:active { transform: scale(0.97); }
+
+/* ── Confirm Modal ───────────────────────────── */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: confirmFadeIn 150ms ease-out;
+}
+@keyframes confirmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.confirm-modal {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 320px;
+  max-width: 420px;
+  padding: var(--sp-5);
+  animation: confirmSlideIn 150ms ease-out;
+}
+@keyframes confirmSlideIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.confirm-modal-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 var(--sp-2) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.confirm-modal-title.danger {
+  color: var(--color-danger);
+}
+.confirm-modal-body {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--sp-5);
+}
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+.confirm-modal-btn {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-stroke);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease-out, transform 100ms ease-out;
+}
+.confirm-modal-btn:active {
+  transform: scale(0.97);
+}
+.confirm-modal-btn.cancel {
+  background: var(--color-tint-light);
+  color: var(--color-text);
+}
+.confirm-modal-btn.cancel:hover {
+  background: var(--color-tint-light-hover);
+}
+.confirm-modal-btn.danger {
+  background: var(--color-danger);
+  color: #fff;
+  border-color: var(--color-danger);
+}
+.confirm-modal-btn.danger:hover {
+  filter: brightness(1.1);
+}
+
+/* ── Agent Context Menu ──────────────────────── */
+.agent-context-menu {
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  background: var(--color-bg-raised);
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  min-width: 160px;
+  padding: var(--sp-1) 0;
+  backdrop-filter: blur(12px);
+}
+.agent-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  transition: background 100ms ease-out;
+  user-select: none;
+}
+.agent-context-menu-item:hover {
+  background: var(--color-tint-light-hover);
+}
+.agent-context-menu-item.danger {
+  color: var(--color-danger);
+}
+.agent-context-menu-item.danger:hover {
+  background: var(--color-danger-subtle);
+}
+
 .admin-spinner {
   display: flex;
   align-items: center;

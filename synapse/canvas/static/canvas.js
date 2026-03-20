@@ -2778,6 +2778,7 @@
 
     var onRowClick = options && options.onRowClick;
     var onRowDblClick = options && options.onRowDblClick;
+    var onRowContextMenu = options && options.onRowContextMenu;
     var selectedId = options && options.selectedId;
 
     var table = document.createElement("table");
@@ -2810,6 +2811,11 @@
         if (onRowDblClick) {
           tr.addEventListener("dblclick", function() {
             onRowDblClick(agent);
+          });
+        }
+        if (onRowContextMenu) {
+          tr.addEventListener("contextmenu", function(e) {
+            onRowContextMenu(agent, e);
           });
         }
         tbody.appendChild(tr);
@@ -4269,10 +4275,170 @@
       },
       onRowDblClick: function(agent) {
         jumpToAgent(agent.agent_id);
+      },
+      onRowContextMenu: function(agent, e) {
+        showAgentContextMenu(agent, e);
       }
     });
     content.className = "admin-agents-table-wrap";
     adminAgentsWidget.appendChild(content);
+  }
+
+  // ── Agent Context Menu ──────────────────────────
+  var _agentContextMenu = null;
+  var _contextMenuTarget = null;
+
+  function createAgentContextMenu() {
+    var menu = document.createElement("div");
+    menu.className = "agent-context-menu";
+
+    var killItem = document.createElement("div");
+    killItem.className = "agent-context-menu-item danger";
+    var icon = document.createElement("i");
+    icon.className = "ph ph-trash";
+    killItem.appendChild(icon);
+    killItem.appendChild(document.createTextNode(" Kill Agent"));
+    killItem.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var target = _contextMenuTarget;
+      hideAgentContextMenu();
+      if (target) killAgent(target);
+    });
+    menu.appendChild(killItem);
+
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  function showAgentContextMenu(agent, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!_agentContextMenu) _agentContextMenu = createAgentContextMenu();
+    _contextMenuTarget = agent;
+
+    var menu = _agentContextMenu;
+    menu.style.display = "block";
+
+    // Position with viewport boundary correction
+    var menuRect = menu.getBoundingClientRect();
+    var x = e.clientX;
+    var y = e.clientY;
+    if (x + menuRect.width > window.innerWidth) x = window.innerWidth - menuRect.width - 8;
+    if (y + menuRect.height > window.innerHeight) y = window.innerHeight - menuRect.height - 8;
+    if (x < 0) x = 8;
+    if (y < 0) y = 8;
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+  }
+
+  function hideAgentContextMenu() {
+    if (!_agentContextMenu || _agentContextMenu.style.display === "none") return;
+    _agentContextMenu.style.display = "none";
+    _contextMenuTarget = null;
+  }
+
+  // Dismiss context menu on click-away, scroll, resize, Escape
+  document.addEventListener("click", function() { hideAgentContextMenu(); });
+  document.addEventListener("contextmenu", function() { hideAgentContextMenu(); });
+  window.addEventListener("scroll", function() { hideAgentContextMenu(); }, true);
+  window.addEventListener("resize", function() { hideAgentContextMenu(); });
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") hideAgentContextMenu();
+  });
+
+  // ── Confirm Modal ──────────────────────────────
+  function showConfirmModal(options) {
+    // options: { title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }
+    var overlay = document.createElement("div");
+    overlay.className = "confirm-modal-overlay";
+
+    var modal = document.createElement("div");
+    modal.className = "confirm-modal";
+
+    var title = document.createElement("div");
+    title.className = "confirm-modal-title" + (options.danger ? " danger" : "");
+    if (options.icon) {
+      var icon = document.createElement("i");
+      icon.className = options.icon;
+      title.appendChild(icon);
+    }
+    title.appendChild(document.createTextNode(options.title || "Confirm"));
+    modal.appendChild(title);
+
+    var body = document.createElement("div");
+    body.className = "confirm-modal-body";
+    body.textContent = options.body || "";
+    modal.appendChild(body);
+
+    var actions = document.createElement("div");
+    actions.className = "confirm-modal-actions";
+
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "confirm-modal-btn cancel";
+    cancelBtn.textContent = options.cancelLabel || "Cancel";
+
+    var confirmBtn = document.createElement("button");
+    confirmBtn.className = "confirm-modal-btn" + (options.danger ? " danger" : "");
+    confirmBtn.textContent = options.confirmLabel || "OK";
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(confirmBtn);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.stopImmediatePropagation(); close(); if (options.onCancel) options.onCancel(); }
+    }
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) { close(); if (options.onCancel) options.onCancel(); }
+    });
+    cancelBtn.addEventListener("click", function() { close(); if (options.onCancel) options.onCancel(); });
+    confirmBtn.addEventListener("click", function() { close(); if (options.onConfirm) options.onConfirm(); });
+
+    confirmBtn.focus();
+  }
+
+  function killAgent(agent) {
+    var agentLabel = agent.name || agent.agent_id;
+    showConfirmModal({
+      title: "Kill Agent",
+      body: "Are you sure you want to kill \"" + agentLabel + "\"? This will send SIGTERM to the agent process.",
+      confirmLabel: "Kill",
+      cancelLabel: "Cancel",
+      danger: true,
+      icon: "ph ph-trash",
+      onConfirm: function() { executeKillAgent(agent); }
+    });
+  }
+
+  function executeKillAgent(agent) {
+    fetch("/api/admin/agents/" + encodeURIComponent(agent.agent_id), { method: "DELETE" })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.status === "stopped") {
+          showToast("Agent killed", agent.name || agent.agent_id);
+          if (_selectedAdminTarget === agent.agent_id) {
+            _selectedAdminTarget = null;
+            _selectedAdminName = null;
+            if (adminTargetBadge) {
+              adminTargetBadge.textContent = "";
+              adminTargetBadge.classList.remove("has-target");
+            }
+          }
+          loadAdminAgents();
+        } else {
+          showToast("Kill failed: " + (data.status || data.error || "unknown"), agent.name || agent.agent_id);
+        }
+      })
+      .catch(function() {
+        showToast("Kill failed: network error", agent.name || agent.agent_id);
+      });
   }
 
   function jumpToAgent(agentId) {

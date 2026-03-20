@@ -630,7 +630,7 @@ The Agent Control view is a **Command Center** for directly interacting with run
 
 **Components:**
 
-- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2).
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2). Right-click a row to open a context menu with a **Kill Agent** action that sends SIGTERM to the agent process (with a confirmation dialog).
 - **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
 - **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
 
