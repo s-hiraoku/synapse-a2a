@@ -61,18 +61,36 @@
   function downloadCard(cardId, format) {
     var url = "/api/cards/" + encodeURIComponent(cardId) + "/download";
     if (format) url += "?format=" + encodeURIComponent(format);
-    var a = document.createElement("a");
-    a.href = url;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    fetch(url).then(function (resp) {
+      if (!resp.ok) {
+        showToast("Download failed: " + resp.status, "error");
+        return;
+      }
+      var disposition = resp.headers.get("Content-Disposition") || "";
+      var match = disposition.match(/filename="([^"]+)"/);
+      var filename = match ? match[1] : "download";
+      return resp.blob().then(function (blob) {
+        var objUrl = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = objUrl;
+        a.download = filename;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+      });
+    }).catch(function (err) {
+      showToast("Download failed: " + err.message, "error");
+    });
   }
 
   function createDownloadButton(getCardId) {
     var btn = document.createElement("button");
     btn.className = "canvas-dl-btn";
     btn.title = "Download";
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Download");
     btn.innerHTML = '<i class="ph ph-download-simple"></i>';
     btn.addEventListener("click", function (e) {
       e.stopPropagation();

@@ -238,7 +238,7 @@ def _image_to_native(block: dict) -> tuple[bytes, str, str]:
         ext = ext_map.get(fmt, f".{fmt}")
         mime = f"image/{fmt}"
         try:
-            data = base64.b64decode(m.group(2))
+            data = base64.b64decode(m.group(2), validate=True)
         except Exception:
             return body.encode("utf-8"), ".txt", "text/plain; charset=utf-8"
         return data, ext, mime
@@ -400,7 +400,8 @@ def _template_to_markdown(
             if desc:
                 lines.append(f"   {desc}")
             for blk in _blocks_at_indices(blocks, step.get("blocks", [])):
-                lines.append(f"   {_block_to_markdown(blk)}")
+                for line in _block_to_markdown(blk).splitlines():
+                    lines.append(f"   {line}")
             lines.append("")
 
     elif template == "slides":

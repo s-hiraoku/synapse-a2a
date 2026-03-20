@@ -1992,6 +1992,8 @@ GET /api/cards/{card_id}/download?format={format}
 | JSON | json, chart, task-board, dependency-graph, trace, log, file-preview, plan | `.json` |
 | CSV | table, cost | `.csv` |
 
+※ `format=plan` は JSON (.json) として出力。`template=plan` のカードはデフォルトで Markdown (.md) として出力される。
+
 テンプレートカード（briefing, comparison, dashboard, steps, slides, plan）はデフォルトで Markdown、`?format=json` で JSON としてエクスポートされます。
 
 #### 1.24.6 synapse canvas list / delete / clear

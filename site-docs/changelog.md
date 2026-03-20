@@ -7,7 +7,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.17.0
 
 - **Added**: Canvas card download — export any card as Markdown, JSON, CSV, HTML, or native format file via download button or API
-- **Added**: `GET /api/cards/{id}/download?format=` endpoint with 27 format mappings and 6 template exports
+- **Added**: `GET /api/cards/{id}/download?format=` endpoint with 26 format mappings and 6 template exports
 - **Added**: Security hardening — filename sanitization, base64 error handling, 50 MB export size limit
 
 ### v0.16.2

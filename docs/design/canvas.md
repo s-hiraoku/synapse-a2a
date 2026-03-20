@@ -270,22 +270,22 @@ Agents don't see the browser. This is the only human-exclusive interface.
 ```
 POST   /api/cards          Create/update card (Canvas Message Protocol)
 GET    /api/cards           List cards (JSON, optional ?agent_id=&search=&type= filters)
-GET    /api/cards/{id}      Get single card
-DELETE /api/cards/{id}      Delete card (own cards only, matched by agent_id)
+GET    /api/cards/{card_id}      Get single card
+DELETE /api/cards/{card_id}      Delete card (own cards only, matched by agent_id)
 DELETE /api/cards           Clear all cards (optional ?agent_id= filter)
-GET    /api/cards/{id}/download  Download card as file (?format=md|json|csv|html|native|txt)
+GET    /api/cards/{card_id}/download  Download card as file (?format=md|json|csv|html|native|txt)
 GET    /api/stream          SSE stream (card_created, card_updated, card_deleted events)
 GET    /api/formats         List supported formats (format registry)
 GET    /api/system          System state summary (Agents, User/Active-Project Saved Agents, Tasks, File Locks, Shared Memory, Worktrees, Recent History)
 ```
 
-#### `/api/cards/{id}/download` — Card Download
+#### `/api/cards/{card_id}/download` — Card Download
 
 カードをファイルとしてエクスポートする。`?format=` クエリパラメータで出力形式を指定可能（省略時はフォーマットに応じた最適形式）。
 
 **対応フォーマット**: `md`, `json`, `csv`, `html`, `native`, `txt`
 
-全 27 コンテンツフォーマットは `FORMAT_DOWNLOAD_MAP`（`synapse/canvas/export.py`）で 4 グループに分類される:
+全 26 コンテンツフォーマットは `FORMAT_DOWNLOAD_MAP`（`synapse/canvas/export.py`）で 4 グループに分類される:
 
 | グループ | フォーマット | デフォルト出力 |
 |---------|------------|---------------|

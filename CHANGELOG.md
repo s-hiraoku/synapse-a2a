@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas card download feature: export cards as Markdown, JSON, CSV, HTML, or native format files
 - New API endpoint `GET /api/cards/{card_id}/download?format={format}` with Content-Disposition headers
 - Download buttons in Canvas card grid headers and Spotlight title bar (ph-download-simple icon)
-- Format-aware export: 27 formats mapped to optimal file types, 6 templates export as Markdown or JSON
+- Format-aware export: 26 formats mapped to optimal file types, 6 templates export as Markdown or JSON
 - Security hardening: filename sanitization (header injection prevention), base64 decode error handling, 50 MB export size limit
 - `synapse/canvas/export.py` — new module with converter functions for all format groups (Markdown, native, JSON, CSV)
 
