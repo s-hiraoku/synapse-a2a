@@ -191,6 +191,8 @@ submit_retry_delay: 0.15
 bracketed_paste: true
 typing_char_delay: 0.01
 typing_max_chars: 400
+long_submit_settle_delay: 0.8
+long_submit_retry_delay: 0.3
 
 idle_detection:
   strategy: "timeout"
@@ -202,8 +204,10 @@ idle_detection:
 - Requires explicit `write_delay: 0.5` — Ink TUI needs time to finish rendering before CR
 - `bracketed_paste: true` wraps input in paste escape sequences so Ink's `usePaste` hook receives the full text atomically
 - Short single-line messages are typed character-by-character instead of pasted, which makes Copilot behave more like a real terminal user for brief prompts
+- When Copilot is running inside tmux, Synapse enforces a slower minimum per-character delay so tmux does not coalesce typed input into a burst
 - When the footer advertises `ctrl+s run command`, Synapse sends `Ctrl+S` first and falls back through the normal submit retry chain if needed
 - `submit_retry_delay: 0.15` sends Enter a second time after 150 ms as a safety net for React render timing when Copilot is using paste-style submission
+- `long_submit_settle_delay: 0.8` and `long_submit_retry_delay: 0.3` give multiline/file-reference sends extra time before the first submit and retry submit
 
 ## Custom Profiles
 

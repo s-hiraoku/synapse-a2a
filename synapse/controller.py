@@ -56,6 +56,7 @@ _ANSI_ESCAPE_RE = re.compile(
     r")"
 )
 _COPILOT_CTRL_S_HINT_RE = re.compile(r"ctrl\+s\s+run command", re.IGNORECASE)
+_TMUX_MIN_TYPING_CHAR_DELAY = 0.04
 
 
 def strip_ansi(text: str) -> str:
@@ -94,6 +95,8 @@ class TerminalController:
         submit_confirm_retries: int | None = None,
         long_submit_confirm_timeout: float | None = None,
         long_submit_confirm_retries: int | None = None,
+        long_submit_settle_delay: float | None = None,
+        long_submit_retry_delay: float | None = None,
         submit_fallback_sequences: str | list[str] | None = None,
     ):
         self.command = command
@@ -171,7 +174,7 @@ class TerminalController:
         )
         self._file_safety_manager: FileSafetyManager | None = None
 
-        self.env = env or os.environ.copy()
+        self.env = env.copy() if env is not None else os.environ.copy()
         # Unset CLAUDECODE to prevent nested-session detection when
         # launching Claude Code from within a Claude Code session.
         self.env.pop("CLAUDECODE", None)
@@ -239,6 +242,38 @@ class TerminalController:
                     f"submit_retry_delay must be non-negative, got {submit_retry_delay}"
                 )
             self._submit_retry_delay = submit_retry_delay
+
+        self._long_submit_settle_delay: float | None = None
+        if long_submit_settle_delay is not None:
+            try:
+                long_submit_settle_delay = float(long_submit_settle_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "long_submit_settle_delay must be numeric, "
+                    f"got {long_submit_settle_delay!r}"
+                ) from None
+            if long_submit_settle_delay < 0:
+                raise ValueError(
+                    "long_submit_settle_delay must be non-negative, "
+                    f"got {long_submit_settle_delay}"
+                )
+            self._long_submit_settle_delay = long_submit_settle_delay
+
+        self._long_submit_retry_delay: float | None = None
+        if long_submit_retry_delay is not None:
+            try:
+                long_submit_retry_delay = float(long_submit_retry_delay)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "long_submit_retry_delay must be numeric, "
+                    f"got {long_submit_retry_delay!r}"
+                ) from None
+            if long_submit_retry_delay < 0:
+                raise ValueError(
+                    "long_submit_retry_delay must be non-negative, "
+                    f"got {long_submit_retry_delay}"
+                )
+            self._long_submit_retry_delay = long_submit_retry_delay
 
         # Wrap data in bracketed paste markers for Ink-based TUIs (Copilot CLI).
         self._bracketed_paste = bracketed_paste
@@ -1013,10 +1048,17 @@ class TerminalController:
 
     def _write_typed_text(self, data: str) -> None:
         """Write text character-by-character to emulate actual keyboard input."""
+        typing_delay = self._typing_char_delay
+        if (
+            self.agent_type == "copilot"
+            and self.env.get("TMUX")
+            and typing_delay < _TMUX_MIN_TYPING_CHAR_DELAY
+        ):
+            typing_delay = _TMUX_MIN_TYPING_CHAR_DELAY
         for idx, char in enumerate(data):
             self._write_all(char.encode("utf-8"))
-            if self._typing_char_delay > 0 and idx + 1 < len(data):
-                time.sleep(self._typing_char_delay)
+            if typing_delay > 0 and idx + 1 < len(data):
+                time.sleep(typing_delay)
 
     def _is_long_submit_message(self, data: str) -> bool:
         """Whether Copilot confirmation should use long-message heuristics."""
@@ -1046,6 +1088,24 @@ class TerminalController:
                     markers.append(line)
 
         return markers
+
+    def _submit_settle_delay(self, data: str) -> float:
+        """Return the delay between paste and initial submit."""
+        if (
+            self._is_long_submit_message(data)
+            and self._long_submit_settle_delay is not None
+        ):
+            return self._long_submit_settle_delay
+        return self._write_delay
+
+    def _submit_retry_delay_for(self, data: str) -> float | None:
+        """Return the delay before the retry submit stroke."""
+        if (
+            self._is_long_submit_message(data)
+            and self._long_submit_retry_delay is not None
+        ):
+            return self._long_submit_retry_delay
+        return self._submit_retry_delay
 
     def write(
         self,
@@ -1095,15 +1155,17 @@ class TerminalController:
                     submit_bytes = self._get_preferred_submit_bytes(
                         original_submit_bytes
                     )
-                    if self._write_delay > 0:
-                        time.sleep(self._write_delay)
+                    submit_settle_delay = self._submit_settle_delay(data)
+                    if submit_settle_delay > 0:
+                        time.sleep(submit_settle_delay)
                     self._write_all(submit_bytes)
                     # Retry: send submit_seq again after a short gap.
                     # Copilot CLI v0.0.300+ needs this because the first
                     # CR flushes the async paste buffer and the second CR
                     # triggers the actual submit after React re-renders.
-                    if self._submit_retry_delay is not None and not use_typed_input:
-                        time.sleep(self._submit_retry_delay)
+                    submit_retry_delay = self._submit_retry_delay_for(data)
+                    if submit_retry_delay is not None and not use_typed_input:
+                        time.sleep(submit_retry_delay)
                         self._write_all(submit_bytes)
                     if self._should_confirm_submit(data, submit_bytes):
                         with self.lock:

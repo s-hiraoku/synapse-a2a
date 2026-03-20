@@ -1327,6 +1327,7 @@ class TestInterAgentMessageWrite:
             command="echo test",
             idle_regex=r"\$",
             agent_type="copilot",
+            env={},
             write_delay=0.5,
             submit_retry_delay=0.15,
             typing_char_delay=0.01,
@@ -1355,6 +1356,70 @@ class TestInterAgentMessageWrite:
 
         assert writes == [b"h", b"e", b"l", b"l", b"o", b"\r"]
         assert sleeps == [0.01, 0.01, 0.01, 0.01, 0.5]
+
+    def test_copilot_typed_input_uses_slower_delay_inside_tmux(self):
+        """tmux should force a slower typed-input cadence for Copilot."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            env={"TMUX": "/tmp/tmux-1000/default,123,0"},
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            typing_char_delay=0.01,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+
+        sleeps: list[float] = []
+        with (
+            patch("synapse.controller.os.write", return_value=1),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert sleeps[:4] == [0.04, 0.04, 0.04, 0.04]
+        assert sleeps[-1] == 0.5
+
+    def test_copilot_typed_input_keeps_explicit_slower_delay_inside_tmux(self):
+        """tmux fallback should not override an already slower configured delay."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            env={"TMUX": "/tmp/tmux-1000/default,123,0"},
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            typing_char_delay=0.06,
+            typing_max_chars=400,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.get_context = lambda: ""  # type: ignore[method-assign]
+
+        sleeps: list[float] = []
+        with (
+            patch("synapse.controller.os.write", return_value=1),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert sleeps[:4] == [0.06, 0.06, 0.06, 0.06]
+        assert sleeps[-1] == 0.5
 
     def test_copilot_multiline_message_keeps_paste_mode(self):
         """Multi-line Copilot messages should keep the existing paste behavior."""
@@ -1525,6 +1590,74 @@ class TestInterAgentMessageWrite:
         assert sleeps[:2] == [0.5, 0.15]
         confirm_sleeps = [s for s in sleeps[2:] if s != 0.1]
         assert confirm_sleeps == [0.05] * 12
+
+    def test_copilot_multiline_message_uses_long_submit_timing(self):
+        """Multi-line Copilot sends should use long-message settle/retry delays."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+            long_submit_confirm_timeout=0.2,
+            long_submit_confirm_retries=0,
+            long_submit_settle_delay=0.8,
+            long_submit_retry_delay=0.3,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = lambda: "hello\nworld"  # type: ignore[method-assign]
+
+        sleeps: list[float] = []
+        with (
+            patch("synapse.controller.os.write", return_value=1),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello\nworld", submit_seq="\r")
+
+        assert sleeps[:2] == [0.8, 0.3]
+        assert 0.5 not in sleeps[:2]
+        assert 0.15 not in sleeps[:2]
+
+    def test_copilot_single_line_message_keeps_default_submit_timing(self):
+        """Single-line Copilot sends should keep the default settle/retry delays."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            submit_retry_delay=0.15,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=0,
+            long_submit_settle_delay=0.8,
+            long_submit_retry_delay=0.3,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        ctrl.get_context = lambda: "hello"  # type: ignore[method-assign]
+
+        sleeps: list[float] = []
+        with (
+            patch("synapse.controller.os.write", return_value=1),
+            patch(
+                "synapse.controller.time.sleep",
+                side_effect=lambda t: sleeps.append(t),
+            ),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        assert sleeps[:2] == [0.5, 0.15]
 
     # --- Bracketed paste mode tests ---
 

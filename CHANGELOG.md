@@ -5,14 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
+## [0.15.9] - 2026-03-20
 
-All notable changes to this project will be documented in this file.
+### Fixed
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Copilot typed input now slows down inside tmux so short single-line messages are less likely to be coalesced into an ineffective burst
+- Copilot multiline and file-reference sends now wait longer before the first submit and retry submit strokes, improving long-message confirmation timing
 
-## [0.15.7] - 2026-03-20
+### Documentation
+
+- Updated core docs, site docs, and plugin skills to document Copilot tmux typed-input timing and long-message submit timing controls
 
 ## [0.15.8] - 2026-03-20
 
@@ -23,10 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `synapse list` can now be forced into non-interactive mode with `SYNAPSE_NONINTERACTIVE=1`, so AI-controlled TTY sessions no longer hang in the interactive list UI
+- Copilot typed input now slows down inside tmux so single-line messages are less likely to be coalesced into an ineffective burst
+- Copilot multiline/file-reference sends now wait longer before the first submit and retry submit strokes, improving long-message confirmation timing
 
 ### Documentation
 
 - Updated AI-facing guidance, plugin skills, and site docs to use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or MCP `list_agents` instead of bare `synapse list`
+- Documented Copilot tmux typed-input timing and long-message submit timing controls
 
 ### Changed
 
@@ -2554,7 +2559,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.9...HEAD
+[0.15.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.8...v0.15.9
 [0.15.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.7...v0.15.8
 [0.15.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.6...v0.15.7
 [0.15.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.15.5...v0.15.6
