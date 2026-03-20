@@ -59,6 +59,10 @@ Each step supports the following fields:
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
 | `auto_spawn` | No | `false` | If `true`, auto-spawn the target agent if not running (step-level override) |
 
+`target` follows the standard Synapse target resolution rules. For matching priority and ambiguity behavior, see [Agent Identity](agent-identity.md#target-resolution).
+
+When `auto_spawn` is enabled, `target` is also used as the spawn profile name if the agent is not already running. In that case, prefer a profile name such as `claude`, `gemini`, or `codex` rather than a custom name, Runtime ID, or type-port shorthand.
+
 ### Example: Security Audit Pipeline
 
 ```yaml
