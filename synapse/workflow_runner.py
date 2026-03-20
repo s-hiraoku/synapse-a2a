@@ -367,27 +367,31 @@ async def _execute_workflow(
     """Execute workflow steps sequentially."""
     has_failure = False
 
-    for i, wf_step in enumerate(workflow.steps):
-        step = run.steps[i]
-        step.status = "running"
-        step.started_at = time.time()
-        _notify(on_update)
-
-        await _execute_step(
-            wf_step,
-            step,
-            workflow_auto_spawn=workflow.auto_spawn,
-            sender_info=sender_info,
-        )
-
-        if step.status == "failed":
-            has_failure = True
+    try:
+        for i, wf_step in enumerate(workflow.steps):
+            step = run.steps[i]
+            step.status = "running"
+            step.started_at = time.time()
             _notify(on_update)
-            if not continue_on_error:
-                break
-            continue
 
-        _notify(on_update)
+            await _execute_step(
+                wf_step,
+                step,
+                workflow_auto_spawn=workflow.auto_spawn,
+                sender_info=sender_info,
+            )
+
+            if step.status == "failed":
+                has_failure = True
+                _notify(on_update)
+                if not continue_on_error:
+                    break
+                continue
+
+            _notify(on_update)
+    except Exception:
+        logger.exception("Workflow '%s' crashed unexpectedly", workflow.name)
+        has_failure = True
 
     run.status = "failed" if has_failure else "completed"
     run.completed_at = time.time()

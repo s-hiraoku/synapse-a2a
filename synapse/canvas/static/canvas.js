@@ -4481,6 +4481,9 @@
       ? '<i class="ph ph-spinner"></i> Running...'
       : '<i class="ph ph-play"></i> Run';
     runBtn.addEventListener("click", function () {
+      if (runBtn.disabled) return;
+      runBtn.disabled = true;
+      runBtn.innerHTML = '<i class="ph ph-spinner"></i> Starting...';
       runWorkflow(wf.name);
     });
     runBar.appendChild(runBtn);
@@ -4503,7 +4506,7 @@
     if (relatedRuns.length > 0) {
       var histDiv = document.createElement("div");
       histDiv.className = "workflow-run-history";
-      histDiv.innerHTML = '<div style="font-size:var(--text-xs); color:var(--color-muted); margin-bottom:var(--sp-1);">Recent runs</div>';
+      histDiv.innerHTML = '<div style="font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:var(--sp-1);">Recent runs</div>';
       relatedRuns.slice(0, 10).forEach(function (r) {
         var item = document.createElement("div");
         item.className = "workflow-run-item";
