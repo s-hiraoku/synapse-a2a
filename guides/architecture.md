@@ -100,7 +100,7 @@ classDiagram
 
 | メソッド | 説明 |
 |---------|------|
-| `start()` | PTY を生成し CLI を起動、出力監視スレッドを開始 |
+| `start()` | PTY を生成し（slave を raw モードに設定後）CLI を起動、出力監視スレッドを開始 |
 | `stop()` | プロセスを終了し PTY をクローズ |
 | `write(data, submit_seq)` | PTY の stdin にデータを書き込み |
 | `interrupt()` | SIGINT をプロセスグループに送信 |
@@ -478,7 +478,7 @@ sequenceDiagram
     CLI->>Daemon: subprocess.Popen (detached)
     Daemon->>Server: uvicorn.run()
     Server->>TC: start()
-    Note over TC: PTY でラップされた<br/>claude CLI が起動
+    Note over TC: PTY 生成 → slave を raw モードに設定<br/>→ CLI を起動
     CLI-->>User: Started (PID: xxx)
 ```
 
