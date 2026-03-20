@@ -116,6 +116,8 @@ class TestCopilotProfile:
         assert profile["submit_confirm_timeout"] > 0
         assert profile["submit_confirm_poll_interval"] > 0
         assert profile["submit_confirm_retries"] >= 1
+        assert profile["long_submit_confirm_timeout"] > 0
+        assert profile["long_submit_confirm_retries"] >= 1
 
     def test_profile_waiting_detection_patterns(self, profile):
         """Profile waiting detection should match expected patterns."""

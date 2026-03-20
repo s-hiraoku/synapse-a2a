@@ -112,6 +112,16 @@ submit_confirm_poll_interval: 0.05  # Poll every 50ms
 submit_confirm_retries: 3           # Extra submit attempts after initial retry
 ```
 
+### long_submit_confirm_timeout / long_submit_confirm_retries
+
+Override the confirmation timeout and retry count for long multiline or file-reference messages. These messages take longer for TUI frameworks to reconcile, so a larger budget prevents premature confirmation failure.
+
+```yaml
+long_submit_confirm_timeout: 3.0   # Copilot: longer window for multiline pastes
+long_submit_confirm_retries: 5     # More retries for long messages
+# Default: not set (uses submit_confirm_timeout / submit_confirm_retries)
+```
+
 ### idle_detection.strategy
 
 | Strategy | Description |
