@@ -458,6 +458,7 @@ class A2AClient:
                     sender_agent_id=sender_agent_id,
                     target_agent_id=target_agent_id,
                     board_task_id=board_task_id,
+                    extra_metadata=extra_metadata,
                 )
 
             # At this point task_data is guaranteed to be non-None:

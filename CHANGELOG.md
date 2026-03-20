@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- TOCTOU race in `_mark_missing_reply` guard by re-reading metadata from task store
+- TOCTOU race in `_maybe_mark_missing_reply` guard by re-reading metadata from task store
 - Reserved metadata keys (`response_mode`, `sender`, `in_reply_to`) protected from override via `extra_metadata`
 - Sync path `_maybe_mark_missing_reply` now only runs for wait/notify modes (matching async path)
 

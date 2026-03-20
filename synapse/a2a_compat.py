@@ -551,13 +551,19 @@ class TaskStore:
         return None
 
     def claim_finalization(self, task_id: str) -> Task | None:
-        """Claim exclusive rights to finalize a working task."""
+        """Claim exclusive rights to finalize a working task.
+
+        Also checks _explicit_reply_recorded under the same lock to avoid
+        racing with the explicit reply endpoint.
+        """
         with self._lock:
             task = self._tasks.get(task_id)
             if not task or task.status != "working":
                 return None
             metadata = task.metadata or {}
             if metadata.get("_finalization_claimed"):
+                return None
+            if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
                 return None
             metadata["_finalization_claimed"] = True
             task.metadata = metadata
@@ -604,7 +610,11 @@ class TaskStore:
             return task
 
     def mark_missing_reply_if_unreplied(self, task_id: str) -> Task | None:
-        """Fail a task as missing-reply only if no explicit reply was recorded."""
+        """Fail a task as missing-reply only if no explicit reply was recorded.
+
+        Only converts to MISSING_REPLY when the task completed normally
+        (no existing error), so _finalize_working_task failures are preserved.
+        """
         with self._lock:
             task = self._tasks.get(task_id)
             if not task:
@@ -613,6 +623,8 @@ class TaskStore:
             if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
                 return task
             if task.artifacts:
+                return task
+            if task.error is not None:
                 return task
             task.artifacts = []
             task.error = TaskErrorModel(

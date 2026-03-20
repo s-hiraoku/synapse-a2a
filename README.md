@@ -691,7 +691,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse logs <profile>` | Show logs |
 | `synapse send <target> <message>` | Send message. `--task` / `-T` auto-creates a linked board task |
 | `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
-| `synapse reply <message>` | Reply to the last received A2A message. `--fail <reason>` sends a failed reply |
+| `synapse reply [<message> \| --fail <reason>]` | Reply to the last received A2A message (use `--fail` for failure) |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
 | `synapse instructions show` | Show instruction content |
 | `synapse instructions files` | List instruction files |

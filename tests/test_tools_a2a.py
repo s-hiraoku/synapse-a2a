@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from synapse.a2a_compat import ERROR_CODE_REPLY_FAILED
 from synapse.tools.a2a import (
     build_sender_info,
     cmd_broadcast,
@@ -1862,7 +1863,7 @@ class TestCmdReply:
         assert mock_requests_post.call_args.kwargs["json"] == {
             "message": "Quota exceeded",
             "status": "failed",
-            "error": {"code": "REPLY_FAILED", "message": "Quota exceeded"},
+            "error": {"code": ERROR_CODE_REPLY_FAILED, "message": "Quota exceeded"},
         }
         call_kwargs = mock_client.send_to_local.call_args.kwargs
         assert call_kwargs["message"] == "Quota exceeded"
