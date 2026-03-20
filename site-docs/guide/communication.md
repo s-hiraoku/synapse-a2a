@@ -74,6 +74,9 @@ Three response modes are available:
 | `--wait` | Block until receiver replies | Questions, results needed before proceeding |
 | `--silent` | Fire-and-forget, no notification | Pure notifications, delegated tasks |
 
+!!! info "Structured Reply Artifacts"
+    `--wait` and `--notify` produce structured A2A reply artifacts derived from the PTY output delta. TUI response cleaning runs for all agent types, stripping spinners, box-drawing borders, status bars, and input echo before finalization. A content scoring system selects the richest response context and drops trivial PTY noise (e.g., lone cursor movement characters).
+
 ```bash
 # Default (--notify) — returns immediately, notifies on completion
 synapse send gemini "Analyze this codebase"

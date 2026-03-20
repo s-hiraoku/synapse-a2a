@@ -51,9 +51,11 @@ The heart of Synapse — manages the PTY connection to the CLI agent.
 - Spawn and manage the CLI process via `pty.spawn()`
 - Detect agent states: READY, PROCESSING, WAITING, DONE, SHUTTING_DOWN
 - Write messages to the PTY (with split-write strategy for Ink TUI apps)
+- Strip ANSI escape sequences with three-stage removal (full sequences → orphaned SGR fragments → bare SGR fragments)
 - Detect idle states using configurable strategies (pattern, timeout, hybrid)
 - Send initial instructions on first idle
 - Manage the Readiness Gate
+- Adaptive paste echo wait for Copilot (polls PTY for TUI re-render before Enter)
 
 **Key attributes:**
 
@@ -101,7 +103,8 @@ HTTP server providing A2A-compatible endpoints.
 Translates between Synapse internals and the Google A2A protocol format.
 
 - Converts incoming A2A messages to PTY writes
-- Formats PTY output as A2A responses
+- Formats PTY output as structured A2A reply artifacts with content scoring to prefer richer responses over trivial PTY noise
+- Cleans TUI artifacts (spinners, box-drawing, status bars, input echo) from all agent types before building reply artifacts
 - Manages task lifecycle (submitted → working → completed/failed)
 - Handles long message storage (>200 chars → file reference)
 
