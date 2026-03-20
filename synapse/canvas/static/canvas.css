@@ -4147,9 +4147,14 @@ body.sidebar-collapsed #main-content {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
-.workflow-row-selected {
-  background: var(--color-accent);
-  color: #fff;
+.workflow-row-selected,
+.workflow-row-selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent) !important;
+  outline: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  outline-offset: -1px;
+}
+.workflow-row-selected td {
+  color: var(--text-primary);
 }
 @media (max-width: 768px) {
   #workflow-container { gap: var(--sp-2); }

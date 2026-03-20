@@ -1331,7 +1331,7 @@
     mermaid.run({ querySelector: target }).then(function () {
       // After mermaid replaces <pre> with <svg>, remove fixed height attributes
       // so the SVG flows naturally within its container.
-      document.querySelectorAll(".format-mermaid svg, .dep-graph svg").forEach(function (svg) {
+      document.querySelectorAll(".format-mermaid svg, .dep-graph svg, .workflow-step-flow svg").forEach(function (svg) {
         // Mermaid sets inline style="max-width: XXXpx" based on diagram complexity.
         // Preserve it but cap at container width. Only override height.
         svg.removeAttribute("height");
@@ -4412,7 +4412,7 @@
       mermaidDiv.textContent = mermaidSrc;
       flowDiv.appendChild(mermaidDiv);
       workflowDetailContent.appendChild(flowDiv);
-      runMermaid(".workflow-step-flow");
+      runMermaid(".workflow-step-flow .mermaid-pending");
     }
 
     // Steps with status

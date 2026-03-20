@@ -130,6 +130,18 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 | `/api/admin/agents/{agent_id}` | DELETE | Stop agent by ID |
 | `/api/admin/jump/{agent_id}` | POST | Jump to agent's terminal (uses PID-based terminal detection with TTY fallback) |
 
+### Canvas Workflow Endpoints (served by Canvas server)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/workflow` | GET | List all workflows with full step details |
+| `/api/workflow/{name}` | GET | Get a single workflow by name |
+| `/api/workflow/run/{name}` | POST | Start a workflow execution (body: `{continue_on_error?}`) |
+| `/api/workflow/runs` | GET | List active and recent workflow runs |
+| `/api/workflow/runs/{run_id}` | GET | Get the status of a specific workflow run |
+
+**SSE event:** `workflow_update` — broadcast when a workflow run progresses (step completion, status change).
+
 ### External Agent Endpoints
 
 | Endpoint | Method | Description |
