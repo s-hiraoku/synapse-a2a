@@ -256,7 +256,7 @@ class TestCompletionNotification:
         task_id = send_response.json()["task"]["id"]
 
         app_controller.get_context.return_value = (
-            "Update available!\n"
+            "Update available! Run: brew upgrade claude-code\n"
             "Answer line 1\n"
             "Answer line 2\n"
             "permissions on (shift+tab to cycle)\n"
@@ -281,7 +281,7 @@ class TestCompletionNotification:
         contents = [artifact.data["content"] for artifact in sent_task.artifacts]
         joined = "\n".join(contents)
         assert "Answer line 1" in joined
-        assert "Update available!" not in joined
+        assert "Update available! Run: brew upgrade claude-code" not in joined
 
     @pytest.mark.asyncio
     async def test_notify_sender_completion_is_best_effort(self):
