@@ -55,6 +55,8 @@ _ANSI_ESCAPE_RE = re.compile(
     r"|[>=]"  # Keypad mode
     r")"
 )
+_ORPHAN_SGR_RE = re.compile(r"(?<![a-zA-Z])\[[0-9;]+m")
+_ORPHAN_SGR_BARE_RE = re.compile(r"(?<![a-zA-Z0-9\[])[0-9]+(?:;[0-9]+)+m(?![a-zA-Z])")
 _COPILOT_COMPACT_PASTE_RE = re.compile(r"\[Paste #\d+(?: - \d+ lines)?\]")
 _COPILOT_SAVED_PASTE_RE = re.compile(
     r"\[Saved pasted content to workspace \([^)]+\) id=\d+\]"
@@ -66,8 +68,17 @@ _COPILOT_PASTE_ECHO_TIMEOUT = 3.0
 
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from text."""
-    return _ANSI_ESCAPE_RE.sub("", text)
+    """Remove ANSI escape sequences from text.
+
+    Three-stage removal:
+    1. Full ANSI sequences (ESC + CSI/OSC/charset/keypad)
+    2. Orphaned SGR fragments like ``[38;5;178m`` (ESC was overwritten by \\r)
+    3. Bare SGR fragments like ``38;5;178m`` (bracket also overwritten)
+    """
+    text = _ANSI_ESCAPE_RE.sub("", text)
+    text = _ORPHAN_SGR_RE.sub("", text)
+    text = _ORPHAN_SGR_BARE_RE.sub("", text)
+    return text
 
 
 class TerminalController:

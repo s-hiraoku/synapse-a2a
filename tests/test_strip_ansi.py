@@ -86,3 +86,49 @@ class TestGetContextStripsAnsi:
 
         assert result == "red plain"
         assert "\x1b" not in result
+
+
+class TestStripAnsiOrphanedFragments:
+    """Tests for orphaned ANSI fragment cleanup (no leading ESC byte).
+
+    When a TUI uses \\r to overwrite a line, \\x1b may be overwritten
+    while the rest of the SGR sequence (e.g. [38;5;178m) remains.
+    """
+
+    def test_orphan_bracket_sgr(self) -> None:
+        """[38;5;178m followed by text should leave only text."""
+        assert strip_ansi("[38;5;178mhello") == "hello"
+
+    def test_orphan_reset(self) -> None:
+        """[0m should be removed entirely."""
+        assert strip_ansi("[0m") == ""
+
+    def test_real_world_diff_stat(self) -> None:
+        """Real case: [38;5;178m(+233,-67) should yield (+233,-67)."""
+        assert strip_ansi("[38;5;178m(+233,-67)") == "(+233,-67)"
+
+    def test_bare_semicolon_sgr(self) -> None:
+        """Bare 38;5;178m (no bracket) followed by non-alpha should be stripped."""
+        assert strip_ansi("38;5;178m(+233,-67)") == "(+233,-67)"
+        assert strip_ansi("38;5;178m ") == " "
+        # Followed by alpha is intentionally kept (avoids false positives)
+        assert strip_ansi("38;5;178mhello") == "38;5;178mhello"
+
+    def test_no_false_positive_plain_text(self) -> None:
+        """Plain text containing numbers and 'm' must not be altered."""
+        # No semicolons — single number+m is not an SGR fragment
+        assert strip_ansi("100m dash") == "100m dash"
+        assert strip_ansi("ran 200m in 25s") == "ran 200m in 25s"
+        # Preceded by alpha — not an orphaned fragment
+        assert strip_ansi("item3m") == "item3m"
+        # Followed by alpha — not an orphaned fragment
+        assert strip_ansi("0mtest") == "0mtest"
+        # Bracket after alpha is natural text, not an SGR fragment
+        assert strip_ansi("see[3m above]") == "see[3m above]"
+        # Bare [m] (no digits) should not match
+        assert strip_ansi("[m]") == "[m]"
+
+    def test_mixed_full_and_orphan(self) -> None:
+        """Full ANSI sequences and orphaned fragments in the same string."""
+        raw = "\x1b[1mbold\x1b[0m [38;5;178mcolored rest"
+        assert strip_ansi(raw) == "bold colored rest"

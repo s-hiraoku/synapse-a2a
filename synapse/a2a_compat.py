@@ -1112,7 +1112,15 @@ def create_a2a_router(
                     sender_id=reply_sender.sender_id if not used_file else None,
                     sender_name=reply_sender.sender_name if not used_file else None,
                 )
-                controller.write(prefixed, submit_seq=submit_seq)
+                try:
+                    controller.write(prefixed, submit_seq=submit_seq)
+                except OSError as e:
+                    logger.error(f"Reply write failed: {e}")
+                    task_store.update_status(full_task_id, "failed")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to deliver reply: {e!s}",
+                    ) from e
 
             updated_task = task_store.get(full_task_id)
             if not updated_task:
@@ -1618,7 +1626,14 @@ def create_a2a_router(
                 f"[A2A:PLAN_APPROVED:{task_id[:8]}] "
                 "Your plan has been approved. Proceed with implementation."
             )
-            controller.write(approval_msg, submit_seq=submit_seq)
+            try:
+                controller.write(approval_msg, submit_seq=submit_seq)
+            except OSError as e:
+                logger.error(f"Approval write failed: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to deliver approval: {e!s}",
+                ) from e
 
         return {"approved": True, "task_id": task_id}
 
@@ -1641,7 +1656,14 @@ def create_a2a_router(
             if reason:
                 rejection_msg += f" Reason: {reason}"
             rejection_msg += " Please revise your plan."
-            controller.write(rejection_msg, submit_seq=submit_seq)
+            try:
+                controller.write(rejection_msg, submit_seq=submit_seq)
+            except OSError as e:
+                logger.error(f"Rejection write failed: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to deliver rejection: {e!s}",
+                ) from e
 
         return {"rejected": True, "task_id": task_id, "reason": reason}
 
