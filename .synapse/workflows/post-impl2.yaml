@@ -1,0 +1,21 @@
+name: post-impl2
+description: >
+  Test workflow with non-existent agent target.
+auto_spawn: true
+steps:
+  - target: Claud
+    message: "/parallel-docs-simplify-sync"
+    priority: 3
+    response_mode: wait
+  - target: Claud
+    message: "/release"
+    priority: 3
+    response_mode: wait
+  - target: Claud
+    message: "Create a PR. Base branch is main."
+    priority: 3
+    response_mode: wait
+  - target: Claud
+    message: "/pr-guardian"
+    priority: 3
+    response_mode: wait

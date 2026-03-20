@@ -15,6 +15,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+import httpx
+
 from synapse.workflow import Workflow
 
 logger = logging.getLogger(__name__)
@@ -114,6 +116,7 @@ async def run_workflow(
     workflow: Workflow,
     on_update: Callable[[], None] | None = None,
     continue_on_error: bool = False,
+    sender_info: dict[str, str] | None = None,
 ) -> str:
     """Start a workflow execution in the background.
 
@@ -129,7 +132,7 @@ async def run_workflow(
     _evict_old_runs(keep_id=run_id)
 
     task = asyncio.create_task(
-        _execute_workflow(run, workflow, on_update, continue_on_error)
+        _execute_workflow(run, workflow, on_update, continue_on_error, sender_info)
     )
     task.add_done_callback(
         lambda t: t.result() if not t.cancelled() and not t.exception() else None
@@ -141,19 +144,63 @@ _NO_AGENT_MARKER = "No agent found matching"
 _DIR_MISMATCH_MARKER = "is in a different directory"
 
 
-async def _run_a2a_subprocess(cmd: list[str]) -> tuple[int, str, str]:
-    """Run a2a.py command as async subprocess, return (returncode, stdout, stderr)."""
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    return (
-        proc.returncode or 0,
-        stdout.decode(errors="replace").strip(),
-        stderr.decode(errors="replace").strip(),
-    )
+def _resolve_target_endpoint(target: str) -> str | None:
+    """Resolve a workflow target to its current HTTP endpoint."""
+    from synapse.canvas.server import _resolve_agent_endpoint
+
+    return _resolve_agent_endpoint(target)
+
+
+def _build_canvas_workflow_request(
+    wf_step: Any,
+    sender_info: dict[str, str] | None,
+) -> dict[str, Any]:
+    """Build a direct A2A request payload for Canvas workflow execution."""
+    metadata: dict[str, Any] = {
+        "response_mode": wf_step.response_mode,
+        "sender_task_id": str(uuid.uuid4()),
+    }
+    if sender_info:
+        metadata["sender"] = sender_info
+    return {
+        "message": {
+            "role": "user",
+            "parts": [{"type": "text", "text": wf_step.message}],
+        },
+        "metadata": metadata,
+    }
+
+
+async def _send_workflow_request(
+    endpoint: str,
+    wf_step: Any,
+    sender_info: dict[str, str] | None,
+) -> tuple[int, str, str]:
+    """Send a workflow step directly to a target agent over A2A HTTP."""
+    payload = _build_canvas_workflow_request(wf_step, sender_info)
+    url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={wf_step.priority}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPStatusError as e:
+        detail = e.response.text.strip() or str(e)
+        return e.response.status_code, "", detail
+    except httpx.HTTPError as e:
+        return 1, "", str(e)
+
+    task_data = data.get("task", data) if isinstance(data, dict) else {}
+    task_id = task_data.get("id", "")
+    status = task_data.get("status", "")
+    if isinstance(status, dict):
+        status = status.get("state", "")
+    summary = "Accepted"
+    if task_id:
+        summary += f" task {task_id[:8]}"
+    if status:
+        summary += f" ({status})"
+    return 0, summary, ""
 
 
 def _humanize_error(target: str, stderr: str) -> str:
@@ -176,23 +223,16 @@ async def _execute_step(
     step: StepResult,
     *,
     workflow_auto_spawn: bool = False,
+    sender_info: dict[str, str] | None = None,
 ) -> None:
-    """Execute a single workflow step via a2a.py subprocess.
-
-    Uses the same ``_build_a2a_cmd`` as the CLI ``synapse workflow run``,
-    and auto-spawns agents when they are not running.
-    """
-    from synapse.cli import _build_a2a_cmd
-
-    cmd = _build_a2a_cmd(
-        "send",
-        wf_step.message,
-        target=wf_step.target,
-        priority=wf_step.priority,
-        response_mode=wf_step.response_mode,
-    )
-
-    returncode, stdout, stderr = await _run_a2a_subprocess(cmd)
+    """Execute a single workflow step via direct A2A HTTP send."""
+    endpoint = _resolve_target_endpoint(wf_step.target)
+    if not endpoint:
+        returncode, stdout, stderr = 404, "", _NO_AGENT_MARKER
+    else:
+        returncode, stdout, stderr = await _send_workflow_request(
+            endpoint, wf_step, sender_info
+        )
 
     # Auto-spawn if agent not found (step-level or workflow-level setting)
     effective_auto_spawn = wf_step.auto_spawn or workflow_auto_spawn
@@ -200,8 +240,11 @@ async def _execute_step(
         logger.info("Agent '%s' not found, auto-spawning...", wf_step.target)
         spawned = await asyncio.to_thread(_try_spawn_and_wait, wf_step.target)
         if spawned:
-            # Retry the send after spawn
-            returncode, stdout, stderr = await _run_a2a_subprocess(cmd)
+            endpoint = _resolve_target_endpoint(wf_step.target)
+            if endpoint:
+                returncode, stdout, stderr = await _send_workflow_request(
+                    endpoint, wf_step, sender_info
+                )
 
     if returncode == 0:
         step.status = "completed"
@@ -237,6 +280,7 @@ async def _execute_workflow(
     workflow: Workflow,
     on_update: Callable[[], None] | None,
     continue_on_error: bool,
+    sender_info: dict[str, str] | None,
 ) -> None:
     """Execute workflow steps sequentially."""
     has_failure = False
@@ -247,7 +291,12 @@ async def _execute_workflow(
         step.started_at = time.time()
         _notify(on_update)
 
-        await _execute_step(wf_step, step, workflow_auto_spawn=workflow.auto_spawn)
+        await _execute_step(
+            wf_step,
+            step,
+            workflow_auto_spawn=workflow.auto_spawn,
+            sender_info=sender_info,
+        )
 
         if step.status == "failed":
             has_failure = True

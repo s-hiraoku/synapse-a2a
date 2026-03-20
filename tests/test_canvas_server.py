@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -1345,6 +1348,114 @@ class TestSlidesAPI:
             },
         )
         assert resp.status_code == 422
+
+
+class TestWorkflowAPI:
+    """Tests for Canvas workflow execution endpoints."""
+
+    def test_workflow_run_sends_canvas_workflow_sender_metadata(
+        self, tmp_path, monkeypatch
+    ):
+        """Workflow runs should identify Canvas Workflow as the sender."""
+        from synapse.canvas.server import create_app
+        from synapse.workflow import Workflow, WorkflowStep
+
+        workflow = Workflow(
+            name="review-wf",
+            steps=[
+                WorkflowStep(
+                    target="synapse-claude-8100",
+                    message="Review the patch",
+                )
+            ],
+            scope="project",
+        )
+        app = create_app(db_path=str(tmp_path / "canvas.db"))
+        client = TestClient(app)
+
+        captured: dict[str, object] = {}
+
+        async def mock_post(self, url, json=None, **kwargs):  # noqa: ARG001
+            if url.startswith("http://localhost:8100/tasks/send"):
+                captured["url"] = url
+                captured["payload"] = json
+            return httpx.Response(
+                200,
+                json={
+                    "task": {
+                        "id": "task-123",
+                        "status": {"state": "submitted"},
+                    }
+                },
+                request=httpx.Request("POST", url),
+            )
+
+        with (
+            patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
+            patch("httpx.AsyncClient.post", new=mock_post),
+        ):
+            resp = client.post("/api/workflow/run/review-wf")
+
+        assert resp.status_code == 200
+        time.sleep(0.1)
+        assert captured["url"].startswith("http://localhost:8100/tasks/send")
+        payload = captured["payload"]
+        assert isinstance(payload, dict)
+        metadata = payload["metadata"]
+        sender = metadata["sender"]
+        assert sender["sender_id"] == "canvas-workflow"
+        assert sender["sender_name"] == "Workflow"
+        assert sender["sender_endpoint"] == "http://localhost:3000"
+
+    def test_workflow_run_includes_sender_task_id_for_replies(
+        self, tmp_path, monkeypatch
+    ):
+        """Workflow runs should include sender_task_id so agents can reply to Canvas."""
+        from synapse.canvas.server import create_app
+        from synapse.workflow import Workflow, WorkflowStep
+
+        workflow = Workflow(
+            name="reply-wf",
+            steps=[
+                WorkflowStep(
+                    target="synapse-claude-8100",
+                    message="Send a result back",
+                )
+            ],
+            scope="project",
+        )
+        app = create_app(db_path=str(tmp_path / "canvas.db"))
+        client = TestClient(app)
+
+        captured: dict[str, object] = {}
+
+        async def mock_post(self, url, json=None, **kwargs):  # noqa: ARG001
+            if url.startswith("http://localhost:8100/tasks/send"):
+                captured["payload"] = json
+            return httpx.Response(
+                200,
+                json={
+                    "task": {
+                        "id": "task-456",
+                        "status": {"state": "submitted"},
+                    }
+                },
+                request=httpx.Request("POST", url),
+            )
+
+        with (
+            patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
+            patch("httpx.AsyncClient.post", new=mock_post),
+        ):
+            resp = client.post("/api/workflow/run/reply-wf")
+
+        assert resp.status_code == 200
+        time.sleep(0.1)
+        payload = captured["payload"]
+        assert isinstance(payload, dict)
+        sender_task_id = payload["metadata"]["sender_task_id"]
+        assert isinstance(sender_task_id, str)
+        assert sender_task_id
 
 
 class TestLinkPreview:

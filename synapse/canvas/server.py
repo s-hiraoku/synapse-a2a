@@ -1441,11 +1441,17 @@ def create_app(db_path: str | None = None) -> FastAPI:
         with contextlib.suppress(Exception):
             body = await request.json()
         continue_on_error = body.get("continue_on_error", False)
+        sender_info = {
+            "sender_id": "canvas-workflow",
+            "sender_name": "Workflow",
+            "sender_endpoint": f"http://localhost:{_canvas_port}",
+        }
 
         run_id = await run_workflow(
             wf,
             on_update=lambda: _broadcast_event("workflow_update", {}),
             continue_on_error=continue_on_error,
+            sender_info=sender_info,
         )
         return {"run_id": run_id, "status": "running"}
 

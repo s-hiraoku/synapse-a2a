@@ -1,0 +1,7 @@
+name: test-subworkflow
+description: >
+  Minimal test workflow that delegates to the existing post-impl workflow
+  via a subworkflow step.
+steps:
+  - kind: subworkflow
+    workflow: post-impl

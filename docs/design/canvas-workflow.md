@@ -9,7 +9,7 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 ### Features
 - **Workflow list panel**: Table of available workflows (name, step count, scope, description)
 - **Detail panel**: Selected workflow's steps, Mermaid DAG visualization, Run button
-- **Execution**: `POST /api/workflow/run/{name}` triggers async background execution
+- **Execution**: `POST /api/workflow/run/{name}` triggers async background execution; Canvas sends steps directly to target agents with `sender_id=canvas-workflow`
 - **Real-time progress**: SSE `workflow_update` events update step status icons
 - **In-memory runs**: Up to 50 recent runs stored in server memory (lost on restart)
 

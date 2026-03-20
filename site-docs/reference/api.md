@@ -1417,6 +1417,15 @@ curl http://localhost:3000/api/workflow/deploy-pipeline
 
 Start async background execution of a workflow. Steps are executed sequentially and progress is broadcast via SSE `workflow_update` events.
 
+Canvas sends each workflow step directly to the target agent's A2A endpoint with sender metadata:
+
+- `sender_id: "canvas-workflow"`
+- `sender_name: "Workflow"`
+- `sender_endpoint: "http://localhost:<canvas-port>"`
+- `sender_task_id: "<uuid>"` for reply correlation
+
+This allows the target agent to use `synapse reply` and route the response back to Canvas instead of to whichever shell launched the Canvas server.
+
 ```bash
 curl -X POST http://localhost:3000/api/workflow/run/deploy-pipeline
 ```

@@ -48,9 +48,15 @@ class _FakeProcess:
         return self._stdout, self._stderr
 
 
-def _patch_subprocess(monkeypatch, mock_fn):
-    """Patch asyncio.create_subprocess_exec used by _run_a2a_subprocess."""
-    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_fn)
+def _patch_workflow_send(
+    monkeypatch, mock_send, endpoint: str = "http://localhost:8100"
+):
+    """Patch direct workflow send helpers."""
+    monkeypatch.setattr(
+        "synapse.workflow_runner._resolve_target_endpoint",
+        lambda target: endpoint,
+    )
+    monkeypatch.setattr("synapse.workflow_runner._send_workflow_request", mock_send)
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +66,10 @@ def _patch_subprocess(monkeypatch, mock_fn):
 async def test_run_workflow_all_steps_succeed(monkeypatch):
     """When subprocess returns 0 for every step, all steps complete."""
 
-    async def _mock_exec(*args, **kwargs):
-        return _FakeProcess(returncode=0, stdout=b"ok")
+    async def _mock_send(*args, **kwargs):
+        return 0, "ok", ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = _make_workflow()
     run_id = await run_workflow(wf)
@@ -88,14 +94,14 @@ async def test_run_workflow_step_fails_stops(monkeypatch):
 
     call_count = 0
 
-    async def _mock_exec(*args, **kwargs):
+    async def _mock_send(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            return _FakeProcess(returncode=1, stderr=b"server error")
-        return _FakeProcess(returncode=0, stdout=b"ok")
+            return 1, "", "server error"
+        return 0, "ok", ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = _make_workflow()
     run_id = await run_workflow(wf)
@@ -119,14 +125,14 @@ async def test_run_workflow_continue_on_error(monkeypatch):
 
     call_count = 0
 
-    async def _mock_exec(*args, **kwargs):
+    async def _mock_send(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count == 2:
-            return _FakeProcess(returncode=1, stderr=b"server error")
-        return _FakeProcess(returncode=0, stdout=b"ok")
+            return 1, "", "server error"
+        return 0, "ok", ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = _make_workflow()
     run_id = await run_workflow(wf, continue_on_error=True)
@@ -147,10 +153,10 @@ async def test_run_workflow_continue_on_error(monkeypatch):
 async def test_run_workflow_empty_stderr_shows_exit_code(monkeypatch):
     """When subprocess fails with empty stderr, error shows exit code."""
 
-    async def _mock_exec(*args, **kwargs):
-        return _FakeProcess(returncode=1, stderr=b"")
+    async def _mock_send(*args, **kwargs):
+        return 1, "", ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = Workflow(
         name="test-exit",
@@ -174,10 +180,10 @@ async def test_run_workflow_empty_stderr_shows_exit_code(monkeypatch):
 async def test_workflow_run_cap(monkeypatch):
     """Adding 55 runs should evict the oldest, keeping only MAX_RUNS (50)."""
 
-    async def _mock_exec(*args, **kwargs):
-        return _FakeProcess(returncode=0, stdout=b"ok")
+    async def _mock_send(*args, **kwargs):
+        return 0, "ok", ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = Workflow(
         name="cap-test",
@@ -211,10 +217,10 @@ async def test_step_output_truncation(monkeypatch):
 
     long_output = "x" * 1000
 
-    async def _mock_exec(*args, **kwargs):
-        return _FakeProcess(returncode=0, stdout=long_output.encode())
+    async def _mock_send(*args, **kwargs):
+        return 0, long_output, ""
 
-    _patch_subprocess(monkeypatch, _mock_exec)
+    _patch_workflow_send(monkeypatch, _mock_send)
 
     wf = Workflow(
         name="truncation-test",

@@ -1290,9 +1290,10 @@ steps:
 
 Canvas のブラウザ UI（`#/workflow`）からもワークフローを実行できます。ワークフローを選択して **Run** ボタンをクリックします。
 
-- CLI の `synapse workflow run` と同じ `a2a.py` ツールを使用するため、動作は同一です
+- Canvas サーバーが A2A HTTP で各 step を直接送信します
+- 送信元は `canvas-workflow` / `Workflow` として識別され、`synapse reply` は Canvas に返ります
 - 各ステップの進捗がリアルタイムで更新されます（SSE 経由）
-- 成功したステップの stdout は「Output」セクションで展開表示可能
+- 成功したステップの受理結果は「Output」セクションで展開表示可能
 - エラーは人間が読みやすいメッセージに変換されます
 - `auto_spawn` 設定（ワークフローレベル・ステップレベル）が反映されます
 - 完了時にトースト通知が表示されます

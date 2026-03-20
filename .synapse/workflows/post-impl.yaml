@@ -1,0 +1,21 @@
+name: post-impl
+description: >
+  Post-implementation workflow: docs/simplify/sync in parallel,
+  then release, create PR, and monitor with pr-guardian.
+steps:
+  - target: claude-agent
+    message: "/parallel-docs-simplify-sync"
+    priority: 3
+    response_mode: wait
+  - target: claude-agent
+    message: "/release"
+    priority: 3
+    response_mode: wait
+  - target: claude-agent
+    message: "PRを作成してください。ベースブランチはmainです。"
+    priority: 3
+    response_mode: wait
+  - target: claude-agent
+    message: "/pr-guardian"
+    priority: 3
+    response_mode: wait

@@ -184,11 +184,12 @@ When nested workflows are used, `--continue-on-error` applies to child steps too
 
 Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
 
-Canvas workflow execution uses the same `a2a.py` tool as the CLI, so behavior is identical to `synapse workflow run`. Key differences from CLI execution:
+Canvas workflow execution sends A2A requests directly from the Canvas server. Each step uses sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
 
 - **Background execution**: Steps run asynchronously; the UI updates in real-time via SSE
-- **Step output**: Successful steps capture stdout, viewable via an expandable "Output" section
-- **Error translation**: Raw subprocess errors are converted to human-readable messages
+- **Reply routing**: Replies go back to Canvas, not to the agent that happens to be running the Canvas server
+- **Step output**: Successful steps show the accepted task summary returned by the target agent
+- **Error translation**: Delivery errors are converted to human-readable messages
 - **Toast notifications**: A notification appears when the run completes or fails
 - **Auto-spawn**: Honors both workflow-level and step-level `auto_spawn` settings
 
