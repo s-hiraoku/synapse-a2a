@@ -1405,6 +1405,7 @@ class TestWorkflowAPI:
                     break
                 time.sleep(0.1)
 
+        assert "url" in captured, "Timed out waiting for mock_post to capture 'url'"
         assert captured["url"].startswith("http://localhost:8100/tasks/send")
         payload = captured["payload"]
         assert isinstance(payload, dict)
@@ -1465,6 +1466,9 @@ class TestWorkflowAPI:
                     break
                 time.sleep(0.1)
 
+        assert "payload" in captured, (
+            "Timed out waiting for mock_post to capture 'payload'"
+        )
         payload = captured["payload"]
         assert isinstance(payload, dict)
         sender_task_id = payload["metadata"]["sender_task_id"]
