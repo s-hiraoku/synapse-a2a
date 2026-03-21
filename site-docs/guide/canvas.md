@@ -570,12 +570,19 @@ Each card format is exported to the most natural file type:
 | `code`, `terminal` | Plain text | `.txt` | `text/plain` |
 | `html`, `artifact` | HTML | `.html` | `text/html` |
 | `diff` | Unified diff | `.diff` | `text/x-diff` |
-| `mermaid` | Mermaid source | `.mmd` | `text/plain` |
+| `mermaid` | Mermaid source (or Markdown via `?format=md`) | `.mmd` | `text/plain` |
 | `image` | Image (PNG) | `.png` | `image/png` |
-| `json`, `chart`, `task-board`, `dependency-graph`, `trace`, `log`, `file-preview`, `plan` | JSON | `.json` | `application/json` |
+| `json`, `task-board`, `dependency-graph`, `trace`, `log`, `file-preview`, `plan` | JSON | `.json` | `application/json` |
+| `chart` | Chart.js config (or Markdown via `?format=md`) | `.json` | `application/json` |
 | `table`, `cost` | CSV | `.csv` | `text/csv` |
 
 For composite cards (multiple content blocks), the export uses the primary block's format to determine the output type. Template cards include structured metadata in the export.
+
+!!! tip "Mermaid Markdown Export"
+    The `mermaid` format defaults to native `.mmd` export, but also supports Markdown export via `?format=md`. When exported as Markdown, the Mermaid source is wrapped in a fenced code block (` ```mermaid `). This is also used automatically when mermaid blocks appear inside composite or template cards.
+
+!!! tip "Chart Markdown Export"
+    The `chart` format defaults to native `.json` export, but also supports Markdown export via `?format=md`. When exported as Markdown, a heading with the chart type is added and the Chart.js config is wrapped in a fenced JSON code block. This is also used automatically when chart blocks appear inside composite or template cards.
 
 ## Configuration
 
