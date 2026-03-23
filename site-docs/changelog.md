@@ -8,6 +8,8 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Fixed**: Pane split direction not alternating when spawning multiple agents in Ghostty, iTerm2, and Zellij — all panes now tile in a balanced grid
 - **Fixed**: iTerm2 enumerate offset bug causing wrong split direction in `not all_new` path
+- **Fixed**: Copilot submit confirmation now treats repeated paste placeholders as still pending, so consecutive sends with reused `[Paste #N ...]` labels keep retrying until the prompt clears
+- **Fixed**: Remove dead `previous_tail` parameter and simplify to `any()` idiom
 
 ### v0.17.2
 

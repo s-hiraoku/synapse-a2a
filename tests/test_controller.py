@@ -1548,7 +1548,6 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.status = "READY"
-        previous_tail = "[Paste #1 - 12 lines]\nPrevious response..."
         current_tail = "[Paste #1 - 12 lines]\nFollow-up still pending..."
         ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
 
@@ -1567,7 +1566,7 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("line1\nline2", submit_seq="\r")
 
-        assert ctrl._has_copilot_pending_placeholder(current_tail, previous_tail)
+        assert ctrl._has_copilot_pending_placeholder(current_tail)
         assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
 
     def test_copilot_saved_paste_token_stays_pending_while_visible(self):
@@ -1622,9 +1621,6 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.status = "READY"
-        previous_tail = (
-            "[Saved pasted content to workspace (14 KB) id=3]\nPrevious response..."
-        )
         current_tail = "[Saved pasted content to workspace (14 KB) id=3]\nFollow-up still pending..."
         ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
 
@@ -1643,7 +1639,7 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("line1\nline2", submit_seq="\r")
 
-        assert ctrl._has_copilot_pending_placeholder(current_tail, previous_tail)
+        assert ctrl._has_copilot_pending_placeholder(current_tail)
         assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
 
     def test_copilot_multiline_message_uses_long_submit_confirm_budget(self):

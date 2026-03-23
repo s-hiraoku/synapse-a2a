@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pane split direction not alternating when spawning multiple agents via `synapse spawn` or `synapse team start` in Ghostty, iTerm2, and Zellij terminals — all panes split in the same direction instead of tiling in a balanced grid
 - iTerm2 `enumerate(agents[1:])` offset bug causing second agent to get wrong split direction in `not all_new` path
+- Copilot submit confirmation now treats repeated paste placeholders as still pending, so consecutive sends that reuse `[Paste #N ...]` or `[Saved pasted content ...]` labels continue retrying Enter until the prompt actually clears
+- Remove dead `previous_tail` parameter from `_has_copilot_pending_placeholder` and simplify to `any()` idiom
 
 ### Documentation
 
@@ -35,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear SYNAPSE_PROACTIVE_MODE_ENABLED in settings tests (15 test failures)
 - Fence mermaid blocks in Markdown export
 - Guard assertions after workflow test polling loops
-- Copilot submit confirmation now treats repeated paste placeholders as still pending, so consecutive sends that reuse `[Paste #N ...]` or `[Saved pasted content ...]` labels continue retrying Enter until the prompt actually clears
 
 ## [0.17.1] - 2026-03-20
 
