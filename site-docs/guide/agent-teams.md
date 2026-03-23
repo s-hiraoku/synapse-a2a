@@ -287,7 +287,7 @@ The delegate mode instruction template can be customized in [settings](settings.
     Synapse automatically labels each tmux pane with a title like `synapse(claude)` or `synapse(claude:Reviewer)` and enables `pane-border-status top` so the title is visible in the pane border. This makes it easy to identify which agent is running in each pane at a glance.
 
 !!! info "Ghostty Pane Creation"
-    Ghostty creates split panes using its `Cmd+D` keybinding (`new_split:right`). The `--layout` and `--all-new` flags are not applicable — each agent always gets a right-split pane in the current window. Commands are injected via clipboard paste to avoid character mangling.
+    Ghostty creates split panes using AppleScript keystrokes: `Cmd+D` (`new_split:right`) and `Cmd+Shift+D` (`new_split:down`). The `--layout` flag controls direction: `split` alternates right/down per agent for balanced tiling, `horizontal` always splits right, and `vertical` always splits down. Commands are injected via clipboard paste to avoid character mangling.
 
     **Pane auto-close**: All terminals auto-close spawned panes when the agent process exits.
 

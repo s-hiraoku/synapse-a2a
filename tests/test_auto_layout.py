@@ -528,3 +528,143 @@ class TestGetTmuxAutoSplit:
         ):
             result = _get_tmux_auto_split()
         assert result is None
+
+
+# ============================================================
+# TestMultiAgentSplitAlternation - multi-agent "split" layout
+# ============================================================
+
+
+class TestGhosttyMultiAgentSplit:
+    """Ghostty should alternate Cmd+D / Cmd+Shift+D for layout='split'."""
+
+    def test_split_alternates_direction(self) -> None:
+        """3 agents with layout='split' should alternate right/down/right."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(
+            agents=["claude", "gemini", "codex"],
+            layout="split",
+        )
+        assert len(commands) == 3
+        # index 0 → right (Cmd+D), index 1 → down (Cmd+Shift+D), index 2 → right
+        assert 'keystroke "d" using {command down}' in commands[0]
+        assert "shift down" not in commands[0]
+        assert "shift down" in commands[1]
+        assert 'keystroke "d" using {command down}' in commands[2]
+        assert "shift down" not in commands[2]
+
+    def test_horizontal_layout_no_alternation(self) -> None:
+        """layout='horizontal' should always split right."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(
+            agents=["claude", "gemini"],
+            layout="horizontal",
+        )
+        assert len(commands) == 2
+        for cmd in commands:
+            assert "shift down" not in cmd
+
+    def test_vertical_layout_no_alternation(self) -> None:
+        """layout='vertical' should always split down."""
+        from synapse.terminal_jump import create_ghostty_window
+
+        commands = create_ghostty_window(
+            agents=["claude", "gemini"],
+            layout="vertical",
+        )
+        assert len(commands) == 2
+        for cmd in commands:
+            assert "shift down" in cmd
+
+
+class TestITerm2MultiAgentSplit:
+    """iTerm2 should alternate split direction for layout='split'."""
+
+    def test_split_alternates_all_new(self) -> None:
+        """3 agents with all_new=True should alternate vertically/horizontally."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(
+            agents=["claude", "gemini", "codex"],
+            all_new=True,
+            layout="split",
+        )
+        lines = script.splitlines()
+        split_lines = [line for line in lines if "split " in line]
+        assert len(split_lines) == 3
+        # index 0 → vertically, index 1 → horizontally, index 2 → vertically
+        assert "vertically" in split_lines[0]
+        assert "horizontally" in split_lines[1]
+        assert "vertically" in split_lines[2]
+
+    def test_split_alternates_not_all_new(self) -> None:
+        """With all_new=False, new panes should continue alternation from index 1."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(
+            agents=["claude", "gemini", "codex"],
+            all_new=False,
+            layout="split",
+        )
+        lines = script.splitlines()
+        split_lines = [line for line in lines if "split " in line]
+        # First agent uses current session (no split), 2 new panes
+        # index 1 → horizontally, index 2 → vertically
+        assert len(split_lines) == 2
+        assert "horizontally" in split_lines[0]
+        assert "vertically" in split_lines[1]
+
+    def test_horizontal_layout_no_alternation(self) -> None:
+        """layout='horizontal' should always split horizontally."""
+        from synapse.terminal_jump import create_iterm2_panes
+
+        script = create_iterm2_panes(
+            agents=["claude", "gemini", "codex"],
+            all_new=True,
+            layout="horizontal",
+        )
+        lines = script.splitlines()
+        split_lines = [line for line in lines if "split " in line]
+        assert len(split_lines) == 3
+        for sl in split_lines:
+            assert "horizontally" in sl
+
+
+class TestZellijMultiAgentSplit:
+    """Zellij should alternate right/down starting with right for layout='split'."""
+
+    def test_split_alternates_direction(self) -> None:
+        """Panes in 'split' layout should alternate direction.
+
+        Index 0 skips --direction (first pane, no split needed).
+        Subsequent panes alternate starting with right: 1→right, 2→down, 3→right.
+        """
+        from synapse.terminal_jump import create_zellij_panes
+
+        commands = create_zellij_panes(
+            agents=["claude", "gemini", "codex", "opencode"],
+            layout="split",
+        )
+        assert len(commands) == 4
+        assert "--direction" not in commands[0]
+        # (i-1)%2: i=1→0→right, i=2→1→down, i=3→0→right
+        assert "--direction right" in commands[1]
+        assert "--direction down" in commands[2]
+        assert "--direction right" in commands[3]
+
+    def test_auto_layout_alternates(self) -> None:
+        """Auto layout should alternate based on existing pane count."""
+        from synapse.terminal_jump import create_zellij_panes
+
+        with patch("synapse.terminal_jump._get_zellij_pane_count", return_value=1):
+            commands = create_zellij_panes(
+                agents=["claude", "gemini"],
+                layout="auto",
+                all_new=True,
+            )
+        assert len(commands) == 2
+        # effective=1+0=1 → right, effective=1+1=2 → down
+        assert "--direction right" in commands[0]
+        assert "--direction down" in commands[1]

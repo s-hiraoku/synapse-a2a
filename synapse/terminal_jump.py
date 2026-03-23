@@ -1118,17 +1118,19 @@ def create_iterm2_panes(
     if not agents:
         return ""
 
-    # Determine split direction
-    if layout == "auto":
-        session_count = _get_iterm2_session_count()
-        if session_count is not None and session_count % 2 == 0:
-            split_direction = "horizontally"
-        else:
-            split_direction = "vertically"
-    elif layout == "horizontal":
-        split_direction = "horizontally"
-    else:
-        split_direction = "vertically"
+    # Determine split direction per agent for balanced tiling.
+    # Query session count once (for "auto" layout) and use index offset.
+    base_session_count = _get_iterm2_session_count() if layout == "auto" else None
+
+    def _split_dir_for(index: int) -> str:
+        if layout == "auto":
+            effective = (base_session_count or 1) + index
+            return "horizontally" if effective % 2 == 0 else "vertically"
+        if layout == "horizontal":
+            return "horizontally"
+        if layout == "vertical":
+            return "vertically"
+        return "vertically" if index % 2 == 0 else "horizontally"
 
     cwd = cwd or os.getcwd()
     quoted_cwd = shlex.quote(cwd)
@@ -1142,7 +1144,7 @@ def create_iterm2_panes(
             "  tell current window",
             "    tell current session of current tab",
         ]
-        for agent_spec in agents:
+        for i, agent_spec in enumerate(agents):
             full_cmd = _build_agent_command(
                 agent_spec,
                 use_exec=True,
@@ -1151,6 +1153,7 @@ def create_iterm2_panes(
                 fallback_tool_args=fallback_tool_args,
             )
             escaped = _escape_applescript_string(_cd_prefix(full_cmd))
+            split_direction = _split_dir_for(i)
             lines.extend(
                 [
                     f"      set newSession to (split {split_direction} with default profile)",
@@ -1177,7 +1180,7 @@ def create_iterm2_panes(
             f'      write text "{_escape_applescript_string(_cd_prefix(first_cmd))}"',
         ]
 
-        for agent_spec in agents[1:]:
+        for i, agent_spec in enumerate(agents[1:], start=1):
             full_cmd = _build_agent_command(
                 agent_spec,
                 use_exec=True,
@@ -1186,6 +1189,7 @@ def create_iterm2_panes(
                 fallback_tool_args=fallback_tool_args,
             )
             escaped = _escape_applescript_string(_cd_prefix(full_cmd))
+            split_direction = _split_dir_for(i)
             lines.extend(
                 [
                     "    end tell",
@@ -1293,7 +1297,7 @@ def create_zellij_panes(
             return "right"
         if layout == "vertical":
             return "down"
-        # split: alternate to keep panes reasonably balanced
+        # split: alternate for balanced tiling (index 0 is skipped by caller)
         return "right" if index % 2 == 1 else "down"
 
     for i, agent_spec in enumerate(agents):
@@ -1349,21 +1353,24 @@ def create_ghostty_window(
     """
     cwd = cwd or os.getcwd()
 
-    # Determine split direction
-    if layout == "auto":
-        direction = _get_ghostty_split_direction(layout)
-    else:
-        direction = "right" if layout in ("right", "horizontal") else "down"
-
-    # Build keystroke for the split direction
-    if direction == "-h" or direction == "right":
-        split_keystroke = '    keystroke "d" using {command down}'
-    else:
-        split_keystroke = '    keystroke "d" using {command down, shift down}'
-
     commands: list[str] = []
 
-    for agent_spec in agents:
+    for i, agent_spec in enumerate(agents):
+        if layout == "auto":
+            direction = _get_ghostty_split_direction(layout)
+        elif layout in ("right", "horizontal"):
+            direction = "right"
+        elif layout in ("down", "vertical"):
+            direction = "down"
+        elif layout == "split":
+            direction = "right" if i % 2 == 0 else "down"
+        else:
+            direction = "right"
+
+        if direction == "right":
+            split_keystroke = '    keystroke "d" using {command down}'
+        else:
+            split_keystroke = '    keystroke "d" using {command down, shift down}'
         # Do NOT use exec here — Ghostty injects commands via clipboard
         # paste (Cmd+V), and exec is unreliable with this method.
         full_cmd = _build_agent_command(

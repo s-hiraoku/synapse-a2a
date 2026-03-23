@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.3
+
+- **Fixed**: Pane split direction not alternating when spawning multiple agents in Ghostty, iTerm2, and Zellij — all panes now tile in a balanced grid
+- **Fixed**: iTerm2 enumerate offset bug causing wrong split direction in `not all_new` path
+
 ### v0.17.2
 
 - **Added**: Self-learning pipeline — PTY observation layer, instinct system with confidence scoring, evolution engine for auto-generating skills
