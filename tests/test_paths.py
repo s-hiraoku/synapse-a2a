@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from synapse.paths import (
+    get_canvas_db_path,
     get_external_registry_dir,
     get_history_db_path,
     get_registry_dir,
@@ -119,4 +120,35 @@ class TestGetHistoryDbPathEnvOverride:
         ):
             result = get_history_db_path()
             expected = str(Path.home() / "synapse-test" / "history.db")
+            assert result == expected
+
+
+class TestGetCanvasDbPath:
+    """Test get_canvas_db_path() function."""
+
+    def test_get_canvas_db_path_default(self):
+        """Default should be ~/.synapse/canvas.db (user-global)."""
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("SYNAPSE_CANVAS_DB_PATH", None)
+            result = get_canvas_db_path()
+            expected = str(Path.home() / ".synapse" / "canvas.db")
+            assert result == expected
+
+    def test_get_canvas_db_path_env_override(self):
+        """SYNAPSE_CANVAS_DB_PATH should override default."""
+        with patch.dict(os.environ, {"SYNAPSE_CANVAS_DB_PATH": "/tmp/test-canvas.db"}):
+            result = get_canvas_db_path()
+            assert result == "/tmp/test-canvas.db"
+
+    def test_get_canvas_db_path_env_expands_user_and_vars(self):
+        """SYNAPSE_CANVAS_DB_PATH should expand ~ and $VAR."""
+        with patch.dict(
+            os.environ,
+            {
+                "SYNAPSE_CANVAS_DB_PATH": "~/$TEST_CANVAS_DIR/canvas.db",
+                "TEST_CANVAS_DIR": "synapse-test",
+            },
+        ):
+            result = get_canvas_db_path()
+            expected = str(Path.home() / "synapse-test" / "canvas.db")
             assert result == expected
