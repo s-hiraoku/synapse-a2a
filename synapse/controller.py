@@ -1191,11 +1191,15 @@ class TerminalController:
     def _has_copilot_pending_placeholder(
         self, current_tail: str, previous_tail: str
     ) -> bool:
-        """Whether Copilot currently shows a newly-added paste placeholder."""
+        """Whether Copilot still shows a paste placeholder after submit.
+
+        Copilot can reuse placeholder labels such as ``[Paste #1 - 12 lines]``
+        across consecutive sends.  If the previous placeholder is still visible
+        after we inject a new message, that still means the current send has
+        not been confirmed yet even though the count did not increase.
+        """
         for pattern in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE):
-            if not pattern.search(current_tail):
-                continue
-            if len(pattern.findall(current_tail)) > len(pattern.findall(previous_tail)):
+            if pattern.search(current_tail):
                 return True
         return False
 

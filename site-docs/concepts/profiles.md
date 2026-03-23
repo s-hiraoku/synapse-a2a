@@ -204,7 +204,7 @@ idle_detection:
 - Requires explicit `write_delay: 0.5` — Ink TUI needs time to finish rendering before CR
 - `bracketed_paste: true` wraps input in paste escape sequences so Ink's `usePaste` hook receives the full text atomically
 - Copilot sends stay on paste plus Enter; the bundled profile does not rely on typed-input tuning or `Ctrl+S` fallbacks
-- Submit confirmation watches the prompt itself, not only status changes; placeholders such as `[Paste #1 - 12 lines]`, `[Saved pasted content to workspace ...]`, or file-reference banners keep the send pending until they clear
+- Submit confirmation watches the prompt itself, not only status changes; placeholders such as `[Paste #1 - 12 lines]`, `[Saved pasted content to workspace ...]`, or file-reference banners keep the send pending until they clear, even when the same placeholder label reappears on a later send
 - `long_submit_confirm_timeout: 3.0` and `long_submit_confirm_retries: 5` give multiline/file-reference sends a larger confirmation budget without changing the submit key path
 
 ## Custom Profiles

@@ -229,7 +229,7 @@ write_delay: 1.0
 **使い分け**:
 
 - **Claude Code**: デフォルト（0.5s）。ブラケテッドペーストモードの境界クローズに時間がかかるため遅延が必要
-- **Copilot CLI**: `write_delay: 0.5`。TUI の描画完了を待ってから CR を送信
+- **Copilot CLI**: `write_delay: 0.5`。TUI の描画完了を待ってから CR を送信。submit confirmation は同じ `[Paste #N ...]` / `[Saved pasted content ...]` が連続送信で再表示されても、未確定なら pending を維持する
 
 詳細はプロファイル YAML の `write_delay` / `submit_sequence` フィールドを参照。
 
@@ -409,7 +409,7 @@ waiting_detection:
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
 - **ペーストエコー後 settle 遅延**: エコー検出後 150ms（`_COPILOT_PASTE_ECHO_SETTLE`）待機。React の非同期 `setState` がペーストテキストを内部入力バッファにコミットするまでの猶予
 - **`submit_retry_delay: 0.15`**: 150ms 後に Enter を再送信。React レンダリングタイミングのセーフティネット
-- **submit confirmation**: フッターに `ctrl+s run command` が出ている場合は Ctrl+S を優先し、WAITING->WAITING の再通知だけでは確定扱いにしない
+- **submit confirmation**: フッターに `ctrl+s run command` が出ている場合は Ctrl+S を優先し、WAITING->WAITING の再通知だけでは確定扱いにしない。Copilot の paste placeholder が同じラベルで再表示されても、確定できるまで Enter 再送を続ける
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
 - **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア。prompt が消えていない再 WAITING は確認に使わない
