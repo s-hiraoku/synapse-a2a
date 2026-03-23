@@ -88,11 +88,12 @@ def get_shared_memory_db_path() -> str:
 def get_canvas_db_path() -> str:
     """Get the path to the canvas database.
 
+    Default: ~/.synapse/canvas.db (user-global, shared across projects).
     Override with SYNAPSE_CANVAS_DB_PATH environment variable.
     """
     return _resolve_path(
         "SYNAPSE_CANVAS_DB_PATH",
-        Path(".synapse") / "canvas.db",
+        Path.home() / ".synapse" / "canvas.db",
     )
 
 

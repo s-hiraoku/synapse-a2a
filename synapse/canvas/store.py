@@ -1,6 +1,6 @@
 """CanvasStore — SQLite-backed card storage for Synapse Canvas.
 
-Storage: .synapse/canvas.db (project-local, WAL mode)
+Storage: ~/.synapse/canvas.db (user-global, WAL mode)
 Cards are ephemeral: cleared on server restart, expire after TTL.
 Follows shared_memory.py / task_board.py conventions.
 """
@@ -13,11 +13,12 @@ import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_PATH = ".synapse/canvas.db"
+DEFAULT_DB_PATH = str(Path.home() / ".synapse" / "canvas.db")
 DEFAULT_CARD_TTL = 3600  # 1 hour
 _TAG_TIP_FILTER = "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = 'tip')"
 

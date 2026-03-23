@@ -219,7 +219,7 @@ synapse tasks sync-plan plan-auth                # Sync task board progress back
 
 Cards can be downloaded as files via the browser download button or the API endpoint `GET /api/cards/{card_id}/download[?format=md|json|csv|html|txt|native]`. Each card format maps to an optimal download format automatically (e.g., table → CSV, code → native source file, markdown → `.md`). The optional `format` query parameter overrides the default. Supported export groups: Markdown (Group A), native file (Group B), JSON (Group C), CSV (Group D).
 
-**Storage:** `.synapse/canvas.db` (project-local, SQLite).
+**Storage:** `~/.synapse/canvas.db` (user-global, SQLite).
 
 ## Self-Learning Pipeline (ECC)
 
