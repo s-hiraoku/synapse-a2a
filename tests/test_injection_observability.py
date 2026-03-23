@@ -176,6 +176,26 @@ class TestDecisionLog:
         assert len(decision_logs) == 1
         assert "action=skip_no_files" in decision_logs[0].message
 
+    def test_decision_send_mcp_bootstrap(self, caplog) -> None:
+        """MCP bootstrap flow should log action=send_mcp_bootstrap."""
+        ctrl = _make_controller(master_fd=5)
+        ctrl._mcp_bootstrap = True
+
+        with (
+            caplog.at_level(logging.INFO),
+            patch.object(ctrl, "write", return_value=True),
+            patch("time.sleep"),
+        ):
+            ctrl._send_identity_instruction()
+
+        decision_logs = [
+            r
+            for r in caplog.records
+            if "INJECT/DECISION" in r.message and "synapse-claude-8100" in r.message
+        ]
+        assert len(decision_logs) == 1
+        assert "action=send_mcp_bootstrap" in decision_logs[0].message
+
     def test_decision_abort_master_fd_timeout(self, caplog) -> None:
         """When master_fd never becomes available, should log action=abort_master_fd_timeout."""
         ctrl = _make_controller(master_fd=None)

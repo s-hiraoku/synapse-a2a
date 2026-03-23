@@ -176,10 +176,10 @@ class TestCmdRunInteractive:
         assert "not installed" in captured.out
         mock_dependencies["ctrl_cls"].assert_not_called()
 
-    def test_run_interactive_skips_initial_instructions_when_mcp_detected(
+    def test_run_interactive_keeps_bootstrap_when_mcp_detected(
         self, mock_dependencies, capsys
     ):
-        """MCP bootstrap config should suppress PTY identity injection."""
+        """MCP bootstrap should still send a minimal startup bootstrap."""
         mock_settings = mock_dependencies["settings"].return_value
         mock_settings.is_resume_mode.return_value = False
         mock_settings.has_mcp_bootstrap_config.return_value = True
@@ -189,9 +189,51 @@ class TestCmdRunInteractive:
             cmd_run_interactive("test_profile", 8100)
 
         kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
-        assert kwargs["skip_initial_instructions"] is True
+        assert kwargs["skip_initial_instructions"] is False
+        assert kwargs["mcp_bootstrap"] is True
         captured = capsys.readouterr()
         assert "MCP bootstrap detected" in captured.out
+
+    def test_run_interactive_prompts_for_approval_when_mcp_detected(
+        self, mock_dependencies
+    ):
+        """MCP bootstrap should still honor startup approval prompts."""
+        mock_settings = mock_dependencies["settings"].return_value
+        mock_settings.is_resume_mode.return_value = False
+        mock_settings.has_mcp_bootstrap_config.return_value = True
+        mock_settings.should_require_approval.return_value = True
+
+        with (
+            patch("synapse.cli.time.sleep"),
+            patch(
+                "synapse.approval.prompt_for_approval", return_value="approve"
+            ) as mock_prompt,
+        ):
+            cmd_run_interactive("test_profile", 8100)
+
+        mock_prompt.assert_called_once_with(
+            agent_id="agent-123",
+            port=8100,
+        )
+
+    def test_run_interactive_skip_approval_clears_mcp_bootstrap(
+        self, mock_dependencies
+    ):
+        """Choosing 'skip' in approval should clear mcp_bootstrap to avoid ValueError."""
+        mock_settings = mock_dependencies["settings"].return_value
+        mock_settings.is_resume_mode.return_value = False
+        mock_settings.has_mcp_bootstrap_config.return_value = True
+        mock_settings.should_require_approval.return_value = True
+
+        with (
+            patch("synapse.cli.time.sleep"),
+            patch("synapse.approval.prompt_for_approval", return_value="skip"),
+        ):
+            cmd_run_interactive("test_profile", 8100)
+
+        kwargs = mock_dependencies["ctrl_cls"].call_args.kwargs
+        assert kwargs["skip_initial_instructions"] is True
+        assert kwargs["mcp_bootstrap"] is False
 
     def test_run_interactive_keeps_initial_instructions_without_mcp_or_resume(
         self, mock_dependencies

@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.6
+
+- **Fixed**: MCP bootstrap no longer silently skips approval prompts — sends minimal PTY bootstrap while keeping approval enabled
+- **Changed**: Extract shared `MCP_INSTRUCTIONS_DEFAULT_URI` constant; refactor `_send_identity_instruction` early-branch pattern
+- **Docs**: Update MCP bootstrap descriptions across all documentation
+
 ### v0.17.5
 
 - **Added**: Persistent workflow execution history — SQLite storage (`.synapse/workflow_runs.db`) so Canvas workflow runs and step results survive server restarts (#437)

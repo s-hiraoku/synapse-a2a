@@ -311,7 +311,7 @@ def _mcp_config_paths(self) -> list[Path]:
         ]
 ```
 
-加えて、`has_mcp_bootstrap_config()` で Copilot の MCP 設定を検出できるようにし、MCP 設定が存在する場合は PTY instruction injection を自動スキップする。
+加えて、`has_mcp_bootstrap_config()` で Copilot の MCP 設定を検出できるようにし、MCP 設定が存在する場合は full instructions の代わりに最小 PTY bootstrap を送信する（approval は維持）。
 
 Copilot の MCP 設定例:
 
