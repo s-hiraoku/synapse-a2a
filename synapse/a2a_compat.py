@@ -1153,6 +1153,7 @@ def create_a2a_router(
         response_context = _select_response_context(
             full_context, recent_context, metadata
         )
+        output_summary = response_context[:200]
 
         status, error = detect_task_status(response_context)
         if status == "failed" and error:
@@ -1209,6 +1210,13 @@ def create_a2a_router(
                 agent_name=agent_type or "unknown",
                 task_status=updated.status,
             )
+            if controller:
+                controller.record_task_completed(
+                    task_id=task_id,
+                    duration=controller.task_duration_seconds(updated.created_at),
+                    status=updated.status,
+                    output_summary=output_summary,
+                )
 
         # Auto-complete linked board task when A2A task completes
         # complete_task is atomic (WHERE status='in_progress' AND assignee=?)
@@ -1454,6 +1462,11 @@ def create_a2a_router(
             metadata = request.metadata or {}
             response_mode = _resolve_response_mode(metadata)
             sender_info = _extract_sender_info(request.metadata)
+            controller.record_task_received(
+                message=text_content,
+                sender=sender_info.sender_id,
+                priority=priority,
+            )
             if (
                 response_mode in ("wait", "notify")
                 and sender_info.has_reply_target()
