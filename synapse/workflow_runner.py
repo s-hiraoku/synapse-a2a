@@ -2,6 +2,10 @@
 
 Runs workflow steps sequentially in a background asyncio task,
 delegating each step to ``synapse send`` via subprocess.
+
+Phase 2a: Runs are persisted to SQLite via :class:`WorkflowRunDB` so that
+execution history survives server restarts. Active (running) runs are also
+kept in an in-memory cache for low-latency reads.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from typing import Any
 import httpx
 
 from synapse.workflow import Workflow
+from synapse.workflow_db import WorkflowRunDB
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +31,17 @@ _OUTPUT_TRUNCATE_LEN = 500
 _POLL_TIMEOUT = 600.0  # 10 min max wait per step
 _SEND_MAX_RETRIES = 5
 _SEND_RETRY_INTERVAL = 2.0
+
+# Lazily initialised DB singleton — set to None for tests that don't need it.
+_db: WorkflowRunDB | None = None
+
+
+def _get_db() -> WorkflowRunDB:
+    """Return (and lazily create) the module-level DB singleton."""
+    global _db
+    if _db is None:
+        _db = WorkflowRunDB()
+    return _db
 
 
 @dataclass
@@ -41,8 +57,12 @@ class StepResult:
     output: str | None = None
     error: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        truncated = self.output[:_OUTPUT_TRUNCATE_LEN] if self.output else None
+    def to_dict(self, *, truncate: bool = True) -> dict[str, Any]:
+        output = (
+            self.output[:_OUTPUT_TRUNCATE_LEN]
+            if truncate and self.output
+            else self.output
+        )
         return {
             "step_index": self.step_index,
             "target": self.target,
@@ -50,7 +70,7 @@ class StepResult:
             "status": self.status,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
-            "output": truncated,
+            "output": output,
             "error": self.error,
         }
 
@@ -76,19 +96,85 @@ class WorkflowRun:
             "steps": [s.to_dict() for s in self.steps],
         }
 
+    def to_db_dict(self) -> dict[str, Any]:
+        """Produce a dict for DB persistence (non-truncated output)."""
+        return {
+            "run_id": self.run_id,
+            "workflow_name": self.workflow_name,
+            "status": self.status,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "steps": [s.to_dict(truncate=False) for s in self.steps],
+        }
+
 
 # In-memory run storage with LRU eviction
 _workflow_runs: OrderedDict[str, WorkflowRun] = OrderedDict()
 
 
 def get_runs() -> list[WorkflowRun]:
-    """Return all tracked runs, most recent first."""
-    return list(reversed(_workflow_runs.values()))
+    """Return all tracked runs, most recent first.
+
+    Merges in-memory cache (authoritative for active runs) with
+    persisted DB history. In-memory entries take precedence.
+    """
+    cached = list(reversed(_workflow_runs.values()))
+    try:
+        db = _get_db()
+        db_runs = db.get_runs()
+    except Exception:
+        logger.debug("Failed to read workflow runs from DB", exc_info=True)
+        return cached
+
+    cached_ids = {r.run_id for r in cached}
+    merged: list[WorkflowRun] = list(cached)
+    for d in db_runs:
+        if d["run_id"] not in cached_ids:
+            merged.append(_dict_to_run(d))
+    # Sort most recent first
+    merged.sort(key=lambda r: r.started_at, reverse=True)
+    return merged
 
 
 def get_run(run_id: str) -> WorkflowRun | None:
-    """Return a specific run by ID."""
-    return _workflow_runs.get(run_id)
+    """Return a specific run by ID (cache first, then DB)."""
+    cached = _workflow_runs.get(run_id)
+    if cached is not None:
+        return cached
+    try:
+        db = _get_db()
+        d = db.get_run(run_id)
+        if d is not None:
+            return _dict_to_run(d)
+    except Exception:
+        logger.debug("Failed to read run %s from DB", run_id, exc_info=True)
+    return None
+
+
+def _dict_to_run(d: dict[str, Any]) -> WorkflowRun:
+    """Reconstruct a WorkflowRun from a DB dict."""
+    steps = [
+        StepResult(
+            step_index=s["step_index"],
+            target=s["target"],
+            message=s["message"],
+            status=s["status"],
+            started_at=s.get("started_at"),
+            completed_at=s.get("completed_at"),
+            output=s.get("output"),
+            error=s.get("error"),
+        )
+        for s in d.get("steps", [])
+    ]
+    run = WorkflowRun(
+        run_id=d["run_id"],
+        workflow_name=d["workflow_name"],
+        steps=steps,
+        status=d["status"],
+        started_at=d["started_at"],
+    )
+    run.completed_at = d.get("completed_at")
+    return run
 
 
 def _evict_old_runs(keep_id: str | None = None) -> None:
@@ -133,6 +219,12 @@ async def run_workflow(
     run = WorkflowRun(run_id=run_id, workflow_name=workflow.name, steps=steps)
     _workflow_runs[run_id] = run
     _evict_old_runs(keep_id=run_id)
+
+    # Persist initial run state to DB
+    try:
+        _get_db().save_run(run.to_db_dict())
+    except Exception:
+        logger.debug("Failed to persist new run %s to DB", run_id, exc_info=True)
 
     task = asyncio.create_task(
         _execute_workflow(run, workflow, on_update, continue_on_error, sender_info)
@@ -396,3 +488,11 @@ async def _execute_workflow(
     run.status = "failed" if has_failure else "completed"
     run.completed_at = time.time()
     _notify(on_update)
+
+    # Persist final state to DB
+    try:
+        _get_db().save_run(run.to_db_dict())
+    except Exception:
+        logger.debug(
+            "Failed to persist completed run %s to DB", run.run_id, exc_info=True
+        )

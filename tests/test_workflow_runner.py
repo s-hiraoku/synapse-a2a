@@ -19,11 +19,17 @@ from synapse.workflow_runner import (
 
 
 @pytest.fixture(autouse=True)
-def _clear_runs():
-    """Clear the global run store before each test."""
+def _clear_runs(tmp_path):
+    """Clear the global run store and use a temp DB for each test."""
+    import synapse.workflow_runner as wr
+    from synapse.workflow_db import WorkflowRunDB
+
     _workflow_runs.clear()
+    old_db = wr._db
+    wr._db = WorkflowRunDB(db_path=str(tmp_path / "test_runs.db"))
     yield
     _workflow_runs.clear()
+    wr._db = old_db
 
 
 def _make_workflow(
@@ -191,11 +197,15 @@ async def test_workflow_run_cap(monkeypatch):
     await asyncio.sleep(0.3)
 
     assert len(_workflow_runs) == MAX_RUNS
-    # The first 5 runs should have been evicted
+    # The first 5 runs should have been evicted from in-memory cache
     for rid in run_ids[:5]:
-        assert get_run(rid) is None
-    # The last 50 should still exist
+        assert rid not in _workflow_runs
+    # The last 50 should still be in cache
     for rid in run_ids[5:]:
+        assert rid in _workflow_runs
+        assert get_run(rid) is not None
+    # But all 55 runs are still available via get_run (DB fallback)
+    for rid in run_ids[:5]:
         assert get_run(rid) is not None
 
 

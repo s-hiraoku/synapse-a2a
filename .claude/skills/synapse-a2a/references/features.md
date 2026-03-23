@@ -40,6 +40,8 @@ Supports `--dry-run` to preview execution without sending messages, `--continue-
 
 **Execution engine:** Steps are sent directly via A2A HTTP (`/tasks/send-priority`) with built-in resilience. `response_mode: wait` steps poll the target's task until a terminal state (completed, failed, canceled) or a 10-minute timeout. HTTP 409 (agent busy) responses trigger automatic retry (up to 5 attempts, 2-second interval).
 
+**Persistent execution history:** Workflow runs are persisted to SQLite (`.synapse/workflow_runs.db`, WAL mode) so that run history survives process restarts. The in-memory run list is merged with the DB on startup — in-memory entries take precedence over DB entries with the same run ID. A `delete_runs_older_than()` API is available for manual age-based cleanup, but no automatic DB pruning is performed.
+
 ### Workflow-to-Skill Bridge
 
 Workflows can be auto-generated as skills so they appear as discoverable slash commands. The `trigger` YAML field provides keywords for skill matching, and `auto_spawn` (workflow-level or per-step) enables automatic agent spawning during execution.

@@ -1448,6 +1448,8 @@ synapse workflow run review-and-test --auto-spawn
 
 Steps are executed in order. Each step sends a message to the specified target agent via direct A2A HTTP (`/tasks/send-priority`) using the configured priority and response mode. When a step uses `response_mode: wait`, the runner polls the target's task status until completion (up to 10 minutes). If the target returns HTTP 409 (agent busy), the runner retries up to 5 times with a 2-second interval. By default, execution stops on the first failure unless `--continue-on-error` is set.
 
+**Persistent execution history:** Workflow runs are persisted to SQLite (`.synapse/workflow_runs.db`, WAL mode). Run history survives process restarts — on startup the in-memory run list is merged with the DB (in-memory entries take precedence). Old runs can be pruned from the DB via age-based cleanup.
+
 When `--auto-spawn` is passed (or the workflow/step has `auto_spawn: true`), any target agent that is not already running will be spawned automatically before sending the message.
 
 ### Delete Workflow
@@ -1519,6 +1521,7 @@ For `kind: subworkflow`, set `workflow` and omit `target` / `message`. Nested wo
 ```text
 .synapse/workflows/<name>.yaml        # Project scope (default)
 ~/.synapse/workflows/<name>.yaml      # User scope
+.synapse/workflow_runs.db             # Persistent execution history (SQLite, WAL)
 ```
 
 ## Skill Management
@@ -1950,6 +1953,10 @@ Clusters instincts by domain and identifies viable skill candidates (requires 2+
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
 ~/.synapse/canvas.db   # Canvas card storage (user-global)
+.synapse/workflow_runs.db # Workflow execution history (project-local, SQLite WAL)
+.synapse/observations.db  # Observation events for self-learning (project-local)
+.synapse/instincts.db     # Learned instincts / patterns (project-local)
+.synapse/evolved/skills/  # Auto-generated skills from instinct evolution
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)

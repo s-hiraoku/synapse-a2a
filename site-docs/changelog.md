@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.5
+
+- **Added**: Persistent workflow execution history — SQLite storage (`.synapse/workflow_runs.db`) so Canvas workflow runs and step results survive server restarts (#437)
+
 ### v0.17.4
 
 - **Fixed**: Copilot submit confirmation now treats repeated paste placeholders as still pending, so consecutive sends with reused `[Paste #N ...]` labels keep retrying until the prompt clears
@@ -11,8 +15,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.17.3
 
-- **Fixed**: Pane split direction not alternating when spawning multiple agents in Ghostty, iTerm2, and Zellij — all panes now tile in a balanced grid
-- **Fixed**: iTerm2 enumerate offset bug causing wrong split direction in `not all_new` path
+- **Fixed**: Canvas DB moved from project-local to user-global path
 
 ### v0.17.2
 

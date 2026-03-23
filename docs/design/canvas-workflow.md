@@ -13,7 +13,7 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 - **Wait mode polling**: Steps with `response_mode: wait` poll the target agent's task endpoint until the task reaches a terminal state (completed/failed), with a 10-minute timeout per step
 - **409 retry**: If the target agent returns HTTP 409 (busy), the runner retries the send with a brief interval before reporting failure
 - **Real-time progress**: SSE `workflow_update` events update step status icons
-- **In-memory runs**: Up to 50 recent runs stored in server memory (lost on restart)
+- **Persistent execution history**: Active runs cached in memory, completed runs persisted to SQLite (`.synapse/workflow_runs.db`). History survives server restarts. `get_runs`/`get_run` fall back to DB when runs are not in memory cache
 
 ### API Endpoints
 
@@ -27,14 +27,17 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 
 ---
 
-## Phase 2 (Future)
+## Phase 2
 
-### 2a. Persistent Execution History
+### 2a. Persistent Execution History ✓ (Implemented)
 
-Store workflow runs in SQLite (similar to `task_board.db`).
+Workflow runs are persisted in SQLite via `WorkflowRunDB` (`synapse/workflow_db.py`).
 
-- New database: `.synapse/workflow_runs.db`
-- Tables: `runs` (run_id, workflow_name, status, started_at, completed_at) + `run_steps` (step_index, target, status, task_id, error, timestamps)
+- Database: `.synapse/workflow_runs.db`
+- Tables: `runs` (run_id, workflow_name, status, started_at, completed_at) + `run_steps` (run_id, step_index, target, message, status, started_at, completed_at, output, error)
+- Active runs are cached in memory; completed runs are persisted to SQLite
+- `get_runs` / `get_run` fall back to DB when a run is not in the in-memory cache
+- API responses are unchanged (backward compatible)
 - Benefits: history survives server restart, queryable, exportable
 
 ### 2b. Workflow CRUD via Canvas UI

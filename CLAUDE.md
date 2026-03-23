@@ -35,6 +35,7 @@ synapse/
 ├── task_board.py    # Shared task board (SQLite)
 ├── shared_memory.py # Cross-agent knowledge base (SQLite)
 ├── spawn.py         # Agent spawning
+├── workflow_db.py   # Workflow run persistence (SQLite)
 ├── mcp/             # MCP server (bootstrap instruction distribution)
 ├── canvas/          # Shared visual output surface
 ├── commands/        # CLI command implementations
