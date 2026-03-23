@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.4] - 2026-03-23
+
+### Fixed
+
+- Copilot submit confirmation now treats repeated paste placeholders as still pending, so consecutive sends that reuse `[Paste #N ...]` or `[Saved pasted content ...]` labels continue retrying Enter until the prompt actually clears
+- Remove dead `previous_tail` parameter from `_has_copilot_pending_placeholder` and simplify to `any()` idiom
+
 ## [0.17.3] - 2026-03-23
 
 ### Fixed
@@ -2712,7 +2719,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.4...HEAD
+[0.17.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.3...v0.17.4
 [0.17.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.0...v0.17.1

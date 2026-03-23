@@ -104,7 +104,7 @@ typing_max_chars: 400     # Use typed input up to this length
 
 ### submit_confirm_timeout / submit_confirm_poll_interval / submit_confirm_retries
 
-Bounded post-submit confirmation for TUIs where text may land in the input box without executing. Synapse polls recent context after the normal submit sequence and, if the text still appears pending, sends extra submit keys up to the configured retry limit. For Copilot, WAITING or PROCESSING alone is not enough: confirmation stays pending while the prompt still shows the original text, file-reference markers, or paste placeholders such as `[Paste #1 - 12 lines]` and `[Saved pasted content to workspace ...]`.
+Bounded post-submit confirmation for TUIs where text may land in the input box without executing. Synapse polls recent context after the normal submit sequence and, if the text still appears pending, sends extra submit keys up to the configured retry limit. For Copilot, WAITING or PROCESSING alone is not enough: confirmation stays pending while the prompt still shows the original text, file-reference markers, or paste placeholders such as `[Paste #1 - 12 lines]` and `[Saved pasted content to workspace ...]`, including cases where the same placeholder label is shown again on a subsequent send.
 
 ```yaml
 submit_confirm_timeout: 1.5         # Per confirmation round

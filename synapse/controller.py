@@ -1188,16 +1188,18 @@ class TerminalController:
         """Keep only the most recent visible context for prompt checks."""
         return text[-limit:]
 
-    def _has_copilot_pending_placeholder(
-        self, current_tail: str, previous_tail: str
-    ) -> bool:
-        """Whether Copilot currently shows a newly-added paste placeholder."""
-        for pattern in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE):
-            if not pattern.search(current_tail):
-                continue
-            if len(pattern.findall(current_tail)) > len(pattern.findall(previous_tail)):
-                return True
-        return False
+    def _has_copilot_pending_placeholder(self, current_tail: str) -> bool:
+        """Whether Copilot still shows a paste placeholder after submit.
+
+        Copilot can reuse placeholder labels such as ``[Paste #1 - 12 lines]``
+        across consecutive sends.  If the previous placeholder is still visible
+        after we inject a new message, that still means the current send has
+        not been confirmed yet even though the count did not increase.
+        """
+        return any(
+            p.search(current_tail)
+            for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
+        )
 
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
         """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
@@ -1359,9 +1361,7 @@ class TerminalController:
         markers = self._pending_submit_markers(data)
         pending = any(marker in current_tail for marker in markers)
         if not pending and self.agent_type == "copilot":
-            pending = self._has_copilot_pending_placeholder(
-                current_tail, previous_context
-            )
+            pending = self._has_copilot_pending_placeholder(current_tail)
 
         current_status = self.status
         if initial_status == "READY" and current_status != "READY":

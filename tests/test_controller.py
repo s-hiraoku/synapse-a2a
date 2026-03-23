@@ -1533,6 +1533,42 @@ class TestInterAgentMessageWrite:
 
         assert writes == [f"\x1b[200~{message}\x1b[201~".encode(), b"\r", b"\r", b"\r"]
 
+    def test_copilot_retries_when_same_compact_paste_token_was_already_visible(self):
+        """Copilot should still retry when a repeated paste token stays on screen."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        current_tail = "[Paste #1 - 12 lines]\nFollow-up still pending..."
+        ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch.object(
+                ctrl,
+                "_wait_for_copilot_paste_echo",
+                side_effect=lambda pre: None,
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("line1\nline2", submit_seq="\r")
+
+        assert ctrl._has_copilot_pending_placeholder(current_tail)
+        assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
+
     def test_copilot_saved_paste_token_stays_pending_while_visible(self):
         """Saved-paste placeholders should keep Copilot confirmation pending."""
         ctrl = TerminalController(
@@ -1569,6 +1605,42 @@ class TestInterAgentMessageWrite:
             ctrl.write("line1\nline2\nline3", submit_seq="\r")
 
         assert writes == [b"\x1b[200~line1\nline2\nline3\x1b[201~", b"\r", b"\r", b"\r"]
+
+    def test_copilot_retries_when_same_saved_paste_token_was_already_visible(self):
+        """Copilot should still retry when a repeated saved-paste token stays visible."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_type="copilot",
+            write_delay=0.5,
+            bracketed_paste=True,
+            submit_confirm_timeout=0.1,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=1,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+        ctrl.status = "READY"
+        current_tail = "[Saved pasted content to workspace (14 KB) id=3]\nFollow-up still pending..."
+        ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch.object(
+                ctrl,
+                "_wait_for_copilot_paste_echo",
+                side_effect=lambda pre: None,
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("line1\nline2", submit_seq="\r")
+
+        assert ctrl._has_copilot_pending_placeholder(current_tail)
+        assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
 
     def test_copilot_multiline_message_uses_long_submit_confirm_budget(self):
         """Multi-line Copilot sends should use the long-message confirm budget."""
