@@ -1949,7 +1949,7 @@ Clusters instincts by domain and identifies viable skill candidates (requires 2+
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
-.synapse/canvas.db   # Canvas card storage (project-local)
+~/.synapse/canvas.db   # Canvas card storage (user-global)
 .synapse/observations.db  # Observation events for self-learning (project-local)
 .synapse/instincts.db     # Learned instincts / patterns (project-local)
 .synapse/evolved/skills/  # Auto-generated skills from instinct evolution
