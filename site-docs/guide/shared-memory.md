@@ -230,6 +230,10 @@ stats = memory.stats()
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Database file path |
 
+## Integration with Self-Learning
+
+The [Self-Learning Pipeline](self-learning.md) stores instincts in a separate `instincts.db` database. Shared Memory can be used alongside instincts for manual knowledge sharing via `synapse memory save`. Cross-agent A2A broadcast of learned patterns is planned for a future phase. See [Self-Learning Pipeline](self-learning.md) for details.
+
 ## Troubleshooting
 
 | Issue | Solution |

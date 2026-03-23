@@ -53,6 +53,7 @@ The heart of Synapse — manages the PTY connection to the CLI agent.
 - Write messages to the PTY (with split-write strategy for Ink TUI apps)
 - Strip ANSI escape sequences with three-stage removal (full sequences → orphaned SGR fragments → bare SGR fragments)
 - Detect idle states using configurable strategies (pattern, timeout, hybrid)
+- Collect PTY observations for the [Self-Learning Pipeline](../guide/self-learning.md)
 - Send initial instructions on first idle
 - Manage the Readiness Gate
 - Adaptive paste echo wait for Copilot (polls PTY for TUI re-render before Enter)
@@ -259,6 +260,8 @@ sequenceDiagram
 | Task Board | `.synapse/task_board.db` | Task coordination | SQLite (WAL) |
 | File Safety | `.synapse/file_safety.db` | File locks/tracking | SQLite (WAL) |
 | Saved Agents | `~/.synapse/agents/`, `.synapse/agents/` | Reusable agent definitions | JSON files |
+| Observations | `.synapse/observations.db` | PTY observation data for self-learning | SQLite (WAL) |
+| Instincts | `.synapse/instincts.db` | Learned patterns (trigger + action + confidence) | SQLite (WAL) |
 | Logs | `~/.synapse/logs/` | Agent logs | Text files |
 | Skills (Source) | `plugins/synapse-a2a/skills/` | Canonical skill definitions (source of truth); each skill uses Progressive Disclosure (`SKILL.md` + `references/` + optional `scripts/`) | Markdown |
 | Skills (Central) | `~/.synapse/skills/` | Central skill store (SYNAPSE scope) | Markdown |

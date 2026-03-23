@@ -144,6 +144,7 @@ class TestSynapseSettings:
             "SYNAPSE_SHARED_MEMORY_ENABLED",
             "SYNAPSE_LEARNING_MODE_ENABLED",
             "SYNAPSE_LEARNING_MODE_TRANSLATION",
+            "SYNAPSE_PROACTIVE_MODE_ENABLED",
         ):
             os.environ.pop(key, None)
 
@@ -413,6 +414,7 @@ class TestInstructionPlaceholders:
             "SYNAPSE_SHARED_MEMORY_ENABLED",
             "SYNAPSE_LEARNING_MODE_ENABLED",
             "SYNAPSE_LEARNING_MODE_TRANSLATION",
+            "SYNAPSE_PROACTIVE_MODE_ENABLED",
         ):
             os.environ.pop(key, None)
 
