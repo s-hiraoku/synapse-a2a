@@ -1908,7 +1908,7 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
-.synapse/canvas.db   # Canvas card storage (project-local)
+~/.synapse/canvas.db   # Canvas card storage (user-global)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)
