@@ -13,12 +13,12 @@ import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from uuid import uuid4
+
+from synapse.paths import get_canvas_db_path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_PATH = str(Path.home() / ".synapse" / "canvas.db")
 DEFAULT_CARD_TTL = 3600  # 1 hour
 _TAG_TIP_FILTER = "EXISTS (SELECT 1 FROM json_each(tags) WHERE value = 'tip')"
 
@@ -31,7 +31,9 @@ class CanvasStore:
         db_path: str | None = None,
         card_ttl: int = DEFAULT_CARD_TTL,
     ) -> None:
-        self.db_path = os.path.abspath(os.path.expanduser(db_path or DEFAULT_DB_PATH))
+        self.db_path = os.path.abspath(
+            os.path.expanduser(db_path or get_canvas_db_path())
+        )
         self.card_ttl = card_ttl
         self._lock = threading.RLock()
         self._init_db()
