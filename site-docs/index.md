@@ -263,6 +263,18 @@ synapse memory save auth-pattern \
 </div>
 
 <div class="feature-card" markdown>
+<div class="feature-icon" markdown>:material-school-outline:</div>
+
+### Self-Learning Pipeline
+Agents automatically learn from PTY observations, extract reusable instincts, and evolve them into skills. Patterns learned by one agent are shared with all others via A2A.
+
+```bash
+synapse learn
+synapse evolve --generate
+```
+</div>
+
+<div class="feature-card" markdown>
 <div class="feature-icon" markdown>:material-palette-outline:</div>
 
 ### Canvas

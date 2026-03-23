@@ -1892,6 +1892,47 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 
 **Copilot submit confirmation:** Repeated `WAITING` output is not treated as success by itself. Synapse waits for the paste echo before sending Enter, then applies an adaptive nudge delay (0.1 s / 0.2 s for long messages) before the first confirmation check. If the submit is not confirmed, an extra Enter is sent and the retry loop continues until the visible prompt advances or the injected text disappears.
 
+## Self-Learning Pipeline
+
+### Learn (Analyze Observations)
+
+```bash
+# Analyze observations and persist learned instincts
+synapse learn [--observation-db-path <path>] [--db-path <path>] [--project-hash <hash>]
+```
+
+Runs `PatternAnalyzer.analyze_and_save()` to scan the observation store for recurring patterns (repeated errors, successful sender collaborations, frequent status transitions) and persist them as instincts. Existing instincts are updated with merged sources and increased confidence rather than duplicated.
+
+### Instinct Status
+
+```bash
+# List learned instincts ordered by confidence
+synapse instinct [--scope project|global] [--domain <domain>] [--min-confidence <float>] [--project-hash <hash>] [--limit <n>] [--db-path <path>]
+```
+
+Displays instincts with their ID, confidence score, scope, domain, trigger, and action. Use filters to narrow results by scope (`project`/`global`), domain (e.g., `debugging`, `testing`, `workflow`), or minimum confidence threshold.
+
+### Instinct Promote
+
+```bash
+# Promote a project-scoped instinct to global scope
+synapse instinct promote <instinct_id> [--db-path <path>]
+```
+
+Changes an instinct's scope from `project` to `global`, making it available across all projects.
+
+### Evolve (Generate Skills from Instincts)
+
+```bash
+# Preview skill candidates (dry-run)
+synapse evolve [--db-path <path>]
+
+# Generate SKILL.md files for each candidate
+synapse evolve --generate [--output-dir <dir>] [--db-path <path>]
+```
+
+Clusters instincts by domain and identifies viable skill candidates (requires 2+ instincts per domain with average confidence >= 0.5). With `--generate`, writes `SKILL.md` files to `.synapse/evolved/skills/<name>/`, `.claude/skills/<name>/`, and `.agents/skills/<name>/`.
+
 ## Storage Locations
 
 ```text
@@ -1909,6 +1950,9 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
 .synapse/canvas.db   # Canvas card storage (project-local)
+.synapse/observations.db  # Observation events for self-learning (project-local)
+.synapse/instincts.db     # Learned instincts / patterns (project-local)
+.synapse/evolved/skills/  # Auto-generated skills from instinct evolution
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)

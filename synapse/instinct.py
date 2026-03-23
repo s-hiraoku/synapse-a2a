@@ -202,24 +202,13 @@ class InstinctStore:
         with self._lock:
             conn = self._get_connection()
             try:
+                query = "SELECT * FROM instincts WHERE trigger = ? AND action = ?"
+                params: list[Any] = [trigger, action]
                 if project_hash:
-                    row = conn.execute(
-                        """
-                        SELECT * FROM instincts
-                        WHERE trigger = ? AND action = ? AND project_hash = ?
-                        ORDER BY updated_at DESC LIMIT 1
-                        """,
-                        (trigger, action, project_hash),
-                    ).fetchone()
-                else:
-                    row = conn.execute(
-                        """
-                        SELECT * FROM instincts
-                        WHERE trigger = ? AND action = ?
-                        ORDER BY updated_at DESC LIMIT 1
-                        """,
-                        (trigger, action),
-                    ).fetchone()
+                    query += " AND project_hash = ?"
+                    params.append(project_hash)
+                query += " ORDER BY updated_at DESC LIMIT 1"
+                row = conn.execute(query, params).fetchone()
                 return self._row_to_dict(row) if row else None
             finally:
                 conn.close()

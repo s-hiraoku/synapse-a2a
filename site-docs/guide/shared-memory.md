@@ -230,6 +230,10 @@ stats = memory.stats()
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Database file path |
 
+## Integration with Self-Learning
+
+Shared Memory serves as the persistence and distribution layer for the [Self-Learning Pipeline](self-learning.md). Instincts extracted by `synapse learn` are saved to Shared Memory and broadcast to all running agents via A2A, enabling cross-agent knowledge sharing. See [Self-Learning Pipeline](self-learning.md) for details.
+
 ## Troubleshooting
 
 | Issue | Solution |

@@ -106,25 +106,25 @@ class EvolutionEngine:
         base_output = Path(output_dir or DEFAULT_EVOLVED_SKILLS_DIR)
         for candidate in candidates:
             content = self.generate_skill_md(candidate)
-            self._write_skill_file(base_output / candidate.name / "SKILL.md", content)
-            self._write_skill_file(
-                Path(".claude") / "skills" / candidate.name / "SKILL.md",
-                content,
-            )
-            self._write_skill_file(
-                Path(".agents") / "skills" / candidate.name / "SKILL.md",
-                content,
-            )
+            skill_dirs = [
+                base_output / candidate.name,
+                Path(".claude") / "skills" / candidate.name,
+                Path(".agents") / "skills" / candidate.name,
+            ]
+            for skill_dir in skill_dirs:
+                _write_skill_file(skill_dir / "SKILL.md", content)
         return candidates
 
-    def _build_description(self, domain: str, instincts: list[dict[str, Any]]) -> str:
+    @staticmethod
+    def _build_description(domain: str, instincts: list[dict[str, Any]]) -> str:
         count = len(instincts)
         return (
             f"Learned {domain} patterns distilled from {count} instinct"
             f"{'' if count == 1 else 's'}."
         )
 
-    def _suggested_type(self, domain: str, instincts: list[dict[str, Any]]) -> str:
+    @staticmethod
+    def _suggested_type(domain: str, instincts: list[dict[str, Any]]) -> str:
         keywords = {"cli", "command", "shell", "terminal"}
         if domain == "commands":
             return "command"
@@ -135,6 +135,8 @@ class EvolutionEngine:
                 return "command"
         return "skill"
 
-    def _write_skill_file(self, path: Path, content: str) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+
+def _write_skill_file(path: Path, content: str) -> None:
+    """Write content to a skill file, creating parent directories as needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")

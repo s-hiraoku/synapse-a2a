@@ -278,7 +278,6 @@ class ObservationCollector:
         self.enabled = enabled
         self.store = store or ObservationStore(db_path=db_path, enabled=enabled)
         self.project_hash = project_hash or _resolve_project_hash()
-        self._lock = threading.RLock()
 
     @classmethod
     def from_env(cls, db_path: str | None = None) -> ObservationCollector:
@@ -299,14 +298,13 @@ class ObservationCollector:
         if not self.enabled:
             return None
 
-        with self._lock:
-            return self.store.save(
-                event_type=event_type,
-                agent_id=agent_id,
-                agent_type=agent_type,
-                data=data,
-                project_hash=self.project_hash,
-            )
+        return self.store.save(
+            event_type=event_type,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            data=data,
+            project_hash=self.project_hash,
+        )
 
     def record_task_received(
         self,

@@ -220,3 +220,59 @@ synapse tasks sync-plan plan-auth                # Sync task board progress back
 Cards can be downloaded as files via the browser download button or the API endpoint `GET /api/cards/{card_id}/download[?format=md|json|csv|html|txt|native]`. Each card format maps to an optimal download format automatically (e.g., table → CSV, code → native source file, markdown → `.md`). The optional `format` query parameter overrides the default. Supported export groups: Markdown (Group A), native file (Group B), JSON (Group C), CSV (Group D).
 
 **Storage:** `.synapse/canvas.db` (project-local, SQLite).
+
+## Self-Learning Pipeline (ECC)
+
+Observe agent behavior, learn patterns, and evolve reusable skills automatically. The pipeline has four stages:
+
+### 1. Observation Layer (`synapse/observation.py`)
+
+`ObservationStore` persists structured events to `.synapse/observations.db` (SQLite, WAL mode). `ObservationCollector` provides typed methods for recording events without manual SQL.
+
+**Event types:**
+- `task_received` — message received with sender and priority
+- `task_completed` — task finished with duration, status, output summary
+- `error` — error with type, message, and recovery action
+- `status_change` — agent status transition (from/to/trigger)
+- `file_operation` — file path and operation type
+
+**Configuration:**
+- `SYNAPSE_OBSERVATION_ENABLED` — enable/disable collection (default: `true`)
+- `SYNAPSE_OBSERVATION_DB_PATH` — custom database path
+
+Each observation is tagged with a `project_hash` (derived from `git remote.origin.url` or `cwd`) for per-project isolation.
+
+### 2. Pattern Analyzer (`synapse/pattern_analyzer.py`)
+
+`PatternAnalyzer` scans observations and generates instinct candidates using rule-based analysis:
+
+- **Repeated errors** — errors of the same type appearing 2+ times produce a debugging instinct with the observed recovery action
+- **Successful senders** — senders whose tasks consistently complete are surfaced as collaboration patterns
+- **Status transitions** — frequent from/to status pairs suggest workflow optimization opportunities
+
+Confidence scales with frequency: 2 occurrences = 0.3, 3+ = 0.5, 5+ = 0.7, 10+ = 0.9.
+
+### 3. Instinct Store (`synapse/instinct.py`)
+
+`InstinctStore` persists learned trigger/action pairs to `.synapse/instincts.db` (SQLite, WAL mode). Each instinct has:
+
+- **trigger** — condition that activates the instinct
+- **action** — recommended response
+- **confidence** — 0.0-1.0, increases with repeated evidence
+- **scope** — `project` (local) or `global` (promoted across projects)
+- **domain** — category (debugging, testing, workflow, etc.)
+- **source_observations** — IDs of observations that produced the instinct
+
+Instincts can be promoted from project to global scope via `synapse instinct promote`.
+
+**Configuration:** `SYNAPSE_INSTINCT_DB_PATH` — custom database path.
+
+### 4. Evolution Engine (`synapse/evolve.py`)
+
+`EvolutionEngine` clusters instincts by domain and generates reusable skill candidates:
+
+- Groups instincts by domain, requires 2+ instincts and average confidence >= 0.5
+- Generates `SKILL.md` files in `.synapse/evolved/skills/`, `.claude/skills/`, and `.agents/skills/`
+- Each generated skill includes frontmatter with source instinct IDs, trigger patterns, and action recommendations
+
+**Storage:** `.synapse/observations.db`, `.synapse/instincts.db`, `.synapse/evolved/skills/` (all project-local, SQLite).

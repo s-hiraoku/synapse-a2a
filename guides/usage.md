@@ -257,6 +257,9 @@ flowchart TB
         init["init"]
         reset["reset"]
         auth["auth"]
+        learn["learn"]
+        instinct["instinct"]
+        evolve["evolve"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -378,6 +381,10 @@ flowchart TB
 | `synapse workflow` | ワークフロー管理（保存済みメッセージシーケンスの作成・実行） |
 | `synapse config` | 設定管理（インタラクティブTUI） |
 | `synapse auth` | API キー認証の管理（`setup` / `generate-key`） |
+| `synapse learn` | 観測データを分析しインスティンクト（学習パターン）を生成 |
+| `synapse instinct` | 学習済みインスティンクトの一覧表示（`--scope`, `--domain`, `--min-confidence` フィルタ対応） |
+| `synapse instinct promote <id>` | プロジェクトスコープのインスティンクトをグローバルに昇格 |
+| `synapse evolve` | インスティンクトからスキル候補を発見（`--generate` でスキルファイル生成） |
 
 ---
 

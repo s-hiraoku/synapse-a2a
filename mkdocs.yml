@@ -125,6 +125,7 @@ nav:
     - File Safety: guide/file-safety.md
     - Skills: guide/skills.md
     - Shared Memory: guide/shared-memory.md
+    - Self-Learning Pipeline: guide/self-learning.md
     - Session Save/Restore: guide/session.md
     - Workflows: guide/workflow.md
     - Canvas:
