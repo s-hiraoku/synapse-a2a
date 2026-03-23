@@ -82,7 +82,7 @@ class EvolutionEngine:
         return (
             "---\n"
             f"name: {candidate.name}\n"
-            f"description: {candidate.description}\n"
+            f'description: "{candidate.description}"\n'
             f"evolved_from: {json.dumps(instinct_ids)}\n"
             "---\n\n"
             f"# {title}\n\n"

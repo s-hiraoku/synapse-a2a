@@ -258,7 +258,7 @@ Confidence scales with frequency: 2 occurrences = 0.3, 3+ = 0.5, 5+ = 0.7, 10+ =
 
 - **trigger** — condition that activates the instinct
 - **action** — recommended response
-- **confidence** — 0.0-1.0, increases with repeated evidence
+- **confidence** — 0.3–0.9, increases with repeated evidence
 - **scope** — `project` (local) or `global` (promoted across projects)
 - **domain** — category (debugging, testing, workflow, etc.)
 - **source_observations** — IDs of observations that produced the instinct

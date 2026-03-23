@@ -232,7 +232,7 @@ stats = memory.stats()
 
 ## Integration with Self-Learning
 
-Shared Memory serves as the persistence and distribution layer for the [Self-Learning Pipeline](self-learning.md). Instincts extracted by `synapse learn` are saved to Shared Memory and broadcast to all running agents via A2A, enabling cross-agent knowledge sharing. See [Self-Learning Pipeline](self-learning.md) for details.
+The [Self-Learning Pipeline](self-learning.md) stores instincts in a separate `instincts.db` database. Shared Memory can be used alongside instincts for manual knowledge sharing via `synapse memory save`. Cross-agent A2A broadcast of learned patterns is planned for a future phase. See [Self-Learning Pipeline](self-learning.md) for details.
 
 ## Troubleshooting
 

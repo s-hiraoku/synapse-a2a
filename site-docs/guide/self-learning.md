@@ -115,7 +115,7 @@ synapse instinct status
 List instincts with filtering options.
 
 ```bash
-synapse instinct list [--scope project|global] [--domain DOMAIN] [--min-confidence N]
+synapse instinct [--scope project|global] [--domain DOMAIN] [--min-confidence N]
 ```
 
 | Flag | Description |
@@ -127,7 +127,7 @@ synapse instinct list [--scope project|global] [--domain DOMAIN] [--min-confiden
 
 ### `synapse instinct promote`
 
-Promote a project-scoped instinct to global scope. Requires confidence >= 0.8 and presence in 2+ projects.
+Promote a project-scoped instinct to global scope.
 
 ```bash
 synapse instinct promote <id>
@@ -152,7 +152,7 @@ synapse evolve --generate     # Generate skill files
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SYNAPSE_OBSERVATION_ENABLED` | `true` | Enable PTY observation collection |
-| `SYNAPSE_OBSERVATION_DB_PATH` | `.synapse/observation.db` | Observation database path |
+| `SYNAPSE_OBSERVATION_DB_PATH` | `.synapse/observations.db` | Observation database path |
 
 ## Relationship to Other Features
 

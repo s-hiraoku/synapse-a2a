@@ -97,7 +97,9 @@ def test_generate_skill_md_formats_frontmatter_and_sections(
     content = EvolutionEngine(store).generate_skill_md(candidate)
 
     assert content.startswith("---\nname: debugging-learned\n")
-    assert "description: Learned debugging patterns for repeated failures.\n" in content
+    assert (
+        'description: "Learned debugging patterns for repeated failures."\n' in content
+    )
     assert 'evolved_from: ["inst-1", "inst-2"]\n' in content
     assert "# Debugging Learned\n" in content
     assert (

@@ -782,13 +782,12 @@ MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. See [MCP Bo
 synapse learn
 ```
 
-Analyzes PTY observations from the current session and extracts atomic instincts (trigger + action pairs with confidence scores). See [Self-Learning Pipeline](../guide/self-learning.md) for details.
+Analyzes PTY observations from the current project and extracts atomic instincts (trigger + action pairs with confidence scores). See [Self-Learning Pipeline](../guide/self-learning.md) for details.
 
 ### Instinct
 
 ```bash
-synapse instinct status                                    # Show all instincts (by confidence)
-synapse instinct list [--scope SCOPE] [--domain DOMAIN]    # List with filters
+synapse instinct [--scope SCOPE] [--domain DOMAIN]         # List instincts with filters
 synapse instinct promote <id>                              # Promote to global scope
 synapse instinct export                                    # Export instincts
 synapse instinct import <file>                             # Import instincts
