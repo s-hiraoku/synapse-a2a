@@ -199,7 +199,13 @@ class WorkflowRunDB:
                 ).fetchone()
                 if row is None:
                     return None
-                return self._build_run_dict(conn, row)
+                step_rows = conn.execute(
+                    "SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_index",
+                    (run_id,),
+                ).fetchall()
+                return self._build_run_dict(
+                    row, [self._step_row_to_dict(s) for s in step_rows]
+                )
             finally:
                 conn.close()
 
@@ -212,7 +218,25 @@ class WorkflowRunDB:
                     "SELECT * FROM runs ORDER BY started_at DESC LIMIT ?",
                     (limit,),
                 ).fetchall()
-                return [self._build_run_dict(conn, r) for r in rows]
+                if not rows:
+                    return []
+                # Batch-fetch all steps for the selected runs (avoids N+1)
+                run_ids = [r["run_id"] for r in rows]
+                placeholders = ",".join("?" * len(run_ids))
+                all_steps = conn.execute(
+                    f"SELECT * FROM run_steps WHERE run_id IN ({placeholders}) "
+                    "ORDER BY step_index",
+                    run_ids,
+                ).fetchall()
+                steps_by_run: dict[str, list[dict[str, Any]]] = {}
+                for s in all_steps:
+                    steps_by_run.setdefault(s["run_id"], []).append(
+                        self._step_row_to_dict(s)
+                    )
+                return [
+                    self._build_run_dict(r, steps_by_run.get(r["run_id"], []))
+                    for r in rows
+                ]
             finally:
                 conn.close()
 
@@ -229,7 +253,6 @@ class WorkflowRunDB:
         with self._lock:
             conn = self._get_connection()
             try:
-                conn.execute("PRAGMA foreign_keys = ON")
                 cursor = conn.execute(
                     "DELETE FROM runs WHERE started_at < ?",
                     (cutoff_timestamp,),
@@ -245,26 +268,24 @@ class WorkflowRunDB:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_run_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
-        """Assemble a full run dict including steps."""
-        run_id = row["run_id"]
-        step_rows = conn.execute(
-            "SELECT * FROM run_steps WHERE run_id = ? ORDER BY step_index",
-            (run_id,),
-        ).fetchall()
-        steps = [
-            {
-                "step_index": s["step_index"],
-                "target": s["target"],
-                "message": s["message"],
-                "status": s["status"],
-                "started_at": s["started_at"],
-                "completed_at": s["completed_at"],
-                "output": s["output"],
-                "error": s["error"],
-            }
-            for s in step_rows
-        ]
+    def _step_row_to_dict(s: sqlite3.Row) -> dict[str, Any]:
+        """Convert a run_steps row to a plain dict."""
+        return {
+            "step_index": s["step_index"],
+            "target": s["target"],
+            "message": s["message"],
+            "status": s["status"],
+            "started_at": s["started_at"],
+            "completed_at": s["completed_at"],
+            "output": s["output"],
+            "error": s["error"],
+        }
+
+    @staticmethod
+    def _build_run_dict(
+        row: sqlite3.Row, steps: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Assemble a full run dict from a runs row and pre-fetched steps."""
         return {
             "run_id": row["run_id"],
             "workflow_name": row["workflow_name"],
