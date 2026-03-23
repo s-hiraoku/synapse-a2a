@@ -4,10 +4,19 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.2
+
+- **Added**: Self-learning pipeline — PTY observation layer, instinct system with confidence scoring, evolution engine for auto-generating skills
+- **Added**: Cross-agent knowledge sharing — skills learned by one agent are auto-distributed to all agents (.claude/skills/ + .agents/skills/)
+- **Fixed**: Settings tests — clear SYNAPSE_PROACTIVE_MODE_ENABLED env var leak
+
 ### v0.17.1
 
 - **Added**: Canvas Workflow view (`#/workflow`) — split-panel UI with Mermaid DAG, async execution, real-time SSE progress
 - **Added**: 5 workflow API endpoints for browsing and running workflows from the browser
+- **Added**: `response_mode: wait` polling — workflow runner polls target agent until task completion
+- **Added**: 409 (agent busy) retry with backoff in workflow step execution
+- **Fixed**: Route canvas workflow replies through canvas, Mermaid labels, agent ready wait
 
 ### v0.17.0
 

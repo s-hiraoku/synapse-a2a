@@ -525,7 +525,7 @@ synapse workflow show <name> [--project | --user]
 synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error] [--auto-spawn]
 ```
 
-Executes workflow steps sequentially via `synapse send`.
+Executes workflow steps sequentially, sending A2A requests directly to target agents. Steps with `response_mode: wait` poll for task completion before proceeding to the next step.
 If a step is `kind: subworkflow`, the child workflow is expanded inline. Cycles are rejected and nesting depth is limited to 10.
 
 | Flag | Description |
@@ -773,6 +773,44 @@ MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. See [MCP Bo
 
 !!! warning "Experimental"
     This command is in early development (Phase 1). The interface may change in future releases.
+
+## Self-Learning Pipeline
+
+### Learn
+
+```bash
+synapse learn
+```
+
+Analyzes PTY observations from the current project and extracts atomic instincts (trigger + action pairs with confidence scores). See [Self-Learning Pipeline](../guide/self-learning.md) for details.
+
+### Instinct
+
+```bash
+synapse instinct [--scope SCOPE] [--domain DOMAIN]         # List instincts with filters
+synapse instinct promote <id>                              # Promote to global scope
+synapse instinct export                                    # Export instincts
+synapse instinct import <file>                             # Import instincts
+```
+
+| Flag | Description |
+|------|-------------|
+| `--scope SCOPE` | Filter by `project` or `global` |
+| `--domain DOMAIN` | Filter by domain |
+| `--min-confidence N` | Minimum confidence threshold |
+| `--limit N` | Maximum results (default: 50) |
+
+### Evolve
+
+```bash
+synapse evolve                    # Discover skill/command candidates from instincts
+synapse evolve --generate         # Auto-generate skill .md files
+```
+
+| Flag | Description |
+|------|-------------|
+| `--generate` | Generate `.md` skill files from candidates |
+| `--output-dir DIR` | Output directory for generated files |
 
 ## Low-Level A2A Tool
 

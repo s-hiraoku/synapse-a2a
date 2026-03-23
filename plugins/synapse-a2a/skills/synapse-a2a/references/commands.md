@@ -1446,7 +1446,7 @@ synapse workflow run review-and-test --continue-on-error
 synapse workflow run review-and-test --auto-spawn
 ```
 
-Steps are executed in order. Each step sends a message to the specified target agent using the configured priority and response mode. By default, execution stops on the first failure unless `--continue-on-error` is set.
+Steps are executed in order. Each step sends a message to the specified target agent via direct A2A HTTP (`/tasks/send-priority`) using the configured priority and response mode. When a step uses `response_mode: wait`, the runner polls the target's task status until completion (up to 10 minutes). If the target returns HTTP 409 (agent busy), the runner retries up to 5 times with a 2-second interval. By default, execution stops on the first failure unless `--continue-on-error` is set.
 
 When `--auto-spawn` is passed (or the workflow/step has `auto_spawn: true`), any target agent that is not already running will be spawned automatically before sending the message.
 
@@ -1891,6 +1891,47 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 **Copilot MCP support:** Copilot agents can use the `bootstrap_agent` and `analyze_task` MCP tools but cannot consume MCP resources/prompts.
 
 **Copilot submit confirmation:** Repeated `WAITING` output is not treated as success by itself. Synapse waits for the paste echo before sending Enter, then applies an adaptive nudge delay (0.1 s / 0.2 s for long messages) before the first confirmation check. If the submit is not confirmed, an extra Enter is sent and the retry loop continues until the visible prompt advances or the injected text disappears.
+
+## Self-Learning Pipeline
+
+### Learn (Analyze Observations)
+
+```bash
+# Analyze observations and persist learned instincts
+synapse learn [--observation-db-path <path>] [--db-path <path>] [--project-hash <hash>]
+```
+
+Runs `PatternAnalyzer.analyze_and_save()` to scan the observation store for recurring patterns (repeated errors, successful sender collaborations, frequent status transitions) and persist them as instincts. Existing instincts are updated with merged sources and increased confidence rather than duplicated.
+
+### Instinct Status
+
+```bash
+# List learned instincts ordered by confidence
+synapse instinct [--scope project|global] [--domain <domain>] [--min-confidence <float>] [--project-hash <hash>] [--limit <n>] [--db-path <path>]
+```
+
+Displays instincts with their ID, confidence score, scope, domain, trigger, and action. Use filters to narrow results by scope (`project`/`global`), domain (e.g., `debugging`, `testing`, `workflow`), or minimum confidence threshold.
+
+### Instinct Promote
+
+```bash
+# Promote a project-scoped instinct to global scope
+synapse instinct promote <instinct_id> [--db-path <path>]
+```
+
+Changes an instinct's scope from `project` to `global`, making it available across all projects.
+
+### Evolve (Generate Skills from Instincts)
+
+```bash
+# Preview skill candidates (dry-run)
+synapse evolve [--db-path <path>]
+
+# Generate SKILL.md files for each candidate
+synapse evolve --generate [--output-dir <dir>] [--db-path <path>]
+```
+
+Clusters instincts by domain and identifies viable skill candidates (requires 2+ instincts per domain with average confidence >= 0.5). With `--generate`, writes `SKILL.md` files to `.synapse/evolved/skills/<name>/`, `.claude/skills/<name>/`, and `.agents/skills/<name>/`.
 
 ## Storage Locations
 

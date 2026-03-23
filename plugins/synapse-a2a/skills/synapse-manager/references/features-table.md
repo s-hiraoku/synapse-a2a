@@ -19,3 +19,4 @@
 | **Plan Cards** | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` | Mermaid DAG + step tracking with task board integration |
 | **Smart Suggest** | MCP tool: `analyze_task` | Analyze prompts and suggest team/task splits for large work |
 | **MCP Bootstrap** | `synapse mcp serve` / `python -m synapse.mcp` | Distribute instructions via MCP resources (opt-in, including Copilot via tools) |
+| **Self-Learning** | `synapse learn` / `synapse instinct` / `synapse evolve` | Observe agent behavior, learn patterns, evolve reusable skills |

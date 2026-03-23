@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 MAX_RUNS = 50
 _OUTPUT_TRUNCATE_LEN = 500
+_POLL_TIMEOUT = 600.0  # 10 min max wait per step
+_SEND_MAX_RETRIES = 5
+_SEND_RETRY_INTERVAL = 2.0
 
 
 @dataclass
@@ -171,36 +174,104 @@ def _build_canvas_workflow_request(
     }
 
 
+def _extract_task_data(data: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap the ``{"task": {...}}`` envelope returned by A2A endpoints."""
+    result: dict[str, Any] = data.get("task", data) if isinstance(data, dict) else {}
+    return result
+
+
+def _extract_task_status(task_data: dict[str, Any]) -> str:
+    """Return the scalar status string from a task dict.
+
+    Handles both ``"status": "completed"`` and ``"status": {"state": "completed"}``.
+    """
+    status = task_data.get("status", "")
+    if isinstance(status, dict):
+        return str(status.get("state", ""))
+    return str(status)
+
+
+def _extract_task_output(task_data: dict) -> str:
+    """Extract text output from task artifacts."""
+    parts: list[str] = []
+    for artifact in task_data.get("artifacts", []):
+        for part in artifact.get("parts", []):
+            if part.get("type") == "text":
+                parts.append(part.get("text", ""))
+    return "\n".join(parts) if parts else ""
+
+
+async def _poll_task_completion(
+    endpoint: str,
+    task_id: str,
+) -> tuple[str, str]:
+    """Poll target agent's task until terminal state. Returns (status, output)."""
+    from synapse.config import COMPLETED_TASK_STATES, TASK_POLL_INTERVAL
+
+    url = f"{endpoint.rstrip('/')}/tasks/{task_id}"
+    deadline = time.time() + _POLL_TIMEOUT
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        while time.time() < deadline:
+            try:
+                resp = await client.get(url)
+                if resp.status_code == 404:
+                    return "completed", ""  # task not tracked
+                resp.raise_for_status()
+                task_data = _extract_task_data(resp.json())
+                status = _extract_task_status(task_data)
+                if status in COMPLETED_TASK_STATES:
+                    return status, _extract_task_output(task_data)
+            except httpx.HTTPError:
+                pass
+            await asyncio.sleep(TASK_POLL_INTERVAL)
+
+    return "completed", ""  # timeout → best-effort complete
+
+
 async def _send_workflow_request(
     endpoint: str,
     wf_step: Any,
     sender_info: dict[str, str] | None,
-) -> tuple[int, str, str]:
-    """Send a workflow step directly to a target agent over A2A HTTP."""
+) -> tuple[int, str, str, str]:
+    """Send a workflow step directly to a target agent over A2A HTTP.
+
+    Returns (returncode, output, error, task_id).
+    """
     payload = _build_canvas_workflow_request(wf_step, sender_info)
     url = f"{endpoint.rstrip('/')}/tasks/send-priority?priority={wf_step.priority}"
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
+            response = None
+            for _attempt in range(_SEND_MAX_RETRIES):
+                response = await client.post(url, json=payload)
+                if response.status_code == 409:
+                    await asyncio.sleep(_SEND_RETRY_INTERVAL)
+                    continue
+                response.raise_for_status()
+                break
+            else:
+                # All retries exhausted with 409
+                if response is not None:
+                    detail = response.text.strip() or "Agent busy (409)"
+                    return 409, "", detail, ""
+            assert response is not None  # guaranteed by for/else
             data = response.json()
     except httpx.HTTPStatusError as e:
         detail = e.response.text.strip() or str(e)
-        return e.response.status_code, "", detail
+        return e.response.status_code, "", detail, ""
     except httpx.HTTPError as e:
-        return 1, "", str(e)
+        return 1, "", str(e), ""
 
-    task_data = data.get("task", data) if isinstance(data, dict) else {}
+    task_data = _extract_task_data(data)
     task_id = task_data.get("id", "")
-    status = task_data.get("status", "")
-    if isinstance(status, dict):
-        status = status.get("state", "")
+    status = _extract_task_status(task_data)
     summary = "Accepted"
     if task_id:
         summary += f" task {task_id[:8]}"
     if status:
         summary += f" ({status})"
-    return 0, summary, ""
+    return 0, summary, "", task_id
 
 
 def _humanize_error(target: str, stderr: str) -> str:
@@ -228,9 +299,9 @@ async def _execute_step(
     """Execute a single workflow step via direct A2A HTTP send."""
     endpoint = _resolve_target_endpoint(wf_step.target)
     if not endpoint:
-        returncode, stdout, stderr = 404, "", _NO_AGENT_MARKER
+        returncode, stdout, stderr, task_id = 404, "", _NO_AGENT_MARKER, ""
     else:
-        returncode, stdout, stderr = await _send_workflow_request(
+        returncode, stdout, stderr, task_id = await _send_workflow_request(
             endpoint, wf_step, sender_info
         )
 
@@ -242,11 +313,22 @@ async def _execute_step(
         if spawned:
             endpoint = _resolve_target_endpoint(wf_step.target)
             if endpoint:
-                returncode, stdout, stderr = await _send_workflow_request(
+                returncode, stdout, stderr, task_id = await _send_workflow_request(
                     endpoint, wf_step, sender_info
                 )
 
-    if returncode == 0:
+    if returncode == 0 and wf_step.response_mode == "wait" and task_id and endpoint:
+        final_status, final_output = await _poll_task_completion(endpoint, task_id)
+        if final_status == "failed":
+            step.status = "failed"
+            step.error = final_output or "Agent task failed"
+        elif final_status == "canceled":
+            step.status = "failed"
+            step.error = "Agent task was canceled"
+        else:
+            step.status = "completed"
+            step.output = final_output or stdout
+    elif returncode == 0:
         step.status = "completed"
         step.output = stdout
     else:
@@ -285,27 +367,31 @@ async def _execute_workflow(
     """Execute workflow steps sequentially."""
     has_failure = False
 
-    for i, wf_step in enumerate(workflow.steps):
-        step = run.steps[i]
-        step.status = "running"
-        step.started_at = time.time()
-        _notify(on_update)
-
-        await _execute_step(
-            wf_step,
-            step,
-            workflow_auto_spawn=workflow.auto_spawn,
-            sender_info=sender_info,
-        )
-
-        if step.status == "failed":
-            has_failure = True
+    try:
+        for i, wf_step in enumerate(workflow.steps):
+            step = run.steps[i]
+            step.status = "running"
+            step.started_at = time.time()
             _notify(on_update)
-            if not continue_on_error:
-                break
-            continue
 
-        _notify(on_update)
+            await _execute_step(
+                wf_step,
+                step,
+                workflow_auto_spawn=workflow.auto_spawn,
+                sender_info=sender_info,
+            )
+
+            if step.status == "failed":
+                has_failure = True
+                _notify(on_update)
+                if not continue_on_error:
+                    break
+                continue
+
+            _notify(on_update)
+    except Exception:
+        logger.exception("Workflow '%s' crashed unexpectedly", workflow.name)
+        has_failure = True
 
     run.status = "failed" if has_failure else "completed"
     run.completed_at = time.time()

@@ -339,9 +339,10 @@ def _pick_best_agent(matches: list[dict]) -> dict:
 
     def _sort_key(a: dict) -> tuple[int, int]:
         # READY first (0), then others (1); then by port ascending
-        ready = 0 if a.get("status", "").upper() == "READY" else 1
-        port = a.get("port", 99999)
-        return (ready, port)
+        status = a.get("status") or ""
+        ready = 0 if status.upper() == "READY" else 1
+        port = a.get("port") or 99999
+        return (ready, int(port))
 
     return sorted(matches, key=_sort_key)[0]
 

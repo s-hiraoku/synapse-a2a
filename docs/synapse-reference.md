@@ -115,6 +115,17 @@ synapse mcp serve                          # Start MCP server over stdio (option
 #                      Input: {"prompt": "user instruction text"}
 #                      Triggers configurable via .synapse/suggest.yaml
 
+# Self-Learning Pipeline
+synapse learn                                    # Analyze observations → persist instincts
+synapse instinct                                 # List learned instincts
+synapse instinct --scope project                 # Filter by scope (project/global)
+synapse instinct --domain "error-handling"        # Filter by domain
+synapse instinct --min-confidence 0.7            # Filter by minimum confidence
+synapse instinct promote <instinct_id>           # Promote project instinct to global
+synapse evolve                                   # Discover skill candidates from instincts
+synapse evolve --generate                        # Generate skill files from candidates
+synapse evolve --output-dir .synapse/evolved/skills  # Custom output directory
+
 # Auth
 synapse auth setup
 ```
@@ -184,7 +195,7 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/sessions/     # Sessions (user)
 ~/.synapse/workflows/    # Workflows (user)
 ~/.synapse/canvas.pid    # Canvas server PID file (stale process detection)
-.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, etc.)
+.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, observations.db, instincts.db, etc.)
 ```
 
 ## Testing

@@ -118,6 +118,17 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas status` | Show server status (PID, version, cards, asset staleness) |
 | `synapse canvas stop` | Stop Canvas server |
 
+### Self-Learning
+
+| Command | Description |
+|---------|-------------|
+| `synapse learn` | Extract instincts from PTY observations |
+| `synapse instinct status` | Show instincts by confidence |
+| `synapse instinct list` | List instincts (filterable) |
+| `synapse instinct promote <id>` | Promote instinct to global scope |
+| `synapse evolve` | Discover skill candidates from instincts |
+| `synapse evolve --generate` | Auto-generate skill files |
+
 ### Configuration
 
 | Command | Description |

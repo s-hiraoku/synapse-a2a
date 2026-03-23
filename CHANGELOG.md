@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-03-23
+
+### Added
+
+- Self-learning pipeline: PTY observation layer for cross-agent knowledge sharing
+- Instinct system with confidence scoring (0.3–0.9) and pattern analyzer
+- Evolution engine: cluster instincts into skills, auto-generate SKILL.md files
+- Auto-distribute learned skills to .claude/skills/ and .agents/skills/
+- Chart-to-markdown converter for canvas export
+
+### Fixed
+
+- Clear SYNAPSE_PROACTIVE_MODE_ENABLED in settings tests (15 test failures)
+- Fence mermaid blocks in Markdown export
+- Guard assertions after workflow test polling loops
+
 ## [0.17.1] - 2026-03-20
 
 ### Added
@@ -12,7 +28,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Canvas Workflow view (`#/workflow`): split-panel UI for browsing, visualizing (Mermaid DAG), and executing workflows with real-time SSE progress updates
 - Async workflow runner (`synapse/workflow_runner.py`): background execution engine with in-memory run tracking and LRU eviction
 - 5 workflow API endpoints: `GET /api/workflow`, `GET /api/workflow/{name}`, `POST /api/workflow/run/{name}`, `GET /api/workflow/runs`, `GET /api/workflow/runs/{run_id}`
+- `response_mode: wait` polling — workflow runner now polls target agent until task completion
+- 409 (agent busy) retry with backoff in workflow step execution
 - Phase 2 design document (`docs/design/canvas-workflow.md`)
+
+### Changed
+
+- Redesigned workflow runner to direct httpx POST with async polling
+
+### Fixed
+
+- Route canvas workflow replies through canvas
+- Wait for agent ready before next step, retry on 409, fix Mermaid labels
+- Mermaid selector, row highlight style, re-sync skill parity
 
 ## [0.17.0] - 2026-03-20
 
@@ -2670,6 +2698,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...HEAD
+[0.17.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.2...v0.17.0
 [0.16.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...v0.16.2
