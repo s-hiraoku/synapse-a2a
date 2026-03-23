@@ -229,6 +229,41 @@ class TestIdentityInstruction:
             f"should use file storage for short reference"
         )
 
+    def test_mcp_bootstrap_message_is_inline_and_minimal(
+        self, mock_registry, monkeypatch
+    ):
+        """MCP bootstrap should send a short inline bootstrap message."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            registry=mock_registry,
+            agent_id="synapse-codex-8120",
+            agent_type="codex",
+            submit_seq="\r",
+            mcp_bootstrap=True,
+            port=8120,
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        written_data = []
+
+        def mock_write(data, submit_seq=None):
+            written_data.append((data, submit_seq))
+
+        ctrl.write = mock_write
+        monkeypatch.setattr("synapse.controller.POST_WRITE_IDLE_DELAY", 0)
+
+        ctrl._send_identity_instruction()
+
+        assert len(written_data) == 1
+        pty_message, submit_seq = written_data[0]
+        assert submit_seq == "\r"
+        assert pty_message.startswith("A2A: [SYNAPSE MCP BOOTSTRAP]")
+        assert "synapse://instructions/default" in pty_message
+        assert "bootstrap_agent()" in pty_message
+        assert "[LONG MESSAGE - FILE ATTACHED]" not in pty_message
+
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
         ctrl = TerminalController(

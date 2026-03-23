@@ -21,6 +21,10 @@ from synapse.settings import SynapseSettings, get_settings
 
 logger = logging.getLogger(__name__)
 
+# Canonical URI for the default instruction resource.
+# Shared with controller.py (_build_mcp_bootstrap_message).
+MCP_INSTRUCTIONS_DEFAULT_URI = "synapse://instructions/default"
+
 _SMART_SUGGEST_INSTRUCTIONS = """
 ## Smart Suggest
 
@@ -121,7 +125,7 @@ class SynapseMCPServer:
         settings = self._settings()
         resources = [
             MCPResource(
-                uri="synapse://instructions/default",
+                uri=MCP_INSTRUCTIONS_DEFAULT_URI,
                 name="Default Instructions",
                 description="Base Synapse bootstrap instructions for the current agent.",
             )
@@ -201,7 +205,7 @@ class SynapseMCPServer:
         """Read a specific Synapse instruction resource."""
         settings = self._settings()
 
-        if uri == "synapse://instructions/default":
+        if uri == MCP_INSTRUCTIONS_DEFAULT_URI:
             text = settings.get_static_instruction_resource(
                 self.agent_type,
                 agent_id=self.agent_id,

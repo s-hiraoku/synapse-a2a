@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.17.5`).
+You should see the version number (e.g., `0.17.6`).
 
 ## Initialize Configuration
 
@@ -105,7 +105,7 @@ synapse skills list --scope project
 
 Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Agents that use the MCP bootstrap require a one-time configuration to connect to the Synapse MCP server.
 
-Once this Synapse MCP configuration is present, Synapse skips PTY startup instruction injection automatically for Claude Code, Codex, Gemini CLI, OpenCode, and GitHub Copilot.
+Once this Synapse MCP configuration is present, Synapse sends a minimal PTY MCP bootstrap automatically instead of the full startup instruction payload for Claude Code, Codex, Gemini CLI, OpenCode, and GitHub Copilot. Approval prompts still apply unless the session is resumed.
 
 === "Claude Code"
 

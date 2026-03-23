@@ -1889,7 +1889,7 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 
 **Response:** Returns `suggestion` (with recommended agents, tasks, and plan) when triggers match, or `null` with a `reason` when no suggestion is warranted.
 
-**Automatic PTY skip:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, OpenCode, or Copilot, PTY startup instruction injection is automatically skipped. Non-Synapse MCP entries do not trigger the skip. Copilot MCP config is read from `~/.copilot/mcp-config.json`.
+**Minimal PTY bootstrap:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, OpenCode, or Copilot, full PTY instruction injection is replaced with a minimal bootstrap message (agent ID, port, and pointers to MCP resources). Approval prompts are kept. Non-Synapse MCP entries do not trigger the switch. Copilot MCP config is read from `~/.copilot/mcp-config.json`.
 
 **Copilot MCP support:** Copilot agents can use the `bootstrap_agent` and `analyze_task` MCP tools but cannot consume MCP resources/prompts.
 

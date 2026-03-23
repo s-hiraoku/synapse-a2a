@@ -1,12 +1,12 @@
 # MCP Bootstrap Setup
 
-Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Instead of injecting instructions via PTY, agents receive them as structured MCP resources.
+Synapse provides an MCP (Model Context Protocol) server that distributes bootstrap instructions to MCP-capable agents. Instead of injecting the full startup instructions via PTY, agents receive a short PTY bootstrap that points them at structured MCP resources and tools.
 
 !!! warning "Experimental"
     MCP bootstrap is Phase 1 (experimental). PTY-based instruction injection remains the primary method and continues to work for all agents.
 
 !!! note "Startup behavior"
-    When Claude Code, Codex, Gemini CLI, OpenCode, or GitHub Copilot has a Synapse MCP server configured, Synapse now skips PTY startup instruction injection automatically.
+    When Claude Code, Codex, Gemini CLI, OpenCode, or GitHub Copilot has a Synapse MCP server configured, Synapse sends a minimal PTY MCP bootstrap automatically instead of the full startup instruction payload. Approval prompts still apply unless the session is resumed.
 
 ## Overview
 

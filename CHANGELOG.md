@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.6] - 2026-03-24
+
+### Fixed
+
+- MCP bootstrap no longer silently skips approval prompts — resume and MCP bootstrap are now separate startup paths; MCP sends a minimal PTY bootstrap while keeping approval enabled
+- Extract shared `MCP_INSTRUCTIONS_DEFAULT_URI` constant to prevent URI drift between MCP server and controller
+- Add mutual exclusion invariant for `skip_initial_instructions` and `mcp_bootstrap` flags
+
+### Changed
+
+- Refactor `_send_identity_instruction` to use early-branch pattern, eliminating redundant `_mcp_bootstrap` guard
+- Improve injection observability log to show `mode=mcp_bootstrap|full` instead of empty `files=[]`
+
+### Documentation
+
+- Update MCP bootstrap descriptions across README, design docs, site-docs, and plugin skill references to reflect minimal-bootstrap behavior
+
 ## [0.17.5] - 2026-03-24
 
 ### Added
@@ -2726,6 +2743,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.4...HEAD
+[0.17.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.5...v0.17.6
 [0.17.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.4...v0.17.5
 [0.17.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.3...v0.17.4
 [0.17.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.2...v0.17.3

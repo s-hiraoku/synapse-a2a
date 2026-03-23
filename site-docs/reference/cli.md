@@ -23,7 +23,7 @@ synapse copilot [OPTIONS]    # Start GitHub Copilot CLI
 | `--skill-set SET` | Activate skill set |
 | `--agent ID_OR_NAME`, `-A` | Use a [saved agent definition](#saved-agent-definitions) (resolves name, role, skill set) |
 | `--no-setup` | Skip interactive setup |
-| `-- --resume` / `-- --continue` | Pass resume flags to agents that support flag-based resume, such as Claude Code and Gemini CLI (skips initial instructions). Codex uses the `resume` subcommand form instead. Also skipped automatically when a Synapse MCP server config is detected (except Copilot) |
+| `-- --resume` / `-- --continue` | Pass resume flags to agents that support flag-based resume, such as Claude Code and Gemini CLI (skips initial instructions). Codex uses the `resume` subcommand form instead. When a Synapse MCP server config is detected, Synapse sends a minimal PTY bootstrap instead of the full payload (approval prompts still apply unless resuming) |
 
 Codex resume examples:
 

@@ -36,6 +36,7 @@ from synapse.config import (
     WRITE_PROCESSING_DELAY,
 )
 from synapse.long_message import format_file_reference, get_long_message_store
+from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
@@ -107,6 +108,7 @@ class TerminalController:
         args: list | None = None,
         port: int | None = None,
         skip_initial_instructions: bool = False,
+        mcp_bootstrap: bool = False,
         input_ready_pattern: str | None = None,
         name: str | None = None,
         role: str | None = None,
@@ -234,7 +236,12 @@ class TerminalController:
         self._status_callbacks: list[Callable[[str, str], None]] = []
         self._observation_collector: ObservationCollector | None = None
         self._observation_attached = False
+        if skip_initial_instructions and mcp_bootstrap:
+            raise ValueError(
+                "skip_initial_instructions and mcp_bootstrap are mutually exclusive"
+            )
         self._skip_initial_instructions = skip_initial_instructions
+        self._mcp_bootstrap = mcp_bootstrap
         self._input_ready_pattern = input_ready_pattern
         self.name = name
         self.role = role
@@ -975,6 +982,18 @@ class TerminalController:
 
         return format_a2a_message(message)
 
+    def _build_mcp_bootstrap_message(self) -> str:
+        """Build a minimal PTY bootstrap for MCP-configured clients."""
+        message = (
+            "[SYNAPSE MCP BOOTSTRAP]\n"
+            f"ID {self.agent_id} port {self.port}.\n"
+            f"Read {MCP_INSTRUCTIONS_DEFAULT_URI}.\n"
+            "Call bootstrap_agent().\n"
+            "Read returned instruction_resources before work.\n"
+            "Use $SYNAPSE_AGENT_ID for --from."
+        )
+        return format_a2a_message(message)
+
     def _send_identity_instruction(self) -> None:
         """
         Send full initial instructions to the agent on first IDLE.
@@ -1034,55 +1053,65 @@ class TerminalController:
             f"(master_fd={self.master_fd}, waited={waited:.1f}s)"
         )
 
-        settings = get_settings()
         agent_type = self.agent_type or "unknown"
-        instruction_file_paths = settings.get_instruction_file_paths(agent_type)
-
-        has_agent_specific = bool(settings.instructions.get(agent_type))
-        fallback = "none" if has_agent_specific else "default"
-        self._log_inject(
-            "RESOLVE",
-            f"agent_type={agent_type} cwd={os.getcwd()} "
-            f"files={instruction_file_paths} fallback={fallback}",
-        )
-
-        if not instruction_file_paths:
-            self._log_inject("DECISION", "action=skip_no_files")
-            self._log_inject("SUMMARY", "initial_instructions=skipped reason=no_files")
-            self._identity_sent = True
-            self._mark_agent_ready()
-            self._identity_sending = False
-            return
-
-        self._log_inject("DECISION", "action=send")
-
-        prefixed = self._build_identity_message(instruction_file_paths)
-
-        # Use file storage for long identity messages to avoid TUI paste issues.
-        # Ink TUI (Copilot, Claude Code) collapses large paste into a shortcut
-        # display and ignores the CR submit sequence.  By storing the full
-        # message in a file and sending only a short reference, the PTY write
-        # stays small enough to be submitted reliably.
-        pty_message = prefixed
-        try:
-            store = get_long_message_store()
-            if store.needs_file_storage(prefixed):
-                task_id = f"identity-{self.agent_id}"
-                file_path = store.store_message(task_id, prefixed)
-                reference = format_file_reference(file_path)
-                pty_message = format_a2a_message(reference)
-                logger.info(
-                    f"[{self.agent_id}] Identity message stored to {file_path} "
-                    f"(original={len(prefixed)} chars)"
-                )
-        except Exception as e:
-            logger.error(
-                f"[{self.agent_id}] File storage failed, sending identity inline: {e}"
+        if self._mcp_bootstrap:
+            self._log_inject(
+                "RESOLVE",
+                f"agent_type={agent_type} cwd={os.getcwd()} mode=mcp_bootstrap",
             )
+            self._log_inject("DECISION", "action=send_mcp_bootstrap")
+            pty_message = self._build_mcp_bootstrap_message()
+        else:
+            settings = get_settings()
+            instruction_file_paths = settings.get_instruction_file_paths(agent_type)
+
+            has_agent_specific = bool(settings.instructions.get(agent_type))
+            fallback = "none" if has_agent_specific else "default"
+            self._log_inject(
+                "RESOLVE",
+                f"agent_type={agent_type} cwd={os.getcwd()} "
+                f"files={instruction_file_paths} fallback={fallback}",
+            )
+
+            if not instruction_file_paths:
+                self._log_inject("DECISION", "action=skip_no_files")
+                self._log_inject(
+                    "SUMMARY", "initial_instructions=skipped reason=no_files"
+                )
+                self._identity_sent = True
+                self._mark_agent_ready()
+                self._identity_sending = False
+                return
+
+            self._log_inject("DECISION", "action=send")
+            prefixed = self._build_identity_message(instruction_file_paths)
+
+            # Use file storage for long identity messages to avoid TUI paste
+            # issues.  Ink TUI (Copilot, Claude Code) collapses large paste
+            # into a shortcut display and ignores the CR submit sequence.
+            # By storing the full message in a file and sending only a short
+            # reference, the PTY write stays small enough to be submitted
+            # reliably.
+            pty_message = prefixed
+            try:
+                store = get_long_message_store()
+                if store.needs_file_storage(prefixed):
+                    task_id = f"identity-{self.agent_id}"
+                    file_path = store.store_message(task_id, prefixed)
+                    reference = format_file_reference(file_path)
+                    pty_message = format_a2a_message(reference)
+                    logger.info(
+                        f"[{self.agent_id}] Identity message stored to {file_path} "
+                        f"(original={len(prefixed)} chars)"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"[{self.agent_id}] File storage failed, sending identity inline: {e}"
+                )
 
         logger.info(
             f"[{self.agent_id}] Sending identity instruction: "
-            f"pty_size={len(pty_message)} files={instruction_file_paths}"
+            f"pty_size={len(pty_message)} mode={'mcp_bootstrap' if self._mcp_bootstrap else 'full'}"
         )
 
         input_ready_desc = self._wait_for_input_ready()

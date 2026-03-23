@@ -4145,7 +4145,7 @@ def cmd_run_interactive(
     if has_mcp_bootstrap:
         print(
             "\x1b[32m[Synapse]\x1b[0m MCP bootstrap detected, "
-            "skipping initial instructions"
+            "sending minimal startup bootstrap"
         )
 
     # Show startup animation before approval prompt (skip in headless mode)
@@ -4212,7 +4212,7 @@ def cmd_run_interactive(
             print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
 
     # Check if approval is required for initial instructions (skip in headless mode)
-    skip_initial_instructions = is_resume or has_mcp_bootstrap
+    skip_initial_instructions = is_resume
     if (
         not headless
         and not skip_initial_instructions
@@ -4266,6 +4266,7 @@ def cmd_run_interactive(
         startup_delay=startup_delay,
         port=port,
         skip_initial_instructions=skip_initial_instructions,
+        mcp_bootstrap=has_mcp_bootstrap,
         input_ready_pattern=input_ready_pattern,
         name=agent_name,
         role=agent_role,

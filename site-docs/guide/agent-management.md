@@ -67,8 +67,8 @@ synapse claude -- --continue   # Same as --resume
 
 Synapse detects these flags and automatically skips sending initial instructions.
 
-!!! note "MCP bootstrap auto-skip"
-    When Claude Code, Codex, Gemini CLI, or OpenCode has a Synapse MCP server configured, Synapse also skips PTY instruction injection automatically — no `--resume` flag needed. See [MCP Bootstrap Setup](mcp-setup.md) for details.
+!!! note "MCP bootstrap startup"
+    When Claude Code, Codex, Gemini CLI, OpenCode, or GitHub Copilot has a Synapse MCP server configured, Synapse sends a minimal PTY MCP bootstrap automatically instead of the full startup instruction payload. Approval prompts still apply unless you are resuming a session. See [MCP Bootstrap Setup](mcp-setup.md) for details.
 
 ## Monitoring Agents
 
