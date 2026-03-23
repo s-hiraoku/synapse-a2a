@@ -1949,10 +1949,7 @@ Clusters instincts by domain and identifies viable skill candidates (requires 2+
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
 .synapse/memory.db   # Shared memory knowledge base (project-local)
-.synapse/canvas.db   # Canvas card storage (project-local)
-.synapse/observations.db  # Observation events for self-learning (project-local)
-.synapse/instincts.db     # Learned instincts / patterns (project-local)
-.synapse/evolved/skills/  # Auto-generated skills from instinct evolution
+~/.synapse/canvas.db   # Canvas card storage (user-global)
 .synapse/worktrees/  # Git worktrees for isolated agent workspaces (auto-managed)
 /tmp/synapse-a2a/    # Unix Domain Sockets (UDS) for inter-agent communication
 /tmp/.synapse-ci/    # CI monitoring state (fix counters, report dedup)

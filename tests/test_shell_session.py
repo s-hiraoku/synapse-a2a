@@ -55,6 +55,9 @@ def test_get_entries_returns_chronological_order(tmp_path: Path) -> None:
 
 
 def test_list_sessions_returns_latest_first(tmp_path: Path) -> None:
+    # Ordering is by updated_at DESC, with rowid DESC as tiebreaker.
+    # SQLite CURRENT_TIMESTAMP has second-level precision, so entries
+    # created in the same second rely on rowid fallback for stable ordering.
     from synapse.shell_session import ShellSessionStore
 
     store = ShellSessionStore(db_path=str(tmp_path / "shell_sessions.db"))
@@ -95,3 +98,38 @@ def test_sessions_are_isolated(tmp_path: Path) -> None:
 
     assert [entry["content"] for entry in entries_one] == ["alpha"]
     assert [entry["content"] for entry in entries_two] == ["beta"]
+
+
+def test_save_session_name_nonexistent_returns_false(tmp_path: Path) -> None:
+    from synapse.shell_session import ShellSessionStore
+
+    store = ShellSessionStore(db_path=str(tmp_path / "shell_sessions.db"))
+
+    result = store.save_session_name("nonexistent", "name")
+
+    assert result is False
+
+
+def test_get_session_nonexistent_returns_none(tmp_path: Path) -> None:
+    from synapse.shell_session import ShellSessionStore
+
+    store = ShellSessionStore(db_path=str(tmp_path / "shell_sessions.db"))
+
+    result = store.get_session("nonexistent")
+
+    assert result is None
+
+
+def test_get_entries_respects_limit(tmp_path: Path) -> None:
+    from synapse.shell_session import ShellSessionStore
+
+    store = ShellSessionStore(db_path=str(tmp_path / "shell_sessions.db"))
+    session = store.create_session()
+    store.add_entry(session["id"], "user", "first")
+    store.add_entry(session["id"], "agent", "second")
+    store.add_entry(session["id"], "user", "third")
+
+    entries = store.get_entries(session["id"], limit=2)
+
+    assert len(entries) == 2
+    assert [e["content"] for e in entries] == ["first", "second"]

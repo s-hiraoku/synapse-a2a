@@ -838,7 +838,7 @@ dependencies = [
 | Variable | Default | Description |
 |---|---|---|
 | `SYNAPSE_CANVAS_PORT` | `3000` | Canvas server port |
-| `SYNAPSE_CANVAS_DB_PATH` | `.synapse/canvas.db` | Database path |
+| `SYNAPSE_CANVAS_DB_PATH` | `~/.synapse/canvas.db` | Database path (user-global) |
 | `SYNAPSE_CANVAS_ENABLED` | `true` | Enable/disable |
 
 ```python
