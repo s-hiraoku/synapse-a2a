@@ -709,7 +709,7 @@ The Workflow view provides a split-panel interface for browsing and executing [W
 - **Completed** steps show a checkmark — click the "Output" expander to view the accepted task summary
 - **Failed** steps show a red error message with a human-readable explanation
 
-When `auto_spawn` is enabled (workflow-level or step-level), Canvas automatically spawns missing agents before sending. A toast notification appears when the entire workflow run completes or fails. Execution history is persisted to a SQLite database (`.synapse/workflow_runs.db`) so that past runs and step results survive server restarts. Up to 200 recent runs are retained.
+When `auto_spawn` is enabled (workflow-level or step-level), Canvas automatically spawns missing agents before sending. A toast notification appears when the entire workflow run completes or fails. Execution history is persisted to a SQLite database (`.synapse/workflow_runs.db`) so that past runs and step results survive server restarts. The in-memory cache holds up to 50 recent runs; older runs remain queryable from the database.
 
 **Error messages**: Canvas translates raw errors into actionable messages. If the target agent exists in a different directory, it reports the name conflict and suggests changing the target or stopping the remote agent. If the agent is simply not found, it suggests starting the agent or enabling `auto_spawn`.
 

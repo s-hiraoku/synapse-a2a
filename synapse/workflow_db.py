@@ -37,6 +37,7 @@ class WorkflowRunDB:
         """Get a SQLite connection with WAL mode."""
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -85,6 +86,11 @@ class WorkflowRunDB:
                 )
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at)"
+                )
+                # Mark any leftover "running" rows as failed (ghost runs
+                # from a previous process that crashed before completing).
+                conn.execute(
+                    "UPDATE runs SET status = 'failed' WHERE status = 'running'"
                 )
                 conn.commit()
             finally:

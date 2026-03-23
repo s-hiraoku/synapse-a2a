@@ -202,6 +202,7 @@ async def test_workflow_run_cap(monkeypatch):
         assert rid not in _workflow_runs
     # The last 50 should still be in cache
     for rid in run_ids[5:]:
+        assert rid in _workflow_runs
         assert get_run(rid) is not None
     # But all 55 runs are still available via get_run (DB fallback)
     for rid in run_ids[:5]:
