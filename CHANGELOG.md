@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.3] - 2026-03-23
+
+### Fixed
+
+- Pane split direction not alternating when spawning multiple agents via `synapse spawn` or `synapse team start` in Ghostty, iTerm2, and Zellij terminals — all panes split in the same direction instead of tiling in a balanced grid
+- iTerm2 `enumerate(agents[1:])` offset bug causing second agent to get wrong split direction in `not all_new` path
+
+### Documentation
+
+- Updated Ghostty pane creation info in site-docs to document `Cmd+Shift+D` and `--layout` support
+
+### Tests
+
+- Added multi-agent split alternation tests for Ghostty, iTerm2, and Zellij
+
 ## [0.17.2] - 2026-03-23
 
 ### Added
@@ -2698,6 +2713,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.1...HEAD
+[0.17.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.2...v0.17.3
 [0.17.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.1...v0.17.2
 [0.17.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.16.2...v0.17.0
