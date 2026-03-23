@@ -194,6 +194,7 @@ Both CLI and Canvas workflow execution send A2A requests directly to target agen
 - **Error translation**: Delivery errors are converted to human-readable messages
 - **Toast notifications**: A notification appears when the run completes or fails
 - **Auto-spawn**: Honors both workflow-level and step-level `auto_spawn` settings
+- **Persistent history**: Execution history is stored in a SQLite database (`.synapse/workflow_runs.db`) so past runs survive server restarts. Up to 200 recent runs are retained.
 
 !!! warning "Agent name conflicts"
     If an agent with the same name exists in a different directory (e.g., a worktree), Canvas will report an error: *"Agent 'X' already exists in a different directory."* Rename the workflow target or stop the conflicting agent.

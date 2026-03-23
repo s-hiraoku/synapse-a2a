@@ -195,7 +195,7 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/sessions/     # Sessions (user)
 ~/.synapse/workflows/    # Workflows (user)
 ~/.synapse/canvas.pid    # Canvas server PID file (stale process detection)
-.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, observations.db, instincts.db, etc.)
+.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, workflow_runs.db, observations.db, instincts.db, etc.)
 ```
 
 ## Testing

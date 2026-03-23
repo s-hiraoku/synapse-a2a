@@ -11,8 +11,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.17.3
 
-- **Fixed**: Pane split direction not alternating when spawning multiple agents in Ghostty, iTerm2, and Zellij — all panes now tile in a balanced grid
-- **Fixed**: iTerm2 enumerate offset bug causing wrong split direction in `not all_new` path
+- **Added**: Persistent workflow execution history — SQLite storage (`.synapse/workflow_runs.db`) so Canvas workflow runs and step results survive server restarts
 
 ### v0.17.2
 
