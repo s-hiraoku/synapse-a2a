@@ -260,6 +260,8 @@ class TestIdentityInstruction:
         pty_message, submit_seq = written_data[0]
         assert submit_seq == "\r"
         assert pty_message.startswith("A2A: [SYNAPSE MCP BOOTSTRAP]")
+        assert "synapse-codex-8120" in pty_message
+        assert "8120" in pty_message
         assert "synapse://instructions/default" in pty_message
         assert "bootstrap_agent()" in pty_message
         assert "[LONG MESSAGE - FILE ATTACHED]" not in pty_message

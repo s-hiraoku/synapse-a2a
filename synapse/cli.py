@@ -4231,6 +4231,7 @@ def cmd_run_interactive(
         elif response == "skip":
             print("\x1b[32m[Synapse]\x1b[0m Starting without initial instructions")
             skip_initial_instructions = True
+            has_mcp_bootstrap = False
 
     # Set SYNAPSE env vars for sender identification (same as server.py)
     env["SYNAPSE_AGENT_ID"] = agent_id
