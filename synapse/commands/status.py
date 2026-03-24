@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from synapse.file_safety import FileSafetyManager
     from synapse.history import HistoryManager
     from synapse.registry import AgentRegistry
-    from synapse.task_board import TaskBoard
 
 
 class StatusCommand:
@@ -24,13 +23,11 @@ class StatusCommand:
         registry: AgentRegistry,
         history_manager: HistoryManager | None = None,
         file_safety_manager: FileSafetyManager | None = None,
-        task_board: TaskBoard | None = None,
         output: IO[str] | None = None,
     ) -> None:
         self._registry = registry
         self._history_manager = history_manager
         self._file_safety_manager = file_safety_manager
-        self._task_board = task_board
         self._output = output or StringIO()
 
     def _write(self, text: str) -> None:
@@ -93,9 +90,6 @@ class StatusCommand:
 
         # File locks
         data["file_locks"] = self._get_file_locks(info)
-
-        # Task board
-        data["assigned_tasks"] = self._get_task_board_tasks(info)
 
         self._writeln(json.dumps(data, indent=2))
 
@@ -165,17 +159,6 @@ class StatusCommand:
                 self._writeln(f"  {lock.get('file_path', '-')}")
             self._writeln()
 
-        # Task Board section
-        tasks = self._get_task_board_tasks(info)
-        if tasks:
-            self._writeln("--- Task Board ---")
-            for task in tasks:
-                task_id = getattr(task, "id", str(task))[:8]
-                subject = getattr(task, "subject", str(task))
-                status = getattr(task, "status", "-")
-                self._writeln(f"  [{task_id}] {subject} ({status})")
-            self._writeln()
-
     def _get_history(self, info: dict[str, Any]) -> list[dict[str, Any]]:
         """Get recent message history for the agent."""
         if not self._history_manager:
@@ -199,15 +182,5 @@ class StatusCommand:
                 if agent_id
                 else []
             )
-        except Exception:
-            return []
-
-    def _get_task_board_tasks(self, info: dict[str, Any]) -> list[Any]:
-        """Get tasks assigned to this agent from the task board."""
-        if not self._task_board:
-            return []
-        try:
-            agent_id = info.get("agent_id")
-            return self._task_board.list_tasks(assignee=agent_id) if agent_id else []
         except Exception:
             return []

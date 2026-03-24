@@ -90,7 +90,7 @@ synapse status <target>            # Show detailed agent status
 synapse status <target> --json     # Output as JSON
 ```
 
-Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, file locks, and task board assignments. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
+Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, and file locks. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
 
 | Flag | Description |
 |------|-------------|
@@ -331,83 +331,6 @@ Lists CLI tool session files from the filesystem (Claude, Gemini, Codex, Copilot
 |------|-------------|
 | `--profile PROFILE` | Filter by CLI tool: `claude`, `gemini`, `codex`, `copilot` |
 | `--limit N` | Maximum number of sessions to show (default: 20) |
-
-## Task Board
-
-### List Tasks
-
-```bash
-synapse tasks list [--status STATUS] [--agent AGENT] [--group GROUP] [--component COMP] [--milestone MS] [--group-by FIELD] [--verbose] [--format json]
-```
-
-| Flag | Description |
-|------|-------------|
-| `--status STATUS` | Filter by status (`pending`, `in_progress`, `completed`, `failed`) |
-| `--agent AGENT` | Filter by assignee agent |
-| `--group GROUP` | Filter by group ID |
-| `--component COMP` | Filter by component tag |
-| `--milestone MS` | Filter by milestone tag |
-| `--group-by FIELD` | Group output by field: `group_id`, `component`, `milestone`, `status` |
-| `--verbose`, `-v` | Show full UUIDs and absolute timestamps |
-| `--format json` | Output as JSON |
-
-### Create Task
-
-```bash
-synapse tasks create "<subject>" -d "<description>" [--priority N] [--blocked-by ID] [--group GROUP] [--component COMP] [--milestone MS]
-```
-
-| Flag | Description |
-|------|-------------|
-| `--description`, `-d` | Task description |
-| `--priority`, `-p` | Priority level 1-5 (default: 3) |
-| `--blocked-by` | Comma-separated task IDs that block this task |
-| `--group GROUP` | Group ID for task grouping |
-| `--component COMP` | Component tag (e.g. `backend`, `frontend`) |
-| `--milestone MS` | Milestone tag (e.g. `v1.0`) |
-
-### Assign / Complete / Fail / Reopen
-
-```bash
-synapse tasks assign <task_id> <agent>
-synapse tasks complete <task_id>
-synapse tasks fail <task_id> [--reason "reason"]
-synapse tasks reopen <task_id>
-```
-
-### Purge
-
-```bash
-synapse tasks purge [--status STATUS] [--force] [--older-than DURATION] [--dry-run]
-```
-
-Delete tasks from the Task Board. By default, removes `completed` and `failed` tasks (with confirmation prompt). Use `--status` to target a specific status.
-
-| Flag | Description |
-|------|-------------|
-| `--status STATUS` | Only purge tasks with this status (`pending`, `in_progress`, `completed`, `failed`) |
-| `--force`, `-f` | Purge without confirmation prompt |
-| `--older-than DURATION` | Only purge tasks older than duration (e.g. `30m`, `2h`, `7d`) |
-| `--dry-run` | Show what would be purged without deleting |
-
-### Plan Approval
-
-```bash
-synapse approve <task_id>
-synapse reject <task_id> --reason "reason"
-```
-
-### Plan Card Integration
-
-```bash
-synapse tasks accept-plan <plan_id>
-synapse tasks sync-plan <plan_id>
-```
-
-| Command | Description |
-|---------|-------------|
-| `accept-plan` | Register all steps from a Canvas Plan Card as Task Board tasks with dependency chains |
-| `sync-plan` | Sync Task Board task statuses back to the Canvas Plan Card |
 
 ## History
 

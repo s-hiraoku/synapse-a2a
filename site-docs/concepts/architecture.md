@@ -27,7 +27,6 @@ graph TB
         RPL[ReplyTargets<br/>~/.a2a/reply/]
         FSM[FileSafetyManager<br/>.synapse/file_safety.db]
         HIST[History<br/>~/.synapse/history.db]
-        TB[TaskBoard<br/>.synapse/task_board.db]
         SM[SharedMemory<br/>.synapse/memory.db]
     end
 
@@ -36,7 +35,6 @@ graph TB
     TC --> REG
     A2A --> FSM
     A2A --> HIST
-    A2A --> TB
     A2A --> SM
 ```
 
@@ -97,7 +95,7 @@ HTTP server providing A2A-compatible endpoints.
 - Runs in a background thread alongside the PTY process
 - Serves the Agent Card at `/.well-known/agent.json`
 - Handles `/tasks/send` and `/tasks/send-priority` with Readiness Gate
-- Provides Task Board, Spawn, and Team Start APIs
+- Provides Spawn and Team Start APIs
 
 ### A2A Compatibility Layer
 
@@ -214,8 +212,8 @@ Main Thread          Server Thread        Monitor Thread
 ┌──────────┐        ┌──────────┐         ┌──────────┐
 │ PTY I/O  │        │ FastAPI  │         │ Registry │
 │ Idle Det │        │ A2A API  │         │ Watchdog │
-│ Input    │        │ TaskBoard│         │ Cleanup  │
-│ Router   │        │ Spawn API│         │          │
+│ Input    │        │ Spawn API│         │ Cleanup  │
+│ Router   │        │ Memory   │         │          │
 └──────────┘        └──────────┘         └──────────┘
 ```
 
@@ -257,7 +255,6 @@ sequenceDiagram
 | Settings (Project) | `.synapse/settings.json` | Project config | JSON |
 | History | `~/.synapse/history.db` | Task history | SQLite |
 | Shared Memory | `.synapse/memory.db` | Cross-agent knowledge sharing | SQLite (WAL) |
-| Task Board | `.synapse/task_board.db` | Task coordination | SQLite (WAL) |
 | File Safety | `.synapse/file_safety.db` | File locks/tracking | SQLite (WAL) |
 | Saved Agents | `~/.synapse/agents/`, `.synapse/agents/` | Reusable agent definitions | JSON files |
 | Observations | `.synapse/observations.db` | PTY observation data for self-learning | SQLite (WAL) |

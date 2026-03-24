@@ -113,12 +113,20 @@
   // ----------------------------------------------------------------
   // Initial load
   // ----------------------------------------------------------------
+  function normalizeCard(card) {
+    if (typeof card.template_data === "string") {
+      try { card.template_data = JSON.parse(card.template_data); } catch (_) { card.template_data = {}; }
+    }
+    return card;
+  }
+
   async function loadCards() {
     try {
       const resp = await fetch("/api/cards");
       const list = await resp.json();
       cards.clear();
       for (const card of list) {
+        normalizeCard(card);
         cards.set(card.card_id, card);
         trackAgent(card);
       }
@@ -135,7 +143,7 @@
     const es = new EventSource("/api/stream");
 
     es.addEventListener("card_created", (e) => {
-      const card = JSON.parse(e.data);
+      const card = normalizeCard(JSON.parse(e.data));
       cards.set(card.card_id, card);
       trackAgent(card);
       renderCurrentView();
@@ -143,7 +151,7 @@
     });
 
     es.addEventListener("card_updated", (e) => {
-      const card = JSON.parse(e.data);
+      const card = normalizeCard(JSON.parse(e.data));
       cards.set(card.card_id, card);
       trackAgent(card);
       renderCurrentView();
@@ -300,9 +308,7 @@
 
     const content = parseContent(card.content);
     const blocks = Array.isArray(content) ? content : [content];
-    for (const block of blocks) {
-      item.appendChild(renderBlock(block));
-    }
+    renderTemplateOrBlocks(item, card, blocks, true, null);
   }
 
   function renderCurrentView() {
@@ -606,25 +612,7 @@
     }
 
     // Content blocks — delegate to template renderer if applicable
-
-    if (card.template && card.template_data) {
-      const td =
-        typeof card.template_data === "string"
-          ? JSON.parse(card.template_data)
-          : card.template_data;
-      const rendered = renderTemplate(card.template, blocks, td, false, null);
-      if (rendered) {
-        el.appendChild(rendered);
-      } else {
-        for (const block of blocks) {
-          el.appendChild(renderBlock(block, null));
-        }
-      }
-    } else {
-      for (const block of blocks) {
-        el.appendChild(renderBlock(block, null));
-      }
-    }
+    renderTemplateOrBlocks(el, card, blocks, false, null);
 
     // Footer
     const footer = document.createElement("footer");
@@ -792,6 +780,20 @@
         return renderPlanTemplate(blocks, td, compact, renderOptions);
       default:
         return null;
+    }
+  }
+
+  function renderTemplateOrBlocks(parent, card, blocks, compact, renderOptions) {
+    if (card.template && card.template_data && Object.keys(card.template_data).length > 0) {
+      const td = card.template_data;
+      const rendered = renderTemplate(card.template, blocks, td, compact, renderOptions);
+      if (rendered) {
+        parent.appendChild(rendered);
+        return;
+      }
+    }
+    for (const block of blocks) {
+      parent.appendChild(renderBlock(block, renderOptions));
     }
   }
 
@@ -4226,31 +4228,7 @@
     content.innerHTML = "";
     const parsed = parseContent(card.content);
     const blocks = Array.isArray(parsed) ? parsed : [parsed];
-
-    if (card.template && card.template_data) {
-      const td =
-        typeof card.template_data === "string"
-          ? JSON.parse(card.template_data)
-          : card.template_data;
-      const rendered = renderTemplate(
-        card.template,
-        blocks,
-        td,
-        false,
-        { inCanvasView: true }
-      );
-      if (rendered) {
-        content.appendChild(rendered);
-      } else {
-        for (const block of blocks) {
-          content.appendChild(renderBlock(block, { inCanvasView: true }));
-        }
-      }
-    } else {
-      for (const block of blocks) {
-        content.appendChild(renderBlock(block, { inCanvasView: true }));
-      }
-    }
+    renderTemplateOrBlocks(content, card, blocks, false, { inCanvasView: true });
   }
 
   function renderSpotlightInfo(infoBar, card, agentStatus) {

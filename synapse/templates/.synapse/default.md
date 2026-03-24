@@ -64,10 +64,9 @@ STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
   For tasks with 3+ phases OR 10+ file changes, you MUST:
   1. Run `synapse list` to check available agents
   2. Run `synapse memory search "<topic>"` to check shared knowledge
-  3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
-  4. Build an Agent Assignment plan (see below) before writing any code
-  5. If no suitable agent exists, spawn a specialist with `synapse spawn`
-  6. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
+  3. Build an Agent Assignment plan (see below) before writing any code
+  4. If no suitable agent exists, spawn a specialist with `synapse spawn`
+  5. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
 
   Agent Assignment Plan Template:
   Before starting multi-phase work, create a table like this:
@@ -78,12 +77,6 @@ STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
   | Phase 1 impl | Claude | Complex refactoring |
   | Phase 2 | Gemini | Independent feature, different model |
   | Review | Codex | Fresh perspective from different model |
-
-  Then register each phase on the task board:
-  ```
-  synapse tasks create "Phase 1: ..." -d "..." --priority 4
-  synapse tasks assign <id> <agent>
-  ```
 
   DO NOT skip this step. Single-agent execution of multi-phase plans leads to
   slower delivery, no parallel work, and missed review opportunities.
@@ -116,13 +109,6 @@ USE SYNAPSE FEATURES ACTIVELY
 ================================================================================
 
 You have access to powerful coordination tools. Use them — don't just rely on send/reply.
-
-TASK BOARD — Track all work transparently:
-  synapse tasks create "subject" -d "description" --priority 4
-  synapse tasks list --status pending
-  synapse tasks assign <id> <agent>
-  synapse tasks complete <id>
-  synapse tasks fail <id> --reason "..."
 
 SHARED MEMORY — Build collective knowledge:
   synapse memory save <key> "<content>" --tags <topic> --notify

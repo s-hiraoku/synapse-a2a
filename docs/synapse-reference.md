@@ -40,21 +40,6 @@ synapse reply --fail "Could not complete"      # Send a failed reply
 synapse broadcast "Status check"               # All agents in CWD
 synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)
 
-# Task Board (mandatory for delegations — create+assign before synapse send)
-synapse tasks list
-synapse tasks list --verbose                   # Show grouping columns (group, component, milestone)
-synapse tasks list --format json               # JSON output for AI/scripts
-synapse tasks list --group-by status            # Group by: group_id | component | milestone | status
-synapse tasks create "Subject" -d "description" --priority 4
-synapse tasks create "Subject" --group "auth" --component "backend" --milestone "v1.0"
-synapse tasks assign <task_id> claude
-synapse tasks complete <task_id>
-synapse tasks purge                            # Delete all completed/failed tasks
-synapse tasks purge --status completed         # Delete only completed tasks
-synapse tasks purge --older-than 7d            # Delete tasks older than duration (1h, 7d, etc.)
-synapse tasks purge --dry-run                  # Preview what would be deleted
-synapse tasks accept-plan <plan_id>             # Accept Plan Card → auto-register tasks (auto-sets plan_id/group_id/group_title)
-synapse tasks sync-plan <plan_id>               # Sync Task Board → Canvas Plan Card
 synapse approve <task_id>
 synapse reject <task_id> --reason "reason"
 
@@ -138,7 +123,7 @@ Targets resolve in priority order:
 3. Type-port shorthand: `claude-8100`
 4. Agent type (single instance only): `claude`
 
-**Display Name Resolution**: `resolve_display_name` resolves agent IDs (e.g., `synapse-claude-8100`) to human-friendly display names (e.g., `my-claude`) across the Task Board and Canvas views.
+**Display Name Resolution**: `resolve_display_name` resolves agent IDs (e.g., `synapse-claude-8100`) to human-friendly display names (e.g., `my-claude`) in Canvas views.
 
 ## Profile Configuration
 
@@ -195,7 +180,7 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/sessions/     # Sessions (user)
 ~/.synapse/workflows/    # Workflows (user)
 ~/.synapse/canvas.pid    # Canvas server PID file (stale process detection)
-.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, task_board.db, workflow_runs.db, observations.db, instincts.db, etc.)
+.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, workflow_runs.db, observations.db, instincts.db, etc.)
 ```
 
 ## Testing
@@ -207,7 +192,7 @@ See test files in `tests/` directory. Key test groups:
   - Dashboard widget preserves task card expand/collapse state across polling refreshes
   - Task descriptions render as Markdown in the Canvas dashboard
   - View toggle active tab uses improved contrast (white text, semi-bold weight)
-- Agent Teams: `test_task_board.py`, `test_hooks.py`, `test_plan_approval.py`, `test_delegate_mode.py`
+- Agent Teams: `test_hooks.py`, `test_plan_approval.py`, `test_delegate_mode.py`
 - Spawn: `test_spawn.py`, `test_auto_spawn.py`, `test_auto_layout.py`
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
 - MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`, `test_mcp_analyze_task.py`

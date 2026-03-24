@@ -32,7 +32,7 @@ Design consistent, well-documented APIs across REST, GraphQL, gRPC, and CLI inte
 ### Naming
 
 - Use plural nouns for resources: `/users`, `/tasks`
-- Use kebab-case for multi-word paths: `/task-boards`
+- Use kebab-case for multi-word paths: `/user-settings`
 - Nest for ownership: `/users/{id}/tasks`
 - Use verbs only for actions that don't map to CRUD: `/tasks/{id}/approve`
 
@@ -105,7 +105,7 @@ GET /tasks?page=2&per_page=20
 <tool> <noun> <verb> [args] [--flags]
 ```
 
-Example: `synapse tasks create "Title" --priority 3`
+Example: `synapse send gemini "Review code" --wait`
 
 ### Flag Conventions
 

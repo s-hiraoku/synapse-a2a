@@ -5,11 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.7] - 2026-03-25
+## [0.17.8] - 2026-03-25
+
+### Removed
+
+- **Task Board subsystem** — `synapse/task_board.py`, `synapse tasks` CLI commands, `/tasks/board` API endpoints, auto-sync logic, Canvas dashboard widget, and all related configuration (`SYNAPSE_TASK_BOARD_ENABLED`, `SYNAPSE_TASK_BOARD_DB_PATH`). GitHub Issues will serve as the external work-item source going forward
+- `--task` / `-T` flag on `synapse send` (created linked board tasks)
+- `board_task_id` parameter from A2A client, utils, and tools
+- `accept_plan` / `sync_plan_progress` functions from Canvas commands
+- `site-docs/guide/task-board.md` documentation page
 
 ### Fixed
 
-- resolve Copilot CLI input not being submitted via PTY
+- Copilot CLI input not being submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop
+
+### Changed
+
+- Proactive mode checklist no longer requires task board registration
+- Default agent instructions template simplified (removed task board steps)
+- Copilot profile: `bracketed_paste: false`, `input_ready_pattern: ❯`, slash replacement
+- Long message file reference consolidated to single-line format
+
+### Documentation
+
+- Remove Task Board references from README, CLAUDE.md, plugin skills (14 files), site-docs (20 pages), and synapse-reference
+
+## [0.17.7] - 2026-03-24
+
+### Fixed
+
+- Canvas Live Feed now renders briefing (and all template) cards with proper section grouping instead of flat block display
+- Template cards in Live Feed no longer appear as individual messages — the entire template is rendered as a single card
+
+### Changed
+
+- Extract `renderTemplateOrBlocks` helper to eliminate 3x duplicated template rendering logic in canvas.js
+- Add `normalizeCard` to parse `template_data` at ingest time instead of on every render
+- Simplify `renderSpotlightContent` and `updateCardElement` to use shared helper
+
+### Tests
+
+- Add 7 briefing validation edge-case tests (negative index, float, bool, non-integer, duplicates, multi-section refs, round-trip)
+- Add 2 briefing CLI regression tests (store round-trip, markdown export)
 
 ## [0.17.6] - 2026-03-24
 
@@ -2748,7 +2785,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.7...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.8...HEAD
+[0.17.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.7...v0.17.8
 [0.17.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.6...v0.17.7
 [0.17.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.5...v0.17.6
 [0.17.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.4...v0.17.5

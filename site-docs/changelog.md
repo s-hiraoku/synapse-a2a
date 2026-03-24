@@ -4,14 +4,19 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.8
+
+- **Removed**: Task Board subsystem — `synapse tasks` CLI, `/tasks/board` API, Canvas dashboard widget, and all related config. GitHub Issues will serve as the external work-item source going forward
+- **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop
+- **Changed**: Proactive mode and default instructions simplified (no task board steps)
+- **Changed**: Copilot profile: `bracketed_paste: false`, `input_ready_pattern: ❯`, slash replacement
+- **Docs**: Deep cleanup of task board references across README, skills, site-docs
+
 ### v0.17.7
 
-- **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop instead of bypassing it with direct `os.write(master_fd)`
-- **Fixed**: ICRNL disabled before submit to prevent `\r`-to-`\n` conversion that Ink interprets as a different event
-- **Changed**: Copilot profile `bracketed_paste` set to `false` — Copilot CLI does not enable bracketed paste mode, so paste markers were ignored
-- **Changed**: Copilot profile `input_ready_pattern` updated from `>` to `❯` to match actual prompt character
-- **Changed**: Slash characters in Copilot input replaced with fullwidth solidus (`／`) to prevent slash-command autocomplete
-- **Changed**: Long message file reference format consolidated to single line for better compatibility with character-by-character TUI input
+- **Fixed**: Canvas Live Feed renders template cards (briefing, etc.) with proper section grouping instead of flat blocks
+- **Changed**: Extract `renderTemplateOrBlocks` helper and `normalizeCard` for DRY template rendering
+- **Tests**: Add 9 briefing regression tests (validation edge cases, store round-trip, markdown export)
 
 ### v0.17.6
 

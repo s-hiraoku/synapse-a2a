@@ -2,7 +2,7 @@
 
 ## Overview
 
-Proactive Mode makes agents **mandatorily** use ALL Synapse coordination features for every task, regardless of size. When enabled, agents always create task board entries, search shared memory, lock files, post canvas artifacts, and delegate work -- no exceptions.
+Proactive Mode makes agents **mandatorily** use ALL Synapse coordination features for every task, regardless of size. When enabled, agents always search shared memory, lock files, post canvas artifacts, and delegate work -- no exceptions.
 
 Without Proactive Mode, agents use a collaboration decision framework that recommends feature usage based on task complexity. Proactive Mode removes this discretion and enforces full feature usage on every task.
 
@@ -31,16 +31,12 @@ Or configure it in `.synapse/settings.json`:
 
 ## What Changes
 
-!!! info "Task Board is Always Mandatory for Delegation"
-    Even without Proactive Mode, every delegation **must** have a matching task board entry (create + assign before send). The task board is the team contract. Proactive Mode extends this to require task board entries for **all** work, including solo tasks. See [Task Board](task-board.md#mandatory-delegation-rule) for details.
-
 When Proactive Mode is enabled, agents follow a mandatory checklist for **every** task (not just delegations):
 
 ### Before Starting
 
 | Action | Command |
 |--------|---------|
-| Create a task board entry | `synapse tasks create "Subject" -d "description"` |
 | Search shared memory | `synapse memory search <keywords>` |
 | Check available agents | `synapse list` |
 
@@ -58,7 +54,6 @@ When Proactive Mode is enabled, agents follow a mandatory checklist for **every*
 
 | Action | Command |
 |--------|---------|
-| Mark task complete | `synapse tasks complete <task_id>` |
 | Broadcast completion | `synapse broadcast "Task done"` |
 | Post summary to canvas | `synapse canvas post` |
 
@@ -97,7 +92,7 @@ When both are active, both instruction files are appended to the agent's startup
 | Solo development, small fixes | Leave disabled (default) |
 | Multi-agent team on a shared codebase | Enable for coordination discipline |
 | Onboarding new team members to Synapse | Enable to demonstrate all features |
-| Critical project requiring audit trail | Enable for full task board + memory tracking |
+| Critical project requiring audit trail | Enable for full memory tracking |
 
 ## Testing
 

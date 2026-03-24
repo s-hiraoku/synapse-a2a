@@ -2,7 +2,7 @@
 
 Storage: ~/.synapse/canvas.db (user-global, WAL mode)
 Cards are ephemeral: cleared on server restart, expire after TTL.
-Follows shared_memory.py / task_board.py conventions.
+Follows shared_memory.py / file_safety.py conventions.
 """
 
 from __future__ import annotations

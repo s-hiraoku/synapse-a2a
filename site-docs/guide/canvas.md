@@ -380,8 +380,6 @@ Maximum 30 steps. Each step must have `id` and `subject`.
 
 The Plan template renders a Mermaid dependency DAG at the top (if `mermaid` is provided) followed by a step list with status indicators. Plan cards are pinned by default.
 
-!!! tip "Plan Card + Task Board Integration"
-    Use `synapse tasks accept-plan <plan_id>` to register all plan steps as Task Board tasks with dependency chains preserved. Then use `synapse tasks sync-plan <plan_id>` to sync Task Board progress back to the Canvas Plan Card. See [Task Board -- Plan Card Integration](task-board.md#plan-card-integration) for details.
 
 ### CLI: Plan Shortcut
 
@@ -499,7 +497,6 @@ The Canvas browser UI includes a **System Panel** at the top that shows real-tim
 | Section | Data Source | Shows |
 |---|---|---|
 | **Agents** | `~/.a2a/registry/*.json` | Agent name, type, status with colored dots |
-| **Tasks** | `.synapse/task_board.db` | Pending/in-progress/completed in kanban columns |
 | **File Locks** | `.synapse/file_safety.db` | Active file locks with agent assignment |
 
 The system panel is **pull-based** — the Canvas server reads directly from project databases. Agents don't need to explicitly post system state. The panel polls `/api/system` every 10 seconds and also refreshes on SSE `system_update` events.
@@ -647,7 +644,6 @@ The Dashboard view provides a real-time operational status overview of the entir
 **Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
-- **Tasks**: Pending/in-progress/completed tasks from the task board. Task cards are expandable with Markdown-rendered descriptions, and expand state persists across re-renders. The view toggle (Status | Group | Component) uses high-contrast active-tab styling for clear visibility
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
 - **Memory**: Recent shared memory entries

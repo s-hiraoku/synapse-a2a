@@ -85,28 +85,25 @@ Severity: 2 high, 1 medium
 
 ### Why different agents?
 
-A manager agent (Claude in delegate-mode) coordinates without editing files directly. Codex excels at focused implementation. Gemini provides independent test coverage. The Task Board tracks dependencies across the team.
+A manager agent (Claude in delegate-mode) coordinates without editing files directly. Codex excels at focused implementation. Gemini provides independent test coverage.
 
 ### Steps
 
 ```mermaid
 sequenceDiagram
     participant Manager as Claude (Claud)
-    participant TB as Task Board
     participant Codex as Codex (Cody)
     participant Gemini as Gemini (Gem)
     participant SM as Shared Memory
 
-    Manager->>TB: synapse tasks create "Implement OAuth2"
-    Manager->>TB: synapse tasks create "Write OAuth2 tests"
     Manager->>Codex: synapse send Cody "Implement OAuth2" --silent
     Codex->>Codex: Implements feature
     Codex->>SM: synapse memory save oauth-pattern "Use PKCE flow" --notify
-    Codex->>TB: synapse tasks complete 1
+    Codex-->>Manager: Done
     Manager->>Gemini: synapse send Gem "Write tests" --silent
     Gemini->>SM: synapse memory show oauth-pattern
     Gemini->>Gemini: Writes tests using shared knowledge
-    Gemini->>TB: synapse tasks complete 2
+    Gemini-->>Manager: Done
     Manager->>Manager: Verifies all tasks done
 ```
 
@@ -122,29 +119,10 @@ synapse team start \
   --layout split
 ```
 
-**2. Create task board entries and assign before delegating:**
-
-Every delegation must have a matching task board entry (create + assign + send):
+**2. Delegate to specialists:**
 
 ```bash
-# Create and assign task #1
-synapse tasks create "Implement OAuth2 with PKCE" \
-  -d "Add OAuth2 authorization code flow with PKCE to /api/auth" --priority 4
-# Returns: task-impl-001
-synapse tasks assign task-impl-001 Cody
-
-# Create and assign task #2
-synapse tasks create "Write OAuth2 integration tests" \
-  -d "Cover token exchange, refresh, and error paths" \
-  --blocked-by task-impl-001
-# Returns: task-test-002
-synapse tasks assign task-test-002 Gem
-```
-
-**3. Delegate to specialists (after task board entries exist):**
-
-```bash
-synapse send Cody "Implement the OAuth2 task. See task board for details." --silent
+synapse send Cody "Implement OAuth2 with PKCE flow for /api/auth" --silent
 synapse send Gem "Write tests for the OAuth2 feature once implementation is done." --silent
 ```
 
@@ -160,20 +138,7 @@ synapse memory save oauth-pkce \
 
 ```bash
 synapse list                    # Agent status
-synapse tasks list              # Task progress
 synapse memory search "oauth"   # Shared knowledge
-```
-
-### Expected Result
-
-```bash
-$ synapse tasks list
-┌────┬───────────────────────────────────┬───────────┬──────────┬──────────┐
-│ ID │ Subject                           │ Status    │ Priority │ Assignee │
-├────┼───────────────────────────────────┼───────────┼──────────┼──────────┤
-│  1 │ Implement OAuth2 with PKCE        │ completed │    4     │ Codex    │
-│  2 │ Write OAuth2 integration tests    │ completed │    3     │ Gemini   │
-└────┴───────────────────────────────────┴───────────┴──────────┴──────────┘
 ```
 
 ---
@@ -416,19 +381,17 @@ Documentation stays synchronized with code changes. The verifier catches mismatc
 
 ### Why different agents?
 
-Security audits benefit from diverse perspectives. One agent focuses on authentication, another on injection vulnerabilities, a third on dependency risks. Running them in parallel gives broad coverage quickly, and the results are consolidated via the Task Board.
+Security audits benefit from diverse perspectives. One agent focuses on authentication, another on injection vulnerabilities, a third on dependency risks. Running them in parallel gives broad coverage quickly.
 
 ### Steps
 
 ```mermaid
 sequenceDiagram
     participant Lead as Claude (Claud)
-    participant TB as Task Board
     participant A1 as Gemini (Gem)
     participant A2 as Codex (Cody)
     participant A3 as Codex 2 (Rex)
 
-    Lead->>TB: Create 3 audit tasks
     Lead->>A1: "Audit authentication & authorization"
     Lead->>A2: "Audit for injection vulnerabilities"
     Lead->>A3: "Audit dependencies for known CVEs"
@@ -443,20 +406,7 @@ sequenceDiagram
 
 ### Commands
 
-**1. Create audit tasks:**
-
-```bash
-synapse tasks create "Audit authentication flows" \
-  -d "Review login, session management, password reset, OAuth flows for vulnerabilities" --priority 4
-
-synapse tasks create "Audit injection vulnerabilities" \
-  -d "Scan for SQL injection, XSS, command injection, path traversal in all endpoints" --priority 4
-
-synapse tasks create "Audit dependency vulnerabilities" \
-  -d "Check all dependencies for known CVEs. Review lock file versions." --priority 4
-```
-
-**2. Assign agents to audit tasks:**
+**1. Assign agents to audit tasks:**
 
 ```bash
 synapse send Gem "Audit all authentication and authorization code. \
@@ -744,16 +694,12 @@ For tasks with **3+ phases** or **10+ file changes**, agents MUST follow this ga
 
 1. Run `synapse list` to check available agents
 2. Run `synapse memory search "<topic>"` to check shared knowledge
-3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
-4. Build an **Agent Assignment Plan** (see below) before writing any code
-5. If no suitable agent exists, spawn a specialist with `synapse spawn`
-6. Prefer a different model type for subtasks (diversity improves quality)
+3. Build an **Agent Assignment Plan** (see below) before writing any code
+4. If no suitable agent exists, spawn a specialist with `synapse spawn`
+5. Prefer a different model type for subtasks (diversity improves quality)
 
 !!! warning "Do NOT skip this step"
     Single-agent execution of multi-phase plans leads to slower delivery, no parallel work, and missed review opportunities.
-
-!!! important "Task Board = Team Contract"
-    Every delegation **must** have a matching task board entry -- create and assign before sending. The task board is the team-wide contract that makes ownership visible. Use TodoList only for personal micro-step tracking within your own work.
 
 #### Agent Assignment Plan Template
 
@@ -766,17 +712,7 @@ Before starting multi-phase work, create a table mapping phases to agents:
 | Phase 2 | Gemini | Independent feature, different model |
 | Review | Codex | Fresh perspective from different model |
 
-Then register each phase on the task board:
-
-```bash
-synapse tasks create "Phase 1: Write tests for auth module" -d "..." --priority 4
-synapse tasks assign <id> Codex
-
-synapse tasks create "Phase 1: Implement auth module" -d "..." --priority 4
-synapse tasks assign <id> Claude
-```
-
-This ensures every phase has an owner, progress is visible on the task board, and no work is duplicated.
+Then delegate each phase to the assigned agent via `synapse send`.
 
 ### Cross-Model Spawning
 
@@ -818,7 +754,6 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 
 | Feature | When to Use | Command |
 |---------|-------------|---------|
-| **Task Board** | **Mandatory** for every delegation (team contract) | `synapse tasks create/assign/complete/fail` |
 | **Shared Memory** | Save discoveries for the team | `synapse memory save <key> "..." --notify` |
 | **File Safety** | Lock files before editing | `synapse file-safety lock <file> $SYNAPSE_AGENT_ID` |
 | **Worktrees** | Parallel edits without conflicts | `synapse spawn <profile> --worktree` |
@@ -835,7 +770,6 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 | **Name your agents** | `--name Rex` is clearer than `codex-8120` in team communication |
 | **Use priority levels** | Normal work at 3, urgent follow-ups at 4, production emergencies at 5 |
 | **Share knowledge** | `synapse memory save` lets one agent's discoveries help the whole team |
-| **Track with Task Board** | `synapse tasks` provides a shared view of what's done and what's pending |
 | **Trace for auditing** | `synapse trace <task_id>` shows the full history of a task across agents |
 | **Choose response mode wisely** | `--wait` when you need the result, `--silent` for fire-and-forget delegation |
 | **Use worktrees for parallel edits** | `--worktree` prevents file conflicts when agents modify the same files |
@@ -848,7 +782,6 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 
 - [Communication](communication.md) — message sending, priority levels, reply tracking
 - [Agent Teams](agent-teams.md) — team start, delegate mode, auto-spawn
-- [Task Board](task-board.md) — task creation, dependencies, status tracking
 - [Shared Memory](shared-memory.md) — cross-agent knowledge sharing
 - [Workflows](workflow.md) — saved multi-step message sequences
 - [History & Tracing](history.md) — task history, trace, statistics

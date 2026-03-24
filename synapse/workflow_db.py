@@ -1,6 +1,6 @@
 """SQLite-backed persistent storage for workflow execution history.
 
-Follows the same patterns as task_board.py:
+Follows the same patterns as file_safety.py:
 - SQLite with WAL mode for concurrent reads
 - threading.RLock for write serialization
 - Row factory for dict-like access

@@ -127,12 +127,11 @@ Enforces mandatory usage of all Synapse coordination features for every task, re
 
 When enabled, the `.synapse/proactive.md` instruction file is injected at startup. It requires agents to follow a strict per-task checklist:
 
-**Before work:** Register on task board, search shared memory, check available agents.
+**Before work:** Search shared memory, check available agents.
 **During work:** Lock files before editing, save discoveries to memory, post artifacts to canvas, delegate subtasks.
 **After work:** Unlock files, mark task complete, broadcast completion, post summary to canvas.
 
 **Rules:**
-- Never skip task board registration — even for 1-line fixes
 - Always lock files before editing in multi-agent setups
 - Always save useful findings to shared memory
 - Always post significant artifacts to canvas
@@ -182,7 +181,7 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 
 **Views:** Hash-routed SPA with six views — `#/` (Canvas spotlight) with `#/history` as a sub-view (grid + live feed + agent messages; appears as indented sub-item under Canvas in sidebar), `#/dashboard` (operational overview with expandable summary+detail widgets: Agents, Tasks, File Locks, Worktrees, Memory, Errors), `#/admin` (Agent Control: clickable agent table for selection, double-click agent row to jump to terminal via `POST /api/admin/jump/{agent_id}`, textarea input with Cmd+Enter send, reply-based response via `synapse reply`, IME composition handling, sticky table headers), `#/workflow` (Workflow view: list saved workflows, inspect steps, trigger runs, monitor run progress with live updates via `workflow_update` SSE event; failed steps show error details, each step displays execution duration, Mermaid DAG includes message preview and response_mode edge labels, run history shows step progress count and failure details, project directory displayed next to Run button), and `#/system` (configuration panel: tips, saved agents, skills, skill sets, sessions, workflows, environment). Navigation via sidebar (fixed on desktop, hamburger drawer on mobile); Canvas parent link stays active when History sub-route is shown. View state preserved across SSE reconnects.
 
-**26 card formats:** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, tip, progress, terminal, dependency-graph, cost, link-preview, plan.
+**25 card formats:** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, tip, progress, terminal, dependency-graph, cost, link-preview, plan.
 
 **Rendering highlights:**
 - **Markdown cards**: Enhanced parser supports headings, paragraphs, bold/italic, inline code, code blocks, unordered and ordered lists, tables, blockquotes, horizontal rules, and links. Document content uses Source Sans 3 body font and Source Code Pro monospace font for a polished typographic appearance
@@ -194,7 +193,6 @@ Shared visual dashboard for agents to post rich content cards rendered in a brow
 - **Mermaid cards**: Diagrams auto-sync with the Canvas light/dark theme toggle; dark mode uses a Catppuccin-inspired palette, light mode uses an Indigo palette with brand accent `#4051b5`
 - **Image cards**: PNG, JPEG, SVG, GIF, WebP via URL or Base64 data URI (up to 2MB). SVG is ideal for agent-generated vector diagrams (architecture, network topology, data flow)
 - **Link-preview cards**: Fetches Open Graph metadata from a URL and renders a rich card with title, description, and thumbnail image
-- **Task-board cards**: Expandable task cards with markdown-rendered descriptions; expand state persists across polling re-renders; view toggle tabs (Status|Group|Component) for grouped views
 
 ```bash
 synapse canvas post <format> "<body>" --title "<title>" [--pinned] [--tags "t1,t2"]
@@ -209,12 +207,10 @@ synapse canvas list [--agent-id <id>] [--type <format>] [--search "<query>"]
 
 ### Plan Cards
 
-Plan cards combine a Mermaid DAG visualization with a step list for tracking multi-step work. Plans can be accepted into the task board and progress synced back.
+Plan cards combine a Mermaid DAG visualization with a step list for tracking multi-step work.
 
 ```bash
 synapse canvas plan '{"plan_id":"plan-auth","status":"proposed","mermaid":"graph TD; A-->B","steps":[{"id":"s1","subject":"Design","status":"pending"}]}' --title "Auth Plan"
-synapse tasks accept-plan plan-auth              # Register steps as task board tasks
-synapse tasks sync-plan plan-auth                # Sync task board progress back to plan card
 ```
 
 ### Card Download

@@ -338,7 +338,12 @@ def _validate_block_indices(
             errors.append(f"{item_name} {i} 'blocks' must be a list of indices")
         else:
             for idx in block_indices:
-                if not isinstance(idx, int) or idx < 0 or idx >= num_blocks:
+                if (
+                    isinstance(idx, bool)
+                    or not isinstance(idx, int)
+                    or idx < 0
+                    or idx >= num_blocks
+                ):
                     errors.append(
                         f"{item_name} {i} block index {idx} out of range "
                         f"(content has {num_blocks} blocks)"
