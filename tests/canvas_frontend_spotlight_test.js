@@ -40,6 +40,7 @@ function buildHarness(initialCards, systemAgents) {
   const script = `
     ${helpers}
     ${extractFunction("syncChildren")}
+    ${extractFunction("renderTemplateOrBlocks")}
     ${extractFunction("ensureSpotlightFrame")}
     ${extractFunction("renderSpotlightContent")}
     ${extractFunction("renderSpotlightInfo")}
