@@ -265,7 +265,7 @@ synapse rename my-claude --clear
 
 ### Show Agent Status
 
-Show detailed status for a single agent, including agent info, current task with elapsed time, recent messages, file locks, and task board assignments.
+Show detailed status for a single agent, including agent info, current task with elapsed time, recent messages, and file locks.
 
 ```bash
 # Human-readable output
@@ -282,13 +282,12 @@ synapse status my-claude --json
 - **Current Task**: Task preview with elapsed time (e.g., `Review code (2m 15s)`)
 - **Recent Messages**: Last 5 messages from history (task ID, direction, sender, preview)
 - **File Locks**: Files currently locked by this agent (if File Safety is enabled)
-- **Task Board**: Tasks assigned to this agent (if Task Board is active)
 
 **JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use.
 
 **Use cases:**
 - Checking what an agent is currently working on and how long it has been running
-- Debugging why an agent is stuck in PROCESSING (check file locks, task board)
+- Debugging why an agent is stuck in PROCESSING (check file locks)
 - Reviewing recent communication history for a specific agent
 
 ### Saved Agent Definitions
@@ -431,8 +430,6 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 - `--stdin`: Read message from stdin
 - `--attach`: Attach file(s) to message (repeatable)
 - `--force`: Bypass the working directory mismatch check (send to agents in different directories)
-- `--task, -T`: Auto-create a board task linked to this message. The task subject is the first 80 chars of the message, the target is set as `assignee_hint`. On receive, the board task is auto-claimed by the receiver. On A2A task finalization, the board task is auto-completed. The PTY displays `[Task: XXXXXXXX]` in the delivered message.
-
 **Working Directory Check:** Before sending, `synapse send` verifies that your current working directory matches the target agent's working directory. If they differ, the command prints a warning (listing agents in your current directory or suggesting `synapse spawn`) and exits with code 1. Use `--force` to skip this check.
 
 **Choosing response mode:**
@@ -487,9 +484,6 @@ synapse send claude --message-file - --silent   # '-' reads from stdin
 synapse send claude "Review this" --attach src/main.py --silent
 synapse send claude "Review these" --attach src/a.py --attach src/b.py --silent
 
-# Task-linked send (auto-create board task + auto-claim on receive + auto-complete on finalize)
-synapse send gemini "Write tests for auth module" --task --silent
-synapse send codex "Fix the failing CI pipeline" -T --wait
 ```
 
 Messages >100KB are automatically written to temp files (configurable via `SYNAPSE_SEND_MESSAGE_THRESHOLD`).
@@ -833,7 +827,7 @@ synapse instructions send synapse-claude-8100
 **Optional instruction files:** Additional instruction files are automatically appended based on settings:
 - `file-safety.md` — appended when `SYNAPSE_FILE_SAFETY_ENABLED=true`
 - `learning.md` — appended when either `SYNAPSE_LEARNING_MODE_ENABLED=true` or `SYNAPSE_LEARNING_MODE_TRANSLATION=true` is set (the two flags are independent). `SYNAPSE_LEARNING_MODE_ENABLED` adds a PROMPT IMPROVEMENT section; `SYNAPSE_LEARNING_MODE_TRANSLATION` adds a JP-to-EN LEARNING section (English pattern template, slot mapping, assembled prompt with JP paraphrase, quick alternatives). Either flag alone or both together enable `learning.md` injection and TIPS. The RESPONSE section uses normal formatting (no separators or section headers); structured format (━━━ separators, numbered sub-sections) is only for the learning feedback sections (PROMPT IMPROVEMENT / JP → EN LEARNING / TIPS). Template uses `{{#learning_mode}}`/`{{#learning_translation}}` Mustache conditionals for layout switching.
-- `proactive.md` — appended when `SYNAPSE_PROACTIVE_MODE_ENABLED=true`. Injects a mandatory per-task checklist requiring agents to use task board, shared memory, file safety, canvas, and broadcast for every task regardless of size. See the Features reference for details.
+- `proactive.md` — appended when `SYNAPSE_PROACTIVE_MODE_ENABLED=true`. Injects a mandatory per-task checklist requiring agents to use shared memory, file safety, canvas, and broadcast for every task regardless of size. See the Features reference for details.
 
 ## Logs
 
@@ -1059,91 +1053,6 @@ synapse memory stats
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | Database file path | `.synapse/memory.db` |
 
 **Storage:** `.synapse/memory.db` (SQLite with WAL mode, project-local)
-
-## Shared Task Board
-
-Coordinate tasks across agents with dependency tracking.
-
-```bash
-# List all tasks
-synapse tasks list
-
-# Filter by status or agent
-synapse tasks list --status pending
-synapse tasks list --agent claude
-
-# Verbose output (show descriptions, dependencies, grouping columns)
-synapse tasks list --verbose
-
-# Machine-readable JSON output
-synapse tasks list --format json
-
-# Group tasks by a column (group_id, component, milestone, status, assignee)
-synapse tasks list --group-by component
-
-# Filter by grouping columns
-synapse tasks list --group <group_id>
-synapse tasks list --component <component>
-synapse tasks list --milestone <milestone>
-
-# Create a task
-synapse tasks create "Implement auth module" -d "OAuth2 flow with JWT tokens"
-
-# Create with grouping metadata
-synapse tasks create "Implement auth module" -d "OAuth2 flow" --group auth --component backend --milestone v1.0
-
-# Create with dependency (blocked until blocker completes)
-synapse tasks create "Write integration tests" --blocked-by <task_id>
-
-# Claim/assign a task
-synapse tasks assign <task_id> claude
-
-# Complete a task (auto-unblocks dependents)
-synapse tasks complete <task_id>
-```
-
-### Task Failure and Recovery
-
-```bash
-# Report task failure (only works on in_progress tasks you own)
-synapse tasks fail <task_id> --reason "Test suite failed"
-
-# Reopen a completed or failed task (returns to pending, clears assignee)
-synapse tasks reopen <task_id>
-```
-
-### Purge Tasks
-
-```bash
-# Delete all tasks from the board
-synapse tasks purge
-
-# Delete only tasks with a specific status
-synapse tasks purge --status completed
-synapse tasks purge --status failed
-synapse tasks purge --status pending
-
-# Delete tasks older than a duration (e.g., 7d, 24h, 30m)
-synapse tasks purge --older-than 7d
-
-# Preview what would be deleted without actually deleting
-synapse tasks purge --dry-run
-synapse tasks purge --status completed --older-than 7d --dry-run
-```
-
-### Plan Integration
-
-```bash
-# Accept a plan card and register its steps as task board tasks
-synapse tasks accept-plan <plan_id>
-
-# Sync task board progress back to a plan card (updates step statuses)
-synapse tasks sync-plan <plan_id>
-```
-
-### Task Priority
-
-Tasks have priority 1-5 (default 3). Higher priority tasks are served first by `get_available_tasks()`.
 
 ## Plan Approval
 
@@ -1687,7 +1596,7 @@ synapse canvas link "https://example.com/article" --title "Reference"
 synapse canvas post-raw '{"type":"render","agent_id":"cli","content":[{"format":"markdown","body":"# Title"},{"format":"code","body":"x=1","lang":"python"}],"title":"Composite"}'
 ```
 
-**Supported formats (26):** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, task-board, tip, progress, terminal, dependency-graph, cost, link-preview, plan
+**Supported formats (25):** mermaid, markdown, html, artifact, table, json, diff, code, chart, image, log, status, metric, checklist, timeline, alert, file-preview, trace, tip, progress, terminal, dependency-graph, cost, link-preview, plan
 
 ### Templates
 
@@ -1703,12 +1612,6 @@ synapse canvas briefing --file report.json --title "CI Report"
 # Post a plan card (Mermaid DAG + step list with status tracking)
 synapse canvas plan '{"plan_id":"plan-auth","status":"proposed","mermaid":"graph TD; A[Design]-->B[Implement]-->C[Test]","steps":[{"id":"s1","subject":"Design","agent":"claude","status":"pending"},{"id":"s2","subject":"Implement","agent":"codex","status":"pending","blocked_by":["s1"]},{"id":"s3","subject":"Test","agent":"gemini","status":"pending","blocked_by":["s2"]}]}' --title "Auth Plan"
 synapse canvas plan --file plan.json --title "Migration Plan"
-
-# Accept a plan and register its steps as task board tasks
-synapse tasks accept-plan <plan_id>
-
-# Sync task board progress back to a plan card
-synapse tasks sync-plan <plan_id>
 
 # Post via post-raw with template field (works for all 6 templates)
 synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"comparison","template_data":{"sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"code","body":"old","lang":"python"},{"format":"code","body":"new","lang":"python"}],"title":"Diff"}'
@@ -1732,7 +1635,7 @@ synapse canvas post-raw '{"type":"render","agent_id":"cli","template":"compariso
 - `steps`: use for rollout plans, migration procedures, bug-fix sequences, and checklist-driven execution
 - `slides`: use for walkthroughs, demos, and content that should be consumed one page at a time
 - `dashboard`: use for operational snapshots with multiple small widgets, counts, and mixed status blocks
-- `plan`: use for task DAGs with dependency visualization, step-level status tracking, and task board integration via `accept-plan` / `sync-plan`
+- `plan`: use for task DAGs with dependency visualization and step-level status tracking
 
 Rule of thumb:
 - One block, one idea: plain `synapse canvas post`
@@ -1752,7 +1655,6 @@ Rule of thumb:
 | progress | Progress bar + steps | `status`: in_progress, completed, failed, paused |
 | terminal | ANSI terminal | Renders raw terminal output with ANSI escape codes |
 | dependency-graph | Force-directed graph | Nodes with optional `group` colouring; directed edges |
-| task-board | Dashboard widget | Expandable task cards with markdown descriptions; expand state persists across polling; view toggle tabs (Status\|Group\|Component) |
 | cost | Cost summary table | Per-agent token counts and costs with total row |
 | link-preview | Open Graph card | Fetches OG metadata from URL; renders title, description, and thumbnail |
 

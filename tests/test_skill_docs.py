@@ -29,16 +29,6 @@ def test_spawning_doc_uses_current_gemini_flag_and_safe_examples() -> None:
     )
 
 
-def test_commands_quick_ref_includes_reopen_with_supported_syntax() -> None:
-    text = _read(
-        "plugins/synapse-a2a/skills/synapse-manager/references/commands-quick-ref.md"
-    )
-    assert "`synapse tasks reopen <id>`" in text
-    assert "Reopen a completed or failed task" in text
-    reopen_line = next(line for line in text.splitlines() if "tasks reopen" in line)
-    assert "--reason" not in reopen_line
-
-
 def test_check_team_status_reports_failures_and_empty_states_distinctly() -> None:
     text = _read(
         "plugins/synapse-a2a/skills/synapse-manager/scripts/check_team_status.sh"
@@ -48,9 +38,6 @@ def test_check_team_status_reports_failures_and_empty_states_distinctly() -> Non
     assert "list_status=$?" in text
     assert "synapse list --plain failed:" in text
     assert "No agents running." in text
-    assert "task_output=$(synapse tasks list 2>&1)" in text
-    assert "task_status=$?" in text
-    assert "synapse tasks list failed:" in text
     assert "2>/dev/null" not in text
 
 
@@ -74,12 +61,6 @@ def test_synapse_manager_skill_emphasizes_tests_before_implementation() -> None:
     tests_index = text.index("New tests first")
     assert tests_index < step2_index
     assert "create tests -> present/confirm spec -> then implement" in text
-    assert (
-        "--blocked-by tests" in text
-        or "--blocked-by 2" in text
-        or "--blocked-by 1" in text
-        or "--blocked-by task-tests-001" in text
-    )
     assert "scripts/wait_ready.sh" in text
     assert "working directory" in text.lower()
     assert "--force" in text

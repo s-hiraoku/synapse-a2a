@@ -193,18 +193,6 @@ synapse skills deploy doc-organizer --scope project
 </div>
 
 <div class="feature-card" markdown>
-<div class="feature-icon" markdown>:material-clipboard-check-outline:</div>
-
-### Shared Task Board
-Coordinate work with SQLite-based task tracking, dependencies, priority levels, and plan approval.
-
-```bash
-synapse tasks create "Implement auth" \
-  -d "OAuth2 with JWT" --priority 4
-```
-</div>
-
-<div class="feature-card" markdown>
 <div class="feature-icon" markdown>:material-lock-outline:</div>
 
 ### File Safety

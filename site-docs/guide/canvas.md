@@ -380,8 +380,6 @@ Maximum 30 steps. Each step must have `id` and `subject`.
 
 The Plan template renders a Mermaid dependency DAG at the top (if `mermaid` is provided) followed by a step list with status indicators. Plan cards are pinned by default.
 
-!!! tip "Plan Card + Task Board Integration"
-    Use `synapse tasks accept-plan <plan_id>` to register all plan steps as Task Board tasks with dependency chains preserved. Then use `synapse tasks sync-plan <plan_id>` to sync Task Board progress back to the Canvas Plan Card. See [Task Board -- Plan Card Integration](task-board.md#plan-card-integration) for details.
 
 ### CLI: Plan Shortcut
 
@@ -646,7 +644,6 @@ The Dashboard view provides a real-time operational status overview of the entir
 **Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
-- **Tasks**: Pending/in-progress/completed tasks from the task board. Task cards are expandable with Markdown-rendered descriptions, and expand state persists across re-renders. The view toggle (Status | Group | Component) uses high-contrast active-tab styling for clear visibility
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
 - **Memory**: Recent shared memory entries

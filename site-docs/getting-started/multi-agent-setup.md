@@ -231,6 +231,5 @@ This enables network access for all Codex sessions without needing the environme
 Now that you have multiple agents running and communicating, explore these guides for more advanced workflows:
 
 - **[Agent Teams](../guide/agent-teams.md)** — Team spawning, delegation mode, and auto-spawn panes
-- **[Task Board](../guide/task-board.md)** — Shared task board for coordinating work across agents
 - **[Communication](../guide/communication.md)** — All messaging patterns, reply routing, and file attachments
 - **[Shared Memory](../guide/shared-memory.md)** — Cross-agent knowledge sharing with persistent memory

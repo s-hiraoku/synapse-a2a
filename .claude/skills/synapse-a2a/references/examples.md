@@ -199,31 +199,6 @@ synapse memory stats
 
 ## Agent Teams Workflow
 
-### Task Board Coordination
-
-```bash
-# Manager creates tasks with grouping metadata
-synapse tasks create "Implement auth module" -d "OAuth2 with JWT" --group auth --component backend --milestone v1.0
-synapse tasks create "Write auth tests" --blocked-by <auth_task_id> --group auth --component backend --milestone v1.0
-
-# Assign to agents
-synapse tasks assign <auth_task_id> gemini
-synapse tasks assign <test_task_id> codex
-
-# Monitor progress (verbose shows descriptions and grouping columns)
-synapse tasks list --status in_progress
-synapse tasks list --verbose
-synapse tasks list --group-by component
-synapse tasks list --format json
-
-# Complete task (auto-unblocks dependent test task)
-synapse tasks complete <auth_task_id>
-
-# Cleanup old tasks
-synapse tasks purge --older-than 7d --dry-run
-synapse tasks purge --status completed --older-than 7d
-```
-
 ### Delegate Mode Setup
 
 ```bash
@@ -471,7 +446,7 @@ synapse canvas briefing '{"title":"Sprint Review","sections":[{"title":"Summary"
 ### Comparison for Before/After Reviews
 
 ```bash
-synapse canvas post-raw '{"type":"render","agent_id":"cli","title":"Dashboard Cleanup","template":"comparison","template_data":{"layout":"side-by-side","sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"markdown","body":"Old dashboard with dense multi-column layout."},{"format":"markdown","body":"New dashboard with vertical widgets and summary task board."}]}'
+synapse canvas post-raw '{"type":"render","agent_id":"cli","title":"Dashboard Cleanup","template":"comparison","template_data":{"layout":"side-by-side","sides":[{"label":"Before","blocks":[0]},{"label":"After","blocks":[1]}]},"content":[{"format":"markdown","body":"Old dashboard with dense multi-column layout."},{"format":"markdown","body":"New dashboard with vertical widgets and clean layout."}]}'
 ```
 
 ### Steps for Execution Plans

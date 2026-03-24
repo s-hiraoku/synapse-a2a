@@ -5,9 +5,8 @@ description: >-
   delegating tasks, sharing memory, and coordinating file edits.
   Use this skill when: running synapse send/reply/broadcast/interrupt,
   spawning agents with synapse spawn or synapse team start,
-  managing the task board with synapse tasks, sharing knowledge with
-  synapse memory, locking files with synapse file-safety, checking
-  agent status with synapse list/status, or orchestrating any
+  sharing knowledge with synapse memory, locking files with synapse file-safety,
+  checking agent status with synapse list/status, or orchestrating any
   multi-agent workflow. For AI/programmatic use, prefer `synapse list --json`,
   `synapse status <target> --json`, or the MCP `list_agents` tool instead of
   interactive `synapse list`.
@@ -24,7 +23,6 @@ Inter-agent communication framework via Google A2A Protocol.
 | List agents | `synapse list` for humans (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter). For AI/scripts use `synapse list --json`, `synapse list --plain`, or MCP `list_agents` |
 | Agent detail | `synapse status <target> [--json]` |
 | Send message | `synapse send <target> "<msg>"` (default: `--notify`; `--from` auto-detected) |
-| Send with task | `synapse send <target> "<msg>" --task` / `-T` (auto-creates board task, auto-claim on receive, auto-complete on finalize) |
 | Broadcast | `synapse broadcast "<msg>"` |
 | Wait for reply | `synapse send <target> "<msg>" --wait` |
 | Fire-and-forget | `synapse send <target> "<msg>" --silent` |
@@ -35,11 +33,6 @@ Inter-agent communication framework via Google A2A Protocol.
 | Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <tool-specific-automation-args>` |
-| Create task | `synapse tasks create "<subject>" -d "<desc>" --priority <n> [--group G] [--component C] [--milestone M]` |
-| List tasks | `synapse tasks list [--verbose] [--format json] [--group-by COL] [--group G] [--component C] [--milestone M]` |
-| Assign task | `synapse tasks assign <id> <agent>` |
-| Complete task | `synapse tasks complete <id>` |
-| Purge tasks | `synapse tasks purge [--status STATUS] [--older-than DURATION] [--dry-run]` |
 | Approve plan | `synapse approve <id>` |
 | Reject plan | `synapse reject <id> --reason "<feedback>"` |
 | Save knowledge | `synapse memory save <key> "<content>" --tags <t> --notify` |
@@ -55,8 +48,6 @@ Inter-agent communication framework via Google A2A Protocol.
 | Post template | `synapse canvas briefing '<json>' --title "<title>"` |
 | Post plan card | `synapse canvas plan '<json>' --title "<title>"` (Mermaid DAG + step list with status tracking) |
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
-| Accept plan | `synapse tasks accept-plan <plan_id>` (register plan steps as task board tasks) |
-| Sync plan progress | `synapse tasks sync-plan <plan_id>` (sync task board status back to plan card) |
 | Sync workflow skills | `synapse workflow sync` (regenerate skills from workflow YAMLs, remove orphans) |
 | Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (spawn missing agents on the fly) |
 
@@ -76,15 +67,13 @@ Evaluate collaboration opportunities before starting work:
 **Mandatory Collaboration Gate** (3+ phases OR 10+ file changes):
 1. `synapse list --json` or MCP `list_agents` — check available agents
 2. `synapse memory search "<topic>"` — check shared knowledge
-3. `synapse tasks create` — register work on the task board
-4. Build Agent Assignment Plan (Phase / Agent / Rationale)
-5. Spawn specialists if needed (prefer different model types for diversity)
+3. Build Agent Assignment Plan (Phase / Agent / Rationale)
+4. Spawn specialists if needed (prefer different model types for diversity)
 
 ## Use Synapse Features Actively
 
 | Feature | Why It Matters | Commands |
 |---------|---------------|----------|
-| **Task Board** | Transparent work tracking prevents duplication; grouping (--group, --component, --milestone), verbose/JSON output, age-based purge | `synapse tasks create/assign/complete/fail/reopen/purge/list` |
 | **Shared Memory** | Collective knowledge survives agent restarts | `synapse memory save/search/list` |
 | **File Safety** | Locking prevents data loss when two agents edit the same file | `synapse file-safety lock/unlock/locks` |
 | **Worktree** | File isolation eliminates merge conflicts in parallel editing | `synapse spawn --worktree` |
@@ -94,48 +83,10 @@ Evaluate collaboration opportunities before starting work:
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan); cards downloadable as Markdown, JSON, CSV, or native format via browser button or `GET /api/cards/{card_id}/download` | `synapse canvas post/link/briefing/plan/open/list` |
 | **Agent Control** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
 | **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
-| **Plan Cards** | Mermaid DAG + step list with accept/sync workflow for task board integration | `synapse canvas plan` / `synapse tasks accept-plan` / `synapse tasks sync-plan` |
+| **Plan Cards** | Mermaid DAG + step list with dependency visualization | `synapse canvas plan` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
 | **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 | **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in, including Copilot via tools-only). MCP tools: `bootstrap_agent`, `list_agents`, `analyze_task` | `synapse mcp serve` / `python -m synapse.mcp` |
-
-### Task Board Default Triggers
-
-Use the Task Board by default when any of these are true:
-
-- `2+ agents` will work on the task
-- The work is likely to run longer than `30 minutes`
-- The task spans `3+ files`, multiple phases, or distinct subtasks
-- A handoff, manager review, or resume later workflow is likely
-- You need the team to see `pending / in_progress / completed / failed` state at a glance
-
-Minimum pattern:
-
-```bash
-synapse tasks create "<subject>" -d "<shared scope and done criteria>"
-synapse tasks assign <id> <agent>
-synapse tasks complete <id>
-synapse tasks fail <id> --reason "<blocker or failure>"
-```
-
-**Shortcut — task-linked send:** Use `--task` / `-T` to create a board task and link it to the message in one step. The receiver auto-claims the task on receipt, and it auto-completes when the A2A task finalizes. The PTY displays a `[Task: XXXXXXXX]` tag so both agents can see the link.
-
-```bash
-synapse send Impl "Implement auth module" --task --silent
-# Equivalent to: tasks create + tasks assign + send with board_task_id
-```
-
-**Cleanup:** Use `synapse tasks purge` to remove stale tasks from the board.
-
-```bash
-synapse tasks purge                    # Delete all tasks
-synapse tasks purge --status completed # Delete only completed tasks
-synapse tasks purge --status failed    # Delete only failed tasks
-synapse tasks purge --older-than 7d    # Delete tasks older than 7 days
-synapse tasks purge --dry-run          # Preview what would be deleted
-```
-
-If none of the triggers apply and the work is a small single-agent change, you can skip the task board.
 
 ### Canvas Template Default Triggers
 
@@ -147,7 +98,7 @@ agent or a human later, not just glanced at once in the terminal.
 - `steps` for plans, migration sequences, and execution checklists
 - `slides` for walkthroughs, demos, and page-by-page narratives
 - `dashboard` for multi-widget operational snapshots and compact status boards
-- `plan` for task DAGs with Mermaid visualization, step tracking, and task board integration (`accept-plan` / `sync-plan`)
+- `plan` for task DAGs with Mermaid visualization and step tracking
 
 Prefer raw `synapse canvas post <format>` only when a single block is enough.
 If the message has multiple sections or needs stronger information hierarchy,
@@ -218,13 +169,12 @@ Choose based on whether you need the result:
 
 ## Worker Agent Guide
 
-When you receive a task from a manager or pick one from the task board:
+When you receive a task from a manager:
 
 ### On Task Receipt
 1. Start work immediately (`[REPLY EXPECTED]` requires a reply; otherwise no reply needed)
-2. If the message contains `[Task: XXXXXXXX]`, the board task was auto-claimed for you — no manual `tasks assign` needed
-3. Check shared knowledge: `synapse memory search "<task topic>"`
-4. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
+2. Check shared knowledge: `synapse memory search "<task topic>"`
+3. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
 
 ### During Work
 - Report progress if task takes >5 minutes: `synapse send <manager> "Progress: <update>" --silent`
@@ -234,12 +184,10 @@ When you receive a task from a manager or pick one from the task board:
 - Always clean up agents you spawn: `synapse kill <name> -f`
 
 ### On Completion
-1. Update task board: `synapse tasks complete <task_id>`
-2. Report to manager: `synapse send <manager> "Done: <summary>" --silent`
+1. Report to manager: `synapse send <manager> "Done: <summary>" --silent`
 
 ### On Failure
-1. Update task board: `synapse tasks fail <task_id> --reason "<reason>"`
-2. Report details: `synapse send <manager> "Failed: <error details>" --silent`
+1. Report details: `synapse send <manager> "Failed: <error details>" --silent`
 
 ## Related Skills
 

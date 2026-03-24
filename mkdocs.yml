@@ -121,7 +121,6 @@ nav:
     - Communication: guide/communication.md
     - Cross-Agent Scenarios: guide/cross-agent-scenarios.md
     - Agent Teams: guide/agent-teams.md
-    - Task Board: guide/task-board.md
     - File Safety: guide/file-safety.md
     - Skills: guide/skills.md
     - Shared Memory: guide/shared-memory.md

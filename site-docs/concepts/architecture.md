@@ -95,7 +95,7 @@ HTTP server providing A2A-compatible endpoints.
 - Runs in a background thread alongside the PTY process
 - Serves the Agent Card at `/.well-known/agent.json`
 - Handles `/tasks/send` and `/tasks/send-priority` with Readiness Gate
-- Provides Task Board, Spawn, and Team Start APIs
+- Provides Spawn and Team Start APIs
 
 ### A2A Compatibility Layer
 
