@@ -57,7 +57,7 @@ class TestCopilotProfile:
         assert profile["command"] == "copilot"
 
     def test_profile_submit_sequence(self, profile):
-        """Profile should have correct submit sequence."""
+        """Profile should use Enter for submit."""
         assert profile["submit_sequence"] == "\r"
 
     def test_profile_env_term(self, profile):
@@ -84,14 +84,13 @@ class TestCopilotProfile:
         compiled = re.compile(regex)
         assert compiled is not None
 
-    def test_profile_bracketed_paste_enabled(self, profile):
-        """Copilot profile should enable bracketed paste mode.
+    def test_profile_bracketed_paste_disabled(self, profile):
+        """Copilot profile should disable bracketed paste mode.
 
-        Copilot CLI uses Ink's usePaste hook which requires text to be
-        wrapped in ESC[200~ ... ESC[201~ bracketed paste markers for
-        reliable input handling.
+        Copilot CLI does not enable bracketed paste mode (ESC[?2004h),
+        so ESC[200~/ESC[201~ markers are ignored.  Text is sent directly.
         """
-        assert profile.get("bracketed_paste") is True
+        assert profile.get("bracketed_paste") is False
 
     def test_profile_does_not_use_submit_retry_delay(self, profile):
         """Copilot profile should rely on confirmation retries, not double-submit."""

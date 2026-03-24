@@ -158,7 +158,7 @@ class TestLongMessageFileStorage:
 
         # Should contain file reference, not original message
         assert "[LONG MESSAGE" in written_content
-        assert "stored at:" in written_content.lower()
+        assert "path:" in written_content.lower()
 
         # Original message should NOT be in PTY write
         assert long_message not in written_content
@@ -308,7 +308,7 @@ class TestLongMessageInReplyTo:
 
         # Should contain file reference, not original message
         assert "[LONG MESSAGE" in written_content
-        assert "stored at:" in written_content.lower()
+        assert "path:" in written_content.lower()
         assert long_reply not in written_content
 
     def test_short_reply_sent_directly(

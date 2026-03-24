@@ -55,7 +55,8 @@ _ANSI_ESCAPE_RE = re.compile(
     r"\x1b"
     r"(?:"
     r"\[[?]?[0-9;]*[a-zA-Z]"  # CSI sequences
-    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC sequences
+    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC sequences (terminated)
+    r"|\][^\x07\x1b]*$"  # OSC sequences (unterminated at end of string)
     r"|[()][AB0-2]"  # Character set selection
     r"|[>=]"  # Keypad mode
     r")"
@@ -1144,24 +1145,27 @@ class TerminalController:
             self._identity_sending = False
 
     def _write_all(self, data: bytes) -> None:
-        """Write all bytes to master_fd, retrying on partial writes.
+        """Write all bytes to the PTY, retrying on partial writes.
+
+        In interactive mode (pty.spawn), writes go through the inject pipe
+        so that pty._copy's select loop picks them up correctly.  In
+        background mode, writes go directly to master_fd.
 
         Args:
             data: The bytes to write.
 
         Raises:
-            OSError: If ``os.write`` returns 0 (master fd closed).
-
-        Precondition:
-            ``self.master_fd`` must not be ``None`` (caller must check).
+            OSError: If ``os.write`` returns 0 (fd closed).
         """
-        assert self.master_fd is not None
+        # Use inject pipe when available (interactive / pty.spawn mode)
+        fd = getattr(self, "_inject_write_fd", None) or self.master_fd
+        assert fd is not None
         total = len(data)
         written = 0
         while written < total:
-            n = os.write(self.master_fd, data[written:])
+            n = os.write(fd, data[written:])
             if n == 0:
-                raise OSError("os.write returned 0, PTY master fd may be closed")
+                raise OSError("os.write returned 0, fd may be closed")
             written += n
 
     def _should_type_input(self, data: str, submit_seq: str | None) -> bool:
@@ -1299,6 +1303,11 @@ class TerminalController:
 
         with self._write_lock:
             try:
+                # Copilot: replace '/' with fullwidth solidus to prevent
+                # slash-command autocomplete from triggering during input.
+                # The LLM understands fullwidth '／' as a path separator.
+                if self.agent_type == "copilot" and "/" in data:
+                    data = data.replace("/", "\uff0f")
                 pre_paste_context = self._tail_text(strip_ansi(self.get_context()))
                 pre_submit_context = (
                     pre_paste_context
@@ -1330,6 +1339,25 @@ class TerminalController:
                         self._wait_for_copilot_paste_echo(pre_paste_context)
                     elif self._write_delay > 0:
                         time.sleep(self._write_delay)
+                    # Ensure ICRNL is disabled before sending submit bytes.
+                    # Ink-based TUIs (Copilot) call process.stdin.setRawMode(true)
+                    # on startup which may re-enable ICRNL, converting \r→\n.
+                    # Ink maps \r to key.return (submit) but \n to key.enter
+                    # (different event), so ICRNL must be off.
+                    if self._bracketed_paste and self.master_fd is not None:
+                        try:
+                            attrs = termios.tcgetattr(self.master_fd)
+                            iflag = attrs[0]
+                            if iflag & termios.ICRNL:
+                                attrs[0] = iflag & ~termios.ICRNL
+                                termios.tcsetattr(
+                                    self.master_fd, termios.TCSANOW, attrs
+                                )
+                                logger.debug(
+                                    f"[{self.agent_id}] ICRNL disabled for submit"
+                                )
+                        except (termios.error, OSError):
+                            pass
                     self._write_all(submit_bytes)
                     if (
                         self._submit_retry_delay is not None
@@ -1445,11 +1473,23 @@ class TerminalController:
             if attempt < confirm_retries:
                 self._write_all(submit_bytes)
 
+        # Dump diagnostic info on failure
+        plain = strip_ansi(self.get_context())
+        tail = self._tail_text(plain)
+        markers = self._pending_submit_markers(data)
+        has_placeholder = self._has_copilot_pending_placeholder(tail)
         message = (
             f"[{self.agent_id}] submit confirmation failed after "
             f"{confirm_retries} retries"
         )
         logger.warning(message)
+        logger.info(
+            f"[{self.agent_id}] submit_diag: "
+            f"markers={markers!r} "
+            f"has_placeholder={has_placeholder} "
+            f"status={self.status} "
+            f"tail_last200={tail[-200:]!r}"
+        )
         self._log_inject(
             "WARN",
             f"submit confirmation failed retries={confirm_retries}",
@@ -1585,8 +1625,43 @@ class TerminalController:
                 # No data available
                 return data
 
+        # Inject pipe: allows write() to feed data into pty._copy's select
+        # loop.  _copy monitors STDIN_FILENO; direct os.write(master_fd)
+        # from another thread bypasses _copy and data is lost.
+        #
+        # Strategy: replace STDIN_FILENO with a merge-pipe.  A background
+        # thread reads real-stdin + inject-pipe and writes to the merge-pipe.
+        # _copy sees the merge-pipe as STDIN_FILENO and processes all input.
+        inject_r, inject_w = os.pipe()
+        self._inject_write_fd = inject_w
+
+        real_stdin_fd = os.dup(pty.STDIN_FILENO)
+        merge_r, merge_w = os.pipe()
+        os.dup2(merge_r, pty.STDIN_FILENO)
+        os.close(merge_r)  # STDIN_FILENO is now the read end
+
+        def _stdin_merge_thread() -> None:
+            """Merge real stdin and inject pipe into STDIN_FILENO."""
+            import select as _sel
+
+            try:
+                while self.running:
+                    ready, _, _ = _sel.select([real_stdin_fd, inject_r], [], [], 0.1)
+                    for rfd in ready:
+                        chunk = os.read(rfd, 4096)
+                        if chunk:
+                            os.write(merge_w, chunk)
+            except OSError:
+                pass
+            finally:
+                with contextlib.suppress(OSError):
+                    os.close(merge_w)
+
+        merge_thread = threading.Thread(target=_stdin_merge_thread, daemon=True)
+        merge_thread.start()
+
         def input_callback(fd: int) -> bytes:
-            """Called when there's data from stdin. Pass through to PTY."""
+            """Called by pty._copy when STDIN_FILENO is readable."""
             data = os.read(fd, 1024)
             return data
 
