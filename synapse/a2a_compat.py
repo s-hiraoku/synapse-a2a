@@ -28,7 +28,6 @@ from synapse.a2a_client import get_client
 from synapse.auth import require_auth
 from synapse.config import (
     AGENT_READY_TIMEOUT,
-    BOARD_TASK_METADATA_KEY,
     CONTEXT_RECENT_SIZE,
 )
 from synapse.controller import TerminalController
@@ -1218,43 +1217,6 @@ def create_a2a_router(
                     output_summary=output_summary,
                 )
 
-        # Auto-complete linked board task when A2A task completes
-        # complete_task is atomic (WHERE status='in_progress' AND assignee=?)
-        # so no pre-check needed — it's a no-op if conditions don't match.
-        if updated and agent_id:
-            a2a_metadata = updated.metadata or {}
-            raw_btid = a2a_metadata.get(BOARD_TASK_METADATA_KEY)
-            board_task_id = (
-                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
-            )
-            if board_task_id:
-                try:
-                    from synapse.task_board import TaskBoard
-
-                    board = TaskBoard.from_env()
-                    unblocked = board.complete_task(board_task_id, agent_id)
-                    # complete_task returns list[str]: empty list means
-                    # state/assignee mismatch (rowcount == 0), non-empty
-                    # list contains IDs of tasks unblocked by completion.
-                    if not unblocked:
-                        logger.warning(
-                            "Board task %s was not auto-completed (state/assignee mismatch)",
-                            board_task_id[:8],
-                        )
-                    else:
-                        logger.info("Auto-completed board task %s", board_task_id[:8])
-                    if unblocked:
-                        logger.info(
-                            "Unblocked board tasks: %s",
-                            ", ".join(t[:8] for t in unblocked),
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to auto-complete board task %s: %s",
-                        board_task_id[:8] if board_task_id else "?",
-                        e,
-                    )
-
         return updated
 
     # Register controller callback for notify/wait completion detection.
@@ -1488,35 +1450,6 @@ def create_a2a_router(
                             "Failed to persist reply target for %s: %s", agent_id, e
                         )
 
-            # Auto-claim board task on receive
-            raw_btid = metadata.get(BOARD_TASK_METADATA_KEY)
-            board_task_id = (
-                raw_btid if isinstance(raw_btid, str) and raw_btid.strip() else None
-            )
-            if board_task_id and agent_id:
-                try:
-                    from synapse.task_board import TaskBoard
-
-                    board = TaskBoard.from_env()
-                    claimed = board.claim_task(board_task_id, agent_id)
-                    if claimed:
-                        logger.info(
-                            "Auto-claimed board task %s for %s",
-                            board_task_id[:8],
-                            agent_id,
-                        )
-                    else:
-                        logger.warning(
-                            "Board task %s was not auto-claimed (already claimed/blocked?)",
-                            board_task_id[:8],
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to auto-claim board task %s: %s",
-                        board_task_id[:8] if board_task_id else "?",
-                        e,
-                    )
-
             # Prepare message for PTY (may store to file if too long)
             pty_text, used_file = _prepare_pty_message(
                 get_long_message_store(),
@@ -1534,7 +1467,6 @@ def create_a2a_router(
                 response_mode=response_mode if not used_file else "silent",
                 sender_id=sender_info.sender_id if not used_file else None,
                 sender_name=sender_info.sender_name if not used_file else None,
-                board_task_id=board_task_id if not used_file else None,
             )
             written = controller.write(prefixed_content, submit_seq=submit_seq)
             if not written:
@@ -1680,130 +1612,12 @@ def create_a2a_router(
     # NOTE: These must be defined BEFORE /tasks/{task_id} to avoid route conflicts
     # --------------------------------------------------------
 
-    class BoardTaskCreate(BaseModel):
-        """Request model for creating a board task."""
-
-        subject: str
-        description: str = ""
-        created_by: str
-        blocked_by: list[str] | None = None
-        priority: int = Field(default=3, ge=1, le=5)
-
-    class BoardTaskClaim(BaseModel):
-        """Request model for claiming a board task."""
-
-        agent_id: str
-
-    class BoardTaskComplete(BaseModel):
-        """Request model for completing a board task."""
-
-        agent_id: str
-
-    class BoardTaskFail(BaseModel):
-        """Request model for failing a board task."""
-
-        agent_id: str
-        reason: str = ""
-
-    class BoardTaskReopen(BaseModel):
-        """Request model for reopening a board task."""
-
-        agent_id: str
-
     class ExplicitReplyRequest(BaseModel):
         """Request model for explicitly completing a task via synapse reply."""
 
         message: str
         status: Literal["completed", "failed"] = "completed"
         error: TaskErrorModel | None = None
-
-    @router.get("/tasks/board")
-    async def get_task_board(_: Any = Depends(require_auth)) -> dict[str, Any]:
-        """Get all tasks from the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        tasks = board.list_tasks()
-        return {"tasks": tasks}
-
-    @router.post("/tasks/board")
-    async def create_board_task(
-        request: BoardTaskCreate, _: Any = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """Create a new task on the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        task_id = board.create_task(
-            subject=request.subject,
-            description=request.description,
-            created_by=request.created_by,
-            blocked_by=request.blocked_by,
-            priority=request.priority,
-        )
-        return {"id": task_id, "status": "pending"}
-
-    @router.post("/tasks/board/{task_id}/claim")
-    async def claim_board_task(
-        task_id: str, request: BoardTaskClaim, _: Any = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """Claim a task from the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        result = board.claim_task(task_id, request.agent_id)
-        if not result:
-            raise HTTPException(
-                status_code=409,
-                detail="Task cannot be claimed (already assigned or blocked)",
-            )
-        return {"claimed": True, "task_id": task_id}
-
-    @router.post("/tasks/board/{task_id}/complete")
-    async def complete_board_task(
-        task_id: str, request: BoardTaskComplete, _: Any = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """Complete a task on the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        unblocked = board.complete_task(task_id, request.agent_id)
-        return {"completed": True, "task_id": task_id, "unblocked": unblocked}
-
-    @router.post("/tasks/board/{task_id}/fail")
-    async def fail_board_task(
-        task_id: str, request: BoardTaskFail, _: Any = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """Fail a task on the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        task = board.get_task(task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-        updated = board.fail_task(task_id, request.agent_id, reason=request.reason)
-        if not updated:
-            raise HTTPException(
-                status_code=409,
-                detail="Task cannot be failed (not in_progress or assignee mismatch)",
-            )
-        return {"failed": True, "task_id": task_id}
-
-    @router.post("/tasks/board/{task_id}/reopen")
-    async def reopen_board_task(
-        task_id: str, request: BoardTaskReopen, _: Any = Depends(require_auth)
-    ) -> dict[str, Any]:
-        """Reopen a completed or failed task on the shared task board."""
-        from synapse.task_board import TaskBoard
-
-        board = TaskBoard.from_env()
-        result = board.reopen_task(task_id, request.agent_id)
-        if not result:
-            raise HTTPException(
-                status_code=409,
-                detail="Task cannot be reopened (may be pending or in_progress)",
-            )
-        return {"reopened": True, "task_id": task_id}
 
     @router.post("/tasks/{task_id}/reply")
     async def record_explicit_reply(

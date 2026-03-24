@@ -34,7 +34,6 @@ def _make_command(
     agent_info: dict | None = None,
     history_items: list | None = None,
     file_locks: list | None = None,
-    task_board_tasks: list | None = None,
 ) -> tuple[StatusCommand, StringIO]:
     """Create a StatusCommand with mocked dependencies."""
     output = StringIO()
@@ -52,14 +51,10 @@ def _make_command(
     mock_file_safety.list_locks.return_value = file_locks or []
     mock_file_safety.enabled = bool(file_locks)
 
-    mock_task_board = MagicMock()
-    mock_task_board.list_tasks.return_value = task_board_tasks or []
-
     cmd = StatusCommand(
         registry=mock_registry,
         history_manager=mock_history,
         file_safety_manager=mock_file_safety,
-        task_board=mock_task_board,
         output=output,
     )
     return cmd, output
@@ -176,27 +171,6 @@ class TestStatusFileLocks:
 
         text = output.getvalue()
         assert "main.py" in text
-
-
-class TestStatusTaskBoard:
-    """Tests for task board integration."""
-
-    def test_shows_assigned_tasks(self):
-        """Should show tasks assigned to this agent."""
-        info = _make_agent_info()
-        tasks = [
-            MagicMock(
-                id="task-1",
-                subject="Fix auth bug",
-                status="pending",
-                priority=3,
-            )
-        ]
-        cmd, output = _make_command(agent_info=info, task_board_tasks=tasks)
-        cmd.run("my-claude")
-
-        text = output.getvalue()
-        assert "Fix auth bug" in text or "task-1" in text
 
 
 class TestStatusJsonOutput:

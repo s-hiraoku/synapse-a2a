@@ -190,48 +190,6 @@ class TestSystemPanelRegistryErrors:
         tips = system_resp.json()["tips"]
         assert {"card_id": resp.json()["card_id"], "text": "Use test-first."} in tips
 
-    def test_system_panel_reads_tasks_from_board_tasks_table(
-        self, client, tmp_path, monkeypatch
-    ):
-        """System panel should surface pending tasks from the task board schema."""
-        from synapse.task_board import TaskBoard
-
-        monkeypatch.chdir(tmp_path)
-        board = TaskBoard.from_env()
-        task_id = board.create_task(
-            subject="Dashboard task board check",
-            description="Verify dashboard task summary rendering.",
-            created_by="synapse-codex-8120",
-        )
-
-        resp = client.get("/api/system")
-
-        assert resp.status_code == 200
-        pending = resp.json()["tasks"]["pending"]
-        assert any(item["id"] == task_id for item in pending)
-
-    def test_system_panel_groups_failed_tasks_from_board_tasks(
-        self, client, tmp_path, monkeypatch
-    ):
-        """System panel should surface failed tasks from the task board schema."""
-        from synapse.task_board import TaskBoard
-
-        monkeypatch.chdir(tmp_path)
-        board = TaskBoard.from_env()
-        task_id = board.create_task(
-            subject="Broken task",
-            description="Fail me",
-            created_by="synapse-codex-8120",
-        )
-        assert board.claim_task(task_id, "synapse-codex-8120")
-        assert board.fail_task(task_id, "synapse-codex-8120", "test failure")
-
-        resp = client.get("/api/system")
-
-        assert resp.status_code == 200
-        failed = resp.json()["tasks"]["failed"]
-        assert any(item["id"] == task_id for item in failed)
-
     def test_system_panel_reads_active_file_locks_from_file_safety_db(
         self, client, tmp_path, monkeypatch
     ):
@@ -985,20 +943,8 @@ class TestSystemPanel:
         assert resp.status_code == 200
         data = resp.json()
         assert "agents" in data
-        assert "tasks" in data
         assert "file_locks" in data
         assert isinstance(data["agents"], list)
-        assert isinstance(data["tasks"], dict)
-
-    def test_system_tasks_has_columns(self, client):
-        """Tasks in system panel should have status groups including failed."""
-        resp = client.get("/api/system")
-        data = resp.json()
-        tasks = data["tasks"]
-        assert "pending" in tasks
-        assert "in_progress" in tasks
-        assert "completed" in tasks
-        assert "failed" in tasks
 
     def test_system_saved_agents_split_user_and_active_project_scopes(
         self, client, tmp_path, monkeypatch

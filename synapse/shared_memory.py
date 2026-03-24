@@ -4,7 +4,7 @@ Provides a project-local SQLite-based knowledge base where agents can
 save, search, and share learned knowledge across sessions.
 
 Storage: .synapse/memory.db (SQLite with WAL mode)
-Pattern: follows task_board.py conventions.
+Pattern: follows file_safety.py conventions.
 """
 
 from __future__ import annotations
