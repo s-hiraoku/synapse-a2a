@@ -766,8 +766,6 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | Character threshold for file storage | `200` |
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
-| `SYNAPSE_TASK_BOARD_ENABLED` | Enable shared task board | `true` |
-| `SYNAPSE_TASK_BOARD_DB_PATH` | Task board DB path | `.synapse/task_board.db` |
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | Enable shared memory | `true` |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | Shared memory DB path | `.synapse/memory.db` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
@@ -1146,53 +1144,6 @@ synapse tasks sync-plan <plan_id>
 ### Task Priority
 
 Tasks have priority 1-5 (default 3). Higher priority tasks are served first by `get_available_tasks()`.
-
-```bash
-# Create task with priority
-synapse tasks create "Critical fix" -d "Fix auth bug" --priority 5
-
-# Priority ordering in available tasks
-synapse tasks list --status pending
-# Returns: priority 5 first, then 4, 3, 2, 1
-```
-
-### Task Board Workflow (Kanban Pattern)
-
-The manager agent (delegate-mode) monitors TaskBoard and orchestrates worker agents:
-
-```bash
-# Step 1: Manager creates task chain
-# synapse tasks create prints "Created task: <id> - <subject> (priority=N)"
-# Use awk to extract the task ID (short UUID)
-T1=$(synapse tasks create "Write tests" --priority 5 | awk '{print $3}')
-T2=$(synapse tasks create "Implement" --blocked-by $T1 --priority 4 | awk '{print $3}')
-T3=$(synapse tasks create "Review" --blocked-by $T2 --priority 3 | awk '{print $3}')
-
-# Step 2: Manager assigns available tasks and notifies worker
-synapse tasks assign $T1 claude
-synapse send claude "Write tests for auth module" --silent
-
-# Step 3: Worker reports completion
-synapse tasks complete $T1
-# → $T2 becomes available (unblocked)
-
-# Step 4: Handle failure
-synapse tasks fail $T2 --reason "Missing dependency"
-synapse tasks reopen $T2   # Back to pending for retry
-```
-
-### A2A API Endpoints
-
-```
-POST /tasks/board                          # Create task
-GET  /tasks/board                          # List tasks
-POST /tasks/board/{task_id}/claim          # Claim task
-POST /tasks/board/{task_id}/complete       # Complete task
-POST /tasks/board/{task_id}/fail           # Fail task (preserves assignee, no unblock)
-POST /tasks/board/{task_id}/reopen         # Reopen completed/failed task to pending
-```
-
-**Storage:** `.synapse/task_board.db` (SQLite with WAL mode)
 
 ## Plan Approval
 
