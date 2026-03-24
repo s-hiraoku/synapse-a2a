@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.8
+
+- **Removed**: Task Board subsystem — `synapse tasks` CLI, `/tasks/board` API, Canvas dashboard widget, and all related config. GitHub Issues will serve as the external work-item source going forward
+- **Changed**: Proactive mode and default instructions simplified (no task board steps)
+- **Docs**: Deep cleanup of task board references across README, skills, site-docs
+
 ### v0.17.7
 
 - **Fixed**: Canvas Live Feed renders template cards (briefing, etc.) with proper section grouping instead of flat blocks
