@@ -10,13 +10,13 @@ Skipping any step is a violation. Follow the checklist below.
 --- DURING work ---
 3. synapse file-safety lock <file>                       - Lock files before editing
 4. synapse memory save <key> "<finding>" --tags <tags>   - Save discoveries immediately
-5. synapse canvas post "<artifact title>" --body "<content>"  - Post artifacts/diagrams
+5. synapse canvas post markdown "<content>" --title "<title>"  - Post artifacts/diagrams
 6. For subtasks: synapse spawn/send to delegate          - Never do everything alone
 
 --- AFTER completing work ---
 7. synapse file-safety unlock <file>                     - Release all file locks
 8. synapse broadcast "Completed: <summary>"              - Notify all agents
-9. synapse canvas post "<summary title>" --body "<result>"  - Post completion summary
+9. synapse canvas post markdown "<result>" --title "<summary>"  - Post completion summary
 
 RULES:
 - ALWAYS lock files before editing in multi-agent setups (step 3)

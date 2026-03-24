@@ -695,8 +695,8 @@ For tasks with **3+ phases** or **10+ file changes**, agents MUST follow this ga
 1. Run `synapse list` to check available agents
 2. Run `synapse memory search "<topic>"` to check shared knowledge
 3. Build an **Agent Assignment Plan** (see below) before writing any code
-5. If no suitable agent exists, spawn a specialist with `synapse spawn`
-6. Prefer a different model type for subtasks (diversity improves quality)
+4. If no suitable agent exists, spawn a specialist with `synapse spawn`
+5. Prefer a different model type for subtasks (diversity improves quality)
 
 !!! warning "Do NOT skip this step"
     Single-agent execution of multi-phase plans leads to slower delivery, no parallel work, and missed review opportunities.
