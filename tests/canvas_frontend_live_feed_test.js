@@ -45,6 +45,7 @@ function buildHarness(allCards, filteredCards) {
     ${helpers}
     ${extractFunction("markAsNew")}
     ${extractFunction("syncChildren")}
+    ${extractFunction("renderTemplateOrBlocks")}
     ${extractFunction("populateLiveFeedItem")}
     ${extractFunction("renderLiveFeed")}
     ${extractFunction("updateCardElement")}

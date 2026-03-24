@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.7
+
+- **Fixed**: Canvas Live Feed renders template cards (briefing, etc.) with proper section grouping instead of flat blocks
+- **Changed**: Extract `renderTemplateOrBlocks` helper and `normalizeCard` for DRY template rendering
+- **Tests**: Add 9 briefing regression tests (validation edge cases, store round-trip, markdown export)
+
 ### v0.17.6
 
 - **Fixed**: MCP bootstrap no longer silently skips approval prompts — sends minimal PTY bootstrap while keeping approval enabled

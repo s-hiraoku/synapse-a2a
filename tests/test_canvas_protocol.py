@@ -634,6 +634,100 @@ class TestBriefingValidation:
         errors = validate_message(msg)
         assert errors == []
 
+    def test_briefing_negative_block_index(self):
+        """Negative block index should fail validation."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Bad", "blocks": [-1]}]}
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+        assert any("range" in e.lower() or "index" in e.lower() for e in errors)
+
+    def test_briefing_non_integer_block_index(self):
+        """String block index should fail validation."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Bad", "blocks": ["zero"]}]}
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+    def test_briefing_float_block_index(self):
+        """Float block index should fail validation."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Bad", "blocks": [0.5]}]}
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+    def test_briefing_bool_block_index(self):
+        """Bool values should be rejected as block indices even though bool is int subclass."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Bad", "blocks": [True]}]}
+        )
+        errors = validate_message(msg)
+        assert len(errors) > 0
+
+    def test_briefing_duplicate_block_indices(self):
+        """Same block index repeated in a section is allowed."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={"sections": [{"title": "Dup", "blocks": [0, 0]}]}
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_briefing_block_in_multiple_sections(self):
+        """Same block referenced from multiple sections is allowed."""
+        from synapse.canvas.protocol import validate_message
+
+        msg = self._make_briefing(
+            template_data={
+                "sections": [
+                    {"title": "A", "blocks": [0]},
+                    {"title": "B", "blocks": [0, 1]},
+                ],
+            }
+        )
+        errors = validate_message(msg)
+        assert errors == []
+
+    def test_briefing_from_dict_round_trip(self):
+        """CanvasMessage round-trip should preserve all briefing fields."""
+        from synapse.canvas.protocol import CanvasMessage
+
+        original = self._make_briefing(
+            title="Round Trip",
+            template_data={
+                "summary": "Executive summary",
+                "sections": [
+                    {"title": "Overview", "blocks": [0], "summary": "Section summary"},
+                    {"title": "Details", "blocks": [1]},
+                ],
+            },
+        )
+        d = original.to_dict()
+        restored = CanvasMessage.from_dict(d)
+
+        assert restored.template == "briefing"
+        assert restored.title == "Round Trip"
+        assert restored.template_data["summary"] == "Executive summary"
+        sections = restored.template_data["sections"]
+        assert len(sections) == 2
+        assert sections[0]["title"] == "Overview"
+        assert sections[0]["blocks"] == [0]
+        assert sections[0]["summary"] == "Section summary"
+        assert sections[1]["title"] == "Details"
+        assert sections[1]["blocks"] == [1]
+
 
 # ============================================================
 # TestComparisonValidation — Comparison template validation

@@ -570,3 +570,97 @@ class TestCanvasBriefing:
         # template_data should contain the summary
         td = result["template_data"]
         assert td["summary"] == "Executive summary"
+
+    def _post_and_retrieve(self, tmp_path, briefing_dict, **kwargs):
+        """Post a briefing and return the card from the store."""
+        from synapse.canvas.store import CanvasStore
+        from synapse.commands.canvas import post_briefing
+
+        db_path = str(tmp_path / "canvas.db")
+        post_briefing(
+            json_data=json.dumps(briefing_dict),
+            agent_id=kwargs.pop("agent_id", "synapse-claude-8103"),
+            db_path=db_path,
+            port=self._TEST_PORT,
+            **kwargs,
+        )
+        store = CanvasStore(db_path=db_path)
+        cards = store.list_cards()
+        assert len(cards) == 1
+        return cards[0]
+
+    def test_post_briefing_round_trip_store(self, tmp_path):
+        """post_briefing result should survive store round-trip with types intact."""
+        card = self._post_and_retrieve(
+            tmp_path,
+            {
+                "title": "Round Trip",
+                "summary": "Exec summary",
+                "sections": [
+                    {"title": "Sec A", "blocks": [0], "summary": "sec summary"},
+                    {"title": "Sec B", "blocks": [1]},
+                    {"title": "Divider"},
+                ],
+                "content": [
+                    {"format": "markdown", "body": "Block 0"},
+                    {"format": "table", "body": {"headers": ["h"], "rows": [["r"]]}},
+                ],
+            },
+        )
+        assert card["template"] == "briefing"
+        assert card["title"] == "Round Trip"
+
+        td = card["template_data"]
+        assert isinstance(td, dict)
+        assert td["summary"] == "Exec summary"
+        assert isinstance(td["sections"], list)
+        assert len(td["sections"]) == 3
+        assert td["sections"][0]["title"] == "Sec A"
+        assert td["sections"][0]["blocks"] == [0]
+        assert td["sections"][0]["summary"] == "sec summary"
+        assert td["sections"][2]["title"] == "Divider"
+        assert "blocks" not in td["sections"][2]
+
+        # Verify block index types are preserved as int
+        assert all(isinstance(idx, int) for idx in td["sections"][0]["blocks"])
+
+        # Content should be parseable JSON list
+        content = json.loads(card["content"])
+        assert isinstance(content, list)
+        assert len(content) == 2
+
+    def test_post_briefing_export_markdown(self, tmp_path):
+        """Briefing card export should produce correct markdown with sections."""
+        from synapse.canvas.export import export_card
+
+        card = self._post_and_retrieve(
+            tmp_path,
+            {
+                "title": "Export Test",
+                "summary": "Top summary",
+                "sections": [
+                    {"title": "Overview", "blocks": [0]},
+                    {"title": "Data", "blocks": [1]},
+                ],
+                "content": [
+                    {"format": "markdown", "body": "Overview content here"},
+                    {"format": "markdown", "body": "Data content here"},
+                ],
+            },
+        )
+        result = export_card(card)
+        assert result is not None
+
+        data, filename, content_type = result
+        md = data.decode("utf-8")
+
+        assert filename.endswith(".md")
+        assert "markdown" in content_type
+        assert "# Export Test" in md
+        assert "Top summary" in md
+        assert "## Overview" in md
+        assert "## Data" in md
+        assert "Overview content here" in md
+        assert "Data content here" in md
+        # Sections should appear in order
+        assert md.index("## Overview") < md.index("## Data")
