@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.7] - 2026-03-24
+
+### Fixed
+
+- Canvas Live Feed now renders briefing (and all template) cards with proper section grouping instead of flat block display
+- Template cards in Live Feed no longer appear as individual messages — the entire template is rendered as a single card
+
+### Changed
+
+- Extract `renderTemplateOrBlocks` helper to eliminate 3x duplicated template rendering logic in canvas.js
+- Add `normalizeCard` to parse `template_data` at ingest time instead of on every render
+- Simplify `renderSpotlightContent` and `updateCardElement` to use shared helper
+
+### Tests
+
+- Add 7 briefing validation edge-case tests (negative index, float, bool, non-integer, duplicates, multi-section refs, round-trip)
+- Add 2 briefing CLI regression tests (store round-trip, markdown export)
+
 ## [0.17.6] - 2026-03-24
 
 ### Fixed
