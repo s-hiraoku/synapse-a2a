@@ -379,17 +379,22 @@ env:
 command: "copilot"
 args: []
 submit_sequence: "\r"
-write_delay: 0.5                 # 500ms delay — lets TUI finish rendering before CR
-submit_retry_delay: 0.15         # Retry Enter after 150ms (one React render cycle)
-bracketed_paste: true            # Wrap input in ESC[200~ ... ESC[201~ for Ink usePaste
+write_delay: 0.5
+submit_confirm_timeout: 1.5
+submit_confirm_poll_interval: 0.05
+submit_confirm_retries: 3
+long_submit_confirm_timeout: 3.0
+long_submit_confirm_retries: 5
+bracketed_paste: false
+env:
+  TERM: "xterm-256color"
+
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
   timeout: 0.5
-typing_char_delay: 0.01         # Short single-line A2A messages are typed, not pasted
-typing_max_chars: 400           # Longer or multi-line messages keep paste mode
-env:
-  TERM: "xterm-256color"
+
+input_ready_pattern: "❯"
 
 waiting_detection:
   regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
@@ -402,17 +407,14 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
-- **PTY raw モード**: 子プロセス起動前に `tty.setraw(slave_fd)` を実行。デフォルトの行規則（ICRNL）が `\r` を `\n` に変換するのを防ぎ、Ink が Enter として認識できる `\r` をそのまま通す
-- **`bracketed_paste: true`**: 入力をブラケテッドペーストシーケンスで包み、Ink の `usePaste` フックがテキスト全体をアトミックに受信
-- **`termios.tcdrain()`**: ブラケテッドペースト書き込み後に呼び出し、OS がクローズマーカー（`ESC[201~`）を含むペーストシーケンス全体をアトミックに配信してから CR を送信。大きな書き込みが分割されて Ink のペースト境界検出が混乱するのを防止
-- **短い単一行メッセージ**: `typing_char_delay` / `typing_max_chars` によって typed input に切り替え、Copilot が実際のキーボード入力として扱う
+- **`bracketed_paste: false`**: Copilot CLI はブラケテッドペーストモード（`ESC[?2004h`）を有効にしないため、`ESC[200~`/`ESC[201~` マーカーは無視され、テキストは `useInput` で文字ごとに処理される。`/` がメッセージの行頭に現れるとスラッシュコマンド補完が起動するため、呼び出し側で置換が必要
+- **inject pipe**: `pty.spawn()` の `_copy` ループがマスター fd の I/O を管理するため、他スレッドからの直接書き込みが消失する問題を解決。inject pipe 機構がキーボード入力とプログラム的書き込みをマージする
+- **`input_ready_pattern: "❯"`**: 初期インストラクション送信前に TUI の準備完了を検出。Copilot が `❯` プロンプトを表示した時点で入力可能と判断
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
-- **ペーストエコー後 settle 遅延**: エコー検出後 150ms（`_COPILOT_PASTE_ECHO_SETTLE`）待機。React の非同期 `setState` がペーストテキストを内部入力バッファにコミットするまでの猶予
-- **`submit_retry_delay: 0.15`**: 150ms 後に Enter を再送信。React レンダリングタイミングのセーフティネット
-- **submit confirmation**: フッターに `ctrl+s run command` が出ている場合は Ctrl+S を優先し、WAITING->WAITING の再通知だけでは確定扱いにしない。Copilot の paste placeholder が同じラベルで再表示されても、確定できるまで Enter 再送を続ける
+- **submit confirmation**: `submit_confirm_timeout` / `submit_confirm_retries` で Copilot がプロンプトをクリアしたことを確認。長いメッセージやファイル参照送信では `long_submit_confirm_timeout` / `long_submit_confirm_retries` でより大きな確認バジェットを使用
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
-- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア。prompt が消えていない再 WAITING は確認に使わない
+- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 

@@ -211,9 +211,7 @@ The `/tasks/send` and `/tasks/send-priority` endpoints enforce a **Readiness Gat
 Messages exceeding the TUI input limit (~200-300 characters) are automatically stored in temporary files. The agent receives a reference message instead:
 
 ```text
-[LONG MESSAGE - FILE ATTACHED]
-The full message content is stored at: /tmp/synapse-a2a/messages/<task_id>.txt
-Please read this file to get the complete message.
+[LONG MESSAGE - FILE ATTACHED] Path: /tmp/synapse-a2a/messages/<task_id>.txt — Please read this file to get the complete message.
 ```
 
 **Configuration:**

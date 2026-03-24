@@ -1522,7 +1522,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 If automation is attached to a TTY, use `synapse list --json`, `synapse list --plain`, or set `SYNAPSE_NONINTERACTIVE=1`. Bare `synapse list` is intended for human-operated interactive terminals.
 
-For Copilot specifically, Synapse keeps bracketed paste enabled and submits with Enter (paste-only path; no typed input, no Ctrl+S). After pasting, an adaptive paste echo wait polls PTY output for the TUI re-render before sending Enter, replacing the previous fixed `write_delay`. A short nudge delay fires an extra Enter before the main confirmation retry loop. Confirmation stays pending while Copilot still shows the original prompt text, file-reference markers, or paste placeholders such as `[Paste #1 - 12 lines]` and `[Saved pasted content to workspace ...]`, including cases where the same placeholder label is reused across consecutive sends.
+For Copilot specifically, bracketed paste is disabled because Copilot CLI does not enable bracketed paste mode. Input is delivered through an inject pipe mechanism that merges keyboard input and programmatic writes into the PTY's `_copy` loop, solving the issue where direct writes from other threads were lost. An `input_ready_pattern` (`❯`) detects when the TUI is ready before sending instructions. Messages containing `/` at line-start are escaped to avoid triggering slash-command completion. Long messages use a single-line file reference format. Bounded submit confirmation verifies that Copilot cleared the prompt after submission.
 
 ### Display Columns
 

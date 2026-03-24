@@ -4,6 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.7
+
+- **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop instead of bypassing it with direct `os.write(master_fd)`
+- **Fixed**: ICRNL disabled before submit to prevent `\r`-to-`\n` conversion that Ink interprets as a different event
+- **Changed**: Copilot profile `bracketed_paste` set to `false` — Copilot CLI does not enable bracketed paste mode, so paste markers were ignored
+- **Changed**: Copilot profile `input_ready_pattern` updated from `>` to `❯` to match actual prompt character
+- **Changed**: Slash characters in Copilot input replaced with fullwidth solidus (`／`) to prevent slash-command autocomplete
+- **Changed**: Long message file reference format consolidated to single line for better compatibility with character-by-character TUI input
+
 ### v0.17.6
 
 - **Fixed**: MCP bootstrap no longer silently skips approval prompts — sends minimal PTY bootstrap while keeping approval enabled

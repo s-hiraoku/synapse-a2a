@@ -264,6 +264,10 @@ class TerminalController:
         # Required for Copilot CLI v0.0.300+ where the first CR flushes
         # the Ink async paste buffer and the second CR triggers submit.
         self._submit_retry_delay: float | None = None
+        # Inject pipe write fd for interactive mode (set by run_interactive)
+        self._inject_write_fd: int | None = None
+        # Whether ICRNL has been cleared on the PTY (avoid repeated syscalls)
+        self._icrnl_cleared = False
         if submit_retry_delay is not None:
             try:
                 submit_retry_delay = float(submit_retry_delay)
@@ -1158,7 +1162,7 @@ class TerminalController:
             OSError: If ``os.write`` returns 0 (fd closed).
         """
         # Use inject pipe when available (interactive / pty.spawn mode)
-        fd = getattr(self, "_inject_write_fd", None) or self.master_fd
+        fd = self._inject_write_fd or self.master_fd
         assert fd is not None
         total = len(data)
         written = 0
@@ -1344,7 +1348,11 @@ class TerminalController:
                     # on startup which may re-enable ICRNL, converting \r→\n.
                     # Ink maps \r to key.return (submit) but \n to key.enter
                     # (different event), so ICRNL must be off.
-                    if self._bracketed_paste and self.master_fd is not None:
+                    if (
+                        self._bracketed_paste
+                        and not self._icrnl_cleared
+                        and self.master_fd is not None
+                    ):
                         try:
                             attrs = termios.tcgetattr(self.master_fd)
                             iflag = attrs[0]
@@ -1356,6 +1364,7 @@ class TerminalController:
                                 logger.debug(
                                     f"[{self.agent_id}] ICRNL disabled for submit"
                                 )
+                            self._icrnl_cleared = True
                         except (termios.error, OSError):
                             pass
                     self._write_all(submit_bytes)
@@ -1684,10 +1693,21 @@ class TerminalController:
         # from the parent process.
         os.environ.pop("CLAUDECODE", None)
 
-        if use_input_callback:
-            pty.spawn(cmd_list, read_callback, input_callback)
-        else:
-            pty.spawn(cmd_list, read_callback)
+        try:
+            if use_input_callback:
+                pty.spawn(cmd_list, read_callback, input_callback)
+            else:
+                pty.spawn(cmd_list, read_callback)
+        finally:
+            # Clean up inject pipe fds and restore STDIN_FILENO
+            self.running = False  # signal merge thread to stop
+            self._inject_write_fd = None
+            # Restore original stdin before closing real_stdin_fd
+            with contextlib.suppress(OSError):
+                os.dup2(real_stdin_fd, pty.STDIN_FILENO)
+            for fd in (inject_r, inject_w, real_stdin_fd):
+                with contextlib.suppress(OSError):
+                    os.close(fd)
 
     def _handle_interactive_input(self, data: bytes) -> None:
         """Pass through human input directly to PTY. AI handles routing decisions."""
