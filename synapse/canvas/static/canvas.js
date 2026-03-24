@@ -784,7 +784,7 @@
   }
 
   function renderTemplateOrBlocks(parent, card, blocks, compact, renderOptions) {
-    if (card.template && card.template_data) {
+    if (card.template && card.template_data && Object.keys(card.template_data).length > 0) {
       const td = card.template_data;
       const rendered = renderTemplate(card.template, blocks, td, compact, renderOptions);
       if (rendered) {

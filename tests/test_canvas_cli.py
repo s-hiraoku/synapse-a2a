@@ -651,9 +651,11 @@ class TestCanvasBriefing:
         result = export_card(card)
         assert result is not None
 
-        data, mime, filename = result
+        data, filename, content_type = result
         md = data.decode("utf-8")
 
+        assert filename.endswith(".md")
+        assert "markdown" in content_type
         assert "# Export Test" in md
         assert "Top summary" in md
         assert "## Overview" in md

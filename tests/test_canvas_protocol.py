@@ -666,15 +666,14 @@ class TestBriefingValidation:
         assert len(errors) > 0
 
     def test_briefing_bool_block_index(self):
-        """Bool is subclass of int in Python; True (=1) within range passes."""
+        """Bool values should be rejected as block indices even though bool is int subclass."""
         from synapse.canvas.protocol import validate_message
 
         msg = self._make_briefing(
-            template_data={"sections": [{"title": "OK", "blocks": [True]}]}
+            template_data={"sections": [{"title": "Bad", "blocks": [True]}]}
         )
         errors = validate_message(msg)
-        # isinstance(True, int) is True, so True=1 is valid index for 2-block content
-        assert errors == []
+        assert len(errors) > 0
 
     def test_briefing_duplicate_block_indices(self):
         """Same block index repeated in a section is allowed."""
