@@ -499,7 +499,6 @@ The Canvas browser UI includes a **System Panel** at the top that shows real-tim
 | Section | Data Source | Shows |
 |---|---|---|
 | **Agents** | `~/.a2a/registry/*.json` | Agent name, type, status with colored dots |
-| **Tasks** | `.synapse/task_board.db` | Pending/in-progress/completed in kanban columns |
 | **File Locks** | `.synapse/file_safety.db` | Active file locks with agent assignment |
 
 The system panel is **pull-based** — the Canvas server reads directly from project databases. Agents don't need to explicitly post system state. The panel polls `/api/system` every 10 seconds and also refreshes on SSE `system_update` events.

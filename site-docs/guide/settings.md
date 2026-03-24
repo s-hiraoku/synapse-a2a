@@ -25,7 +25,7 @@ synapse init --scope project           # Create ./.synapse/settings.json
 | Overwritten (templates) | Preserved (user data) |
 |------------------------|-----------------------|
 | `settings.json` | `agents/` (saved agent definitions) |
-| `default.md` | `*.db` (file_safety, task_board, memory) |
+| `default.md` | `*.db` (file_safety, memory) |
 | `gemini.md` | `sessions/` |
 | `file-safety.md` | `workflows/` |
 | `learning.md` | `worktrees/` |
@@ -198,7 +198,6 @@ Exit codes:
 # Synapse local settings (don't commit)
 .synapse/settings.local.json
 .synapse/file_safety.db
-.synapse/task_board.db
 .synapse/memory.db
 
 # Keep project settings (commit)
