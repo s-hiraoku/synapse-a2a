@@ -96,11 +96,10 @@ flowchart LR
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
-| **Shared Task Board** | SQLite-based task coordination with dependency tracking, priority, fail/reopen lifecycle, A2A task linking (`--task` flag), auto-claim/auto-complete, and purge (`synapse tasks`). **Phase 2 Grouping**: tasks support `group_id`, `group_title`, `plan_id`, `component`, `milestone`, and `external_ref` columns for organizing large plans. `accept-plan` auto-sets `plan_id`/`group_id`/`group_title`. `--verbose` shows grouping columns; `--format json` for scripts; `--group-by {group_id\|component\|milestone\|status}` for grouped views. `--older-than` duration filter and `--dry-run` for purge. Agent names resolved via `resolve_display_name`. **Mandatory for delegations**: every `synapse send` for delegation must be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract; TodoList = personal micro-step tracking |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
-| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files. Delegations require a task board entry (`synapse tasks create` + `assign`) before `synapse send` |
+| **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
@@ -108,13 +107,13 @@ flowchart LR
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
-| **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` makes agents mandatorily use ALL Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast) for every task regardless of size. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
+| **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` makes agents mandatorily use ALL Synapse features (shared memory, canvas, file safety, delegation, broadcast) for every task regardless of size. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
 | **Shared Memory** | Project-local SQLite knowledge base for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`) |
 | **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview, `--continue-on-error` for resilient execution, and `--auto-spawn` for automatic agent spawning. **Persistent execution history**: completed runs are stored in SQLite (`.synapse/workflow_runs.db`) and survive server restarts; active runs are cached in memory with DB fallback. Workflow-level `trigger` and `auto_spawn` fields enable skill auto-generation: creating or syncing a workflow produces a SKILL.md (marked `<!-- synapse-workflow-autogen -->`) in `.claude/skills/` and `.agents/skills/`, making workflows discoverable as slash-command skills. Use `synapse workflow sync` to regenerate all skills and remove orphans. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user) |
-| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 26 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled), and Task Board integration (`synapse tasks accept-plan`). **Task Board view toggle**: switch between Status, Group, and Component views in the Canvas UI (active tab uses high-contrast white text with semi-bold weight). Task card expand/collapse state persists across dashboard polling updates. Task descriptions render as Markdown in the dashboard widget. **HTML Artifact Support**: `format: "html"` sandboxed iframes with parent-iframe theme sync (CSS variables `--bg`, `--fg`, `--border` via postMessage), auto-resize (ResizeObserver), dark mode CSS, and full document normalization (extracts head/body from `<!doctype html>` documents). CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). **Agent Control**: interactive Agent Control tab (formerly "Admin") for sending messages to agents, viewing responses, and managing the fleet from the browser. Agent selection via clickable table rows (double-click to jump to agent's terminal, right-click context menu with Kill Agent action and confirm modal), multi-line textarea with Cmd+Enter, IME support, multi-artifact response extraction, terminal junk stripping. **Card Download**: export any card via `GET /api/cards/{card_id}/download?format={format}` — all 26 content formats map to optimal download formats (Markdown, JSON, CSV, HTML, native); 6 templates export as Markdown/JSON. Download buttons in card grid headers and Spotlight title bar. See [Canvas Design](docs/design/canvas.md), [Admin Command Center](docs/admin-command-center.md) |
-| **Smart Suggest** | `analyze_task` MCP tool analyzes user prompts and suggests team/task splits when collaboration would be beneficial. Trigger conditions (file count, multi-directory changes, missing tests, prompt complexity, keywords) are configurable via `.synapse/suggest.yaml`. Suggestions are displayed as Plan Cards on Canvas and can be accepted via `synapse tasks accept-plan <plan_id>` to auto-register tasks on the Task Board with dependency tracking. Progress syncs from Task Board back to Canvas Plan Card. See [Smart Suggest Design (Japanese)](docs/design/smart-suggest-plan-canvas.md) |
-| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. **Mandatory Collaboration Gate**: tasks with 3+ phases or 10+ file changes OR any delegation MUST have a task board entry (`synapse tasks create` + `assign`) before `synapse send`. Task board = team contract; TodoList = personal micro-steps. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
+| **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 26 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled). Task card expand/collapse state persists across dashboard polling updates. **HTML Artifact Support**: `format: "html"` sandboxed iframes with parent-iframe theme sync (CSS variables `--bg`, `--fg`, `--border` via postMessage), auto-resize (ResizeObserver), dark mode CSS, and full document normalization (extracts head/body from `<!doctype html>` documents). CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). **Agent Control**: interactive Agent Control tab (formerly "Admin") for sending messages to agents, viewing responses, and managing the fleet from the browser. Agent selection via clickable table rows (double-click to jump to agent's terminal, right-click context menu with Kill Agent action and confirm modal), multi-line textarea with Cmd+Enter, IME support, multi-artifact response extraction, terminal junk stripping. **Card Download**: export any card via `GET /api/cards/{card_id}/download?format={format}` — all 26 content formats map to optimal download formats (Markdown, JSON, CSV, HTML, native); 6 templates export as Markdown/JSON. Download buttons in card grid headers and Spotlight title bar. See [Canvas Design](docs/design/canvas.md), [Admin Command Center](docs/admin-command-center.md) |
+| **Smart Suggest** | `analyze_task` MCP tool analyzes user prompts and suggests team/task splits when collaboration would be beneficial. Trigger conditions (file count, multi-directory changes, missing tests, prompt complexity, keywords) are configurable via `.synapse/suggest.yaml`. Suggestions are displayed as Plan Cards on Canvas. See [Smart Suggest Design (Japanese)](docs/design/smart-suggest-plan-canvas.md) |
+| **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 | **Self-Learning Pipeline** | Observation layer captures PTY and A2A signals into `.synapse/observations.db`. `synapse learn` analyzes repeated patterns and persists instincts (`.synapse/instincts.db`). `synapse instinct` lists/promotes learned instincts. `synapse evolve` clusters instincts into reusable skill candidates. Pipeline: Observation → Pattern Analyzer → Instinct → Evolve. Env: `SYNAPSE_OBSERVATION_ENABLED` (default `true`), `SYNAPSE_OBSERVATION_DB_PATH`, `SYNAPSE_INSTINCT_DB_PATH` |
 | **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) and tools (`bootstrap_agent`, `list_agents`, `analyze_task`) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context with a minimal PTY startup bootstrap instead of the full initial instruction payload. When a Synapse MCP server config entry is detected, Synapse sends a short MCP bootstrap message at startup and keeps approval prompts enabled unless the session is resumed; non-Synapse MCP entries do not trigger this path. Copilot MCP config: `~/.copilot/mcp-config.json`. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
 
@@ -336,11 +335,7 @@ Agents proactively assess when to delegate, spawn helpers, or share knowledge. T
 # Manager spawns a different model type for a subtask (cross-model preference)
 synapse spawn gemini --worktree --name Tester --role "test writer"
 
-# MANDATORY: Create task board entry before delegating
-synapse tasks create "Write auth integration tests" -d "Cover JWT refresh flow" --priority 4
-synapse tasks assign <task_id> Tester
-
-# Now delegate (task board entry must exist first)
+# Delegate work to the spawned agent
 synapse send Tester "Write integration tests for auth module" --silent
 
 # Share discoveries via shared memory for all agents to use
@@ -351,13 +346,11 @@ synapse kill Tester -f
 ```
 
 Key principles:
-- **Task board before delegation**: Every `synapse send` for delegation MUST be preceded by `synapse tasks create` + `synapse tasks assign`. Task board = team contract (visible to all); TodoList = personal micro-step tracking (only you)
-- **Mandatory Collaboration Gate**: Tasks with 3+ phases or 10+ file changes MUST build an Agent Assignment Plan (Phase / Agent / Rationale) and register phases on the task board before writing any code
 - **Cross-model preference**: Spawn different model types (Claude, Gemini, Codex) to leverage diverse strengths and distribute rate limit pressure
 - **Worker autonomy**: Any agent can spawn helpers and delegate, not just managers
 - **Check before spawning**: Run `synapse list` first to reuse existing READY agents before spawning new ones
 - **Mandatory cleanup**: Always `synapse kill <name> -f` agents you spawned after their work completes
-- **Feature usage**: Actively use task board, shared memory, file safety, worktree, broadcast, and history
+- **Feature usage**: Actively use shared memory, file safety, worktree, broadcast, and history
 
 ### 8. Cross-Worktree Knowledge Transfer (Advanced)
 
@@ -689,9 +682,9 @@ Save this agent definition for reuse? [y/N]:
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse list --plain` | Force one-shot plain-text output without entering the TUI |
 | `synapse list --json` | Output agent list as JSON array (for AI/programmatic consumption) |
-| `synapse status <target>` | Show detailed agent status (info, current task, history, file locks, task board). Supports `--json` |
+| `synapse status <target>` | Show detailed agent status (info, current task, history, file locks). Supports `--json` |
 | `synapse logs <profile>` | Show logs |
-| `synapse send <target> <message>` | Send message. `--task` / `-T` auto-creates a linked board task |
+| `synapse send <target> <message>` | Send message |
 | `synapse interrupt <target> <message>` | Soft interrupt (shorthand for `send -p 4 --silent`). Supports `--force` to bypass working_dir check |
 | `synapse reply [<message> \| --fail <reason>]` | Reply to the last received A2A message (use `--fail` for failure) |
 | `synapse trace <task_id>` | Show task history + file-safety cross-reference |
@@ -727,15 +720,6 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
-| `synapse tasks list` | List shared task board. Flags: `--verbose` (show grouping columns), `--format json` (JSON output), `--group-by {group_id\|component\|milestone\|status}` (grouped view) |
-| `synapse tasks create` | Create a task. Flags: `--priority 1-5`, `--group`, `--component`, `--milestone` |
-| `synapse tasks assign` | Assign task to agent |
-| `synapse tasks complete` | Mark task completed |
-| `synapse tasks fail` | Mark task failed (with `--reason`) |
-| `synapse tasks reopen` | Reopen completed/failed task to pending |
-| `synapse tasks purge` | Delete tasks from board. Flags: `--status` filter, `--older-than` duration (e.g., `1h`, `7d`), `--dry-run` |
-| `synapse tasks accept-plan <plan_id>` | Accept a Canvas Plan Card and auto-register its steps as Task Board entries with dependency tracking. Auto-sets `plan_id`, `group_id`, and `group_title` |
-| `synapse tasks sync-plan <plan_id>` | Sync Task Board progress back to the Canvas Plan Card |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
@@ -1080,13 +1064,6 @@ python -m synapse.tools.a2a reply "Here is my response"
 
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
-| `/tasks/board` | GET | List shared task board. Query params: `group_by`, `component`, `milestone`, `format` |
-| `/tasks/board` | POST | Create task on board (supports `priority`, `group`, `component`, `milestone` fields) |
-| `/tasks/board/{id}/claim` | POST | Claim task atomically |
-| `/tasks/board/{id}/complete` | POST | Complete task |
-| `/tasks/board/{id}/fail` | POST | Mark task as failed (with optional `reason`) |
-| `/tasks/board/{id}/reopen` | POST | Reopen completed/failed task to pending |
-| `/tasks/board/purge` | POST | Delete tasks from board (optional `status` filter, `older_than` duration) |
 | `/tasks/{id}/approve` | POST | Approve a plan |
 | `/tasks/{id}/reject` | POST | Reject a plan with reason |
 | `/team/start` | POST | Start multiple agents in terminal panes (A2A-initiated) |
@@ -1591,7 +1568,7 @@ The `PROCESSING` to `READY` transition uses compound signals to prevent prematur
 - **`task_active` flag**: Suppresses READY when an A2A task is being processed (timeout: `task_protection_timeout`, default 30s)
 - **File locks**: Suppresses READY when the agent holds file locks via FileSafetyManager
 
-Use `synapse status <agent>` to inspect the detailed state of a specific agent, including current task elapsed time, file locks, and task board assignments.
+Use `synapse status <agent>` to inspect the detailed state of a specific agent, including current task elapsed time and file locks.
 
 ---
 
@@ -1758,7 +1735,7 @@ synapse config show --scope user
 | `SYNAPSE_SEND_MESSAGE_THRESHOLD` | Threshold for auto temp-file fallback (bytes) | `102400` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable Prompt Improvement section (Goal/Problem/Fix, recommended rewrite, detail-level options). Independent of TRANSLATION flag. Either flag enables `learning.md` injection and Tips | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable JP-to-EN Learning section (reusable English patterns with slot mapping). Independent of LEARNING_MODE_ENABLED flag. Either flag enables `learning.md` injection and Tips | `false` |
-| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Enable Proactive Mode: agents mandatorily use ALL Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast) for every task. Appends `.synapse/proactive.md` instructions at startup | `false` |
+| `SYNAPSE_PROACTIVE_MODE_ENABLED` | Enable Proactive Mode: agents mandatorily use ALL Synapse features (shared memory, canvas, file safety, delegation, broadcast) for every task. Appends `.synapse/proactive.md` instructions at startup | `false` |
 | `SYNAPSE_OBSERVATION_ENABLED` | Enable PTY/A2A observation capture for the self-learning pipeline | `true` |
 | `SYNAPSE_OBSERVATION_DB_PATH` | Path to observations SQLite database | `.synapse/observations.db` |
 | `SYNAPSE_INSTINCT_DB_PATH` | Path to instincts SQLite database | `.synapse/instincts.db` |

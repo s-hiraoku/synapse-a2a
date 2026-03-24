@@ -19,8 +19,6 @@ _REPLY_EXPECTED_PREFIX = re.compile(r"^\[REPLY EXPECTED\]\s*")
 class RoleFileNotFoundError(Exception):
     """Raised when a role file reference points to a non-existent file."""
 
-    pass
-
 
 def extract_text_from_parts(parts: list[Any]) -> str:
     """
