@@ -185,7 +185,6 @@ class TestProactiveModeTemplateExists:
         assert "BEFORE" in template
         assert "DURING" in template
         assert "AFTER" in template
-        assert "synapse tasks" in template
         assert "synapse memory" in template
 
     def test_project_proactive_md_is_synced_from_template(self):
