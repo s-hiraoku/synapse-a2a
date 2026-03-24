@@ -263,7 +263,7 @@ suggest:
 When Smart Suggest is enabled, the default instruction resource automatically includes guidance for agents to call `analyze_task` on new tasks and share suggestions with the user before proceeding.
 
 !!! tip "From Suggestion to Plan Card"
-    When `analyze_task` returns a suggestion, the agent can post it as a Canvas Plan Card (`synapse canvas plan`) and then register the steps as Task Board tasks (`synapse tasks accept-plan`). See [Canvas -- Plan Template](canvas.md#plan) and [Task Board -- Plan Card Integration](task-board.md#plan-card-integration).
+    When `analyze_task` returns a suggestion, the agent can post it as a Canvas Plan Card (`synapse canvas plan`). See [Canvas -- Plan Template](canvas.md#plan).
 
 ## Verification
 

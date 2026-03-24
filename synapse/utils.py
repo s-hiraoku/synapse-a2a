@@ -19,8 +19,6 @@ _REPLY_EXPECTED_PREFIX = re.compile(r"^\[REPLY EXPECTED\]\s*")
 class RoleFileNotFoundError(Exception):
     """Raised when a role file reference points to a non-existent file."""
 
-    pass
-
 
 def extract_text_from_parts(parts: list[Any]) -> str:
     """
@@ -139,13 +137,12 @@ def format_a2a_message(
     response_mode: str = "silent",
     sender_id: str | None = None,
     sender_name: str | None = None,
-    board_task_id: str | None = None,
 ) -> str:
     """
     Format a message with A2A prefix and optional sender identification.
 
     Creates the format:
-    - ``A2A: [From: NAME (SENDER_ID)] [Task: XXXXXXXX] [REPLY EXPECTED] <content>``
+    - ``A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <content>``
     - ``A2A: [From: SENDER_ID] <content>`` (no name)
     - ``A2A: <content>`` (no sender info, backward compatible)
 
@@ -158,20 +155,18 @@ def format_a2a_message(
         response_mode: Response mode ("wait", "notify", or "silent")
         sender_id: Sender agent ID (e.g., synapse-claude-8100)
         sender_name: Sender display name (e.g., Alice)
-        board_task_id: Board task ID for task-linked messages
 
     Returns:
         Formatted message string with A2A prefix, optional sender, and reply marker
     """
     sender_prefix = build_sender_prefix(sender_id, sender_name)
-    task_tag = f"[Task: {board_task_id[:8]}] " if board_task_id else ""
 
     if response_mode == "wait":
         # Strip any existing leading [REPLY EXPECTED] to prevent duplication
         # (LLMs sometimes echo the marker back in their content)
         content = _REPLY_EXPECTED_PREFIX.sub("", content)
-        return f"A2A: {sender_prefix}{task_tag}[REPLY EXPECTED] {content}"
-    return f"A2A: {sender_prefix}{task_tag}{content}"
+        return f"A2A: {sender_prefix}[REPLY EXPECTED] {content}"
+    return f"A2A: {sender_prefix}{content}"
 
 
 def get_iso_timestamp() -> str:

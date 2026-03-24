@@ -25,7 +25,7 @@ synapse init --scope project           # Create ./.synapse/settings.json
 | Overwritten (templates) | Preserved (user data) |
 |------------------------|-----------------------|
 | `settings.json` | `agents/` (saved agent definitions) |
-| `default.md` | `*.db` (file_safety, task_board, memory) |
+| `default.md` | `*.db` (file_safety, memory) |
 | `gemini.md` | `sessions/` |
 | `file-safety.md` | `workflows/` |
 | `learning.md` | `worktrees/` |
@@ -68,7 +68,6 @@ synapse reset --scope both -f          # Reset both without confirmation
     "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
-    "SYNAPSE_TASK_BOARD_ENABLED": "true",
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
     "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
     "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
@@ -109,7 +108,6 @@ synapse reset --scope both -f          # Reset both without confirmation
 |----------|---------|-------------|
 | `SYNAPSE_HISTORY_ENABLED` | `true` | Enable task history |
 | `SYNAPSE_FILE_SAFETY_ENABLED` | `false` | Enable file safety |
-| `SYNAPSE_TASK_BOARD_ENABLED` | `true` | Enable task board |
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Enable learning mode |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | Enable translation mode |
@@ -198,7 +196,6 @@ Exit codes:
 # Synapse local settings (don't commit)
 .synapse/settings.local.json
 .synapse/file_safety.db
-.synapse/task_board.db
 .synapse/memory.db
 
 # Keep project settings (commit)

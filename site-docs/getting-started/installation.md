@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.17.7`).
+You should see the version number (e.g., `0.17.8`).
 
 ## Initialize Configuration
 
@@ -88,7 +88,7 @@ This installs all core skills into your project:
 
 | Skill | Description |
 |-------|-------------|
-| **synapse-a2a** | Core A2A communication — commands, API, file safety, task board |
+| **synapse-a2a** | Core A2A communication — commands, API, file safety |
 | **synapse-manager** | Multi-agent orchestration (7-step workflow) |
 | **synapse-reinst** | Re-inject instructions after `/clear` or context reset |
 

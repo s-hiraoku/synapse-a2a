@@ -210,7 +210,7 @@ Two agents may not edit the same file but edit tightly coupled files (e.g., a mo
 
 **Best practices:**
 
-1. **Use the Task Board for coordination.** Assign related files to the same agent when possible.
+1. **Coordinate file assignments.** Assign related files to the same agent when possible.
 2. **Check file context before editing.** Use `get_file_context()` to see recent changes to related files.
 3. **Record modification intent.** Always include an `--intent` so other agents understand what changed and why.
 
@@ -226,12 +226,12 @@ synapse file-safety history tests/test_auth.py
 |----------|-------------|-----------|
 | **Lock-based exclusion** | Same file, multiple agents | `acquire_lock` / `release_lock` |
 | **Wait with timeout** | Agent can afford to block | `--wait --wait-timeout N` |
-| **Task separation** | Large projects | Assign different files per agent via Task Board |
+| **Task separation** | Large projects | Assign different files per agent via delegation |
 | **Sequential execution** | Critical shared files | Complete one agent's work before starting another |
 | **Delegate mode** | Complex coordination | One coordinator assigns files to workers |
 
 !!! tip "Preventing Conflicts Proactively"
-    The best conflict resolution is conflict prevention. Design your multi-agent workflows so that each agent works on a distinct set of files. Use the Task Board to explicitly assign file ownership, and use Delegate Mode to have a coordinator manage file assignments.
+    The best conflict resolution is conflict prevention. Design your multi-agent workflows so that each agent works on a distinct set of files. Use Delegate Mode to have a coordinator manage file assignments.
 
 ## Worktree Integration
 
@@ -388,14 +388,11 @@ synapse history list --agent gemini
 synapse trace <task_id>
 ```
 
-**Cross-referencing task board and file changes:**
+**Cross-referencing history and file changes:**
 
-Combine Task Board task IDs with trace to verify that agents completed their assigned work correctly:
+Combine task history with trace to verify that agents completed their assigned work correctly:
 
 ```bash
-# Check the task board
-synapse tasks list --status completed
-
 # Trace a completed task to verify file modifications
 synapse trace <task_id>
 ```

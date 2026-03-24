@@ -242,7 +242,6 @@ class A2AClient:
         registry: AgentRegistry | None = None,
         sender_agent_id: str | None = None,
         target_agent_id: str | None = None,
-        board_task_id: str | None = None,
         extra_metadata: dict[str, Any] | None = None,
     ) -> A2ATask | None:
         """
@@ -302,10 +301,6 @@ class A2AClient:
                 metadata["sender"] = sender_info
             if in_reply_to:
                 metadata["in_reply_to"] = in_reply_to
-            if board_task_id:
-                from synapse.config import BOARD_TASK_METADATA_KEY
-
-                metadata[BOARD_TASK_METADATA_KEY] = board_task_id
             if extra_metadata:
                 # Apply extra_metadata without overriding critical keys
                 reserved = {"response_mode", "sender", "in_reply_to"}
@@ -457,7 +452,6 @@ class A2AClient:
                     registry=registry,
                     sender_agent_id=sender_agent_id,
                     target_agent_id=target_agent_id,
-                    board_task_id=board_task_id,
                     extra_metadata=extra_metadata,
                 )
 

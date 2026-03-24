@@ -103,9 +103,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",  # Character count (TUI limit ~200-300)
         "SYNAPSE_LONG_MESSAGE_TTL": "3600",  # File retention in seconds (1 hour)
         "SYNAPSE_LONG_MESSAGE_DIR": "",  # Default: /tmp/synapse-a2a/messages/
-        # Task board settings
-        "SYNAPSE_TASK_BOARD_ENABLED": "true",
-        "SYNAPSE_TASK_BOARD_DB_PATH": ".synapse/task_board.db",
         # Shared memory settings
         "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
         "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",

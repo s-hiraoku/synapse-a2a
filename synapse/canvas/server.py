@@ -671,49 +671,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         }
                     )
 
-        tasks: dict[str, list[dict[str, Any]]] = {
-            "pending": [],
-            "in_progress": [],
-            "completed": [],
-            "failed": [],
-        }
-        try:
-            from synapse.task_board import TaskBoard
-
-            board = TaskBoard.from_env()
-            rows = sorted(
-                board.list_tasks(),
-                key=lambda item: item.get("created_at", ""),
-                reverse=True,
-            )[:50]
-            from synapse.task_board import resolve_display_name
-
-            for row in rows:
-                status = row.get("status", "")
-                if status not in tasks:
-                    continue
-                tasks[status].append(
-                    {
-                        "id": row.get("id", ""),
-                        "subject": row.get("subject", ""),
-                        "assignee": row.get("assignee") or "",
-                        "assignee_name": resolve_display_name(row.get("assignee")),
-                        "description": row.get("description", ""),
-                        "priority": row.get("priority", 3),
-                        "created_by": row.get("created_by", ""),
-                        "created_by_name": resolve_display_name(row.get("created_by")),
-                        "created_at": row.get("created_at", ""),
-                        "updated_at": row.get("updated_at", ""),
-                        "fail_reason": row.get("fail_reason", ""),
-                        "group_id": row.get("group_id") or "",
-                        "group_title": row.get("group_title") or "",
-                        "component": row.get("component") or "",
-                        "milestone": row.get("milestone") or "",
-                    }
-                )
-        except Exception:
-            logger.debug("Failed to collect tasks", exc_info=True)
-
         file_locks: list[dict[str, str]] = []
         lock_db = ".synapse/file_safety.db"
         if os.path.exists(lock_db):
@@ -852,7 +809,6 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         return {
             "agents": agents,
-            "tasks": tasks,
             "file_locks": file_locks,
             "memories": memories,
             "worktrees": worktrees,

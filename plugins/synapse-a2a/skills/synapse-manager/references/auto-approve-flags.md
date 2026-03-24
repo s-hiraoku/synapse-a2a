@@ -8,7 +8,7 @@ permission checks.
 Before forwarding automation args to `synapse spawn`, run the normal
 collaboration preflight: `synapse list` to confirm agent availability,
 `synapse memory search <query>` to surface shared knowledge, and
-`synapse tasks` to verify task tracking. Apply the tool-specific args only
+`synapse history` to verify task tracking. Apply the tool-specific args only
 after those checks, and remember that OpenCode `--agent build` changes the
 agent profile rather than bypassing permission prompts.
 

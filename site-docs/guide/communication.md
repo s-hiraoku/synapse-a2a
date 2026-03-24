@@ -58,7 +58,6 @@ synapse send <target> "<message>" \
 | `--message-file <path>` | Read message from file |
 | `--stdin` | Read message from stdin |
 | `--attach <file>` | Attach file(s) — repeatable |
-| `--task <id>` / `-T <id>` | Link message to a Task Board entry (auto-claim on receive, auto-complete on finalize) |
 | `--force` | Bypass working_dir mismatch check |
 
 !!! info "Sender Auto-Detection"
@@ -107,19 +106,6 @@ synapse send Claud "Write the tests" --silent
 
 Target resolution priority: (1) Custom name → (2) Runtime ID → (3) Type-port → (4) Type only.
 See [Agent Management](agent-management.md#target-resolution-priority) for details.
-
-## Task-Linked Messaging
-
-Link a message to a Task Board entry using `--task` / `-T`:
-
-```bash
-synapse send gemini "Implement the OAuth module" --task <task_id>
-synapse send gemini "Implement the OAuth module" -T <task_id>
-```
-
-When the receiver accepts the message, the referenced task is **auto-claimed** (status moves to `in_progress`). When the receiver finalizes, the task is **auto-completed**. This removes the need for separate `synapse tasks assign` and `synapse tasks complete` calls.
-
-See [Task Board -- Task-Linked Messaging](task-board.md#task-linked-messaging) for details on PTY display and schema integration.
 
 ## Receiving Messages
 
@@ -345,11 +331,9 @@ Beyond explicit messaging, the synapse-a2a skill teaches agents structured colla
 ### When You Receive a Task
 
 1. If the message contains `[REPLY EXPECTED]`, complete the work and reply with `synapse reply`
-2. **Verify the task board** -- check that a task board entry exists for your work. If the delegator forgot to create one, use the safety-net flow and keep the returned task ID for completion reporting:
-   `synapse tasks list` then, if missing, `synapse tasks create "..." -d "..."`, note the returned `<new_task_id>`, and immediately `synapse tasks assign <new_task_id> $SYNAPSE_AGENT_ID`. Use that same `<new_task_id>` in Step 5 for `synapse tasks complete <task_id>` and the completion `synapse send`.
-3. Identify independent work units and delegate them via `synapse spawn` + `synapse send --silent` to reduce your context and parallelize
-4. Execute the remaining work yourself
-5. Report completion: `synapse tasks complete <task_id>` then `synapse send <sender> "Done: <summary>" --silent`
+2. Identify independent work units and delegate them via `synapse spawn` + `synapse send --silent` to reduce your context and parallelize
+3. Execute the remaining work yourself
+4. Report completion: `synapse send <sender> "Done: <summary>" --silent`
 
 ### When You Need Help
 

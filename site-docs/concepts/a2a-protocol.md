@@ -17,7 +17,7 @@ Every A2A agent publishes a discovery document at `/.well-known/agent.json`:
   "name": "synapse-claude-8100",
   "description": "Claude Code agent managed by Synapse A2A",
   "url": "http://localhost:8100",
-  "version": "0.17.7",
+  "version": "0.17.8",
   "capabilities": {
     "streaming": false,
     "pushNotifications": false
@@ -94,7 +94,6 @@ Synapse extends A2A with additional **endpoint extensions** (extra HTTP endpoint
 | `/tasks/send-priority` | POST | Priority-based message delivery (1-5) |
 | `/tasks/create` | POST | Create task context without PTY delivery |
 | `/reply-stack/*` | GET | Reply routing management |
-| `/tasks/board/*` | GET/POST | Shared Task Board (B1) |
 | `/team/start` | POST | Multi-agent team spawning (B6) |
 | `/spawn` | POST | Single agent spawning |
 
@@ -147,7 +146,6 @@ A2A core uses Message/Part + Task format and the standard endpoints (`/.well-kno
 |-----------|-------------|
 | **Priority Levels** (1-5) | `POST /tasks/send-priority` — urgent messages can preempt normal queue; priority 5 bypasses the readiness gate |
 | **File Safety** | Exclusive file locking and modification tracking to prevent multi-agent conflicts |
-| **Shared Task Board** | SQLite-based task coordination with dependencies, assignment, and plan approval |
 | **Agent Teams** | Multi-agent spawning with layout control, delegate mode, and worktree isolation |
 | **Shared Memory** | Cross-agent knowledge persistence via project-local SQLite with tag-based search |
 | **Reply Routing** | Automatic `in_reply_to` tracking for request-response patterns across agents |

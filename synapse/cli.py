@@ -497,7 +497,6 @@ def cmd_status(args: argparse.Namespace) -> None:
     from synapse.file_safety import FileSafetyManager
     from synapse.history import HistoryManager
     from synapse.paths import get_history_db_path
-    from synapse.task_board import TaskBoard
 
     registry = AgentRegistry()
     try:
@@ -508,16 +507,11 @@ def cmd_status(args: argparse.Namespace) -> None:
         file_safety = FileSafetyManager.from_env()
     except Exception:
         file_safety = None
-    try:
-        task_board = TaskBoard()
-    except Exception:
-        task_board = None
 
     cmd = StatusCommand(
         registry=registry,
         history_manager=history,
         file_safety_manager=file_safety,
-        task_board=task_board,
         output=sys.stdout,
     )
     cmd.run(args.target, json_output=getattr(args, "json_output", False))
@@ -1186,7 +1180,6 @@ def _build_a2a_cmd(
     response_mode: str | None = None,
     attachments: list[str] | None = None,
     force: bool = False,
-    board_task_id: str | None = None,
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand.
 
@@ -1225,8 +1218,6 @@ def _build_a2a_cmd(
         cmd.append(f"--{response_mode}")
     if force:
         cmd.append("--force")
-    if board_task_id:
-        cmd.extend(["--board-task-id", board_task_id])
 
     return cmd
 
@@ -1280,25 +1271,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     message = _resolve_cli_message(args)
 
-    # --task flag: create a board task linked to this send
-    board_task_id: str | None = None
-    if getattr(args, "task", False):
-        from synapse.task_board import TaskBoard
-
-        try:
-            board = TaskBoard.from_env()
-            sender_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-            board_task_id = board.create_task(
-                subject=message[:80],
-                description=message,
-                created_by=sender_id,
-            )
-            board.set_assignee_hint(board_task_id, args.target)
-            print(f"Board task created: {board_task_id[:8]}")
-        except Exception as e:
-            print(f"Error: failed to create linked board task: {e}", file=sys.stderr)
-            sys.exit(1)
-
     cmd = _build_a2a_cmd(
         "send",
         message,
@@ -1308,7 +1280,6 @@ def cmd_send(args: argparse.Namespace) -> None:
         response_mode=getattr(args, "response_mode", None),
         attachments=getattr(args, "attach", None),
         force=getattr(args, "force", False),
-        board_task_id=board_task_id,
     )
     _run_a2a_command(cmd, exit_on_error=True)
 
@@ -2882,370 +2853,6 @@ def interactive_agent_setup(
         if original_settings is not None and termios is not None:
             with contextlib.suppress(termios.error):
                 termios.tcsetattr(sys.stdin, termios.TCSADRAIN, original_settings)
-
-
-def _resolve_task_id(short_id: str) -> str:
-    """Resolve a short task ID (prefix) to a full UUID."""
-    from synapse.task_board import TaskBoard
-
-    if len(short_id) == 36:  # Already a full UUID
-        return short_id
-
-    board = TaskBoard.from_env()
-    matches = [t["id"] for t in board.find_tasks_by_prefix(short_id)]
-
-    if not matches:
-        print(f"Error: No task found starting with '{short_id}'", file=sys.stderr)
-        sys.exit(1)
-    if len(matches) > 1:
-        print(
-            f"Error: Multiple tasks found starting with '{short_id}': {', '.join(matches[:3])}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return str(matches[0])
-
-
-def _normalize_task_assignee(agent: str) -> str:
-    """Normalize a task assignee to the runtime agent ID when possible."""
-    info = AgentRegistry().resolve_agent(agent)
-    if info and info.get("agent_id"):
-        return str(info["agent_id"])
-    return agent
-
-
-# ============================================================
-# Task Board Commands (B1)
-# ============================================================
-
-
-def _parse_duration(value: str) -> int:
-    """Parse a human-readable duration string into seconds.
-
-    Supports: 30s, 5m, 2h, 7d.  Plain integers treated as seconds.
-    """
-    import re
-
-    m = re.fullmatch(r"(\d+)\s*([smhd])?", value.strip().lower())
-    if not m:
-        raise ValueError(f"Invalid duration: '{value}'. Use e.g. 30s, 5m, 2h, 7d")
-    n = int(m.group(1))
-    unit = m.group(2) or "s"
-    return n * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
-
-
-def _relative_time(iso_str: str | None) -> str:
-    """Convert an ISO datetime string to a human-readable relative time."""
-    if not iso_str:
-        return "-"
-    from datetime import datetime, timezone
-
-    try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
-        delta = now - dt
-        secs = int(delta.total_seconds())
-        if secs < 0:
-            return "just now"
-        if secs < 60:
-            return f"{secs}s ago"
-        if secs < 3600:
-            return f"{secs // 60}m ago"
-        if secs < 86400:
-            return f"{secs // 3600}h ago"
-        return f"{secs // 86400}d ago"
-    except (ValueError, TypeError):
-        return iso_str[:16] if iso_str else "-"
-
-
-def cmd_tasks_list(args: argparse.Namespace) -> None:
-    """List tasks from the shared task board."""
-    from synapse.task_board import TaskBoard, resolve_display_name
-
-    board = TaskBoard.from_env()
-    status_filter = getattr(args, "status", None)
-    agent_filter = getattr(args, "agent", None)
-    group_id_filter = getattr(args, "group", None)
-    component_filter = getattr(args, "component", None)
-    milestone_filter = getattr(args, "milestone", None)
-
-    tasks = board.list_tasks(
-        status=status_filter,
-        assignee=agent_filter,
-        group_id=group_id_filter,
-        component=component_filter,
-        milestone=milestone_filter,
-    )
-
-    if not tasks:
-        print("No tasks found.")
-        return
-
-    fmt = getattr(args, "format", None)
-    verbose = getattr(args, "verbose", False)
-    group_by = getattr(args, "group_by", None)
-
-    # JSON output
-    if fmt == "json":
-        import json as _json
-
-        print(_json.dumps(tasks, indent=2, default=str))
-        return
-
-    # Group-by view
-    if group_by:
-        _print_grouped_tasks(tasks, group_by, verbose, resolve_display_name)
-        return
-
-    # Table view
-    _print_task_table(tasks, verbose, resolve_display_name)
-
-
-def _print_task_table(
-    tasks: list[dict],
-    verbose: bool,
-    resolve_fn: Callable[[str], str],
-) -> None:
-    """Print tasks in a formatted table."""
-    for task in tasks:
-        tid = task["id"] if verbose else task["id"][:8]
-        status = task["status"]
-        priority = f"P{task.get('priority', 3)}"
-        raw_assignee = task.get("assignee") or ""
-        assignee = resolve_fn(str(raw_assignee)) if raw_assignee else "-"
-        subject = task["subject"]
-        updated = (
-            task.get("updated_at", "")
-            if verbose
-            else _relative_time(task.get("updated_at"))
-        )
-
-        print(
-            f"  {tid}  {status:<12} {priority}  {assignee:<20}  {subject}  ({updated})"
-        )
-
-        # Show fail_reason inline for failed tasks
-        if status == "failed" and task.get("fail_reason"):
-            print(f"           └─ {task['fail_reason']}")
-
-
-def _print_grouped_tasks(
-    tasks: list[dict],
-    group_by: str,
-    verbose: bool,
-    resolve_fn: Callable[[str], str],
-) -> None:
-    """Print tasks grouped by a given key."""
-    groups: dict[str, list[dict]] = {}
-    for task in tasks:
-        key = task.get(group_by) or "(ungrouped)"
-        groups.setdefault(key, []).append(task)
-
-    for group_name, group_tasks in groups.items():
-        print(f"\n── {group_name} ({len(group_tasks)}) ──")
-        _print_task_table(group_tasks, verbose, resolve_fn)
-
-
-def cmd_tasks_create(args: argparse.Namespace) -> None:
-    """Create a task on the shared task board."""
-    from synapse.task_board import TaskBoard
-
-    board = TaskBoard.from_env()
-    blocked_by = getattr(args, "blocked_by", None)
-    blocked_list = blocked_by.split(",") if blocked_by else None
-
-    priority = getattr(args, "priority", 3) or 3
-    if not isinstance(priority, int) or not (1 <= priority <= 5):
-        print(
-            f"Error: priority must be between 1 and 5, got {priority}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    task_id = board.create_task(
-        subject=args.subject,
-        description=getattr(args, "description", "") or "",
-        created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
-        blocked_by=blocked_list,
-        priority=priority,
-        group_id=getattr(args, "group", None),
-        component=getattr(args, "component", None),
-        milestone=getattr(args, "milestone", None),
-    )
-    print(f"Created task: {task_id[:8]} - {args.subject} (priority={priority})")
-
-
-def cmd_tasks_assign(args: argparse.Namespace) -> None:
-    """Assign (claim) a task."""
-    from synapse.task_board import TaskBoard
-
-    task_id = _resolve_task_id(args.task_id)
-    board = TaskBoard.from_env()
-    agent_id = _normalize_task_assignee(args.agent)
-    result = board.claim_task(task_id, agent_id)
-    if result:
-        print(f"Assigned {task_id[:8]} to {agent_id}")
-    else:
-        print("Failed to assign task (may be blocked or already assigned)")
-        sys.exit(1)
-
-
-def cmd_tasks_complete(args: argparse.Namespace) -> None:
-    """Complete a task."""
-    from synapse.task_board import TaskBoard
-
-    task_id = _resolve_task_id(args.task_id)
-    board = TaskBoard.from_env()
-    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-    before = board.get_task(task_id)
-    unblocked = board.complete_task(task_id, agent_id)
-    after = board.get_task(task_id)
-    if (
-        not before
-        or before.get("status") != "in_progress"
-        or before.get("assignee") != agent_id
-        or not after
-        or after.get("status") != "completed"
-    ):
-        print(
-            f"Error: Task {task_id[:8]} not found or not in_progress for {agent_id}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    print(f"Completed task: {args.task_id[:8]}")
-    if unblocked:
-        print(f"Unblocked: {', '.join(t[:8] for t in unblocked)}")
-
-
-def cmd_tasks_fail(args: argparse.Namespace) -> None:
-    """Report a task as failed."""
-    from synapse.task_board import TaskBoard
-
-    task_id = _resolve_task_id(args.task_id)
-    board = TaskBoard.from_env()
-    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-    reason = getattr(args, "reason", "") or ""
-    updated = board.fail_task(task_id, agent_id, reason=reason)
-    if not updated:
-        print(
-            f"Error: Task {task_id[:8]} not found or not in_progress for {agent_id}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    print(f"Failed task: {task_id[:8]}")
-    if reason:
-        print(f"Reason: {reason}")
-
-
-def cmd_tasks_reopen(args: argparse.Namespace) -> None:
-    """Reopen a completed or failed task."""
-    from synapse.task_board import TaskBoard
-
-    task_id = _resolve_task_id(args.task_id)
-    board = TaskBoard.from_env()
-    agent_id = os.environ.get("SYNAPSE_AGENT_ID", "user")
-    result = board.reopen_task(task_id, agent_id)
-    if result:
-        print(f"Reopened task: {task_id[:8]}")
-    else:
-        print("Failed to reopen task (may be pending or in_progress)")
-        sys.exit(1)
-
-
-def cmd_tasks_purge(args: argparse.Namespace) -> None:
-    """Purge tasks from the task board."""
-    from synapse.task_board import TaskBoard
-
-    board = TaskBoard.from_env()
-    status_filter = getattr(args, "status", None)
-    force = getattr(args, "force", False)
-    dry_run = getattr(args, "dry_run", False)
-    older_than = getattr(args, "older_than", None)
-
-    # --older-than path: use purge_stale
-    if older_than:
-        try:
-            seconds = _parse_duration(older_than)
-        except ValueError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-
-        deleted = board.purge_stale(
-            older_than_seconds=seconds, status=status_filter, dry_run=dry_run
-        )
-        if dry_run:
-            print(f"Would purge {len(deleted)} task(s):")
-            for t in deleted:
-                print(f"  {t['id'][:8]}  {t['status']:<12}  {t['subject']}")
-        else:
-            print(f"Purged {len(deleted)} stale task(s).")
-        return
-
-    # Standard purge path
-    if not force and not dry_run:
-        if not sys.stdin.isatty():
-            print("Aborted (non-interactive, use --force).")
-            return
-        scope = f" status='{status_filter}'" if status_filter else " all tasks"
-        try:
-            answer = input(f"About to purge{scope}. Continue? [y/N]: ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.")
-            return
-        if answer != "y":
-            print("Aborted.")
-            return
-
-    if dry_run:
-        tasks = board.list_tasks(status=status_filter)
-        print(f"Would purge {len(tasks)} task(s):")
-        for t in tasks:
-            print(f"  {t['id'][:8]}  {t['status']:<12}  {t['subject']}")
-        return
-
-    purged = board.purge(status=status_filter)
-    qualifier = f" {status_filter}" if status_filter else ""
-    print(f"Purged {purged}{qualifier} task(s).")
-
-
-def cmd_tasks_accept_plan(args: argparse.Namespace) -> None:
-    """Accept a plan card and register its steps as task board tasks."""
-    from synapse.commands.canvas import accept_plan
-
-    result = accept_plan(
-        plan_id=args.plan_id,
-        created_by=os.environ.get("SYNAPSE_AGENT_ID", "user"),
-    )
-    if result is None:
-        print(f"Error: Plan '{args.plan_id}' not found", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"Plan '{args.plan_id}' accepted. {len(result['task_ids'])} tasks created:")
-    for step_id, task_id in result["step_to_task"].items():
-        print(f"  {step_id} → {task_id[:8]}")
-
-
-def cmd_tasks_sync_plan(args: argparse.Namespace) -> None:
-    """Sync task board progress back to a plan card."""
-    from synapse.commands.canvas import PlanNotFoundError, sync_plan_progress
-
-    try:
-        updated = sync_plan_progress(plan_id=args.plan_id)
-    except PlanNotFoundError:
-        print(f"Error: Plan '{args.plan_id}' not found", file=sys.stderr)
-        sys.exit(1)
-    if updated:
-        print(f"Plan '{args.plan_id}' progress synced.")
-    else:
-        print(f"No changes to sync for plan '{args.plan_id}'.")
-
-
-# ============================================================
-# Shared Memory Commands
-# ============================================================
 
 
 def cmd_memory_save(args: argparse.Namespace) -> None:
@@ -4938,13 +4545,6 @@ Priority levels:
         default=False,
         help="Send even if target is in a different working directory",
     )
-    p_send.add_argument(
-        "--task",
-        "-T",
-        action="store_true",
-        default=False,
-        help="Auto-create a board task linked to this message",
-    )
     p_send.set_defaults(func=cmd_send)
 
     # interrupt (ergonomic shorthand for priority-4 send --silent)
@@ -5609,125 +5209,6 @@ Integration with synapse list:
         "debug", help="Show debug information for troubleshooting"
     )
     p_fs_debug.set_defaults(func=cmd_file_safety_debug)
-
-    # tasks - Shared Task Board (B1)
-    p_tasks = subparsers.add_parser(
-        "tasks",
-        help="Shared task board for multi-agent coordination",
-        description="Manage the shared task board for multi-agent task coordination.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    tasks_subparsers = p_tasks.add_subparsers(
-        dest="tasks_command", metavar="SUBCOMMAND"
-    )
-
-    p_tasks_list = tasks_subparsers.add_parser("list", help="List tasks")
-    p_tasks_list.add_argument(
-        "--status", help="Filter by status (pending, in_progress, completed, failed)"
-    )
-    p_tasks_list.add_argument("--agent", help="Filter by assignee agent")
-    p_tasks_list.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Show full UUIDs and absolute times",
-    )
-    p_tasks_list.add_argument(
-        "--format", choices=["json"], help="Output format (default: table)"
-    )
-    p_tasks_list.add_argument(
-        "--group-by",
-        choices=["group_id", "component", "milestone", "status"],
-        help="Group tasks by field",
-    )
-    p_tasks_list.add_argument("--group", help="Filter by group_id")
-    p_tasks_list.add_argument("--component", help="Filter by component")
-    p_tasks_list.add_argument("--milestone", help="Filter by milestone")
-    p_tasks_list.set_defaults(func=cmd_tasks_list)
-
-    p_tasks_create = tasks_subparsers.add_parser("create", help="Create a task")
-    p_tasks_create.add_argument("subject", help="Task subject/title")
-    p_tasks_create.add_argument(
-        "--description", "-d", default="", help="Task description"
-    )
-    p_tasks_create.add_argument(
-        "--blocked-by", help="Comma-separated task IDs that block this task"
-    )
-    p_tasks_create.add_argument(
-        "--priority",
-        "-p",
-        type=int,
-        default=3,
-        help="Priority level 1-5 (default: 3, higher is more urgent)",
-    )
-    p_tasks_create.add_argument("--group", help="Group ID for task grouping")
-    p_tasks_create.add_argument(
-        "--component", help="Component tag (e.g. backend, frontend)"
-    )
-    p_tasks_create.add_argument("--milestone", help="Milestone tag (e.g. v1.0)")
-    p_tasks_create.set_defaults(func=cmd_tasks_create)
-
-    p_tasks_assign = tasks_subparsers.add_parser(
-        "assign", help="Assign a task to an agent"
-    )
-    p_tasks_assign.add_argument("task_id", help="Task ID to assign")
-    p_tasks_assign.add_argument("agent", help="Agent ID or name to assign to")
-    p_tasks_assign.set_defaults(func=cmd_tasks_assign)
-
-    p_tasks_complete = tasks_subparsers.add_parser(
-        "complete", help="Mark a task as completed"
-    )
-    p_tasks_complete.add_argument("task_id", help="Task ID to complete")
-    p_tasks_complete.set_defaults(func=cmd_tasks_complete)
-
-    p_tasks_fail = tasks_subparsers.add_parser("fail", help="Report a task as failed")
-    p_tasks_fail.add_argument("task_id", help="Task ID to fail")
-    p_tasks_fail.add_argument("--reason", "-r", default="", help="Failure reason")
-    p_tasks_fail.set_defaults(func=cmd_tasks_fail)
-
-    p_tasks_reopen = tasks_subparsers.add_parser(
-        "reopen", help="Reopen a completed or failed task"
-    )
-    p_tasks_reopen.add_argument("task_id", help="Task ID to reopen")
-    p_tasks_reopen.set_defaults(func=cmd_tasks_reopen)
-
-    p_tasks_purge = tasks_subparsers.add_parser(
-        "purge", help="Delete tasks from the board"
-    )
-    p_tasks_purge.add_argument(
-        "--status",
-        help="Only purge tasks with this status (pending, in_progress, completed, failed)",
-    )
-    p_tasks_purge.add_argument(
-        "--force",
-        "-f",
-        action="store_true",
-        help="Purge without confirmation prompt",
-    )
-    p_tasks_purge.add_argument(
-        "--older-than",
-        help="Only purge tasks older than duration (e.g. 1h, 7d, 30m)",
-    )
-    p_tasks_purge.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be purged without deleting",
-    )
-    p_tasks_purge.set_defaults(func=cmd_tasks_purge)
-
-    # tasks accept-plan <plan_id> — Accept a plan and create board tasks
-    p_tasks_accept = tasks_subparsers.add_parser(
-        "accept-plan", help="Accept a plan card and register its steps as tasks"
-    )
-    p_tasks_accept.add_argument("plan_id", help="Plan card ID to accept")
-    p_tasks_accept.set_defaults(func=cmd_tasks_accept_plan)
-
-    # tasks sync-plan <plan_id> — Sync task progress back to plan card
-    p_tasks_sync = tasks_subparsers.add_parser(
-        "sync-plan", help="Sync task board progress back to a plan card"
-    )
-    p_tasks_sync.add_argument("plan_id", help="Plan card ID to sync")
-    p_tasks_sync.set_defaults(func=cmd_tasks_sync_plan)
 
     # memory - Shared Memory
     p_memory = subparsers.add_parser(
@@ -6578,7 +6059,6 @@ Scopes:
         "auth": ("auth_command", p_auth),
         "instructions": ("instructions_command", p_instructions),
         "mcp": ("mcp_command", p_mcp),
-        "tasks": ("tasks_command", p_tasks),
         "team": ("team_command", p_team),
         "session": ("session_command", p_session),
         "workflow": ("workflow_command", p_workflow),

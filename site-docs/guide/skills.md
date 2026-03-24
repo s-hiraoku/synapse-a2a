@@ -25,7 +25,7 @@ npx skills add s-hiraoku/synapse-a2a
 
 | Skill | Purpose | Included In |
 |-------|---------|-------------|
-| **synapse-a2a** | Core A2A communication — message sending, file safety, task board, settings management | All skill sets |
+| **synapse-a2a** | Core A2A communication — message sending, file safety, settings management | All skill sets |
 | **synapse-manager** | 7-step multi-agent orchestration: Plan, Delegate, Monitor, Approve, Verify, Feedback, Review | `manager` set |
 | **synapse-reinst** | Re-inject initial instructions after `/clear` or context reset — restores agent identity and A2A config | `manager` set |
 
@@ -150,7 +150,7 @@ Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four
 | **doc-organizer** | Documentation audit, restructure, and consolidation — inventory docs, detect staleness, deduplicate content, normalize terminology, and improve navigation |
 
 !!! tip "synapse-manager"
-    The `synapse-manager` skill teaches an agent a structured 7-step workflow: **Plan & Setup** (assess agents and fill gaps), **Delegate** (task board + detailed instructions), **Monitor** (status and artifacts), **Approve** (gate execution with plan review), **Verify** (tests with regression triage), **Feedback** (actionable fix instructions), and **Review** (cross-review and cleanup). It enforces the **mandatory delegation rule**: every delegation must have a matching task board entry (create + assign before send). The task board serves as the team contract; TodoList is for personal micro-step tracking only. It also includes a **Worker Agent Guide** that teaches worker agents autonomous task execution -- receiving tasks, verifying task board entries on receipt, reporting progress, delegating subtasks, and cleaning up spawned agents. Activate it via the `manager` skill set or deploy it directly.
+    The `synapse-manager` skill teaches an agent a structured 7-step workflow: **Plan & Setup** (assess agents and fill gaps), **Delegate** (detailed instructions via `synapse send`), **Monitor** (status and artifacts), **Approve** (gate execution with plan review), **Verify** (tests with regression triage), **Feedback** (actionable fix instructions), and **Review** (cross-review and cleanup). It also includes a **Worker Agent Guide** that teaches worker agents autonomous task execution -- receiving tasks, reporting progress, delegating subtasks, and cleaning up spawned agents. Activate it via the `manager` skill set or deploy it directly.
 
     **When to use**: Coordinating 2+ agents, monitoring delegated work, verifying outputs, sending feedback, orchestrating cross-review, implementing multi-phase plans (3+ phases or 10+ file changes), executing plans with multiple deliverables, or planning agent assignment for multi-file changes across a codebase.
 

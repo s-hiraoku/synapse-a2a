@@ -32,7 +32,6 @@ synapse/
 ├── a2a_client.py    # Client for other A2A agents
 ├── registry.py      # File-based agent discovery
 ├── shell.py         # Interactive shell with @Agent routing
-├── task_board.py    # Shared task board (SQLite)
 ├── shared_memory.py # Cross-agent knowledge base (SQLite)
 ├── spawn.py         # Agent spawning
 ├── workflow_db.py   # Workflow run persistence (SQLite)

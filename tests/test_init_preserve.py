@@ -49,7 +49,6 @@ def synapse_dir_with_user_data(temp_dir):
 
     # User data: databases
     (synapse_dir / "file_safety.db").write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
-    (synapse_dir / "task_board.db").write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
     (synapse_dir / "memory.db").write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
 
     # User data: sessions
@@ -99,7 +98,6 @@ class TestCopySynapseTemplatesPreservesUserData:
         assert result is True
 
         assert (synapse_dir / "file_safety.db").exists(), "file_safety.db was deleted"
-        assert (synapse_dir / "task_board.db").exists(), "task_board.db was deleted"
         assert (synapse_dir / "memory.db").exists(), "memory.db was deleted"
 
     def test_preserves_sessions(self, synapse_dir_with_user_data):
@@ -209,5 +207,4 @@ class TestCmdInitPreservesUserData:
 
         synapse_dir = temp_dir / ".synapse"
         assert (synapse_dir / "file_safety.db").exists()
-        assert (synapse_dir / "task_board.db").exists()
         assert (synapse_dir / "memory.db").exists()

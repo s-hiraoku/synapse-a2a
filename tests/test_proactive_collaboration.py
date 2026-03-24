@@ -89,10 +89,6 @@ class TestMandatoryCollaborationGate:
         """Large task gate must require synapse list check."""
         assert "synapse list" in template_content
 
-    def test_task_board_entry_required(self, template_content: str) -> None:
-        """Large task gate must require creating a task board entry."""
-        assert "synapse tasks create" in template_content
-
 
 # ===========================================================================
 # AC3: synapse-manager skill triggers on implementation tasks

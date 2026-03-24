@@ -151,7 +151,7 @@ When `--delegate-mode` is enabled, Synapse applies two constraints:
 2. **Manager instructions** — Synapse automatically injects a `[MANAGER MODE]` instruction on startup, telling the agent to:
     - Delegate tasks via `synapse send`
     - Monitor agents via `synapse list`
-    - Coordinate work via `synapse tasks` (Shared Task Board)
+    - Coordinate work via `synapse send` and `synapse list`
     - Focus on task analysis, splitting, assignment, and review
 
 ```
@@ -178,8 +178,6 @@ When `--delegate-mode` is enabled, Synapse applies two constraints:
 
 ### Delegate Workflow
 
-Every delegation must have a matching task board entry -- create and assign before sending:
-
 ```bash
 # Terminal 1: Manager (cannot edit files)
 synapse claude --delegate-mode --name manager
@@ -188,18 +186,9 @@ synapse claude --delegate-mode --name manager
 synapse codex --name Cody
 synapse codex --name Rex
 
-# Create task board entries and assign before delegating
-synapse tasks create "Implement OAuth2 authentication" -d "Add OAuth2 to API layer"
-# Returns: task-aaa
-synapse tasks assign task-aaa Cody
-
-synapse tasks create "Write tests for auth module" -d "Unit + integration tests"
-# Returns: task-bbb
-synapse tasks assign task-bbb Rex
-
-# Now delegate (fire-and-forget — no reply needed)
-synapse send Cody "Implement OAuth2 authentication" --silent
-synapse send Rex "Write tests for auth module" --silent
+# Delegate tasks (fire-and-forget — no reply needed)
+synapse send Cody "Implement OAuth2 authentication — add OAuth2 to API layer" --silent
+synapse send Rex "Write tests for auth module — unit + integration tests" --silent
 
 # Check progress (expects a reply — use --wait)
 synapse send Cody "Progress?" --wait
@@ -253,7 +242,7 @@ The delegate mode instruction template can be customized in [settings](settings.
 {
   "delegate_mode": {
     "deny_file_locks": true,
-    "instruction_template": "\n\n[MANAGER MODE]\nYou are a manager. Do NOT edit files directly.\nInstead, use `synapse send` to delegate tasks to other agents.\nFocus on: task analysis, splitting, assignment, and review.\nUse `synapse list` to check agent availability.\nUse `synapse tasks` to manage the shared task board."
+    "instruction_template": "\n\n[MANAGER MODE]\nYou are a manager. Do NOT edit files directly.\nInstead, use `synapse send` to delegate tasks to other agents.\nFocus on: task analysis, splitting, assignment, and review.\nUse `synapse list` to check agent availability."
   }
 }
 ```
@@ -488,12 +477,7 @@ When an interactive agent exits (with a name set), Synapse prompts whether to sa
 synapse spawn codex --name Rex --role "test writer"
 # Wait for READY...
 
-# Create task board entry before delegating (mandatory)
-synapse tasks create "Write unit tests for auth.py" -d "Cover all auth flows"
-# Returns: task-aaa
-synapse tasks assign task-aaa Rex
-
-synapse send Rex "Write unit tests for auth.py" --wait
+synapse send Rex "Write unit tests for auth.py — cover all auth flows" --wait
 # Evaluate result
 synapse kill Rex -f
 ```

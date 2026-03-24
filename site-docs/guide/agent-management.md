@@ -145,7 +145,6 @@ This shows:
 - **Current Task**: Task preview with elapsed time since the task was received
 - **Recent Messages**: Last 5 incoming/outgoing A2A messages from history
 - **File Locks**: Files currently locked by this agent (when File Safety is enabled)
-- **Task Board**: Tasks assigned to this agent from the shared task board
 
 For machine-readable output:
 
