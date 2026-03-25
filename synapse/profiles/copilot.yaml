@@ -18,8 +18,8 @@ long_submit_confirm_retries: 5
 # Bracketed paste disabled: Copilot CLI does not enable bracketed paste mode
 # (ESC[?2004h), so ESC[200~/ESC[201~ markers are ignored and text is processed
 # character-by-character through useInput.  With bracketed paste off, messages
-# containing '/' can trigger slash-command completion.  Callers must ensure
-# that '/' never appears at line-start in the message body.
+# containing '/' can trigger slash-command completion.
+# Synapse rewrites '/' to fullwidth solidus (\uff0f) before injection.
 bracketed_paste: false
 env:
   TERM: "xterm-256color"

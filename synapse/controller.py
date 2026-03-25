@@ -1208,7 +1208,6 @@ class TerminalController:
             markers.extend(
                 [
                     "[LONG MESSAGE - FILE ATTACHED]",
-                    "The full message content is stored at:",
                     "Please read this file",
                 ]
             )
@@ -1349,7 +1348,7 @@ class TerminalController:
                     # Ink maps \r to key.return (submit) but \n to key.enter
                     # (different event), so ICRNL must be off.
                     if (
-                        self._bracketed_paste
+                        submit_bytes == b"\r"
                         and not self._icrnl_cleared
                         and self.master_fd is not None
                     ):
@@ -1492,7 +1491,7 @@ class TerminalController:
             f"{confirm_retries} retries"
         )
         logger.warning(message)
-        logger.info(
+        logger.debug(
             f"[{self.agent_id}] submit_diag: "
             f"markers={markers!r} "
             f"has_placeholder={has_placeholder} "
@@ -1645,6 +1644,16 @@ class TerminalController:
         self._inject_write_fd = inject_w
 
         real_stdin_fd = os.dup(pty.STDIN_FILENO)
+        # Set real stdin to raw mode so the merge thread receives
+        # single keypresses (arrows, Esc, Backspace) without line
+        # buffering.  pty.spawn() would normally do this on
+        # STDIN_FILENO, but we're replacing it with a pipe.
+        original_stdin_attrs = None
+        try:
+            original_stdin_attrs = termios.tcgetattr(real_stdin_fd)
+            tty.setraw(real_stdin_fd)
+        except (termios.error, OSError):
+            pass  # not a tty (e.g., piped stdin)
         merge_r, merge_w = os.pipe()
         os.dup2(merge_r, pty.STDIN_FILENO)
         os.close(merge_r)  # STDIN_FILENO is now the read end
@@ -1703,6 +1712,12 @@ class TerminalController:
             self.running = False  # signal merge thread to stop
             self._inject_write_fd = None
             # Restore original stdin before closing real_stdin_fd
+            # Restore real stdin terminal settings before closing
+            if original_stdin_attrs is not None:
+                with contextlib.suppress(termios.error, OSError):
+                    termios.tcsetattr(
+                        real_stdin_fd, termios.TCSAFLUSH, original_stdin_attrs
+                    )
             with contextlib.suppress(OSError):
                 os.dup2(real_stdin_fd, pty.STDIN_FILENO)
             for fd in (inject_r, inject_w, real_stdin_fd):
