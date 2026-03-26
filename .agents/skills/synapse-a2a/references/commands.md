@@ -403,7 +403,7 @@ Action:   Just do the task. No reply needed unless you have questions.
 **Use this command for inter-agent communication.** Works from any environment including sandboxed agents.
 
 ```bash
-synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent] [--callback "<command>"] [--force] [--task | -T]
+synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait | --notify | --silent] [--callback "<command>"] [--force]
 ```
 
 **Target Formats (in priority order):**

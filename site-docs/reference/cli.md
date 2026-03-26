@@ -192,7 +192,6 @@ synapse send <target> "<message>" [OPTIONS]
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
-| `--task` / `-T` | Auto-create a board task linked to the A2A message (auto-claim on receive, auto-complete on finalize) |
 | `--force` | Bypass working_dir mismatch check |
 
 !!! tip "Choosing response mode"
