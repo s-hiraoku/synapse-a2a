@@ -1479,6 +1479,8 @@ class TestInterAgentMessageWrite:
                 submit_seq="\r",
             )
 
+        # Line-start '/' replacement only affects lines starting with '/'.
+        # Here '/tmp' is mid-line so slashes are preserved.
         assert writes == [
             b"\x1b[200~A2A: [LONG MESSAGE - FILE ATTACHED]\n"
             b"The full message content is stored at: /tmp/msg.txt\n"

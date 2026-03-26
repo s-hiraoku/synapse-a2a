@@ -99,7 +99,7 @@ write_delay: 0.5  # Wait 500ms before sending CR
 ```
 
 !!! info "Why Write Delay?"
-    Ink TUI apps use bracketed paste mode. If CR is sent too quickly after the data, it gets trapped inside the paste boundary and ignored. The delay gives the TUI time to process the pasted text before CR is sent as a submit action.
+    Ink TUI apps process input asynchronously through React state updates. If CR is sent too quickly after the data, the TUI may not have finished rendering the input text, causing the submit to fire on an incomplete buffer. The delay gives the TUI time to process the input before CR is sent as a submit action.
 
 ### Split Write Strategy
 
@@ -187,7 +187,7 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
-bracketed_paste: true
+bracketed_paste: false
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
@@ -201,10 +201,11 @@ idle_detection:
 ```
 
 - Interactive TUI without consistent prompt patterns
-- Requires explicit `write_delay: 0.5` — Ink TUI needs time to finish rendering before CR
-- `bracketed_paste: true` wraps input in paste escape sequences so Ink's `usePaste` hook receives the full text atomically
-- Copilot sends stay on paste plus Enter; the bundled profile does not rely on typed-input tuning or `Ctrl+S` fallbacks
-- Submit confirmation watches the prompt itself, not only status changes; placeholders such as `[Paste #1 - 12 lines]`, `[Saved pasted content to workspace ...]`, or file-reference banners keep the send pending until they clear, even when the same placeholder label reappears on a later send
+- Requires explicit `write_delay: 0.5` — Ink TUI processes input character-by-character through `useInput`; allow time for React to render before Enter is sent
+- `bracketed_paste: false` — Copilot CLI does not enable bracketed paste mode (`ESC[?2004h`), so paste markers are ignored. Input is written via an inject pipe that merges with the PTY `_copy` select loop
+- Slash characters (`/`) are automatically replaced with fullwidth solidus (`/`) to prevent slash-command autocomplete from triggering during input
+- ICRNL is disabled before sending the submit sequence to ensure `\r` is not converted to `\n` (Ink maps `\r` to key.return but `\n` to a different event)
+- Submit confirmation watches the prompt itself, not only status changes; placeholders such as file-reference banners keep the send pending until they clear
 - `long_submit_confirm_timeout: 3.0` and `long_submit_confirm_retries: 5` give multiline/file-reference sends a larger confirmation budget without changing the submit key path
 
 ## Custom Profiles

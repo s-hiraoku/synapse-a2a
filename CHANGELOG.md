@@ -15,10 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `accept_plan` / `sync_plan_progress` functions from Canvas commands
 - `site-docs/guide/task-board.md` documentation page
 
+### Fixed
+
+- Copilot CLI input not being submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop
+
 ### Changed
 
 - Proactive mode checklist no longer requires task board registration
 - Default agent instructions template simplified (removed task board steps)
+- Copilot profile: `bracketed_paste: false`, `input_ready_pattern: ❯`, slash replacement
+- Long message file reference consolidated to single-line format
 
 ### Documentation
 

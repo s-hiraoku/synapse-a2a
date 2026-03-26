@@ -85,11 +85,12 @@ submit_retry_delay: 0.15  # Generic example: retry after 150ms
 
 ### bracketed_paste
 
-Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~`). Required for agents whose TUI uses a paste hook (e.g., Ink's `usePaste`) to receive multi-character input atomically instead of character-by-character via `useInput`.
+Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~`). Useful for agents whose TUI uses a paste hook to receive multi-character input atomically instead of character-by-character via `useInput`. Not all Ink TUIs enable bracketed paste mode; check whether the agent emits `ESC[?2004h` before enabling this.
 
 ```yaml
-bracketed_paste: true   # Copilot CLI (Ink usePaste hook)
+bracketed_paste: true   # Only if the agent enables bracketed paste mode
 # Default: false
+# Note: Copilot CLI does not enable bracketed paste mode, so this is false for Copilot.
 ```
 
 ### typing_char_delay / typing_max_chars
@@ -205,7 +206,7 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
-bracketed_paste: true
+bracketed_paste: false
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3

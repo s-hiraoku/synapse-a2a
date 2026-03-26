@@ -2,10 +2,11 @@
 # Uses interactive TUI mode similar to Claude Code
 command: "copilot"
 args: []
-# CR required for interactive TUI to process Enter key
+# Enter (\r) submits the prompt in Copilot CLI.
 submit_sequence: "\r"
 # PTY write delay between data and submit_seq (seconds)
-# Copilot's Ink TUI needs a short settle window between the paste and Enter.
+# Copilot's Ink TUI processes input character-by-character through useInput.
+# Allow time for React to render before Enter is sent.
 write_delay: 0.5
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
@@ -14,12 +15,12 @@ submit_confirm_retries: 3
 # prompt after bracketed paste, so use a slightly larger confirmation budget.
 long_submit_confirm_timeout: 3.0
 long_submit_confirm_retries: 5
-# Wrap PTY data in bracketed paste escape sequences (ESC[200~ ... ESC[201~).
-# Copilot CLI uses Ink's usePaste hook which expects pasted text to arrive
-# inside these markers.  Without them, Ink processes each character through
-# useInput one-by-one, racing with React state updates and causing the
-# subsequent CR (Enter) to fire before the text is in the input buffer.
-bracketed_paste: true
+# Bracketed paste disabled: Copilot CLI does not enable bracketed paste mode
+# (ESC[?2004h), so ESC[200~/ESC[201~ markers are ignored and text is processed
+# character-by-character through useInput.  With bracketed paste off, messages
+# containing '/' can trigger slash-command completion.
+# Synapse rewrites '/' to fullwidth solidus (\uff0f) before injection.
+bracketed_paste: false
 env:
   TERM: "xterm-256color"
 
@@ -33,7 +34,7 @@ idle_detection:
 
 # Input ready detection for initial instructions
 # Wait for this pattern before sending instructions to ensure TUI is ready
-input_ready_pattern: ">"                       # Copilot shows > when ready for input
+input_ready_pattern: "❯"                       # Copilot shows ❯ when ready for input
 
 # WAITING status detection (user input prompts)
 # Copilot CLI uses selection UI for tool approvals and confirmations

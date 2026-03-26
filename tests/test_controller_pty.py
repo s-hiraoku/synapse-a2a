@@ -48,6 +48,11 @@ class TestControllerPTY:
             mock.write = MagicMock(side_effect=lambda fd, data: len(data))
             mock.killpg = MagicMock()
             mock.getpgid.return_value = 12345
+            # Inject pipe and merge pipe for run_interactive
+            mock.pipe.side_effect = [(20, 21), (22, 23)]
+            mock.dup.return_value = 24
+            mock.dup2 = MagicMock()
+            mock.get_blocking = MagicMock(return_value=True)
             yield mock
 
     @pytest.fixture

@@ -9,11 +9,11 @@ def read_stored_instruction(pty_message: str) -> str:
 
     Identity instructions are stored in files via LongMessageStore.
     The PTY message contains a reference like:
-        The full message content is stored at: /path/to/file.txt
+        [LONG MESSAGE - FILE ATTACHED] Path: /path/to/file.txt — Please read ...
 
     Returns the stored file content, or the original message if no file ref.
     """
-    match = re.search(r"stored at: (.+\.txt)", pty_message)
+    match = re.search(r"Path: (.+\.txt)", pty_message)
     if match:
         return Path(match.group(1)).read_text()
     return pty_message

@@ -217,7 +217,6 @@ def format_file_reference(
     sender_prefix = build_sender_prefix(sender_id, sender_name)
     reply_marker = "[REPLY EXPECTED] " if response_mode in ("wait", "notify") else ""
     return (
-        f"{sender_prefix}{reply_marker}[LONG MESSAGE - FILE ATTACHED]\n"
-        f"The full message content is stored at: {file_path}\n"
-        f"Please read this file to get the complete message."
+        f"{sender_prefix}{reply_marker}[LONG MESSAGE - FILE ATTACHED] "
+        f"Path: {file_path} — Please read this file to get the complete message."
     )

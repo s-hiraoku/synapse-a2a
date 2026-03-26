@@ -7,7 +7,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.17.8
 
 - **Removed**: Task Board subsystem — `synapse tasks` CLI, `/tasks/board` API, Canvas dashboard widget, and all related config. GitHub Issues will serve as the external work-item source going forward
+- **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism feeds data through `pty._copy`'s select loop
 - **Changed**: Proactive mode and default instructions simplified (no task board steps)
+- **Changed**: Copilot profile: `bracketed_paste: false`, `input_ready_pattern: ❯`, slash replacement
 - **Docs**: Deep cleanup of task board references across README, skills, site-docs
 
 ### v0.17.7
