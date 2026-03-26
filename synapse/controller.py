@@ -1306,11 +1306,14 @@ class TerminalController:
 
         with self._write_lock:
             try:
-                # Copilot: replace '/' with fullwidth solidus to prevent
-                # slash-command autocomplete from triggering during input.
-                # The LLM understands fullwidth '／' as a path separator.
+                # Copilot: replace line-start '/' with fullwidth solidus to
+                # prevent slash-command autocomplete.  Only target line-start
+                # slashes; interior slashes (URLs, paths) are left intact.
                 if self.agent_type == "copilot" and "/" in data:
-                    data = data.replace("/", "\uff0f")
+                    data = "".join(
+                        ("\uff0f" + line[1:]) if line.startswith("/") else line
+                        for line in data.splitlines(keepends=True)
+                    )
                 pre_paste_context = self._tail_text(strip_ansi(self.get_context()))
                 pre_submit_context = (
                     pre_paste_context
@@ -1640,89 +1643,87 @@ class TerminalController:
         # Strategy: replace STDIN_FILENO with a merge-pipe.  A background
         # thread reads real-stdin + inject-pipe and writes to the merge-pipe.
         # _copy sees the merge-pipe as STDIN_FILENO and processes all input.
-        inject_r, inject_w = os.pipe()
-        self._inject_write_fd = inject_w
-
-        real_stdin_fd = os.dup(pty.STDIN_FILENO)
-        # Set real stdin to raw mode so the merge thread receives
-        # single keypresses (arrows, Esc, Backspace) without line
-        # buffering.  pty.spawn() would normally do this on
-        # STDIN_FILENO, but we're replacing it with a pipe.
+        # Inject pipe setup and pty.spawn are wrapped in a single try/finally
+        # so partial initialization (raw mode set, fds opened) is always cleaned up.
+        inject_r = inject_w = real_stdin_fd = -1
         original_stdin_attrs = None
-        try:
-            original_stdin_attrs = termios.tcgetattr(real_stdin_fd)
-            tty.setraw(real_stdin_fd)
-        except (termios.error, OSError):
-            pass  # not a tty (e.g., piped stdin)
-        merge_r, merge_w = os.pipe()
-        os.dup2(merge_r, pty.STDIN_FILENO)
-        os.close(merge_r)  # STDIN_FILENO is now the read end
-
-        def _stdin_merge_thread() -> None:
-            """Merge real stdin and inject pipe into STDIN_FILENO."""
-            import select as _sel
-
-            try:
-                while self.running:
-                    ready, _, _ = _sel.select([real_stdin_fd, inject_r], [], [], 0.1)
-                    for rfd in ready:
-                        chunk = os.read(rfd, 4096)
-                        if chunk:
-                            os.write(merge_w, chunk)
-            except OSError:
-                pass
-            finally:
-                with contextlib.suppress(OSError):
-                    os.close(merge_w)
-
-        merge_thread = threading.Thread(target=_stdin_merge_thread, daemon=True)
-        merge_thread.start()
 
         def input_callback(fd: int) -> bytes:
             """Called by pty._copy when STDIN_FILENO is readable."""
-            data = os.read(fd, 1024)
-            return data
+            return os.read(fd, 1024)
 
         use_input_callback = (
             os.environ.get("SYNAPSE_INTERACTIVE_PASSTHROUGH") != "1"
             and self.agent_type != "claude"
         )
 
-        # Use pty.spawn for robust handling
-        signal.signal(signal.SIGWINCH, handle_winch)
-
-        # Build command list: command + args
-        cmd_list = [self.command] + self.args
-
-        # pty.spawn() inherits current environment, so update os.environ
-        # to pass SYNAPSE_* vars to child process for sender identification
-        os.environ.update(self.env)
-        # Remove CLAUDECODE from os.environ to prevent nested-session detection.
-        # self.env already has it popped, but os.environ may still carry it
-        # from the parent process.
-        os.environ.pop("CLAUDECODE", None)
-
         try:
+            inject_r, inject_w = os.pipe()
+            self._inject_write_fd = inject_w
+
+            real_stdin_fd = os.dup(pty.STDIN_FILENO)
+            # Set real stdin to raw mode so the merge thread receives
+            # single keypresses without line buffering.  pty.spawn()
+            # would normally do this on STDIN_FILENO, but we replaced it.
+            try:
+                original_stdin_attrs = termios.tcgetattr(real_stdin_fd)
+                tty.setraw(real_stdin_fd)
+            except (termios.error, OSError):
+                pass  # not a tty (e.g., piped stdin)
+
+            merge_r, merge_w = os.pipe()
+            os.dup2(merge_r, pty.STDIN_FILENO)
+            os.close(merge_r)  # STDIN_FILENO is now the read end
+
+            def _stdin_merge_thread() -> None:
+                """Merge real stdin and inject pipe into STDIN_FILENO."""
+                import select as _sel
+
+                try:
+                    while self.running:
+                        ready, _, _ = _sel.select(
+                            [real_stdin_fd, inject_r], [], [], 0.1
+                        )
+                        for rfd in ready:
+                            chunk = os.read(rfd, 4096)
+                            if chunk:
+                                os.write(merge_w, chunk)
+                except OSError:
+                    pass
+                finally:
+                    with contextlib.suppress(OSError):
+                        os.close(merge_w)
+
+            merge_thread = threading.Thread(target=_stdin_merge_thread, daemon=True)
+            merge_thread.start()
+
+            # Use pty.spawn for robust handling
+            signal.signal(signal.SIGWINCH, handle_winch)
+
+            cmd_list = [self.command] + self.args
+            os.environ.update(self.env)
+            os.environ.pop("CLAUDECODE", None)
+
             if use_input_callback:
                 pty.spawn(cmd_list, read_callback, input_callback)
             else:
                 pty.spawn(cmd_list, read_callback)
         finally:
             # Clean up inject pipe fds and restore STDIN_FILENO
-            self.running = False  # signal merge thread to stop
+            self.running = False
             self._inject_write_fd = None
-            # Restore original stdin before closing real_stdin_fd
-            # Restore real stdin terminal settings before closing
             if original_stdin_attrs is not None:
                 with contextlib.suppress(termios.error, OSError):
                     termios.tcsetattr(
                         real_stdin_fd, termios.TCSAFLUSH, original_stdin_attrs
                     )
-            with contextlib.suppress(OSError):
-                os.dup2(real_stdin_fd, pty.STDIN_FILENO)
-            for fd in (inject_r, inject_w, real_stdin_fd):
+            if real_stdin_fd >= 0:
                 with contextlib.suppress(OSError):
-                    os.close(fd)
+                    os.dup2(real_stdin_fd, pty.STDIN_FILENO)
+            for fd in (inject_r, inject_w, real_stdin_fd):
+                if fd >= 0:
+                    with contextlib.suppress(OSError):
+                        os.close(fd)
 
     def _handle_interactive_input(self, data: bytes) -> None:
         """Pass through human input directly to PTY. AI handles routing decisions."""

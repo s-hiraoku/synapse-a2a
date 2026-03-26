@@ -1479,11 +1479,11 @@ class TestInterAgentMessageWrite:
                 submit_seq="\r",
             )
 
-        # Copilot write() replaces '/' with fullwidth solidus to avoid
-        # slash-command autocomplete, so expected bytes use \uff0f.
+        # Line-start '/' replacement only affects lines starting with '/'.
+        # Here '/tmp' is mid-line so slashes are preserved.
         assert writes == [
             b"\x1b[200~A2A: [LONG MESSAGE - FILE ATTACHED]\n"
-            b"The full message content is stored at: \xef\xbc\x8ftmp\xef\xbc\x8fmsg.txt\n"
+            b"The full message content is stored at: /tmp/msg.txt\n"
             b"Please read this file to get the complete message.\x1b[201~",
             b"\r",
             b"\r",
