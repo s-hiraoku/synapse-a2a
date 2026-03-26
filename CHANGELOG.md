@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.9] - 2026-03-26
+
+### Fixed
+
+- Copilot CLI input not submitted via PTY — inject pipe feeds data through `pty._copy`'s select loop
+- ICRNL guard now checks `submit_bytes == b"\r"` instead of `_bracketed_paste`
+- Line-start `/` replacement (not all slashes) to prevent slash-command autocomplete
+- Inject pipe setup wrapped in try/finally for reliable cleanup
+- Raw mode applied to real stdin fd for correct keypress handling
+
 ## [0.17.8] - 2026-03-25
 
 ### Removed
@@ -2785,7 +2795,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.8...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.9...HEAD
+[0.17.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.8...v0.17.9
 [0.17.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.7...v0.17.8
 [0.17.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.6...v0.17.7
 [0.17.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.5...v0.17.6
