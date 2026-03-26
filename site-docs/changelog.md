@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.9
+
+- **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism for `pty._copy` integration
+- **Fixed**: ICRNL guard, line-start slash replacement, raw mode on real stdin, inject pipe cleanup
+
 ### v0.17.8
 
 - **Removed**: Task Board subsystem — `synapse tasks` CLI, `/tasks/board` API, Canvas dashboard widget, and all related config. GitHub Issues will serve as the external work-item source going forward
