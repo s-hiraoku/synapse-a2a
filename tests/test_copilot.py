@@ -84,13 +84,13 @@ class TestCopilotProfile:
         compiled = re.compile(regex)
         assert compiled is not None
 
-    def test_profile_bracketed_paste_disabled(self, profile):
-        """Copilot profile should disable bracketed paste mode.
+    def test_profile_bracketed_paste_enabled(self, profile):
+        """Copilot profile should enable bracketed paste mode.
 
-        Copilot CLI does not enable bracketed paste mode (ESC[?2004h),
-        so ESC[200~/ESC[201~ markers are ignored.  Text is sent directly.
+        Copilot CLI 1.0.12+ enables bracketed paste mode (ESC[?2004h),
+        so Synapse must wrap text in ESC[200~/ESC[201~ markers.
         """
-        assert profile.get("bracketed_paste") is False
+        assert profile.get("bracketed_paste") is True
 
     def test_profile_does_not_use_submit_retry_delay(self, profile):
         """Copilot profile should rely on confirmation retries, not double-submit."""

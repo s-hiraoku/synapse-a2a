@@ -545,13 +545,13 @@ synapse external add <new_url> --alias <alias>
 
 **Symptom**: Messages sent to Copilot via `synapse send` appear in the input box but are never executed. The prompt shows the text but Enter has no effect.
 
-**Cause**: Copilot CLI does not enable bracketed paste mode (`ESC[?2004h`). Earlier versions of Synapse wrapped input in paste markers that Copilot ignored, causing text to be processed character-by-character and racing with the submit key. Additionally, Copilot's Ink TUI may re-enable ICRNL (converting `\r` to `\n`), which Ink interprets as a different event than key.return.
+**Cause**: Earlier versions of Copilot CLI did not enable bracketed paste mode (`ESC[?2004h`), so Synapse wrote input via an inject pipe. Since Copilot CLI 1.0.12, bracketed paste mode is enabled on startup. Additionally, Copilot's Ink TUI may re-enable ICRNL (converting `\r` to `\n`), which Ink interprets as a different event than key.return.
 
 **Solutions**:
 
-- Update to the latest Synapse version, which uses an inject pipe for PTY input and disables ICRNL before submit
-- Ensure `bracketed_paste: false` in `synapse/profiles/copilot.yaml` (this is the default since v0.17.7)
-- If messages containing `/` trigger slash-command autocomplete, verify Synapse is replacing `/` with fullwidth solidus automatically
+- Update to the latest Synapse version, which wraps input in bracketed paste markers and disables ICRNL before submit
+- Ensure `bracketed_paste: true` in `synapse/profiles/copilot.yaml` (this is the default since Copilot CLI 1.0.12 support)
+- Slash escaping is automatically skipped when bracketed paste is enabled, since paste mode prevents slash-command autocomplete from triggering
 
 ### Large Message Fails
 

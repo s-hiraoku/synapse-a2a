@@ -385,7 +385,7 @@ submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
 long_submit_confirm_timeout: 3.0
 long_submit_confirm_retries: 5
-bracketed_paste: false
+bracketed_paste: true
 env:
   TERM: "xterm-256color"
 
@@ -407,7 +407,7 @@ waiting_detection:
 
 - GitHub Copilot CLI 用
 - インタラクティブ TUI のため `\r` を使用
-- **`bracketed_paste: false`**: Copilot CLI はブラケテッドペーストモード（`ESC[?2004h`）を有効にしないため、`ESC[200~`/`ESC[201~` マーカーは無視され、テキストは `useInput` で文字ごとに処理される。`/` がメッセージの行頭に現れるとスラッシュコマンド補完が起動するため、呼び出し側で置換が必要
+- **`bracketed_paste: true`**: Copilot CLI 1.0.12+ はブラケテッドペーストモード（`ESC[?2004h`）を有効にするため、Synapse は `ESC[200~`/`ESC[201~` マーカーで入力をラップし、Ink が `usePaste` 経由で単一イベントとして処理する。入力がアトミックに配信されるため、スラッシュコマンド補完は発火せず `/` の置換はスキップされる
 - **inject pipe**: `pty.spawn()` の `_copy` ループがマスター fd の I/O を管理するため、他スレッドからの直接書き込みが消失する問題を解決。inject pipe 機構がキーボード入力とプログラム的書き込みをマージする
 - **`input_ready_pattern: "❯"`**: 初期インストラクション送信前に TUI の準備完了を検出。Copilot が `❯` プロンプトを表示した時点で入力可能と判断
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
