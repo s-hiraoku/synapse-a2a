@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.11
+
+- **Fixed**: Copilot CLI 1.0.12 instructions not executing — enabled `bracketed_paste: true` for paste marker wrapping
+- **Fixed**: Slash escaping skipped when bracketed paste is active (pasted text doesn't trigger autocomplete)
+- **Docs**: Updated Copilot bracketed paste documentation across all references
+
 ### v0.17.10
 
 - **Changed**: DB path management consolidated to `synapse/paths.py` — all databases use centralized path functions

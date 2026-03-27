@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.11] - 2026-03-27
+
+### Fixed
+
+- **Copilot CLI 1.0.12 instructions not executing** — Copilot CLI 1.0.12+ now enables bracketed paste mode (`ESC[?2004h`) on startup; updated profile to `bracketed_paste: true` so Synapse wraps injected text in `ESC[200~`/`ESC[201~` markers. Without markers, text was processed character-by-character through Ink's `useInput`, causing slash-command autocomplete and submit failures
+- Slash escaping (`/` → fullwidth solidus) now skipped when bracketed paste is enabled, as pasted text goes through `usePaste` and does not trigger autocomplete
+
+### Documentation
+
+- Updated Copilot bracketed paste documentation across README, synapse-reference, guides/profiles, and site-docs (profiles, profiles-yaml, troubleshooting)
+
 ## [0.17.10] - 2026-03-27
 
 ### Changed

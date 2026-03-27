@@ -1309,7 +1309,13 @@ class TerminalController:
                 # Copilot: replace line-start '/' with fullwidth solidus to
                 # prevent slash-command autocomplete.  Only target line-start
                 # slashes; interior slashes (URLs, paths) are left intact.
-                if self.agent_type == "copilot" and "/" in data:
+                # Skipped when bracketed paste is enabled (1.0.12+) because
+                # pasted text goes through usePaste, not useInput.
+                if (
+                    self.agent_type == "copilot"
+                    and not self._bracketed_paste
+                    and "/" in data
+                ):
                     data = "".join(
                         ("\uff0f" + line[1:]) if line.startswith("/") else line
                         for line in data.splitlines(keepends=True)

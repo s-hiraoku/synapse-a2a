@@ -15,12 +15,12 @@ submit_confirm_retries: 3
 # prompt after bracketed paste, so use a slightly larger confirmation budget.
 long_submit_confirm_timeout: 3.0
 long_submit_confirm_retries: 5
-# Bracketed paste disabled: Copilot CLI does not enable bracketed paste mode
-# (ESC[?2004h), so ESC[200~/ESC[201~ markers are ignored and text is processed
-# character-by-character through useInput.  With bracketed paste off, messages
-# containing '/' can trigger slash-command completion.
-# Synapse rewrites '/' to fullwidth solidus (\uff0f) before injection.
-bracketed_paste: false
+# Bracketed paste enabled: Copilot CLI 1.0.12+ enables bracketed paste mode
+# (ESC[?2004h) on startup.  Synapse must wrap injected text in
+# ESC[200~/ESC[201~ markers so Ink routes it through usePaste as a single
+# event.  Without markers, text is processed character-by-character through
+# useInput, causing slash-command autocomplete and submit failures.
+bracketed_paste: true
 env:
   TERM: "xterm-256color"
 

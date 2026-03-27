@@ -187,7 +187,7 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
-bracketed_paste: false
+bracketed_paste: true
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
@@ -202,8 +202,8 @@ idle_detection:
 
 - Interactive TUI without consistent prompt patterns
 - Requires explicit `write_delay: 0.5` — Ink TUI processes input character-by-character through `useInput`; allow time for React to render before Enter is sent
-- `bracketed_paste: false` — Copilot CLI does not enable bracketed paste mode (`ESC[?2004h`), so paste markers are ignored. Input is written via an inject pipe that merges with the PTY `_copy` select loop
-- Slash characters (`/`) are automatically replaced with fullwidth solidus (`/`) to prevent slash-command autocomplete from triggering during input
+- `bracketed_paste: true` — Copilot CLI 1.0.12+ enables bracketed paste mode (`ESC[?2004h`) on startup. Synapse wraps injected text in `ESC[200~`/`ESC[201~` markers so Ink routes it through `usePaste` as a single event. Without markers, text is processed character-by-character through `useInput`, causing slash-command autocomplete and submit failures
+- Slash escaping is automatically skipped when bracketed paste is enabled, since paste mode prevents slash-command autocomplete from triggering
 - ICRNL is disabled before sending the submit sequence to ensure `\r` is not converted to `\n` (Ink maps `\r` to key.return but `\n` to a different event)
 - Submit confirmation watches the prompt itself, not only status changes; placeholders such as file-reference banners keep the send pending until they clear
 - `long_submit_confirm_timeout: 3.0` and `long_submit_confirm_retries: 5` give multiline/file-reference sends a larger confirmation budget without changing the submit key path

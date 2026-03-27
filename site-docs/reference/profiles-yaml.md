@@ -90,7 +90,7 @@ Wrap PTY data writes in bracketed paste escape sequences (`ESC[200~ ... ESC[201~
 ```yaml
 bracketed_paste: true   # Only if the agent enables bracketed paste mode
 # Default: false
-# Note: Copilot CLI does not enable bracketed paste mode, so this is false for Copilot.
+# Note: Copilot CLI 1.0.12+ enables bracketed paste mode, so this is true for Copilot.
 ```
 
 ### typing_char_delay / typing_max_chars
@@ -206,7 +206,7 @@ command: copilot
 args: []
 submit_sequence: "\r"
 write_delay: 0.5
-bracketed_paste: false
+bracketed_paste: true
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3
