@@ -478,12 +478,14 @@ Auto-generates `SKILL.md` files from all workflow YAML definitions into `.claude
 
 ```bash
 synapse init [--scope user|project]
-synapse config [--scope user|project]
+synapse config
 synapse config show [--scope SCOPE]
 synapse reset [--scope user|project|both] [-f]
 ```
 
 `synapse init` uses a merge strategy: template files are updated, and `settings.json` is **smart-merged** (new keys added, your customized values preserved). User-generated data (agents, databases, sessions, workflows, worktrees) is preserved. Safe to re-run after upgrades.
+
+`synapse config` opens the interactive editor and shows effective values with their sources, using precedence in this order: `os.environ > local > project > user > default`. The editor writes changes to the scope that currently provides the effective value. Settings overridden by `os.environ` are shown as read-only. Use `synapse config show --scope user|project|merged` for explicit read-only scope views.
 
 ## External Agents
 

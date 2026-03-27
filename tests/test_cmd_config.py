@@ -114,27 +114,11 @@ class TestConfigShow:
 class TestConfigRun:
     """Tests for interactive config command."""
 
-    def test_cancel_scope_selection(self) -> None:
-        """Should exit gracefully when scope selection is cancelled."""
-        output_lines: list[str] = []
-        mock_q = MockQuestionary([None])  # Cancel scope selection
-
-        cmd = ConfigCommand(
-            print_func=lambda s: output_lines.append(s),
-            questionary_module=mock_q,
-        )
-        result = cmd.run()
-
-        assert result is False
-        output = "\n".join(output_lines)
-        assert "cancelled" in output.lower()
-
     def test_exit_without_changes(self, temp_synapse_dir: Path) -> None:
         """Should exit without saving when no changes made."""
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "cancel",  # main menu - exit
             ]
         )
@@ -159,7 +143,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "env",  # main menu - env category
                 "SYNAPSE_HISTORY_ENABLED",  # env setting selection
                 "true",  # new value
@@ -190,7 +173,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "project",  # scope selection
                 "a2a",  # main menu - a2a category
                 "flow",  # a2a setting selection
                 "roundtrip",  # new value
@@ -219,7 +201,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "instructions",  # main menu - instructions category
                 "claude",  # instructions setting selection
                 "claude.md",  # new value
@@ -248,7 +229,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "resume_flags",  # main menu - resume_flags category
                 "claude",  # resume_flags setting selection
                 "--continue, --resume",  # new value (comma-separated)
@@ -275,7 +255,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "env",  # main menu - env category
                 "SYNAPSE_HISTORY_ENABLED",  # env setting selection
                 "true",  # new value
@@ -302,7 +281,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "save",  # main menu - save (no changes made)
             ]
         )
@@ -325,7 +303,6 @@ class TestConfigRun:
         output_lines: list[str] = []
         mock_q = MockQuestionary(
             [
-                "user",  # scope selection
                 "env",  # main menu - env category
                 None,  # Back to main menu
                 "cancel",  # main menu - exit
@@ -420,11 +397,13 @@ class TestConfigCLIIntegration:
             mock_cmd_class.return_value = mock_cmd
 
             args = MagicMock()
-            args.scope = "user"
+            args.no_rich = True
+            # Ensure stdout is not a TTY so legacy path is taken
+            with patch("sys.stdout") as mock_stdout:
+                mock_stdout.isatty.return_value = False
+                cmd_config(args)
 
-            cmd_config(args)
-
-            mock_cmd.run.assert_called_once_with(scope="user")
+            mock_cmd.run.assert_called_once_with()
 
     def test_cmd_config_show_calls_show(self) -> None:
         """cmd_config_show should call ConfigCommand.show()."""

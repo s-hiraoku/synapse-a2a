@@ -145,18 +145,10 @@ $ synapse reset
 
 ### synapse config
 
-インタラクティブな TUI で設定を編集します。
+インタラクティブな TUI で設定を編集します。`--scope` は不要で、TUI が各設定の実効値とそのソースを表示し、編集対象のスコープを自動判定します。
 
 ```bash
 $ synapse config
-
-? Which settings file do you want to edit?
-  ❯ User settings (~/.synapse/settings.json)
-    Project settings (./.synapse/settings.json)
-    ────────────────────────────────────────────
-    Cancel
-
-Editing: /Users/you/.synapse/settings.json
 
 ? Select a category to configure:
   ❯ Environment Variables - Configure SYNAPSE_* environment variables
@@ -166,6 +158,11 @@ Editing: /Users/you/.synapse/settings.json
     ────────────────────────────────────────────
     Save and exit
     Exit without saving
+
+? Select a setting to edit:
+  ❯ LEARNING_MODE_ENABLED: ON (user) [env: ON]
+    HISTORY_ENABLED: ON (project)
+    FILE_SAFETY_ENABLED: ON (default)
 ```
 
 **カテゴリ**:
@@ -177,13 +174,12 @@ Editing: /Users/you/.synapse/settings.json
 | A2A Protocol | `flow` モード（auto/roundtrip/oneway） |
 | Resume Flags | セッション再開を示すフラグ |
 
-**オプション**:
+**動作**:
 
-```bash
-# スコープを直接指定（プロンプトをスキップ）
-synapse config --scope user     # ユーザー設定を編集
-synapse config --scope project  # プロジェクト設定を編集
-```
+- 各項目は実効値とそのソースを表示します。例: `LEARNING_MODE_ENABLED: ON (user) [env: ON]`
+- 項目を編集すると、実効値のソースになっているスコープの `settings.json` が直接更新されます
+- `os.environ` で上書きされている項目は変更不可として表示されます
+- スコープを明示して表示だけ確認したい場合は `synapse config show --scope user|project|merged` を使います
 
 ### synapse config show
 

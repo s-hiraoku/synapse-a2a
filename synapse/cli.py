@@ -2310,7 +2310,6 @@ def cmd_config(args: argparse.Namespace) -> None:
     """Interactive configuration management."""
     import sys
 
-    scope = getattr(args, "scope", None)
     no_rich = getattr(args, "no_rich", False)
 
     # Use Rich TUI if stdout is TTY and not explicitly disabled
@@ -2319,14 +2318,13 @@ def cmd_config(args: argparse.Namespace) -> None:
     if use_rich:
         from synapse.commands.config import RichConfigCommand
 
-        # Default to user scope if not specified
-        rich_cmd = RichConfigCommand(scope=scope or "user")
+        rich_cmd = RichConfigCommand()
         rich_cmd.run()
     else:
         from synapse.commands.config import ConfigCommand
 
         legacy_cmd = ConfigCommand()
-        legacy_cmd.run(scope=scope)
+        legacy_cmd.run()
 
 
 def cmd_config_show(args: argparse.Namespace) -> None:
@@ -5045,16 +5043,9 @@ Also re-copies skills from .claude to .agents.""",
 Opens an interactive menu to browse and modify settings in .synapse/settings.json.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  synapse config                  Interactive mode (prompts for scope)
-  synapse config --scope user     Edit user settings directly
-  synapse config --scope project  Edit project settings directly
-  synapse config show             Show merged settings (read-only)
+  synapse config                    Interactive editor (effective values)
+  synapse config show               Show effective settings (read-only)
   synapse config show --scope user  Show user settings only""",
-    )
-    p_config.add_argument(
-        "--scope",
-        choices=["user", "project"],
-        help="Settings scope to edit (user or project)",
     )
     p_config.add_argument(
         "--no-rich",

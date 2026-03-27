@@ -92,10 +92,14 @@ synapse config show --scope merged
 ## Interactive Config Editor
 
 ```bash
-synapse config                         # Interactive TUI editor
-synapse config --scope user            # Edit user settings directly
-synapse config --scope project         # Edit project settings directly
+synapse config                         # Interactive TUI editor with effective values and sources
 ```
+
+- `synapse config` automatically chooses the correct scope to edit for each setting
+- Effective values show their current source, for example `LEARNING_MODE_ENABLED: ON (user) [env: ON]`
+- Editing a setting writes directly to the file for the scope that currently provides the effective value
+- Settings overridden by `os.environ` are shown as read-only
+- Use `synapse config show --scope user|project|merged` when you want a scope-specific read-only view
 
 ## View Settings
 
