@@ -58,7 +58,7 @@ For user guides, see the [`/guides`](../guides/) directory.
   - [mizchi/tornado](https://github.com/mizchi/tornado) の設計分析と採用判断
   - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --silent` の簡易版）
   - Token/Cost Tracking: `synapse/token_parser.py` スケルトン（`TokenUsage` + `parse_tokens()` レジストリ）
-  - Note: Task Board 関連の仕様は v0.18.0 で削除済み
+  - Note: Task Board 関連の仕様は v0.17.10 で削除済み
 
 ### リリース
 

@@ -139,7 +139,6 @@ flowchart TB
     history --> History
     skills --> Skills
     agents --> Agents
-    tasks --> Tasks
     session --> SessionCmds
     canvas --> Canvas
 ```

@@ -675,8 +675,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     )
 
         file_locks: list[dict[str, str]] = []
-        lock_db = get_file_safety_db_path()
-        if os.path.exists(lock_db):
+        try:
+            lock_db: str | None = get_file_safety_db_path()
+        except (RuntimeError, OSError, ValueError):
+            lock_db = None
+        if lock_db and os.path.exists(lock_db):
             try:
                 conn = sqlite3.connect(lock_db)
                 conn.row_factory = sqlite3.Row
@@ -698,7 +701,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         memories: list[dict[str, Any]] = []
         try:
             memory_db: str | None = get_shared_memory_db_path()
-        except (RuntimeError, OSError):
+        except (RuntimeError, OSError, ValueError):
             memory_db = None
         if memory_db and os.path.exists(memory_db):
             try:
@@ -732,7 +735,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         history: list[dict[str, Any]] = []
         try:
             history_db: str | None = get_history_db_path()
-        except (RuntimeError, OSError):
+        except (RuntimeError, OSError, ValueError):
             history_db = None
         if history_db and os.path.exists(history_db):
             try:

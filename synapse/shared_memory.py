@@ -1,9 +1,9 @@
 """Shared Memory for cross-agent knowledge sharing.
 
-Provides a project-local SQLite-based knowledge base where agents can
-save, search, and share learned knowledge across sessions.
+Provides a user-global SQLite-based knowledge base where agents can
+save, search, and share learned knowledge across projects and sessions.
 
-Storage: .synapse/memory.db (SQLite with WAL mode)
+Storage: ~/.synapse/memory.db (SQLite with WAL mode, user-global)
 Pattern: follows file_safety.py conventions.
 """
 
@@ -34,7 +34,8 @@ class SharedMemory:
 
     def __init__(self, db_path: str | None = None, enabled: bool = True) -> None:
         self.enabled = enabled
-        self.db_path = os.path.abspath(db_path or get_shared_memory_db_path())
+        resolved = db_path or get_shared_memory_db_path()
+        self.db_path = os.path.abspath(os.path.expanduser(os.path.expandvars(resolved)))
         self._lock = threading.RLock()
 
         if self.enabled:

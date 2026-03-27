@@ -304,7 +304,6 @@ The `/api/system` endpoint aggregates state from across the project:
 - `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
 - `user_agent_profiles`: User-scope saved agent definitions from `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
 - `active_project_agent_profiles`: Saved agent definitions from active projects only, derived from running agents' `working_dir` values and normalized so worktrees resolve to the base repo. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
-- `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`, `failed`).
 - `file_locks`: Active file locks.
 - `memories`: Latest 20 shared memory entries.
 - `worktrees`: Active worktrees from the registry.
