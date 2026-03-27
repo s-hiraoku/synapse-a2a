@@ -74,7 +74,7 @@ synapse init --scope project   # ./.synapse/settings.json
 This creates the configuration directory with default settings and instruction templates.
 
 !!! info "Safe to re-run"
-    `synapse init` uses a **merge strategy** — only template files (`settings.json`, `default.md`, `gemini.md`, `file-safety.md`, `learning.md`, `shared-memory.md`) are written. User-generated data such as saved agent definitions (`agents/`), databases (`*.db`), sessions, workflows, and worktrees are **preserved**. You can safely re-run `synapse init` to pick up new template files after upgrading.
+    `synapse init` uses a **merge strategy**. Template files (`default.md`, `learning.md`, etc.) are updated, and `settings.json` is **smart-merged** — new configuration keys are added while your customized values are preserved. User-generated data such as saved agent definitions (`agents/`), databases (`*.db`), sessions, workflows, and worktrees are also preserved. You can safely re-run `synapse init` to pick up new settings and templates after upgrading.
 
 ## Install Skills
 

@@ -31,8 +31,18 @@ def synapse_dir_with_user_data(temp_dir):
     synapse_dir = temp_dir / ".synapse"
     synapse_dir.mkdir(parents=True)
 
-    # Template files (should be overwritten)
-    (synapse_dir / "settings.json").write_text('{"old": "settings"}')
+    # Template files (settings.json is smart-merged, *.md are overwritten)
+    (synapse_dir / "settings.json").write_text(
+        json.dumps(
+            {
+                "old": "settings",
+                "env": {
+                    "SYNAPSE_HISTORY_ENABLED": "false",
+                    "CUSTOM_USER_VAR": "keep-me",
+                },
+            }
+        )
+    )
     (synapse_dir / "default.md").write_text("old default instructions")
 
     # User data: saved agent definitions
@@ -134,18 +144,31 @@ class TestCopySynapseTemplatesPreservesUserData:
         assert (worktrees_dir / "feature-auth").exists(), "worktree was deleted"
 
     def test_updates_template_files(self, synapse_dir_with_user_data):
-        """Template files (settings.json, *.md) must be updated."""
+        """Template files must be updated; settings.json is smart-merged."""
         synapse_dir = synapse_dir_with_user_data
 
         result = _copy_synapse_templates(synapse_dir)
         assert result is True
 
-        # settings.json should have new default values, not old ones
+        # settings.json should be smart-merged:
+        # - new template keys are added
+        # - user-customized values are preserved
         settings = json.loads((synapse_dir / "settings.json").read_text())
-        assert "old" not in settings, "settings.json was not updated"
-        assert "env" in settings, "settings.json doesn't have default content"
+        assert "env" in settings, "settings.json doesn't have env section"
+        # User's custom value preserved
+        assert settings["env"]["SYNAPSE_HISTORY_ENABLED"] == "false", (
+            "User value was overwritten"
+        )
+        assert settings["env"]["CUSTOM_USER_VAR"] == "keep-me", (
+            "Custom user env var was lost"
+        )
+        # New template keys added
+        assert "SYNAPSE_LEARNING_MODE_ENABLED" in settings["env"], (
+            "New template key was not added"
+        )
+        assert "instructions" in settings, "Template section not merged"
 
-        # default.md should be updated
+        # default.md should be updated (non-settings files are still overwritten)
         content = (synapse_dir / "default.md").read_text()
         assert content != "old default instructions", "default.md was not updated"
 

@@ -86,31 +86,56 @@ TASK HISTORY (Enable with SYNAPSE_HISTORY_ENABLED=true):
 # Default settings template
 DEFAULT_SETTINGS: dict[str, Any] = {
     "env": {
+        # History settings
         "SYNAPSE_HISTORY_ENABLED": "true",
+        "SYNAPSE_HISTORY_DB_PATH": "~/.synapse/history/history.db",
+        # File safety settings
         "SYNAPSE_FILE_SAFETY_ENABLED": "true",
         "SYNAPSE_FILE_SAFETY_DB_PATH": ".synapse/file_safety.db",
         "SYNAPSE_FILE_SAFETY_RETENTION_DAYS": "30",
+        # Authentication settings
         "SYNAPSE_AUTH_ENABLED": "false",
         "SYNAPSE_API_KEYS": "",
         "SYNAPSE_ADMIN_KEY": "",
         "SYNAPSE_ALLOW_LOCALHOST": "true",
         "SYNAPSE_USE_HTTPS": "false",
+        # Webhook settings
         "SYNAPSE_WEBHOOK_SECRET": "",
         "SYNAPSE_WEBHOOK_TIMEOUT": "10",
         "SYNAPSE_WEBHOOK_MAX_RETRIES": "3",
         # Long message file storage settings
-        # Messages exceeding threshold are stored in files instead of PTY paste
         "SYNAPSE_LONG_MESSAGE_THRESHOLD": "200",  # Character count (TUI limit ~200-300)
         "SYNAPSE_LONG_MESSAGE_TTL": "3600",  # File retention in seconds (1 hour)
         "SYNAPSE_LONG_MESSAGE_DIR": "",  # Default: /tmp/synapse-a2a/messages/
+        "SYNAPSE_SEND_MESSAGE_THRESHOLD": "102400",  # Bytes; auto temp-file for synapse send
         # Shared memory settings
         "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
-        "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
+        "SYNAPSE_SHARED_MEMORY_DB_PATH": "~/.synapse/memory.db",
         # Learning mode settings
         "SYNAPSE_LEARNING_MODE_ENABLED": "false",
         "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
         # Proactive mode settings
         "SYNAPSE_PROACTIVE_MODE_ENABLED": "false",
+        # Observation / self-learning
+        "SYNAPSE_OBSERVATION_ENABLED": "true",
+        # Path overrides (user-global)
+        "SYNAPSE_REGISTRY_DIR": "~/.a2a/registry",
+        "SYNAPSE_EXTERNAL_REGISTRY_DIR": "~/.a2a/external",
+        "SYNAPSE_REPLY_TARGET_DIR": "~/.a2a/reply",
+        "SYNAPSE_REPLY_TARGET_TTL_SECONDS": "1800",
+        "SYNAPSE_CANVAS_DB_PATH": "~/.synapse/canvas.db",
+        "SYNAPSE_SKILLS_DIR": "~/.synapse/skills",
+        # Path overrides (project-local)
+        "SYNAPSE_WORKFLOW_RUNS_DB_PATH": ".synapse/workflow_runs.db",
+        "SYNAPSE_OBSERVATION_DB_PATH": ".synapse/observations.db",
+        "SYNAPSE_INSTINCT_DB_PATH": ".synapse/instincts.db",
+        # Canvas settings
+        "SYNAPSE_CANVAS_PORT": "3000",
+        # Logging settings
+        "SYNAPSE_LOG_LEVEL": "INFO",
+        "SYNAPSE_LOG_FILE": "false",
+        # Agent prompt saving
+        "SYNAPSE_AGENT_SAVE_PROMPT_ENABLED": "true",
     },
     "instructions": {
         "default": get_default_instructions(),

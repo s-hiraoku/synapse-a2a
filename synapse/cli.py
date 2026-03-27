@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import errno
+import json
 import logging
 import os
 import shutil
@@ -2080,6 +2081,32 @@ def _write_default_settings(path: Path) -> bool:
         return False
 
 
+def _smart_merge_settings(template_file: Path, existing_file: Path) -> None:
+    """Merge template settings.json into existing one, preserving user values.
+
+    New keys from the template are added; existing user values are kept.
+    This ensures upgrades add new config options without losing customization.
+    """
+    from synapse.settings import merge_settings
+
+    try:
+        template_data = json.loads(template_file.read_text(encoding="utf-8"))
+        existing_data = json.loads(existing_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "Smart merge failed for %s: %s — overwriting", existing_file, exc
+        )
+        shutil.copy2(template_file, existing_file)
+        return
+
+    # merge_settings(base, override): override values take precedence.
+    # Use template as base, existing as override → user values preserved, new keys added.
+    merged = merge_settings(template_data, existing_data)
+    existing_file.write_text(
+        json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 def _copy_synapse_templates(target_dir: Path) -> bool:
     """
     Copy template files from synapse/templates/.synapse/ to target directory.
@@ -2134,7 +2161,11 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
                     break
             else:
                 dst_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_file, dst_file)
+                # Smart merge for settings.json: add new keys, preserve user values
+                if rel_path.name == "settings.json" and dst_file.exists():
+                    _smart_merge_settings(src_file, dst_file)
+                else:
+                    shutil.copy2(src_file, dst_file)
 
         return True
 
