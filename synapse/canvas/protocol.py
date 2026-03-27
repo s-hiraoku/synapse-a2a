@@ -88,7 +88,6 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "alert": FormatSpec(body_type="object"),
     "file-preview": FormatSpec(body_type="object"),
     "trace": FormatSpec(body_type="any"),
-    "task-board": FormatSpec(body_type="object"),
     "tip": FormatSpec(body_type="string"),
     "progress": FormatSpec(body_type="object"),
     "terminal": FormatSpec(body_type="string"),

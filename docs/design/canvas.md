@@ -73,7 +73,6 @@ The `content.format` field determines how `content.body` is rendered. This is th
 | `alert` | `{severity, message, source}` | Alert notification | Persistent important notifications |
 | `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
 | `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
-| `task-board` | `{columns: [...]}` | Kanban board | Kanban board view |
 | `progress` | `{current, total, label, steps, status}` | Progress bar + steps | Task/build progress tracking |
 | `terminal` | Raw string (ANSI escapes) | Terminal emulator | Command output with color support |
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency visualization |
@@ -291,7 +290,7 @@ GET    /api/system          System state summary (Agents, User/Active-Project Sa
 |---------|------------|---------------|
 | Markdown (A) | markdown, checklist, tip, alert, status, metric, progress, timeline, link-preview | `.md` |
 | Native (B) | code, html, artifact, diff, mermaid, terminal, image | 元形式（言語別拡張子, `.html`, `.diff`, `.mmd`, `.txt`, `.png`） |
-| JSON (C) | json, chart, task-board, dependency-graph, trace, log, file-preview, plan | `.json` |
+| JSON (C) | json, chart, dependency-graph, trace, log, file-preview, plan | `.json` |
 | CSV (D) | table, cost | `.csv` |
 
 テンプレートカード（briefing, comparison, dashboard, steps, slides, plan）はデフォルトで Markdown にエクスポートされる。`?format=json` で生カードデータを JSON 出力可能。
@@ -305,7 +304,6 @@ The `/api/system` endpoint aggregates state from across the project:
 - `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
 - `user_agent_profiles`: User-scope saved agent definitions from `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
 - `active_project_agent_profiles`: Saved agent definitions from active projects only, derived from running agents' `working_dir` values and normalized so worktrees resolve to the base repo. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
-- `tasks`: Task board entries in kanban format (`pending`, `in_progress`, `completed`, `failed`).
 - `file_locks`: Active file locks.
 - `memories`: Latest 20 shared memory entries.
 - `worktrees`: Active worktrees from the registry.
@@ -663,7 +661,7 @@ Templates add structured layout semantics on top of composite cards. The `templa
 | `dashboard` | Flexible grid of widgets with size hints | MAX_WIDGETS = 20, cols 1–4 |
 | `steps` | Linear workflow with completion tracking | MAX_STEPS = 30 |
 | `slides` | Page-by-page slide navigation | MAX_SLIDES = 30 |
-| `plan` | Task plan with Mermaid DAG + step list, status tracking, and Task Board integration | MAX_STEPS = 30 |
+| `plan` | Task plan with Mermaid DAG + step list and status tracking | MAX_STEPS = 30 |
 
 #### Template Schemas
 
@@ -782,7 +780,7 @@ synapse canvas plan '{"title":"Migration Plan","plan_id":"plan-001","status":"pr
 synapse canvas plan --file plan.json
 ```
 
-After approval via `synapse tasks accept-plan <plan_id>`, steps are auto-registered on the Task Board with dependency tracking. Progress syncs back to the Canvas Plan Card via `synapse tasks sync-plan <plan_id>`.
+Plan steps include dependency tracking and status updates that sync back to the Canvas Plan Card.
 
 See [Smart Suggest & Plan Canvas Design](smart-suggest-plan-canvas.md) for the full design.
 
@@ -809,7 +807,6 @@ FORMAT_REGISTRY: dict[str, FormatSpec] = {
     "alert":    FormatSpec(body_type="object", cdn=None),
     "file-preview": FormatSpec(body_type="object", cdn=None),
     "trace":    FormatSpec(body_type="any",    cdn=None),
-    "task-board":FormatSpec(body_type="object", cdn=None),
     "progress": FormatSpec(body_type="object", cdn=None),
     "terminal": FormatSpec(body_type="string", cdn=None),
     "dependency-graph": FormatSpec(body_type="object", cdn=None),
@@ -894,7 +891,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [ ] Skill update (add Canvas commands to synapse-a2a skill)
 
 ### Phase 5: New Card Formats
-Documented 13 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, `task-board`, `progress`, `terminal`, `dependency-graph`, and `cost`.
+Documented 12 new formats added to FORMAT_REGISTRY including `log`, `status`, `metric`, `checklist`, `timeline`, `alert`, `file-preview`, `trace`, `progress`, `terminal`, `dependency-graph`, and `cost`.
 
 ### Phase 6: Template System
 - [x] `template` and `template_data` fields added to `CanvasMessage`

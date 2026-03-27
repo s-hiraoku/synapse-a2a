@@ -29,7 +29,7 @@
     "SYNAPSE_LONG_MESSAGE_TTL": "3600",
     "SYNAPSE_LONG_MESSAGE_DIR": "",
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
-    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": "~/.synapse/memory.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
     "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
@@ -109,7 +109,7 @@
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
 | `SYNAPSE_REPLY_TARGET_DIR` | `~/.a2a/reply` | Reply target persistence directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
-| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Shared memory database |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `~/.synapse/memory.db` | Shared memory database |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -152,7 +152,7 @@
 | Saved Agents (Project) | `.synapse/agents/` | `.agent` files | Project-scope saved agent definitions |
 | Task History | `~/.synapse/history/history.db` | SQLite | Task records |
 | File Safety | `.synapse/file_safety.db` | SQLite (WAL) | File locks/tracking |
-| Shared Memory | `.synapse/memory.db` | SQLite (WAL) | Cross-agent knowledge base |
+| Shared Memory | `~/.synapse/memory.db` | SQLite (WAL) | Cross-agent knowledge base |
 | Logs | `~/.synapse/logs/` | Text | Agent logs |
 | Skills | `~/.synapse/skills/` | Markdown | Central skill store |
 

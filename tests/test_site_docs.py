@@ -34,7 +34,6 @@ def test_card_gallery_lists_all_card_types_and_templates() -> None:
         "alert",
         "file-preview",
         "trace",
-        "task-board",
         "progress",
         "terminal",
         "dependency-graph",

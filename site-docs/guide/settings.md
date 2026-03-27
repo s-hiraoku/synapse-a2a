@@ -25,7 +25,7 @@ synapse init --scope project           # Create ./.synapse/settings.json
 | Overwritten (templates) | Preserved (user data) |
 |------------------------|-----------------------|
 | `settings.json` | `agents/` (saved agent definitions) |
-| `default.md` | `*.db` (file_safety, memory) |
+| `default.md` | `*.db` (file_safety) |
 | `gemini.md` | `sessions/` |
 | `file-safety.md` | `workflows/` |
 | `learning.md` | `worktrees/` |
@@ -69,7 +69,7 @@ synapse reset --scope both -f          # Reset both without confirmation
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
-    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db",
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": "~/.synapse/memory.db",
     "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
   },
   "a2a_flow": "auto",
@@ -128,7 +128,7 @@ synapse reset --scope both -f          # Reset both without confirmation
 |----------|---------|-------------|
 | `SYNAPSE_UDS_DIR` | `/tmp/synapse-a2a` | Unix Domain Socket directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
-| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Shared memory database |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `~/.synapse/memory.db` | Shared memory database |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -196,7 +196,6 @@ Exit codes:
 # Synapse local settings (don't commit)
 .synapse/settings.local.json
 .synapse/file_safety.db
-.synapse/memory.db
 
 # Keep project settings (commit)
 # .synapse/settings.json

@@ -33,8 +33,6 @@ synapse send gemini "Fix this" --silent        # Fire-and-forget
 synapse send claude "Update" --notify          # Async notification (default)
 synapse send claude --message-file /tmp/msg.txt --silent  # From file
 synapse send claude "Review" --attach src/main.py --wait  # With file
-synapse send claude "Implement auth" --task    # Auto-create linked board task
-synapse send claude "Fix bug" -T               # Short form of --task
 synapse reply "Result here"                    # Auto-route to sender
 synapse reply --fail "Could not complete"      # Send a failed reply
 synapse broadcast "Status check"               # All agents in CWD
@@ -180,7 +178,10 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/sessions/     # Sessions (user)
 ~/.synapse/workflows/    # Workflows (user)
 ~/.synapse/canvas.pid    # Canvas server PID file (stale process detection)
-.synapse/                # Project-local (canvas.db, memory.db, file_safety.db, workflow_runs.db, observations.db, instincts.db, etc.)
+~/.synapse/history/      # history.db (task history, user-global)
+~/.synapse/canvas.db     # Canvas card storage (user-global)
+~/.synapse/memory.db     # Shared memory (user-global)
+.synapse/                # Project-local (file_safety.db, workflow_runs.db, observations.db, instincts.db, etc.)
 ```
 
 ## Testing

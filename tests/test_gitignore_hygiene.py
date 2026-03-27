@@ -20,7 +20,6 @@ class TestGitignoreHygiene:
 
     def test_synapse_sqlite_artifacts_are_ignored(self) -> None:
         assert _is_ignored(".synapse/runtime-test.db")
-        assert _is_ignored(".synapse/runtime-task-board.db")
         assert _is_ignored(".synapse/runtime-canvas.db")
         assert _is_ignored(".synapse/runtime-memory.db")
         assert _is_ignored(".synapse/runtime-test.db-wal")

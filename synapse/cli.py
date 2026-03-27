@@ -4199,7 +4199,7 @@ def main() -> None:
 Synapse wraps CLI agents (Claude Code, Codex, Gemini, OpenCode, Copilot) with
 Google A2A Protocol, enabling seamless inter-agent communication.
 
-Features: Agent Teams, Session Save/Restore, Shared Task Board, Shared Memory,
+Features: Agent Teams, Session Save/Restore, Shared Memory,
 Skills System, File Safety, History & Tracing, Worktree Isolation.""",
         prog="synapse",
         formatter_class=argparse.RawDescriptionHelpFormatter,

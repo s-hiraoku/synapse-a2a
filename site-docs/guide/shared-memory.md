@@ -4,7 +4,7 @@
 
 Shared Memory provides a project-local knowledge base where agents can save, search, and share learned knowledge across sessions. When multiple agents collaborate on a project, Shared Memory enables them to persist decisions, patterns, and discoveries that any agent can later retrieve.
 
-Storage: `.synapse/memory.db` (project-local SQLite, WAL mode for concurrent access)
+Storage: `~/.synapse/memory.db` (user-global SQLite, WAL mode for concurrent access)
 
 ## Enabling Shared Memory
 
@@ -19,7 +19,7 @@ synapse claude
 {
   "env": {
     "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
-    "SYNAPSE_SHARED_MEMORY_DB_PATH": ".synapse/memory.db"
+    "SYNAPSE_SHARED_MEMORY_DB_PATH": "~/.synapse/memory.db"
   }
 }
 ```
@@ -179,7 +179,7 @@ synapse memory save auth-testing "Use httpx mock for OAuth2 tests" \
 ```mermaid
 sequenceDiagram
     participant C as Claude
-    participant M as .synapse/memory.db
+    participant M as ~/.synapse/memory.db
     participant G as Gemini
 
     C->>M: synapse memory save auth-pattern "OAuth2 PKCE"
@@ -228,7 +228,7 @@ stats = memory.stats()
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
-| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `.synapse/memory.db` | Database file path |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | `~/.synapse/memory.db` | Database file path |
 
 ## Integration with Self-Learning
 

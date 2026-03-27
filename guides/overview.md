@@ -82,8 +82,10 @@ flowchart TB
 
     subgraph Storage["ストレージ"]
         Registry["~/.a2a/registry/<br/>エージェント登録"]
-        History["~/.synapse/history.db<br/>タスク履歴"]
+        History["~/.synapse/history/history.db<br/>タスク履歴"]
         FileSafety[".synapse/file_safety.db<br/>ファイルロック"]
+        Memory["~/.synapse/memory.db<br/>共有メモリ"]
+        Canvas["~/.synapse/canvas.db<br/>Canvas"]
         Settings[".synapse/settings.json<br/>設定"]
     end
 
@@ -141,7 +143,7 @@ flowchart TB
 | | 翻訳サポート | JP→EN Learning セクションを有効化（再利用可能な英語テンプレート・スロットマッピング・意訳・語彙チートシート）。LEARNING_MODE_ENABLED と独立して動作 | `SYNAPSE_LEARNING_MODE_TRANSLATION=true` |
 | **認証** | API Key 認証 | HTTP API のアクセス制御 | `SYNAPSE_AUTH_ENABLED=true` |
 | | Webhook 通知 | タスク完了時に外部通知 | Webhook 登録時 |
-| | Proactive Mode | すべてのタスクで Synapse 機能（タスクボード、共有メモリ、キャンバス、ファイルセーフティ、委任、ブロードキャスト）の使用を必須にする | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` |
+| | Proactive Mode | すべてのタスクで Synapse 機能（共有メモリ、キャンバス、ファイルセーフティ、委任、ブロードキャスト）の使用を必須にする | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` |
 | **コラボレーション** | プロアクティブコラボレーション | タスク開始前にコラボレーション機会を自動評価。判断フレームワーク（自分で実行/委任/ヘルプ/報告/共有） | 常時（`.synapse/default.md` で設定） |
 | | クロスモデル生成 | spawn 時に異なるモデルタイプを優先（品質向上 + レート制限分散） | 常時 |
 | | ワーカー自律性 | マネージャーだけでなくワーカーも spawn/委任可能 | 常時 |
@@ -239,10 +241,15 @@ sequenceDiagram
 | `~/.a2a/external/` | ファイル群 | 外部エージェント登録 | グローバル |
 | `~/.synapse/settings.json` | JSON | ユーザー設定 | ユーザー |
 | `~/.synapse/logs/` | ログファイル | ログ出力 | ユーザー |
-| `~/.synapse/history.db` | SQLite | タスク履歴 | ユーザー |
+| `~/.synapse/history/history.db` | SQLite | タスク履歴 | ユーザー |
+| `~/.synapse/canvas.db` | SQLite | Canvas カードストレージ | ユーザー |
+| `~/.synapse/memory.db` | SQLite | 共有メモリ（エージェント間知識共有） | ユーザー |
 | `.synapse/settings.json` | JSON | プロジェクト設定 | プロジェクト |
 | `.synapse/settings.local.json` | JSON | ローカル設定（gitignore推奨） | プロジェクト |
 | `.synapse/file_safety.db` | SQLite | ファイルロック・変更追跡 | プロジェクト |
+| `.synapse/workflow_runs.db` | SQLite | ワークフロー実行履歴 | プロジェクト |
+| `.synapse/observations.db` | SQLite | 自己学習用観測データ | プロジェクト |
+| `.synapse/instincts.db` | SQLite | 学習済みパターン（トリガー + アクション） | プロジェクト |
 | `.synapse/*.md` | Markdown | エージェント指示ファイル | プロジェクト |
 
 ### データベーススキーマ

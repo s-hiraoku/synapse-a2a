@@ -77,11 +77,12 @@ def get_external_registry_dir() -> str:
 def get_shared_memory_db_path() -> str:
     """Get the path to the shared memory database.
 
+    Default: ~/.synapse/memory.db (user-global, shared across projects).
     Override with SYNAPSE_SHARED_MEMORY_DB_PATH environment variable.
     """
     return _resolve_path(
         "SYNAPSE_SHARED_MEMORY_DB_PATH",
-        Path(".synapse") / "memory.db",
+        Path.home() / ".synapse" / "memory.db",
     )
 
 
@@ -94,6 +95,54 @@ def get_canvas_db_path() -> str:
     return _resolve_path(
         "SYNAPSE_CANVAS_DB_PATH",
         Path.home() / ".synapse" / "canvas.db",
+    )
+
+
+def get_workflow_runs_db_path() -> str:
+    """Get the path to the workflow runs database.
+
+    Default: .synapse/workflow_runs.db (project-local).
+    Override with SYNAPSE_WORKFLOW_RUNS_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_WORKFLOW_RUNS_DB_PATH",
+        Path(".synapse") / "workflow_runs.db",
+    )
+
+
+def get_file_safety_db_path() -> str:
+    """Get the path to the file safety database.
+
+    Default: .synapse/file_safety.db (project-local).
+    Override with SYNAPSE_FILE_SAFETY_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_FILE_SAFETY_DB_PATH",
+        Path(".synapse") / "file_safety.db",
+    )
+
+
+def get_observation_db_path() -> str:
+    """Get the path to the observations database.
+
+    Default: .synapse/observations.db (project-local).
+    Override with SYNAPSE_OBSERVATION_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_OBSERVATION_DB_PATH",
+        Path(".synapse") / "observations.db",
+    )
+
+
+def get_instinct_db_path() -> str:
+    """Get the path to the instincts database.
+
+    Default: .synapse/instincts.db (project-local).
+    Override with SYNAPSE_INSTINCT_DB_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_INSTINCT_DB_PATH",
+        Path(".synapse") / "instincts.db",
     )
 
 

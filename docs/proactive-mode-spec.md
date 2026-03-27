@@ -2,7 +2,7 @@
 
 ## Overview
 
-Proactive Mode makes agents **always** use ALL Synapse features (task board, shared memory, canvas, file safety, delegation, broadcast) for every task, regardless of size.
+Proactive Mode makes agents **always** use ALL Synapse features (shared memory, canvas, file safety, delegation, broadcast) for every task, regardless of size.
 
 ## Activation
 
@@ -52,10 +52,10 @@ Follows the **learning_mode pattern** exactly: environment variable activation +
 ### proactive.md Content
 
 Mandatory actions for EVERY task:
-- **BEFORE**: `synapse tasks create`, `synapse memory search`, `synapse list`
-- **DURING**: `synapse file-safety lock/unlock`, `synapse canvas post`, `synapse memory save`, delegation via `synapse spawn/send` (delegation requires task board entry: `synapse tasks create` + `assign` before `synapse send`)
-- **AFTER**: `synapse tasks complete`, `synapse broadcast`, `synapse canvas post` summary
-- Behavioral rules (never skip task board, always lock files, always post canvas artifacts)
+- **BEFORE**: `synapse memory search`, `synapse list`
+- **DURING**: `synapse file-safety lock/unlock`, `synapse canvas post`, `synapse memory save`, delegation via `synapse spawn/send`
+- **AFTER**: `synapse broadcast`, `synapse canvas post` summary
+- Behavioral rules (always lock files, always post canvas artifacts)
 - Per-task checklist
 
 ### Files NOT Modified

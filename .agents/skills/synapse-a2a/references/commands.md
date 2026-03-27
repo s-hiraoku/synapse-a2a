@@ -761,7 +761,7 @@ synapse config show --scope project    # Show project settings only
 | `SYNAPSE_LONG_MESSAGE_TTL` | TTL for message files (seconds) | `3600` |
 | `SYNAPSE_LONG_MESSAGE_DIR` | Directory for message files | System temp |
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | Enable shared memory | `true` |
-| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Shared memory DB path | `.synapse/memory.db` |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Shared memory DB path | `~/.synapse/memory.db` |
 | `SYNAPSE_LEARNING_MODE_ENABLED` | Enable prompt improvement feedback (independent flag) | `false` |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | Enable Japanese-to-English translation (independent flag) | `false` |
 | `SYNAPSE_PROACTIVE_MODE_ENABLED` | Enable proactive mode (mandatory Synapse feature usage for every task) | `false` |
@@ -970,7 +970,7 @@ Resets `settings.json` to defaults and re-copies skills from `.claude` to `.agen
 
 ## Shared Memory
 
-Cross-agent knowledge sharing via a project-local SQLite database (`.synapse/memory.db`).
+Cross-agent knowledge sharing via a user-global SQLite database (`~/.synapse/memory.db`).
 
 Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`). To disable: `SYNAPSE_SHARED_MEMORY_ENABLED=false`.
 
@@ -1050,9 +1050,9 @@ synapse memory stats
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | Enable shared memory | `true` |
-| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Database file path | `.synapse/memory.db` |
+| `SYNAPSE_SHARED_MEMORY_DB_PATH` | Database file path | `~/.synapse/memory.db` |
 
-**Storage:** `.synapse/memory.db` (SQLite with WAL mode, project-local)
+**Storage:** `~/.synapse/memory.db` (SQLite with WAL mode, user-global)
 
 ## Plan Approval
 
@@ -1804,7 +1804,7 @@ Clusters instincts by domain and identifies viable skill candidates (requires 2+
 .synapse/            # Project-level settings
 .synapse/sessions/   # Saved sessions (project scope)
 .synapse/workflows/  # Saved workflows (project scope)
-.synapse/memory.db   # Shared memory knowledge base (project-local)
+~/.synapse/memory.db   # Shared memory knowledge base (user-global)
 ~/.synapse/canvas.db   # Canvas card storage (user-global)
 .synapse/workflow_runs.db # Workflow execution history (project-local, SQLite WAL)
 .synapse/observations.db  # Observation events for self-learning (project-local)

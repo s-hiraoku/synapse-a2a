@@ -1608,7 +1608,7 @@ def create_a2a_router(
         return {"updated": True, "task_id": request.task_id, "status": request.status}
 
     # --------------------------------------------------------
-    # Task Board Endpoints (B1: Shared Task Board)
+    # Reply / Task Utility Endpoints
     # NOTE: These must be defined BEFORE /tasks/{task_id} to avoid route conflicts
     # --------------------------------------------------------
 

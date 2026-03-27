@@ -7,8 +7,12 @@ from unittest.mock import patch
 from synapse.paths import (
     get_canvas_db_path,
     get_external_registry_dir,
+    get_file_safety_db_path,
     get_history_db_path,
+    get_instinct_db_path,
+    get_observation_db_path,
     get_registry_dir,
+    get_workflow_runs_db_path,
 )
 
 # ============================================================
@@ -152,3 +156,63 @@ class TestGetCanvasDbPath:
             result = get_canvas_db_path()
             expected = str(Path.home() / "synapse-test" / "canvas.db")
             assert result == expected
+
+
+# ============================================================
+# Project-local DB Path Tests
+# ============================================================
+
+_PROJECT_LOCAL_DBS = [
+    (
+        "get_workflow_runs_db_path",
+        get_workflow_runs_db_path,
+        "SYNAPSE_WORKFLOW_RUNS_DB_PATH",
+        "workflow_runs.db",
+    ),
+    (
+        "get_file_safety_db_path",
+        get_file_safety_db_path,
+        "SYNAPSE_FILE_SAFETY_DB_PATH",
+        "file_safety.db",
+    ),
+    (
+        "get_observation_db_path",
+        get_observation_db_path,
+        "SYNAPSE_OBSERVATION_DB_PATH",
+        "observations.db",
+    ),
+    (
+        "get_instinct_db_path",
+        get_instinct_db_path,
+        "SYNAPSE_INSTINCT_DB_PATH",
+        "instincts.db",
+    ),
+]
+
+
+class TestProjectLocalDbPaths:
+    """Test project-local DB path functions."""
+
+    def test_default_paths(self):
+        """Defaults should be .synapse/<name>.db (project-local)."""
+        for name, fn, env_var, filename in _PROJECT_LOCAL_DBS:
+            with patch.dict(os.environ, {}, clear=True):
+                os.environ.pop(env_var, None)
+                result = fn()
+                expected = str(Path(".synapse") / filename)
+                assert result == expected, f"{name} default mismatch"
+
+    def test_env_override(self):
+        """Environment variable should override default path."""
+        for name, fn, env_var, filename in _PROJECT_LOCAL_DBS:
+            with patch.dict(os.environ, {env_var: f"/tmp/test-{filename}"}):
+                result = fn()
+                assert result == f"/tmp/test-{filename}", f"{name} env override failed"
+
+    def test_env_expands_tilde(self):
+        """Environment variable should expand ~ to home directory."""
+        for name, fn, env_var, filename in _PROJECT_LOCAL_DBS:
+            with patch.dict(os.environ, {env_var: f"~/.synapse/custom-{filename}"}):
+                result = fn()
+                expected = str(Path.home() / ".synapse" / f"custom-{filename}")
+                assert result == expected, f"{name} tilde expansion failed"

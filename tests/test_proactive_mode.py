@@ -47,7 +47,7 @@ class TestProactiveModeInstructionInjection:
             synapse_dir = Path(tmpdir) / ".synapse"
             synapse_dir.mkdir()
             (synapse_dir / "proactive.md").write_text(
-                "PROACTIVE RULES\nAlways use task board"
+                "PROACTIVE RULES\nAlways check shared memory"
             )
 
             settings = SynapseSettings(
@@ -60,7 +60,7 @@ class TestProactiveModeInstructionInjection:
             result = settings.get_instruction("claude", "agent", 8100)
             assert "Base instruction" in result
             assert "PROACTIVE RULES" in result
-            assert "Always use task board" in result
+            assert "Always check shared memory" in result
 
     def test_proactive_instruction_not_appended_when_disabled(self, monkeypatch):
         """Proactive instructions are not appended when flag is disabled."""

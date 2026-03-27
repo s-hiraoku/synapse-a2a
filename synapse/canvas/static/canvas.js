@@ -556,7 +556,6 @@
     alert: "ph-warning",
     "file-preview": "ph-file-text",
     trace: "ph-graph",
-    "task-board": "ph-kanban",
     tip: "ph-lightbulb",
     image: "ph-image",
   };
@@ -732,9 +731,6 @@
         break;
       case "trace":
         renderTrace(wrap, block.body, block);
-        break;
-      case "task-board":
-        renderTaskBoard(wrap, block.body);
         break;
       case "tip":
         renderTip(wrap, block.body, block);
@@ -1857,39 +1853,6 @@
     return wrap;
   }
 
-  function renderTaskBoard(el, body) {
-    const data = body && typeof body === "object" ? body : {};
-    const board = document.createElement("div");
-    board.className = "task-board";
-
-    for (const column of data.columns || []) {
-      const col = document.createElement("div");
-      col.className = "task-column";
-
-      const header = document.createElement("div");
-      header.className = "task-column-header";
-      header.textContent = column.name || "";
-      col.appendChild(header);
-
-      for (const item of column.items || []) {
-        const card = document.createElement("div");
-        card.className = "task-item";
-        card.textContent = `${item.id || ""} ${item.subject || ""}`.trim();
-        if (item.assignee) {
-          const assignee = document.createElement("div");
-          assignee.className = "task-assignee";
-          assignee.textContent = item.assignee;
-          card.appendChild(assignee);
-        }
-        col.appendChild(card);
-      }
-
-      board.appendChild(col);
-    }
-
-    el.appendChild(board);
-  }
-
   function renderTip(el, body, block) {
     const meta = buildMetaRow("tip", block);
     if (meta) el.appendChild(meta);
@@ -2316,9 +2279,6 @@
   // ----------------------------------------------------------------
 
   var _dashExpandState = {};
-  var _dashTaskViewState = "status";
-  var _dashTaskExpandedIds = {};
-  var TASK_STATUSES = ["pending", "in_progress", "completed", "failed"];
   var _dashboardRendered = false;
 
   function createDashHeader(iconClass, titleText) {
@@ -2420,7 +2380,6 @@
 
   function renderDashboard(data) {
     renderDashAgents(Array.isArray(data.agents) ? data.agents : []);
-    renderDashTasks(data.tasks || {});
     renderDashFileLocks(Array.isArray(data.file_locks) ? data.file_locks : []);
     renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
@@ -2505,74 +2464,6 @@
     el.innerHTML = "";
     var summary = buildStatusStrip(agents);
     el.appendChild(createDashWidget("agents", "ph-robot", "Agents (" + agents.length + ")", summary, function () { return renderSystemAgents(agents); }));
-  }
-
-  function buildTaskBars(tasks) {
-    var total = 0;
-    var statuses = TASK_STATUSES;
-    var counts = {};
-    for (var i = 0; i < statuses.length; i++) {
-      var items = tasks[statuses[i]] || [];
-      counts[statuses[i]] = items.length;
-      total += items.length;
-    }
-    if (total === 0) return { bars: null, total: 0 };
-
-    var bars = document.createElement("div");
-    bars.className = "dash-task-bars";
-
-    var colors = { pending: "var(--color-warning)", in_progress: "var(--color-accent)", completed: "var(--color-success)", failed: "var(--color-danger)" };
-    var labels = { pending: "Pending", in_progress: "In Progress", completed: "Completed", failed: "Failed" };
-
-    for (var j = 0; j < statuses.length; j++) {
-      var s = statuses[j];
-      var c = counts[s];
-      if (c === 0 && s === "failed") continue;
-      var row = document.createElement("div");
-      row.className = "dash-task-bar-row";
-
-      var labelEl = document.createElement("span");
-      labelEl.className = "dash-task-bar-label";
-      labelEl.textContent = labels[s];
-      row.appendChild(labelEl);
-
-      var track = document.createElement("div");
-      track.className = "dash-task-bar-track";
-      var fill = document.createElement("div");
-      fill.className = "dash-task-bar-fill";
-      fill.style.width = (total > 0 ? Math.round((c / total) * 100) : 0) + "%";
-      fill.style.background = colors[s];
-      track.appendChild(fill);
-      row.appendChild(track);
-
-      var countEl = document.createElement("span");
-      countEl.className = "dash-task-bar-count";
-      countEl.style.color = colors[s];
-      countEl.textContent = String(c);
-      row.appendChild(countEl);
-
-      bars.appendChild(row);
-    }
-    return { bars: bars, total: total };
-  }
-
-  function renderDashTasks(tasks) {
-    var el = document.getElementById("dash-tasks");
-    if (!el) return;
-
-    var result = buildTaskBars(tasks);
-
-    if (result.total === 0) {
-      el.innerHTML = "";
-      el.appendChild(createDashHeader("ph-kanban", "Task Board (0)"));
-      el.appendChild(emptyState("No tasks"));
-      return;
-    }
-
-    if (updateDashWidget(el, "Task Board (" + result.total + ")", function () { return buildTaskBars(tasks).bars; }, function () { return renderSystemTasks(tasks); })) return;
-
-    el.innerHTML = "";
-    el.appendChild(createDashWidget("tasks", "ph-kanban", "Task Board (" + result.total + ")", result.bars, function () { return renderSystemTasks(tasks); }));
   }
 
   function buildMemoryList(memories) {
@@ -2919,178 +2810,6 @@
     table.appendChild(tbody);
     wrap.appendChild(table);
     return wrap;
-  }
-
-  function renderSystemTasks(tasks) {
-    const wrapper = document.createElement("div");
-
-    // View toggle: Status | Group | Component
-    const toggleBar = document.createElement("div");
-    toggleBar.className = "task-view-toggle";
-    const views = [
-      { key: "status", label: "Status" },
-      { key: "group", label: "Group" },
-      { key: "component", label: "Component" },
-    ];
-    function renderBoard() {
-      const existing = wrapper.querySelector(".task-board");
-      if (existing) existing.remove();
-
-      const board = document.createElement("div");
-      board.className = "task-board";
-
-      const grouped = groupTasksBy(tasks, _dashTaskViewState);
-      for (const [groupName, items] of Object.entries(grouped)) {
-        const column = document.createElement("div");
-        column.className = "task-column";
-        column.dataset.group = groupName;
-
-        const header = document.createElement("div");
-        header.className = "task-column-header";
-        const label = document.createElement("span");
-        label.textContent = groupName.replace("_", " ");
-        header.appendChild(label);
-        const countEl = document.createElement("span");
-        countEl.className = "task-column-count";
-        countEl.textContent = items.length;
-        header.appendChild(countEl);
-        column.appendChild(header);
-
-        for (const item of items) {
-          column.appendChild(renderTaskCard(item));
-        }
-
-        board.appendChild(column);
-      }
-      wrapper.appendChild(board);
-    }
-
-    for (const v of views) {
-      const btn = document.createElement("button");
-      btn.className = "task-view-btn" + (v.key === _dashTaskViewState ? " active" : "");
-      btn.textContent = v.label;
-      btn.addEventListener("click", function () {
-        _dashTaskViewState = v.key;
-        toggleBar.querySelectorAll(".task-view-btn").forEach(function (b) {
-          b.classList.toggle("active", b.textContent === v.label);
-        });
-        renderBoard();
-      });
-      toggleBar.appendChild(btn);
-    }
-    wrapper.appendChild(toggleBar);
-    renderBoard();
-    return wrapper;
-  }
-
-  function groupTasksBy(tasks, viewKey) {
-    if (viewKey === "status") {
-      const result = {};
-      for (const name of TASK_STATUSES) {
-        if ((tasks[name] || []).length > 0) {
-          result[name] = tasks[name];
-        }
-      }
-      return result;
-    }
-    // Flatten all tasks from status buckets, then group by field
-    const all = TASK_STATUSES.flatMap(function (name) { return tasks[name] || []; });
-    const grouped = {};
-    for (const item of all) {
-      const key = viewKey === "group"
-        ? (item.group_title || item.group_id || "(ungrouped)")
-        : (item.component || "(ungrouped)");
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(item);
-    }
-    return grouped;
-  }
-
-  function renderTaskCard(item) {
-    const taskId = item.id || "";
-    const card = document.createElement("div");
-    card.className = "task-item";
-    card.style.cursor = "pointer";
-
-    card.dataset.taskId = taskId;
-
-    const title = document.createElement("div");
-    title.className = "task-item-title";
-    title.textContent = (taskId.slice(0, 8) + " " + (item.subject || "")).trim();
-    title.title = taskId;
-    card.appendChild(title);
-
-    if (item.assignee_name || item.assignee) {
-      const assignee = document.createElement("div");
-      assignee.className = "task-assignee";
-      assignee.textContent = item.assignee_name || item.assignee;
-      card.appendChild(assignee);
-    }
-
-    // Show fail_reason for failed tasks
-    if (item.fail_reason) {
-      const failRow = document.createElement("div");
-      failRow.className = "task-fail-reason";
-      failRow.textContent = item.fail_reason;
-      card.appendChild(failRow);
-    }
-
-    const detail = document.createElement("div");
-    detail.className = "task-item-detail";
-
-    // Description rendered as markdown
-    const descBody = item.description || "";
-    if (descBody && descBody !== "-") {
-      const descRow = document.createElement("div");
-      descRow.className = "task-detail-row task-detail-desc";
-      const descLabel = document.createElement("span");
-      descLabel.className = "task-detail-label";
-      descLabel.textContent = "Description";
-      descRow.appendChild(descLabel);
-      const descValue = document.createElement("div");
-      descValue.className = "task-detail-md";
-      renderMarkdown(descValue, descBody);
-      descRow.appendChild(descValue);
-      detail.appendChild(descRow);
-    }
-
-    const fields = [
-      ["Priority", "P" + String(item.priority || 3)],
-      ["Assignee", item.assignee_name || item.assignee || "-"],
-      ["Created by", item.created_by_name || item.created_by || "-"],
-      ["Created", item.created_at ? formatTimeShort(item.created_at) : "-"],
-      ["Updated", item.updated_at ? formatTimeShort(item.updated_at) : "-"],
-    ];
-    if (item.group_title) fields.push(["Group", item.group_title]);
-    if (item.component) fields.push(["Component", item.component]);
-    if (item.milestone) fields.push(["Milestone", item.milestone]);
-
-    for (const [label, value] of fields) {
-      const row = document.createElement("div");
-      row.className = "task-detail-row";
-      const labelEl = document.createElement("span");
-      labelEl.className = "task-detail-label";
-      labelEl.textContent = label;
-      row.appendChild(labelEl);
-      const valueEl = document.createElement("span");
-      valueEl.textContent = value;
-      row.appendChild(valueEl);
-      detail.appendChild(row);
-    }
-    card.appendChild(detail);
-
-    // Restore expand state from previous render
-    if (_dashTaskExpandedIds[taskId]) {
-      detail.classList.add("expanded");
-    }
-
-    card.addEventListener("click", function (e) {
-      if (e.target.closest('a, button, input, textarea, select, [role="button"]')) return;
-      detail.classList.toggle("expanded");
-      _dashTaskExpandedIds[taskId] = detail.classList.contains("expanded");
-    });
-
-    return card;
   }
 
   function renderSystemFileLocks(locks) {

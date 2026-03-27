@@ -832,12 +832,16 @@ synapse-a2a/
 ├── logs/
 │   ├── <profile>.log
 │   └── shell.log
-└── skills/                 # 中央スキルストア
+├── skills/                 # 中央スキルストア
+├── history.db              # タスク履歴DB（SYNAPSE_HISTORY_DB_PATH で変更可）
+├── canvas.db               # Canvas カードストレージ（SYNAPSE_CANVAS_DB_PATH で変更可）
+└── memory.db               # 共有メモリDB（SYNAPSE_SHARED_MEMORY_DB_PATH で変更可）
 
 .synapse/                   # プロジェクトローカル
 ├── file_safety.db          # ファイル競合防止用DB（SYNAPSE_FILE_SAFETY_DB_PATH で変更可）
-├── task_board.db           # 共有タスクボードDB
-└── memory.db               # 共有メモリDB（SYNAPSE_SHARED_MEMORY_DB_PATH で変更可）
+├── workflow_runs.db         # ワークフロー実行履歴DB
+├── observations.db          # 自己学習用観測DB（SYNAPSE_OBSERVATION_DB_PATH で変更可）
+└── instincts.db             # 学習済みパターンDB（SYNAPSE_INSTINCT_DB_PATH で変更可）
 ```
 
 ---

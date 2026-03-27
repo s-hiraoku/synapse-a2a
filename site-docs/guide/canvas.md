@@ -131,7 +131,6 @@ The `content.format` field determines how `content.body` is rendered. New format
 | `alert` | `{severity, message, source}` | Alert notification | Persistent important notifications |
 | `file-preview` | `{path, lang, snippet, start_line}` | Code preview | Code snippet with file path and line numbers |
 | `trace` | `[{name, duration_ms, status, children?}]` | A2A trace | A2A routing spans with duration bars |
-| `task-board` | `{columns: [...]}` | Kanban board | Kanban board view with markdown descriptions |
 | `progress` | `{current, total, label, steps, status}` | Progress bar | Progress bar with steps (status: in_progress, completed, failed, paused) |
 | `terminal` | Plain text (ANSI supported) | Terminal output | Terminal output with ANSI color support |
 | `dependency-graph` | `{nodes: [{id, group}], edges: [{from, to}]}` | Mermaid graph | Dependency graph rendered as Mermaid |
@@ -444,7 +443,6 @@ synapse canvas post timeline '[{"ts":"10:00","event":"Started","agent":"claude"}
 synapse canvas post alert '{"severity":"error","message":"CI failed","source":"github"}' --title "Alert"
 synapse canvas post file-preview '{"path":"server.py","lang":"python","snippet":"def run():","start_line":42}' --title "Preview"
 synapse canvas post trace '[{"name":"send","duration_ms":150,"status":"ok"}]' --title "Trace"
-synapse canvas post task-board '{"columns":[{"name":"Todo","items":[{"id":"1","subject":"Review"}]}]}' --title "Board"
 synapse canvas post progress '{"current":3,"total":7,"label":"Migration","steps":["Schema","Data","Indexes","Views","Procs","Test","Deploy"],"status":"in_progress"}' --title "Progress"
 synapse canvas post terminal 'Building project...\n\033[32m✓ Compiled 42 files\033[0m\n\033[31m✗ 2 errors found\033[0m' --title "Build Output"
 synapse canvas post dependency-graph '{"nodes":[{"id":"auth","group":"core"},{"id":"api","group":"core"},{"id":"ui","group":"frontend"}],"edges":[{"from":"ui","to":"api"},{"from":"api","to":"auth"}]}' --title "Dependencies"
@@ -569,7 +567,7 @@ Each card format is exported to the most natural file type:
 | `diff` | Unified diff | `.diff` | `text/x-diff` |
 | `mermaid` | Mermaid source (or Markdown via `?format=md`) | `.mmd` | `text/plain` |
 | `image` | Image (PNG) | `.png` | `image/png` |
-| `json`, `task-board`, `dependency-graph`, `trace`, `log`, `file-preview`, `plan` | JSON | `.json` | `application/json` |
+| `json`, `dependency-graph`, `trace`, `log`, `file-preview`, `plan` | JSON | `.json` | `application/json` |
 | `chart` | Chart.js config (or Markdown via `?format=md`) | `.json` | `application/json` |
 | `table`, `cost` | CSV | `.csv` | `text/csv` |
 

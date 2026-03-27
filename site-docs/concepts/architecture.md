@@ -26,8 +26,8 @@ graph TB
         REG[AgentRegistry<br/>~/.a2a/registry/]
         RPL[ReplyTargets<br/>~/.a2a/reply/]
         FSM[FileSafetyManager<br/>.synapse/file_safety.db]
-        HIST[History<br/>~/.synapse/history.db]
-        SM[SharedMemory<br/>.synapse/memory.db]
+        HIST[History<br/>~/.synapse/history/history.db]
+        SM[SharedMemory<br/>~/.synapse/memory.db]
     end
 
     IR --> FS
@@ -253,8 +253,8 @@ sequenceDiagram
 | External Agents | `~/.a2a/external/` | External A2A agents | JSON files |
 | Settings (User) | `~/.synapse/settings.json` | User preferences | JSON |
 | Settings (Project) | `.synapse/settings.json` | Project config | JSON |
-| History | `~/.synapse/history.db` | Task history | SQLite |
-| Shared Memory | `.synapse/memory.db` | Cross-agent knowledge sharing | SQLite (WAL) |
+| History | `~/.synapse/history/history.db` | Task history | SQLite |
+| Shared Memory | `~/.synapse/memory.db` | Cross-agent knowledge sharing | SQLite (WAL) |
 | File Safety | `.synapse/file_safety.db` | File locks/tracking | SQLite (WAL) |
 | Saved Agents | `~/.synapse/agents/`, `.synapse/agents/` | Reusable agent definitions | JSON files |
 | Observations | `.synapse/observations.db` | PTY observation data for self-learning | SQLite (WAL) |

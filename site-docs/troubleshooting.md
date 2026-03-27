@@ -781,12 +781,14 @@ rm ~/.a2a/registry/synapse-<type>-<port>.json
 synapse <type>
 ```
 
-To reset project-level state (shared memory, file safety):
+To reset project-level state (file safety):
 
 ```bash
 # Remove project databases
-rm .synapse/memory.db
 rm .synapse/file_safety.db
+
+# To reset shared memory (user-global):
+rm ~/.synapse/memory.db
 
 # Re-initialize (merge strategy — only updates template files, preserves other user data)
 synapse init --scope project

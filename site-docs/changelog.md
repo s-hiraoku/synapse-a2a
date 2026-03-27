@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.10
+
+- **Changed**: DB path management consolidated to `synapse/paths.py` — all databases use centralized path functions
+- **Changed**: `memory.db` moved to user-global (`~/.synapse/memory.db`) for cross-project knowledge sharing
+- **Fixed**: Dashboard Recent History was always empty (hardcoded wrong path for `history.db`)
+- **Removed**: Remaining task-board references from Canvas UI, tests, and docs
+- **Removed**: `shell_session.py` dead code (`history.db` covers session management)
+
 ### v0.17.9
 
 - **Fixed**: Copilot CLI input not submitted via PTY — inject pipe mechanism for `pty._copy` integration

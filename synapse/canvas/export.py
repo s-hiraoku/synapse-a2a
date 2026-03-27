@@ -487,7 +487,6 @@ FORMAT_DOWNLOAD_MAP: dict[str, tuple[str, str, str]] = {
     # Group C: JSON
     "json": ("json", ".json", "application/json; charset=utf-8"),
     "chart": ("json", ".json", "application/json; charset=utf-8"),
-    "task-board": ("json", ".json", "application/json; charset=utf-8"),
     "dependency-graph": ("json", ".json", "application/json; charset=utf-8"),
     "trace": ("json", ".json", "application/json; charset=utf-8"),
     "log": ("json", ".json", "application/json; charset=utf-8"),

@@ -4,7 +4,7 @@
     "synapse-a2a": {
       "source": "s-hiraoku/synapse-a2a",
       "sourceType": "github",
-      "computedHash": "e7d683e342f0248596e77e3ca520aee39365c7a93bc417b7b707a98c6a77aca3"
+      "computedHash": "ba4940528d457224e229cad3d65c7d520a39d3c17fa0099dfcbafe921a29ca39"
     },
     "synapse-docs": {
       "source": "s-hiraoku/synapse-a2a",
@@ -14,7 +14,7 @@
     "synapse-manager": {
       "source": "s-hiraoku/synapse-a2a",
       "sourceType": "github",
-      "computedHash": "0b219860f36f66a8cdf1780a890b5676841301790539c5c8a961b44d1599a5c0"
+      "computedHash": "03efa95e40d281659a5986036f37c7a5b893562eb46d0f01e66bdfae631cf0a3"
     },
     "synapse-reinst": {
       "source": "s-hiraoku/synapse-a2a",

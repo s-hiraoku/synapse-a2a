@@ -25,7 +25,7 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 - `design/canvas.md` - **Synapse Canvas 設計ドキュメント**
   - 共有ビジュアル出力サーフェス（Canvas Message Protocol）
-  - 26 コンテンツフォーマット + 6 テンプレート（briefing, comparison, dashboard, plan, slides, steps）
+  - 25 コンテンツフォーマット + 6 テンプレート（briefing, comparison, dashboard, plan, slides, steps）
   - ブラウザ UI（SPA ルーティング、SSE リアルタイム更新、キャッシュバスティング）
   - CLI コマンドリファレンス（`synapse canvas serve/mermaid/markdown/briefing/...`）
 
@@ -53,13 +53,12 @@ For user guides, see the [`/guides`](../guides/) directory.
 - `input-routing-spec.md` - Input routing specification
 - `agent-teams-adoption-spec.md` - **Agent Teams 機能採用仕様書**
   - Claude Code Agent Teams の分析と Synapse A2A への採用設計
-  - B1-B6 の各機能仕様（Shared Task Board, Quality Gates, Plan Approval 等）
-- `tornado-adoption-spec.md` - **tornado 機能採用仕様書**
+  - B1-B6 の各機能仕様（Quality Gates, Plan Approval 等）
+- `tornado-adoption-spec.md` - **tornado 機能採用仕様書** (historical)
   - [mizchi/tornado](https://github.com/mizchi/tornado) の設計分析と採用判断
-  - TaskBoard 拡張: `fail_task()`, `reopen_task()`, `priority` カラム
-  - Coordinator + TaskBoard による Kanban ワークフローパターン（委任は TaskBoard 登録が必須）
   - Soft Interrupt: `synapse interrupt` CLI コマンド（`send -p 4 --silent` の簡易版）
   - Token/Cost Tracking: `synapse/token_parser.py` スケルトン（`TokenUsage` + `parse_tokens()` レジストリ）
+  - Note: Task Board 関連の仕様は v0.17.10 で削除済み
 
 ### リリース
 
