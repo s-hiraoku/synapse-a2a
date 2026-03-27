@@ -38,6 +38,11 @@ from synapse.canvas.protocol import (
 )
 from synapse.canvas.store import CanvasStore
 from synapse.controller import strip_ansi
+from synapse.paths import (
+    get_file_safety_db_path,
+    get_history_db_path,
+    get_shared_memory_db_path,
+)
 from synapse.utils import extract_text_from_parts
 
 logger = logging.getLogger(__name__)
@@ -319,8 +324,6 @@ _ENV_DESCRIPTIONS: dict[str, str] = {
     "SYNAPSE_LONG_MESSAGE_THRESHOLD": "Character limit before message is stored as file",
     "SYNAPSE_LONG_MESSAGE_TTL": "File-based message retention in seconds",
     "SYNAPSE_LONG_MESSAGE_DIR": "Directory for temporary message files",
-    "SYNAPSE_TASK_BOARD_ENABLED": "Enable shared task board for team coordination",
-    "SYNAPSE_TASK_BOARD_DB_PATH": "Path to task board SQLite database",
     "SYNAPSE_SHARED_MEMORY_ENABLED": "Enable cross-agent shared memory",
     "SYNAPSE_SHARED_MEMORY_DB_PATH": "Path to shared memory SQLite database",
     "SYNAPSE_LEARNING_MODE_ENABLED": "Enable learning mode instructions for agents",
@@ -672,7 +675,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                     )
 
         file_locks: list[dict[str, str]] = []
-        lock_db = ".synapse/file_safety.db"
+        lock_db = get_file_safety_db_path()
         if os.path.exists(lock_db):
             try:
                 conn = sqlite3.connect(lock_db)
@@ -693,8 +696,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         # Shared Memory
         memories: list[dict[str, Any]] = []
-        memory_db = ".synapse/memory.db"
-        if os.path.exists(memory_db):
+        try:
+            memory_db: str | None = get_shared_memory_db_path()
+        except (RuntimeError, OSError):
+            memory_db = None
+        if memory_db and os.path.exists(memory_db):
             try:
                 conn = sqlite3.connect(memory_db)
                 conn.row_factory = sqlite3.Row
@@ -724,8 +730,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
         # Recent History
         history: list[dict[str, Any]] = []
-        history_db = ".synapse/history.db"
-        if os.path.exists(history_db):
+        try:
+            history_db: str | None = get_history_db_path()
+        except (RuntimeError, OSError):
+            history_db = None
+        if history_db and os.path.exists(history_db):
             try:
                 conn = sqlite3.connect(history_db)
                 conn.row_factory = sqlite3.Row

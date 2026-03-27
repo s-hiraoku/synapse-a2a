@@ -288,7 +288,6 @@ class TestFormatRegistry:
             "alert",
             "file-preview",
             "trace",
-            "task-board",
         }
         assert new_formats.issubset(set(FORMAT_REGISTRY.keys()))
 

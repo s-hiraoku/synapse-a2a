@@ -385,7 +385,6 @@
       }
 
       .trace-tree,
-      .task-board,
       .timeline-list {
         display: grid;
         gap: 8px;
@@ -406,33 +405,6 @@
         background: linear-gradient(90deg, var(--gallery-danger), rgba(184, 61, 90, 0.25));
       }
 
-      .task-board {
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      }
-
-      .task-column {
-        padding: 12px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(127, 145, 204, 0.16);
-      }
-
-      .task-column h4 {
-        margin: 0 0 10px;
-        font-size: 14px;
-      }
-
-      .task-item {
-        display: block;
-        padding: 10px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.05);
-      }
-
-      .task-item strong {
-        display: block;
-        margin-bottom: 4px;
-      }
 
       .template-stage {
         display: grid;
@@ -572,8 +544,7 @@
           margin-top: 8px;
         }
 
-        .dashboard-template,
-        .task-board {
+        .dashboard-template {
           grid-template-columns: 1fr;
         }
       }
@@ -825,38 +796,11 @@
               status: "ok",
               children: [
                 { name: "registry", duration_ms: 18, status: "ok" },
-                { name: "task board", duration_ms: 22, status: "ok" },
+                { name: "shared memory", duration_ms: 22, status: "ok" },
                 { name: "file locks", duration_ms: 44, status: "error" },
               ],
             },
           ],
-        },
-        {
-          format: "task-board",
-          title: "task-board",
-          description: "Compact kanban-style snapshot of work in progress.",
-          body: {
-            columns: [
-              {
-                name: "pending",
-                items: [
-                  { subject: "Link card gallery from docs", meta: "docs" },
-                ],
-              },
-              {
-                name: "in_progress",
-                items: [
-                  { subject: "Render 22 card formats", meta: "frontend" },
-                ],
-              },
-              {
-                name: "completed",
-                items: [
-                  { subject: "Verify template list", meta: "tests" },
-                ],
-              },
-            ],
-          },
         },
         {
           format: "progress",
@@ -959,7 +903,7 @@
             cols: 2,
             widgets: [
               { title: "Agent Fleet", blocks: [0], size: "1x1" },
-              { title: "Task Board", blocks: [1], size: "1x1" },
+              { title: "Shared Memory", blocks: [1], size: "1x1" },
               { title: "File Locks", blocks: [2], size: "1x1" },
               { title: "Docs Sync", blocks: [3], size: "1x1" },
             ],
@@ -1071,9 +1015,6 @@
             break;
           case "trace":
             renderTrace(wrap, block.body);
-            break;
-          case "task-board":
-            renderTaskBoard(wrap, block.body);
             break;
           case "progress":
             renderProgress(wrap, block.body);
@@ -1333,27 +1274,6 @@
         }
         wrap.appendChild(body);
         return wrap;
-      }
-
-      function renderTaskBoard(el, body) {
-        const board = document.createElement("div");
-        board.className = "task-board";
-        (body.columns || []).forEach((column) => {
-          const col = document.createElement("div");
-          col.className = "task-column";
-          const title = document.createElement("h4");
-          title.textContent = column.name;
-          col.appendChild(title);
-          (column.items || []).forEach((item) => {
-            const task = document.createElement("div");
-            task.className = "task-item";
-            task.innerHTML =
-              "<strong>" + item.subject + "</strong><span class='task-meta'>" + (item.meta || "") + "</span>";
-            col.appendChild(task);
-          });
-          board.appendChild(col);
-        });
-        el.appendChild(board);
       }
 
       function renderProgress(el, body) {

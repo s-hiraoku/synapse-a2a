@@ -21,6 +21,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from synapse.paths import get_file_safety_db_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +69,6 @@ class FileSafetyManager:
     """
 
     DEFAULT_LOCK_DURATION_SECONDS = 300  # 5 minutes
-    DEFAULT_DB_PATH = ".synapse/file_safety.db"  # Project-local database
     DEFAULT_RETENTION_DAYS = 30  # Default retention period for modification records
 
     def __init__(
@@ -84,9 +85,7 @@ class FileSafetyManager:
             retention_days: Number of days to keep modification records (auto-cleanup)
         """
         self.enabled = enabled
-        self.db_path = os.path.abspath(
-            os.path.expanduser(db_path or self.DEFAULT_DB_PATH)
-        )
+        self.db_path = os.path.abspath(db_path or get_file_safety_db_path())
         self.retention_days = (
             retention_days
             if retention_days is not None

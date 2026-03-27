@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from synapse.paths import get_shared_memory_db_path
 
-DEFAULT_DB_PATH = ".synapse/memory.db"
+logger = logging.getLogger(__name__)
 
 
 class SharedMemory:
-    """Project-local shared memory for cross-agent knowledge sharing.
+    """Cross-agent shared memory for knowledge sharing.
 
     Provides CRUD operations on a SQLite-backed knowledge base
     with UPSERT semantics on key, tag-based filtering, and
@@ -34,7 +34,7 @@ class SharedMemory:
 
     def __init__(self, db_path: str | None = None, enabled: bool = True) -> None:
         self.enabled = enabled
-        self.db_path = os.path.abspath(os.path.expanduser(db_path or DEFAULT_DB_PATH))
+        self.db_path = os.path.abspath(db_path or get_shared_memory_db_path())
         self._lock = threading.RLock()
 
         if self.enabled:
@@ -53,15 +53,12 @@ class SharedMemory:
 
         Environment variables:
         - SYNAPSE_SHARED_MEMORY_ENABLED: "true"/"1" to enable
-        - SYNAPSE_SHARED_MEMORY_DB_PATH: Path to SQLite database file
+        - SYNAPSE_SHARED_MEMORY_DB_PATH: Override path (handled by paths.py)
         """
-        env_db_path = os.environ.get("SYNAPSE_SHARED_MEMORY_DB_PATH", "").strip()
-        resolved_db_path = env_db_path or db_path
-
         env_enabled = os.environ.get("SYNAPSE_SHARED_MEMORY_ENABLED", "true").lower()
         enabled = env_enabled in ("true", "1")
 
-        return cls(db_path=resolved_db_path, enabled=enabled)
+        return cls(db_path=db_path, enabled=enabled)
 
     @staticmethod
     def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:

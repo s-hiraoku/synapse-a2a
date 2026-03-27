@@ -902,32 +902,6 @@ class TestNewFormats:
         resp = self._post_card(client, "trace", body, "A2A Trace", "trace-1")
         assert resp.status_code == 201
 
-    def test_task_board_format(self, client):
-        """task-board format should accept kanban columns."""
-        body = {
-            "columns": [
-                {
-                    "name": "Todo",
-                    "items": [
-                        {"id": "1", "subject": "Write tests", "assignee": "codex"},
-                    ],
-                },
-                {
-                    "name": "Doing",
-                    "items": [
-                        {
-                            "id": "2",
-                            "subject": "Implement feature",
-                            "assignee": "claude",
-                        },
-                    ],
-                },
-                {"name": "Done", "items": []},
-            ]
-        }
-        resp = self._post_card(client, "task-board", body, "Sprint Board", "board-1")
-        assert resp.status_code == 201
-
 
 # ============================================================
 # TestSystemPanel — GET /api/system endpoint

@@ -5,7 +5,7 @@ Follows the same patterns as file_safety.py:
 - threading.RLock for write serialization
 - Row factory for dict-like access
 
-Storage: .synapse/workflow_runs.db
+Storage: .synapse/workflow_runs.db (project-local)
 """
 
 from __future__ import annotations
@@ -16,16 +16,18 @@ import threading
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from synapse.paths import get_workflow_runs_db_path
 
-DEFAULT_DB_PATH = ".synapse/workflow_runs.db"
+logger = logging.getLogger(__name__)
 
 
 class WorkflowRunDB:
     """Persistent storage for workflow run history."""
 
     def __init__(self, db_path: str | None = None) -> None:
-        self.db_path = str(Path(db_path or DEFAULT_DB_PATH).expanduser().resolve())
+        self.db_path = str(
+            Path(db_path or get_workflow_runs_db_path()).expanduser().resolve()
+        )
         self._lock = threading.RLock()
         self._init_db()
 

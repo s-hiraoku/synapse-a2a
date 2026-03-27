@@ -96,7 +96,6 @@ def test_dashboard_widget_ids_in_html() -> None:
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
     for widget_id in [
         "dash-agents",
-        "dash-tasks",
         "dash-file-locks",
         "dash-worktrees",
         "dash-memory",
@@ -113,7 +112,7 @@ def test_dashboard_widgets_render_in_vertical_flow() -> None:
     dashboard_section = html[section_start:section_end]
 
     assert dashboard_section.count('class="dash-grid"') == 1
-    assert dashboard_section.count('class="dash-widget"') >= 6
+    assert dashboard_section.count('class="dash-widget"') >= 5
     assert 'class="dash-widget dash-full-width"' not in dashboard_section
 
 
@@ -549,7 +548,6 @@ def test_dashboard_widgets_use_expandable_detail_pattern() -> None:
     # Each renderDash* function should call createDashWidget
     for fn in [
         "renderDashAgents",
-        "renderDashTasks",
         "renderDashMemory",
         "renderDashFileLocks",
         "renderDashWorktrees",

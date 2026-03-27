@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-DEFAULT_DB_PATH = ".synapse/instincts.db"
+from synapse.paths import get_instinct_db_path
 
 
 class InstinctStore:
@@ -19,7 +19,7 @@ class InstinctStore:
 
     def __init__(self, db_path: str | None = None, enabled: bool = True) -> None:
         self.enabled = enabled
-        self.db_path = os.path.abspath(os.path.expanduser(db_path or DEFAULT_DB_PATH))
+        self.db_path = os.path.abspath(db_path or get_instinct_db_path())
         self._lock = threading.RLock()
 
         if self.enabled:
@@ -28,9 +28,7 @@ class InstinctStore:
     @classmethod
     def from_env(cls, db_path: str | None = None) -> InstinctStore:
         """Create an instinct store from environment variables."""
-        env_db_path = os.environ.get("SYNAPSE_INSTINCT_DB_PATH", "").strip()
-        resolved_db_path = env_db_path or db_path
-        return cls(db_path=resolved_db_path, enabled=True)
+        return cls(db_path=db_path, enabled=True)
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=10.0)

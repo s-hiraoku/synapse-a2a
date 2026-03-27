@@ -154,8 +154,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
             "You are a manager. Do NOT edit files directly.\n"
             "Instead, use `synapse send` to delegate tasks to other agents.\n"
             "Focus on: task analysis, splitting, assignment, and review.\n"
-            "Use `synapse list` to check agent availability.\n"
-            "Use `synapse tasks` to manage the shared task board."
+            "Use `synapse list` to check agent availability."
         ),
     },
     "hooks": {

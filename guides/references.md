@@ -43,7 +43,6 @@ flowchart TB
         config["config"]
         memory["memory"]
         agents["agents"]
-        tasks["tasks"]
         session["session"]
         approve["approve"]
         reject["reject"]
@@ -103,17 +102,6 @@ flowchart TB
         ag_show["show"]
         ag_add["add"]
         ag_delete["delete"]
-    end
-
-    subgraph Tasks["tasks サブコマンド"]
-        ts_list["list"]
-        ts_create["create"]
-        ts_assign["assign"]
-        ts_complete["complete"]
-        ts_fail["fail"]
-        ts_reopen["reopen"]
-        ts_accept_plan["accept-plan"]
-        ts_sync_plan["sync-plan"]
     end
 
     subgraph Canvas["canvas サブコマンド"]
@@ -1353,226 +1341,7 @@ synapse auth generate-key -n 3 -e    # 3つのキーをexport形式で生成
 
 ---
 
-### 1.20 synapse tasks
-
-共有タスクボード（B1: Shared Task Board）を管理します。SQLite ベースのタスク協調基盤です。
-
-**委任ルール**: すべての委任（`synapse send` による委任）は、事前にタスクボードへの登録が必須です（`synapse tasks create` + `synapse tasks assign`）。タスクボード = チーム契約（全員に可視）、TodoList = 個人のマイクロステップ管理（自分のみ）。
-
-```bash
-synapse tasks <subcommand>
-```
-
-#### 1.20.1 synapse tasks list
-
-タスクボードのタスク一覧を表示します。
-
-```bash
-synapse tasks list [--status STATUS] [--agent AGENT]
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `--status` | No | フィルタするステータス（`pending`, `in_progress`, `completed`, `failed`） |
-| `--agent` | No | 担当エージェントでフィルタ |
-
-#### 1.20.2 synapse tasks create
-
-タスクボードにタスクを作成します。
-
-```bash
-synapse tasks create <subject> [-d DESCRIPTION] [--blocked-by IDS] [--priority N]
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `subject` | Yes | タスクの件名 |
-| `-d`, `--description` | No | タスクの詳細説明 |
-| `--blocked-by` | No | このタスクをブロックするタスク ID（カンマ区切り） |
-| `-p`, `--priority` | No | 優先度 1-5（デフォルト: 3、高いほど緊急） |
-
-**優先度レベル**:
-
-| 値 | 意味 | 用途 |
-|----|------|------|
-| 1 | 最低 | バックグラウンドタスク |
-| 2 | 低 | 急ぎでないタスク |
-| 3 | 通常 | デフォルト |
-| 4 | 高 | 優先タスク |
-| 5 | 最高 | 緊急・クリティカル |
-
-**例**:
-
-```bash
-synapse tasks create "認証テスト作成" -d "JWT 認証のユニットテスト" --priority 4
-synapse tasks create "認証実装" -d "テストに合わせて実装" --blocked-by task-1 --priority 4
-```
-
-#### 1.20.3 synapse tasks assign
-
-タスクをエージェントにアサインします。
-
-```bash
-synapse tasks assign <task_id> <agent>
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `task_id` | Yes | アサインするタスクの ID |
-| `agent` | Yes | アサイン先のエージェント |
-
-#### 1.20.4 synapse tasks complete
-
-タスクを完了にします。ブロックされていた依存タスクが自動的に解除されます。
-
-```bash
-synapse tasks complete <task_id>
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `task_id` | Yes | 完了にするタスクの ID |
-
-#### 1.20.5 synapse tasks fail
-
-タスクを失敗として報告します。`in_progress` 状態のタスクのみ対象です。
-
-```bash
-synapse tasks fail <task_id> [--reason REASON]
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `task_id` | Yes | 失敗したタスクの ID |
-| `-r`, `--reason` | No | 失敗理由 |
-
-**例**:
-
-```bash
-synapse tasks fail task-1 --reason "テストが通らない"
-```
-
-#### 1.20.6 synapse tasks reopen
-
-完了または失敗したタスクを pending に戻します。assignee と fail_reason がクリアされます。
-
-```bash
-synapse tasks reopen <task_id>
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `task_id` | Yes | 再オープンするタスクの ID |
-
-**状態遷移**:
-- `completed` → `pending`
-- `failed` → `pending`
-- `pending` / `in_progress` → 変更なし（エラー）
-
-**例**:
-
-```bash
-synapse tasks reopen task-1
-```
-
-#### 1.20.7 synapse tasks purge
-
-タスクボードからタスクを削除します。デフォルトでは `completed` および `failed` のタスクを削除します。
-
-```bash
-synapse tasks purge [--status STATUS]
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `--status` | No | 削除対象のステータスでフィルタ（`pending`, `in_progress`, `completed`, `failed`） |
-
-**例**:
-
-```bash
-synapse tasks purge                      # completed + failed を削除
-synapse tasks purge --status completed   # completed のみ削除
-synapse tasks purge --status failed      # failed のみ削除
-```
-
-#### 1.20.8 synapse tasks accept-plan
-
-Canvas 上の Plan Card を承認し、各ステップを Task Board に自動登録します。
-
-```bash
-synapse tasks accept-plan <plan_id>
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `plan_id` | Yes | 承認する Plan Card の ID |
-
-**処理フロー**:
-
-1. Canvas から Plan Card を取得（`plan_id` で検索）
-2. `template_data.steps` を順に Task Board へ登録
-3. `blocked_by` の依存関係を設定
-4. `agent` を `assignee_hint` に設定
-5. Plan Card のステータスを `proposed` → `active` に更新
-6. Canvas Plan Card を再描画
-
-**例**:
-
-```bash
-synapse tasks accept-plan plan-oauth2-migration
-```
-
-#### 1.20.9 synapse tasks sync-plan
-
-Task Board の現在の状態を Canvas Plan Card に同期します。
-
-```bash
-synapse tasks sync-plan <plan_id>
-```
-
-| 引数 | 必須 | 説明 |
-|------|------|------|
-| `plan_id` | Yes | 同期する Plan Card の ID |
-
-**例**:
-
-```bash
-synapse tasks sync-plan plan-oauth2-migration
-```
-
-#### A2A タスク連携
-
-`synapse send --task` で送信すると、ボードタスクと A2A トランスポートタスクが自動的に紐付けられます。
-
-- **送信時**: ボードタスクが自動作成され、`a2a_task_id` カラムで A2A タスクとリンク
-- **受信時**: 受信エージェントがボードタスクを自動 claim（`assignee_hint` で特定）
-- **完了時**: A2A タスクが `completed` に遷移すると、紐付いたボードタスクも自動 complete
-- **PTY 表示**: メッセージに `[Task: XXXXXXXX]` タグが表示され、どのボードタスクに関連するか確認可能
-
-内部メソッド:
-- `link_a2a_task(board_task_id, a2a_task_id)` — ボードタスクと A2A タスクを紐付け
-- `find_by_a2a_task_id(a2a_task_id)` — A2A タスク ID からボードタスクを検索
-
-#### タスクライフサイクル
-
-```
-                    claim_task()
-    pending ────────────────────→ in_progress
-       ▲                                │
-       │                        ┌───────┴───────┐
-       │                        │               │
-       │                   complete_task    fail_task
-       │                        │               │
-       │                        ▼               ▼
-       │  reopen_task       completed        failed
-       ├────────────────────────┘               │
-       │  reopen_task                           │
-       ├────────────────────────────────────────┘
-```
-
----
-
-### 1.21 synapse memory
+### 1.20 synapse memory
 
 エージェント間の共有メモリ（知識ベース）を管理します。
 
@@ -1858,7 +1627,7 @@ MCP サーバー (`synapse mcp serve` / `python -m synapse.mcp`) が提供する
     "summary": "この作業は設計・実装・テストに分割すると効率的です",
     "tasks": [...],
     "canvas_plan_card_id": "plan-oauth2-migration",
-    "approve_command": "synapse tasks accept-plan plan-oauth2-migration"
+    "approve_command": "synapse approve plan-oauth2-migration"
   },
   "triggered_by": ["keyword:移行", "multi_directory"]
 }
@@ -1932,7 +1701,7 @@ synapse canvas stop [--port PORT]     # Canvas サーバーを停止
 
 #### 1.24.4 synapse canvas plan
 
-Plan Card テンプレートを投稿します。Mermaid DAG とステップリストで計画を可視化し、Task Board との連携をサポートします。
+Plan Card テンプレートを投稿します。Mermaid DAG とステップリストで計画を可視化します。
 
 ```bash
 synapse canvas plan '<json>' [--file FILE]
@@ -1989,7 +1758,7 @@ GET /api/cards/{card_id}/download?format={format}
 |---------|-----------------|---------------|
 | Markdown | markdown, checklist, tip, alert, status, metric, progress, timeline, link-preview | `.md` |
 | Native | code, html, artifact, diff, mermaid, terminal, image | 元形式（`.py`, `.html`, `.diff`, `.mmd`, `.txt`, `.png` 等） |
-| JSON | json, chart, task-board, dependency-graph, trace, log, file-preview, plan | `.json` |
+| JSON | json, chart, dependency-graph, trace, log, file-preview, plan | `.json` |
 | CSV | table, cost | `.csv` |
 
 ※ `format=plan` は JSON (.json) として出力。`template=plan` のカードはデフォルトで Markdown (.md) として出力される。
@@ -2045,12 +1814,6 @@ flowchart LR
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| GET | `/tasks/board` | 共有タスクボード一覧 |
-| POST | `/tasks/board` | タスクボードにタスク作成（`priority` フィールド対応） |
-| POST | `/tasks/board/{id}/claim` | タスクをアトミックに取得 |
-| POST | `/tasks/board/{id}/complete` | タスク完了（依存タスク自動解除） |
-| POST | `/tasks/board/{id}/fail` | タスク失敗（`reason` フィールドで失敗理由を記録） |
-| POST | `/tasks/board/{id}/reopen` | タスク再オープン（completed/failed → pending） |
 | POST | `/tasks/{id}/approve` | プラン承認 |
 | POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
 | POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |

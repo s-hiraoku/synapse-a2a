@@ -373,7 +373,6 @@ flowchart TB
 | `synapse external` | 外部エージェント管理 |
 | `synapse memory` | 共有メモリ管理（エージェント間の知識共有） |
 | `synapse agents` | 保存済みエージェント定義の管理 |
-| `synapse tasks` | 共有タスクボードの管理 |
 | `synapse approve/reject` | プランの承認/却下 |
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
 | `synapse skills apply <target> <set_name>` | 稼働中のエージェントにスキルセットを適用（`--dry-run` でプレビュー） |
@@ -1707,7 +1706,6 @@ synapse spawn codex --name Helper --role "実装補助"
 
 | 機能 | コマンド | 用途 |
 |------|---------|------|
-| タスクボード | `synapse tasks create/assign/complete` | 作業の透明な追跡 |
 | 共有メモリ | `synapse memory save/search` | チーム全体の知識構築 |
 | ファイル安全 | `synapse file-safety lock/unlock` | マルチエージェント環境での排他制御 |
 | ワークツリー | `synapse spawn --worktree` | ファイル編集の分離 |

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.10] - 2026-03-27
+
+### Changed
+
+- **DB path management consolidated to `synapse/paths.py`** — all 7 databases now use centralized path functions with environment variable overrides. Removed hardcoded `DEFAULT_DB_PATH` from `shared_memory.py`, `workflow_db.py`, `file_safety.py`, `observation.py`, `instinct.py`
+- **`memory.db` moved to user-global** (`~/.synapse/memory.db`) — cross-agent shared memory is now shared across projects. Other project-local DBs (`file_safety.db`, `workflow_runs.db`, `observations.db`, `instincts.db`) remain in `.synapse/`
+- New environment variable `SYNAPSE_WORKFLOW_RUNS_DB_PATH` for workflow DB path override
+
+### Fixed
+
+- **Dashboard Recent History was always empty** — `canvas/server.py` hardcoded `.synapse/history.db` instead of the actual path `~/.synapse/history/history.db`
+- Canvas dashboard hardcoded paths for `file_safety.db` and `memory.db` now use `paths.py`
+
+### Removed
+
+- Remaining task-board references from Canvas UI (protocol, export, JS, CSS, dashboard widget, HTML filter), tests, and documentation
+- `synapse/shell_session.py` and `tests/test_shell_session.py` — unused dead code (`history.db` covers session management)
+- `Shared Task Board` from CLI feature list and delegate mode instructions
+
+### Documentation
+
+- Updated DB architecture across all guides, site-docs, and plugin skills to reflect new paths
+- Removed `synapse tasks` command documentation from references
+
 ## [0.17.9] - 2026-03-26
 
 ### Fixed
@@ -2795,7 +2819,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.9...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.10...HEAD
+[0.17.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.9...v0.17.10
 [0.17.9]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.8...v0.17.9
 [0.17.8]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.7...v0.17.8
 [0.17.7]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.6...v0.17.7
