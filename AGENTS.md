@@ -46,6 +46,8 @@ synapse send <target> "message" --silent   # Send message (fire-and-forget)
 
 `plugins/synapse-a2a/skills/` is the source of truth. Edit there, then sync with `sync-plugin-skills`. Do not edit `.claude/skills/` or `.agents/skills/` directly.
 
+If this repository also contains development-only skills in `.claude/skills/` or `.agents/skills/` that are not meant to be published via `npx skills add`, set the SKILL.md frontmatter flag `metadata.internal: true` so they are hidden from install candidates.
+
 ## Testing
 
 ```bash

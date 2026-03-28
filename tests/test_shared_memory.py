@@ -56,6 +56,51 @@ class TestSharedMemoryInit:
         assert result[0] == "wal"
         conn.close()
 
+    def test_init_migrates_legacy_db_scope_and_working_dir_columns(self, tmp_path):
+        """Legacy DBs should gain scope and working_dir columns on init."""
+        db_path = tmp_path / "legacy_memory.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE memories (
+                id         TEXT PRIMARY KEY,
+                key        TEXT NOT NULL UNIQUE,
+                content    TEXT NOT NULL,
+                author     TEXT NOT NULL,
+                tags       TEXT DEFAULT '[]',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO memories (id, key, content, author, tags)
+            VALUES ('legacy-id', 'legacy-key', 'Legacy content', 'legacy-author', '[]')
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        from synapse.shared_memory import SharedMemory
+
+        memory = SharedMemory(db_path=str(db_path))
+
+        conn = sqlite3.connect(memory.db_path)
+        columns = {
+            row[1]: row
+            for row in conn.execute("PRAGMA table_info(memories)").fetchall()
+        }
+        conn.close()
+
+        assert "scope" in columns
+        assert "working_dir" in columns
+
+        result = memory.get("legacy-key")
+        assert result is not None
+        assert result["scope"] == "global"
+        assert result["working_dir"] is None
+
     def test_from_env(self, tmp_path, monkeypatch):
         """from_env should read SYNAPSE_SHARED_MEMORY_* env vars."""
         from synapse.shared_memory import SharedMemory
@@ -122,6 +167,8 @@ class TestSharedMemorySave:
         assert result["tags"] == []
         assert result["created_at"]
         assert result["updated_at"]
+        assert result["scope"] == "global"
+        assert result["working_dir"] is None
 
     def test_save_with_tags(self, memory):
         """save() should store tags as JSON array."""
@@ -132,6 +179,7 @@ class TestSharedMemorySave:
             tags=["architecture", "database"],
         )
         assert result["tags"] == ["architecture", "database"]
+        assert result["scope"] == "global"
 
     def test_save_upsert_existing_key(self, memory):
         """save() with existing key should update content and updated_at."""
@@ -155,6 +203,32 @@ class TestSharedMemorySave:
         first = memory.save(key="test-key", content="v1", author="claude")
         second = memory.save(key="test-key", content="v2", author="gemini")
         assert first["created_at"] == second["created_at"]
+
+    def test_save_with_project_scope_stores_working_dir(self, memory, monkeypatch):
+        """Project-scoped memories should record the current working directory."""
+        monkeypatch.setattr(os, "getcwd", lambda: "/tmp/project-a")
+
+        result = memory.save(
+            key="project-key",
+            content="Project memory",
+            author="synapse-claude-8100",
+            scope="project",
+        )
+
+        assert result["scope"] == "project"
+        assert result["working_dir"] == "/tmp/project-a"
+
+    def test_save_with_private_scope(self, memory):
+        """Private memories should be saved with private scope."""
+        result = memory.save(
+            key="private-key",
+            content="Private memory",
+            author="synapse-claude-8100",
+            scope="private",
+        )
+
+        assert result["scope"] == "private"
+        assert result["working_dir"] is None
 
 
 # ============================================================
@@ -192,6 +266,7 @@ class TestSharedMemoryGet:
         assert result is not None
         assert result["content"] == "Test content"
         assert result["tags"] == ["test"]
+        assert result["scope"] == "global"
 
     def test_get_nonexistent_returns_none(self, memory):
         """get() should return None for nonexistent id/key."""
@@ -269,6 +344,54 @@ class TestSharedMemoryList:
         items = memory.list_memories(limit=2)
         assert len(items) == 2
 
+    def test_list_filter_scope_global(self, memory):
+        """list() with global scope should return only global memories."""
+        memory.save(
+            "key-project",
+            "Project Content",
+            "synapse-claude-8100",
+            scope="project",
+        )
+        memory.save(
+            "key-private",
+            "Private Content",
+            "synapse-claude-8100",
+            scope="private",
+        )
+
+        items = memory.list_memories(scope="global")
+
+        assert len(items) == 3
+        assert all(item["scope"] == "global" for item in items)
+
+    def test_list_filter_scope_project(self, tmp_path, monkeypatch):
+        """Project scope should only return items for the matching working dir."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory(db_path=str(tmp_path / "memory.db"))
+        monkeypatch.setattr(os, "getcwd", lambda: "/tmp/project-a")
+        mem.save("project-a", "Content A", "claude", scope="project")
+        monkeypatch.setattr(os, "getcwd", lambda: "/tmp/project-b")
+        mem.save("project-b", "Content B", "claude", scope="project")
+
+        items = mem.list_memories(scope="project", working_dir="/tmp/project-a")
+
+        assert [item["key"] for item in items] == ["project-a"]
+        assert items[0]["working_dir"] == "/tmp/project-a"
+
+    def test_list_filter_scope_private(self, tmp_path):
+        """Private scope should only return items authored by the caller."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory(db_path=str(tmp_path / "memory.db"))
+        mem.save("private-a", "Content A", "claude", scope="private")
+        mem.save("private-b", "Content B", "gemini", scope="private")
+
+        items = mem.list_memories(scope="private", author="claude")
+
+        assert [item["key"] for item in items] == ["private-a"]
+        assert items[0]["scope"] == "private"
+
 
 # ============================================================
 # TestSharedMemorySearch - Search operations
@@ -345,6 +468,45 @@ class TestSharedMemorySearch:
         """search() should reject negative limit with ValueError."""
         with pytest.raises(ValueError, match="limit must be greater than 0"):
             memory.search("api", limit=-1)
+
+    def test_search_filter_scope_global(self, memory):
+        """Global scope search should not return project/private memories."""
+        memory.save("project-auth", "Use project auth", "claude", scope="project")
+        memory.save("private-auth", "Use private auth", "claude", scope="private")
+
+        results = memory.search("auth", scope="global")
+
+        assert [item["key"] for item in results] == ["auth-pattern"]
+
+    def test_search_filter_scope_project(self, tmp_path, monkeypatch):
+        """Project scope search should require a matching working dir."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory(db_path=str(tmp_path / "memory.db"))
+        monkeypatch.setattr(os, "getcwd", lambda: "/tmp/project-a")
+        mem.save("project-auth-a", "Auth for project a", "claude", scope="project")
+        monkeypatch.setattr(os, "getcwd", lambda: "/tmp/project-b")
+        mem.save("project-auth-b", "Auth for project b", "claude", scope="project")
+
+        results = mem.search(
+            "Auth",
+            scope="project",
+            working_dir="/tmp/project-a",
+        )
+
+        assert [item["key"] for item in results] == ["project-auth-a"]
+
+    def test_search_filter_scope_private(self, tmp_path):
+        """Private scope search should require the matching author."""
+        from synapse.shared_memory import SharedMemory
+
+        mem = SharedMemory(db_path=str(tmp_path / "memory.db"))
+        mem.save("private-auth-a", "Auth for claude", "claude", scope="private")
+        mem.save("private-auth-b", "Auth for gemini", "gemini", scope="private")
+
+        results = mem.search("Auth", scope="private", author="claude")
+
+        assert [item["key"] for item in results] == ["private-auth-a"]
 
 
 # ============================================================

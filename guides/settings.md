@@ -33,13 +33,46 @@ Synapse A2A の設定ファイルについての詳細ガイドです。
 ### マージ動作
 
 ```
-最終設定 = User + Project + Local（後から上書き）
+最終設定 = デフォルト + User + Project + Local（後から上書き）
 ```
 
-例：
-- User: `SYNAPSE_HISTORY_ENABLED=false`
-- Project: `SYNAPSE_HISTORY_ENABLED=true`
-- → 結果: `SYNAPSE_HISTORY_ENABLED=true`（Project が優先）
+マージはセクション単位（`env`, `instructions`, `a2a` 等）で行われ、各セクション内のキーは個別にマージされます。**高優先度スコープに存在するキーだけが上書きされ、存在しないキーは低優先度スコープの値がそのまま残ります。**
+
+#### 例1: 特定のキーだけ上書き
+
+User scope に全設定を書き、Project scope に1つだけ書いた場合：
+
+```
+User:    env: { HISTORY_ENABLED: "true", LEARNING_MODE_ENABLED: "false", LOG_LEVEL: "INFO", ... }
+Project: env: { LEARNING_MODE_ENABLED: "true" }
+```
+
+結果：
+```
+env: { HISTORY_ENABLED: "true", LEARNING_MODE_ENABLED: "true", LOG_LEVEL: "INFO", ... }
+```
+
+→ Project scope の `LEARNING_MODE_ENABLED` だけが上書きされ、残りは User scope の値がそのまま使われます。
+
+#### 例2: 意図しない上書き
+
+User scope で個人の好みとして有効にした設定が、Project scope のテンプレートデフォルトで無効に戻されるケース：
+
+```
+User:    env: { LEARNING_MODE_ENABLED: "true" }     ← 個人で有効化
+Project: env: { LEARNING_MODE_ENABLED: "false" }     ← テンプレートのデフォルト
+→ 結果:  LEARNING_MODE_ENABLED = "false"              ← Project が優先して無効に
+```
+
+**対処法**: プロジェクト全体で制御する必要がないキーは、Project scope から削除するか、`settings.local.json`（Local scope）で上書きしてください。
+
+#### 推奨される使い分け
+
+| スコープ | 書くべき設定 | 例 |
+|----------|-------------|-----|
+| User | 個人の好み・グローバルなデフォルト | Learning mode、Log level、DB パス |
+| Project | プロジェクト固有・チーム共有の設定 | File safety、Approval mode、A2A flow |
+| Local | 個人のプロジェクト固有の上書き | User scope の設定をこのプロジェクトだけ変えたい場合 |
 
 ## コマンド
 
@@ -68,13 +101,29 @@ $ synapse init
 | `learning.md` | Learning Mode の指示（構造化されたプロンプト改善・学習フィードバック） |
 | `shared-memory.md` | Shared Memory の指示（エージェント間の知識共有コマンド） |
 
-既に `.synapse/` ディレクトリが存在する場合は、マージ方式で更新されます。テンプレートファイル（上記のファイル）のみが上書きされ、ユーザーが生成したデータ（`agents/`、`sessions/`、`workflows/`、`worktrees/`、SQLite データベースなど）は保持されます：
+既に `.synapse/` ディレクトリが存在する場合は、マージ方式で更新されます。`settings.json` は**スマートマージ**（新しいキーを追加し、ユーザーの値を保持）、その他のテンプレートファイルは上書きされます。ユーザーが生成したデータ（`agents/`、`sessions/`、`workflows/`、`worktrees/`、SQLite データベースなど）は保持されます：
 
 ```bash
 $ synapse init
 
 /path/to/.synapse already exists. Merge template files? (y/N): y
 ✔ Updated /path/to/.synapse (user data preserved)
+```
+
+### アップグレード手順
+
+Synapse を更新した後、`synapse init` を再実行することで新しい設定キーを取り込めます：
+
+```bash
+pip install --upgrade synapse-a2a   # または: pipx upgrade synapse-a2a
+synapse init --scope project        # スマートマージ: 新キー追加、既存値保持
+synapse init --scope user           # ユーザースコープも同様
+```
+
+マージ結果の確認：
+
+```bash
+synapse config show --scope merged
 ```
 
 ### synapse reset
@@ -96,18 +145,10 @@ $ synapse reset
 
 ### synapse config
 
-インタラクティブな TUI で設定を編集します。
+インタラクティブな TUI で設定を編集します。`--scope` は不要で、TUI が各設定の実効値とそのソースを表示し、編集対象のスコープを自動判定します。
 
 ```bash
 $ synapse config
-
-? Which settings file do you want to edit?
-  ❯ User settings (~/.synapse/settings.json)
-    Project settings (./.synapse/settings.json)
-    ────────────────────────────────────────────
-    Cancel
-
-Editing: /Users/you/.synapse/settings.json
 
 ? Select a category to configure:
   ❯ Environment Variables - Configure SYNAPSE_* environment variables
@@ -117,6 +158,11 @@ Editing: /Users/you/.synapse/settings.json
     ────────────────────────────────────────────
     Save and exit
     Exit without saving
+
+? Select a setting to edit:
+  ❯ LEARNING_MODE_ENABLED: ON (user) [env: ON]
+    HISTORY_ENABLED: ON (project)
+    FILE_SAFETY_ENABLED: ON (default)
 ```
 
 **カテゴリ**:
@@ -128,13 +174,12 @@ Editing: /Users/you/.synapse/settings.json
 | A2A Protocol | `flow` モード（auto/roundtrip/oneway） |
 | Resume Flags | セッション再開を示すフラグ |
 
-**オプション**:
+**動作**:
 
-```bash
-# スコープを直接指定（プロンプトをスキップ）
-synapse config --scope user     # ユーザー設定を編集
-synapse config --scope project  # プロジェクト設定を編集
-```
+- 各項目は実効値とそのソースを表示します。例: `LEARNING_MODE_ENABLED: ON (user) [env: ON]`
+- 項目を編集すると、実効値のソースになっているスコープの `settings.json` が直接更新されます
+- `os.environ` で上書きされている項目は変更不可として表示されます
+- スコープを明示して表示だけ確認したい場合は `synapse config show --scope user|project|merged` を使います
 
 ### synapse config show
 

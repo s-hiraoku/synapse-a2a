@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -68,7 +70,46 @@ BOOLEAN_ENV_VARS = {
     "SYNAPSE_LEARNING_MODE_ENABLED",
     "SYNAPSE_LEARNING_MODE_TRANSLATION",
     "SYNAPSE_PROACTIVE_MODE_ENABLED",
+    "SYNAPSE_SHARED_MEMORY_ENABLED",
+    "SYNAPSE_OBSERVATION_ENABLED",
+    "SYNAPSE_AGENT_SAVE_PROMPT_ENABLED",
 }
+
+
+def resolve_effective_env(
+    user_dir: Path | None = None,
+    project_dir: Path | None = None,
+) -> dict[str, tuple[str, str]]:
+    """Resolve effective value and source for each env key.
+
+    Checks os.environ > local > project > user > default in priority order.
+
+    Returns:
+        dict mapping key -> (effective_value, source)
+        source is one of: "env", "local", "project", "user", "default"
+    """
+    home = user_dir or Path.home()
+    cwd = project_dir or Path.cwd()
+
+    user_env = load_settings(home / ".synapse" / "settings.json").get("env", {})
+    project_env = load_settings(cwd / ".synapse" / "settings.json").get("env", {})
+    local_env = load_settings(cwd / ".synapse" / "settings.local.json").get("env", {})
+    default_env = DEFAULT_SETTINGS.get("env", {})
+
+    result: dict[str, tuple[str, str]] = {}
+    for key in default_env:
+        env_val = os.environ.get(key, "")
+        if env_val:
+            result[key] = (env_val, "env")
+        elif key in local_env and local_env[key]:
+            result[key] = (local_env[key], "local")
+        elif key in project_env and project_env[key]:
+            result[key] = (project_env[key], "project")
+        elif key in user_env and user_env[key]:
+            result[key] = (user_env[key], "user")
+        else:
+            result[key] = (default_env.get(key, ""), "default")
+    return result
 
 
 class ConfigCommand:
@@ -410,18 +451,12 @@ class ConfigCommand:
         """Run the interactive config TUI.
 
         Args:
-            scope: Optional scope ("user" or "project"). If None, prompt user.
+            scope: Optional scope for backward compatibility (ignored, defaults to user).
 
         Returns:
             True if settings were saved, False otherwise.
         """
-        # Select scope
-        if scope is None:
-            scope = self._prompt_scope()
-
-        if scope is None:
-            self._print("Cancelled.")
-            return False
+        scope = scope or "user"
 
         # Load current settings for the selected scope
         settings_path = self._get_settings_path(scope)
@@ -524,28 +559,38 @@ class ConfigCommand:
         """Show current settings (non-interactive).
 
         Args:
-            scope: Optional scope ("user", "project", or "merged").
+            scope: Optional scope ("user", "project", or "merged"/None).
+                   "merged" or None shows effective values with source annotations.
         """
         if scope == "merged" or scope is None:
-            # Show merged settings from all scopes
+            effective = resolve_effective_env()
             settings = self._settings_factory()
-            self._print("Current settings (merged from all scopes):")
+
+            self._print("Effective settings (resolved from all scopes):")
             self._print("-" * 60)
-            self._print(
-                json.dumps(
-                    {
-                        "env": settings.env,
-                        "instructions": {
-                            k: (v[:50] + "..." if len(str(v)) > 50 else v)
-                            for k, v in settings.instructions.items()
-                        },
-                        "a2a": settings.a2a,
-                        "resume_flags": settings.resume_flags,
-                        "list": settings.list_config,
-                    },
-                    indent=2,
-                )
-            )
+            self._print("[env]")
+            for key in DEFAULT_SETTINGS.get("env", {}):
+                value, source = effective.get(key, ("", "default"))
+                if key in BOOLEAN_ENV_VARS:
+                    display = "ON" if value.lower() in ("true", "1") else "OFF"
+                else:
+                    display = value if value else "(not set)"
+                self._print(f"  {key}: {display}  ({source})")
+
+            self._print("")
+            self._print("[instructions]")
+            for k, v in settings.instructions.items():
+                display = v[:50] + "..." if len(str(v)) > 50 else v
+                self._print(f"  {k}: {display or '(default)'}")
+
+            self._print("")
+            self._print("[a2a]")
+            self._print(f"  flow: {settings.a2a.get('flow', 'auto')}")
+
+            self._print("")
+            self._print("[list]")
+            columns = settings.list_config.get("columns", [])
+            self._print(f"  columns: {', '.join(columns)}")
         else:
             # Show settings from specific scope
             path = self._get_settings_path(scope)
@@ -576,11 +621,14 @@ class RichConfigCommand:
         self._print = print_func
         self._modified = False
         self._current_settings: dict[str, Any] = {}
+        self._effective_env: dict[str, tuple[str, str]] = {}
 
     def _get_settings_path(self, scope: str) -> Path:
         """Get settings file path for the given scope."""
         if scope == "user":
             return Path.home() / ".synapse" / "settings.json"
+        if scope == "local":
+            return Path.cwd() / ".synapse" / "settings.local.json"
         return Path.cwd() / ".synapse" / "settings.json"
 
     def _get_category_keys(self) -> list[str]:
@@ -597,6 +645,27 @@ class RichConfigCommand:
             self._current_settings[category] = {}
         self._current_settings[category][key] = value
         self._modified = True
+
+    def _save_to_scope(self, scope: str, category: str, key: str, value: Any) -> bool:
+        """Save a single setting to the appropriate scope file.
+
+        Returns:
+            True if saved successfully, False otherwise.
+        """
+        path = self._get_settings_path(scope)
+        settings = load_settings(path)
+        if category not in settings:
+            settings[category] = {}
+        settings[category][key] = value
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(settings, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            return True
+        except OSError:
+            return False
 
     def _build_header(
         self,
@@ -736,18 +805,23 @@ class RichConfigCommand:
         return None
 
     def run(self) -> bool:
-        """Run the Rich TUI config editor."""
+        """Run the Rich TUI config editor.
+
+        Environment variables are saved immediately to the effective scope.
+        Other categories are saved to the configured scope on explicit save.
+        """
         from rich.console import Console
         from rich.prompt import Prompt
 
         console = Console()
         settings_path = self._get_settings_path(self._scope)
         self._current_settings = load_settings(settings_path)
+        self._effective_env = resolve_effective_env()
 
         categories = self._get_category_keys()
 
         while True:
-            title = self._build_header(f"File: {settings_path}", style="box")
+            title = self._build_header("Synapse Configuration", style="box")
             labels = [SETTING_CATEGORIES[k]["name"] for k in categories]
             items = self._build_numbered_items(
                 labels,
@@ -790,16 +864,24 @@ class RichConfigCommand:
         """Edit settings in a category."""
         while True:
             setting_keys = self._get_setting_keys(category)
-            cat_settings = self._current_settings.get(category, {})
-            defaults = DEFAULT_SETTINGS.get(category, {})
             info = SETTING_CATEGORIES[category]
+
+            if category == "env":
+                self._effective_env = resolve_effective_env()
 
             labels = []
             for key in setting_keys:
-                value = cat_settings.get(key, defaults.get(key, ""))
                 display_key = self._format_display_key(key)
-                val_str = self._format_display_value(key, value)
-                labels.append(f"{display_key}: {val_str}")
+                if category == "env" and key in self._effective_env:
+                    eff_value, source = self._effective_env[key]
+                    val_str = self._format_display_value(key, eff_value)
+                    labels.append(f"{display_key}: {val_str}  ({source})")
+                else:
+                    cat_settings = self._current_settings.get(category, {})
+                    defaults = DEFAULT_SETTINGS.get(category, {})
+                    value = cat_settings.get(key, defaults.get(key, ""))
+                    val_str = self._format_display_value(key, value)
+                    labels.append(f"{display_key}: {val_str}")
 
             title = self._build_header(
                 info["name"], info.get("description", ""), style="section"
@@ -819,10 +901,35 @@ class RichConfigCommand:
 
     def _edit_value(self, category: str, key: str) -> None:
         """Edit a single value."""
+        display_key = self._format_display_key(key)
+
+        # For env category, check if overridden by os.environ
+        if category == "env" and key in self._effective_env:
+            eff_value, source = self._effective_env[key]
+            if source == "env":
+                from rich.console import Console
+
+                console = Console()
+                console.clear()
+                console.print(
+                    f"[yellow]{display_key}[/yellow] is overridden by "
+                    f"[bold]os.environ[/bold] = [cyan]{eff_value}[/cyan]\n"
+                    "This cannot be changed via settings.json.\n"
+                    "Unset the environment variable to use settings.json values."
+                )
+                console.print("\n[dim]Press Enter to continue...[/dim]")
+                with contextlib.suppress(EOFError, KeyboardInterrupt):
+                    input()
+                return
+
         cat_settings = self._current_settings.get(category, {})
         defaults = DEFAULT_SETTINGS.get(category, {})
         current = cat_settings.get(key, defaults.get(key, ""))
-        display_key = self._format_display_key(key)
+
+        # For env, use effective value as current display
+        if category == "env" and key in self._effective_env:
+            current = self._effective_env[key][0]
+
         current_display = current if current else "(not set)"
         title = self._build_header(
             f"Edit: {display_key}", f"Current value: {current_display}", style="section"
@@ -839,6 +946,15 @@ class RichConfigCommand:
             self._edit_list_columns_value(current, category, key)
         else:
             self._edit_text_value(display_key, current, category, key)
+
+        # For env category, save directly to the effective scope
+        if category == "env" and self._modified and key in self._effective_env:
+            _, source = self._effective_env[key]
+            target_scope = source if source in ("local", "project", "user") else "user"
+            new_value = self._current_settings.get("env", {}).get(key)
+            if new_value is not None:
+                self._save_to_scope(target_scope, "env", key, new_value)
+                self._effective_env = resolve_effective_env()
 
     def _edit_boolean_env_value(self, title: str, category: str, key: str) -> None:
         """Edit a boolean environment variable value."""

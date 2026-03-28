@@ -68,6 +68,8 @@ synapse/
 
 `plugins/synapse-a2a/skills/` がスキルのソースオブトゥルース。スキル更新は必ず `plugins/` 側を編集し、`sync-plugin-skills` で同期。
 
+`.claude/skills/` や `.agents/skills/` に開発専用スキルを置く場合は、`npx skills add` の候補に出ないように SKILL.md の frontmatter に `metadata.internal: true` を付ける。
+
 ## References
 
 詳細なコマンドリファレンス、プロファイル設定、テスト手順は以下を参照:

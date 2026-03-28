@@ -117,7 +117,11 @@ class SynapseMCPServer:
 
     def _settings(self) -> SynapseSettings:
         if self._cached_settings is None:
-            self._cached_settings = self._settings_factory()
+            try:
+                self._cached_settings = self._settings_factory()
+            except Exception as exc:
+                logger.error("Failed to load SynapseSettings: %s", exc)
+                raise RuntimeError(f"Failed to load settings: {exc}") from exc
         return self._cached_settings
 
     def list_resources(self) -> list[MCPResource]:
@@ -271,8 +275,12 @@ class SynapseMCPServer:
 
     def _tool_list_agents(self, arguments: dict[str, object]) -> dict[str, object]:
         """List all running agents from the registry."""
-        registry = self._registry_factory()
-        agents = registry.list_agents()
+        try:
+            registry = self._registry_factory()
+            agents = registry.list_agents()
+        except Exception as exc:
+            logger.warning("Failed to list agents from registry: %s", exc)
+            return {"agents": [], "error": str(exc)}
 
         result = []
         for agent_id, info in agents.items():
@@ -380,10 +388,12 @@ class SynapseMCPServer:
                 cwd=Path.cwd(),
                 timeout=5,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.debug("git status failed: %s", exc)
             return []
 
         if result.returncode != 0:
+            logger.debug("git status exited with code %d", result.returncode)
             return []
 
         return self._parse_git_status_paths(result.stdout)

@@ -1747,9 +1747,24 @@ class TerminalController:
             if len(self.output_buffer) > self._max_buffer:
                 self.output_buffer = self.output_buffer[-self._max_buffer :]
 
-            for ch in text:
+            for idx, ch in enumerate(text):
                 if ch == "\r":
-                    self._render_cursor = self._render_line_start
+                    # If followed by \n (CRLF), skip — \n handles the newline
+                    if idx + 1 < len(text) and text[idx + 1] == "\n":
+                        pass
+                    else:
+                        # Bare \r: clear current line to prevent stale text
+                        # (e.g. status bar fragments) from lingering after
+                        # shorter text overwrites longer text.
+                        line_end = len(self._render_buffer)
+                        for i in range(
+                            self._render_line_start, len(self._render_buffer)
+                        ):
+                            if self._render_buffer[i] == "\n":
+                                line_end = i
+                                break
+                        del self._render_buffer[self._render_line_start : line_end]
+                        self._render_cursor = self._render_line_start
                     continue
                 if ch == "\b":
                     if self._render_cursor > self._render_line_start:

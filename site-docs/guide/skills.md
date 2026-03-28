@@ -241,4 +241,4 @@ This equips the agent with multi-agent management capabilities (from `synapse-ma
     `plugins/synapse-a2a/skills/` is the source of truth for published skills (`synapse-a2a`, `synapse-manager`, etc.). Always edit skills in `plugins/` and sync to agent directories with `sync-plugin-skills`. Never edit agent directories directly.
 
 !!! note "Dev-only skills"
-    Some skills like `synapse-docs` live only in `.agents/skills/` and are not published via `plugins/`. These are development-only utilities not intended for end-user distribution.
+    Some skills live only in `.agents/skills/` or `.claude/skills/` and are not published via `plugins/`. These are development-only utilities not intended for end-user distribution. To keep them out of `npx skills add` install candidates, set `metadata.internal: true` in the `SKILL.md` frontmatter.

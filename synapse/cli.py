@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import errno
+import json
 import logging
 import os
 import shutil
@@ -2080,6 +2081,32 @@ def _write_default_settings(path: Path) -> bool:
         return False
 
 
+def _smart_merge_settings(template_file: Path, existing_file: Path) -> None:
+    """Merge template settings.json into existing one, preserving user values.
+
+    New keys from the template are added; existing user values are kept.
+    This ensures upgrades add new config options without losing customization.
+    """
+    from synapse.settings import merge_settings
+
+    try:
+        template_data = json.loads(template_file.read_text(encoding="utf-8"))
+        existing_data = json.loads(existing_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "Smart merge failed for %s: %s — overwriting", existing_file, exc
+        )
+        shutil.copy2(template_file, existing_file)
+        return
+
+    # merge_settings(base, override): override values take precedence.
+    # Use template as base, existing as override → user values preserved, new keys added.
+    merged = merge_settings(template_data, existing_data)
+    existing_file.write_text(
+        json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 def _copy_synapse_templates(target_dir: Path) -> bool:
     """
     Copy template files from synapse/templates/.synapse/ to target directory.
@@ -2134,7 +2161,11 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
                     break
             else:
                 dst_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_file, dst_file)
+                # Smart merge for settings.json: add new keys, preserve user values
+                if rel_path.name == "settings.json" and dst_file.exists():
+                    _smart_merge_settings(src_file, dst_file)
+                else:
+                    shutil.copy2(src_file, dst_file)
 
         return True
 
@@ -2279,7 +2310,6 @@ def cmd_config(args: argparse.Namespace) -> None:
     """Interactive configuration management."""
     import sys
 
-    scope = getattr(args, "scope", None)
     no_rich = getattr(args, "no_rich", False)
 
     # Use Rich TUI if stdout is TTY and not explicitly disabled
@@ -2288,14 +2318,13 @@ def cmd_config(args: argparse.Namespace) -> None:
     if use_rich:
         from synapse.commands.config import RichConfigCommand
 
-        # Default to user scope if not specified
-        rich_cmd = RichConfigCommand(scope=scope or "user")
+        rich_cmd = RichConfigCommand()
         rich_cmd.run()
     else:
         from synapse.commands.config import ConfigCommand
 
         legacy_cmd = ConfigCommand()
-        legacy_cmd.run(scope=scope)
+        legacy_cmd.run()
 
 
 def cmd_config_show(args: argparse.Namespace) -> None:
@@ -2867,10 +2896,17 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
     )
     author = os.environ.get("SYNAPSE_AGENT_ID", "user")
 
-    result = mem.save(key=args.key, content=args.content, author=author, tags=tags)
+    result = mem.save(
+        key=args.key,
+        content=args.content,
+        author=author,
+        tags=tags,
+        scope=args.scope,
+    )
     if result:
         tag_str = f" [{', '.join(result['tags'])}]" if result["tags"] else ""
-        print(f"Saved: {result['key']}{tag_str} (id: {result['id'][:8]})")
+        scope_str = f" ({result['scope']})"
+        print(f"Saved: {result['key']}{tag_str}{scope_str} (id: {result['id'][:8]})")
     else:
         print("Shared memory is disabled.", file=sys.stderr)
         sys.exit(1)
@@ -2909,6 +2945,22 @@ def _memory_broadcast_notify(key: str) -> None:
         print(f"  Broadcast failed: {e}", file=sys.stderr)
 
 
+def _resolve_memory_scope(
+    args: argparse.Namespace,
+) -> tuple[str, str | None, str | None]:
+    """Resolve scope, working_dir, and author from CLI args.
+
+    Returns:
+        (scope, working_dir, private_author)
+    """
+    scope = getattr(args, "scope", "global")
+    working_dir = os.getcwd() if scope == "project" else None
+    private_author = (
+        os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
+    )
+    return scope, working_dir, private_author
+
+
 def cmd_memory_list(args: argparse.Namespace) -> None:
     """List memory entries."""
     from synapse.shared_memory import SharedMemory
@@ -2920,10 +2972,13 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
         else None
     )
     limit = getattr(args, "limit", 50) or 50
+    scope, working_dir, private_author = _resolve_memory_scope(args)
 
     items = mem.list_memories(
-        author=getattr(args, "author", None),
+        author=private_author or getattr(args, "author", None),
         tags=tags,
+        scope=scope,
+        working_dir=working_dir,
         limit=limit,
     )
 
@@ -2933,7 +2988,10 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
 
     for item in items:
         tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
-        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+        print(
+            f"  {item['id'][:8]}  {item['key']}{tag_str}"
+            f"  ({item['scope']})  by {item['author']}"
+        )
 
 
 def cmd_memory_show(args: argparse.Namespace) -> None:
@@ -2950,6 +3008,9 @@ def cmd_memory_show(args: argparse.Namespace) -> None:
     print(f"Key:        {item['key']}")
     print(f"ID:         {item['id']}")
     print(f"Author:     {item['author']}")
+    print(f"Scope:      {item['scope']}")
+    if item.get("working_dir"):
+        print(f"WorkingDir: {item['working_dir']}")
     print(f"Tags:       {', '.join(item['tags']) if item['tags'] else '(none)'}")
     print(f"Created:    {item['created_at']}")
     print(f"Updated:    {item['updated_at']}")
@@ -2961,7 +3022,13 @@ def cmd_memory_search(args: argparse.Namespace) -> None:
     from synapse.shared_memory import SharedMemory
 
     mem = SharedMemory.from_env()
-    results = mem.search(args.query)
+    scope, working_dir, author = _resolve_memory_scope(args)
+    results = mem.search(
+        args.query,
+        scope=scope,
+        author=author,
+        working_dir=working_dir,
+    )
 
     if not results:
         print("No matching memories found.")
@@ -2969,7 +3036,10 @@ def cmd_memory_search(args: argparse.Namespace) -> None:
 
     for item in results:
         tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
-        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+        print(
+            f"  {item['id'][:8]}  {item['key']}{tag_str}"
+            f"  ({item['scope']})  by {item['author']}"
+        )
 
 
 def cmd_memory_delete(args: argparse.Namespace) -> None:
@@ -5014,16 +5084,9 @@ Also re-copies skills from .claude to .agents.""",
 Opens an interactive menu to browse and modify settings in .synapse/settings.json.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  synapse config                  Interactive mode (prompts for scope)
-  synapse config --scope user     Edit user settings directly
-  synapse config --scope project  Edit project settings directly
-  synapse config show             Show merged settings (read-only)
+  synapse config                    Interactive editor (effective values)
+  synapse config show               Show effective settings (read-only)
   synapse config show --scope user  Show user settings only""",
-    )
-    p_config.add_argument(
-        "--scope",
-        choices=["user", "project"],
-        help="Settings scope to edit (user or project)",
     )
     p_config.add_argument(
         "--no-rich",
@@ -5218,8 +5281,9 @@ Integration with synapse list:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse memory save auth-pattern "Use OAuth2 with PKCE" --tags auth,security
-  synapse memory list
-  synapse memory search "auth"
+  synapse memory save repo-tip "Use uv" --scope project
+  synapse memory list --scope global
+  synapse memory search "auth" --scope private
   synapse memory show auth-pattern
   synapse memory stats
   synapse memory delete auth-pattern --force""",
@@ -5233,6 +5297,12 @@ Integration with synapse list:
     p_mem_save.add_argument("content", help="Memory content")
     p_mem_save.add_argument("--tags", help="Comma-separated tags (e.g., arch,security)")
     p_mem_save.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Memory visibility scope (default: global)",
+    )
+    p_mem_save.add_argument(
         "--notify", action="store_true", help="Broadcast notification to other agents"
     )
     p_mem_save.set_defaults(func=cmd_memory_save)
@@ -5240,6 +5310,12 @@ Integration with synapse list:
     p_mem_list = memory_subparsers.add_parser("list", help="List memories")
     p_mem_list.add_argument("--author", help="Filter by author agent ID")
     p_mem_list.add_argument("--tags", help="Filter by tags (comma-separated)")
+    p_mem_list.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Filter by visibility scope (default: global)",
+    )
     p_mem_list.add_argument(
         "--limit", "-n", type=int, default=50, help="Max entries (default: 50)"
     )
@@ -5251,6 +5327,12 @@ Integration with synapse list:
 
     p_mem_search = memory_subparsers.add_parser("search", help="Search memories")
     p_mem_search.add_argument("query", help="Search query")
+    p_mem_search.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Filter by visibility scope (default: global)",
+    )
     p_mem_search.set_defaults(func=cmd_memory_search)
 
     p_mem_delete = memory_subparsers.add_parser("delete", help="Delete a memory")
