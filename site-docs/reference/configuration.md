@@ -98,7 +98,7 @@
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | JP→EN translation assistance |
 | `SYNAPSE_PROACTIVE_MODE_ENABLED` | `false` | Judgment-based Synapse feature usage guidance |
 | `SYNAPSE_OBSERVATION_ENABLED` | `true` | Enable observation / self-learning |
-| `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED` | `true` | Save agent prompts for history |
+| `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED` | `true` | Show save-agent-definition prompt on exit |
 
 ### Authentication
 

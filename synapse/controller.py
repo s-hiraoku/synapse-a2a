@@ -1531,6 +1531,9 @@ class TerminalController:
     def get_context(self) -> str:
         """Get the current output context from the controlled process."""
         with self.lock:
+            if self._pending_cr:
+                self._apply_bare_cr()
+                self._pending_cr = False
             raw = "".join(self._render_buffer)
         return strip_ansi(raw)
 
