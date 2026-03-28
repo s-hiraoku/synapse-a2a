@@ -81,6 +81,7 @@ class TestGetContextStripsAnsi:
             ctrl = TerminalController.__new__(TerminalController)
             ctrl.lock = __import__("threading").Lock()
             ctrl._render_buffer = ["\x1b[31mred\x1b[0m", " plain"]
+            ctrl._pending_cr = False
 
             result = ctrl.get_context()
 
