@@ -119,15 +119,18 @@ synapse memory show a1b2c3d4-e5f6-...
 Search across key, content, and tags fields (returns up to 100 results by default):
 
 ```bash
-synapse memory search <query>
+synapse memory search <query> [--scope <scope>]
 ```
 
 ```bash
-# Search for OAuth-related knowledge
+# Search for OAuth-related knowledge (global scope)
 synapse memory search "OAuth2"
 
-# Search by tag content
-synapse memory search "architecture"
+# Search within project-scoped memories
+synapse memory search "architecture" --scope project
+
+# Search private memories
+synapse memory search "todo" --scope private
 ```
 
 ## Deleting Memories
@@ -256,6 +259,9 @@ stats = memory.stats()
 |----------|---------|-------------|
 | `SYNAPSE_SHARED_MEMORY_ENABLED` | `true` | Enable shared memory |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | `~/.synapse/memory.db` | Database file path |
+
+!!! note "Scope Filtering"
+    The `--scope` flag defaults to `global`. Project-scoped memories are filtered by working directory, and private-scoped memories are filtered by the author agent ID. All scopes share the same database file.
 
 ## Integration with Self-Learning
 

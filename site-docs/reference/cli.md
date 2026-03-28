@@ -345,13 +345,15 @@ synapse history cleanup [--days N] [--max-size MB] [--no-vacuum] [--dry-run] [--
 ## Shared Memory
 
 ```bash
-synapse memory save <key> "<content>" [--tags tag1,tag2] [--notify]
-synapse memory list [--author <id>] [--tags <tags>] [--limit N]
+synapse memory save <key> "<content>" [--tags tag1,tag2] [--scope global|project|private] [--notify]
+synapse memory list [--author <id>] [--tags <tags>] [--scope global|project|private] [--limit N]
 synapse memory show <id_or_key>
-synapse memory search "<query>"
+synapse memory search "<query>" [--scope global|project|private]
 synapse memory delete <id_or_key> [--force]
 synapse memory stats
 ```
+
+Memory scopes control visibility: `global` (default, all agents everywhere), `project` (same working directory only), `private` (saving agent only). See [Shared Memory](../guide/shared-memory.md#memory-scopes) for details.
 
 ## Tracing
 

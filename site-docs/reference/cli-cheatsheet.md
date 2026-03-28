@@ -47,10 +47,10 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 
 | Command | Description |
 |---------|-------------|
-| `synapse memory save <key> <content>` | Save a memory entry |
-| `synapse memory list` | List entries |
+| `synapse memory save <key> <content> [--scope SCOPE]` | Save a memory entry |
+| `synapse memory list [--scope SCOPE]` | List entries |
 | `synapse memory show <id_or_key>` | Show entry |
-| `synapse memory search <query>` | Search entries |
+| `synapse memory search <query> [--scope SCOPE]` | Search entries |
 | `synapse memory delete <id_or_key>` | Delete entry |
 | `synapse memory stats` | Show statistics |
 
@@ -339,16 +339,19 @@ synapse skills delete <name> --force
 ## Shared Memory
 
 ```bash
-# Save with optional tags and notification
+# Save with optional tags, scope, and notification
 synapse memory save api-spec "REST API uses JWT auth" --tags api,auth --notify
+synapse memory save repo-tip "Use uv" --scope project
 
-# List and filter
+# List and filter (scope: global|project|private)
 synapse memory list
+synapse memory list --scope project
 synapse memory list --author synapse-claude-8100 --tags api --limit 10
 
 # Show and search
 synapse memory show api-spec
 synapse memory search "authentication"
+synapse memory search "auth" --scope project
 
 # Delete
 synapse memory delete api-spec --force
@@ -486,14 +489,14 @@ synapse claude -A "Calm Lead"
 ## Configuration
 
 ```bash
-# Interactive config editor
+# Interactive config editor (shows effective values with sources)
 synapse config
-synapse config --scope user
-synapse config --scope project
 
 # Read-only view
 synapse config show
 synapse config show --scope user
+synapse config show --scope project
+synapse config show --scope merged
 
 # Initialize (merge strategy — preserves user data, updates templates only)
 synapse init --scope user       # ~/.synapse/settings.json

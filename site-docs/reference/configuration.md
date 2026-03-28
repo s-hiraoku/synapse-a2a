@@ -32,7 +32,13 @@
     "SYNAPSE_SHARED_MEMORY_DB_PATH": "~/.synapse/memory.db",
     "SYNAPSE_LEARNING_MODE_ENABLED": "false",
     "SYNAPSE_LEARNING_MODE_TRANSLATION": "false",
-    "SYNAPSE_PROACTIVE_MODE_ENABLED": "false"
+    "SYNAPSE_PROACTIVE_MODE_ENABLED": "false",
+    "SYNAPSE_OBSERVATION_ENABLED": "true",
+    "SYNAPSE_SEND_MESSAGE_THRESHOLD": "102400",
+    "SYNAPSE_CANVAS_PORT": "3000",
+    "SYNAPSE_LOG_LEVEL": "INFO",
+    "SYNAPSE_LOG_FILE": "false",
+    "SYNAPSE_AGENT_SAVE_PROMPT_ENABLED": "true"
   },
   "instructions": {
     "default": "default.md",
@@ -91,6 +97,8 @@
 | `SYNAPSE_LEARNING_MODE_ENABLED` | `false` | Prompt improvement feedback |
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | JP→EN translation assistance |
 | `SYNAPSE_PROACTIVE_MODE_ENABLED` | `false` | Mandatory full-feature usage for every task |
+| `SYNAPSE_OBSERVATION_ENABLED` | `true` | Enable observation / self-learning |
+| `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED` | `true` | Save agent prompts for history |
 
 ### Authentication
 
@@ -110,6 +118,13 @@
 | `SYNAPSE_REPLY_TARGET_DIR` | `~/.a2a/reply` | Reply target persistence directory |
 | `SYNAPSE_FILE_SAFETY_DB_PATH` | `.synapse/file_safety.db` | File safety database |
 | `SYNAPSE_SHARED_MEMORY_DB_PATH` | `~/.synapse/memory.db` | Shared memory database |
+| `SYNAPSE_HISTORY_DB_PATH` | `~/.synapse/history/history.db` | History database |
+| `SYNAPSE_CANVAS_DB_PATH` | `~/.synapse/canvas.db` | Canvas database |
+| `SYNAPSE_WORKFLOW_RUNS_DB_PATH` | `.synapse/workflow_runs.db` | Workflow runs database |
+| `SYNAPSE_OBSERVATION_DB_PATH` | `.synapse/observations.db` | Observations database |
+| `SYNAPSE_INSTINCT_DB_PATH` | `.synapse/instincts.db` | Instincts database |
+| `SYNAPSE_REGISTRY_DIR` | `~/.a2a/registry` | Agent registry directory |
+| `SYNAPSE_EXTERNAL_REGISTRY_DIR` | `~/.a2a/external` | External registry directory |
 | `SYNAPSE_SKILLS_DIR` | `~/.synapse/skills` | Central skill store |
 
 ### Message Handling
@@ -120,6 +135,14 @@
 | `SYNAPSE_LONG_MESSAGE_THRESHOLD` | 200 chars | PTY long message threshold |
 | `SYNAPSE_LONG_MESSAGE_TTL` | 3600s | Temp message file TTL |
 | `SYNAPSE_LONG_MESSAGE_DIR` | System temp dir | Override long message temp directory |
+
+### Canvas & Logging
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SYNAPSE_CANVAS_PORT` | `3000` | Canvas dashboard port |
+| `SYNAPSE_LOG_LEVEL` | `INFO` | Log level (DEBUG/INFO/WARNING/ERROR) |
+| `SYNAPSE_LOG_FILE` | `false` | Enable file logging |
 
 ### Timeouts
 
