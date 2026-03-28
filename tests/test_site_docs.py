@@ -213,9 +213,10 @@ def test_mcp_bootstrap_doc_includes_synapse_examples_for_all_supported_clients()
     assert "python -m synapse.mcp" in text
     assert "/path/to/uv" in text
     assert "synapse-user" in text
-    assert "synapse-codex-8120" in text
-    assert "synapse-gemini-8110" in text
-    assert "synapse-opencode-8130" in text
+    # Agent type names should be present (specific IDs like synapse-gemini-8110 were removed)
+    assert "codex" in text.lower()
+    assert "gemini" in text.lower()
+    assert "opencode" in text.lower()
 
 
 def test_mcp_bootstrap_doc_links_primary_sources_and_notes_runtime_caveats() -> None:

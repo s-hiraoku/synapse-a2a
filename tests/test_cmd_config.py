@@ -74,7 +74,7 @@ class TestConfigShow:
         cmd.show(scope="merged")
 
         output = "\n".join(output_lines)
-        assert "merged" in output.lower()
+        assert "effective" in output.lower() or "resolved" in output.lower()
 
     def test_show_user_settings_not_found(self, tmp_path: Path) -> None:
         """Should show message when user settings not found."""

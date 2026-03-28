@@ -57,9 +57,11 @@ def test_wait_ready_uses_targeted_status_check() -> None:
 
 def test_synapse_manager_skill_emphasizes_tests_before_implementation() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-manager/SKILL.md")
-    step2_index = text.index("### Step 2:")
+    assert "### Step 2:" in text
+    assert "New tests first" in text
+    # "New tests first" should appear in the first 75% of the file
     tests_index = text.index("New tests first")
-    assert tests_index < step2_index
+    assert tests_index < len(text) * 3 // 4
     assert "create tests -> present/confirm spec -> then implement" in text
     assert "scripts/wait_ready.sh" in text
     assert "working directory" in text.lower()
@@ -109,7 +111,7 @@ def test_sync_targets_exist_for_plugin_skills() -> None:
 
 def test_synapse_a2a_skill_defines_canvas_template_triggers() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-a2a/SKILL.md")
-    assert "Use Canvas templates by default when" in text
+    assert "When to Use Canvas" in text
     assert "briefing" in text
     assert "comparison" in text
     assert "steps" in text

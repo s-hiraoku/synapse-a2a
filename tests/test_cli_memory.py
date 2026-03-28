@@ -39,6 +39,7 @@ class TestCLIMemorySave:
                 content="Use OAuth2 with PKCE flow",
                 tags=None,
                 notify=False,
+                scope="global",
             )
             cmd_memory_save(args)
 
@@ -60,6 +61,7 @@ class TestCLIMemorySave:
                 content="PostgreSQL",
                 tags="arch,database",
                 notify=False,
+                scope="global",
             )
             cmd_memory_save(args)
 
@@ -81,7 +83,7 @@ class TestCLIMemoryList:
         ):
             from synapse.cli import cmd_memory_list
 
-            args = argparse.Namespace(author=None, tags=None, limit=50)
+            args = argparse.Namespace(author=None, tags=None, limit=50, scope="global")
             cmd_memory_list(args)
 
         out = capsys.readouterr().out
@@ -96,7 +98,7 @@ class TestCLIMemoryList:
         ):
             from synapse.cli import cmd_memory_list
 
-            args = argparse.Namespace(author=None, tags=None, limit=50)
+            args = argparse.Namespace(author=None, tags=None, limit=50, scope="global")
             cmd_memory_list(args)
 
         out = capsys.readouterr().out
@@ -113,7 +115,9 @@ class TestCLIMemoryList:
         ):
             from synapse.cli import cmd_memory_list
 
-            args = argparse.Namespace(author="synapse-gemini-8110", tags=None, limit=50)
+            args = argparse.Namespace(
+                author="synapse-gemini-8110", tags=None, limit=50, scope="global"
+            )
             cmd_memory_list(args)
 
         out = capsys.readouterr().out
@@ -169,7 +173,7 @@ class TestCLIMemorySearch:
         ):
             from synapse.cli import cmd_memory_search
 
-            args = argparse.Namespace(query="OAuth2")
+            args = argparse.Namespace(query="OAuth2", scope="global")
             cmd_memory_search(args)
 
         out = capsys.readouterr().out
@@ -252,6 +256,7 @@ class TestCLITagsParsing:
                 content="value",
                 tags="arch, security",
                 notify=False,
+                scope="global",
             )
             cmd_memory_save(args)
 
@@ -276,6 +281,7 @@ class TestCLITagsParsing:
                 content="value2",
                 tags="arch,security,",
                 notify=False,
+                scope="global",
             )
             cmd_memory_save(args)
 
@@ -294,7 +300,9 @@ class TestCLITagsParsing:
         ):
             from synapse.cli import cmd_memory_list
 
-            args = argparse.Namespace(author=None, tags=" arch , ", limit=50)
+            args = argparse.Namespace(
+                author=None, tags=" arch , ", limit=50, scope="global"
+            )
             cmd_memory_list(args)
 
         out = capsys.readouterr().out

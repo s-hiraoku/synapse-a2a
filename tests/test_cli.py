@@ -1364,11 +1364,10 @@ class TestCmdInit:
         captured = capsys.readouterr()
         assert "Created" in captured.out
 
-        # Settings should have new default values
+        # Settings should have new default values (smart-merge preserves existing keys)
         with open(settings_file) as f:
             data = json.load(f)
             assert "env" in data
-            assert "old" not in data
 
 
 class TestCmdReset:
