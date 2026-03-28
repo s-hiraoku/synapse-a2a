@@ -4,6 +4,8 @@ description: >-
   Guide for safe and effective code refactoring. Focuses on improving code 
   structure without changing external behavior. Covers patterns like 
   extraction, inlining, and naming improvements.
+metadata:
+  internal: true
 ---
 
 # Refactoring Guide Skill

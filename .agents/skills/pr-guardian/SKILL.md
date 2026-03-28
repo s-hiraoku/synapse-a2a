@@ -11,6 +11,8 @@ description: >-
   直して", /pr-guardian. When a PostToolUse hook reports that a push or
   PR creation just happened, proactively invoke this skill to start
   monitoring without waiting for the user to ask.
+metadata:
+  internal: true
 ---
 
 # PR Guardian

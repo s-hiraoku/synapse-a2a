@@ -4,6 +4,8 @@ description: >-
   Guide for Test-First (Test-Driven) Development. Focuses on writing tests before 
   implementation, ensuring comprehensive coverage and clear requirements. 
   Covers test design, edge cases, and the Arrange-Act-Assert structure.
+metadata:
+  internal: true
 ---
 
 # Test-First Development Skill

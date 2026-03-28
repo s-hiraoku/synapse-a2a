@@ -6,6 +6,8 @@ description: >-
   protocol, or configuration after /clear or context reset, when synapse
   send/reply commands stop working, or when the agent no longer recognizes
   its SYNAPSE_AGENT_ID. Triggered by /synapse-reinst command.
+metadata:
+  internal: true
 ---
 
 # Synapse Re-Instruction

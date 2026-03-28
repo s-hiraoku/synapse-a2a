@@ -7,6 +7,8 @@ description: >-
   pass but the code would benefit from structural cleanup — deduplication,
   branching simplification, naming improvements, or dead-code removal.
   Invoked as a subagent from /code-quality or directly via the Task tool.
+metadata:
+  internal: true
 ---
 
 # Code Simplifier

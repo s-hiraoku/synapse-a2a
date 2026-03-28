@@ -5,6 +5,8 @@ description: >-
   when designing new systems, evaluating architecture trade-offs, or creating
   technical design documents. Helps produce clear, well-structured design
   artifacts including component diagrams, data flow, and decision records.
+metadata:
+  internal: true
 ---
 
 # System Design

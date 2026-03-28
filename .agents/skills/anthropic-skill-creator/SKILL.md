@@ -1,6 +1,8 @@
 ---
 name: anthropic-skill-creator
 description: Design, review, and improve Claude/Codex skills based on Anthropic's "The Complete Guide to Building Skills for Claude". Use when creating a new skill, rewriting SKILL.md frontmatter and workflows, fixing under-triggering or over-triggering, designing scripts/references/assets, building test cases, or preparing a skill for upload/distribution.
+metadata:
+  internal: true
 ---
 
 # Create Skills

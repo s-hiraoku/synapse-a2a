@@ -4,6 +4,8 @@ description: >-
   Guide for decomposing large tasks into a structured plan with dependency
   chains, managing priorities, and distributing work across agents. Outputs
   plan cards or delegation messages as the team contract; TodoList for personal micro-steps.
+metadata:
+  internal: true
 ---
 
 # Task Planner

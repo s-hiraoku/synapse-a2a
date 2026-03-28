@@ -5,6 +5,8 @@ description: >-
   visual design systems, typography, color, motion, spatial composition, and
   web interface standards. Use when designing UI, establishing design systems,
   or reviewing visual quality of frontend code.
+metadata:
+  internal: true
 ---
 
 # Frontend Design

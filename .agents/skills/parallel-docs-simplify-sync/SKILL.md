@@ -7,6 +7,8 @@ description: >-
   same time.
 commands:
   - /parallel-docs-simplify-sync
+metadata:
+  internal: true
 ---
 
 # Parallel Docs Simplify Sync

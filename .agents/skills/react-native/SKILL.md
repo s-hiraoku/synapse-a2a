@@ -5,6 +5,8 @@ description: >-
   performance, animations with Reanimated, navigation, UI patterns, and
   monorepo configuration. Use when building, reviewing, or optimizing
   React Native / Expo apps.
+metadata:
+  internal: true
 ---
 
 # React Native

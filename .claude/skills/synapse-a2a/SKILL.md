@@ -10,6 +10,8 @@ description: >-
   multi-agent workflow. For AI/programmatic use, prefer `synapse list --json`,
   `synapse status <target> --json`, or the MCP `list_agents` tool instead of
   interactive `synapse list`.
+metadata:
+  internal: true
 ---
 
 # Synapse A2A Communication
