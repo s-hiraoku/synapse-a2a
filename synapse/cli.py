@@ -2945,6 +2945,22 @@ def _memory_broadcast_notify(key: str) -> None:
         print(f"  Broadcast failed: {e}", file=sys.stderr)
 
 
+def _resolve_memory_scope(
+    args: argparse.Namespace,
+) -> tuple[str, str | None, str | None]:
+    """Resolve scope, working_dir, and author from CLI args.
+
+    Returns:
+        (scope, working_dir, private_author)
+    """
+    scope = getattr(args, "scope", "global")
+    working_dir = os.getcwd() if scope == "project" else None
+    private_author = (
+        os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
+    )
+    return scope, working_dir, private_author
+
+
 def cmd_memory_list(args: argparse.Namespace) -> None:
     """List memory entries."""
     from synapse.shared_memory import SharedMemory
@@ -2956,11 +2972,7 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
         else None
     )
     limit = getattr(args, "limit", 50) or 50
-    scope = getattr(args, "scope", "global")
-    working_dir = os.getcwd() if scope == "project" else None
-    private_author = (
-        os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
-    )
+    scope, working_dir, private_author = _resolve_memory_scope(args)
 
     items = mem.list_memories(
         author=private_author or getattr(args, "author", None),
@@ -3010,9 +3022,7 @@ def cmd_memory_search(args: argparse.Namespace) -> None:
     from synapse.shared_memory import SharedMemory
 
     mem = SharedMemory.from_env()
-    scope = getattr(args, "scope", "global")
-    working_dir = os.getcwd() if scope == "project" else None
-    author = os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
+    scope, working_dir, author = _resolve_memory_scope(args)
     results = mem.search(
         args.query,
         scope=scope,

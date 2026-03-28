@@ -206,6 +206,34 @@ class SharedMemory:
             finally:
                 conn.close()
 
+    @staticmethod
+    def _apply_scope_filters(
+        sql: str,
+        params: list[Any],
+        scope: str,
+        author: str | None,
+        working_dir: str | None,
+    ) -> tuple[str, list[Any]] | None:
+        """Append scope-related WHERE clauses to a SQL query.
+
+        Returns:
+            (sql, params) tuple, or None if required parameters are missing.
+        """
+        if scope:
+            sql += " AND scope = ?"
+            params.append(scope)
+        if scope == "project":
+            if not working_dir:
+                return None
+            sql += " AND working_dir = ?"
+            params.append(working_dir)
+        if scope == "private":
+            if not author:
+                return None
+            sql += " AND author = ?"
+            params.append(author)
+        return sql, params
+
     def list_memories(
         self,
         author: str | None = None,
@@ -235,22 +263,14 @@ class SharedMemory:
                 query = "SELECT * FROM memories WHERE 1=1"
                 params: list[Any] = []
 
-                if scope:
-                    query += " AND scope = ?"
-                    params.append(scope)
+                result = self._apply_scope_filters(
+                    query, params, scope, author, working_dir
+                )
+                if result is None:
+                    return []
+                query, params = result
 
-                if scope == "project":
-                    if not working_dir:
-                        return []
-                    query += " AND working_dir = ?"
-                    params.append(working_dir)
-
-                if scope == "private":
-                    if not author:
-                        return []
-                    query += " AND author = ?"
-                    params.append(author)
-                elif author:
+                if author and scope != "private":
                     query += " AND author = ?"
                     params.append(author)
 
@@ -304,21 +324,12 @@ class SharedMemory:
                 """
                 params: list[Any] = [like_query, like_query, like_query]
 
-                if scope:
-                    sql += " AND scope = ?"
-                    params.append(scope)
-
-                if scope == "project":
-                    if not working_dir:
-                        return []
-                    sql += " AND working_dir = ?"
-                    params.append(working_dir)
-
-                if scope == "private":
-                    if not author:
-                        return []
-                    sql += " AND author = ?"
-                    params.append(author)
+                result = self._apply_scope_filters(
+                    sql, params, scope, author, working_dir
+                )
+                if result is None:
+                    return []
+                sql, params = result
 
                 sql += " ORDER BY updated_at DESC LIMIT ?"
                 params.append(limit)
