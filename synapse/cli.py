@@ -2896,10 +2896,17 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
     )
     author = os.environ.get("SYNAPSE_AGENT_ID", "user")
 
-    result = mem.save(key=args.key, content=args.content, author=author, tags=tags)
+    result = mem.save(
+        key=args.key,
+        content=args.content,
+        author=author,
+        tags=tags,
+        scope=args.scope,
+    )
     if result:
         tag_str = f" [{', '.join(result['tags'])}]" if result["tags"] else ""
-        print(f"Saved: {result['key']}{tag_str} (id: {result['id'][:8]})")
+        scope_str = f" ({result['scope']})"
+        print(f"Saved: {result['key']}{tag_str}{scope_str} (id: {result['id'][:8]})")
     else:
         print("Shared memory is disabled.", file=sys.stderr)
         sys.exit(1)
@@ -2949,10 +2956,17 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
         else None
     )
     limit = getattr(args, "limit", 50) or 50
+    scope = getattr(args, "scope", "global")
+    working_dir = os.getcwd() if scope == "project" else None
+    private_author = (
+        os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
+    )
 
     items = mem.list_memories(
-        author=getattr(args, "author", None),
+        author=private_author or getattr(args, "author", None),
         tags=tags,
+        scope=scope,
+        working_dir=working_dir,
         limit=limit,
     )
 
@@ -2962,7 +2976,10 @@ def cmd_memory_list(args: argparse.Namespace) -> None:
 
     for item in items:
         tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
-        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+        print(
+            f"  {item['id'][:8]}  {item['key']}{tag_str}"
+            f"  ({item['scope']})  by {item['author']}"
+        )
 
 
 def cmd_memory_show(args: argparse.Namespace) -> None:
@@ -2979,6 +2996,9 @@ def cmd_memory_show(args: argparse.Namespace) -> None:
     print(f"Key:        {item['key']}")
     print(f"ID:         {item['id']}")
     print(f"Author:     {item['author']}")
+    print(f"Scope:      {item['scope']}")
+    if item.get("working_dir"):
+        print(f"WorkingDir: {item['working_dir']}")
     print(f"Tags:       {', '.join(item['tags']) if item['tags'] else '(none)'}")
     print(f"Created:    {item['created_at']}")
     print(f"Updated:    {item['updated_at']}")
@@ -2990,7 +3010,15 @@ def cmd_memory_search(args: argparse.Namespace) -> None:
     from synapse.shared_memory import SharedMemory
 
     mem = SharedMemory.from_env()
-    results = mem.search(args.query)
+    scope = getattr(args, "scope", "global")
+    working_dir = os.getcwd() if scope == "project" else None
+    author = os.environ.get("SYNAPSE_AGENT_ID", "user") if scope == "private" else None
+    results = mem.search(
+        args.query,
+        scope=scope,
+        author=author,
+        working_dir=working_dir,
+    )
 
     if not results:
         print("No matching memories found.")
@@ -2998,7 +3026,10 @@ def cmd_memory_search(args: argparse.Namespace) -> None:
 
     for item in results:
         tag_str = f" [{', '.join(item['tags'])}]" if item["tags"] else ""
-        print(f"  {item['id'][:8]}  {item['key']}{tag_str}  by {item['author']}")
+        print(
+            f"  {item['id'][:8]}  {item['key']}{tag_str}"
+            f"  ({item['scope']})  by {item['author']}"
+        )
 
 
 def cmd_memory_delete(args: argparse.Namespace) -> None:
@@ -5240,8 +5271,9 @@ Integration with synapse list:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   synapse memory save auth-pattern "Use OAuth2 with PKCE" --tags auth,security
-  synapse memory list
-  synapse memory search "auth"
+  synapse memory save repo-tip "Use uv" --scope project
+  synapse memory list --scope global
+  synapse memory search "auth" --scope private
   synapse memory show auth-pattern
   synapse memory stats
   synapse memory delete auth-pattern --force""",
@@ -5255,6 +5287,12 @@ Integration with synapse list:
     p_mem_save.add_argument("content", help="Memory content")
     p_mem_save.add_argument("--tags", help="Comma-separated tags (e.g., arch,security)")
     p_mem_save.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Memory visibility scope (default: global)",
+    )
+    p_mem_save.add_argument(
         "--notify", action="store_true", help="Broadcast notification to other agents"
     )
     p_mem_save.set_defaults(func=cmd_memory_save)
@@ -5262,6 +5300,12 @@ Integration with synapse list:
     p_mem_list = memory_subparsers.add_parser("list", help="List memories")
     p_mem_list.add_argument("--author", help="Filter by author agent ID")
     p_mem_list.add_argument("--tags", help="Filter by tags (comma-separated)")
+    p_mem_list.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Filter by visibility scope (default: global)",
+    )
     p_mem_list.add_argument(
         "--limit", "-n", type=int, default=50, help="Max entries (default: 50)"
     )
@@ -5273,6 +5317,12 @@ Integration with synapse list:
 
     p_mem_search = memory_subparsers.add_parser("search", help="Search memories")
     p_mem_search.add_argument("query", help="Search query")
+    p_mem_search.add_argument(
+        "--scope",
+        choices=["global", "project", "private"],
+        default="global",
+        help="Filter by visibility scope (default: global)",
+    )
     p_mem_search.set_defaults(func=cmd_memory_search)
 
     p_mem_delete = memory_subparsers.add_parser("delete", help="Delete a memory")

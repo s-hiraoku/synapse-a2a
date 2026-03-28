@@ -26,7 +26,7 @@ Orchestrate multi-agent work with structured delegation, monitoring, and quality
 
 ### Step 1: Plan, Spec, and Setup
 
-New tests first. Follow this order for every implementation task: create tests -> present/confirm spec -> then implement.
+Prefer test-first when the scope is clear: create tests -> present/confirm spec -> then implement. For exploratory work, prototypes, or trivial fixes, writing tests after implementation is acceptable.
 
 Edit `plugins/synapse-a2a/skills/` first, then sync generated copies with `sync-plugin-skills`.
 
@@ -107,9 +107,8 @@ synapse reject <task_id> --reason "Use refresh tokens instead of long-lived JWTs
 
 ### Step 5: Verify
 
-Testing is the critical quality gate — start with the new tests/spec that were created
-up front, then run broader regression coverage because an agent's changes may break
-unrelated modules through import chains or shared state:
+Run the tests created in Step 2 first for fast feedback, then consider broader regression
+coverage if the changes touch shared modules or public interfaces:
 
 ```bash
 # New tests first (fast feedback)

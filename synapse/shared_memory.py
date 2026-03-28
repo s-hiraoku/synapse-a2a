@@ -64,11 +64,14 @@ class SharedMemory:
     @staticmethod
     def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         """Convert a SQLite Row to a memory dictionary."""
+        keys = set(row.keys())
         return {
             "id": row["id"],
             "key": row["key"],
             "content": row["content"],
             "author": row["author"],
+            "scope": row["scope"] if "scope" in keys else "global",
+            "working_dir": row["working_dir"] if "working_dir" in keys else None,
             "tags": json.loads(row["tags"] or "[]"),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
@@ -89,12 +92,32 @@ class SharedMemory:
                         key        TEXT NOT NULL UNIQUE,
                         content    TEXT NOT NULL,
                         author     TEXT NOT NULL,
+                        scope      TEXT NOT NULL DEFAULT 'global',
+                        working_dir TEXT,
                         tags       TEXT DEFAULT '[]',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                     """
                 )
+                columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(memories)").fetchall()
+                }
+                if "scope" not in columns:
+                    conn.execute(
+                        """
+                        ALTER TABLE memories
+                        ADD COLUMN scope TEXT NOT NULL DEFAULT 'global'
+                        """
+                    )
+                if "working_dir" not in columns:
+                    conn.execute(
+                        """
+                        ALTER TABLE memories
+                        ADD COLUMN working_dir TEXT
+                        """
+                    )
                 conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_memory_key ON memories(key)"
                 )
@@ -111,6 +134,7 @@ class SharedMemory:
         content: str,
         author: str,
         tags: list[str] | None = None,
+        scope: str = "global",
     ) -> dict[str, Any] | None:
         """Save or update a memory entry (UPSERT on key).
 
@@ -119,6 +143,7 @@ class SharedMemory:
             content: Memory content text.
             author: Agent ID of the author.
             tags: Optional list of tags.
+            scope: Memory visibility scope.
 
         Returns:
             The saved memory dict, or None if disabled.
@@ -128,21 +153,26 @@ class SharedMemory:
 
         memory_id = str(uuid4())
         tags_json = json.dumps(tags or [])
+        working_dir = os.getcwd() if scope == "project" else None
 
         with self._lock:
             conn = self._get_connection()
             try:
                 conn.execute(
                     """
-                    INSERT INTO memories (id, key, content, author, tags)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO memories (
+                        id, key, content, author, scope, working_dir, tags
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(key) DO UPDATE SET
                         content = excluded.content,
                         author = excluded.author,
+                        scope = excluded.scope,
+                        working_dir = excluded.working_dir,
                         tags = excluded.tags,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    (memory_id, key, content, author, tags_json),
+                    (memory_id, key, content, author, scope, working_dir, tags_json),
                 )
                 conn.commit()
 
@@ -180,6 +210,8 @@ class SharedMemory:
         self,
         author: str | None = None,
         tags: list[str] | None = None,
+        scope: str = "global",
+        working_dir: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """List memories with optional filters.
@@ -187,6 +219,8 @@ class SharedMemory:
         Args:
             author: Filter by author agent ID.
             tags: Filter by tags (memories containing any of these tags).
+            scope: Filter by memory scope.
+            working_dir: Working directory for project-scope filtering.
             limit: Maximum number of results.
 
         Returns:
@@ -201,7 +235,22 @@ class SharedMemory:
                 query = "SELECT * FROM memories WHERE 1=1"
                 params: list[Any] = []
 
-                if author:
+                if scope:
+                    query += " AND scope = ?"
+                    params.append(scope)
+
+                if scope == "project":
+                    if not working_dir:
+                        return []
+                    query += " AND working_dir = ?"
+                    params.append(working_dir)
+
+                if scope == "private":
+                    if not author:
+                        return []
+                    query += " AND author = ?"
+                    params.append(author)
+                elif author:
                     query += " AND author = ?"
                     params.append(author)
 
@@ -219,12 +268,22 @@ class SharedMemory:
             finally:
                 conn.close()
 
-    def search(self, query: str, limit: int = 100) -> list[dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        limit: int = 100,
+        scope: str = "global",
+        author: str | None = None,
+        working_dir: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Search memories by key, content, or tags.
 
         Args:
             query: Search query string (LIKE matching).
             limit: Maximum number of results.
+            scope: Filter by memory scope.
+            author: Author filter used for private scope.
+            working_dir: Working directory filter used for project scope.
 
         Returns:
             List of matching memory dicts.
@@ -239,14 +298,31 @@ class SharedMemory:
             conn = self._get_connection()
             try:
                 like_query = f"%{query}%"
-                rows = conn.execute(
-                    """
+                sql = """
                     SELECT * FROM memories
-                    WHERE key LIKE ? OR content LIKE ? OR tags LIKE ?
-                    ORDER BY updated_at DESC LIMIT ?
-                    """,
-                    (like_query, like_query, like_query, limit),
-                ).fetchall()
+                    WHERE (key LIKE ? OR content LIKE ? OR tags LIKE ?)
+                """
+                params: list[Any] = [like_query, like_query, like_query]
+
+                if scope:
+                    sql += " AND scope = ?"
+                    params.append(scope)
+
+                if scope == "project":
+                    if not working_dir:
+                        return []
+                    sql += " AND working_dir = ?"
+                    params.append(working_dir)
+
+                if scope == "private":
+                    if not author:
+                        return []
+                    sql += " AND author = ?"
+                    params.append(author)
+
+                sql += " ORDER BY updated_at DESC LIMIT ?"
+                params.append(limit)
+                rows = conn.execute(sql, params).fetchall()
                 return [self._row_to_dict(row) for row in rows]
             finally:
                 conn.close()
