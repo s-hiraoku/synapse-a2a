@@ -2,9 +2,24 @@
 
 ## Overview
 
-Shared Memory provides a project-local knowledge base where agents can save, search, and share learned knowledge across sessions. When multiple agents collaborate on a project, Shared Memory enables them to persist decisions, patterns, and discoveries that any agent can later retrieve.
+Shared Memory provides a cross-agent knowledge base where agents can save, search, and share learned knowledge across sessions. When multiple agents collaborate on a project, Shared Memory enables them to persist decisions, patterns, and discoveries that any agent can later retrieve.
 
 Storage: `~/.synapse/memory.db` (user-global SQLite, WAL mode for concurrent access)
+
+## Memory Scopes
+
+Each memory entry has a **scope** that controls its visibility:
+
+| Scope | Visibility | Use Case |
+|-------|-----------|----------|
+| `global` | All agents across all projects (default) | Cross-project knowledge, universal patterns |
+| `project` | Agents in the same working directory only | Project-specific conventions, local decisions |
+| `private` | Only the saving agent can see it | Personal work notes, draft findings |
+
+!!! tip "Choosing the Right Scope"
+    - Use `global` (default) for knowledge that benefits any project — e.g., "always use UTC for timestamps"
+    - Use `project` for project-specific knowledge — e.g., "this repo uses SQLAlchemy 2.0 style"
+    - Use `private` for personal scratch notes that other agents don't need
 
 ## Enabling Shared Memory
 
@@ -33,18 +48,24 @@ SYNAPSE_SHARED_MEMORY_ENABLED=false synapse claude
 ## Saving Knowledge
 
 ```bash
-synapse memory save <key> "<content>" [--tags tag1,tag2] [--notify]
+synapse memory save <key> "<content>" [--tags tag1,tag2] [--scope global|project|private] [--notify]
 ```
 
 Each memory entry has a unique **key**. Saving with an existing key updates the content (UPSERT semantics).
 
 ```bash
-# Save a decision
+# Save a decision (global scope, visible everywhere)
 synapse memory save auth-pattern "Use OAuth2 with PKCE flow for all auth"
 
 # Save with tags for categorization
 synapse memory save db-choice "PostgreSQL with UUID primary keys" \
   --tags architecture,database
+
+# Save project-specific knowledge
+synapse memory save repo-tip "Use uv for dependency management" --scope project
+
+# Save private notes only you can see
+synapse memory save my-todo "Revisit error handling in auth module" --scope private
 
 # Save and notify other agents via broadcast
 synapse memory save api-style "REST with OpenAPI 3.1" --notify
@@ -53,12 +74,18 @@ synapse memory save api-style "REST with OpenAPI 3.1" --notify
 ## Listing Memories
 
 ```bash
-synapse memory list [--author <agent_id>] [--tags <tags>] [--limit <n>]
+synapse memory list [--author <agent_id>] [--tags <tags>] [--scope <scope>] [--limit <n>]
 ```
 
 ```bash
-# List all memories
+# List all global memories (default)
 synapse memory list
+
+# List project-scoped memories
+synapse memory list --scope project
+
+# List private memories
+synapse memory list --scope private
 
 # Filter by author agent
 synapse memory list --author synapse-claude-8100

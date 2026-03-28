@@ -64,11 +64,14 @@ Evaluate collaboration opportunities before starting work:
 | Completed a milestone | Report: `synapse send <manager> "<summary>" --silent` |
 | Discovered a pattern | Share: `synapse memory save <key> "<pattern>" --tags ... --notify` |
 
-**Mandatory Collaboration Gate** (3+ phases OR 10+ file changes):
+**Recommended Collaboration Gate** (3+ phases OR 10+ file changes):
+Consider these steps before diving into large work:
 1. `synapse list --json` or MCP `list_agents` — check available agents
-2. `synapse memory search "<topic>"` — check shared knowledge
-3. Build Agent Assignment Plan (Phase / Agent / Rationale)
+2. `synapse memory search "<topic>"` — check if someone already solved this
+3. Build Agent Assignment Plan (Phase / Agent / Rationale) when delegation is beneficial
 4. Spawn specialists if needed (prefer different model types for diversity)
+
+Skip this gate for small/medium tasks where the overhead exceeds the benefit.
 
 ## Use Synapse Features Actively
 
@@ -85,24 +88,25 @@ Evaluate collaboration opportunities before starting work:
 | **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
 | **Plan Cards** | Mermaid DAG + step list with dependency visualization | `synapse canvas plan` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
-| **Proactive Mode** | Mandatory feature usage checklist for every task (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
+| **Proactive Mode** | Task-size-based feature usage guide (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 | **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in, including Copilot via tools-only). MCP tools: `bootstrap_agent`, `list_agents`, `analyze_task` | `synapse mcp serve` / `python -m synapse.mcp` |
 
-### Canvas Template Default Triggers
+### When to Use Canvas
 
-Use Canvas templates by default when the output should be read by another
-agent or a human later, not just glanced at once in the terminal.
+Use Canvas when the output benefits from visual structure or will be referenced later:
 
-- `briefing` for structured reports, status updates, and release summaries
-- `comparison` for before/after, option trade-offs, and review diffs
-- `steps` for plans, migration sequences, and execution checklists
-- `slides` for walkthroughs, demos, and page-by-page narratives
-- `dashboard` for multi-widget operational snapshots and compact status boards
-- `plan` for task DAGs with Mermaid visualization and step tracking
+- **Use Canvas for:** diagrams, comparison tables, multi-step plans, design docs, results with rich formatting
+- **Skip Canvas for:** simple completion reports, single-file changes, quick status updates (use broadcast or reply instead)
 
-Prefer raw `synapse canvas post <format>` only when a single block is enough.
-If the message has multiple sections or needs stronger information hierarchy,
-use a template.
+Template selection guide:
+- `briefing` — structured reports, status updates, release summaries
+- `comparison` — before/after, option trade-offs, review diffs
+- `steps` — plans, migration sequences, execution checklists
+- `slides` — walkthroughs, demos, page-by-page narratives
+- `dashboard` — multi-widget operational snapshots, compact status boards
+- `plan` — task DAGs with Mermaid visualization and step tracking
+
+Use raw `synapse canvas post <format>` for single blocks; templates for multi-section content.
 
 ## Spawning Decision Table
 
