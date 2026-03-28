@@ -4,6 +4,18 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.12
+
+- **Added**: `synapse config` shows effective values with source annotations (`os.environ > local > project > user > default`)
+- **Added**: Shared memory scope support (`--scope global|project|private`) for save, list, and search
+- **Added**: 16 missing environment variables to DEFAULT_SETTINGS (paths, toggles, thresholds)
+- **Added**: Smart-merge for `settings.json` on `synapse init` — preserves user values while adding new keys
+- **Changed**: Instructions rewritten from mandatory to judgment-based (proactive.md, file-safety.md, shared-memory.md)
+- **Changed**: Skills relaxed — "Mandatory Collaboration Gate" → "Recommended", test-first is preferred not required
+- **Fixed**: `SYNAPSE_SHARED_MEMORY_DB_PATH` default corrected to `~/.synapse/memory.db` (user-global)
+- **Fixed**: Bare CR in PTY `_render_buffer` now clears stale text, preventing status bar noise in A2A messages
+- **Fixed**: MCP server error handling — `_settings()`, `list_agents()`, and git subprocess failures now logged
+
 ### v0.17.11
 
 - **Fixed**: Copilot CLI 1.0.12 instructions not executing — enabled `bracketed_paste: true` for paste marker wrapping

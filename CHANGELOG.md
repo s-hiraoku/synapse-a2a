@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.17.12] - 2026-03-28
+
+### Added
+
+- synapse config shows effective values with source, removes --scope
+
+### Changed
+
+- improve instructions and skills, add shared memory scope
+- extract duplicated scope logic, fix BOOLEAN_ENV_VARS
+
+### Documentation
+
+- update site-docs for shared memory scope and config changes
+
+### Fixed
+
+- improve config system — add missing env vars, fix memory.db path, smart-merge on init
+- clear stale text on bare CR in _render_buffer to prevent A2A noise
+
 ## [0.17.11] - 2026-03-27
 
 ### Fixed
