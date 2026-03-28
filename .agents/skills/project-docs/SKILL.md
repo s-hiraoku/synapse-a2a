@@ -4,8 +4,6 @@ description: >-
   Guide for creating and maintaining project documentation (README, guides,
   API specs). Emphasizes doc/code synchronization, consistency checks, and
   use of the docs-excellence-architect subagent.
-metadata:
-  internal: true
 ---
 
 # Project Docs

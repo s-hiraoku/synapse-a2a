@@ -4,8 +4,6 @@ description: >-
   Perform structured code reviews focusing on correctness, readability,
   security, and maintainability. Use this skill when reviewing pull requests,
   evaluating code changes, or establishing review standards for a team.
-metadata:
-  internal: true
 ---
 
 # Code Review

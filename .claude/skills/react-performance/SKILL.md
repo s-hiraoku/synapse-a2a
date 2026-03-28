@@ -5,8 +5,6 @@ description: >-
   waterfall elimination, bundle size reduction, server-side optimization,
   re-render prevention, and rendering performance. Use when building,
   reviewing, or optimizing React/Next.js applications for speed.
-metadata:
-  internal: true
 ---
 
 # React Performance

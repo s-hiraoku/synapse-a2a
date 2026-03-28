@@ -5,8 +5,6 @@ description: >-
   UIs. Covers compound components, context-based state, explicit variants,
   and React 19 APIs. Use when designing component APIs, refactoring
   prop-heavy components, or building reusable component libraries.
-metadata:
-  internal: true
 ---
 
 # React Composition

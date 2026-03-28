@@ -5,8 +5,6 @@ description: >-
   when designing new APIs, reviewing existing API contracts, or establishing
   API conventions for a project. Produces consistent, well-documented API
   specifications.
-metadata:
-  internal: true
 ---
 
 # API Design

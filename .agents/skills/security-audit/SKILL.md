@@ -4,8 +4,6 @@ description: >-
   General-purpose security auditing guide. Covers OWASP Top 10, dependency 
   vulnerabilities, authentication, authorization, input validation, and secret 
   management. Use this when performing a security review or audit.
-metadata:
-  internal: true
 ---
 
 # Security Audit Skill

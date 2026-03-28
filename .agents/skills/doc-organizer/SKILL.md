@@ -5,8 +5,6 @@ description: >-
   maintainability. Use this skill when docs have grown organically and need
   reorganization, when duplicate content exists across files, or when
   documentation structure needs standardization.
-metadata:
-  internal: true
 ---
 
 # Doc Organizer

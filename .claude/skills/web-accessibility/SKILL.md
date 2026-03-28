@@ -5,8 +5,6 @@ description: >-
   semantic HTML, keyboard navigation, screen readers, forms, touch targets,
   and internationalization. Use when building, reviewing, or auditing web
   interfaces for accessibility and UX quality.
-metadata:
-  internal: true
 ---
 
 # Web Accessibility

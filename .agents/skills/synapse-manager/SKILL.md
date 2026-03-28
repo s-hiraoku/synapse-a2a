@@ -6,8 +6,6 @@ description: >-
   cross-review orchestration. Use this skill when coordinating multiple agents
   on a shared task, monitoring delegated work, ensuring quality across
   agent outputs, or implementing a multi-phase plan (3+ phases or 10+ file changes).
-metadata:
-  internal: true
 ---
 
 # Synapse Manager
