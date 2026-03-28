@@ -2901,7 +2901,7 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
         content=args.content,
         author=author,
         tags=tags,
-        scope=args.scope,
+        scope=getattr(args, "scope", "global"),
     )
     if result:
         tag_str = f" [{', '.join(result['tags'])}]" if result["tags"] else ""

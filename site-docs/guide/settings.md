@@ -21,25 +21,25 @@ Settings are merged section by section (`env`, `instructions`, `a2a`, etc.). Wit
 If User scope has all settings and Project scope has just one:
 
 ```
-User:    env: { HISTORY_ENABLED: "true", LEARNING_MODE_ENABLED: "false", LOG_LEVEL: "INFO", ... }
-Project: env: { LEARNING_MODE_ENABLED: "true" }
+User:    env: { SYNAPSE_HISTORY_ENABLED: "true", SYNAPSE_LEARNING_MODE_ENABLED: "false", SYNAPSE_LOG_LEVEL: "INFO", ... }
+Project: env: { SYNAPSE_LEARNING_MODE_ENABLED: "true" }
 ```
 
 Result:
 ```
-env: { HISTORY_ENABLED: "true", LEARNING_MODE_ENABLED: "true", LOG_LEVEL: "INFO", ... }
+env: { SYNAPSE_HISTORY_ENABLED: "true", SYNAPSE_LEARNING_MODE_ENABLED: "true", SYNAPSE_LOG_LEVEL: "INFO", ... }
 ```
 
-Only `LEARNING_MODE_ENABLED` is overwritten by Project scope. All other values come from User scope.
+Only `SYNAPSE_LEARNING_MODE_ENABLED` is overwritten by Project scope. All other values come from User scope.
 
 ### Watch Out: Unintended Overrides
 
 If you enable a feature in User scope but the Project scope template has the default `"false"`, the project value wins:
 
 ```
-User:    env: { LEARNING_MODE_ENABLED: "true" }      ← personal preference
-Project: env: { LEARNING_MODE_ENABLED: "false" }      ← template default
-→ Result: LEARNING_MODE_ENABLED = "false"              ← Project wins
+User:    env: { SYNAPSE_LEARNING_MODE_ENABLED: "true" }      ← personal preference
+Project: env: { SYNAPSE_LEARNING_MODE_ENABLED: "false" }      ← template default
+→ Result: SYNAPSE_LEARNING_MODE_ENABLED = "false"              ← Project wins
 ```
 
 **Fix**: Remove keys from Project scope that don't need project-wide control, or override in `settings.local.json` (Local scope, highest priority).
@@ -178,7 +178,7 @@ synapse reset --scope both -f          # Reset both without confirmation
 | `SYNAPSE_LEARNING_MODE_TRANSLATION` | `false` | Enable translation mode |
 | `SYNAPSE_PROACTIVE_MODE_ENABLED` | `false` | Enable [proactive mode](proactive-mode.md) |
 | `SYNAPSE_OBSERVATION_ENABLED` | `true` | Enable observation / self-learning |
-| `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED` | `true` | Save agent prompts for history |
+| `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED` | `true` | Show save-agent-definition prompt on exit |
 
 ### Authentication
 

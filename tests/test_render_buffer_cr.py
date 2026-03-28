@@ -57,3 +57,10 @@ class TestRenderBufferCarriageReturn:
         ctrl._append_output("最初\r中間\r最後".encode())
 
         assert ctrl.get_context() == "最後"
+
+    def test_split_crlf_preserves_line(self):
+        """CRLF split across two _append_output calls should preserve content."""
+        ctrl = _make_controller()
+        ctrl._append_output("行1\r".encode())
+        ctrl._append_output("\n行2".encode())
+        assert ctrl.get_context() == "行1\n行2"

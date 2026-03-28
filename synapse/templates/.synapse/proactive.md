@@ -29,6 +29,7 @@ WHEN TO USE EACH FEATURE:
   - USE for discoveries, patterns, or decisions that benefit OTHER agents
   - SKIP for task-specific notes or information only relevant to you
   - Prefer --scope global for cross-project knowledge, project for project-specific
+  - Use --scope private for personal notes only relevant to you
 
   Canvas:
   - USE for complex artifacts: diagrams, comparison tables, design docs,
