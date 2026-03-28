@@ -8,7 +8,7 @@ WHEN TO LOCK:
 - Another agent might be editing the same file concurrently
 
 WHEN LOCKING IS NOT NEEDED:
-- You're the only running agent (check: synapse list)
+- You're the only running agent (check: synapse list --json)
 - Creating a new file (no conflict possible)
 - Read-only operations
 

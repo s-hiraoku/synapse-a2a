@@ -284,11 +284,17 @@ class SynapseMCPServer:
 
         result = []
         for agent_id, info in agents.items():
-            entry: dict[str, object] = {k: info.get(k) for k in self._AGENT_JSON_FIELDS}
-            entry["agent_id"] = agent_id
-            transport = registry.get_transport_display(agent_id)
-            entry["transport"] = transport or "-"
-            result.append(entry)
+            try:
+                entry: dict[str, object] = {
+                    k: info.get(k) for k in self._AGENT_JSON_FIELDS
+                }
+                entry["agent_id"] = agent_id
+                transport = registry.get_transport_display(agent_id)
+                entry["transport"] = transport or "-"
+                result.append(entry)
+            except Exception as exc:
+                logger.warning("Failed to process agent %s: %s", agent_id, exc)
+                continue
 
         status_filter = arguments.get("status")
         if isinstance(status_filter, str) and status_filter:

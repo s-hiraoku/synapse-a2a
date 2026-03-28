@@ -955,6 +955,7 @@ class RichConfigCommand:
             if new_value is not None:
                 self._save_to_scope(target_scope, "env", key, new_value)
                 self._effective_env = resolve_effective_env()
+                self._modified = False
 
     def _edit_boolean_env_value(self, title: str, category: str, key: str) -> None:
         """Edit a boolean environment variable value."""
