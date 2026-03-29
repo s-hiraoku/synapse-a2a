@@ -78,6 +78,19 @@ class Element {
     };
   }
 
+  setAttribute(name, value) {
+    this.dataset["_attr_" + name] = String(value);
+    if (name === "id") this.id = value;
+  }
+
+  getAttribute(name) {
+    return this.dataset["_attr_" + name] || null;
+  }
+
+  removeAttribute(name) {
+    delete this.dataset["_attr_" + name];
+  }
+
   addEventListener(event, handler) {
     if (!this._listeners[event]) this._listeners[event] = [];
     this._listeners[event].push(handler);

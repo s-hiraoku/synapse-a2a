@@ -489,6 +489,8 @@ If a stale Canvas process is detected on the port during startup (e.g., from a p
 | `POST` | `/api/admin/jump/{agent_id}` | Jump to agent's terminal pane |
 | `POST` | `/api/admin/agents/spawn` | Spawn a new agent |
 | `DELETE` | `/api/admin/agents/{id}` | Stop an agent |
+| `GET` | `/api/db/list` | List Synapse SQLite databases in `.synapse/` |
+| `GET` | `/api/db/{db_name}/{table_name}` | Query table rows (read-only, paginated) |
 
 ## System Panel
 
@@ -613,16 +615,17 @@ The Canvas UI features a **glassmorphism design** with glass panels and `backdro
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all supported card types and built-in templates with hardcoded sample data under `site-docs/assets/`.
 
-The UI uses **SPA hash routing** with six views:
+The UI uses **SPA hash routing** with seven views:
 
 | Route | View | Purpose |
 |---|---|---|
 | `#/` | **Canvas** (default) | Full-viewport display of the latest card |
 | `#/history` | **History** (sub-item of Canvas) | Card grid with live feed, agent messages, and filters |
-| `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors) |
+| `#/dashboard` | **Dashboard** | Operational status overview with expandable summary+detail widgets (Agents, File Locks, Worktrees, Memory, Errors) |
 | `#/admin` | **Agent Control** | Command center for sending messages to agents and managing agent lifecycle |
-| `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
 | `#/workflow` | **Workflow** | Split-panel workflow browser with execution support |
+| `#/database` | **Database** | Browse Synapse SQLite databases (read-only) |
+| `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
 
 ### Canvas View (`#/`)
 
@@ -641,14 +644,16 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 
 The Dashboard view provides a real-time operational status overview of the entire Synapse environment. It is designed for monitoring multi-agent systems at a glance.
 
-**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data. Widget expand/collapse state is preserved across re-renders so the view does not jump while you are reading details.
+**Responsive grid layout**: Widgets are arranged in a CSS Grid with `auto-fit` columns (minimum 350px each), automatically adapting from multi-column on wide screens to a single column on mobile (below 768px).
+
+**Two-tier progressive disclosure**: Each widget shows a compact summary row by default (counts, key metrics). Clicking the widget header expands it to reveal the full detail table. This keeps the dashboard scannable while preserving access to granular data. Widget expand/collapse state is preserved across re-renders so the view does not jump while you are reading details. Widget headers are keyboard-accessible (`tabindex`, `aria-expanded`).
 
 **Widgets:**
 
 - **Agents**: Running agents with status dots and metadata
 - **File Locks**: Active file locks with agent assignment
 - **Worktrees**: Active git worktrees for agent isolation
-- **Memory**: Recent shared memory entries
+- **Shared Memory**: Recent shared memory entries
 - **Errors**: Registry errors and agent issues
 
 The Dashboard updates via **SSE (Server-Sent Events)** for instant reactivity, with a 10-second fallback polling interval to keep widgets current if events are missed or delayed.
@@ -672,7 +677,7 @@ The Agent Control view is a **Command Center** for directly interacting with run
 
 **Components:**
 
-- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2). Right-click a row to open a context menu with a **Kill Agent** action that sends SIGTERM to the agent process (with a confirmation dialog).
+- **Agent table**: Clickable rows showing all active agents (auto-populated from the registry) with status dots, name, type, role, and status. Click a row to select the target agent. Double-click a row to jump to that agent's terminal pane (tmux/iTerm2). Right-click a row to open a context menu with a **Kill Agent** action that sends SIGTERM to the agent process (with a confirmation dialog). The agent panel includes a resizable splitter (`role="separator"`, keyboard-accessible via `tabindex`) between the agent table and the response feed.
 - **Message input**: Multi-line textarea for composing commands. Press Cmd+Enter (macOS) or Ctrl+Enter to send; plain Enter inserts a newline. The Send button is disabled during pending requests to prevent double-send.
 - **Response feed**: Chat-bubble style conversation log showing sent commands (right-aligned) and agent responses (left-aligned) with timestamps.
 
@@ -691,6 +696,25 @@ The agent list refreshes automatically on SSE `system_update` events, so newly s
 
 !!! tip "Agent Control API Endpoints"
     The Agent Control view is backed by dedicated API endpoints on the Canvas server. See [Canvas Admin API](../reference/api.md#canvas-admin-api) for the full endpoint reference.
+
+### Database View (`#/database`)
+
+The Database view provides a read-only browser for Synapse SQLite databases stored in the project's `.synapse/` directory. It is useful for inspecting file safety records, workflow runs, observations, instincts, and other project-local data without leaving the Canvas UI.
+
+**Layout**: A split-panel interface with a sidebar listing discovered databases and their tables, and a main content area showing paginated query results.
+
+**Left panel -- Database sidebar**: Lists all `.db` files found in `.synapse/` (excluding internal databases like `task_board.db`). Each database expands to show its tables. Click a table name to query it.
+
+**Right panel -- Table viewer**: Displays the selected table's rows in a scrollable HTML table with column headers. Pagination controls (Prev / Next) allow browsing large tables (100 rows per page by default).
+
+**API endpoints:**
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/db/list` | List all SQLite databases in `.synapse/` with table names and file sizes |
+| `GET` | `/api/db/{db_name}/{table_name}?limit=N&offset=N` | Query rows from a table (read-only, parameterized) |
+
+All database access is read-only (`?mode=ro` SQLite URI). Table names are validated against `^[a-zA-Z_][a-zA-Z0-9_]*$` to prevent injection.
 
 ### Workflow View (`#/workflow`)
 

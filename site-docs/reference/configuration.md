@@ -149,6 +149,7 @@
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_READY_TIMEOUT` | 30s | Readiness Gate timeout |
+| `SYNAPSE_SEND_WAIT_TIMEOUT` | 30s | Max seconds `synapse send` waits for a PROCESSING target to become READY |
 | `SYNAPSE_HOOK_TIMEOUT` | 30s | Hook execution timeout |
 | `SYNAPSE_WEBHOOK_TIMEOUT` | 10s | Webhook delivery timeout |
 | `SYNAPSE_WEBHOOK_MAX_RETRIES` | 3 | Webhook retry count |

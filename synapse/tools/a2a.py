@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -725,6 +726,60 @@ def cmd_send(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    # Determine response_mode based on a2a.flow setting and flags
+    response_mode = _get_response_mode(getattr(args, "response_mode", None))
+
+    # Wait for target to leave PROCESSING unless explicitly bypassed.
+    # Silent sends are fire-and-forget and are used by reply-style flows, so
+    # waiting here can deadlock the responder against the original sender.
+    if (
+        response_mode != "silent"
+        and not getattr(args, "force", False)
+        and getattr(args, "priority", 0) != 5
+    ):
+        status = target_agent.get("status", "")
+        if status == "PROCESSING":
+            display_name = target_agent.get("name") or agent_id
+            try:
+                wait_timeout = int(os.environ.get("SYNAPSE_SEND_WAIT_TIMEOUT", "30"))
+            except ValueError:
+                wait_timeout = 30
+            wait_timeout = max(wait_timeout, 0)
+
+            waited = 0
+            while waited < wait_timeout and status == "PROCESSING":
+                print(
+                    f"\rWaiting for {display_name} to become READY... ({waited}s)",
+                    end="",
+                    file=sys.stderr,
+                )
+                time.sleep(1)
+                waited += 1
+
+                reg = AgentRegistry()
+                agents = reg.list_agents()
+                refreshed = next(
+                    (
+                        agent
+                        for agent in agents.values()
+                        if agent.get("agent_id") == agent_id
+                    ),
+                    None,
+                )
+                if refreshed:
+                    target_agent = refreshed
+                    status = refreshed.get("status", "")
+                else:
+                    break
+
+            if waited > 0:
+                print("", file=sys.stderr)
+            if status == "PROCESSING":
+                print(
+                    f"Warning: Timed out waiting for {display_name} to become READY. Continuing send.",
+                    file=sys.stderr,
+                )
+
     # Check working_dir mismatch (skip with --force)
     if not getattr(args, "force", False) and _warn_working_dir_mismatch(
         target_agent, agents
@@ -738,9 +793,6 @@ def cmd_send(args: argparse.Namespace) -> None:
     if isinstance(sender_info, str):
         print(sender_info, file=sys.stderr)
         sys.exit(1)
-
-    # Determine response_mode based on a2a.flow setting and flags
-    response_mode = _get_response_mode(getattr(args, "response_mode", None))
 
     # Add metadata (sender info and response_mode)
     client = A2AClient()
