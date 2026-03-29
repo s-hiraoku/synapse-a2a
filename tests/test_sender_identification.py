@@ -30,8 +30,10 @@ class TestBuildSenderInfo:
 
         # Mock is_descendant_of to return True for the matching agent
         with (
-            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", return_value=True),
+            patch(
+                "synapse.tools.a2a_helpers.AgentRegistry", return_value=mock_registry
+            ),
+            patch("synapse.tools.a2a_helpers.is_descendant_of", return_value=True),
         ):
             sender = build_sender_info()
 
@@ -64,7 +66,9 @@ class TestBuildSenderInfo:
             },
         }
 
-        with patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry):
+        with patch(
+            "synapse.tools.a2a_helpers.AgentRegistry", return_value=mock_registry
+        ):
             sender = build_sender_info(explicit_sender="claude")
 
             assert isinstance(sender, str)
@@ -89,8 +93,10 @@ class TestBuildSenderInfo:
 
         # Mock is_descendant_of to return False (no match)
         with (
-            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", return_value=False),
+            patch(
+                "synapse.tools.a2a_helpers.AgentRegistry", return_value=mock_registry
+            ),
+            patch("synapse.tools.a2a_helpers.is_descendant_of", return_value=False),
         ):
             sender = build_sender_info()
             assert sender == {}
@@ -131,8 +137,13 @@ class TestBuildSenderInfo:
             return ancestor == 12346  # Only match gemini
 
         with (
-            patch("synapse.tools.a2a.AgentRegistry", return_value=mock_registry),
-            patch("synapse.tools.a2a.is_descendant_of", side_effect=mock_is_descendant),
+            patch(
+                "synapse.tools.a2a_helpers.AgentRegistry", return_value=mock_registry
+            ),
+            patch(
+                "synapse.tools.a2a_helpers.is_descendant_of",
+                side_effect=mock_is_descendant,
+            ),
         ):
             sender = build_sender_info()
 

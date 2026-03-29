@@ -91,11 +91,9 @@ def _extract_sender_info_from_agent(agent_id: str, info: dict) -> dict[str, str]
 
 def _validate_explicit_sender(sender: str) -> str | None:
     """Validate explicit sender format and return helpful error if invalid."""
-    # Pattern allows hyphens in type segment (e.g., synapse-gpt-4-8120)
     if re.match(r"^synapse-[\w-]+-\d+$", sender):
         return None
 
-    # Check if it's a type or custom name and provide helpful error
     try:
         reg = AgentRegistry()
         agents = reg.list_agents()
@@ -150,13 +148,11 @@ def _find_sender_by_pid() -> dict[str, str]:
         agents = reg.list_agents()
         current_pid = os.getpid()
 
-        # Priority 1: PID Ancestry match
         for agent_id, info in agents.items():
             agent_pid = info.get("pid")
             if agent_pid and is_descendant_of(current_pid, agent_pid):
                 return _extract_sender_info_from_agent(agent_id, info)
 
-        # Priority 2: TTY match (fallback for tmux/spawned shells)
         current_tty = _get_current_tty()
         if current_tty:
             for agent_id, info in agents.items():
@@ -169,7 +165,7 @@ def _find_sender_by_pid() -> dict[str, str]:
 
 
 def build_sender_info(explicit_sender: str | None = None) -> dict | str:
-    """Build sender info using explicit sender, env var, or PID matching."""
+    """Build sender info using explicit sender, environment variable, or PID matching."""
     if not explicit_sender:
         env_sender = os.environ.get("SYNAPSE_AGENT_ID")
         if env_sender:
@@ -244,10 +240,10 @@ def _record_sent_message(
 def _pick_best_agent(matches: list[dict]) -> dict:
     """Pick the best agent from multiple candidates."""
 
-    def _sort_key(agent: dict) -> tuple[int, int]:
-        status = agent.get("status") or ""
+    def _sort_key(a: dict) -> tuple[int, int]:
+        status = a.get("status") or ""
         ready = 0 if status.upper() == "READY" else 1
-        port = agent.get("port") or 99999
+        port = a.get("port") or 99999
         return (ready, int(port))
 
     return sorted(matches, key=_sort_key)[0]
@@ -293,9 +289,9 @@ def _resolve_target_agent(
                 return info, None
 
     matches = [
-        agent
-        for agent in local_agents.values()
-        if target_lower in agent.get("agent_type", "").lower()
+        a
+        for a in local_agents.values()
+        if target_lower in a.get("agent_type", "").lower()
     ]
 
     if len(matches) == 1:
@@ -309,18 +305,40 @@ def _resolve_target_agent(
 
 def _format_ambiguous_target_error(target: str, matches: list[dict]) -> str:
     """Format error message for ambiguous target resolution."""
-    agent_ids = [match.get("agent_id", "unknown") for match in matches]
+    agent_ids = [m.get("agent_id", "unknown") for m in matches]
     error = f"Ambiguous target '{target}'. Found {len(matches)} agents: {agent_ids}"
 
     lines = ["  Use a specific identifier to target the right agent:"]
-    for match in matches:
-        agent_id = match.get("agent_id", "unknown")
-        name = match.get("name")
+    for m in matches:
+        agent_id = m.get("agent_id", "unknown")
+        name = m.get("name")
         identifier = shlex.quote(name) if name else agent_id
         hint = f"  # {agent_id}" if name else ""
         lines.append(f'    synapse send {identifier} "<message>"{hint}')
 
     return error + "\n" + "\n".join(lines)
+
+
+def _extract_agent_type_from_id(agent_id: str) -> str | None:
+    """Extract agent type from an agent ID like 'synapse-claude-8100'."""
+    parts = agent_id.split("-")
+    if len(parts) >= 2:
+        return parts[1]
+    return None
+
+
+def _suggest_spawn_type(target_type: str, sender_type: str | None) -> str:
+    """Pick an agent type to suggest for spawning, avoiding the sender's own type."""
+    from synapse.port_manager import PORT_RANGES
+
+    if not sender_type or target_type != sender_type:
+        return target_type
+
+    for agent_type in PORT_RANGES:
+        if agent_type != sender_type and agent_type != "dummy":
+            return agent_type
+
+    return target_type
 
 
 def _get_response_mode(response_mode_arg: str | None) -> str:
@@ -361,28 +379,6 @@ def _agents_in_current_working_dir(
     ]
 
 
-def _extract_agent_type_from_id(agent_id: str) -> str | None:
-    """Extract agent type from an agent ID like 'synapse-claude-8100'."""
-    parts = agent_id.split("-")
-    if len(parts) >= 2:
-        return parts[1]
-    return None
-
-
-def _suggest_spawn_type(target_type: str, sender_type: str | None) -> str:
-    """Pick an agent type to suggest for spawning, avoiding the sender's own type."""
-    from synapse.port_manager import PORT_RANGES
-
-    if not sender_type or target_type != sender_type:
-        return target_type
-
-    for agent_type in PORT_RANGES:
-        if agent_type != sender_type and agent_type != "dummy":
-            return agent_type
-
-    return target_type
-
-
 def _warn_working_dir_mismatch(
     target_agent: dict,
     agents: dict[str, dict],
@@ -413,11 +409,11 @@ def _warn_working_dir_mismatch(
 
     if same_dir:
         print("Agents in current directory:", file=sys.stderr)
-        for agent in same_dir:
-            name = agent.get("name") or agent.get("agent_id", "?")
-            agent_type = agent.get("agent_type", "?")
-            status = agent.get("status", "?")
-            print(f"  {name} ({agent_type}) - {status}", file=sys.stderr)
+        for a in same_dir:
+            name = a.get("name") or a.get("agent_id", "?")
+            atype = a.get("agent_type", "?")
+            status = a.get("status", "?")
+            print(f"  {name} ({atype}) - {status}", file=sys.stderr)
     else:
         sender_id = os.environ.get("SYNAPSE_AGENT_ID", "")
         sender_type = _extract_agent_type_from_id(sender_id) if sender_id else None
@@ -497,9 +493,9 @@ def _process_attachments(file_paths: list[str]) -> list[dict]:
         staged_path = staging_dir / f"{uuid.uuid4()}-{src.name}"
         try:
             shutil.copy2(src, staged_path)
-        except OSError as exc:
+        except OSError as e:
             print(
-                f"Error: Failed to stage attachment '{file_path}': {exc}",
+                f"Error: Failed to stage attachment '{file_path}': {e}",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -592,34 +588,3 @@ def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
         dest="attach",
         help="Attach a file to the message (repeatable)",
     )
-
-
-__all__ = [
-    "get_parent_pid",
-    "is_descendant_of",
-    "_extract_sender_info_from_agent",
-    "_validate_explicit_sender",
-    "_lookup_sender_in_registry",
-    "_get_current_tty",
-    "_find_sender_by_pid",
-    "build_sender_info",
-    "_pick_best_agent",
-    "_resolve_target_agent",
-    "_format_ambiguous_target_error",
-    "_extract_agent_type_from_id",
-    "_suggest_spawn_type",
-    "_resolve_message",
-    "_process_attachments",
-    "_warn_shell_expansion",
-    "_artifact_display_text",
-    "_format_task_error",
-    "_get_target_display_name",
-    "_get_history_manager",
-    "_record_sent_message",
-    "_normalize_working_dir",
-    "_agents_in_current_working_dir",
-    "_warn_working_dir_mismatch",
-    "_get_response_mode",
-    "_add_response_mode_flags",
-    "_add_message_source_flags",
-]

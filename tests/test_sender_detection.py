@@ -5,9 +5,9 @@ from synapse.tools.a2a import _find_sender_by_pid, build_sender_info
 
 
 class TestSenderDetection:
-    @patch("synapse.tools.a2a.os.getpid")
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
+    @patch("synapse.tools.a2a_helpers.os.getpid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.is_descendant_of")
     def test_find_sender_by_pid_success(
         self, mock_is_descendant, mock_registry_cls, mock_getpid
     ):
@@ -38,9 +38,9 @@ class TestSenderDetection:
         assert result["sender_type"] == "claude"
         assert result["sender_endpoint"] == "http://localhost:8100"
 
-    @patch("synapse.tools.a2a.os.getpid")
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
+    @patch("synapse.tools.a2a_helpers.os.getpid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.is_descendant_of")
     def test_find_sender_by_pid_no_match(
         self, mock_is_descendant, mock_registry_cls, mock_getpid
     ):
@@ -58,11 +58,11 @@ class TestSenderDetection:
         # Verify
         assert result == {}
 
-    @patch("synapse.tools.a2a.os.getpid")
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
-    @patch("synapse.tools.a2a.os.ttyname")
-    @patch("synapse.tools.a2a.sys.stdin")
+    @patch("synapse.tools.a2a_helpers.os.getpid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.is_descendant_of")
+    @patch("synapse.tools.a2a_helpers.os.ttyname")
+    @patch("synapse.tools.a2a_helpers.sys.stdin")
     def test_find_sender_by_tty_fallback(
         self,
         mock_stdin,
@@ -94,8 +94,8 @@ class TestSenderDetection:
         # Verify
         assert result["sender_id"] == "synapse-claude-8100"
 
-    @patch("synapse.tools.a2a.os.getpid")
-    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.os.getpid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
     def test_find_sender_by_pid_exception_logged(
         self, mock_registry_cls, mock_getpid, caplog
     ):
@@ -107,13 +107,13 @@ class TestSenderDetection:
         loggers_to_fix = [
             logging.getLogger("synapse"),
             logging.getLogger("synapse.tools"),
-            logging.getLogger("synapse.tools.a2a"),
+            logging.getLogger("synapse.tools.a2a_helpers"),
         ]
         orig_propagate = {lg.name: lg.propagate for lg in loggers_to_fix}
         for lg in loggers_to_fix:
             lg.propagate = True
         try:
-            with caplog.at_level(logging.ERROR, logger="synapse.tools.a2a"):
+            with caplog.at_level(logging.ERROR, logger="synapse.tools.a2a_helpers"):
                 result = _find_sender_by_pid()
         finally:
             for lg in loggers_to_fix:
@@ -124,9 +124,9 @@ class TestSenderDetection:
         assert "Error in _find_sender_by_pid" in caplog.text
         assert "Registry error" in caplog.text
 
-    @patch("synapse.tools.a2a.os.environ.get")
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a._find_sender_by_pid")
+    @patch("synapse.tools.a2a_helpers.os.environ.get")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers._find_sender_by_pid")
     def test_build_sender_info_priority(
         self, mock_find_pid, mock_registry_cls, mock_env_get
     ):
