@@ -135,15 +135,14 @@ def test_system_skills_name_cells_allow_wrapping() -> None:
     assert "white-space: nowrap;" not in block
 
 
-def test_dashboard_layout_is_responsive_grid() -> None:
-    """Dashboard should use a responsive auto-fit grid layout."""
+def test_dashboard_layout_is_single_column() -> None:
+    """Dashboard should use a single-column vertical layout."""
     css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
     start = css.index(".dash-grid {")
     end = css.index("}", start)
     dash_grid_block = css[start:end]
 
-    assert "grid-template-columns:" in dash_grid_block
-    assert "auto-fit" in dash_grid_block
+    assert "flex-direction: column" in dash_grid_block
 
 
 def test_dashboard_route_in_js() -> None:

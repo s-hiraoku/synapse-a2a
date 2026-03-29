@@ -994,16 +994,10 @@ body.sidebar-collapsed #main-content {
 }
 
 .dash-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-4);
   margin-bottom: var(--sp-4);
-}
-
-@media (max-width: 768px) {
-  .dash-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .dash-widget {
